@@ -1,15 +1,14 @@
 package com.linkedin.metadata.aspect.patch;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.linkedin.util.Pair;
 import jakarta.json.Json;
 import jakarta.json.JsonArrayBuilder;
+import jakarta.json.JsonObjectBuilder;
 import jakarta.json.JsonPatch;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
@@ -40,7 +39,35 @@ public class GenericJsonPatch {
   @JsonIgnore
   public JsonPatch getJsonPatch() {
     JsonArrayBuilder arrayBuilder = Json.createArrayBuilder();
-    patch.forEach(op -> arrayBuilder.add(Json.createObjectBuilder(op.toMap())));
+    patch.forEach(
+        op -> {
+          Map<String, ?> opMap = op.toMap();
+          JsonObjectBuilder opBuilder = Json.createObjectBuilder();
+
+          // Handle each field, converting null values to empty strings for ADD operations
+          opMap.forEach(
+              (key, value) -> {
+                if ("value".equals(key) && "add".equals(op.getOp()) && value == null) {
+                  opBuilder.add(key, ""); // Convert null to empty string for ADD operations
+                } else if (value == null) {
+                  opBuilder.addNull(key);
+                } else if (value instanceof String) {
+                  opBuilder.add(key, (String) value);
+                } else if (value instanceof Integer) {
+                  opBuilder.add(key, (Integer) value);
+                } else if (value instanceof Long) {
+                  opBuilder.add(key, (Long) value);
+                } else if (value instanceof Boolean) {
+                  opBuilder.add(key, (Boolean) value);
+                } else if (value instanceof Double) {
+                  opBuilder.add(key, (Double) value);
+                } else {
+                  opBuilder.add(key, value.toString());
+                }
+              });
+
+          arrayBuilder.add(opBuilder);
+        });
     return Json.createPatch(arrayBuilder.build());
   }
 
@@ -52,12 +79,18 @@ public class GenericJsonPatch {
     @Nullable private Object value;
 
     public Map<String, ?> toMap() {
-      if (value != null) {
-        return Stream.of(Pair.of("op", op), Pair.of("path", path), Pair.of("value", value))
-            .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+      // For ADD operations, always include value field (Jakarta JSON Patch requirement)
+      if ("add".equals(op) || value != null) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("op", op);
+        map.put("path", path);
+        map.put("value", value); // Can be null for ADD operations
+        return map;
       } else {
-        return Stream.of(Pair.of("op", op), Pair.of("path", path))
-            .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+        Map<String, Object> map = new HashMap<>();
+        map.put("op", op);
+        map.put("path", path);
+        return map;
       }
     }
   }

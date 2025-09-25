@@ -104,14 +104,25 @@ public class PatchResolverUtils {
                       GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
                       patchOp.setOp(op.getOp().toString().toLowerCase());
                       patchOp.setPath(op.getPath());
-                      if (op.getValue() != null) {
-                        // Try to parse as JSON, fallback to string
-                        try {
-                          ObjectMapper mapper = context.getOperationContext().getObjectMapper();
-                          JsonNode valueNode = mapper.readTree(op.getValue());
-                          patchOp.setValue(mapper.treeToValue(valueNode, Object.class));
-                        } catch (JsonProcessingException e) {
-                          patchOp.setValue(op.getValue());
+                      // Always set value for ADD operations (Jakarta JSON Patch requirement)
+                      if (op.getOp().toString().equals("ADD") || op.getValue() != null) {
+                        if (op.getValue() != null) {
+                          // Handle empty string specially to preserve it
+                          if (op.getValue().equals("\"\"") || op.getValue().equals("")) {
+                            patchOp.setValue(""); // Preserve empty string
+                          } else {
+                            // Try to parse as JSON, fallback to string
+                            try {
+                              ObjectMapper mapper = context.getOperationContext().getObjectMapper();
+                              JsonNode valueNode = mapper.readTree(op.getValue());
+                              patchOp.setValue(mapper.treeToValue(valueNode, Object.class));
+                            } catch (JsonProcessingException e) {
+                              patchOp.setValue(op.getValue());
+                            }
+                          }
+                        } else {
+                          // For ADD operations with null value, set explicit null
+                          patchOp.setValue(null);
                         }
                       }
                       return patchOp;
@@ -204,13 +215,18 @@ public class PatchResolverUtils {
     patchOp.put("path", operation.getPath());
 
     if (operation.getValue() != null) {
-      // Try to parse as JSON, fallback to string
-      try {
-        ObjectMapper mapper = context.getOperationContext().getObjectMapper();
-        JsonNode valueNode = mapper.readTree(operation.getValue());
-        patchOp.put("value", mapper.treeToValue(valueNode, Object.class));
-      } catch (JsonProcessingException e) {
-        patchOp.put("value", operation.getValue());
+      // Handle empty string specially to preserve it
+      if (operation.getValue().equals("\"\"") || operation.getValue().equals("")) {
+        patchOp.put("value", ""); // Preserve empty string
+      } else {
+        // Try to parse as JSON, fallback to string
+        try {
+          ObjectMapper mapper = context.getOperationContext().getObjectMapper();
+          JsonNode valueNode = mapper.readTree(operation.getValue());
+          patchOp.put("value", mapper.treeToValue(valueNode, Object.class));
+        } catch (JsonProcessingException e) {
+          patchOp.put("value", operation.getValue());
+        }
       }
     }
 
@@ -228,7 +244,9 @@ public class PatchResolverUtils {
     if (value == null) {
       return jakarta.json.JsonValue.NULL;
     } else if (value instanceof String) {
-      return jakarta.json.Json.createValue((String) value);
+      String strValue = (String) value;
+      // Explicitly handle empty strings to ensure they're preserved
+      return jakarta.json.Json.createValue(strValue);
     } else if (value instanceof Integer) {
       return jakarta.json.Json.createValue((Integer) value);
     } else if (value instanceof Long) {

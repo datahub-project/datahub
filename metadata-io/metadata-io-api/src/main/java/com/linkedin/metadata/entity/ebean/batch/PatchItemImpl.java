@@ -160,12 +160,28 @@ public class PatchItemImpl implements PatchMCP {
                   GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
                   patchOp.setOp(opObj.getString("op").toLowerCase());
                   patchOp.setPath(opObj.getString("path"));
-                  if (opObj.containsKey("value")) {
-                    try {
-                      patchOp.setValue(
-                          OBJECT_MAPPER.readValue(opObj.get("value").toString(), Object.class));
-                    } catch (Exception e) {
-                      patchOp.setValue(opObj.get("value").toString());
+                  // For ADD operations, always set value (Jakarta JSON Patch requirement)
+                  if ("add".equals(opObj.getString("op").toLowerCase())
+                      || opObj.containsKey("value")) {
+                    if (opObj.containsKey("value")) {
+                      if (opObj.isNull("value")) {
+                        patchOp.setValue(null);
+                      } else {
+                        // Preserve empty strings and handle other values
+                        String valueStr = opObj.get("value").toString();
+                        if (valueStr.equals("\"\"") || valueStr.equals("")) {
+                          patchOp.setValue(""); // Preserve empty string
+                        } else {
+                          try {
+                            patchOp.setValue(OBJECT_MAPPER.readValue(valueStr, Object.class));
+                          } catch (Exception e) {
+                            patchOp.setValue(valueStr);
+                          }
+                        }
+                      }
+                    } else {
+                      // For ADD operations with missing value, set explicit null
+                      patchOp.setValue(null);
                     }
                   }
                   patchOps.add(patchOp);
