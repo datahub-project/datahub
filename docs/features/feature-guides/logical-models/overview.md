@@ -38,6 +38,66 @@ Columns on the logical parent and physical children can be linked as well:
 
 ## Creating Logical Models
 
+Logical models are created like any DataHub dataset. We recommend using the Python SDK.
+
+:::note Logical Model Platform
+All DataHub datasets require a platform, representing where the dataset exists. If your logical models are stored in a system users are familiar with, we recommend creating a custom platform for that system and providing a custom icon. Otherwise, we recommend using the platform `logical`, which has a special default icon.
+:::
+
+### Create Dataset in "logical" Platform
+
+```python
+    from datahub.sdk import DataHubClient, Dataset
+    client = DataHubClient.from_env()
+    dataset = Dataset(
+        platform="logical",
+        name=logical_model_name,
+        description=logical_model_description,
+        schema=[
+            # tuples of (field name / field path, data type, description)
+            (
+                "zipcode",
+                "varchar(50)",
+                "This is the zipcode of the address. Specified using extended form and limited to addresses in the United States",
+            ),
+            ("street", "varchar(100)", "Street corresponding to the address"),
+            ("date_column", "date", "Date of the last sale date for this property"),
+        ],
+    )
+    client.entities.upsert(dataset)
+```
+
+### Create Dataset in Custom Platform
+
+```python
+    # Create custom platform with custom logo
+    from datahub.sdk import DataHubClient
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.metadata.schema_classes import DataPlatformInfoClass, PlatformTypeClass
+    from datahub.metadata.urns import DataPlatformUrn
+
+    urn = DataPlatformUrn("<platformName>").urn()
+    aspect = DataPlatformInfoClass(
+        name="<platformName>",
+        type=PlatformTypeClass.OTHERS,
+        datasetNameDelimiter=".",
+        logoUrl="<url>"
+    )
+    client = DataHubClient.from_env()
+    client._graph.emit(MetadataChangeProposalWrapper(entityUrn=urn, aspect=aspect))
+
+    # Create dataset in custom platform
+    from datahub.sdk import DataHubClient, Dataset
+    client = DataHubClient.from_env()
+    dataset = Dataset(
+        platform="<platformName>",
+        ...  # See above
+    )
+    client.entities.upsert(dataset)
+```
+
+## Linking Logical Models
+
 At its core, the logical -> physical relationship is created by the [`LogicalParent`](../../../generated/metamodel/entities/dataset.md#logicalparent) aspect. To link columns, this aspect must also be created on each child schmea field entity. However, for ease of use, we recommend the OpenAPI endpoint.
 
 ### OpenAPI
@@ -53,6 +113,14 @@ curl -X POST 'http://localhost:8080/openapi/v3/entity/logical/<physical_child_ur
     "<logical_column_name_1>": "<physical_column_name_1>",
     "<logical_column_name_2>": "<physical_column_name_2>"
   }'
+```
+
+These relationships can also be removed:
+
+```shell
+curl -X DELETE 'http://localhost:8080/openapi/v3/entity/logical/<physical_child_urn>/relationship/physicalInstanceOf' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json'
 ```
 
 ### Python SDK
