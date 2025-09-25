@@ -75,7 +75,8 @@ class DatabricksSource(Source):
     def _execute_fetchall_query_internal(self, query: str) -> List[Any]:
         client = self.connection.get_client()
         try:
-            return client.cursor().execute(query).fetchall()
+            with client.cursor() as cursor:
+                return cursor.execute(query).fetchall()
         except Exception as e:
             raise SourceQueryFailedException(
                 message=f"Source query (Databricks) failed with error: {e}", query=query
@@ -84,7 +85,8 @@ class DatabricksSource(Source):
     def _execute_fetchone_query(self, query: str) -> List[Any]:
         client = self.connection.get_client()
         try:
-            return client.cursor().execute(query).fetchone()
+            with client.cursor() as cursor:
+                return cursor.execute(query).fetchone()
         except Exception as e:
             raise SourceQueryFailedException(
                 message=f"Source query (Databricks) failed with error: {e}", query=query

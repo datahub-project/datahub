@@ -6,13 +6,14 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { handleBatchError } from '@app/entity/shared/utils';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
+import { addUserFiltersToSearchInput } from '@app/shared/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { getModalDomContainer } from '@utils/focus';
 
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { CorpUser, Entity, EntityType, OwnerEntityType, OwnershipTypeEntity } from '@types';
+import { CorpUser, Entity, EntityType, FacetFilterInput, OwnerEntityType, OwnershipTypeEntity } from '@types';
 
 const SelectInput = styled(Select)`
     width: 480px;
@@ -148,8 +149,8 @@ export const EditOwnersModal = ({
     const { recommendedData } = useGetRecommendations([EntityType.CorpGroup, EntityType.CorpUser]);
     const inputEl = useRef(null);
 
-    // Invokes the search API as the owner types
-    const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
+    // Invokes the search API as the owner types with optional filters
+    const handleSearch = (type: EntityType, text: string, searchQuery: any, filters?: FacetFilterInput[]) => {
         searchQuery({
             variables: {
                 input: {
@@ -157,14 +158,30 @@ export const EditOwnersModal = ({
                     query: text,
                     start: 0,
                     count: 5,
+                    ...(filters && filters.length > 0 && { filters }),
                 },
             },
         });
     };
 
     // Invokes the user search API for both users and groups.
+    // Use server-side filtering to include active users and exclude inactive users
     const handleActorSearch = (text: string) => {
-        handleSearch(EntityType.CorpUser, text, userSearch);
+        const input = addUserFiltersToSearchInput(
+            {
+                type: EntityType.CorpUser,
+                query: text,
+                start: 0,
+                count: 5,
+            },
+            EntityType.CorpUser,
+        );
+
+        userSearch({
+            variables: {
+                input,
+            },
+        });
         handleSearch(EntityType.CorpGroup, text, groupSearch);
     };
 

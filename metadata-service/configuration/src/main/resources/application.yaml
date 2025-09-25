@@ -1269,6 +1269,9 @@ metadataChangeProposal:
     extensions:
       enabled: ${MCP_VALIDATION_EXTENSIONS_ENABLED:false}
       configFile: ${MCP_VALIDATION_EXTENSIONS_CONFIG_FILE:extended_properties_config.yml}
+    monitorLimit:
+      enabled: ${MCP_VALIDATION_MONITOR_LIMIT_ENABLED:true}
+      maxMonitors: ${MCP_VALIDATION_MONITOR_LIMIT_MAX_MONITORS:1000}
   sideEffects:
     schemaField:
       enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED:false}

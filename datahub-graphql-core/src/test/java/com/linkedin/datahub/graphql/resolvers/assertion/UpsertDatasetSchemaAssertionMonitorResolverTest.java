@@ -22,6 +22,8 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionActionsInput;
 import com.linkedin.datahub.graphql.generated.MonitorMode;
@@ -33,6 +35,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.metadata.AcrylConstants;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -49,6 +52,7 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -320,5 +324,54 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
                                                     .SUPERSET)
                                             .setSchema(schemaMetadata))
                                     .data())))));
+  }
+
+  @Test
+  public void testGetCreateAssertionMonitorLimitExceeded() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    // Arrange
+    UpsertDatasetSchemaAssertionMonitorInput input = new UpsertDatasetSchemaAssertionMonitorInput();
+    input.setEntityUrn(TEST_DATASET_URN);
+    input.setDescription("description");
+    input.setMode(MonitorMode.ACTIVE);
+    input.setAssertion(
+        new SchemaAssertionInput(SchemaAssertionCompatibility.SUPERSET, ImmutableList.of()));
+
+    Mockito.when(mockEnv.getArgument(Mockito.eq("assertionUrn"))).thenReturn(null);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+
+    // Mock services
+    AssertionService mockAssertionService = Mockito.mock(AssertionService.class);
+    MonitorService mockMonitorService = Mockito.mock(MonitorService.class);
+    GraphClient mockGraphClient = Mockito.mock(GraphClient.class);
+
+    // Mock assertion service
+    Mockito.when(mockAssertionService.generateAssertionUrn())
+        .thenReturn(UrnUtils.getUrn(TEST_ASSERTION_URN));
+
+    // Mock monitor service to throw limit exceeded exception
+    Mockito.when(
+            mockMonitorService.upsertAssertionMonitor(
+                any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenThrow(
+            new RuntimeException(AcrylConstants.MONITOR_LIMIT_EXCEEDED_ERROR_MESSAGE_PREFIX));
+
+    UpsertDatasetSchemaAssertionMonitorResolver resolver =
+        new UpsertDatasetSchemaAssertionMonitorResolver(
+            mockAssertionService, mockMonitorService, mockGraphClient);
+
+    CompletionException e =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    assertTrue(e.getCause() instanceof DataHubGraphQLException);
+    DataHubGraphQLException graphQLException = (DataHubGraphQLException) e.getCause();
+    assertEquals(graphQLException.errorCode(), DataHubGraphQLErrorCode.BAD_REQUEST);
+    assertTrue(graphQLException.getMessage().contains("Maximum number of monitors reached"));
+
+    // Validate that we deleted the assertion
+    Mockito.verify(mockAssertionService, Mockito.times(1))
+        .tryDeleteAssertion(any(), Mockito.eq(UrnUtils.getUrn(TEST_ASSERTION_URN)));
   }
 }

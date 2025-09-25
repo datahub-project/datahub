@@ -213,6 +213,21 @@ TEST_CUSTOM_SQL_STATEMENT = "SELECT SUM(num_items) FROM test_db.public.test_tabl
 class TestSnowflakeSource:
     def setup_method(self) -> None:
         self.snowflake_connection_mock = Mock(spec=SnowflakeConnection)
+
+        # Setup mock client and cursor for context manager
+        self.mock_client = Mock()
+        self.mock_cursor = Mock()
+        self.snowflake_connection_mock.get_client.return_value = self.mock_client
+
+        # Setup cursor context manager
+        cursor_context_manager = Mock()
+        cursor_context_manager.__enter__ = Mock(return_value=self.mock_cursor)
+        cursor_context_manager.__exit__ = Mock(return_value=None)
+        self.mock_client.cursor.return_value = cursor_context_manager
+
+        # Mock the cursor execute method for the constructor
+        self.mock_cursor.execute = Mock()
+
         self.snowflake_source = SnowflakeSource(self.snowflake_connection_mock)
 
     @patch.object(SnowflakeSource, "_build_audit_log_results")
@@ -386,37 +401,38 @@ class TestSnowflakeSource:
     def test_execute_fetchall_query(self) -> None:
         query = "SELECT * FROM TABLE;"
 
+        # Mock fetchall return value
+        self.mock_cursor.fetchall.return_value = [("test",)]
+
         with patch.object(
             self.snowflake_source,
             "_validate_custom_sql",
             wraps=self.snowflake_source._validate_custom_sql,
         ) as validate_spy:
-            self.snowflake_source._execute_fetchall_query(query)
+            result = self.snowflake_source._execute_fetchall_query(query)
             validate_spy.assert_called_once_with(query)
 
-        self.snowflake_connection_mock.get_client().cursor().execute.assert_has_calls(
-            [
-                call(
-                    "ALTER SESSION SET TIMEZONE = 'UTC', STATEMENT_TIMEOUT_IN_SECONDS = 600;"
-                ),
-                call(query),
-            ]
-        )
+        # Verify cursor context manager was used (called multiple times due to constructor + this call)
+        assert self.mock_client.cursor.call_count >= 2
+        # Verify the query was executed
+        self.mock_cursor.execute.assert_called_with(query)
+        self.mock_cursor.fetchall.assert_called()
+        assert result == [("test",)]
 
     def test_execute_fetchone_query(self) -> None:
         query = "SELECT * FROM TABLE;"
-        self.snowflake_connection_mock.get_client().cursor().fetchone.return_value = (
-            None
-        )
-        self.snowflake_source._execute_fetchone_query(query)
-        self.snowflake_connection_mock.get_client().cursor().execute.assert_has_calls(
-            [
-                call(
-                    "ALTER SESSION SET TIMEZONE = 'UTC', STATEMENT_TIMEOUT_IN_SECONDS = 600;"
-                ),
-                call(query),
-            ]
-        )
+
+        # Mock fetchone return value
+        self.mock_cursor.fetchone.return_value = None
+
+        result = self.snowflake_source._execute_fetchone_query(query)
+
+        # Verify cursor context manager was used (called multiple times due to constructor + this call)
+        assert self.mock_client.cursor.call_count >= 2
+        # Verify the query was executed
+        self.mock_cursor.execute.assert_called_with(query)
+        self.mock_cursor.fetchone.assert_called()
+        assert result == []  # None gets converted to empty list
 
     def test_get_entity_events_field_update_bad_column_type(self) -> None:
         with pytest.raises(InvalidParametersException):

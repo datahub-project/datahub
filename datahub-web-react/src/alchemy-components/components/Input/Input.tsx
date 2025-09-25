@@ -63,6 +63,7 @@ export const Input = ({
     inputStyles,
     inputTestId,
     onClear,
+    maxLength,
     ...props
 }: InputProps) => {
     // Invalid state is always true if error is present
@@ -102,6 +103,7 @@ export const Input = ({
                     disabled={isDisabled}
                     required={isRequired}
                     id={id}
+                    maxLength={maxLength}
                     style={{ paddingLeft: icon ? '8px' : '', ...inputStyles }}
                     data-testid={inputTestId}
                 />

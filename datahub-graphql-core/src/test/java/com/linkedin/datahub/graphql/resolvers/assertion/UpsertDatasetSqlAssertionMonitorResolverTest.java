@@ -11,6 +11,8 @@ import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionActionInput;
 import com.linkedin.datahub.graphql.generated.AssertionActionType;
@@ -28,6 +30,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.AcrylConstants;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.service.AssertionService;
@@ -475,6 +478,61 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
         .thenThrow(RemoteInvocationException.class);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    // Validate that we created the assertion
+    Mockito.verify(assertionService, Mockito.times(1))
+        .upsertDatasetSqlAssertion(
+            any(OperationContext.class),
+            Mockito.eq(TEST_ASSERTION_URN),
+            Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion().getEntity()),
+            Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion().getType()),
+            Mockito.eq(TEST_ASSERTION_INFO.getDescription()),
+            Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion()),
+            Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.isNull());
+
+    // Validate that we deleted the assertion
+    Mockito.verify(assertionService, Mockito.times(1))
+        .tryDeleteAssertion(any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN));
+  }
+
+  @Test
+  public void testGetCreateAssertionMonitorLimitExceeded() throws Exception {
+    // Update resolver
+    AssertionService assertionService = initMockAssertionService();
+    MonitorService monitorService = initMockMonitorService();
+    GraphClient graphClient = Mockito.mock(GraphClient.class);
+    UpsertDatasetSqlAssertionMonitorResolver resolver =
+        new UpsertDatasetSqlAssertionMonitorResolver(assertionService, monitorService, graphClient);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("assertionUrn"))).thenReturn(null);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Mockito.when(
+            monitorService.upsertAssertionMonitor(
+                any(OperationContext.class),
+                Mockito.eq(TEST_MONITOR_URN),
+                Mockito.eq(TEST_ASSERTION_URN),
+                Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion().getEntity()),
+                Mockito.eq(
+                    TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getSchedule()),
+                Mockito.eq(
+                    TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getParameters()),
+                Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
+                Mockito.eq(TEST_MONITOR_INFO.getExecutorId())))
+        .thenThrow(
+            new RuntimeException(AcrylConstants.MONITOR_LIMIT_EXCEEDED_ERROR_MESSAGE_PREFIX));
+
+    CompletionException e =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    assertTrue(e.getCause() instanceof DataHubGraphQLException);
+    DataHubGraphQLException graphQLException = (DataHubGraphQLException) e.getCause();
+    assertEquals(graphQLException.errorCode(), DataHubGraphQLErrorCode.BAD_REQUEST);
+    assertTrue(graphQLException.getMessage().contains("Maximum number of monitors reached"));
 
     // Validate that we created the assertion
     Mockito.verify(assertionService, Mockito.times(1))

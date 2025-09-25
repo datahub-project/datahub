@@ -14,6 +14,7 @@ import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.AcrylConstants;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.MonitorKey;
@@ -344,6 +345,10 @@ public class MonitorService extends BaseService {
       performPostUpsertActions(monitorUrn, maybeExistingInfo, monitorSettings);
       return monitorUrn;
     } catch (Exception e) {
+      if (e.getMessage() != null
+          && e.getMessage().contains(AcrylConstants.MONITOR_LIMIT_EXCEEDED_ERROR_MESSAGE_PREFIX)) {
+        throw new RuntimeException(e);
+      }
       throw new RuntimeException(
           String.format("Failed to upsert Monitor with urn %s", monitorUrn), e);
     }

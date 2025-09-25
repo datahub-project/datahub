@@ -19,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.UpsertDatasetSchemaAssertionMonitorInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.assertion.AssertionMapper;
+import com.linkedin.metadata.AcrylConstants;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.MonitorService;
@@ -130,6 +131,13 @@ public class UpsertDatasetSchemaAssertionMonitorResolver
                     String.format(
                         "Deleting partially created native assertion with urn %s ", assertionUrn));
                 _assertionService.tryDeleteAssertion(context.getOperationContext(), assertionUrn);
+              }
+              if (e.getMessage() != null
+                  && e.getMessage()
+                      .contains(AcrylConstants.MONITOR_LIMIT_EXCEEDED_ERROR_MESSAGE_PREFIX)) {
+                throw new DataHubGraphQLException(
+                    String.format("Maximum number of monitors reached. %s", e.getMessage()),
+                    DataHubGraphQLErrorCode.BAD_REQUEST);
               }
               throw new DataHubGraphQLException(
                   String.format(

@@ -77,6 +77,7 @@ fragment autoCompleteFields on Entity {
     ... on CorpUser {
         username
         properties {
+            active
             displayName
             title
             firstName

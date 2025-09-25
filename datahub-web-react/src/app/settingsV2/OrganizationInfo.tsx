@@ -1,6 +1,6 @@
 import { Button, Input, Text } from '@components';
 import { Form } from 'antd';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
@@ -35,12 +35,15 @@ const OrganizationInfo = () => {
     const [updateDisplayPreferences] = useUpdateOrganizationDisplayPreferencesMutation();
     const [form] = Form.useForm();
     const isThemeV2 = useIsThemeV2();
+    const [orgNameValue, setOrgNameValue] = useState('');
 
     useEffect(() => {
+        const orgName = globalSettings?.visualSettings?.customOrgName || '';
         form.setFieldsValue({
-            customOrgName: globalSettings?.visualSettings?.customOrgName || undefined,
+            customOrgName: orgName,
             customLogoUrl: globalSettings?.visualSettings?.customLogoUrl || undefined,
         });
+        setOrgNameValue(orgName);
     }, [globalSettings, form]);
 
     const handleSave = () => {
@@ -75,7 +78,17 @@ const OrganizationInfo = () => {
             </SectionHeader>
             <Form form={form}>
                 <Form.Item name="customOrgName">
-                    <Input label="Name" placeholder="Organization Name" />
+                    <Input
+                        label="Name"
+                        placeholder="Organization Name"
+                        maxLength={25}
+                        value={orgNameValue}
+                        setValue={(value) => {
+                            setOrgNameValue(value);
+                            form.setFieldValue('customOrgName', value);
+                        }}
+                        helperText={orgNameValue.length > 0 ? `${orgNameValue.length}/25 characters` : ''}
+                    />
                 </Form.Item>
                 <Form.Item name="customLogoUrl">
                     <Input label="Image URL" placeholder="https://" />

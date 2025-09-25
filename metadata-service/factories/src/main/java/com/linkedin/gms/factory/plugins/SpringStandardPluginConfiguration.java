@@ -20,6 +20,7 @@ import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
+import com.linkedin.metadata.aspect.validation.MonitorLimitValidator;
 import com.linkedin.metadata.aspect.validation.PrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
@@ -73,6 +74,12 @@ public class SpringStandardPluginConfiguration {
 
   @Value("${metadataChangeProposal.validation.extensions.enabled:false}")
   private boolean extensionsEnabled;
+
+  @Value("${metadataChangeProposal.validation.monitorLimit.enabled:true}")
+  private boolean monitorLimitValidationEnabled;
+
+  @Value("${metadataChangeProposal.validation.monitorLimit.maxMonitors:1000}")
+  private int maxMonitors;
 
   @Bean
   @ConditionalOnProperty(
@@ -596,6 +603,28 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(POLICY_ENTITY_NAME)
                             .aspectName(ALL)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.monitorLimit.enabled",
+      havingValue = "true")
+  public AspectPayloadValidator monitorLimitValidator() {
+    return new MonitorLimitValidator()
+        .setEnabled(monitorLimitValidationEnabled)
+        .setMaxMonitors(maxMonitors)
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(MonitorLimitValidator.class.getName())
+                .enabled(monitorLimitValidationEnabled)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(MONITOR_ENTITY_NAME)
+                            .aspectName(MONITOR_INFO_ASPECT_NAME)
                             .build()))
                 .build());
   }
