@@ -66,13 +66,11 @@ export const Row = styled.div`
 `;
 
 export const LeftColumn = styled.div`
-    flex: 1;
     min-width: 0;
 
     display: flex;
-    flex-direction: column;
     justify-content: center;
-    align-items: start;
+    align-items: center;
 `;
 
 export const RightColumn = styled.div`
@@ -134,7 +132,7 @@ export const DefaultEntityHeader = ({
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const { platform, platforms } = getEntityPlatforms(entityType, entityData);
 
-    const contextPath = getParentEntities(entityData);
+    const contextPath = getParentEntities(entityData, entityType);
     return (
         <>
             <Row>
@@ -145,8 +143,8 @@ export const DefaultEntityHeader = ({
                         displayProperties={displayProperties}
                     />
                 )}
-                <EntityBackButton />
                 <LeftColumn>
+                    <EntityBackButton />
                     {(loading && <EntityTitleLoadingSection />) || (
                         <>
                             <TitleWrapper>
