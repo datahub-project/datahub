@@ -116,15 +116,6 @@ profiling_flags_to_report = [
 ]
 
 
-# LOCAL_BROWSE_PATH_TRANSFORMER_CONFIG = AddDatasetBrowsePathConfig(
-#     path_templates=["/ENV/PLATFORMDATASET_PARTS"], replace_existing=True
-# )
-#
-# LOCAL_BROWSE_PATH_TRANSFORMER = AddDatasetBrowsePathTransformer(
-#     ctx=None, config=LOCAL_BROWSE_PATH_TRANSFORMER_CONFIG
-# )
-
-
 def partitioned_folder_comparator(folder1: str, folder2: str) -> int:
     # Try to convert to number and compare if the folder name is a number
     try:
