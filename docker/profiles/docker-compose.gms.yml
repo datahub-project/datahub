@@ -465,6 +465,7 @@ services:
       <<: *datahub-gms-dev-env
       MAE_CONSUMER_ENABLED: false
       MCE_CONSUMER_ENABLED: false
+      DATAHUB_BASE_PATH: "/datahub"
     depends_on:
       system-update-debug-consumers:
         condition: service_completed_successfully
@@ -584,7 +585,7 @@ services:
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: 8080
       DATAHUB_GMS_PROTOCOL: http
-      DATAHUB_GMS_BASE_PATH: /datahub
+      DATAHUB_BASE_PATH: /datahub
     depends_on:
       datahub-gms-debug-basepath-consumers:
         condition: service_healthy
