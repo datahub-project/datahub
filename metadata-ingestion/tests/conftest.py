@@ -42,6 +42,7 @@ except ImportError:
     pass
 
 
+# TODO: we should get rid of this and use time-machine instead
 @pytest.fixture
 def mock_time(monkeypatch):
     def fake_time():
