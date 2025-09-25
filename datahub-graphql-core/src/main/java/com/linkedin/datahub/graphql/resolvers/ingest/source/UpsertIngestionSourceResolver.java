@@ -22,7 +22,6 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.ingestion.DataHubIngestionSourceSource;
 import com.linkedin.ingestion.DataHubIngestionSourceSourceType;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DataHubIngestionSourceKey;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
