@@ -5,3 +5,6 @@
 **/build
 **/.gradle
 **/.pytest_cache
+
+# Merge log contains structured data that shouldn't be reformatted by prettier
+../docs/how/merge-log.md

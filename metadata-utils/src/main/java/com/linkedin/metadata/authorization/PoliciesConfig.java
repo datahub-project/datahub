@@ -1584,7 +1584,7 @@ public class PoliciesConfig {
                       .put(
                           ApiOperation.READ,
                           Disjunctive.disjoint(
-                              VIEW_ENTITY_PRIVILEGE, MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE))
+                              VIEW_ENTITY_PAGE_PRIVILEGE, MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE))
                       .put(
                           ApiOperation.UPDATE,
                           Disjunctive.disjoint(
