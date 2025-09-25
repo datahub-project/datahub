@@ -848,6 +848,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "mclProcessing.cdcSource.debeziumConfig.config.tasks.max",
           "mclProcessing.cdcSource.debeziumConfig.config.topic.prefix",
           "mclProcessing.cdcSource.debeziumConfig.config.tables.include.list",
+          "mclProcessing.cdcSource.debeziumConfig.config.database.include.list",
+          "mclProcessing.cdcSource.debeziumConfig.config.database.user",
           "mclProcessing.cdcSource.debeziumConfig.config.database.server.id",
           "mclProcessing.cdcSource.debeziumConfig.config.transforms",
           "mclProcessing.cdcSource.debeziumConfig.config.transforms.setKey.type",
