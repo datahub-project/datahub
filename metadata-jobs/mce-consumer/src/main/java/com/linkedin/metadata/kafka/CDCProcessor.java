@@ -289,7 +289,8 @@ public class CDCProcessor {
 
     // Step 7: Create ChangeMCP using "after" record data
     AuditStamp auditStamp = new AuditStamp();
-    auditStamp.setTime(Long.parseLong(createdOn + 100));
+    // Debezium CDC json has represents timestamp (DATETIME(6)  as microseconds.
+    auditStamp.setTime(Long.parseLong(createdOn) / 1000);
     auditStamp.setActor(Urn.createFromString(createdBy));
     if (createdFor != null) {
       auditStamp.setImpersonator(Urn.createFromString(createdFor));
