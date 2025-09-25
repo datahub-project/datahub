@@ -104,6 +104,8 @@ class EntityClient:
 
                 if urn.entity_type == "assertion":
                     EntityClass = Assertion
+                elif urn.entity_type == "subscription":
+                    EntityClass = Subscription
                 elif urn.entity_type == "monitor":
                     EntityClass = Monitor
                 else:
