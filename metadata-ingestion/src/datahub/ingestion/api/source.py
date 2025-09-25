@@ -5,6 +5,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import partial
+from itertools import chain
 from typing import (
     Callable,
     Dict,
@@ -47,6 +48,10 @@ from datahub.ingestion.api.source_helpers import (
     auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source_report.ingestion_high_stage import (
+    IngestionHighStage,
+    IngestionHighStageReport,
+)
 from datahub.sdk.entity import Entity
 from datahub.telemetry import stats
 from datahub.utilities.lossy_collections import LossyDict, LossyList
@@ -205,7 +210,7 @@ class StructuredLogs(Report):
 
 
 @dataclass
-class SourceReport(ExamplesReport):
+class SourceReport(ExamplesReport, IngestionHighStageReport):
     event_not_produced_warn: bool = True
     events_produced: int = 0
     events_produced_per_sec: int = 0
@@ -553,16 +558,103 @@ class Source(Closeable, metaclass=ABCMeta):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         workunit_processors = self.get_workunit_processors()
         workunit_processors.append(AutoSystemMetadata(self.ctx).stamp)
-        return self._apply_workunit_processors(
-            workunit_processors, auto_workunit(self.get_workunits_internal())
+
+        final_workunits = auto_workunit(self.get_workunits_internal())
+        final_workunits = self._merge_workunits(
+            final_workunits,
+            is_enabled_method=self.is_profiling_enabled_internal,
+            stage=IngestionHighStage.PROFILING,
+            method=self.get_profiling_internal,
+            method_name="get_profiling_internal",
         )
+
+        yield from self._apply_workunit_processors(workunit_processors, final_workunits)
+
+    def _is_method_defined_not_of_this_class(
+        self, method_name: str, method: Callable
+    ) -> bool:
+        """
+        We are checking if the method is defined in the subclass and not in the this class.
+        """
+        return (
+            hasattr(self, method_name)
+            and getattr(self, method_name).__func__ is not method
+        )
+
+    def _merge_workunits(
+        self,
+        input_workunits: Iterable[
+            Union[MetadataWorkUnit, MetadataChangeProposalWrapper, Entity]
+        ],
+        is_enabled_method: Callable,
+        stage: IngestionHighStage,
+        method: Callable,
+        method_name: str,
+    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper, Entity]]:
+        """
+        Called by get_workunits to merge the other workunits with output of passed input_workunits.
+        """
+        if not is_enabled_method():
+            return input_workunits
+
+        workunits = None
+        if self._is_method_defined_not_of_this_class(
+            method_name=method_name,
+            method=method,
+        ):
+            workunits = self._get_workunits_with_timing(stage, method)
+
+        if workunits is None:
+            return input_workunits
+        return chain(input_workunits, workunits)
+
+    def _get_workunits_with_timing(
+        self,
+        stage: IngestionHighStage,
+        method: Callable,
+    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper, Entity]]:
+        """
+        Wrapper generator to properly time workunit generation.
+
+        This wraps the workunit generator to measure time during actual consumption
+        rather than just generator creation.
+        """
+        stage_context = self.get_report().new_high_stage(stage)
+        try:
+            stage_context.enter()
+            workunits = auto_workunit(method())
+            for workunit in workunits:
+                yield workunit
+        finally:
+            stage_context.exit(None, None, None)
 
     def get_workunits_internal(
         self,
-    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper, Entity]]:
+    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
         raise NotImplementedError(
             "get_workunits_internal must be implemented if get_workunits is not overriden."
         )
+
+    def is_profiling_enabled_internal(self) -> bool:
+        """
+        Subclasses should override this method if they support using get_profiling_internal
+        """
+        raise NotImplementedError(
+            "is_profiling_enabled_internal must be implemented if get_profiling_internal is implemented."
+        )
+
+    def get_profiling_internal(
+        self,
+    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper, Entity]]:
+        """Optional method for sources to implement profiling functionality.
+
+        This method should be overridden by subclasses that support profiling.
+        If implemented, it will be called automatically during workunit generation.
+
+        Returns:
+            An iterable of work units for profiling data, or None if not implemented.
+        """
+        raise NotImplementedError("get_profiling_internal is not implemented.")
 
     def get_config(self) -> Optional[ConfigModel]:
         """Overridable method to return the config object for this source.
