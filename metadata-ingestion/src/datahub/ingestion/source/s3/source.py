@@ -796,11 +796,6 @@ class S3Source(StatefulIngestionSourceBase):
         else:
             return relative_path
 
-    def extract_table_name(self, path_spec: PathSpec, named_vars: dict) -> str:
-        if path_spec.table_name is None:
-            raise ValueError("path_spec.table_name is not set")
-        return path_spec.table_name.format_map(named_vars)
-
     def extract_table_data(
         self,
         path_spec: PathSpec,
