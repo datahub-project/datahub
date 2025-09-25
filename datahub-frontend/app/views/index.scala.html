@@ -15,8 +15,105 @@
         -->
         <link rel="manifest" href="manifest.json" id="manifest-link" />
         <title>DataHub</title>
-      <script type="module" crossorigin src="assets/@{datahubVersion}/js/index.js"></script>
-      <link rel="stylesheet" crossorigin href="assets/@{datahubVersion}/css/index.css">
+        <script>
+            // Base path detection using config endpoint hierarchy with server fallback
+            (function() {
+                // Priority 1: Use server-provided base path from template
+                var serverBasePath = '@basePath';
+                window.__DATAHUB_BASE_PATH__ = serverBasePath;
+
+                function updateAssetPaths(basePath) {
+                    // Ensure base path ends with /
+                    if (!basePath || basePath === '') {
+                        basePath = '/';
+                    }
+                    if (basePath !== '/' && !basePath.endsWith('/')) {
+                        basePath += '/';
+                    }
+
+                    // Store the detected base path globally
+                    window.__DATAHUB_BASE_PATH__ = basePath;
+                    console.log('basePath rewritten as:' + basePath)
+
+                    // Update favicon and manifest paths
+                    var faviconLink = document.getElementById('favicon-link');
+                    var maskIconLink = document.getElementById('mask-icon-link');
+                    var manifestLink = document.getElementById('manifest-link');
+
+                    if (faviconLink) faviconLink.href = basePath + 'assets/icons/favicon.ico';
+                    if (maskIconLink) maskIconLink.href = basePath + 'assets/icons/favicon.ico';
+                    if (manifestLink) manifestLink.href = basePath + 'manifest.json';
+
+                    // Update main application script and stylesheet paths
+                    var scripts = document.querySelectorAll('script[src^="/assets/"]');
+                    scripts.forEach(function(script) {
+                        var originalSrc = script.src;
+                        var assetPath = originalSrc.replace(window.location.origin, '');
+                        if (assetPath.startsWith('/assets/')) {
+                            script.src = basePath + assetPath.substring(1); // Remove leading slash
+                        }
+                    });
+
+                    var stylesheets = document.querySelectorAll('link[rel="stylesheet"][href^="/assets/"]');
+                    stylesheets.forEach(function(link) {
+                        var originalHref = link.href;
+                        var assetPath = originalHref.replace(window.location.origin, '');
+                        if (assetPath.startsWith('/assets/')) {
+                            link.href = basePath + assetPath.substring(1); // Remove leading slash
+                        }
+                    });
+                }
+
+                function tryFetchConfig(configUrl) {
+                    return fetch(configUrl)
+                        .then(function(response) {
+                            if (!response.ok) {
+                                throw new Error('Config endpoint not available: ' + response.status);
+                            }
+                            return response.json();
+                        })
+                        .then(function(data) {
+                            var basePath = (data.config && data.config.basePath) || '/';
+                            console.log('Config loaded from', configUrl, 'basePath:', basePath);
+                            return basePath;
+                        });
+                }
+
+                // Try config endpoints in hierarchical order as fallback to server config
+                function attemptConfigFallback() {
+                    console.log('Trying config endpoint fallback: config');
+                    tryFetchConfig('config')
+                        .then(function(configBasePath) {
+                            if (configBasePath !== serverBasePath) {
+                                console.log('Config endpoint overrides server base path:', configBasePath);
+                                updateAssetPaths(configBasePath);
+                            }
+                        })
+                        .catch(function(error) {
+                            console.warn('Relative config endpoint failed:', error.message);
+                            console.log('Trying config endpoint: /config');
+                            return tryFetchConfig('/config')
+                                .then(function(configBasePath) {
+                                    if (configBasePath !== serverBasePath) {
+                                        console.log('Config endpoint overrides server base path:', configBasePath);
+                                        updateAssetPaths(configBasePath);
+                                    }
+                                });
+                        })
+                        .catch(function(error) {
+                            console.warn('All config endpoints failed, using server base path:', serverBasePath);
+                        });
+                }
+
+                // Initialize with server base path first
+                updateAssetPaths(serverBasePath);
+
+                // Then try config endpoint as fallback/override
+                attemptConfigFallback();
+            })();
+        </script>
+      <script type="module" crossorigin src="@{basePath}assets/@{datahubVersion}/js/index.js"></script>
+      <link rel="stylesheet" crossorigin href="@{basePath}assets/@{datahubVersion}/css/index.css">
     </head>
     <body>
         <noscript>You need to enable JavaScript to run this app.</noscript>
