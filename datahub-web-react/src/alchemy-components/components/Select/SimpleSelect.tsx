@@ -80,6 +80,7 @@ export const SimpleSelect = ({
     applyHoverWidth,
     ignoreMaxHeight = selectDefaults.ignoreMaxHeight,
     isLoading = false,
+    selectMinHeight,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -282,6 +283,7 @@ export const SimpleSelect = ({
                         fontSize={size}
                         {...props}
                         position={position}
+                        minHeight={selectMinHeight}
                     >
                         <SelectLabelContainer>
                             {icon && <StyledIcon icon={icon} size="lg" />}
