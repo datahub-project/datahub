@@ -218,6 +218,16 @@ type SearchBarConfig {
 }
 
 """
+Configurations related to the Search card
+"""
+type SearchCardConfig {
+  """
+  Whether the search card should show description
+  """
+  showDescription: Boolean!
+}
+
+"""
 Variants of APIs used in the Search bar to get data
 """
 enum PersonalSidebarSection {
@@ -317,6 +327,11 @@ type AppConfig {
   Configurations related to the Search bar
   """
   searchBarConfig: SearchBarConfig!
+
+  """
+  Configurations related to the Search card
+  """
+  searchCardConfig: SearchCardConfig!
 
   """
   Feature flags telling the UI whether a feature is enabled or not
@@ -777,6 +792,16 @@ type FeatureFlagsConfig {
   Enables displaying the homepage user role underneath the name. Only available for custom home page.
   """
   showHomepageUserRole: Boolean!
+
+  """
+  If enabled, show the default external links on the entity page
+  """
+  showDefaultExternalLinks: Boolean!
+
+  """
+  Enables displaying the asset summary page
+  """
+  assetSummaryPageV1: Boolean!
 }
 
 """

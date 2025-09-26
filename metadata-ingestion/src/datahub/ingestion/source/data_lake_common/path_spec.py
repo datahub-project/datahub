@@ -11,7 +11,7 @@ from cached_property import cached_property
 from pydantic.fields import Field
 from wcmatch import pathlib
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.azure.abs_utils import is_abs_uri
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
@@ -89,63 +89,62 @@ class PathSpec(ConfigModel):
         description="Path to table. Name variable `{table}` is used to mark the folder with dataset. In absence of `{table}`, file level dataset will be created. Check below examples for more details."
     )
     exclude: Optional[List[str]] = Field(
-        default=[],
+        [],
         description="list of paths in glob pattern which will be excluded while scanning for the datasets",
     )
     file_types: List[str] = Field(
-        default=SUPPORTED_FILE_TYPES,
+        SUPPORTED_FILE_TYPES,
         description="Files with extenstions specified here (subset of default value) only will be scanned to create dataset. Other files will be omitted.",
     )
 
     default_extension: Optional[str] = Field(
-        default=None,
+        None,
         description="For files without extension it will assume the specified file type. If it is not set the files without extensions will be skipped.",
     )
 
     table_name: Optional[str] = Field(
-        default=None,
+        None,
         description="Display name of the dataset.Combination of named variables from include path and strings",
     )
 
     # This is not used yet, but will be used in the future to sort the partitions
-    sort_key: Optional[SortKey] = Field(
-        hidden_from_docs=True,
-        default=None,
+    sort_key: HiddenFromDocs[Optional[SortKey]] = Field(
+        None,
         description="Sort key to use when sorting the partitions. This is useful when the partitions are not sorted in the order of the data. The key can be a compound key based on the path_spec variables.",
     )
 
     enable_compression: bool = Field(
-        default=True,
+        True,
         description="Enable or disable processing compressed files. Currently .gz and .bz files are supported.",
     )
 
     sample_files: bool = Field(
-        default=True,
+        True,
         description="Not listing all the files but only taking a handful amount of sample file to infer the schema. File count and file size calculation will be disabled. This can affect performance significantly if enabled",
     )
 
     allow_double_stars: bool = Field(
-        default=False,
+        False,
         description="Allow double stars in the include path. This can affect performance significantly if enabled",
     )
 
     autodetect_partitions: bool = Field(
-        default=True,
+        True,
         description="Autodetect partition(s) from the path. If set to true, it will autodetect partition key/value if the folder format is {partition_key}={partition_value} for example `year=2024`",
     )
 
     traversal_method: FolderTraversalMethod = Field(
-        default=FolderTraversalMethod.MAX,
+        FolderTraversalMethod.MAX,
         description="Method to traverse the folder. ALL: Traverse all the folders, MIN_MAX: Traverse the folders by finding min and max value, MAX: Traverse the folder with max value",
     )
 
     include_hidden_folders: bool = Field(
-        default=False,
+        False,
         description="Include hidden folders in the traversal (folders starting with . or _",
     )
 
     tables_filter_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
+        AllowDenyPattern.allow_all(),
         description="The tables_filter_pattern configuration field uses regular expressions to filter the tables part of the Pathspec for ingestion, allowing fine-grained control over which tables are included or excluded based on specified patterns. The default setting allows all tables.",
     )
 
@@ -479,7 +478,8 @@ class PathSpec(ConfigModel):
         return glob_include
 
     @pydantic.root_validator(skip_on_failure=True)
-    def validate_path_spec(cls, values: Dict) -> Dict[str, Any]:
+    @staticmethod
+    def validate_path_spec(values: Dict) -> Dict[str, Any]:
         # validate that main fields are populated
         required_fields = ["include", "file_types", "default_extension"]
         for f in required_fields:
@@ -563,7 +563,7 @@ class PathSpec(ConfigModel):
     def extract_table_name_and_path(self, path: str) -> Tuple[str, str]:
         parsed_vars = self.get_named_vars(path)
         if parsed_vars is None or "table" not in parsed_vars.named:
-            return os.path.basename(path), path
+            return os.path.basename(path.removesuffix("/")), path
         else:
             include = self.include
             depth = include.count("/", 0, include.find("{table}"))

@@ -13,7 +13,7 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 import pydantic
 from typing_extensions import Self
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
@@ -112,12 +112,11 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
         "to ignore the temporary staging tables created by known ETL tools.",
     )
 
-    local_temp_path: Optional[pathlib.Path] = pydantic.Field(
-        default=None,
-        description="Local path to store the audit log.",
+    local_temp_path: HiddenFromDocs[Optional[pathlib.Path]] = pydantic.Field(
         # TODO: For now, this is simply an advanced config to make local testing easier.
         # Eventually, we will want to store date-specific files in the directory and use it as a cache.
-        hidden_from_docs=True,
+        default=None,
+        description="Local path to store the audit log.",
     )
 
     include_lineage: bool = True

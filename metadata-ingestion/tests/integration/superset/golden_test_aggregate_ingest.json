@@ -423,6 +423,15 @@
                             "actor": "urn:li:corpuser:test_owner1@example.com"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Data Team"
+                            }
+                        ]
+                    }
                 }
             ]
         }
@@ -486,8 +495,49 @@
                             "actor": "urn:li:corpuser:test_owner2@example.com"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Marketing"
+                            }
+                        ]
+                    }
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Data Team",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Data Team"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Marketing",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Marketing"
         }
     },
     "systemMetadata": {

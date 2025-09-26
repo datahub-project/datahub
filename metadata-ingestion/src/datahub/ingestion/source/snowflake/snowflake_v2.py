@@ -172,7 +172,9 @@ class SnowflakeV2Source(
 
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary(
-            connection=self.connection, report=self.report
+            connection=self.connection,
+            report=self.report,
+            fetch_views_from_information_schema=self.config.fetch_views_from_information_schema,
         )
         self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
 
@@ -197,6 +199,7 @@ class SnowflakeV2Source(
                 ),
                 generate_usage_statistics=False,
                 generate_operations=False,
+                generate_queries=self.config.include_queries,
                 format_queries=self.config.format_sql_queries,
                 is_temp_table=self._is_temp_table,
                 is_allowed_table=self._is_allowed_table,
@@ -528,6 +531,7 @@ class SnowflakeV2Source(
             snowsight_url_builder=snowsight_url_builder,
             filters=self.filters,
             identifiers=self.identifiers,
+            fetch_views_from_information_schema=self.config.fetch_views_from_information_schema,
             is_temp_table=self._is_temp_table,
         )
 
@@ -748,6 +752,7 @@ class SnowflakeV2Source(
                 # For privatelink, account identifier ends with .privatelink
                 # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
                 privatelink=self.config.account_id.endswith(".privatelink"),
+                snowflake_domain=self.config.snowflake_domain,
             )
 
         except Exception as e:

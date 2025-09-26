@@ -1,10 +1,13 @@
 import { useCallback } from 'react';
 
+import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { insertModuleIntoRows } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
+import { filterNonExistentStructuredProperties } from '@app/homeV3/context/hooks/utils/utils';
 import { DEFAULT_TEMPLATE_URN } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 import useShowToast from '@app/homeV3/toast/useShowToast';
 
+import { useUpdateAssetSettingsMutation } from '@graphql/settings.generated';
 import {
     PageModuleFragment,
     PageTemplateFragment,
@@ -53,9 +56,12 @@ const isValidRemovalPosition = (template: PageTemplateFragment | null, position:
 export function useTemplateOperations(
     setPersonalTemplate: (template: PageTemplateFragment | null) => void,
     personalTemplate: PageTemplateFragment | null,
+    templateType: PageTemplateSurfaceType,
 ) {
+    const { urn, refetch } = useEntityContext();
     const [upsertPageTemplateMutation] = useUpsertPageTemplateMutation();
     const [updateUserHomePageSettings] = useUpdateUserHomePageSettingsMutation();
+    const [updateAssetSettings] = useUpdateAssetSettingsMutation();
     const [deletePageTemplate] = useDeletePageTemplateMutation();
 
     const { showToast } = useShowToast();
@@ -113,7 +119,13 @@ export function useTemplateOperations(
                     }
 
                     // Insert module into the rows at given position
-                    newRows = insertModuleIntoRows(newRows, module, { ...position, moduleIndex }, rowIndex);
+                    newRows = insertModuleIntoRows(
+                        newRows,
+                        module,
+                        { ...position, moduleIndex },
+                        rowIndex,
+                        templateType,
+                    );
                 }
             }
 
@@ -124,7 +136,7 @@ export function useTemplateOperations(
 
             return newTemplate;
         },
-        [],
+        [templateType],
     );
 
     // Helper function to remove a module from template
@@ -194,7 +206,20 @@ export function useTemplateOperations(
                         modules: row.modules?.map((module) => module.urn) || [],
                     })) || [],
                 scope: isPersonal ? PageTemplateScope.Personal : PageTemplateScope.Global,
-                surfaceType: PageTemplateSurfaceType.HomePage,
+                surfaceType: templateType,
+                assetSummary:
+                    templateType === PageTemplateSurfaceType.AssetSummary &&
+                    templateToUpsert.properties.assetSummary?.summaryElements !== undefined
+                        ? {
+                              summaryElements:
+                                  filterNonExistentStructuredProperties(
+                                      templateToUpsert.properties.assetSummary?.summaryElements || [],
+                                  ).map((el) => ({
+                                      elementType: el.elementType,
+                                      structuredPropertyUrn: el.structuredProperty?.urn,
+                                  })) || [],
+                          }
+                        : undefined,
             };
 
             return upsertPageTemplateMutation({
@@ -202,16 +227,37 @@ export function useTemplateOperations(
             }).then(({ data }) => {
                 if (isCreatingPersonalTemplate && data?.upsertPageTemplate.urn) {
                     // set personal template in state after successful creation of new personal template with correct urn
-                    setPersonalTemplate(data.upsertPageTemplate);
-                    updateUserHomePageSettings({ variables: { input: { pageTemplate: data.upsertPageTemplate.urn } } });
-                    showToast(
-                        'You’ve edited your home page',
-                        `To reset your home page click "Reset to Organization Default"`,
-                    );
+                    if (templateType === PageTemplateSurfaceType.HomePage) {
+                        setPersonalTemplate(data.upsertPageTemplate);
+                        updateUserHomePageSettings({
+                            variables: { input: { pageTemplate: data.upsertPageTemplate.urn } },
+                        });
+                        showToast(
+                            'You’ve edited your home page',
+                            `To reset your home page click "Reset to Organization Default"`,
+                            'edited-home-page-toast',
+                        );
+                    } else if (templateType === PageTemplateSurfaceType.AssetSummary) {
+                        setPersonalTemplate(data.upsertPageTemplate);
+                        updateAssetSettings({
+                            variables: { input: { urn, summary: { template: data.upsertPageTemplate.urn } } },
+                        }).then(() => refetch?.());
+                    }
+                } else {
+                    refetch?.(); // updates entityData that gets cached on a profile page for summary tab
                 }
             });
         },
-        [upsertPageTemplateMutation, updateUserHomePageSettings, setPersonalTemplate, showToast],
+        [
+            upsertPageTemplateMutation,
+            updateUserHomePageSettings,
+            setPersonalTemplate,
+            showToast,
+            templateType,
+            updateAssetSettings,
+            urn,
+            refetch,
+        ],
     );
 
     const resetTemplateToDefault = () => {

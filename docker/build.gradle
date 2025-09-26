@@ -15,7 +15,6 @@ ext {
     backend_profile_modules = [
             ':docker:elasticsearch-setup',
             ':docker:mysql-setup',
-            ':docker:kafka-setup',
             ':datahub-upgrade',
             ':metadata-service:war',
     ]
@@ -340,14 +339,21 @@ tasks.register('minDockerCompose2.20', Exec) {
     args '-c', 'echo -e "$(docker compose version --short)\n2.20"|sort --version-sort --check=quiet --reverse'
 }
 
-tasks.register('quickstartNuke') {
-    group = 'quickstart'
-    doFirst {
-        quickstart_configs.each { taskName, config ->
+// Create nuke tasks for all configurations
+quickstart_configs.each { taskName, config ->
+    def actualProjectName = config.additionalConfig?.projectName ?: project_name
+    
+    tasks.register("${taskName}Nuke") {
+        group = 'quickstart'
+        description = "Nuke containers and volumes for configuration: ${taskName} (project: ${actualProjectName})"
+        doFirst {
+            // Set removeVolumes for this specific configuration
             dockerCompose."${taskName}".removeVolumes = !config.preserveVolumes
         }
+        finalizedBy(tasks.matching { task -> 
+            task.name == "${taskName}ComposeDownForced"
+        })
     }
-    finalizedBy(tasks.withType(ComposeDownForced))
 }
 
 tasks.register('quickstartDown') {
@@ -385,8 +391,11 @@ quickstart_configs.each { taskName, config ->
                 if (containersToRestart) {
                     def composeFiles = dockerCompose."${taskName}".useComposeFiles.get()
                     def composeFileArgs = composeFiles.collectMany { ['-f', it] }
+                    
+                    // Use the actual project name from config, fallback to default
+                    def actualProjectName = config.additionalConfig?.projectName ?: project_name
 
-                    def cmd = ["docker compose -p ${project_name} --profile ${config.profile}"] + composeFileArgs + ['restart'] + containersToRestart
+                    def cmd = ["docker compose -p ${actualProjectName} --profile ${config.profile}"] + composeFileArgs + ['restart'] + containersToRestart
                     println(cmd.join(" "))
                     commandLine 'bash', '-c', cmd.join(" ")
                 } else {
@@ -409,11 +418,17 @@ quickstart_configs.each { taskName, config ->
                 }
                 def composeFiles = dockerCompose."${taskName}".useComposeFiles.get()
                 def composeFileArgs = composeFiles.collectMany { ['-f', it] }
+                
+                // Use the actual project name from config, fallback to default
+                def actualProjectName = config.additionalConfig?.projectName ?: project_name
 
-                def cmd = ["docker compose -p ${project_name} --profile ${config.profile}"] + composeFileArgs + ['up', '-d', '--no-deps'] + containersToRestart
+                def cmd = ["docker compose -p ${actualProjectName} --profile ${config.profile}"] + composeFileArgs + ['up', '-d', '--no-deps'] + containersToRestart
                 println(cmd.join(" "))
                 commandLine 'bash', '-c', cmd.join(" ")
             }
         }
     }
 }
+
+// :docker:build builds all docker images.
+build.dependsOn buildImagesallImages

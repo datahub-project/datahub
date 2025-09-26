@@ -178,7 +178,7 @@ public class PoliciesConfig {
           "Manage Connections",
           "Manage connections to external DataHub platforms.");
 
-  public static final Privilege MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE =
+  private static final Privilege MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE =
       Privilege.of(
           "MANAGE_STRUCTURED_PROPERTIES",
           "Manage Structured Properties",
@@ -211,6 +211,12 @@ public class PoliciesConfig {
           "GET_PLATFORM_EVENTS",
           "Get Platform Events",
           "The ability to use the Events API to read Platform Events - Entity Change Events and Notification Request Events.");
+
+  public static final Privilege GET_METADATA_CHANGE_LOG_EVENTS =
+      Privilege.of(
+          "GET_METADATA_CHANGE_LOG_EVENTS",
+          "Get Metadata Change Log Events",
+          "The ability to use the Events API to read Metadata Change Log, or all low-level Metadata Change Events.");
 
   public static final Privilege MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE =
       Privilege.of(
@@ -256,6 +262,7 @@ public class PoliciesConfig {
           MANAGE_FEATURES_PRIVILEGE,
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
           GET_PLATFORM_EVENTS_PRIVILEGE,
+          GET_METADATA_CHANGE_LOG_EVENTS,
           MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE);
 
   // Resource Privileges //
@@ -381,6 +388,12 @@ public class PoliciesConfig {
           "Create erModelRelationship",
           "The ability to add erModelRelationship on a dataset.");
 
+  public static final Privilege MANAGE_ASSET_SUMMARY_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ASSET_SUMMARY",
+          "Manage Asset Summary",
+          "The ability to manage the asset summary tab for an entity.");
+
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES =
       ImmutableList.of(
           VIEW_ENTITY_PAGE_PRIVILEGE,
@@ -399,7 +412,8 @@ public class PoliciesConfig {
           EDIT_ENTITY_PROPERTIES_PRIVILEGE,
           EDIT_ENTITY_INCIDENTS_PRIVILEGE,
           CREATE_ENTITY_PRIVILEGE,
-          EXISTS_ENTITY_PRIVILEGE);
+          EXISTS_ENTITY_PRIVILEGE,
+          MANAGE_ASSET_SUMMARY_PRIVILEGE);
 
   // Dataset Privileges
   public static final Privilege EDIT_DATASET_COL_TAGS_PRIVILEGE =
@@ -1221,6 +1235,38 @@ public class PoliciesConfig {
                           ApiOperation.EXISTS,
                           Disjunctive.disjoint(
                               MANAGE_ACCESS_TOKENS,
+                              EXISTS_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              SEARCH_PRIVILEGE))
+                      .build())
+              .put(
+                  Constants.STRUCTURED_PROPERTY_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(
+                          ApiOperation.CREATE,
+                          Disjunctive.disjoint(MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          Disjunctive.disjoint(
+                              VIEW_ENTITY_PAGE_PRIVILEGE, MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE))
+                      .put(
+                          ApiOperation.UPDATE,
+                          Disjunctive.disjoint(
+                              EDIT_ENTITY_PRIVILEGE, MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE))
+                      .put(
+                          ApiOperation.DELETE,
+                          Disjunctive.disjoint(
+                              DELETE_ENTITY_PRIVILEGE, MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXECUTE,
+                          Disjunctive.disjoint(
+                              EXECUTE_ENTITY_PRIVILEGE, MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          Disjunctive.disjoint(
+                              MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE,
                               EXISTS_ENTITY_PRIVILEGE,
                               EDIT_ENTITY_PRIVILEGE,
                               DELETE_ENTITY_PRIVILEGE,

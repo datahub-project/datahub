@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Set
 import pydantic
 from pydantic import Field, root_validator, validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -67,13 +67,10 @@ class TagOption(StrEnum):
 
 @dataclass(frozen=True)
 class DatabaseId:
-    database: str = Field(
-        description="Database created from share in consumer account."
-    )
-    platform_instance: Optional[str] = Field(
-        default=None,
-        description="Platform instance of consumer snowflake account.",
-    )
+    # Database created from share in consumer account
+    database: str
+    # Platform instance of consumer snowflake account
+    platform_instance: Optional[str] = None
 
 
 class SnowflakeShareConfig(ConfigModel):
@@ -216,6 +213,16 @@ class SnowflakeV2Config(
         description="If enabled, populates the ingested views' definitions.",
     )
 
+    fetch_views_from_information_schema: bool = Field(
+        default=False,
+        description="If enabled, uses information_schema.views to fetch view definitions instead of SHOW VIEWS command. "
+        "This alternative method can be more reliable for databases with large numbers of views (> 10K views), as the "
+        "SHOW VIEWS approach has proven unreliable and can lead to missing views in such scenarios. However, this method "
+        "requires OWNERSHIP privileges on views to retrieve their definitions. For views without ownership permissions "
+        "(where VIEW_DEFINITION is null/empty), the system will automatically fall back to using batched SHOW VIEWS queries "
+        "to populate the missing definitions.",
+    )
+
     include_technical_schema: bool = Field(
         default=True,
         description="If enabled, populates the snowflake technical schema and descriptions.",
@@ -272,10 +279,11 @@ class SnowflakeV2Config(
         description="If enabled along with `extract_tags`, extracts snowflake's key-value tags as DataHub structured properties instead of DataHub tags.",
     )
 
-    structured_properties_template_cache_invalidation_interval: int = Field(
-        hidden_from_docs=True,
-        default=60,
-        description="Interval in seconds to invalidate the structured properties template cache.",
+    structured_properties_template_cache_invalidation_interval: HiddenFromDocs[int] = (
+        Field(
+            default=60,
+            description="Interval in seconds to invalidate the structured properties template cache.",
+        )
     )
 
     include_external_url: bool = Field(
@@ -324,7 +332,7 @@ class SnowflakeV2Config(
         "to ignore the temporary staging tables created by known ETL tools.",
     )
 
-    rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(
+    rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(  # type: ignore[pydantic-field]
         "upstreams_deny_pattern", "temporary_tables_pattern"
     )
 
@@ -342,8 +350,7 @@ class SnowflakeV2Config(
     )
 
     # Allows empty containers to be ingested before datasets are added, avoiding permission errors
-    warn_no_datasets: bool = Field(
-        hidden_from_docs=True,
+    warn_no_datasets: HiddenFromDocs[bool] = Field(
         default=False,
         description="If True, warns when no datasets are found during ingestion. If False, ingestion fails when no datasets are found.",
     )

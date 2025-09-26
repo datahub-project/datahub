@@ -9,6 +9,7 @@ from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine import Row
 from sqlalchemy.engine.reflection import Inspector
 
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -82,7 +83,7 @@ AND ROUTINE_SCHEMA = :schema
 class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
     # defaults
     host_port: str = Field(default="localhost:3306", description="MySQL host URL.")
-    scheme: str = "mysql+pymysql"
+    scheme: HiddenFromDocs[str] = "mysql+pymysql"
 
 
 class MySQLConfig(

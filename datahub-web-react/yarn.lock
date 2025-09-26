@@ -6670,10 +6670,10 @@ check-error@^2.1.1:
   resolved "https://registry.npmjs.org/check-error/-/check-error-2.1.1.tgz"
   integrity sha512-OAlb+T7V4Op9OwdkjmguYRqncdlx5JiofwOAUkmTF+jNdHwzTaTs4sRAGpzLF3oOz5xAyDGrPgeIDFQmDOTiJw==
 
-chokidar@^3.5.3:
-  version "3.5.3"
-  resolved "https://registry.npmjs.org/chokidar/-/chokidar-3.5.3.tgz"
-  integrity sha512-Dr3sfKRP6oTcjf2JmUmFJfeVMvXBdegxB0iVQ5eb2V10uFJUCAS8OByZdVAyVb8xXNz3GjjTgj9kLWsZTqE6kw==
+chokidar@^3.6.0:
+  version "3.6.0"
+  resolved "https://registry.yarnpkg.com/chokidar/-/chokidar-3.6.0.tgz#197c6cc669ef2a8dc5e7b4d97ee4e092c3eb0d5b"
+  integrity sha512-7VT13fmjotKpGipCW9JEQAusEPE+Ei8nl6/g4FBAmIm0GOOLMua9NDDo/DWp0ZAxCr3cPq5ZpBqmPAQgDda2Pw==
   dependencies:
     anymatch "~3.1.2"
     braces "~3.0.2"
@@ -10755,12 +10755,7 @@ phosphor-react@^1.4.1:
   resolved "https://registry.npmjs.org/phosphor-react/-/phosphor-react-1.4.1.tgz"
   integrity sha512-gO5j7U0xZrdglTAYDYPACU4xDOFBTJmptrrB/GeR+tHhCZF3nUMyGmV/0hnloKjuTrOmpSFlbfOY78H39rgjUQ==
 
-picocolors@^1.0.0:
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/picocolors/-/picocolors-1.0.0.tgz#cb5bdc74ff3f51892236eaf79d68bc44564ab81c"
-  integrity sha512-1fygroTLlHu66zi26VoTDv8yRgm0Fccecssto+MhsZ0D/DGW2sm8E8AjW7NU5VVTRt5GxbeZ5qBuJr+HyLYkjQ==
-
-picocolors@^1.1.0, picocolors@^1.1.1:
+picocolors@^1.0.0, picocolors@^1.1.0, picocolors@^1.1.1:
   version "1.1.1"
   resolved "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz"
   integrity sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==
@@ -13509,16 +13504,16 @@ vite-plugin-babel-macros@^1.0.6:
     "@types/babel__core" "^7.1.18"
     babel-plugin-macros "^3.1.0"
 
-vite-plugin-static-copy@^3.0.0:
-  version "3.0.0"
-  resolved "https://registry.yarnpkg.com/vite-plugin-static-copy/-/vite-plugin-static-copy-3.0.0.tgz#5d9bdf240ec25205280e48d67ab5a4c642517092"
-  integrity sha512-Uki9pPUQ4ZnoMEdIFabvoh9h6Bh9Q1m3iF7BrZvoiF30reREpJh2gZb4jOnW1/uYFzyRiLCmFSkM+8hwiq1vWQ==
+vite-plugin-static-copy@^3.1.2:
+  version "3.1.2"
+  resolved "https://registry.yarnpkg.com/vite-plugin-static-copy/-/vite-plugin-static-copy-3.1.2.tgz#5d5e6ce965e5da6a326d47a5feb5033d52db43ca"
+  integrity sha512-aVmYOzptLVOI2b1jL+cmkF7O6uhRv1u5fvOkQgbohWZp2CbR22kn9ZqkCUIt9umKF7UhdbsEpshn1rf4720QFg==
   dependencies:
-    chokidar "^3.5.3"
+    chokidar "^3.6.0"
     fs-extra "^11.3.0"
     p-map "^7.0.3"
     picocolors "^1.1.1"
-    tinyglobby "^0.2.13"
+    tinyglobby "^0.2.14"
 
 vite-plugin-svgr@^4.3.0:
   version "4.3.0"
@@ -13530,9 +13525,9 @@ vite-plugin-svgr@^4.3.0:
     "@svgr/plugin-jsx" "^8.1.0"
 
 "vite@^5.0.0 || ^6.0.0 || ^7.0.0-0", vite@^6:
-  version "6.3.5"
-  resolved "https://registry.yarnpkg.com/vite/-/vite-6.3.5.tgz#fec73879013c9c0128c8d284504c6d19410d12a3"
-  integrity sha512-cZn6NDFE7wdTpINgs++ZJ4N49W2vRp8LCKrn3Ob1kYNtOo21vfDoaV5GzBfLU4MovSAB8uNRm4jgzVQZ+mBzPQ==
+  version "6.3.6"
+  resolved "https://registry.yarnpkg.com/vite/-/vite-6.3.6.tgz#69a976b64930750d40219fbc68c5200874d315c1"
+  integrity sha512-0msEVHJEScQbhkbVTb/4iHZdJ6SXp/AvxL2sjwYQFfBqleHtnCqv1J3sa9zbWz/6kW1m9Tfzn92vW+kZ1WV6QA==
   dependencies:
     esbuild "^0.25.0"
     fdir "^6.4.4"

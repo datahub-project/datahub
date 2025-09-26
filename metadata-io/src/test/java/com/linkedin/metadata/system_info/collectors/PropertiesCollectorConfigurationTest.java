@@ -117,9 +117,39 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.*.enabled",
           "systemUpdate.*.batchSize",
 
+          // Kafka topic Configs
+          "kafka.topics.*.name",
+          "kafka.topics.*.partitions",
+          "kafka.topics.*.enabled",
+          "kafka.topics.*.replicationFactor",
+          "kafka.topics.*.configProperties.max.message.bytes",
+          "kafka.topics.*.configProperties.retention.ms",
+          "kafka.topicDefaults.configProperties.max.message.bytes",
+          "kafka.topicDefaults.configProperties.retention.ms",
+          "kafka.topicDefaults.partitions",
+          "kafka.topicDefaults.replicationFactor",
+          "kafka.setup.preCreateTopics",
+          "kafka.setup.useConfluentSchemaRegistry",
+
           // IAM authentication flags
           "*.postgresUseIamAuth",
-          "*.opensearchUseAwsIamAuth");
+          "*.opensearchUseAwsIamAuth",
+
+          // Bulk rules
+          "featureFlags.*",
+          "*.*nabled",
+          "*.*.*nabled",
+          "*.*.*.*nabled",
+          "*.*.*.*.*nabled",
+          "*.consumerGroupSuffix",
+          "*.*.consumerGroupSuffix",
+          "*.*.*.consumerGroupSuffix",
+          "authentication.authenticators[*].configs.trustedIssuers",
+          "authentication.authenticators[*].configs.allowedAudiences",
+          "authentication.authenticators[*].configs.jwksUri",
+          "authentication.authenticators[*].configs.userIdClaim",
+          "authentication.authenticators[*].configs.algorithm",
+          "authentication.authenticators[*].configs.discoveryUri");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
@@ -415,6 +445,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.metrics.hookLatency.slo",
           "datahub.plugin.auth.path",
           "datahub.plugin.entityRegistry.loadDelaySeconds",
+          "datahub.plugin.entityRegistry.ignoreFailureWhenLoadingRegistry",
           "datahub.plugin.entityRegistry.path",
           "datahub.plugin.pluginSecurityMode",
           "datahub.plugin.retention.path",
@@ -424,6 +455,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",
           "featureFlags.alternateMCPValidation",
+          "featureFlags.assetSummaryPageV1",
           "featureFlags.businessAttributeEntityEnabled",
           "featureFlags.dataContractsEnabled",
           "featureFlags.editableDatasetNameEnabled",
@@ -438,7 +470,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.logicalModelsEnabled",
           "featureFlags.nestedDomainsEnabled",
           "featureFlags.platformBrowseV2",
-          "featureFlags.pointInTimeCreationEnabled",
+          "elasticsearch.search.pointInTimeCreationEnabled",
           "featureFlags.preProcessHooks.reprocessEnabled",
           "featureFlags.preProcessHooks.uiEnabled",
           "featureFlags.readOnlyModeEnabled",
@@ -550,9 +582,13 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.graph.boostViaNodes",
           "elasticsearch.search.graph.enableMultiPathSearch",
           "elasticsearch.search.graph.graphStatusEnabled",
-          "elasticsearch.search.graph.impactMaxHops",
+          "elasticsearch.search.graph.impact.keepAlive",
+          "elasticsearch.search.graph.impact.maxHops",
+          "elasticsearch.search.graph.impact.maxRelations",
+          "elasticsearch.search.graph.impact.slices",
           "elasticsearch.search.graph.lineageMaxHops",
           "elasticsearch.search.graph.maxThreads",
+          "elasticsearch.search.graph.pointInTimeCreationEnabled",
           "elasticsearch.search.graph.queryOptimization",
           "elasticsearch.search.graph.timeoutSeconds",
           "elasticsearch.search.maxTermBucketSize",
@@ -736,7 +772,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "platformAnalytics.usageExport.usageEventTypes",
           "platformAnalytics.usageExport.userFilters",
           "searchBar.apiVariant",
+          "searchCard.showDescription",
           "searchService.cache.hazelcast.serviceName",
+          "searchService.cache.hazelcast.service-dns-timeout",
+          "searchService.cache.hazelcast.kubernetes-api-retries",
+          "searchService.cache.hazelcast.resolve-not-ready-addresses",
           "searchService.cacheImplementation",
           "searchService.enableCache",
           "searchService.enableEviction",

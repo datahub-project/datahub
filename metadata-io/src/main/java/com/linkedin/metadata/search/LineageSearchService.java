@@ -19,6 +19,7 @@ import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.query.FreshnessStats;
@@ -97,7 +98,7 @@ public class LineageSearchService {
                       new FilterValue().setValue("1").setFacetCount(0),
                       new FilterValue().setValue("2").setFacetCount(0),
                       new FilterValue().setValue("3+").setFacetCount(0))));
-  private static final int MAX_RELATIONSHIPS = 1000000;
+
   private static final int MAX_TERMS = 50000;
 
   private static final Set<String> PLATFORM_ENTITY_TYPES =
@@ -141,14 +142,17 @@ public class LineageSearchService {
     long startTime = System.nanoTime();
     final String finalInput = input == null || input.isEmpty() ? "*" : input;
 
-    log.debug("Cache enabled {}, Input :{}:", cacheEnabled, finalInput);
-    maxHops = applyMaxHopsLimit(opContext.getSearchContext().getLineageFlags(), maxHops);
-
     final OperationContext finalOpContext =
         opContext
             .withSearchFlags(
                 flags -> applyDefaultSearchFlags(flags, finalInput, DEFAULT_SERVICE_SEARCH_FLAGS))
             .withLineageFlags(lineageFlags -> lineageFlags);
+
+    log.debug(
+        "Cache enabled {}, Input :{}:",
+        enableCache(finalOpContext.getSearchContext().getSearchFlags()),
+        finalInput);
+    maxHops = applyMaxHopsLimit(opContext.getSearchContext().getLineageFlags(), maxHops);
 
     // Cache multihop result for faster performance
     final EntityLineageResultCacheKey cacheKey =
@@ -157,10 +161,12 @@ public class LineageSearchService {
             sourceUrn,
             direction,
             maxHops,
-            opContext.getSearchContext().getLineageFlags().getEntitiesExploredPerHopLimit());
+            opContext.getSearchContext().getLineageFlags() != null
+                ? opContext.getSearchContext().getLineageFlags().getEntitiesExploredPerHopLimit()
+                : null);
     CachedEntityLineageResult cachedLineageResult = null;
 
-    if (cacheEnabled) {
+    if (enableCache(finalOpContext.getSearchContext().getSearchFlags())) {
       try {
         cachedLineageResult = cache.get(cacheKey, CachedEntityLineageResult.class);
       } catch (Exception e) {
@@ -170,11 +176,10 @@ public class LineageSearchService {
 
     EntityLineageResult lineageResult;
     FreshnessStats freshnessStats = new FreshnessStats().setCached(Boolean.FALSE);
-    if (cachedLineageResult == null
-        || finalOpContext.getSearchContext().getSearchFlags().isSkipCache()) {
-      lineageResult =
-          _graphService.getLineage(opContext, sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops);
-      if (cacheEnabled) {
+    if (cachedLineageResult == null) {
+      lineageResult = getLineageResult(opContext, sourceUrn, direction, maxHops);
+
+      if (enableCache(finalOpContext.getSearchContext().getSearchFlags())) {
         try {
           cache.put(
               cacheKey, new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
@@ -203,9 +208,10 @@ public class LineageSearchService {
                       > appConfig.getCache().getSearch().getLineage().getTTLMillis()) {
                 // we have to refetch
                 EntityLineageResult result =
-                    _graphService.getLineage(
-                        opContext, sourceUrn, direction, 0, MAX_RELATIONSHIPS, finalMaxHops);
-                cache.put(cacheKey, result);
+                    getLineageResult(opContext, sourceUrn, direction, finalMaxHops);
+                if (enableCache(finalOpContext.getSearchContext().getSearchFlags())) {
+                  cache.put(cacheKey, result);
+                }
                 log.debug("Refilled Cached lineage entry for: {}.", sourceUrn);
               } else {
                 log.debug(
@@ -755,15 +761,18 @@ public class LineageSearchService {
             sourceUrn,
             direction,
             maxHops,
-            opContext.getSearchContext().getLineageFlags().getEntitiesExploredPerHopLimit());
+            opContext.getSearchContext().getLineageFlags() != null
+                ? opContext.getSearchContext().getLineageFlags().getEntitiesExploredPerHopLimit()
+                : null);
     CachedEntityLineageResult cachedLineageResult =
-        cacheEnabled ? cache.get(cacheKey, CachedEntityLineageResult.class) : null;
+        enableCache(opContext.getSearchContext().getSearchFlags())
+            ? cache.get(cacheKey, CachedEntityLineageResult.class)
+            : null;
     EntityLineageResult lineageResult;
     if (cachedLineageResult == null) {
       maxHops = maxHops != null ? maxHops : 1000;
-      lineageResult =
-          _graphService.getLineage(opContext, sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops);
-      if (cacheEnabled) {
+      lineageResult = getLineageResult(opContext, sourceUrn, direction, maxHops);
+      if (enableCache(opContext.getSearchContext().getSearchFlags())) {
         cache.put(
             cacheKey, new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
       }
@@ -920,16 +929,11 @@ public class LineageSearchService {
   private int applyMaxHopsLimit(
       @Nullable LineageFlags lineageFlags, @Nullable Integer inputMaxHops) {
     // Determine if we're in UI mode or impact analysis mode
-    boolean isLineageVisualization =
-        lineageFlags != null
-            && lineageFlags.getEntitiesExploredPerHopLimit() != null
-            && lineageFlags.getEntitiesExploredPerHopLimit() > 0;
-
     // Get the appropriate limit based on the mode
     int configLimit =
-        isLineageVisualization
+        isLineageVisualization(lineageFlags)
             ? appConfig.getElasticSearch().getSearch().getGraph().getLineageMaxHops()
-            : appConfig.getElasticSearch().getSearch().getGraph().getImpactMaxHops();
+            : appConfig.getElasticSearch().getSearch().getGraph().getImpact().getMaxHops();
 
     // Apply the limit (either the config limit or the minimum of config and input)
     int result = (inputMaxHops == null) ? configLimit : Math.min(configLimit, inputMaxHops);
@@ -940,5 +944,41 @@ public class LineageSearchService {
     }
 
     return result;
+  }
+
+  /** Returns true if the cache should be used or skipped when fetching search results */
+  private boolean enableCache(@Nullable final SearchFlags searchFlags) {
+    return cacheEnabled && (searchFlags == null || !searchFlags.isSkipCache());
+  }
+
+  private static boolean isLineageVisualization(@Nullable LineageFlags lineageFlags) {
+    return lineageFlags != null
+        && lineageFlags.getEntitiesExploredPerHopLimit() != null
+        && lineageFlags.getEntitiesExploredPerHopLimit() > 0;
+  }
+
+  private EntityLineageResult getLineageResult(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn sourceUrn,
+      @Nonnull LineageDirection direction,
+      int maxHops) {
+    boolean isLineageVisualization =
+        isLineageVisualization(opContext.getSearchContext().getLineageFlags());
+    if (isLineageVisualization) {
+      return _graphService.getLineage(
+          opContext,
+          sourceUrn,
+          direction,
+          0,
+          _graphService.getGraphServiceConfig().getLimit().getResults().getApiDefault(),
+          maxHops);
+    } else {
+      return _graphService.getImpactLineage(
+          opContext,
+          sourceUrn,
+          LineageGraphFilters.forEntityType(
+              opContext.getLineageRegistry(), sourceUrn.getEntityType(), direction),
+          maxHops);
+    }
   }
 }

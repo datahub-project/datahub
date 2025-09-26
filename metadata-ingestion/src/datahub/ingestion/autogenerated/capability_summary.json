@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-07-31T12:54:30.557618+00:00",
+  "generated_at": "2025-08-28T07:13:19.226648+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -646,7 +646,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Dremio Space",
+            "Dremio Source"
+          ],
           "supported": true
         },
         {
@@ -833,6 +836,38 @@
       "platform_id": "elasticsearch",
       "platform_name": "Elasticsearch",
       "support_status": "CERTIFIED"
+    },
+    "excel": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.excel.source.ExcelSource",
+      "platform_id": "excel",
+      "platform_name": "Excel",
+      "support_status": "INCUBATING"
     },
     "feast": {
       "capabilities": [
@@ -1245,7 +1280,8 @@
           "capability": "CONTAINERS",
           "description": "Enabled by default",
           "subtype_modifier": [
-            "Catalog"
+            "Catalog",
+            "Schema"
           ],
           "supported": true
         },
@@ -2230,7 +2266,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Workspace",
+            "Semantic Model"
+          ],
           "supported": true
         },
         {
@@ -2334,6 +2373,12 @@
           "supported": true
         },
         {
+          "capability": "TAGS",
+          "description": "Supported by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "subtype_modifier": null,
@@ -2427,7 +2472,8 @@
           "capability": "CONTAINERS",
           "description": "Enabled by default",
           "subtype_modifier": [
-            "Catalog"
+            "Catalog",
+            "Schema"
           ],
           "supported": true
         },
@@ -2535,7 +2581,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Disabled by default. ",
+          "description": "Disabled by default.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2638,7 +2684,7 @@
         },
         {
           "capability": "USAGE_STATS",
-          "description": "Enabled by default, can be disabled via configuration `include_usage_statistics`",
+          "description": "Optionally enabled via `include_usage_statistics`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2922,6 +2968,38 @@
       "platform_name": "Slack",
       "support_status": "TESTING"
     },
+    "snaplogic": {
+      "capabilities": [
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Not supported yet",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Snaplogic does not support platform instances",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.snaplogic.snaplogic.SnaplogicSource",
+      "platform_id": "snaplogic",
+      "platform_name": "Snaplogic",
+      "support_status": "TESTING"
+    },
     "snowflake": {
       "capabilities": [
         {
@@ -3131,6 +3209,12 @@
         {
           "capability": "DOMAINS",
           "description": "Enabled by `domain` config to assign domain_key",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Supported by default",
           "subtype_modifier": null,
           "supported": true
         },

@@ -3,7 +3,14 @@ import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import DefaultEntity from '@app/entityV2/DefaultEntity';
-import { Entity, EntityCapabilityType, EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import {
+    Entity,
+    EntityCapabilityType,
+    EntityMenuActions,
+    IconStyleType,
+    PreviewContext as PreviewContextProps,
+    PreviewType,
+} from '@app/entityV2/Entity';
 import PreviewContext from '@app/entityV2/shared/PreviewContext';
 import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
 import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
@@ -128,12 +135,18 @@ export default class EntityRegistry {
         return entity.renderProfile(urn);
     }
 
-    renderPreview<T>(entityType: EntityType, type: PreviewType, data: T, actions?: EntityMenuActions): JSX.Element {
+    renderPreview<T>(
+        entityType: EntityType,
+        type: PreviewType,
+        data: T,
+        actions?: EntityMenuActions,
+        extraContext?: PreviewContextProps,
+    ): JSX.Element {
         const entity = validatedGet(entityType, this.entityTypeToEntity, DefaultEntity);
         const genericEntityData = entity.getGenericEntityProperties(data);
         return (
             <PreviewContext.Provider value={genericEntityData}>
-                {entity.renderPreview(type, data, actions)}
+                {entity.renderPreview(type, data, actions, extraContext)}
             </PreviewContext.Provider>
         );
     }
@@ -228,13 +241,27 @@ export default class EntityRegistry {
                   ?.map((p) => (p.entity ? this.getGenericEntityProperties(p.entity.type, p.entity) : { name: p.name }))
                   .filter((p): p is GenericEntityProperties => !!p);
 
+        // Downgrade field paths in fine-grained lineages for v1/v2 compatibility
+        const rawFineGrainedLineages =
+            genericEntityProperties?.fineGrainedLineages ||
+            genericEntityProperties?.inputOutput?.fineGrainedLineages ||
+            [];
+        const fineGrainedLineages = rawFineGrainedLineages.map((lineage) => ({
+            ...lineage,
+            upstreams: lineage.upstreams?.map((upstream) => ({
+                ...upstream,
+                path: downgradeV2FieldPath(upstream.path),
+            })),
+            downstreams: lineage.downstreams?.map((downstream) => ({
+                ...downstream,
+                path: downgradeV2FieldPath(downstream.path),
+            })),
+        }));
+
         return {
             ...entity.getLineageVizConfig(data),
             containers,
-            fineGrainedLineages:
-                genericEntityProperties?.fineGrainedLineages ||
-                genericEntityProperties?.inputOutput?.fineGrainedLineages ||
-                [],
+            fineGrainedLineages,
             numDownstreamChildren:
                 (genericEntityProperties.downstream?.total || 0) - (genericEntityProperties.downstream?.filtered || 0),
             numUpstreamChildren:
@@ -375,6 +402,15 @@ export default class EntityRegistry {
      */
     getSearchEntityTypesAsCamelCase(): Array<string> {
         return this.getSearchEntityTypes().map((entityType) => this.getEntityTypeAsCamelCase(entityType));
+    }
+
+    /**
+     * Utility method to safely extract the first subtype from entity data
+     * @param data The entity data that may contain subTypes
+     * @returns The first subtype name or undefined if not available
+     */
+    getFirstSubType(data?: { subTypes?: { typeNames?: string[] | null } | null } | null): string | undefined {
+        return data?.subTypes?.typeNames?.[0];
     }
 }
 
