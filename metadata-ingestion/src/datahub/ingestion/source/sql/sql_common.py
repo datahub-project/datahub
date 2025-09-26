@@ -46,6 +46,7 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_protocols import MetadataWorkUnitIterable
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import (
     SAMPLE_SIZE_MULTIPLIER,
@@ -601,7 +602,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def get_profiling_internal(
         self,
-    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
+    ) -> MetadataWorkUnitIterable:
         sql_config = self.config
         for inspector in self.get_inspectors():
             profiler = None
