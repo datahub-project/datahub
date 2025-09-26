@@ -81,6 +81,8 @@ public abstract class AbstractJakartaR2Servlet extends HttpServlet {
 
     URI uri = new URI(pathInfo + queryString);
 
+    log.info("Received request for path {} and query string {}", uri, queryString);
+
     RestRequestBuilder builder = new RestRequestBuilder(uri).setMethod(req.getMethod());
 
     // Handle headers

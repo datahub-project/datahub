@@ -127,7 +127,7 @@ public class AuthenticationController extends Controller {
     String redirectPath = maybeRedirectPath.orElse("/");
     // If the redirect path is /logOut, we do not want to redirect to the logout page after login.
     if (redirectPath.equals("/logOut")) {
-      redirectPath = "/";
+      redirectPath = BasePathUtils.addBasePath("/logOut", getBasePath());
     }
     try {
       URI redirectUri = new URI(redirectPath);
@@ -139,7 +139,7 @@ public class AuthenticationController extends Controller {
       }
     } catch (URISyntaxException | RedirectException e) {
       logger.warn(e.getMessage());
-      redirectPath = "/";
+      redirectPath = BasePathUtils.addBasePath("/", getBasePath());
     }
 
     if (AuthUtils.hasValidSessionCookie(request)) {
@@ -151,8 +151,8 @@ public class AuthenticationController extends Controller {
       final String accessToken =
           authClient.generateSessionTokenForUser(
               guestAuthenticationConfigs.getGuestUser(), GUEST_LOGIN);
-      redirectPath =
-          "/"; // We requested guest login by accessing {guestPath} URL. It is not really a target.
+      // We requested guest login by accessing {guestPath} URL. It is not really a target.
+      redirectPath = BasePathUtils.addBasePath("/", getBasePath());
       CorpuserUrn guestUserUrn = new CorpuserUrn(guestAuthenticationConfigs.getGuestUser());
       return Results.redirect(redirectPath)
           .withSession(createSessionMap(guestUserUrn.toString(), accessToken))
@@ -169,7 +169,7 @@ public class AuthenticationController extends Controller {
       return redirectToIdentityProvider(request, redirectPath)
           .orElse(
               Results.redirect(
-                  getLoginUrl()
+                  getLoginUrl() // will already have a basepath
                       + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_NO_REDIRECT_MESSAGE)));
     }
 

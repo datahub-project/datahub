@@ -77,15 +77,26 @@ export default defineConfig(async ({ mode }) => {
     // Setup proxy to the datahub-frontend service.
     const frontendProxyTarget = process.env.REACT_APP_PROXY_TARGET || 'http://localhost:9002';
 
+    // Extract base path from the target URL if present
+    const targetUrl = new URL(frontendProxyTarget);
+    const basePath = targetUrl.pathname !== '/' ? targetUrl.pathname : '';
+    const targetOrigin = targetUrl.origin;
+
     const frontendProxy = {
-        target: frontendProxyTarget,
+        target: targetOrigin,
         changeOrigin: true,
-        // No path rewriting - let the backend handle base path routing
+        rewrite: (path) => {
+            // Prepend the base path from the target URL to the request path
+            const rewrittenPath = basePath ? `${basePath}${path}` : path;
+            console.log(`Proxying ${path} -> ${rewrittenPath}`);
+            return rewrittenPath;
+        },
     };
 
     // Standard API endpoints that need proxying
     const apiEndpoints = [
         '/logIn',
+        '/login',
         '/signUp',
         '/resetNativeUserCredentials',
         '/authenticate',
@@ -93,6 +104,7 @@ export default defineConfig(async ({ mode }) => {
         '/logOut',
         '/api/v2/graphql',
         '/openapi/v1/tracking/track',
+        '/assets',
         '/config',  // Add config endpoint for base path detection
     ];
 

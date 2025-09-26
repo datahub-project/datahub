@@ -587,7 +587,7 @@ management:
 server:
   server-header: false
   servlet:
-    context-path: ${DATAHUB_BASE_PATH:${datahub.basePath}}
+    context-path: ${DATAHUB_BASE_PATH:/}
 
 springdoc:
   cache:
