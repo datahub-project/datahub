@@ -184,11 +184,17 @@ function AddRelatedTermsModal(props: Props) {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button type="primary" onClick={addTerms} disabled={!selectedUrns.length}>
+                    <Button
+                        type="primary"
+                        onClick={addTerms}
+                        disabled={!selectedUrns.length}
+                        data-testid="submit-button"
+                    >
                         Add
                     </Button>
                 </>
             }
+            data-testid="add-related-terms-modal"
         >
             <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
                 <StyledSelect
@@ -212,6 +218,7 @@ function AddRelatedTermsModal(props: Props) {
                     onFocus={() => setIsFocusedOnInput(true)}
                     onBlur={handleBlur}
                     dropdownStyle={isShowingGlossaryBrowser || !inputValue ? { display: 'none' } : {}}
+                    data-testid="related-terms-select"
                 >
                     {tagSearchOptions}
                 </StyledSelect>

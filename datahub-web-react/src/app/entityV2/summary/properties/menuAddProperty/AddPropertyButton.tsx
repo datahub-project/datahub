@@ -33,6 +33,7 @@ export default function AddPropertyButton() {
                 size="xl"
                 isCircle
                 icon={{ icon: 'Plus', source: 'phosphor', color: 'gray', size: '2xl' }}
+                data-testid="add-property-button"
             />
         </Menu>
     );
