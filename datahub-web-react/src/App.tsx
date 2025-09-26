@@ -82,16 +82,6 @@ const client = new ApolloClient({
 });
 
 export const InnerApp: React.VFC = () => {
-    // Fix CSS font paths after component mounts to ensure stylesheets are loaded
-    useEffect(() => {
-        // Use a small delay to ensure CSS is fully parsed and accessible
-        const timer = setTimeout(() => {
-            fixCSSFontPaths();
-        }, 100);
-
-        return () => clearTimeout(timer);
-    }, []);
-
     return (
         <HelmetProvider>
             <CustomThemeProvider>

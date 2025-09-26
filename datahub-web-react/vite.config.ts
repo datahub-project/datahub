@@ -33,7 +33,6 @@ const injectDatahubEnv = () => {
     // Format: template placeholder → environment variable name
     const envVariables = [
         { placeholder: '{{__DATAHUB_BASE_PATH__}}', envVar: 'DATAHUB_BASE_PATH' },
-        { placeholder: '{{__DATAHUB_APP_VERSION__}}', envVar: 'DATAHUB_APP_VERSION' },
     ];
 
     return {
@@ -59,11 +58,6 @@ const injectDatahubEnv = () => {
 
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
-    // Get DataHub version from environment variable set by gradle
-    const datahubVersion = process.env.DATAHUB_APP_VERSION || '0.0.0';
-    // Make sure the env var is set for the plugin FIXME
-    process.env.DATAHUB_APP_VERSION = datahubVersion;
-
     const { viteStaticCopy } = await import('vite-plugin-static-copy');
 
     // Via https://stackoverflow.com/a/66389044.
@@ -179,15 +173,15 @@ export default defineConfig(async ({ mode }) => {
                 output: {
                     assetFileNames: (assetInfo) => {
                         if (/\.(css)$/.test(assetInfo.name)) {
-                            return `assets/v${datahubVersion}/css/[name].[ext]`;
+                            return `assets/css/[name].[ext]`;
                         }
                         if (/\.(png|jpe?g|svg|gif|webp|ico)$/.test(assetInfo.name)) {
-                            return `assets/v${datahubVersion}/img/[name].[ext]`;
+                            return `assets/img/[name].[ext]`;
                         }
-                        return `assets/v${datahubVersion}/[name].[ext]`;
+                        return `assets/[name].[ext]`;
                     },
-                    chunkFileNames: `assets/v${datahubVersion}/js/[name].js`,
-                    entryFileNames: `assets/v${datahubVersion}/js/[name].js`,
+                    chunkFileNames: `assets/js/[name].js`,
+                    entryFileNames: `assets/js/[name].js`,
                 },
             },
         },
