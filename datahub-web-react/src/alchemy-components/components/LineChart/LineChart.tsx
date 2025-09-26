@@ -46,6 +46,8 @@ export function LineChart({
     renderTooltipGlyph = lineChartDefault.renderTooltipGlyph,
     showGlyphOnSingleDataPoint = lineChartDefault.showGlyphOnSingleDataPoint,
     renderGlyphOnSingleDataPoint = lineChartDefault.renderGlyphOnSingleDataPoint,
+
+    dataTestId,
 }: LineChartProps) {
     const [showGrid, setShowGrid] = useState<boolean>(false);
 
@@ -87,11 +89,23 @@ export function LineChart({
     // but they don't render at all without any data.
     // To handle this case we will render the same graph with fake data and hide bars
     if (!data.length) {
-        return <LineChart {...getMockedProps()} margin={margin} isEmpty />;
+        return (
+            <LineChart
+                {...getMockedProps()}
+                margin={margin}
+                isEmpty
+                dataTestId={dataTestId ? `${dataTestId}-empty` : undefined}
+            />
+        );
     }
 
     return (
-        <ChartWrapper ref={wrapperRef} onMouseEnter={() => setShowGrid(true)} onMouseLeave={() => setShowGrid(false)}>
+        <ChartWrapper
+            ref={wrapperRef}
+            onMouseEnter={() => setShowGrid(true)}
+            onMouseLeave={() => setShowGrid(false)}
+            data-testid={dataTestId}
+        >
             <ParentSize>
                 {({ width, height }) => {
                     return (
