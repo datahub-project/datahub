@@ -3,7 +3,8 @@ import { hasOperationName } from "../utils";
 export function setThemeV2AndHomePageRedesignFlags(isOn) {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
     if (hasOperationName(req, "appConfig")) {
-      req.reply((res) => {
+      req.alias = "gqlappConfigQuery";
+      req.on("response", (res) => {
         res.body.data.appConfig.featureFlags.themeV2Enabled = isOn;
         res.body.data.appConfig.featureFlags.themeV2Default = isOn;
         res.body.data.appConfig.featureFlags.showNavBarRedesign = isOn;
