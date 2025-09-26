@@ -101,6 +101,6 @@ export type PillVariantOptions = keyof typeof PillVariantValues;
 
 export type AlignmentOptions = 'left' | 'right' | 'center' | 'justify';
 
-export type AvatarSizeOptions = 'sm' | 'md' | 'lg' | 'xl' | 'default';
+export type AvatarSizeOptions = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'default';
 
 export type IconAlignmentOptions = 'horizontal' | 'vertical';

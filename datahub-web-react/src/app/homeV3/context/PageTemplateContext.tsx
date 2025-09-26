@@ -17,7 +17,7 @@ interface Props {
 }
 
 export const PageTemplateProvider = ({ children, templateType }: Props) => {
-    const isTemplateEditable = false; // template is not editable in OSS
+    const isTemplateEditable = true; // template is not editable in OSS
     // Template state management
     const {
         personalTemplate,

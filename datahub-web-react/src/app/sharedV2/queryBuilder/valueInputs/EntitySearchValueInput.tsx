@@ -108,7 +108,7 @@ export const EntitySearchValueInput = ({ selectedUrns, entityTypes, mode, label,
             .filter((entity): entity is Entity => !!entity);
         const searchedEntities: Entity[] = searchResults.map((result) => result.entity);
 
-        const mergedEntities = mergeArraysOfObjects(searchedEntities, selectedEntities, (item) => item.urn);
+        const mergedEntities = mergeArraysOfObjects(selectedEntities, searchedEntities, (item) => item.urn, true);
 
         return mergedEntities.map((entity) => {
             return {
@@ -173,6 +173,7 @@ export const EntitySearchValueInput = ({ selectedUrns, entityTypes, mode, label,
             width="full"
             renderCustomOptionText={customOptionRenderer}
             showSearch
+            autoUpdate
         />
     );
 };

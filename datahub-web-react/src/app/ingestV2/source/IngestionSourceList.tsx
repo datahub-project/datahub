@@ -5,7 +5,6 @@ import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { useUserContext } from '@app/context/useUserContext';
 import EmptySources from '@app/ingestV2/EmptySources';
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
 import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
@@ -40,12 +39,13 @@ import {
     useListIngestionSourcesQuery,
     useUpdateIngestionSourceMutation,
 } from '@graphql/ingestion.generated';
-import { useBatchAddOwnersMutation } from '@graphql/mutations.generated';
+import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import {
     Entity,
     EntityType,
     IngestionSource,
+    Owner,
     OwnerEntityType,
     OwnershipTypeEntity,
     SortCriterion,
@@ -154,8 +154,6 @@ export const IngestionSourceList = ({
     searchQuery: searchQueryFromUrl,
     setSearchQuery: setSearchQueryFromUrl,
 }: Props) => {
-    const me = useUserContext();
-
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [searchInput, setSearchInput] = useState('');
     const searchInputRef = useRef<InputRef>(null);
@@ -260,6 +258,7 @@ export const IngestionSourceList = ({
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
+    const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
 
     // Execution Request queries
     const [createExecutionRequestMutation] = useCreateIngestionExecutionRequestMutation();
@@ -345,26 +344,46 @@ export const IngestionSourceList = ({
         input: UpdateIngestionSourceInput,
         resetState: () => void,
         shouldRun?: boolean,
+        existingOwners?: Owner[], // used to compute added and removed owners
         owners?: Entity[],
     ) => {
         setIsModalWaiting(true);
-        const ownerInputs = owners?.map((owner) => {
-            return {
-                ownerUrn: owner.urn,
-                ownerEntityType:
-                    owner.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser,
-                ownershipTypeUrn: defaultOwnerType?.urn,
-            };
-        });
+        // excluding `existingOwners` from `owners` to get only added owners
+        const ownersToAdd: Entity[] = (owners ?? []).filter(
+            (owner) => !(existingOwners ?? []).some((existingOwner) => existingOwner.owner.urn === owner.urn),
+        );
+        const ownersToAddInputs = ownersToAdd.map((owner) => ({
+            ownerUrn: owner.urn,
+            ownerEntityType: owner.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser,
+            ownershipTypeUrn: defaultOwnerType?.urn,
+        }));
+
+        // excluding `owners` from `existingOwners` to get only removed owners
+        const ownersToRemove: Owner[] = (existingOwners ?? []).filter(
+            (existingOwner) => !owners?.some((owner) => existingOwner.owner.urn === owner.urn),
+        );
+        const ownersToRemoveUrns: string[] = ownersToRemove.map((owner) => owner.owner.urn);
+
         if (focusSourceUrn) {
             // Update
             updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
                 .then(() => {
-                    if (ownerInputs?.length) {
+                    if (ownersToAddInputs?.length) {
                         batchAddOwnersMutation({
                             variables: {
                                 input: {
-                                    owners: ownerInputs,
+                                    owners: ownersToAddInputs,
+                                    resources: [{ resourceUrn: focusSourceUrn }],
+                                },
+                            },
+                        });
+                    }
+
+                    if (ownersToRemoveUrns?.length) {
+                        batchRemoveOwnersMutation({
+                            variables: {
+                                input: {
+                                    ownerUrns: ownersToRemoveUrns,
                                     resources: [{ resourceUrn: focusSourceUrn }],
                                 },
                             },
@@ -391,8 +410,8 @@ export const IngestionSourceList = ({
                         sourceType: input.type,
                         sourceUrn: focusSourceUrn,
                         interval: input.schedule?.interval,
-                        numOwners: owners?.length,
                         outcome: shouldRun ? 'save_and_run' : 'save',
+                        numOwners: ownersToAdd?.length,
                     });
                     message.success({
                         content: `Successfully updated ingestion source!`,
@@ -419,7 +438,6 @@ export const IngestionSourceList = ({
             createIngestionSource({ variables: { input } })
                 .then((result) => {
                     message.loading({ content: 'Loading...', duration: 2 });
-                    const ownersToAdd = ownerInputs?.filter((owner) => owner.ownerUrn !== me.urn);
                     const newUrn = result?.data?.createIngestionSource || PLACEHOLDER_URN;
 
                     const newSource: IngestionSource = {
@@ -444,16 +462,28 @@ export const IngestionSourceList = ({
                         __typename: 'IngestionSource' as const,
                     };
 
-                    if (ownersToAdd?.length) {
-                        batchAddOwnersMutation({
+                    if (ownersToRemoveUrns?.length) {
+                        batchRemoveOwnersMutation({
                             variables: {
                                 input: {
-                                    owners: ownersToAdd,
+                                    ownerUrns: ownersToRemoveUrns,
                                     resources: [{ resourceUrn: newSource.urn }],
                                 },
                             },
                         });
                     }
+
+                    if (ownersToAddInputs?.length) {
+                        batchAddOwnersMutation({
+                            variables: {
+                                input: {
+                                    owners: ownersToAddInputs,
+                                    resources: [{ resourceUrn: newSource.urn }],
+                                },
+                            },
+                        });
+                    }
+
                     addToListIngestionSourcesCache(client, newSource, queryInputs);
                     setFinalSources((currSources) => [newSource, ...currSources]);
 
@@ -528,6 +558,8 @@ export const IngestionSourceList = ({
     }, [client, page, pageSize, query, refetch, removeIngestionSourceMutation, removedUrns, sourceUrnToDelete]);
 
     const onSubmit = (recipeBuilderState: SourceBuilderState, resetState: () => void, shouldRun?: boolean) => {
+        const existingOwners: Owner[] = focusSource?.ownership?.owners ?? [];
+
         createOrUpdateIngestionSource(
             {
                 type: recipeBuilderState.type as string,
@@ -558,6 +590,7 @@ export const IngestionSourceList = ({
             },
             resetState,
             shouldRun,
+            existingOwners,
             recipeBuilderState.owners,
         );
     };
