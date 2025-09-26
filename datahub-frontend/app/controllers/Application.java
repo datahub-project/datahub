@@ -46,11 +46,14 @@ public class Application extends Controller {
   private final Config config;
   private final Environment environment;
 
+  private final String basePath;
+
   @Inject
   public Application(HttpClient httpClient, Environment environment, @Nonnull Config config) {
     this.httpClient = httpClient;
     this.config = config;
     this.environment = environment;
+    this.basePath = getBasePath();
   }
 
   /**
@@ -59,7 +62,7 @@ public class Application extends Controller {
    * @return the normalized base path
    */
   @Nonnull
-  private String getBasePath() {
+  private String getB asePath() {
     return BasePathUtils.normalizeBasePath(config.getString("datahub.basePath"));
   }
 
@@ -72,15 +75,14 @@ public class Application extends Controller {
   @Nonnull
   private Result serveAsset(@Nullable String path) {
     try {
-      String basePath = getBasePath();
+      String basePath = this.basePath;
       String datahubVersion = config.getString("app.version");
 
       // Ensure base path ends with / for HTML base tag
       if (!basePath.endsWith("/")) {
         basePath += "/";
       }
-      return ok(views.html.index.render(basePath, datahubVersion))
-          .withHeader("Cache-Control", "no-cache");
+      return ok(views.html.index.render(basePath, datahubVersion));
     } catch (Exception e) {
       logger.warn("Cannot render index template", e);
       return internalServerError("Template rendering failed")

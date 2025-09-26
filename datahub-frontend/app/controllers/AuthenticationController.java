@@ -71,6 +71,8 @@ public class AuthenticationController extends Controller {
   private final boolean verbose;
   private final Config config;
 
+  private final String basePath;
+
   @Inject private org.pac4j.core.config.Config ssoConfig;
 
   @VisibleForTesting @Inject protected PlayCookieSessionStore playCookieSessionStore;
@@ -87,6 +89,7 @@ public class AuthenticationController extends Controller {
     nativeAuthenticationConfigs = new NativeAuthenticationConfigs(configs);
     guestAuthenticationConfigs = new GuestAuthenticationConfigs(configs);
     verbose = configs.hasPath(AUTH_VERBOSE_LOGGING) && configs.getBoolean(AUTH_VERBOSE_LOGGING);
+    basePath = getBasePath();
   }
 
   /**
@@ -106,7 +109,7 @@ public class AuthenticationController extends Controller {
    */
   @Nonnull
   private String getLoginUrl() {
-    return BasePathUtils.addBasePath(LOGIN_ROUTE, getBasePath());
+    return BasePathUtils.addBasePath(LOGIN_ROUTE, this.basePath);
   }
 
   /**
@@ -127,7 +130,7 @@ public class AuthenticationController extends Controller {
     String redirectPath = maybeRedirectPath.orElse("/");
     // If the redirect path is /logOut, we do not want to redirect to the logout page after login.
     if (redirectPath.equals("/logOut")) {
-      redirectPath = BasePathUtils.addBasePath("/logOut", getBasePath());
+      redirectPath = BasePathUtils.addBasePath("/logOut", this.basePath);
     }
     try {
       URI redirectUri = new URI(redirectPath);
@@ -139,7 +142,7 @@ public class AuthenticationController extends Controller {
       }
     } catch (URISyntaxException | RedirectException e) {
       logger.warn(e.getMessage());
-      redirectPath = BasePathUtils.addBasePath("/", getBasePath());
+      redirectPath = BasePathUtils.addBasePath("/", this.basePath);
     }
 
     if (AuthUtils.hasValidSessionCookie(request)) {
@@ -152,7 +155,7 @@ public class AuthenticationController extends Controller {
           authClient.generateSessionTokenForUser(
               guestAuthenticationConfigs.getGuestUser(), GUEST_LOGIN);
       // We requested guest login by accessing {guestPath} URL. It is not really a target.
-      redirectPath = BasePathUtils.addBasePath("/", getBasePath());
+      redirectPath = BasePathUtils.addBasePath("/", this.basePath);
       CorpuserUrn guestUserUrn = new CorpuserUrn(guestAuthenticationConfigs.getGuestUser());
       return Results.redirect(redirectPath)
           .withSession(createSessionMap(guestUserUrn.toString(), accessToken))

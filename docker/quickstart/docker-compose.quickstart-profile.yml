@@ -117,7 +117,6 @@ services:
         condition: service_completed_successfully
         required: true
     environment:
-      DATAHUB_APP_VERSION: ${DATAHUB_VERSION}
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: '8080'
       DATAHUB_PLAY_MEM_BUFFER_SIZE: 10MB
@@ -128,7 +127,6 @@ services:
       JAVA_OPTS: -Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf
         -Dlogback.configurationFile=datahub-frontend/conf/logback.xml -Dlogback.debug=false -Dpidfile.path=/dev/null
       KAFKA_BOOTSTRAP_SERVER: broker:29092
-      PLAY_HTTP_CONTEXT: /
       THEME_V2_DEFAULT: 'true'
     hostname: datahub-frontend-react
     image: acryldata/datahub-frontend-react:${DATAHUB_VERSION}
@@ -221,8 +219,6 @@ services:
     - debug-elasticsearch
     - debug-backend-aws
     - debug-aws
-    - debug-basepath
-    - debug-basepath-consumers
     command:
     - --character-set-server=utf8mb4
     - --collation-server=utf8mb4_bin
@@ -300,8 +296,6 @@ services:
     - debug-neo4j
     - debug-backend-aws
     - debug-aws
-    - debug-basepath
-    - debug-basepath-consumers
     deploy:
       resources:
         limits:
