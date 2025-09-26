@@ -89,7 +89,7 @@ class RedshiftCommonQuery:
     ) -> str:
         # NOTE: it looks like description is available only in pg_description
         # So this remains preferrred way
-        tables_query = """
+        tables_query = f"""
  SELECT  CASE c.relkind
                 WHEN 'r' THEN 'TABLE'
                 WHEN 'v' THEN 'VIEW'
@@ -120,6 +120,7 @@ class RedshiftCommonQuery:
         LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
         LEFT JOIN pg_class_info as ci on c.oid = ci.reloid
         LEFT JOIN pg_catalog.pg_description pgd ON pgd.objsubid = 0 AND pgd.objoid = c.oid
+        JOIN svv_redshift_schemas rs ON rs.schema_name = n.nspname AND rs.database_name = '{database}'
         WHERE c.relkind IN ('r','v','m','S','f')
         AND   n.nspname !~ '^pg_'
         AND   n.nspname != 'information_schema'
@@ -128,23 +129,24 @@ class RedshiftCommonQuery:
         external_tables_query = f"""
         SELECT 'EXTERNAL_TABLE' as tabletype,
             NULL AS "schema_oid",
-            schemaname AS "schema",
+            t.schemaname AS "schema",
             NULL AS "rel_oid",
-            tablename AS "relname",
+            t.tablename AS "relname",
             NULL as "creation_time",
             NULL AS "diststyle",
             NULL AS "owner_id",
             NULL AS "owner_name",
             NULL AS "view_definition",
             NULL AS "privileges",
-            "location",
-            parameters,
-            input_format,
-            output_format,
-            serde_parameters,
+            t."location",
+            t.parameters,
+            t.input_format,
+            t.output_format,
+            t.serde_parameters,
             NULL as table_description
-        FROM pg_catalog.svv_external_tables
-        WHERE redshift_database_name='{database}'
+        FROM pg_catalog.svv_external_tables t
+        JOIN SVV_EXTERNAL_SCHEMAS s ON t.schemaname = s.schemaname
+        WHERE t.redshift_database_name='{database}'
         ORDER BY "schema",
                 "relname"
 """
@@ -232,11 +234,12 @@ class RedshiftCommonQuery:
               ON att.attrelid = c.oid
             LEFT JOIN pg_catalog.pg_attrdef ad
               ON (att.attrelid, att.attnum) = (ad.adrelid, ad.adnum)
+            JOIN svv_redshift_schemas rs ON rs.schema_name = n.nspname AND rs.database_name = '{database_name}'
             WHERE n.nspname !~ '^pg_'
               AND   n.nspname != 'information_schema'
               AND att.attnum > 0
               AND NOT att.attisdropped
-              and schema = '{schema_name}'
+              and n.nspname = '{schema_name}'
             UNION
             SELECT
               view_schema as "schema",
@@ -263,26 +266,27 @@ class RedshiftCommonQuery:
             WHERE 1 and schema = '{schema_name}'
             UNION
             SELECT
-              schemaname as "schema",
-              tablename as "table_name",
-              columnname as "name",
+              c.schemaname as "schema",
+              c.tablename as "table_name",
+              c.columnname as "name",
               null as "encode",
               -- Spectrum represents data types differently.
               -- Standardize, so we can infer types.
-              external_type AS "type",
+              c.external_type AS "type",
               null as "distkey",
               0 as "sortkey",
               null as "notnull",
               null as "comment",
               null as "adsrc",
               null as "attnum",
-              external_type AS "format_type",
+              c.external_type AS "format_type",
               null as "default",
               null as "schema_oid",
               null as "table_oid"
-            FROM SVV_EXTERNAL_COLUMNS
-            WHERE 1 and schema = '{schema_name}'
-            AND redshift_database_name = '{database_name}'
+            FROM SVV_EXTERNAL_COLUMNS c
+            JOIN SVV_EXTERNAL_SCHEMAS s ON c.schemaname = s.schemaname
+            WHERE c.schemaname = '{schema_name}'
+            AND c.redshift_database_name = '{database_name}'
             ORDER BY "schema", "table_name", "attnum"
 """
 

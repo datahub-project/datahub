@@ -3,7 +3,7 @@ import pathlib
 from typing import Any
 from unittest.mock import patch
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -114,7 +114,7 @@ def run_ingest(
         return pipeline
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snaplogic_source_default_configs(
     pytestconfig, mock_datahub_graph, tmp_path, requests_mock
 ):
@@ -136,7 +136,7 @@ def test_snaplogic_source_default_configs(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snaplogic_source_create_non_snaplogic_datasets(
     pytestconfig, mock_datahub_graph, tmp_path, requests_mock
 ):
