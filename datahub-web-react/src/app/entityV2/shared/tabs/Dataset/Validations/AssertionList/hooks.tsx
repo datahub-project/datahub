@@ -1,4 +1,5 @@
 import { Typography } from 'antd';
+import { ColumnType } from 'antd/lib/table';
 import React, { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
@@ -6,7 +7,11 @@ import styled from 'styled-components';
 import { ActionsColumn } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTableColumns';
 import { AssertionName } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AssertionName';
 import { AcrylAssertionTagColumn } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Tags/AcrylAssertionTagColumn';
-import { AssertionListFilter } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import {
+    AssertionListFilter,
+    AssertionListTableRow,
+    AssertionTable,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { getAssertionGroupName } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
@@ -39,50 +44,59 @@ const TABLE_HEADER_HEIGHT = 50;
 
 export const useAssertionsTableColumns = ({ groupBy, contract, refetch }) => {
     return useMemo(() => {
-        const columns = [
+        const columns: ColumnType<AssertionListTableRow>[] = [
             {
                 title: 'Name',
                 dataIndex: 'name',
                 key: 'name',
-                render: (record) => <AssertionName record={record} groupBy={groupBy} contract={contract} />,
-                width: '42%',
+                render: (_value, record) => <AssertionName record={record} groupBy={groupBy} contract={contract} />,
+                width: '45%',
                 sorter: (a, b) => {
-                    return a - b;
+                    return a.description.localeCompare(b.description);
                 },
             },
             {
                 title: 'Category',
                 dataIndex: 'type',
                 key: 'type',
-                render: (record) =>
-                    !record.groupName && <CategoryType>{getAssertionGroupName(record?.type)}</CategoryType>,
+                render: (_value, record) =>
+                    !record.groupName &&
+                    record?.type && <CategoryType>{getAssertionGroupName(record.type)}</CategoryType>,
                 width: '10%',
+                sorter: (a, b) => {
+                    return a.description.localeCompare(b.description);
+                },
             },
             {
                 title: 'Last Run',
                 dataIndex: 'lastEvaluation',
                 key: 'lastEvaluation',
-                render: (record) => {
+                render: (_value, record) => {
                     return !record.groupName && <LastRun>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>;
                 },
                 width: '10%',
                 sorter: (sourceA, sourceB) => {
+                    if (!sourceA.lastEvaluationTimeMs || !sourceB.lastEvaluationTimeMs) {
+                        return 0;
+                    }
                     return sourceA.lastEvaluationTimeMs - sourceB.lastEvaluationTimeMs;
                 },
+                defaultSortOrder: 'descend',
             },
             {
                 title: 'Tags',
                 dataIndex: 'tags',
                 key: 'tags',
                 width: '20%',
-                render: (record) => !record.groupName && <AcrylAssertionTagColumn record={record} refetch={refetch} />,
+                render: (_value, record) =>
+                    !record.groupName && <AcrylAssertionTagColumn record={record} refetch={refetch} />,
             },
             {
                 title: '',
                 dataIndex: '',
                 key: 'actions',
                 width: '15%',
-                render: (record) => {
+                render: (_value, record) => {
                     return (
                         !record.groupName && (
                             <ActionsColumn
