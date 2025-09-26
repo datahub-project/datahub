@@ -830,7 +830,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Gradle and test-specific properties
           "org.gradle.internal.worker.tmpdir",
           "org.springframework.boot.test.context.SpringBootTestContextBootstrapper",
-          "datahub.policies.systemPolicyUrnList"
+          "datahub.policies.systemPolicyUrnList",
+
+          // Base Path
+          "datahub.basePath",
+          "server.servlet.context-path",
+          "datahub.gms.basePath"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to
