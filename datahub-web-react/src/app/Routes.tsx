@@ -1,6 +1,6 @@
 import { useReactiveVar } from '@apollo/client';
 import React from 'react';
-import { Route, RouteProps, Switch, useHistory, useLocation } from 'react-router-dom';
+import { Route, RouteProps, Switch, useLocation } from 'react-router-dom';
 
 import AppProviders from '@app/AppProviders';
 import { ProtectedRoutes } from '@app/ProtectedRoutes';
@@ -11,6 +11,7 @@ import { SignUp } from '@app/auth/SignUp';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { PageRoutes } from '@conf/Global';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 const ProtectedRoute = ({
     isLoggedIn,
@@ -18,11 +19,13 @@ const ProtectedRoute = ({
 }: {
     isLoggedIn: boolean;
 } & RouteProps) => {
-    const history = useHistory();
     const location = useLocation();
     const currentPath = location.pathname + location.search;
     if (!isLoggedIn) {
-        history.replace(`${PageRoutes.AUTHENTICATE}?redirect_uri=${encodeURIComponent(currentPath)}`);
+        // use window.location.replace to make an http request to frontend server, history.replace is for client-side navigation in React
+        window.location.replace(
+            `${resolveRuntimePath(PageRoutes.AUTHENTICATE)}?redirect_uri=${encodeURIComponent(currentPath)}`,
+        );
         return null;
     }
     return <Route {...props} />;
