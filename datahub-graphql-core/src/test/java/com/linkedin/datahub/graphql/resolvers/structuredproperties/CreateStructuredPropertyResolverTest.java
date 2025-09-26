@@ -15,10 +15,13 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletionException;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -56,8 +59,11 @@ public class CreateStructuredPropertyResolverTest {
     assertEquals(prop.getUrn(), TEST_STRUCTURED_PROPERTY_URN);
 
     // Validate that we called ingest
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpCaptor = ArgumentCaptor.forClass(List.class);
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .batchIngestProposals(any(), Mockito.anyList(), Mockito.eq(false));
+        .batchIngestProposals(any(), mcpCaptor.capture(), Mockito.eq(false));
+
+    assertEquals(mcpCaptor.getValue().size(), 1);
   }
 
   @Test
@@ -203,7 +209,30 @@ public class CreateStructuredPropertyResolverTest {
     assertEquals(prop.getUrn(), TEST_STRUCTURED_PROPERTY_URN);
 
     // Validate that we called ingest
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpCaptor = ArgumentCaptor.forClass(List.class);
     Mockito.verify(mockEntityClient, Mockito.times(1))
+        .batchIngestProposals(any(), mcpCaptor.capture(), Mockito.eq(false));
+
+    assertEquals(mcpCaptor.getValue().size(), 2);
+  }
+
+  @Test
+  public void testGetAlreadyExists() throws Exception {
+    EntityClient mockEntityClient = initMockEntityClient(true);
+    Mockito.when(mockEntityClient.exists(any(), any())).thenReturn(true);
+    CreateStructuredPropertyResolver resolver =
+        new CreateStructuredPropertyResolver(mockEntityClient);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    // Validate that we did NOT call ingest
+    Mockito.verify(mockEntityClient, Mockito.times(0))
         .batchIngestProposals(any(), Mockito.anyList(), Mockito.eq(false));
   }
 
@@ -230,6 +259,7 @@ public class CreateStructuredPropertyResolverTest {
                   Mockito.eq(null)))
           .thenThrow(new RemoteInvocationException());
     }
+    Mockito.when(client.exists(any(), any())).thenReturn(false);
 
     return client;
   }

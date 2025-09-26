@@ -80,7 +80,9 @@ public class UpdateStructuredPropertyResolver
               mcps.add(updateSettings(context, input.getSettings(), propertyUrn, entityResponse));
             }
 
-            _entityClient.batchIngestProposals(context.getOperationContext(), mcps, false);
+            if (!mcps.isEmpty()) {
+              _entityClient.batchIngestProposals(context.getOperationContext(), mcps, false);
+            }
 
             EntityResponse response =
                 _entityClient.getV2(
@@ -112,6 +114,12 @@ public class UpdateStructuredPropertyResolver
     }
     if (settingsInput.getShowInAssetSummary() != null
         && !existingSettings.isShowInAssetSummary().equals(settingsInput.getShowInAssetSummary())) {
+      return true;
+    }
+    if (settingsInput.getHideInAssetSummaryWhenEmpty() != null
+        && !existingSettings
+            .isHideInAssetSummaryWhenEmpty()
+            .equals(settingsInput.getHideInAssetSummaryWhenEmpty())) {
       return true;
     }
     if (settingsInput.getShowAsAssetBadge() != null
@@ -147,6 +155,10 @@ public class UpdateStructuredPropertyResolver
     }
     if (settingsInput.getShowInAssetSummary() != null) {
       existingSettings.setShowInAssetSummary(settingsInput.getShowInAssetSummary());
+    }
+    if (settingsInput.getHideInAssetSummaryWhenEmpty() != null) {
+      existingSettings.setHideInAssetSummaryWhenEmpty(
+          settingsInput.getHideInAssetSummaryWhenEmpty());
     }
     if (settingsInput.getShowAsAssetBadge() != null) {
       existingSettings.setShowAsAssetBadge(settingsInput.getShowAsAssetBadge());

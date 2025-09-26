@@ -115,6 +115,9 @@ public class CreateStructuredPropertyResolver
     if (settingsInput.getShowInAssetSummary() != null) {
       settings.setShowInAssetSummary(settingsInput.getShowInAssetSummary());
     }
+    if (settingsInput.getHideInAssetSummaryWhenEmpty() != null) {
+      settings.setHideInAssetSummaryWhenEmpty(settingsInput.getHideInAssetSummaryWhenEmpty());
+    }
     if (settingsInput.getShowAsAssetBadge() != null) {
       settings.setShowAsAssetBadge(settingsInput.getShowAsAssetBadge());
     }
