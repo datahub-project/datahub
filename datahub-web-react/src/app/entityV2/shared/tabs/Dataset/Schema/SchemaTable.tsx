@@ -473,8 +473,6 @@ export default function SchemaTable({
         setSortedDisplayedRows(sortedrows);
     };
 
-    console.log('table height', tableHeight);
-
     return (
         <>
             <TableContainer
