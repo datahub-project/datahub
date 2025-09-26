@@ -272,6 +272,64 @@ class _OwnerFilter(_BaseFilter):
         return [{"and": [self._build_rule()]}]
 
 
+class _GlossaryTermFilter(_BaseFilter):
+    """Filter for entities associated with specific glossary terms."""
+
+    glossary_term: List[str] = pydantic.Field(
+        description="The glossary term to filter on. Should be glossary term URNs.",
+    )
+
+    @pydantic.validator("glossary_term", each_item=True)
+    def validate_glossary_term(cls, v: str) -> str:
+        if not v.startswith("urn:li:"):
+            raise ValueError(f"Glossary term must be a valid URN, got: {v}")
+        # Validate that it's a glossary term URN
+        _type = guess_entity_type(v)
+        if _type != "glossaryTerm":
+            raise ValueError(
+                f"Glossary term must be a valid glossary term URN, got: {v}"
+            )
+        return v
+
+    def _build_rule(self) -> SearchFilterRule:
+        return SearchFilterRule(
+            field="glossaryTerms",
+            condition="EQUAL",
+            values=self.glossary_term,
+        )
+
+    def compile(self) -> _OrFilters:
+        return [{"and": [self._build_rule()]}]
+
+
+class _TagFilter(_BaseFilter):
+    """Filter for entities associated with specific tags."""
+
+    tag: List[str] = pydantic.Field(
+        description="The tag to filter on. Should be tag URNs.",
+    )
+
+    @pydantic.validator("tag", each_item=True)
+    def validate_tag(cls, v: str) -> str:
+        if not v.startswith("urn:li:"):
+            raise ValueError(f"Tag must be a valid URN, got: {v}")
+        # Validate that it's a tag URN
+        _type = guess_entity_type(v)
+        if _type != "tag":
+            raise ValueError(f"Tag must be a valid tag URN, got: {v}")
+        return v
+
+    def _build_rule(self) -> SearchFilterRule:
+        return SearchFilterRule(
+            field="tags",
+            condition="EQUAL",
+            values=self.tag,
+        )
+
+    def compile(self) -> _OrFilters:
+        return [{"and": [self._build_rule()]}]
+
+
 class _CustomCondition(_BaseFilter):
     """Represents a single field condition."""
 
@@ -445,6 +503,8 @@ if TYPE_CHECKING or not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR:
         _ContainerFilter,
         _EnvFilter,
         _OwnerFilter,
+        _GlossaryTermFilter,
+        _TagFilter,
         _CustomCondition,
     ]
 
@@ -487,6 +547,10 @@ else:
                 ],
                 Annotated[_EnvFilter, Tag(_EnvFilter._field_discriminator())],
                 Annotated[_OwnerFilter, Tag(_OwnerFilter._field_discriminator())],
+                Annotated[
+                    _GlossaryTermFilter, Tag(_GlossaryTermFilter._field_discriminator())
+                ],
+                Annotated[_TagFilter, Tag(_TagFilter._field_discriminator())],
                 Annotated[
                     _CustomCondition, Tag(_CustomCondition._field_discriminator())
                 ],
@@ -593,6 +657,20 @@ class FilterDsl:
     @staticmethod
     def owner(owner: Union[str, Sequence[str]], /) -> _OwnerFilter:
         return _OwnerFilter(owner=[owner] if isinstance(owner, str) else owner)
+
+    @staticmethod
+    def glossary_term(
+        glossary_term: Union[str, Sequence[str]], /
+    ) -> _GlossaryTermFilter:
+        return _GlossaryTermFilter(
+            glossary_term=[glossary_term]
+            if isinstance(glossary_term, str)
+            else glossary_term
+        )
+
+    @staticmethod
+    def tag(tag: Union[str, Sequence[str]], /) -> _TagFilter:
+        return _TagFilter(tag=[tag] if isinstance(tag, str) else tag)
 
     @staticmethod
     def has_custom_property(key: str, value: str) -> _CustomCondition:
