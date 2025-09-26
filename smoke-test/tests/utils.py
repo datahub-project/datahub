@@ -47,9 +47,11 @@ def get_base_path():
     base_path = os.getenv("DATAHUB_BASE_PATH", "")
     return "" if base_path == "/" else base_path
 
+
 def get_gms_base_path():
     base_gms_path = os.getenv("DATAHUB_GMS_BASE_PATH", "")
     return "" if base_gms_path == "/" else base_gms_path
+
 
 def get_root_urn():
     return "urn:li:corpuser:datahub"
