@@ -5,6 +5,7 @@ from functools import lru_cache
 from typing import List, Union
 
 import mlflow
+from datahub.utilities.perf_timer import PerfTimer
 from loguru import logger
 
 from datahub_integrations.chat.chat_history import (
@@ -44,6 +45,7 @@ class ContextReducerConfig:
 @dataclass
 class ReductionMetadata:
     reducer_name: str
+    time_in_seconds: float
 
     num_tokens_before: int
     num_tokens_after: int
@@ -101,11 +103,14 @@ class ChatContextReducer(ABC):
 
         logger.info(f"Estimated tokens: {num_tokens_before}")
 
-        with mlflow.start_span(
-            f"reduce_history_{self.__class__.__name__}",
-            span_type=mlflow.entities.SpanType.TOOL,
-            attributes={"reducer_name": self.__class__.__name__},
-        ) as span:
+        with (
+            mlflow.start_span(
+                f"reduce_history_{self.__class__.__name__}",
+                span_type=mlflow.entities.SpanType.TOOL,
+                attributes={"reducer_name": self.__class__.__name__},
+            ) as span,
+            PerfTimer() as perf_timer,
+        ):
             logger.info(f"Reducing history with {self.__class__.__name__}")
             try:
                 reduced_history = self._reduce(history)
@@ -115,6 +120,7 @@ class ChatContextReducer(ABC):
 
                 reduction_metadata = ReductionMetadata(
                     reducer_name=self.__class__.__name__,
+                    time_in_seconds=perf_timer.elapsed_seconds(),
                     num_tokens_before=num_tokens_before,
                     num_tokens_after=num_tokens_after,
                     num_messages_before=num_messages_before,
@@ -130,7 +136,9 @@ class ChatContextReducer(ABC):
     def adjust_remaining_messages(
         self, remaining_messages: List[Message]
     ) -> List[Message]:
-        if isinstance(remaining_messages[0], (ToolResult, ToolResultError)):
+        if len(remaining_messages) > 0 and isinstance(
+            remaining_messages[0], (ToolResult, ToolResultError)
+        ):
             return [remaining_messages[0].tool_request] + remaining_messages
         return remaining_messages
 
