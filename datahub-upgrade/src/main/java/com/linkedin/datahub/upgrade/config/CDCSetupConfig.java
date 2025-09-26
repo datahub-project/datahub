@@ -32,7 +32,7 @@ public class CDCSetupConfig {
    * @param kafkaProperties Kafka connection properties
    * @return CDC setup implementation or null if CDC is disabled or misconfigured
    */
-  @Order(3)
+  @Order(Integer.MAX_VALUE)
   @Bean(name = "cdcSetup")
   public BlockingSystemUpgrade cdcSetup(
       final ConfigurationProvider configurationProvider, final KafkaProperties kafkaProperties) {
