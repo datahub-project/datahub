@@ -1277,6 +1277,12 @@ public class OpenAPIV3Generator {
     properties.put(
         PROPERTY_URN,
         newSchema().type(TYPE_STRING).description("Unique id for " + entity.getName()));
+    // Per-element scrollId for pagination (search-after token)
+    properties.put(
+        NAME_SCROLL_ID,
+        newSchema()
+            .types(TYPE_STRING_NULLABLE)
+            .description("Per-entity scroll id for pagination."));
 
     final Map<String, Schema> aspectProperties =
         entity.getAspectSpecMap().entrySet().stream()
@@ -1349,6 +1355,12 @@ public class OpenAPIV3Generator {
                             a.getValue().getPegasusSchema().getName(), withSystemMetadata)));
     properties.put(
         PROPERTY_URN, newSchema().type(TYPE_STRING).description("Unique id for " + ENTITIES));
+    // Per-element scrollId for pagination (search-after token)
+    properties.put(
+        NAME_SCROLL_ID,
+        newSchema()
+            .types(TYPE_STRING_NULLABLE)
+            .description("Per-entity scroll id for pagination."));
 
     return newSchema()
         .type(TYPE_OBJECT)
