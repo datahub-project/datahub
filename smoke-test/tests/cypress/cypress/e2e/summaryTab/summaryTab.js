@@ -76,17 +76,18 @@ function testTemplateSection(defaultModules, modulesAvailableToAdd) {
   // Check default modules
   defaultModules.forEach((module) => utils.ensureModuleExist(module));
 
-  // Delete modules
-  defaultModules.forEach((module) => utils.deleteModule(module));
-  defaultModules.forEach((module) => utils.ensureModuleDoesNotExist(module));
+  // SaaS-only tests
+  // // Delete modules
+  // defaultModules.forEach((module) => utils.deleteModule(module));
+  // defaultModules.forEach((module) => utils.ensureModuleDoesNotExist(module));
 
-  // Check modules available to add
-  utils.ensureModulesAvailableToAdd(modulesAvailableToAdd);
+  // // Check modules available to add
+  // utils.ensureModulesAvailableToAdd(modulesAvailableToAdd);
 
-  // Add the first default module
-  const moduleToAdd = defaultModules[0];
-  utils.addModule(moduleToAdd);
-  utils.ensureModuleExist(moduleToAdd);
+  // // Add the first default module
+  // const moduleToAdd = defaultModules[0];
+  // utils.addModule(moduleToAdd);
+  // utils.ensureModuleExist(moduleToAdd);
 }
 
 const ADDITIONAL_MODULES_AVAILABLE_TO_ADD = [
