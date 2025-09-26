@@ -71,6 +71,7 @@ const PaginationInfoContainer = styled.span`
     padding-left: 16px;
     border-top: 1px solid;
     border-color: ${(props) => props.theme.styles['border-color-base']};
+    background-color: ${REDESIGN_COLORS.WHITE};
     display: flex;
     justify-content: space-between;
     align-items: center;
