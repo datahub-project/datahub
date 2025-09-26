@@ -19,7 +19,6 @@ import {
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
-import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -176,7 +175,7 @@ export const ManageIngestionPage = () => {
         [history],
     );
 
-    const getCurrentUrl = useCallback(() => removeRuntimePath(window.location.pathname), []);
+    const getCurrentUrl = useCallback(() => location.pathname, [location.pathname]);
 
     const handleCreateSource = () => {
         setShowCreateSourceModal(true);

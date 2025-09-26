@@ -19,7 +19,6 @@ import { useSetAppTheme } from '@app/useSetAppTheme';
 import { useSetNavBarRedesignEnabled } from '@app/useShowNavBarRedesign';
 import { NEW_ROUTE_MAP, PageRoutes } from '@conf/Global';
 import { getRedirectUrl } from '@conf/utils';
-import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 const StyledLayout = styled(Layout)`
     background-color: transparent;

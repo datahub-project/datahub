@@ -2,6 +2,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Icon, Modal, Pill } from '@components';
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router';
 
 import { Tab, Tabs } from '@components/components/Tabs/Tabs';
 
@@ -18,7 +19,6 @@ import {
 } from '@app/ingestV2/executions/utils';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
 import { Message } from '@app/shared/Message';
-import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
@@ -36,6 +36,7 @@ type Props = {
 
 export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     const { data, loading, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
+    const location = useLocation();
     const result = data?.executionRequest?.result as Partial<ExecutionRequestResult>;
     const status = getIngestionSourceStatus(result);
     const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Summary);
@@ -133,7 +134,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
                 tabs={tabs}
                 selectedTab={selectedTab}
                 onChange={(tab) => selectTab(tab as TabType)}
-                getCurrentUrl={() => removeRuntimePath(window.location.pathname)}
+                getCurrentUrl={() => location.pathname}
                 scrollToTopOnChange
                 maxHeight="80vh"
                 stickyHeader

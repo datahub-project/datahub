@@ -2,7 +2,6 @@ import { Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import datahubPlatforms from '@images/datahub-platforms.svg';
 import dataHubIcon from '@images/datahublogo.png';
