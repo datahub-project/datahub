@@ -90,16 +90,9 @@ export default defineConfig(async ({ mode }) => {
     // Standard API endpoints that need proxying
     const apiEndpoints = [
         '/logIn',
-        '/login',
-        '/signUp',
-        '/resetNativeUserCredentials',
         '/authenticate',
-        '/sso',
-        '/logOut',
         '/api/v2/graphql',
         '/openapi/v1/tracking/track',
-        '/assets',
-        '/config',  // Add config endpoint for base path detection
     ];
 
     const proxyOptions = {};
