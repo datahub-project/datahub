@@ -3,7 +3,6 @@ import { DotsThreeVertical } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
 
-import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { ContractAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ContractAction';
 import { CopyLinkAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/CopyLinkAction';
 import { CopyUrnAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/CopyUrnAction';
@@ -14,7 +13,6 @@ import { StartStopAction } from '@app/entityV2/shared/tabs/Dataset/Validations/a
 import { SubscribeAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/SubscribeAction';
 import { useIsOnSiblingsView } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { Button, colors } from '@src/alchemy-components';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { useAppConfig } from '@src/app/useAppConfig';
 
 import { Assertion, AssertionRunStatus, AssertionSourceType, DataContract, Monitor } from '@types';
@@ -37,6 +35,7 @@ type Props = {
     canEditContract: boolean;
     refetch?: () => void;
     shouldRightAlign?: boolean;
+    isEntityReachable: boolean;
 };
 
 export const AssertionListItemActions = ({
@@ -48,16 +47,15 @@ export const AssertionListItemActions = ({
     canEditContract,
     refetch,
     shouldRightAlign,
+    isEntityReachable,
 }: Props) => {
     const isSiblingsView = useIsOnSiblingsView();
     const mostRun = assertion.runEvents?.runEvents;
     const externalUrl =
         assertion?.info?.externalUrl ||
         (mostRun?.length && mostRun[0].status === AssertionRunStatus.Complete && mostRun[0].result?.externalUrl);
-    const { urn: entityUrn } = useEntityData();
     const { config } = useAppConfig();
     const isRunAssertionsEnabled = config?.featureFlags?.runAssertionsEnabled;
-    const isReachable = useConnectionWithRunAssertionCapabilitiesForEntityExists(entityUrn ?? '');
     const isNonNative = assertion.info?.source?.type !== AssertionSourceType.Native;
     const menu = (
         <Menu>
@@ -78,7 +76,7 @@ export const AssertionListItemActions = ({
                     <ExternalUrlAction assertion={assertion} isExpandedView />
                 </Menu.Item>
             ) : null}
-            {isRunAssertionsEnabled && monitor && !isNonNative && isReachable ? (
+            {isRunAssertionsEnabled && monitor && !isNonNative && isEntityReachable ? (
                 <Menu.Item key="3">
                     <RunAction
                         assertion={assertion}

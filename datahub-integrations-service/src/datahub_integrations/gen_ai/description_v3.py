@@ -5,6 +5,7 @@ import os
 from typing import Dict, List, Optional, Tuple
 
 import asyncer
+import cachetools
 import mlflow
 import more_itertools
 import tenacity
@@ -142,6 +143,88 @@ Generate descriptions for only the following {num_columns} columns:
 {columns}
 """
 
+
+@cachetools.cached(cache=cachetools.TTLCache(maxsize=1, ttl=60 * 5))
+def get_extra_documentation_instructions(graph: DataHubGraph) -> Optional[str]:
+    """
+    Retrieve optional documentation AI instructions from GraphQL API.
+
+    Instructions are cached for 5 minutes via TTLCache decorator.
+    Fetches the most recent ACTIVE GENERAL_CONTEXT instruction from global documentation AI settings.
+
+    Args:
+        graph: DataHub graph client to use for GraphQL queries
+
+    Returns:
+        Optional extra instructions string, or None if not configured.
+
+    Raises:
+        Exception: If GraphQL call fails
+    """
+    query = """
+    query getGlobalSettings {
+        globalSettings {
+            documentationAi {
+                instructions {
+                    id
+                    type
+                    state
+                    instruction
+                    lastModified {
+                        time
+                        actor
+                    }
+                }
+            }
+        }
+    }
+    """
+
+    try:
+        response = graph.execute_graphql(query)
+
+        # Extract documentation AI instructions
+        global_settings = response.get("globalSettings")
+        if not global_settings:
+            return None
+
+        documentation_ai = global_settings.get("documentationAi")
+        if not documentation_ai:
+            return None
+
+        instructions = documentation_ai.get("instructions", [])
+
+        # Filter for GENERAL_CONTEXT and ACTIVE instructions
+        valid_instructions = [
+            instr
+            for instr in instructions
+            if (
+                instr.get("type") == "GENERAL_CONTEXT"
+                and instr.get("state") == "ACTIVE"
+            )
+        ]
+
+        if not valid_instructions:
+            logger.info("no extra instructions found")
+            return None
+
+        logger.info("found extra instructions")
+        # Use the last item from the array as the most recent instruction
+        latest_instruction = valid_instructions[-1]
+        instruction_text = latest_instruction.get("instruction")
+
+        if instruction_text and instruction_text.strip():
+            return instruction_text.strip()
+        else:
+            return None
+
+    except Exception as e:
+        # GraphQL call failed - re-raise the exception as per requirements
+        raise Exception(
+            f"Failed to fetch documentation AI instructions from GraphQL: {str(e)}"
+        ) from e
+
+
 CURRENT_MODEL: BedrockModel | str = get_bedrock_model_env_variable(
     "DESCRIPTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_3_HAIKU
 )
@@ -242,15 +325,20 @@ def generate_entity_descriptions_for_urn(
     entity = graph_client.get_entity_semityped(urn)
     extracted_entity_info = extract_metadata_for_urn(entity, urn, graph_client)
 
+    # Resolve extra instructions at entry point
+    extra_instructions = get_extra_documentation_instructions(graph_client)
+
     return generate_entity_descriptions_for_urn_eval_v3(
         urn,
         extracted_entity_info,
+        extra_instructions=extra_instructions,
     )
 
 
 def generate_entity_descriptions_for_urn_eval_v3(
     urn: str,
     extracted_entity_info: ExtractedTableInfo,
+    extra_instructions: Optional[str] = None,
 ) -> EntityDescriptionResult:
     table_info, column_infos = transform_table_info_for_llm(extracted_entity_info)
 
@@ -270,7 +358,7 @@ def generate_entity_descriptions_for_urn_eval_v3(
 
     try:
         table_description = generate_table_description(
-            table_info, simplified_column_infos
+            table_info, simplified_column_infos, extra_instructions
         )
         if table_description is not None:
             column_descriptions, failure_reason_columns = (
@@ -278,6 +366,7 @@ def generate_entity_descriptions_for_urn_eval_v3(
                     table_info,
                     simplified_column_infos,
                     table_description,
+                    extra_instructions,
                 )
             )
 
@@ -305,10 +394,11 @@ def generate_all_columns_description(
     table_info: TableInfo,
     column_infos: Dict[str, ColumnMetadataInfo],
     table_description: str,
+    extra_instructions: Optional[str] = None,
 ) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
     column_descriptions, failure_reason_columns = asyncer.syncify(
         generate_column_descriptions, raise_sync_error=False
-    )(table_info, column_infos, table_description)
+    )(table_info, column_infos, table_description, extra_instructions)
 
     return column_descriptions, failure_reason_columns
 
@@ -324,7 +414,9 @@ _MAX_ATTEMPTS = 3  # Original attempt + 2 retries
     ),
 )
 def generate_table_description(
-    table_info: TableInfo, column_infos: Dict[str, ColumnMetadataInfo]
+    table_info: TableInfo,
+    column_infos: Dict[str, ColumnMetadataInfo],
+    extra_instructions: Optional[str] = None,
 ) -> Optional[str]:
     formatted_common_context = PROMPT_COMMON_CONTEXT.format(
         table_info=table_info.model_dump(exclude_none=True),
@@ -340,21 +432,36 @@ def generate_table_description(
         },
     )
 
-    entity_descriptions = call_bedrock_llm(
-        prompt=[
+    # Build the prompt messages
+    messages = [
+        BedrockPromptMessage(
+            text=formatted_common_context,
+            cache=True,
+        ),
+        BedrockPromptMessage(
+            text=formatted_columns_context,
+            cache=True,
+        ),
+    ]
+
+    messages.append(
+        BedrockPromptMessage(
+            text=TABLE_DESC_PROMPT,
+            cache=False,
+        )
+    )
+
+    # Add extra instructions if provided
+    if extra_instructions:
+        messages.append(
             BedrockPromptMessage(
-                text=formatted_common_context,
-                cache=True,
-            ),
-            BedrockPromptMessage(
-                text=formatted_columns_context,
-                cache=True,
-            ),
-            BedrockPromptMessage(
-                text=TABLE_DESC_PROMPT,
+                text=f"\nADDITIONAL REQUIREMENTS:\n{extra_instructions}\n",
                 cache=False,
-            ),
-        ],
+            )
+        )
+
+    entity_descriptions = call_bedrock_llm(
+        prompt=messages,
         max_tokens=4096,
         model=CURRENT_MODEL,
     )
@@ -371,6 +478,7 @@ async def generate_column_descriptions(
     table_info: TableInfo,
     column_infos: Dict[str, ColumnMetadataInfo],
     generated_table_description: str,
+    extra_instructions: Optional[str] = None,
 ) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
     batch_failure_reason = None
     all_column_names = list(column_infos.keys())
@@ -391,6 +499,7 @@ async def generate_column_descriptions(
                     generated_table_description,
                     column_splits[i],
                     i,
+                    extra_instructions,
                 )
             )
 
@@ -435,6 +544,7 @@ async def generate_column_batch_descriptions(
     generated_table_description: str,
     columns_batch: List[str],
     i: int,
+    extra_instructions: Optional[str] = None,
 ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
     logger.debug(f"Starting batch {i} description generation")
     formatted_common_context = PROMPT_COMMON_CONTEXT.format(
@@ -458,20 +568,36 @@ async def generate_column_batch_descriptions(
     )
     try:
         logger.debug(f"Calling LLM for batch {i}")
-        column_descriptions_raw = await asyncer.asyncify(call_bedrock_llm)(
-            prompt=[
+
+        # Build the prompt messages
+        messages = [
+            BedrockPromptMessage(
+                text=formatted_common_context,
+                cache=True,
+            ),
+            BedrockPromptMessage(
+                text=formatted_columns_context,
+            ),
+        ]
+
+        messages.append(
+            BedrockPromptMessage(
+                text=formatted_column_prompt,
+                cache=False,
+            )
+        )
+
+        # Add extra instructions if provided
+        if extra_instructions:
+            messages.append(
                 BedrockPromptMessage(
-                    text=formatted_common_context,
-                    cache=True,
-                ),
-                BedrockPromptMessage(
-                    text=formatted_columns_context,
-                ),
-                BedrockPromptMessage(
-                    text=formatted_column_prompt,
+                    text=f"\nADDITIONAL REQUIREMENTS:\n{extra_instructions}\n",
                     cache=False,
-                ),
-            ],
+                )
+            )
+
+        column_descriptions_raw = await asyncer.asyncify(call_bedrock_llm)(
+            prompt=messages,
             max_tokens=4096,
             model=CURRENT_MODEL,
         )
