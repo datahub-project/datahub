@@ -117,11 +117,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
             )}
             <div className={styles.login_box}>
                 <div className={styles.login_logo_box}>
-                    <Image
-                        wrapperClassName={styles.logo_image}
-                        src={themeConfig.assets?.logoUrl ? themeConfig.assets.logoUrl : undefined}
-                        preview={false}
-                    />
+                    <Image wrapperClassName={styles.logo_image} src={themeConfig.assets?.logoUrl} preview={false} />
                 </div>
                 <div className={styles.login_form_box}>
                     {loading && <Message type="loading" content="Logging in..." />}
@@ -159,13 +155,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
                         </Form.Item>
                     </Form>
                     <SsoDivider />
-                    <SsoButton
-                        type="primary"
-                        href={resolveRuntimePath('/sso')}
-                        block
-                        htmlType="submit"
-                        className={styles.sso_button}
-                    >
+                    <SsoButton type="primary" href="/sso" block htmlType="submit" className={styles.sso_button}>
                         <LoginLogo />
                         <SsoTextSpan>Sign in with SSO</SsoTextSpan>
                         <span />

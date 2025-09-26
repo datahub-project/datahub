@@ -66,7 +66,7 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
                         {!platformLogoUrl && !showSiblingPlatformLogos && entityLogoComponent}
                         {!!platformLogoUrl && !showSiblingPlatformLogos && (
                             <ImageWithColoredBackground
-                                src={platformLogoUrl ? platformLogoUrl : undefined}
+                                src={platformLogoUrl}
                                 alt={platformName || ''}
                                 borderRadius={10}
                                 backgroundSize={backgroundSize}

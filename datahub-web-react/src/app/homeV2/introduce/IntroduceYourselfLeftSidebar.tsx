@@ -2,7 +2,6 @@ import { Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-
 import datahubPlatforms from '@images/datahub-platforms.svg';
 import dataHubIcon from '@images/datahublogo.png';
 
@@ -12,7 +11,7 @@ const Container = styled.div`
     justify-content: space-between;
     max-width: 470px;
     padding: 52px 65px 65px 52px;
-    background: #191d2e url(${() => datahubPlatforms}) no-repeat bottom left;
+    background: #191d2e url(${datahubPlatforms}) no-repeat bottom left;
 `;
 
 const Title = styled.div`

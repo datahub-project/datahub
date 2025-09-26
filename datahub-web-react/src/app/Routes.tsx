@@ -40,7 +40,6 @@ export const Routes = (): JSX.Element => {
             <Route path={PageRoutes.LOG_IN} component={LogIn} />
             <Route path={PageRoutes.SIGN_UP} component={SignUp} />
             <Route path={PageRoutes.RESET_CREDENTIALS} component={ResetCredentials} />
-            <Route path={PageRoutes.AUTHENTICATE} component={LogIn} />
             <ProtectedRoute
                 isLoggedIn={isLoggedIn}
                 render={() => (

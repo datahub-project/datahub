@@ -289,7 +289,7 @@ export const NavSidebar = () => {
                         type: NavBarMenuItemTypes.DropdownElement,
                         title: 'GraphQL',
                         description: 'Explore the GraphQL API',
-                        link: HelpLinkRoutes.GRAPHIQL ? resolveRuntimePath(HelpLinkRoutes.GRAPHIQL) : null,
+                        link: resolveRuntimePath(HelpLinkRoutes.GRAPHIQL),
                         isExternalLink: true,
                         key: 'helpGraphQL',
                     },

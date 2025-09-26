@@ -29,11 +29,7 @@ export const AssertionPlatformAvatar = ({ platform, externalUrl, noRightMargin }
                             preview={false}
                             height={24}
                             width={24}
-                            src={
-                                platform.properties?.logoUrl
-                                    ? platform.properties.logoUrl
-                                    : undefined
-                            }
+                            src={platform.properties?.logoUrl}
                             style={{ objectFit: 'fill', borderRadius: 12 }}
                         />
                     )) || (

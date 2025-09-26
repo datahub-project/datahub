@@ -13,6 +13,7 @@ export const BulkNavigationWrapper = styled.div<{ $hideBackground?: boolean }>`
     ${(props) =>
         !props.$hideBackground &&
         `
+        background-image: url(${BackgroundDots});
         background-position: right;
         background-repeat: no-repeat;
     `}

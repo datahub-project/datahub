@@ -146,11 +146,7 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                                     preview={false}
                                     height={20}
                                     width={20}
-                                    src={
-                                        record.platform.properties?.logoUrl
-                                            ? record.platform.properties.logoUrl
-                                            : undefined
-                                    }
+                                    src={record.platform.properties?.logoUrl}
                                 />
                             )) || (
                                 <Typography.Text>

@@ -80,9 +80,7 @@ export const WelcomeToDataHubModal = () => {
             const loadVideo = async (videoKey: keyof VideoSources, importPromise: Promise<{ default: string }>) => {
                 try {
                     const module = await importPromise;
-                    setVideoSources((prev) =>
-                        prev ? { ...prev, [videoKey]: (module.default) } : prev,
-                    );
+                    setVideoSources((prev) => (prev ? { ...prev, [videoKey]: module.default } : prev));
                 } catch (error) {
                     console.error(`Failed to load ${videoKey} video:`, error);
                 }

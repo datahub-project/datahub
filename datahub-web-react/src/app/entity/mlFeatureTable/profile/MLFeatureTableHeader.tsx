@@ -52,11 +52,7 @@ export default function MLFeatureTableHeader({ mlFeatureTable: { platform, descr
                                 {platform.properties?.logoUrl ? (
                                     <PreviewImage
                                         preview={false}
-                                        src={
-                                            platform.properties?.logoUrl
-                                                ? platform.properties.logoUrl
-                                                : undefined
-                                        }
+                                        src={platform.properties?.logoUrl}
                                         placeholder
                                         alt={platformName}
                                     />

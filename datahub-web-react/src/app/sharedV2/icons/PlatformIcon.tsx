@@ -57,7 +57,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     const [background, setBackground] = useState<string | undefined>(undefined);
     const imgRef = useRef<HTMLImageElement>(null);
     const entityRegistry = useEntityRegistry();
-    const logoUrl = platform?.properties?.logoUrl ? platform.properties.logoUrl : undefined;
+    const logoUrl = platform?.properties?.logoUrl;
 
     const handleError = useCallback(() => {
         const img = imgRef.current;

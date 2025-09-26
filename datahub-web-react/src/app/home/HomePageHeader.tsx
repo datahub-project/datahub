@@ -259,7 +259,7 @@ export const HomePageHeader = () => {
                 <Image
                     src={
                         appConfig.config !== DEFAULT_APP_CONFIG
-                            ? (appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl)
+                            ? appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl
                             : undefined
                     }
                     preview={false}

@@ -44,11 +44,7 @@ export const PlatformList = ({ content, onClick }: Props) => {
                             capitalizeFirstLetterOnly(platform.platform.name) ||
                             ''
                         }
-                        logoUrl={
-                            platform.platform.properties?.logoUrl
-                                ? platform.platform.properties.logoUrl
-                                : ''
-                        }
+                        logoUrl={platform.platform.properties?.logoUrl || ''}
                         count={platform.count}
                     />
                 </Link>

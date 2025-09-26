@@ -69,12 +69,7 @@ export default function ActorAvatar({
             {name.charAt(0).toUpperCase()}
         </AvatarStyled>
     ) : (
-        <AvatarStyled
-            src={defaultAvatar}
-            style={style}
-            size={size}
-            $backgroundColor={getAvatarColor(name)}
-        />
+        <AvatarStyled src={defaultAvatar} style={style} size={size} $backgroundColor={getAvatarColor(name)} />
     );
     const avatarWithDefault = useDefaultAvatar ? (
         <AvatarStyled
