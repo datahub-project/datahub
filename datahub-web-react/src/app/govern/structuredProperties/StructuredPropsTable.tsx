@@ -105,6 +105,7 @@ const StructuredPropsTable = ({
                     showInSearchFilters: deleteEntity.settings?.showInSearchFilters ?? false,
                     showAsAssetBadge: deleteEntity.settings?.showAsAssetBadge ?? false,
                     showInAssetSummary: deleteEntity.settings?.showInAssetSummary ?? false,
+                    hideInAssetSummaryWhenEmpty: deleteEntity.settings?.hideInAssetSummaryWhenEmpty ?? false,
                     showInColumnsTable: deleteEntity.settings?.showInColumnsTable ?? false,
                 });
                 showToastMessage(ToastType.SUCCESS, 'Structured property deleted successfully!', 3);

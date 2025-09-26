@@ -150,6 +150,12 @@ type StructuredPropertySettings {
   showInAssetSummary: Boolean!
 
   """
+  Whether or not this asset should be hidden in the asset sidebar (showInAssetSummary should be enabled)
+  when its value is empty
+  """
+  hideInAssetSummaryWhenEmpty: Boolean!
+
+  """
   Whether or not this asset should be displayed as an asset badge on other asset's headers
   """
   showAsAssetBadge: Boolean!
@@ -560,6 +566,12 @@ input StructuredPropertySettingsInput {
   Whether or not this asset should be displayed in the asset sidebar
   """
   showInAssetSummary: Boolean
+
+  """
+  Whether or not this asset should be hidden in the asset sidebar (showInAssetSummary should be enabled)
+  when its value is empty
+  """
+  hideInAssetSummaryWhenEmpty: Boolean
 
   """
   Whether or not this asset should be displayed as an asset badge on other asset's headers

@@ -10,9 +10,11 @@ export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement
     isDisabled?: boolean;
     isIntermediate?: boolean;
     isRequired?: boolean;
-    onCheckboxChange?: () => void;
+    onCheckboxChange?: (isChecked: boolean) => void;
     size?: SizeOptions;
     dataTestId?: string;
+    justifyContent?: 'center' | 'flex-start';
+    shouldHandleLabelClicks?: boolean;
 }
 
 export interface CheckboxGroupProps {

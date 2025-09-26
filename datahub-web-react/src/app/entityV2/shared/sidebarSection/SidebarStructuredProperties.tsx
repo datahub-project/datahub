@@ -102,10 +102,30 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
     return (
         <>
             {entityTypeProperties?.map((property) => {
+                const structuredProperty = property.entity as StructuredPropertyEntity;
                 const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
                 const isRichText = propertyRow?.dataType?.info?.type === StdDataType.RichText;
                 const values = propertyRow?.values;
-                const propertyName = getDisplayName(property.entity as StructuredPropertyEntity);
+                const propertyName = getDisplayName(structuredProperty);
+                const shouldHideIfPropertyIsEmpty = structuredProperty.settings?.hideInAssetSummaryWhenEmpty;
+
+                console.log('>>> PROPERTY', {
+                    propertyRow,
+                    values,
+                    shouldHideIfPropertyIsEmpty,
+                    property,
+                    allProperties,
+                    structuredProperty,
+                })
+
+                if (shouldHideIfPropertyIsEmpty) {
+                    if (!values) {
+                        return null;
+                    }
+                }
+
+                
+                
 
                 return (
                     <>
