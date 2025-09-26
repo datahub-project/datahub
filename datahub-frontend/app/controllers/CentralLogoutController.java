@@ -22,13 +22,14 @@ public class CentralLogoutController extends LogoutController {
   @Inject private SsoManager ssoManager;
   @Inject private Config config;
 
-  private final String basePath = getBasePath();
+  private final String basePath;
 
   public CentralLogoutController() {
     // Note: URLs will be set dynamically in executeLogout method
     // since we need config access for base path
     setLocalLogout(true);
     setCentralLogout(true);
+    basePath = getBasePath();
   }
 
   /**
