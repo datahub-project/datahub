@@ -42,10 +42,11 @@ type EditorProps = {
     className?: string;
     doNotFocus?: boolean;
     placeholder?: string;
+    dataTestId?: string;
 };
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
-    const { content, readOnly, onChange, className, placeholder } = props;
+    const { content, readOnly, onChange, className, placeholder, dataTestId } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
@@ -89,7 +90,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     }, [readOnly, content]);
 
     return (
-        <EditorContainer className={className}>
+        <EditorContainer className={className} data-testid={dataTestId}>
             <ThemeProvider theme={EditorTheme}>
                 <Remirror
                     classNames={['ant-typography']}
