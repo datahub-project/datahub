@@ -22,6 +22,8 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
+import com.linkedin.ingestion.DataHubIngestionSourceSource;
+import com.linkedin.ingestion.DataHubIngestionSourceSourceType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DataHubIngestionSourceKey;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -122,6 +124,12 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
     result.setConfig(mapConfig(input.getConfig()));
     if (input.getSchedule() != null) {
       result.setSchedule(mapSchedule(input.getSchedule()));
+    }
+    if (input.getSource() != null) {
+      result.setSource(
+          new DataHubIngestionSourceSource()
+              .setType(
+                  DataHubIngestionSourceSourceType.valueOf(input.getSource().getType().name())));
     }
     return result;
   }

@@ -72,7 +72,7 @@ export const Preview = ({
     paths?: EntityPath[];
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
-    previewType?: PreviewType;
+    previewType: PreviewType;
     parentContainers?: ParentContainersResult | null;
     subTypes?: SubTypes | null;
 }): JSX.Element => {

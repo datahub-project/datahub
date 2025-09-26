@@ -23,6 +23,30 @@ authentication:
         salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
     # Required for unauthenticated health check endpoints - best not to remove.
     - type: com.datahub.authentication.authenticator.HealthStatusAuthenticator
+    # OAuth/OIDC JWT token authenticator for service accounts
+    # Uses static configuration only (no dynamic GlobalSettings)
+    - type: com.datahub.authentication.authenticator.DataHubOAuthAuthenticator
+      configs:
+        # Enable/disable External OAuth authentication - Global disable switch.
+        enabled: ${EXTERNAL_OAUTH_ENABLED:false}
+
+        # Trusted JWT issuers - must match the 'iss' claim in JWT tokens (comma-separated)
+        trustedIssuers: ${EXTERNAL_OAUTH_TRUSTED_ISSUERS:}
+
+        # Allowed audiences - must match the 'aud' claim in JWT tokens (comma-separated)
+        allowedAudiences: ${EXTERNAL_OAUTH_ALLOWED_AUDIENCES:}
+
+        # Option 1: Direct JWKS URI for fetching JWT signing keys
+        jwksUri: ${EXTERNAL_OAUTH_JWKS_URI:}
+
+        # Option 2: Discovery URI to auto-derive JWKS URI (alternative to jwksUri)
+        discoveryUri: ${EXTERNAL_OAUTH_DISCOVERY_URI:}
+        
+        # JWT claim to use as user identifier (defaults to 'sub')
+        userIdClaim: ${EXTERNAL_OAUTH_USER_ID_CLAIM:sub}
+        
+        # JWT signing algorithm (defaults to 'RS256')
+        algorithm: ${EXTERNAL_OAUTH_ALGORITHM:RS256}
     - type: com.datahub.authentication.authenticator.DataHubGuestAuthenticator
       configs:
         guestUser: ${GUEST_AUTHENTICATION_USER:guest}
@@ -108,6 +132,7 @@ datahub:
     entityRegistry:
       path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
       loadDelaySeconds: ${ENTITY_REGISTRY_PLUGIN_LOAD_DELAY_SECONDS:60} # Rate at which plugin runnable executes, will run every N seconds.
+      ignoreFailureWhenLoadingRegistry: ${IGNORE_FAILURE_WHEN_LOADING_ENTITY_REGISTRY_PLUGIN:true}
     retention:
       path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
     auth:
@@ -364,7 +389,7 @@ kafka:
 
   topics:
     # Topic Dictionary Configuration - merged directly into topics section
-    # Each topic can be created by iterating through this dictionary  
+    # Each topic can be created by iterating through this dictionary
     # The key name matches the programmatic identifier used in code
     metadataChangeProposal:
       name: ${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:MetadataChangeProposal_v1}
@@ -730,6 +755,7 @@ featureFlags:
   showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false}  # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:false} # Enables displaying the asset summary page
+  showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
