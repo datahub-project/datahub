@@ -77,7 +77,7 @@ x-datahub-system-update-service: &datahub-system-update-service
     SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION: ${SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
     ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:-3}
-    DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-false}
+    DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-true}
     KAFKA_BOOTSTRAP_SERVER: broker:29092
     USE_CONFLUENT_SCHEMA_REGISTRY: false
   volumes:
@@ -96,7 +96,6 @@ x-datahub-system-update-service-dev: &datahub-system-update-service-dev
     REPROCESS_DEFAULT_BROWSE_PATHS_V2: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:-false}
     JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5003'
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
-    DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-true}
   volumes:
     - ../../datahub-upgrade/build/libs/:/datahub/datahub-upgrade/bin/
     - ../../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
@@ -253,6 +252,7 @@ services:
       CDC_USER: ${CDC_USER:-datahub_cdc}
       CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
+      SYSTEM_UPDATE_CDC_MODE: false
     depends_on:
       mysql-setup-cdc:
         condition: service_completed_successfully
@@ -332,6 +332,7 @@ services:
       CDC_USER: ${CDC_USER:-datahub_cdc}
       CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
+      SYSTEM_UPDATE_CDC_MODE: false
   system-update-debug-elasticsearch:
     <<: *datahub-system-update-service-dev
     profiles:
