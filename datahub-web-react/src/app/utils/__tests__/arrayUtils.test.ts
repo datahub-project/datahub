@@ -178,4 +178,25 @@ describe('mergeArraysOfObjects', () => {
             { id: 2, name: 'Bob' },
         ]);
     });
+
+    // Test preferOriginalOrdering parameter
+    it('should preserve original order when preferOriginalOrdering is true', () => {
+        const arrayA = [
+            { id: 1, name: 'Alice' },
+            { id: 2, name: 'Bob' },
+        ];
+
+        const arrayB = [
+            { id: 2, name: 'Bob Updated' },
+            { id: 3, name: 'Charlie' },
+        ];
+
+        const result = mergeArraysOfObjects(arrayA, arrayB, (item) => item.id, true);
+
+        expect(result).toEqual([
+            { id: 1, name: 'Alice' },
+            { id: 2, name: 'Bob' },
+            { id: 3, name: 'Charlie' },
+        ]);
+    });
 });
