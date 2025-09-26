@@ -187,38 +187,30 @@ class ChatHistory(BaseModel):
     def load_file(cls, path: pathlib.Path) -> "ChatHistory":
         return cls.model_validate_json(path.read_text())
 
-    @property
-    def num_tool_calls(self) -> int:
-        new_tool_calls = 0
+    def _count_messages_of_type(self, message_type: type) -> int:
+        """Count messages of a specific type since the last HumanMessage.
+
+        This ensures we only measure messages for the last question.
+        """
+        count = 0
         for message in reversed(self.messages):
             if isinstance(message, HumanMessage):
-                # This makes sure to measure only the tool calls for the last question
                 break
-            if isinstance(message, ToolCallRequest):
-                new_tool_calls += 1
-        return new_tool_calls
+            if isinstance(message, message_type):
+                count += 1
+        return count
+
+    @property
+    def num_tool_calls(self) -> int:
+        return self._count_messages_of_type(ToolCallRequest)
 
     @property
     def num_tool_results(self) -> int:
-        new_tool_results = 0
-        for message in reversed(self.messages):
-            if isinstance(message, HumanMessage):
-                # This makes sure to measure only the tool results for the last question
-                break
-            if isinstance(message, ToolResult):
-                new_tool_results += 1
-        return new_tool_results
+        return self._count_messages_of_type(ToolResult)
 
     @property
     def num_tool_call_errors(self) -> int:
-        new_tool_call_errors = 0
-        for message in reversed(self.messages):
-            if isinstance(message, HumanMessage):
-                # This makes sure to measure only the tool errors for the last question
-                break
-            if isinstance(message, ToolResultError):
-                new_tool_call_errors += 1
-        return new_tool_call_errors
+        return self._count_messages_of_type(ToolResultError)
 
     @property
     def reduction_sequence_json(self) -> Optional[str]:

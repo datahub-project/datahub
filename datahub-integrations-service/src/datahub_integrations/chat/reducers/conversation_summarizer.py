@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING, List, Sequence
 from loguru import logger
 from typing_extensions import override
 
+from datahub_integrations.gen_ai.bedrock_converse import converse_with_bedrock
+
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime.type_defs import MessageUnionTypeDef
 
@@ -18,7 +20,7 @@ from datahub_integrations.chat.context_reducer import (
     ContextReducerConfig,
     TokenCountEstimator,
 )
-from datahub_integrations.gen_ai.bedrock import BedrockModel, get_bedrock_client
+from datahub_integrations.gen_ai.bedrock import BedrockModel
 
 _CREATE_SUMMARY_SYSTEM_PROMPT = """\
 You are a helpful AI assistant tasked with summarizing conversations.
@@ -143,80 +145,49 @@ class ConversationSummarizer(ChatContextReducer):
         else:
             return self._create_summary_text(messages)
 
-    def _get_model_id(self) -> str:
-        return (
-            self.summarization_model.value
-            if isinstance(self.summarization_model, BedrockModel)
-            else self.summarization_model
-        )
-
-    def _prepare_conversation_message(
-        self, messages: List[Message]
-    ) -> Sequence["MessageUnionTypeDef"]:
+    def _prepare_conversation_text(self, messages: List[Message]) -> str:
         formatted_messages = [message.to_obj() for message in messages]
-        return [
-            dict(
-                role="user",
-                content=[
-                    {
-                        "text": "\n".join(
-                            [
-                                f"{fmt_message['role']}: {fmt_message['content']}"
-                                for fmt_message in formatted_messages
-                            ]
-                        )
-                    }
-                ],
-            )
-        ]
+        text = "\n".join(
+            [
+                f"{fmt_message['role']}: {fmt_message['content']}"
+                for fmt_message in formatted_messages
+            ]
+        )
+        return text
 
     def _create_summary_text(self, messages: List[Message]) -> str:
-        bedrock_client = get_bedrock_client()
+        bedrock_messages: Sequence["MessageUnionTypeDef"] = [
+            {
+                "role": "user",
+                "content": [{"text": self._prepare_conversation_text(messages)}],
+            }
+        ]
 
-        try:
-            # We are not passing individual structured messages as is because
-            # in that case, converse api outputs another tool use request
-            # instead of summary text, even after the updated system message.
-            # The current approach is actually equivalent to using invoke model api.
-            response = bedrock_client.converse(
-                modelId=self._get_model_id(),
-                system=[
-                    {"text": _CREATE_SUMMARY_SYSTEM_PROMPT},
-                ],
-                messages=self._prepare_conversation_message(messages),  # type: ignore
-                inferenceConfig={
-                    "temperature": 0.3,
-                    "maxTokens": 1024,
-                },
-            )
-        except bedrock_client.exceptions.ValidationException as e:
-            logger.error(f"Validation exception: {e}")
-            raise e
-        return response["output"]["message"]["content"][0]["text"]
+        return converse_with_bedrock(
+            {"text": _CREATE_SUMMARY_SYSTEM_PROMPT},
+            bedrock_messages,
+            self.summarization_model,
+            temperature=0.3,
+            max_tokens=1024,
+        )
 
     def _update_summary_text(
         self, past_summary: str, new_messages: List[Message]
     ) -> str:
-        bedrock_client = get_bedrock_client()
-        try:
-            response = bedrock_client.converse(
-                modelId=self._get_model_id(),
-                system=[
-                    {"text": _UPDATE_SUMMARY_SYSTEM_PROMPT},
-                ],
-                messages=[
-                    {
-                        "role": "assistant",
-                        "content": [{"text": f"Existing summary:\n {past_summary}"}],
-                    },
-                    *self._prepare_conversation_message(new_messages),
-                ],
-                inferenceConfig={
-                    "temperature": 0.3,
-                    "maxTokens": 2048,
-                },
-            )
-        except bedrock_client.exceptions.ValidationException as e:
-            logger.error(f"Validation exception: {e}")
-            raise e
-        return response["output"]["message"]["content"][0]["text"]
+        bedrock_messages: Sequence["MessageUnionTypeDef"] = [
+            {
+                "role": "assistant",
+                "content": [{"text": f"Existing summary:\n {past_summary}"}],
+            },
+            {
+                "role": "user",
+                "content": [{"text": self._prepare_conversation_text(new_messages)}],
+            },
+        ]
+        return converse_with_bedrock(
+            {"text": _UPDATE_SUMMARY_SYSTEM_PROMPT},
+            bedrock_messages,
+            self.summarization_model,
+            temperature=0.3,
+            max_tokens=2048,
+        )
