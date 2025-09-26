@@ -88,8 +88,7 @@ export const useAssertionsTableColumns = ({
     const renderTags = useCallback(
         (_, record) =>
             !record.groupName && <AcrylAssertionTagColumn key={record.urn} record={record} refetch={refetch} />,
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [],
+        [refetch],
     );
 
     const renderActions = useCallback(
@@ -124,7 +123,10 @@ export const useAssertionsTableColumns = ({
                 render: renderAssertionName,
                 width: '35%',
                 sorter: (a, b) => {
-                    return a.description.localeCompare(b.description);
+                    if (a.type && b.type) {
+                        return getAssertionGroupName(a.type).localeCompare(getAssertionGroupName(a.type));
+                    }
+                    return 0;
                 },
                 ellipsis: {
                     showTitle: false,
@@ -181,8 +183,7 @@ export const useAssertionsTableColumns = ({
         ];
 
         return columns;
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [contract, canEditSqlAssertions, canEditAssertions, canEditMonitors]);
+    }, [renderAssertionName, renderCategory, renderLastRun, renderTags, renderActions]);
 };
 
 export const usePinnedAssertionTableHeaderProps = () => {

@@ -424,7 +424,7 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
 const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: AssertionListFilter) => {
     const { type, status, source, column } = filter.filterCriteria;
     // Apply type, status, and other filters
-    const filterRes = assertions.filter((assertion: AssertionWithMonitorDetails) => {
+    return assertions.filter((assertion: AssertionWithMonitorDetails) => {
         const resultType = assertion.runEvents?.runEvents?.[0]?.result?.type as AssertionResultType;
         const columnId = getColumnIdFromAssertion(assertion) || '';
         const matchesType = type.length === 0 || type.includes(getAssertionType(assertion) as AssertionType);
@@ -437,8 +437,6 @@ const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: A
 
         return matchesType && matchesStatus && matchesOthers && matchesColumn;
     });
-
-    return filterRes;
 };
 
 // Fuse.js setup for search functionality
