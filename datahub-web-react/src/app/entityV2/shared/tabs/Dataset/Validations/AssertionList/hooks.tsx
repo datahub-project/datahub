@@ -37,6 +37,7 @@ const LastRun = styled(Typography.Text)`
     overflow: hidden;
     max-width: 80px;
     display: inline-block;
+    font-size: 14px;
 `;
 
 const TABLE_HEADER_HEIGHT = 50;
@@ -121,9 +122,12 @@ export const useAssertionsTableColumns = ({
                 dataIndex: 'name',
                 key: 'name',
                 render: renderAssertionName,
-                width: '45%',
+                width: '35%',
                 sorter: (a, b) => {
                     return a.description.localeCompare(b.description);
+                },
+                ellipsis: {
+                    showTitle: false,
                 },
             },
             {
@@ -131,9 +135,12 @@ export const useAssertionsTableColumns = ({
                 dataIndex: 'type',
                 key: 'type',
                 render: renderCategory,
-                width: '10%',
+                width: '12%',
                 sorter: (a, b) => {
                     return a.description.localeCompare(b.description);
+                },
+                ellipsis: {
+                    showTitle: false,
                 },
             },
             {
@@ -141,7 +148,7 @@ export const useAssertionsTableColumns = ({
                 dataIndex: 'lastEvaluation',
                 key: 'lastEvaluation',
                 render: renderLastRun,
-                width: '10%',
+                width: '15%',
                 sorter: (sourceA, sourceB) => {
                     if (!sourceA.lastEvaluationTimeMs || !sourceB.lastEvaluationTimeMs) {
                         return 0;
@@ -149,20 +156,27 @@ export const useAssertionsTableColumns = ({
                     return sourceA.lastEvaluationTimeMs - sourceB.lastEvaluationTimeMs;
                 },
                 defaultSortOrder: 'descend',
+                ellipsis: {
+                    showTitle: false,
+                },
             },
             {
                 title: 'Tags',
                 dataIndex: 'tags',
                 key: 'tags',
-                width: '20%',
+                width: '18%',
                 render: renderTags,
+                ellipsis: {
+                    showTitle: false,
+                },
             },
             {
                 title: '',
                 dataIndex: '',
                 key: 'actions',
-                width: '15%',
+                width: '20%',
                 render: renderActions,
+                fixed: 'right',
             },
         ];
 

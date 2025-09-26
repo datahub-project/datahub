@@ -109,6 +109,7 @@ export const AcrylAssertionListTable = ({
                     showHeader
                     scroll={{
                         y: tableHeight,
+                        x: 'max-content',
                     }}
                     pagination={{
                         pageSize: 50,
@@ -118,6 +119,7 @@ export const AcrylAssertionListTable = ({
                     rowClassName={rowClassName}
                     bordered={false}
                     onRow={handleRowClick}
+                    tableLayout="fixed"
                 />
             </ResizeObserver>
 
