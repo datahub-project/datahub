@@ -47,6 +47,9 @@ public class AcrylConstants {
   public static final String TESTS_LAST_UPDATED_TIME_INDEX_FIELD_NAME = "lastUpdatedTime";
   public static final String BATCH_TEST_RUN_EVENT_ASPECT_NAME = "batchTestRunEvent";
 
+  public static final String MONITOR_LIMIT_EXCEEDED_ERROR_MESSAGE_PREFIX =
+      "Monitor limit exceeded.";
+
   // For system monitors
   public static final String FRESHNESS_SYSTEM_MONITOR_ID = "__system_freshness";
   public static final String ACRYL_LOGO_FILE_PATH = "/integrations/static/datahub-slack-icon.png";

@@ -5,6 +5,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { CustomAvatar } from '@app/shared/avatar';
+import { addUserFiltersToMultiEntitySearchInput } from '@app/shared/userSearchUtils';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -191,14 +192,19 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
 
     // Invokes the search API as the user types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
+        const input = addUserFiltersToMultiEntitySearchInput(
+            {
+                types: [type],
+                query: text,
+                start: 0,
+                count: 10,
+            },
+            [type],
+        );
+
         searchQuery({
             variables: {
-                input: {
-                    types: [type],
-                    query: text,
-                    start: 0,
-                    count: 10,
-                },
+                input,
             },
         });
     };

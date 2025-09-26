@@ -12,6 +12,7 @@ import { handleBatchError } from '@app/entityV2/shared/utils';
 import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
+import { addUserFiltersToAutoCompleteInput } from '@app/shared/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
 import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
@@ -24,7 +25,7 @@ import useAutoFocusInModal from '@utils/focus/useFocusInModal';
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
 import { useListOwnershipTypesQuery, useProposeOwnersMutation } from '@graphql/ownership.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
-import { CorpUser, DataHubPageModuleType, Entity, EntityType, OwnerEntityType } from '@types';
+import { CorpUser, DataHubPageModuleType, Entity, EntityType, FacetFilterInput, OwnerEntityType } from '@types';
 
 const SelectInput = styled(Select)`
     width: 480px;
@@ -166,16 +167,22 @@ export const EditOwnersModal = ({
     const { config } = useAppConfig();
     const { showTaskCenterRedesign } = config.featureFlags;
 
-    // Invokes the search API as the owner types
-    const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
+    // Invokes the search API as the owner types with optional filters
+    const handleSearch = (type: EntityType, text: string, searchQuery: any, filters?: FacetFilterInput[]) => {
         if (text) {
+            const input = addUserFiltersToAutoCompleteInput(
+                {
+                    type,
+                    query: text,
+                    limit: 10,
+                    ...(filters && filters.length > 0 && { filters }),
+                },
+                type,
+            );
+
             searchQuery({
                 variables: {
-                    input: {
-                        type,
-                        query: text,
-                        limit: 10,
-                    },
+                    input,
                 },
             });
         }

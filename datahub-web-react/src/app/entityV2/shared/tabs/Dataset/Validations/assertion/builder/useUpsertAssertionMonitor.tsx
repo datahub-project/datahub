@@ -113,13 +113,19 @@ export const useUpsertAssertionMonitor = (
                     }
                     throw new Error('Encountered errors while upserting assertion');
                 })
-                .catch(() => {
+                .catch((e) => {
                     message.destroy();
-                    message.error({
-                        content: `Failed to ${
-                            isUpdate ? 'update' : 'create'
-                        } Assertion Monitor! An unexpected error occurred`,
-                    });
+                    const limitExceededIndex = e.message.indexOf('Monitor limit exceeded');
+                    if (limitExceededIndex !== -1) {
+                        const errorMessage = e.message.substring(limitExceededIndex).replace(/[)\]{}]/g, '');
+                        message.error({
+                            content: errorMessage,
+                        });
+                    } else {
+                        message.error({
+                            content: `Failed to ${isUpdate ? 'update' : 'create'} Assertion Monitor! An unexpected error occurred`,
+                        });
+                    }
                 });
         }
 

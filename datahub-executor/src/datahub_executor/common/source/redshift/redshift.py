@@ -95,26 +95,36 @@ class RedshiftSource(Source):
         return convert_value_for_comparison(column_value, column_type)
 
     def _execute_fetchall_query_internal(self, query: str) -> List[Any]:
-        cur = self.connection.get_client().cursor()
-        try:
-            cur.execute(query)
-            return cur.fetchall()
-        except Exception as e:
-            cur.execute("rollback")
-            raise SourceQueryFailedException(
-                message=f"Source query (Redshift) failed with error: {e}", query=query
-            )
+        with self.connection.get_client().cursor() as cur:
+            try:
+                cur.execute(query)
+                return cur.fetchall()
+            except Exception as e:
+                try:
+                    cur.execute("rollback")
+                except Exception:
+                    # If rollback fails, the connection will be closed anyway
+                    pass
+                raise SourceQueryFailedException(
+                    message=f"Source query (Redshift) failed with error: {e}",
+                    query=query,
+                )
 
     def _execute_fetchone_query(self, query: str) -> List[Any]:
-        cur = self.connection.get_client().cursor()
-        try:
-            cur.execute(query)
-            return cur.fetchone()
-        except Exception as e:
-            cur.execute("rollback")
-            raise SourceQueryFailedException(
-                message=f"Source query (Redshift) failed with error: {e}", query=query
-            )
+        with self.connection.get_client().cursor() as cur:
+            try:
+                cur.execute(query)
+                return cur.fetchone()
+            except Exception as e:
+                try:
+                    cur.execute("rollback")
+                except Exception:
+                    # If rollback fails, the connection will be closed anyway
+                    pass
+                raise SourceQueryFailedException(
+                    message=f"Source query (Redshift) failed with error: {e}",
+                    query=query,
+                )
 
     def _build_audit_log_results(self, rows: List[Any]) -> List[EntityEvent]:
         results = []

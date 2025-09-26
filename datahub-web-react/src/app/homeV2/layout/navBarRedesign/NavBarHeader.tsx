@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
+import { useGetFontSizeForContainer } from '@app/homeV2/layout/navBarRedesign/useGetFontSizeForContainer';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { ThemeId, useCustomThemeId } from '@app/useSetAppTheme';
@@ -48,15 +49,16 @@ const Logotype = styled.div<{ $margin?: string }>`
     }
 `;
 
-const Title = styled.div`
+const Title = styled.div<{ $fontSize: number }>`
     color: ${colors.gray[1700]};
     font-style: normal;
-    font: 700 16px Mulish;
+    font-weight: 700;
+    font-family: Mulish;
+    font-size: ${({ $fontSize }) => $fontSize}px;
     text-wrap: nowrap;
     white-space: nowrap;
     overflow: hidden;
     max-width: calc(100% - 30px);
-    text-overflow: ellipsis;
     display: flex;
     align-items: end;
 `;
@@ -85,6 +87,8 @@ export default function NavBarHeader({ logotype }: Props) {
     const hasLetterLogo = customThemeId === ThemeId.FIS;
     // end SaaS Only
 
+    const { containerRef: titleRef, fontSize } = useGetFontSizeForContainer(customName || undefined, [isCollapsed]);
+
     function handleLogoClick() {
         if (isHomePage && showHomepageRedesign) {
             toggle();
@@ -97,7 +101,11 @@ export default function NavBarHeader({ logotype }: Props) {
             <StyledLink to="/" onClick={handleLogoClick} $gap={hasLetterLogo ? LETTER_LOGO_GAP : undefined}>
                 <Logotype $margin={hasLetterLogo ? LETTER_LOGO_MARGIN : undefined}>{logotype}</Logotype>
                 {!isCollapsed && !customName && <DatahubCloudLogo />}
-                {!isCollapsed && customName && <Title>{customName}</Title>}
+                {!isCollapsed && customName && (
+                    <Title ref={titleRef} $fontSize={fontSize}>
+                        {customName}
+                    </Title>
+                )}
             </StyledLink>
             {!isCollapsed && <NavBarToggler />}
         </Container>

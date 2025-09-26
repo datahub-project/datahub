@@ -12,6 +12,7 @@ import {
 import { Button, Text } from '@src/alchemy-components';
 import { OwnerLabel } from '@src/app/shared/OwnerLabel';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
+import { addUserFiltersToAutoCompleteInput } from '@src/app/shared/userSearchUtils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetAutoCompleteResultsLazyQuery } from '@src/graphql/search.generated';
 import { CorpGroup, CorpUser, Entity, EntityType } from '@src/types.generated';
@@ -55,13 +56,18 @@ const AddUsersModal = ({ showUsersModal, setShowUsersModal }: Props) => {
     // Invokes the search API
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
         if (text) {
+            const input = addUserFiltersToAutoCompleteInput(
+                {
+                    type,
+                    query: text,
+                    limit: 10,
+                },
+                type,
+            );
+
             searchQuery({
                 variables: {
-                    input: {
-                        type,
-                        query: text,
-                        limit: 10,
-                    },
+                    input,
                 },
             });
         }
