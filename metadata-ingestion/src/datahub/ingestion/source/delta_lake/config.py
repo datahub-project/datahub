@@ -14,6 +14,7 @@ from datahub.configuration.source_common import (
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulIngestionConfigBase,
     StatefulStaleMetadataRemovalConfig,
 )
 
@@ -39,9 +40,7 @@ class S3(ConfigModel):
 
 
 class DeltaLakeSourceConfig(
-    PlatformInstanceConfigMixin,
-    EnvConfigMixin,
-    StatefulStaleMetadataRemovalConfig,
+    PlatformInstanceConfigMixin, EnvConfigMixin, StatefulIngestionConfigBase
 ):
     base_path: str = Field(
         description="Path to table (s3 or local file system). If path is not a delta table path "
