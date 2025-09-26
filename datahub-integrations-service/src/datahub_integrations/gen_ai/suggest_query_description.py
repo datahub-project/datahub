@@ -8,6 +8,9 @@ from datahub_integrations.gen_ai.bedrock import (
     call_bedrock_llm,
     get_bedrock_model_env_variable,
 )
+from datahub_integrations.gen_ai.description_v3 import (
+    get_extra_documentation_instructions,
+)
 
 QUERY_DESCRIPTION_GENERATION_MODEL: BedrockModel | str = get_bedrock_model_env_variable(
     "QUERY_DESCRIPTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_35_SONNET
@@ -53,13 +56,20 @@ query Query($urn: String!) {
     )
 
 
-def generate_query_desc(entity_context: QueryContext) -> str:
-    """Generate a description for the entity."""
+def generate_query_desc(graph: DataHubGraph, entity_context: QueryContext) -> str:
+    """Generate a description for the entity.
 
-    description = call_bedrock_llm(
-        model=QUERY_DESCRIPTION_GENERATION_MODEL,
-        max_tokens=500,
-        prompt=f"""\
+    Args:
+        graph: DataHub graph client to use for fetching extra instructions
+        entity_context: Context information about the query
+
+    Returns:
+        Generated description for the query
+    """
+    # Retrieve extra instructions internally
+    extra_instructions = get_extra_documentation_instructions(graph)
+
+    base_prompt = """\
 Provide a detailed summary of the following SQL query logic for Business Analysts or Data Scientists unfamiliar with the query.
 Explain the purpose of the query, the data it accesses, and the insights it provides. Focus on the semantic meaning of the query.
 Include significant context, assumptions, or caveats that the query includes.
@@ -71,11 +81,23 @@ Additional Requirements:
 - Be concise and to the point.
 - Write with an imperative mood.
 - Include a maximum of 3-4 well-structured paragraphs.
+"""
+
+    # Add extra instructions if provided
+    if extra_instructions:
+        base_prompt += f"\n\nCUSTOMER-SPECIFIC REQUIREMENTS:\n{extra_instructions}"
+
+    base_prompt += f"""
 
 <query>
 {entity_context.query_text}
 </query>
-""",
+"""
+
+    description = call_bedrock_llm(
+        model=QUERY_DESCRIPTION_GENERATION_MODEL,
+        max_tokens=500,
+        prompt=base_prompt,
     )
 
     return description
@@ -94,5 +116,5 @@ if __name__ == "__main__":
     context = get_query_context(graph, target_urn)
     logger.info(f"For query {context.query_urn}")
     logger.debug(context.query_text)
-    desc = generate_query_desc(context)
+    desc = generate_query_desc(graph, context)
     logger.info(desc)
