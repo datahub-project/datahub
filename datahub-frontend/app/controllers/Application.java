@@ -53,17 +53,7 @@ public class Application extends Controller {
     this.httpClient = httpClient;
     this.config = config;
     this.environment = environment;
-    this.basePath = getBasePath();
-  }
-
-  /**
-   * Gets the configured base path for DataHub.
-   *
-   * @return the normalized base path
-   */
-  @Nonnull
-  private String getBasePath() {
-    return BasePathUtils.normalizeBasePath(config.getString("datahub.basePath"));
+    this.basePath = config.getString("datahub.basePath");
   }
 
   /**
@@ -280,7 +270,7 @@ public class Application extends Controller {
     config.set("userEntityProps", userEntityProps());
 
     // Add base path configuration for frontend
-    config.put("basePath", getBasePath());
+    config.put("basePath", this.basePath);
 
     final ObjectNode response = Json.newObject();
     response.put("status", "ok");
@@ -388,7 +378,7 @@ public class Application extends Controller {
 
   private String mapPath(@Nonnull final String path) {
     // First, strip the base path if present
-    String strippedPath = BasePathUtils.stripBasePath(path, getBasePath());
+    String strippedPath = BasePathUtils.stripBasePath(path, this.basePath);
 
     // Case 1: Map legacy GraphQL path to GMS GraphQL API (for compatibility)
     if (strippedPath.equals("/api/v2/graphql")) {
