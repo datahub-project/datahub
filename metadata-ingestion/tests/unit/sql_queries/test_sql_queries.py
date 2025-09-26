@@ -477,8 +477,23 @@ class TestSqlQueriesSource:
     @pytest.fixture
     def mock_graph(self):
         """Create a mock DataHubGraph."""
+        from datahub.sql_parsing.schema_resolver import SchemaResolver
+
         mock_graph = Mock(spec=DataHubGraph)
         mock_graph.initialize_schema_resolver_from_datahub.return_value = None
+
+        # Mock _make_schema_resolver to return a real SchemaResolver
+        def mock_make_schema_resolver(
+            platform, platform_instance, env, include_graph=True
+        ):
+            return SchemaResolver(
+                platform=platform,
+                platform_instance=platform_instance,
+                env=env,
+                graph=mock_graph if include_graph else None,
+            )
+
+        mock_graph._make_schema_resolver = mock_make_schema_resolver
         return mock_graph
 
     @pytest.fixture
