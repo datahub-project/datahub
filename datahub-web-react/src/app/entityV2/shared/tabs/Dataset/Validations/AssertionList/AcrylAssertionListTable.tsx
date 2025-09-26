@@ -1,17 +1,26 @@
+import ResizeObserver from 'rc-resize-observer';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import styled from 'styled-components';
 
 import { StyledTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTable';
 import { useAssertionsTableColumns } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/hooks';
-import { AssertionListFilter, AssertionTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { AssertionTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
 import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { AssertionType, DataContract, Entity } from '@src/types.generated';
 
+const HEADER_AND_PAGINATION_HEIGHT_PX = 130;
+
+const TableContainer = styled.div`
+    overflow: hidden;
+    height: 100%;
+    max-height: 100%;
+`;
+
 type Props = {
     assertionData: AssertionTable;
-    filter: AssertionListFilter;
     refetch: () => void;
     contract: DataContract;
     canEditAssertions: boolean;
@@ -22,7 +31,6 @@ type Props = {
 
 export const AcrylAssertionListTable = ({
     assertionData,
-    filter,
     refetch,
     contract,
     canEditAssertions,
@@ -30,12 +38,11 @@ export const AcrylAssertionListTable = ({
     canEditSqlAssertions,
     isEntityReachable,
 }: Props) => {
-    const { groupBy } = filter;
     const { entityData } = useEntityData();
+    const [tableHeight, setTableHeight] = useState(0);
 
     // get columns data from the custom hooks
     const assertionsTableCols = useAssertionsTableColumns({
-        groupBy,
         contract,
         canEditSqlAssertions,
         canEditAssertions,
@@ -91,22 +98,28 @@ export const AcrylAssertionListTable = ({
     ); // Only recreate if setFocusAssertionUrn changes
 
     return (
-        <>
-            <StyledTable
-                style={{ paddingBottom: 20 }}
-                columns={assertionsTableCols as any}
-                showSelect
-                dataSource={memoizedData}
-                showHeader
-                pagination={{
-                    pageSize: 50,
-                    position: ['topLeft'],
-                    showSizeChanger: false,
-                }}
-                rowClassName={rowClassName}
-                bordered
-                onRow={handleRowClick}
-            />
+        <TableContainer>
+            <ResizeObserver
+                onResize={(dimensions) => setTableHeight(dimensions.height - HEADER_AND_PAGINATION_HEIGHT_PX)}
+            >
+                <StyledTable
+                    columns={assertionsTableCols as any}
+                    showSelect
+                    dataSource={memoizedData}
+                    showHeader
+                    scroll={{
+                        y: tableHeight,
+                    }}
+                    pagination={{
+                        pageSize: 50,
+                        position: ['bottomCenter'],
+                        showSizeChanger: false,
+                    }}
+                    rowClassName={rowClassName}
+                    bordered={false}
+                    onRow={handleRowClick}
+                />
+            </ResizeObserver>
 
             {focusAssertionUrn && focusedAssertionEntity && (
                 <AssertionProfileDrawer
@@ -119,6 +132,6 @@ export const AcrylAssertionListTable = ({
                     refetch={refetch}
                 />
             )}
-        </>
+        </TableContainer>
     );
 };

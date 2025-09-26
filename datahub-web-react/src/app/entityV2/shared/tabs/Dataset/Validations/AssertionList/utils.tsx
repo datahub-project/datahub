@@ -458,7 +458,6 @@ export const getFilteredTransformedAssertionData = (
     assertions: AssertionWithMonitorDetails[],
     filter: AssertionListFilter,
 ): AssertionTable => {
-    console.time('getFilteredTransformedAssertionData');
     // Add descriptions to assertions
     const assertionsWithDescription = assertions.map((assertion) => {
         const monitor = assertion.monitor?.relationships?.[0]?.entity;
@@ -489,7 +488,6 @@ export const getFilteredTransformedAssertionData = (
     assertionRawData.searchMatchesCount = searchMatchesCount;
     assertionRawData.filteredCount = getFilteredAssertions(assertionsWithDescription, filter).length;
     assertionRawData.originalFilterOptions = extractFilterOptionListFromAssertions(assertions);
-    console.timeEnd('getFilteredTransformedAssertionData');
     return assertionRawData;
 };
 

@@ -38,6 +38,11 @@ import { useGetDatasetAssertionsWithMonitorsQuery } from '@graphql/monitor.gener
 
 const AssertionListContainer = styled.div`
     margin: 0px 20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
 `;
 
 /**
@@ -78,17 +83,11 @@ export const AcrylAssertionList = () => {
     };
 
     useEffect(() => {
-        console.time('combineEntityDataWithSiblings');
         const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
-        console.timeEnd('combineEntityDataWithSiblings');
-        console.time('tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery');
         const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] =
             tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
-        console.timeEnd('tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery');
         setAssertionMonitorData(assertionsWithMonitorsDetails);
-        console.time('getFilteredAssertions');
         getFilteredAssertions(assertionsWithMonitorsDetails);
-        console.timeEnd('getFilteredAssertions');
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data]);
 
@@ -121,7 +120,6 @@ export const AcrylAssertionList = () => {
                 <AcrylAssertionListTable
                     contract={contract}
                     assertionData={visibleAssertions}
-                    filter={selectedFilters}
                     refetch={() => {
                         refetch();
                         contractRefetch();

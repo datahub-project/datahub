@@ -7,7 +7,6 @@ import styled from 'styled-components';
 
 import AcrylAssertionListStatusDot from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListStatusDot';
 import { DataContractBadge } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/DataContractBadge';
-import { AssertionListTableRow } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { AssertionPlatformAvatar } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionPlatformAvatar';
 import { InferredAssertionBadge } from '@app/entityV2/shared/tabs/Dataset/Validations/InferredAssertionBadge';
 import { InferredAssertionPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/InferredAssertionPopover';
@@ -19,7 +18,16 @@ import { isAssertionPartOfContract } from '@app/entityV2/shared/tabs/Dataset/Val
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { SMART_ASSERTION_STALE_IN_DAYS, UNKNOWN_DATA_PLATFORM } from '@src/app/entityV2/shared/constants';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { AssertionSourceType, DataContract, EntityType } from '@src/types.generated';
+import {
+    Assertion,
+    AssertionRunEvent,
+    AssertionSourceType,
+    DataContract,
+    DataPlatform,
+    EntityType,
+    Maybe,
+    Monitor,
+} from '@src/types.generated';
 
 const StyledAssertionNameContainer = styled.div`
     display: flex;
@@ -56,28 +64,33 @@ const StyledAssertionName = styled(Typography.Paragraph)`
 `;
 
 type Props = {
-    record: AssertionListTableRow;
-    groupBy: string;
-    contract: DataContract;
+    assertion: Assertion;
+    monitor?: Monitor;
+    lastEvaluation?: AssertionRunEvent;
+    lastEvaluationUrl?: Maybe<string>;
+    platform?: DataPlatform;
+    contract?: DataContract;
+    onClickProfileButton?: () => void;
 };
 
-export const AssertionName = ({ record, groupBy, contract }: Props) => {
+export const AssertionName = ({
+    assertion,
+    monitor,
+    lastEvaluation,
+    lastEvaluationUrl,
+    platform,
+    contract,
+    onClickProfileButton,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
 
-    const { platform, monitor, assertion, lastEvaluation, lastEvaluationUrl } = record;
     const monitorSchedule = monitor?.info?.assertionMonitor?.assertions?.find(
         (assrn) => assrn.assertion.urn === assertion.urn,
     )?.schedule;
-    let name = useBuildAssertionPrimaryLabel(record?.assertion?.info, monitorSchedule, {
+    const name = useBuildAssertionPrimaryLabel(assertion?.info, monitorSchedule, {
         showColumnTag: true,
     });
-
-    // if it is group header then just display group name instead of other fields
-    if (groupBy && record.name) {
-        name = <>{record.groupName}</>;
-        return <Typography.Text>{name}</Typography.Text>;
-    }
 
     const disabled = (monitor && !isMonitorActive(monitor)) || false;
     const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
@@ -97,6 +110,7 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
                 run={lastEvaluation}
                 showProfileButton
                 placement="right"
+                onClickProfileButton={onClickProfileButton}
                 resultStatusType={ResultStatusType.LATEST}
             >
                 <Result>

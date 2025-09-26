@@ -78,6 +78,7 @@ type Props = {
     canEditSqlAssertions: boolean;
     onSelect?: (assertionUrn: string) => void;
     refetch?: () => void;
+    isEntityReachable: boolean;
 };
 
 /**
@@ -95,10 +96,10 @@ export const AcrylAssertionsTable = ({
     canEditSqlAssertions,
     onSelect,
     refetch,
+    isEntityReachable,
 }: Props) => {
     const { entityData } = useEntityData();
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
-
     const focusedAssertion = assertions.find((assertion) => assertion.urn === focusAssertionUrn);
     const focusedEntityUrn = focusedAssertion ? getEntityUrnForAssertion(focusedAssertion) : undefined;
     const focusedAssertionEntity =
@@ -185,6 +186,7 @@ export const AcrylAssertionsTable = ({
                                 canEditMonitor={canEditMonitors}
                                 canEditContract
                                 refetch={refetch}
+                                isEntityReachable={isEntityReachable}
                             />
                         )) ||
                             undefined}

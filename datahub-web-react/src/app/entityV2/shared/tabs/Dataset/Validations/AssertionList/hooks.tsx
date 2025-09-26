@@ -42,7 +42,6 @@ const LastRun = styled(Typography.Text)`
 const TABLE_HEADER_HEIGHT = 50;
 
 export const useAssertionsTableColumns = ({
-    groupBy,
     contract,
     canEditSqlAssertions,
     canEditAssertions,
@@ -50,7 +49,6 @@ export const useAssertionsTableColumns = ({
     refetch,
     isEntityReachable,
 }: {
-    groupBy: string;
     contract: DataContract;
     canEditSqlAssertions: boolean;
     canEditAssertions: boolean;
@@ -59,32 +57,42 @@ export const useAssertionsTableColumns = ({
     isEntityReachable: boolean;
 }) => {
     const renderAssertionName = useCallback(
-        (value, record) => <AssertionName key={record.urn} record={record} groupBy={groupBy} contract={contract} />,
-        [groupBy, contract],
+        (_, record) => (
+            <AssertionName
+                key={record.urn}
+                assertion={record.assertion}
+                monitor={record.monitor}
+                lastEvaluation={record.lastEvaluation}
+                lastEvaluationUrl={record.lastEvaluationUrl}
+                platform={record.platform}
+                contract={contract}
+            />
+        ),
+        [contract],
     );
 
     const renderCategory = useCallback(
-        (value, record) =>
+        (_, record) =>
             !record.groupName &&
             record?.type && <CategoryType key={record.urn}>{getAssertionGroupName(record.type)}</CategoryType>,
         [],
     );
 
     const renderLastRun = useCallback(
-        (value, record) =>
+        (_, record) =>
             !record.groupName && <LastRun key={record.urn}>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>,
         [],
     );
 
     const renderTags = useCallback(
-        (_value, record) =>
+        (_, record) =>
             !record.groupName && <AcrylAssertionTagColumn key={record.urn} record={record} refetch={refetch} />,
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [],
     );
 
     const renderActions = useCallback(
-        (value, record) => {
+        (_, record) => {
             const isSqlAssertion = record.type === AssertionType.Sql;
             return (
                 !record.groupName && (
@@ -160,7 +168,7 @@ export const useAssertionsTableColumns = ({
 
         return columns;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [groupBy, contract, canEditSqlAssertions, canEditAssertions, canEditMonitors]);
+    }, [contract, canEditSqlAssertions, canEditAssertions, canEditMonitors]);
 };
 
 export const usePinnedAssertionTableHeaderProps = () => {
