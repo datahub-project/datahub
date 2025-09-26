@@ -18,6 +18,7 @@ import {
 } from '@app/ingestV2/executions/utils';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
 import { Message } from '@app/shared/Message';
+import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
@@ -132,7 +133,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
                 tabs={tabs}
                 selectedTab={selectedTab}
                 onChange={(tab) => selectTab(tab as TabType)}
-                getCurrentUrl={() => window.location.pathname}
+                getCurrentUrl={() => removeRuntimePath(window.location.pathname)}
                 scrollToTopOnChange
                 maxHeight="80vh"
                 stickyHeader

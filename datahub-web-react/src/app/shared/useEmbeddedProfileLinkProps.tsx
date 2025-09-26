@@ -2,9 +2,10 @@ import { useMemo } from 'react';
 
 import { useModalContext } from '@app/sharedV2/modals/ModalContext';
 import { PageRoutes } from '@conf/Global';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 // Function to check if the current page is an embedded profile
-const isEmbeddedProfile = () => window.location.pathname.startsWith(PageRoutes.EMBED);
+const isEmbeddedProfile = () => resolveRuntimePath(window.location.pathname).startsWith(PageRoutes.EMBED);
 
 export const useIsEmbeddedProfile = () => {
     return useMemo(() => isEmbeddedProfile(), []);

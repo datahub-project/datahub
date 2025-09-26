@@ -247,7 +247,7 @@ export const SettingsPage = () => {
                         <NavBarSubTitle>Manage your settings</NavBarSubTitle>
                     </div>
                     {isThemeV2 && !isShowNavBarRedesign && (
-                        <a href={resolveRuntimePath('/logOut')}>
+                        <a href="/logOut">
                             <Button
                                 variant="outline"
                                 color="red"

@@ -19,6 +19,7 @@ import {
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -102,7 +103,7 @@ export const ManageIngestionPage = () => {
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
         if (loadedAppConfig && loadedPlatformPrivileges && selectedTab === undefined) {
-            const currentPath = window.location.pathname;
+            const currentPath = removeRuntimePath(window.location.pathname);
 
             // Check if current URL matches any tab URL
             const currentTab = Object.entries(tabUrlMap).find(([, url]) => url === currentPath)?.[0] as TabType;
@@ -174,7 +175,7 @@ export const ManageIngestionPage = () => {
         [history],
     );
 
-    const getCurrentUrl = useCallback(() => window.location.pathname, []);
+    const getCurrentUrl = useCallback(() => removeRuntimePath(window.location.pathname), []);
 
     const handleCreateSource = () => {
         setShowCreateSourceModal(true);

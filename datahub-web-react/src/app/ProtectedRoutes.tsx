@@ -19,6 +19,7 @@ import { useSetAppTheme } from '@app/useSetAppTheme';
 import { useSetNavBarRedesignEnabled } from '@app/useShowNavBarRedesign';
 import { NEW_ROUTE_MAP, PageRoutes } from '@conf/Global';
 import { getRedirectUrl } from '@conf/utils';
+import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 const StyledLayout = styled(Layout)`
     background-color: transparent;
@@ -49,7 +50,7 @@ export const ProtectedRoutes = (): JSX.Element => {
 
     useEffect(() => {
         if (location.pathname.indexOf('/Validation') !== -1) {
-            history.replace(getRedirectUrl(NEW_ROUTE_MAP));
+            history.replace(removeRuntimePath(getRedirectUrl(NEW_ROUTE_MAP)));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location]);

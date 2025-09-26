@@ -11,7 +11,7 @@ import { SignUp } from '@app/auth/SignUp';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { PageRoutes } from '@conf/Global';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
+import { removeRuntimePath, resolveRuntimePath } from '@utils/runtimeBasePath';
 
 const ProtectedRoute = ({
     isLoggedIn,
@@ -19,7 +19,7 @@ const ProtectedRoute = ({
 }: {
     isLoggedIn: boolean;
 } & RouteProps) => {
-    const currentPath = window.location.pathname + window.location.search;
+    const currentPath = removeRuntimePath(window.location.pathname) + window.location.search;
     if (!isLoggedIn) {
         const authUrl = resolveRuntimePath(PageRoutes.AUTHENTICATE);
         window.location.replace(`${authUrl}?redirect_uri=${encodeURIComponent(currentPath)}`);

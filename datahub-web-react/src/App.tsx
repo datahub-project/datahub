@@ -16,7 +16,7 @@ import CustomThemeProvider from '@src/CustomThemeProvider';
 import { GlobalCfg } from '@src/conf';
 import { useCustomTheme } from '@src/customThemeContext';
 import possibleTypesResult from '@src/possibleTypes.generated';
-import { fixCSSFontPaths, getRuntimeBasePath, resolveRuntimePath } from '@utils/runtimeBasePath';
+import { fixCSSFontPaths, getRuntimeBasePath, removeRuntimePath, resolveRuntimePath } from '@utils/runtimeBasePath';
 
 /*
     Construct Apollo Client
@@ -32,7 +32,7 @@ const errorLink = onError((error) => {
         if (serverError.statusCode === ErrorCodes.Unauthorized) {
             isLoggedInVar(false);
             Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
-            const currentPath = window.location.pathname + window.location.search;
+            const currentPath = removeRuntimePath(window.location.pathname) + window.location.search;
             const authUrl = resolveRuntimePath(PageRoutes.AUTHENTICATE);
             window.location.replace(`${authUrl}?redirect_uri=${encodeURIComponent(currentPath)}`);
         }

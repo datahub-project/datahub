@@ -46,7 +46,7 @@ export function resolveRuntimePath(path: string): string {
     const basePath = getRuntimeBasePath();
 
     // Handle root base path special case
-    if (!basePath || basePath === "" || basePath === '/') {
+    if (!basePath || basePath === '' || basePath === '/') {
         return path;
     }
 
@@ -59,6 +59,25 @@ export function resolveRuntimePath(path: string): string {
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;
     const resolvedPath = `${basePath}/${cleanPath}`.replace(/\/+/g, '/');
     return resolvedPath;
+}
+
+/**
+ * Remove the base path from a given path
+ */
+export function removeRuntimePath(path: string): string {
+    const basePath = getRuntimeBasePath();
+
+    // Handle root base path special case
+    if (!basePath || basePath === '' || basePath === '/') {
+        return path;
+    }
+
+    // If path already starts with our non-root base path, return as-is
+    if (!path.startsWith(basePath)) {
+        return path;
+    }
+
+    return path.replace(basePath, '');
 }
 
 /**
@@ -94,7 +113,7 @@ export function fixCSSFontPaths(): void {
                     if (currentSrc && currentSrc.includes('url("/assets/')) {
                         // Replace absolute /assets/ paths with runtime base path
                         const fixedSrc = currentSrc.replace(/url\("\/assets\//g, `url("${basePath}/assets/`);
-                        console.log(`currentSrc:${  currentSrc  } fixedSrc: ${  fixedSrc}`);
+                        console.log(`currentSrc:${currentSrc} fixedSrc: ${fixedSrc}`);
                         // Apply the fix
                         if (fixedSrc !== currentSrc) {
                             rule.style.setProperty('src', fixedSrc);
