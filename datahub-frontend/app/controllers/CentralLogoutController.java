@@ -22,6 +22,8 @@ public class CentralLogoutController extends LogoutController {
   @Inject private SsoManager ssoManager;
   @Inject private Config config;
 
+  private final String basePath = getBasePath();
+
   public CentralLogoutController() {
     // Note: URLs will be set dynamically in executeLogout method
     // since we need config access for base path
@@ -42,9 +44,8 @@ public class CentralLogoutController extends LogoutController {
   /** logout() method should not be called if oidc is not enabled */
   public Result executeLogout(Http.Request request) {
     // Set dynamic URLs with proper base path
-    String basePath = getBasePath();
-    String loginUrl = BasePathUtils.addBasePath(AUTH_URL_CONFIG_PATH, basePath);
-    String logoutPattern = basePath.isEmpty() ? DEFAULT_BASE_URL_PATH + ".*" : basePath + "/.*";
+    String loginUrl = BasePathUtils.addBasePath(AUTH_URL_CONFIG_PATH, this.basePath);
+    String logoutPattern = basePath.isEmpty() ? DEFAULT_BASE_URL_PATH + ".*" : this.basePath + "/.*";
 
     setDefaultUrl(loginUrl);
     setLogoutUrlPattern(logoutPattern);
