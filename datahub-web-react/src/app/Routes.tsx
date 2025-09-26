@@ -1,6 +1,6 @@
 import { useReactiveVar } from '@apollo/client';
 import React from 'react';
-import { Route, RouteProps, Switch } from 'react-router-dom';
+import { Route, RouteProps, Switch, useHistory, useLocation } from 'react-router-dom';
 
 import AppProviders from '@app/AppProviders';
 import { ProtectedRoutes } from '@app/ProtectedRoutes';
@@ -11,7 +11,6 @@ import { SignUp } from '@app/auth/SignUp';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { PageRoutes } from '@conf/Global';
-import { removeRuntimePath, resolveRuntimePath } from '@utils/runtimeBasePath';
 
 const ProtectedRoute = ({
     isLoggedIn,
@@ -19,10 +18,11 @@ const ProtectedRoute = ({
 }: {
     isLoggedIn: boolean;
 } & RouteProps) => {
-    const currentPath = removeRuntimePath(window.location.pathname) + window.location.search;
+    const history = useHistory();
+    const location = useLocation();
+    const currentPath = location.pathname + location.search;
     if (!isLoggedIn) {
-        const authUrl = resolveRuntimePath(PageRoutes.AUTHENTICATE);
-        window.location.replace(`${authUrl}?redirect_uri=${encodeURIComponent(currentPath)}`);
+        history.replace(`${PageRoutes.AUTHENTICATE}?redirect_uri=${encodeURIComponent(currentPath)}`);
         return null;
     }
     return <Route {...props} />;
