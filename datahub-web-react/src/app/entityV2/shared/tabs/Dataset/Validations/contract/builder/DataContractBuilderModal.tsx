@@ -20,10 +20,9 @@ const modalStyle = {};
 const modalBodyStyle = {
     paddingRight: 0,
     paddingLeft: 0,
-    paddingBottom: 20,
+    paddingBottom: 0,
     paddingTop: 0,
-    maxHeight: '70vh',
-    'overflow-x': 'auto',
+    height: '70vh',
 };
 
 type Props = {

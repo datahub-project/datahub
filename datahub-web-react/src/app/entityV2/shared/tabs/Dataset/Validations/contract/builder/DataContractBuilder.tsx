@@ -5,6 +5,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { TableLoadingSkeleton } from '@app/entityV2/shared/TableLoadingSkeleton';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     AssertionWithMonitorDetails,
@@ -19,25 +20,42 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
 import { buildUpsertDataContractMutationVariables } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/utils';
 import { DATA_QUALITY_ASSERTION_TYPES } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
+import { EMBEDDED_EXECUTOR_POOL_NAME } from '@app/shared/constants';
 
 import { useUpsertDataContractMutation } from '@graphql/contract.generated';
+import { useIngestionSourceForEntityQuery } from '@graphql/ingestion.generated';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '@graphql/monitor.generated';
 import { AssertionType, DataContract } from '@types';
 
-const AssertionsSection = styled.div`
-    border: 0.5px solid ${ANTD_GRAY[4]};
+const BuilderContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    max-height: 70vh;
+    height: 70vh;
+    overflow: hidden;
 `;
 
 const HeaderText = styled.div`
     padding: 16px 20px;
     color: ${ANTD_GRAY[7]};
     font-size: 16px;
+    flex-shrink: 0;
+`;
+
+const AssertionsSection = styled.div`
+    border: 0.5px solid ${ANTD_GRAY[4]};
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
 `;
 
 const ActionContainer = styled.div`
     display: flex;
     justify-content: space-between;
-    margin-top: 16px;
+    flex-shrink: 0;
+    padding: 16px 20px;
+    border-top: 1px solid ${ANTD_GRAY[4]};
+    margin-top: 0;
 `;
 
 const CancelButton = styled(Button)`
@@ -49,7 +67,7 @@ const ProposeButton = styled(Button)`
 `;
 
 const SaveButton = styled(Button)`
-    margin-right: 20px;
+    margin-right: 0;
 `;
 
 type Props = {
@@ -82,7 +100,11 @@ export const DataContractBuilder = ({
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
 
     // note that for contracts, we do not allow the use of sibling node assertions, for clarity.
-    const { data: assertionData } = useGetDatasetAssertionsWithMonitorsQuery({
+    const { data: assertionData, loading: assertionLoading } = useGetDatasetAssertionsWithMonitorsQuery({
+        variables: { urn: entityUrn },
+        fetchPolicy: 'cache-first',
+    });
+    const { data: ingestionSourceData, loading: ingestionSourceLoading } = useIngestionSourceForEntityQuery({
         variables: { urn: entityUrn },
         fetchPolicy: 'cache-first',
     });
@@ -98,6 +120,11 @@ export const DataContractBuilder = ({
 
     const canEditDataContract = entityData?.privileges?.canEditDataContract;
     const canProposeDataContract = entityData?.privileges?.canProposeDataContract;
+
+    const isLoading = assertionLoading || ingestionSourceLoading;
+    if (isLoading) {
+        return <TableLoadingSkeleton />;
+    }
 
     /**
      * Upserts the Data Contract for an entity
@@ -170,9 +197,11 @@ export const DataContractBuilder = ({
         lodash.isEqual(builderState, initialState) || lodash.isEqual(builderState, DEFAULT_BUILDER_STATE);
 
     const hasAssertions = freshnessAssertions.length || schemaAssertions.length || dataQualityAssertions.length;
+    const maybeExecutorId = ingestionSourceData?.ingestionSourceForEntity?.config?.executorId;
+    const isEntityReachable = !maybeExecutorId || maybeExecutorId.toLowerCase().startsWith(EMBEDDED_EXECUTOR_POOL_NAME);
 
     return (
-        <>
+        <BuilderContainer>
             {(hasAssertions && <HeaderText>Select the assertions that will make up your contract.</HeaderText>) || (
                 <HeaderText>Add a few assertions on this entity to create a data contract out of them.</HeaderText>
             )}
@@ -186,6 +215,7 @@ export const DataContractBuilder = ({
                             (builderState.freshness?.assertionUrn && [builderState.freshness?.assertionUrn]) || []
                         }
                         onSelect={onSelectFreshnessAssertion}
+                        isEntityReachable={isEntityReachable}
                     />
                 )) ||
                     undefined}
@@ -196,6 +226,7 @@ export const DataContractBuilder = ({
                         multiple={false}
                         selectedUrns={(builderState.schema?.assertionUrn && [builderState.schema?.assertionUrn]) || []}
                         onSelect={onSelectSchemaAssertion}
+                        isEntityReachable={isEntityReachable}
                     />
                 )) ||
                     undefined}
@@ -205,6 +236,7 @@ export const DataContractBuilder = ({
                         assertions={dataQualityAssertions}
                         selectedUrns={builderState.dataQuality?.map((c) => c.assertionUrn) || []}
                         onSelect={onSelectDataQualityAssertion}
+                        isEntityReachable={isEntityReachable}
                     />
                 )) ||
                     undefined}
@@ -226,6 +258,6 @@ export const DataContractBuilder = ({
                     </SaveButton>
                 </div>
             </ActionContainer>
-        </>
+        </BuilderContainer>
     );
 };

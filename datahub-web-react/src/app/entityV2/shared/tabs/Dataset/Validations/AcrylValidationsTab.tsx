@@ -40,13 +40,6 @@ const TabToolbar = styled.div`
     flex: 0 0 auto;
 `;
 
-const TabContentWrapper = styled.div`
-    @media screen and (max-height: 800px) {
-        display: contents;
-        overflow: auto;
-    }
-`;
-
 const DEFAULT_TAB = ValidationTabPaths.SUMMARY;
 
 /**
@@ -145,9 +138,7 @@ export const AcrylValidationsTab = () => {
                 ))}
             </TabToolbar>
             <QualityTabContextProvider>
-                <TabContentWrapper>
-                    {tabs.filter((tab) => tab.path === selectedTab).map((tab) => tab.content)}
-                </TabContentWrapper>
+                {tabs.filter((tab) => tab.path === selectedTab).map((tab) => tab.content)}
             </QualityTabContextProvider>
         </>
     );

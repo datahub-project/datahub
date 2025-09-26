@@ -1,59 +1,54 @@
-import React, { useEffect, useState } from 'react';
+import ResizeObserver from 'rc-resize-observer';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import styled from 'styled-components';
 
-import { StyledTableContainer } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/StyledComponents';
+import { StyledTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTable';
 import { useAssertionsTableColumns } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/hooks';
-import { AssertionListFilter, AssertionTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { AssertionTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
 import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
-import { Table } from '@src/alchemy-components';
-import { SortingState } from '@src/alchemy-components/components/Table/types';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { useGetExpandedTableGroupsFromEntityUrnInUrl } from '@src/app/entityV2/shared/hooks';
 import { AssertionType, DataContract, Entity } from '@src/types.generated';
+
+const HEADER_AND_PAGINATION_HEIGHT_PX = 130;
+
+const TableContainer = styled.div`
+    overflow: hidden;
+    height: 100%;
+    max-height: 100%;
+`;
 
 type Props = {
     assertionData: AssertionTable;
-    filter: AssertionListFilter;
     refetch: () => void;
     contract: DataContract;
     canEditAssertions: boolean;
     canEditMonitors: boolean;
     canEditSqlAssertions: boolean;
+    isEntityReachable: boolean;
 };
 
 export const AcrylAssertionListTable = ({
     assertionData,
-    filter,
     refetch,
     contract,
     canEditAssertions,
     canEditMonitors,
     canEditSqlAssertions,
+    isEntityReachable,
 }: Props) => {
     const { entityData } = useEntityData();
-    const { groupBy } = filter;
-
-    const [sortedOptions, setSortedOptions] = useState<{ sortColumn: string; sortOrder: SortingState }>({
-        sortColumn: '',
-        sortOrder: SortingState.ORIGINAL,
-    });
-
-    const { expandedGroupIds, setExpandedGroupIds } = useGetExpandedTableGroupsFromEntityUrnInUrl(
-        assertionData?.groupBy ? assertionData?.groupBy[groupBy] : [],
-        { isGroupBy: !!groupBy },
-        'assertion_urn',
-        (group) => group.assertions,
-    );
+    const [tableHeight, setTableHeight] = useState(0);
 
     // get columns data from the custom hooks
     const assertionsTableCols = useAssertionsTableColumns({
-        groupBy,
         contract,
         canEditSqlAssertions,
         canEditAssertions,
         canEditMonitors,
         refetch,
+        isEntityReachable,
     });
 
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
@@ -76,15 +71,6 @@ export const AcrylAssertionListTable = ({
 
     useOpenAssertionDetailModal(setFocusAssertionUrn);
 
-    const onAssertionExpand = (record) => {
-        const key = record.name;
-        setExpandedGroupIds((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
-    };
-
-    const getGroupData = () => {
-        return (assertionData?.groupBy && assertionData?.groupBy[groupBy]) || [];
-    };
-
     const rowClassName = (record): string => {
         if (record.groupName) {
             return 'group-header';
@@ -95,72 +81,48 @@ export const AcrylAssertionListTable = ({
         return 'acryl-assertions-table-row';
     };
 
-    const onRowClick = (record) => {
-        setFocusAssertionUrn(record.urn);
-    };
+    const memoizedData = useMemo(
+        () => assertionData.assertions.map((assertion) => ({ ...assertion, key: assertion.urn })),
+        [assertionData.assertions],
+    );
 
-    const getSortedAssertions = (record) => {
-        const { sortOrder, sortColumn } = sortedOptions;
-        if (sortOrder === SortingState.ORIGINAL) {
-            return record.assertions;
-        }
-
-        const sortFunctions = {
-            lastEvaluation: {
-                [SortingState.DESCENDING]: (a, b) => a.lastEvaluationTimeMs - b.lastEvaluationTimeMs,
-                [SortingState.ASCENDING]: (a, b) => b.lastEvaluationTimeMs - a.lastEvaluationTimeMs,
-            },
-            name: {
-                [SortingState.ASCENDING]: (a, b) => a.description.localeCompare(b.description),
-                [SortingState.DESCENDING]: (a, b) => b.description.localeCompare(a.description),
-            },
-        };
-
-        const sortFunction = sortFunctions[sortColumn]?.[sortOrder];
-        return sortFunction ? [...record.assertions].sort(sortFunction) : record.assertions;
-    };
+    const handleRowClick = useCallback(
+        (record) => {
+            return {
+                onClick: () => {
+                    setFocusAssertionUrn(record.urn);
+                },
+            };
+        },
+        [setFocusAssertionUrn],
+    ); // Only recreate if setFocusAssertionUrn changes
 
     return (
-        <>
-            <StyledTableContainer style={{ overflow: 'hidden', marginBottom: 20 }}>
-                <Table
-                    columns={assertionsTableCols}
-                    data={groupBy ? getGroupData() : assertionData.assertions || []}
+        <TableContainer>
+            <ResizeObserver
+                onResize={(dimensions) => setTableHeight(dimensions.height - HEADER_AND_PAGINATION_HEIGHT_PX)}
+            >
+                <StyledTable
+                    columns={assertionsTableCols as any}
+                    showSelect
+                    dataSource={memoizedData}
                     showHeader
-                    isScrollable
-                    rowClassName={rowClassName}
-                    handleSortColumnChange={({
-                        sortColumn,
-                        sortOrder,
-                    }: {
-                        sortColumn: string;
-                        sortOrder: SortingState;
-                    }) => setSortedOptions({ sortColumn, sortOrder })}
-                    expandable={{
-                        expandedRowRender: (record) => {
-                            let sortedAssertions = record.assertions;
-                            if (sortedOptions.sortColumn && sortedOptions.sortOrder) {
-                                sortedAssertions = getSortedAssertions(record);
-                            }
-                            return (
-                                <Table
-                                    columns={assertionsTableCols}
-                                    data={sortedAssertions}
-                                    showHeader={false}
-                                    isBorderless
-                                    isExpandedInnerTable
-                                    onRowClick={onRowClick}
-                                    rowClassName={rowClassName}
-                                />
-                            );
-                        },
-                        rowExpandable: () => !!groupBy,
-                        expandIconPosition: 'end',
-                        expandedGroupIds,
+                    scroll={{
+                        y: tableHeight,
+                        x: 'max-content',
                     }}
-                    onExpand={onAssertionExpand}
+                    pagination={{
+                        pageSize: 50,
+                        position: ['bottomCenter'],
+                        showSizeChanger: false,
+                    }}
+                    rowClassName={rowClassName}
+                    bordered={false}
+                    onRow={handleRowClick}
+                    tableLayout="fixed"
                 />
-            </StyledTableContainer>
+            </ResizeObserver>
+
             {focusAssertionUrn && focusedAssertionEntity && (
                 <AssertionProfileDrawer
                     urn={focusAssertionUrn}
@@ -172,6 +134,6 @@ export const AcrylAssertionListTable = ({
                     refetch={refetch}
                 />
             )}
-        </>
+        </TableContainer>
     );
 };

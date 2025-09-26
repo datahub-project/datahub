@@ -15,6 +15,7 @@ type Props = {
     canEditSqlAssertions: boolean;
     onSelect?: (assertionUrn: string) => void;
     refetch?: () => void;
+    isEntityReachable: boolean;
 };
 
 /**
@@ -34,6 +35,7 @@ export const AcrylDatasetAssertionsList = ({
     canEditSqlAssertions,
     onSelect,
     refetch,
+    isEntityReachable,
 }: Props) => {
     return (
         <AcrylAssertionsTable
@@ -47,6 +49,7 @@ export const AcrylDatasetAssertionsList = ({
             canEditMonitors={canEditMonitors}
             canEditSqlAssertions={canEditSqlAssertions}
             refetch={refetch}
+            isEntityReachable={isEntityReachable}
         />
     );
 };

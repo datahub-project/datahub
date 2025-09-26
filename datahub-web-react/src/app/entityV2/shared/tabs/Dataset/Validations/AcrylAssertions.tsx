@@ -21,10 +21,12 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { AssertionMonitorBuilderDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/AssertionMonitorBuilderDrawer';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { EMBEDDED_EXECUTOR_POOL_NAME } from '@app/shared/constants';
 import { useAppConfig } from '@app/useAppConfig';
 import { DataPlatform } from '@src/types.generated';
 
 import { useGetDatasetContractQuery } from '@graphql/contract.generated';
+import { useIngestionSourceForEntityQuery } from '@graphql/ingestion.generated';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '@graphql/monitor.generated';
 
 /**
@@ -49,6 +51,11 @@ export const AcrylAssertions = () => {
         fetchPolicy: 'cache-first',
     });
 
+    const { data: ingestionSourceData, loading: ingestionSourceLoading } = useIngestionSourceForEntityQuery({
+        variables: { urn },
+        fetchPolicy: 'cache-first',
+    });
+
     const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
     const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] =
         tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
@@ -56,6 +63,9 @@ export const AcrylAssertions = () => {
 
     const contract = contractData?.dataset?.contract as any;
     const assertionMonitorsEnabled = config?.featureFlags?.assertionMonitorsEnabled || false;
+
+    const maybeExecutorId = ingestionSourceData?.ingestionSourceForEntity?.config?.executorId;
+    const isEntityReachable = !maybeExecutorId || maybeExecutorId.toLowerCase().startsWith(EMBEDDED_EXECUTOR_POOL_NAME);
 
     const isRenderingSiblings = (entityData?.siblingsSearch?.total && !isHideSiblingMode) || false;
     const isRenderingSiblingsModeMessage = (
@@ -99,7 +109,7 @@ export const AcrylAssertions = () => {
                     </Tooltip>
                 </TabToolbar>
             )}
-            {loading ? (
+            {loading || ingestionSourceLoading ? (
                 <TableLoadingSkeleton />
             ) : (
                 <>
@@ -114,6 +124,7 @@ export const AcrylAssertions = () => {
                         canEditAssertions={data?.dataset?.privileges?.canEditAssertions || false}
                         canEditMonitors={data?.dataset?.privileges?.canEditMonitors || false}
                         canEditSqlAssertions={data?.dataset?.privileges?.canEditSqlAssertionMonitors || false}
+                        isEntityReachable={isEntityReachable}
                     />
                 </>
             )}

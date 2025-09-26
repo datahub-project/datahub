@@ -423,7 +423,6 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
 
 const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: AssertionListFilter) => {
     const { type, status, source, column } = filter.filterCriteria;
-
     // Apply type, status, and other filters
     return assertions.filter((assertion: AssertionWithMonitorDetails) => {
         const resultType = assertion.runEvents?.runEvents?.[0]?.result?.type as AssertionResultType;

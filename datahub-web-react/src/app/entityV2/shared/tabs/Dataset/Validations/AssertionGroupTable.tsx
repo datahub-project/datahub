@@ -34,6 +34,7 @@ type Props = {
     canEditMonitors: boolean;
     canEditSqlAssertions: boolean;
     refetch: () => void;
+    isEntityReachable: boolean;
 };
 
 export const AssertionGroupTable = ({
@@ -43,6 +44,7 @@ export const AssertionGroupTable = ({
     canEditMonitors,
     canEditSqlAssertions,
     refetch,
+    isEntityReachable,
 }: Props) => {
     const { expandedRowKeys, setExpandedRowKeys } = useExpandedRowKeys(groups, { isGroupBy: true });
 
@@ -84,6 +86,7 @@ export const AssertionGroupTable = ({
                             canEditMonitors={canEditMonitors}
                             canEditSqlAssertions={canEditSqlAssertions}
                             refetch={refetch}
+                            isEntityReachable={isEntityReachable}
                         />
                     );
                 },

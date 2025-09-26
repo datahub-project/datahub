@@ -27,6 +27,7 @@ type Props = {
     assertions: Assertion[];
     selectedUrns: string[];
     onSelect: (assertionUrn: string) => void;
+    isEntityReachable: boolean;
 };
 
 /**
@@ -38,6 +39,7 @@ export const DataContractAssertionGroupSelect = ({
     multiple = true,
     selectedUrns,
     onSelect,
+    isEntityReachable,
 }: Props) => {
     return (
         <>
@@ -53,6 +55,7 @@ export const DataContractAssertionGroupSelect = ({
                 canEditAssertions={false}
                 canEditMonitors={false}
                 canEditSqlAssertions={false}
+                isEntityReachable={isEntityReachable}
             />
         </>
     );
