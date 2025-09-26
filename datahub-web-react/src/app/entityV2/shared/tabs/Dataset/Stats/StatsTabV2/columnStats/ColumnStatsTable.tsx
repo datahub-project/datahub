@@ -11,6 +11,79 @@ import { isPresent } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/ut
 import { downgradeV2FieldPath, groupByFieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import { DatasetFieldProfile } from '@src/types.generated';
 
+/**
+ * Determines if a field is nullable based on column statistics.
+ * Uses null count or proportion data when available, defaults to nullable.
+ */
+function isFieldNullable(stat: DatasetFieldProfile): boolean {
+    if (stat.nullCount != null) {
+        return stat.nullCount > 0;
+    }
+
+    if (stat.nullProportion != null) {
+        return stat.nullProportion > 0;
+    }
+
+    return true; // Default to nullable when data unavailable
+}
+
+/**
+ * Creates a stats-only field object for fields that exist in column stats but not in schema.
+ */
+function createStatsOnlyField(stat: DatasetFieldProfile) {
+    return {
+        fieldPath: stat.fieldPath,
+        type: null,
+        nativeDataType: null,
+        schemaFieldEntity: null,
+        nullable: isFieldNullable(stat),
+        recursive: false,
+        description: null,
+    };
+}
+
+/**
+ * Flattens nested field hierarchies to enable drawer field path matching.
+ */
+function flattenFields(fieldList: any[]): any[] {
+    const result: any[] = [];
+    fieldList.forEach((field) => {
+        result.push(field);
+        if (field.children) {
+            result.push(...flattenFields(field.children));
+        }
+    });
+    return result;
+}
+
+/**
+ * Handles scroll adjustment when a row is selected to ensure it's visible.
+ */
+function handleRowScrollIntoView(row: HTMLTableRowElement | undefined, header: HTMLTableSectionElement | null) {
+    if (!row || !header) return;
+
+    const rowRect = row.getBoundingClientRect();
+    const headerRect = header.getBoundingClientRect();
+    const rowTop = rowRect.top;
+    const headerBottom = headerRect.bottom;
+    const scrollContainer = row.closest('table')?.parentElement;
+
+    if (scrollContainer && rowTop < headerBottom) {
+        const scrollAmount = headerBottom - rowTop;
+        scrollContainer.scrollTop -= scrollAmount;
+    }
+}
+
+/**
+ * Filters column stats data based on search query.
+ */
+function filterColumnStatsByQuery(data: any[], query: string) {
+    if (!query.trim()) return data;
+
+    const lowercaseQuery = query.toLowerCase();
+    return data.filter((columnStat) => columnStat.column?.toLowerCase().includes(lowercaseQuery));
+}
+
 const EmptyContainer = styled.div`
     display: flex;
     flex-direction: column;
@@ -22,25 +95,24 @@ const EmptyContainer = styled.div`
 `;
 
 interface Props {
-    columnStats: Array<DatasetFieldProfile>;
+    columnStats: DatasetFieldProfile[];
     searchQuery: string;
 }
 
-const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
+function ColumnStatsTable({ columnStats, searchQuery }: Props) {
     const { entityWithSchema } = useGetEntityWithSchema();
-    const schemaMetadata: any = entityWithSchema?.schemaMetadata || undefined;
-    const editableSchemaMetadata: any = entityWithSchema?.editableSchemaMetadata || undefined;
-    const fields = schemaMetadata?.fields;
+    const fields = entityWithSchema?.schemaMetadata?.fields;
 
     const columnStatsTableData = useMemo(
         () =>
-            columnStats.map((doc) => ({
-                column: downgradeV2FieldPath(doc.fieldPath),
-                type: fields?.find((field) => field.fieldPath === doc.fieldPath)?.type,
-                nullPercentage: isPresent(doc.nullProportion) && decimalToPercentStr(doc.nullProportion, 2),
-                uniqueValues: isPresent(doc.uniqueCount) && doc.uniqueCount.toString(),
-                min: doc.min,
-                max: doc.max,
+            columnStats.map((stat) => ({
+                column: downgradeV2FieldPath(stat.fieldPath),
+                originalFieldPath: stat.fieldPath,
+                type: (fields as any[])?.find((field) => field.fieldPath === stat.fieldPath)?.type,
+                nullPercentage: isPresent(stat.nullProportion) && decimalToPercentStr(stat.nullProportion, 2),
+                uniqueValues: isPresent(stat.uniqueCount) && stat.uniqueCount.toString(),
+                min: stat.min,
+                max: stat.max,
             })) || [],
         [columnStats, fields],
     );
@@ -48,12 +120,20 @@ const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
     const [expandedDrawerFieldPath, setExpandedDrawerFieldPath] = useState<string | null>(null);
 
     const rows = useMemo(() => {
-        return groupByFieldPath(fields);
-    }, [fields]);
+        const schemaFields = fields || [];
 
-    const filteredData = columnStatsTableData.filter((columnStat) =>
-        columnStat.column?.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
+        // Add fields from column stats that don't exist in schema
+        const statsOnlyFields = columnStats
+            .filter((stat) => !(schemaFields as any[]).find((field) => field.fieldPath === stat.fieldPath))
+            .map(createStatsOnlyField);
+
+        const combinedFields = [...schemaFields, ...statsOnlyFields];
+        const groupedFields = groupByFieldPath(combinedFields as any[]);
+
+        return flattenFields(groupedFields);
+    }, [fields, columnStats]);
+
+    const filteredData = filterColumnStatsByQuery(columnStatsTableData, searchQuery);
 
     const columnStatsColumns = useGetColumnStatsColumns({
         tableData: columnStatsTableData,
@@ -83,20 +163,9 @@ const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
                     block: 'nearest',
                 });
             }
-            // To bring the row hidden behind the fixed header into view fully
+            // Adjust scroll position to account for fixed header
             setTimeout(() => {
-                if (row && header) {
-                    const rowRect = row.getBoundingClientRect();
-                    const headerRect = header.getBoundingClientRect();
-                    const rowTop = rowRect.top;
-                    const headerBottom = headerRect.bottom;
-                    const scrollContainer = row.closest('table')?.parentElement;
-
-                    if (scrollContainer && rowTop < headerBottom) {
-                        const scrollAmount = headerBottom - rowTop;
-                        scrollContainer.scrollTop -= scrollAmount;
-                    }
-                }
+                handleRowScrollIntoView(row, header);
             }, 100);
         }
     }, [expandedDrawerFieldPath, rows]);
@@ -112,11 +181,13 @@ const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
     }
 
     const getRowClassName = (record) => {
-        return expandedDrawerFieldPath === record.column ? 'selected-row' : '';
+        return expandedDrawerFieldPath === record.originalFieldPath ? 'selected-row' : '';
     };
 
     const onRowClick = (record) => {
-        setExpandedDrawerFieldPath(expandedDrawerFieldPath === record.column ? null : record.column);
+        setExpandedDrawerFieldPath(
+            expandedDrawerFieldPath === record.originalFieldPath ? null : record.originalFieldPath,
+        );
     };
 
     return (
@@ -133,9 +204,9 @@ const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
             />
             {!!fields && (
                 <SchemaFieldDrawer
-                    schemaFields={fields}
+                    schemaFields={fields as any[]}
                     expandedDrawerFieldPath={expandedDrawerFieldPath}
-                    editableSchemaMetadata={editableSchemaMetadata}
+                    editableSchemaMetadata={entityWithSchema?.editableSchemaMetadata as any}
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                     displayedRows={rows}
                     defaultSelectedTabName="Statistics"
@@ -145,6 +216,6 @@ const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
             )}
         </>
     );
-};
+}
 
 export default ColumnStatsTable;
