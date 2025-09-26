@@ -1,6 +1,8 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
+import { Text, colors } from '@components';
 import { Button, Pagination, Spin, Typography } from 'antd';
 import React from 'react';
+import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import {
@@ -13,10 +15,11 @@ import { EntityAndType } from '@app/entity/shared/types';
 import { SearchFiltersSection } from '@app/search/SearchFiltersSection';
 import { combineSiblingsInSearchResults } from '@app/search/utils/combineSiblingsInSearchResults';
 import { UnionType } from '@app/search/utils/constants';
+import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { SearchCfg } from '@src/conf';
 
-import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
+import { Dataset, FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
 
 const SearchBody = styled.div`
     height: 100%;
@@ -82,6 +85,17 @@ const ErrorMessage = styled.div`
     flex: 1;
 `;
 
+const WarningMessage = styled.div`
+    gap: 8px;
+    padding: 8px;
+    display: flex;
+    margin: 8px 16px 0 16px
+    align-items: center;
+    color: ${colors.yellow[1000]};
+    background-color: ${colors.yellow[0]};
+    border-radius: 8px;
+`;
+
 const StyledLinkButton = styled(Button)`
     margin: 0 -14px;
     font-size: 16px;
@@ -110,7 +124,13 @@ interface Props {
     onClickLessHops?: () => void;
     onLineageClick?: () => void;
     isLineageTab?: boolean;
+    isViewAllMode?: boolean | false;
+    handleViewAllClickWarning?: () => void;
 }
+
+const getPlatformUrnFromSearchResponse = (searchResponse: SearchResultType | null | undefined) => {
+    return searchResponse?.facets?.find((facet) => facet.field === 'platform')?.aggregations?.[0]?.value;
+};
 
 export const EmbeddedListSearchResults = ({
     page,
@@ -135,7 +155,10 @@ export const EmbeddedListSearchResults = ({
     onClickLessHops,
     onLineageClick,
     isLineageTab = false,
+    isViewAllMode = false,
+    handleViewAllClickWarning,
 }: Props) => {
+    const history = useHistory();
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(
         showSeparateSiblings,
@@ -146,6 +169,28 @@ export const EmbeddedListSearchResults = ({
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
+
+    const platformUrn = getPlatformUrnFromSearchResponse(searchResponse);
+    let platform: string | null = null;
+    try {
+        platform = (combinedSiblingSearchResults?.[0]?.entity as Dataset).platform?.name;
+    } catch (error) {
+        console.error('Error getting platform from search response', error);
+    }
+
+    const handleSearchAllAssetsClick = () => {
+        handleViewAllClickWarning?.();
+        if (platformUrn) {
+            const platformFilter: FacetFilterInput = {
+                field: 'platform',
+                values: [platformUrn],
+            };
+            navigateToSearchUrl({
+                filters: [platformFilter],
+                history,
+            });
+        }
+    };
 
     return (
         <>
@@ -179,6 +224,30 @@ export const EmbeddedListSearchResults = ({
                                 here
                             </StyledLinkButton>
                         </ErrorMessage>
+                    )}
+                    {isViewAllMode && (
+                        <WarningMessage>
+                            <ExclamationCircleFilled style={{ color: colors.yellow[1000], fontSize: 16 }} />
+                            <Text weight="bold" style={{ lineHeight: 'normal' }}>
+                                Results may be incomplete.{' '}
+                                {platform && (
+                                    <span
+                                        onClick={handleSearchAllAssetsClick}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                handleSearchAllAssetsClick();
+                                            }
+                                        }}
+                                        role="button"
+                                        tabIndex={0}
+                                        style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                                    >
+                                        Search all ingested {platform} assets
+                                    </span>
+                                )}
+                            </Text>
+                        </WarningMessage>
                     )}
                     {!loading && !isServerOverloadError && (
                         <EntitySearchResults

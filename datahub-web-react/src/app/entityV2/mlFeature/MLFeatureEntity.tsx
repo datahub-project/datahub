@@ -230,6 +230,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

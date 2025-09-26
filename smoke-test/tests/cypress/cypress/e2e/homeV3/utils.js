@@ -14,12 +14,42 @@ export function setThemeV2AndHomePageRedesignFlags(isOn) {
 }
 
 export function clickFirstAddModuleButton() {
-  cy.getWithTestId("add-button-container").first().realHover();
+  cy.getWithTestId("add-button-container")
+    .first()
+    .should("be.visible")
+    .realHover();
+
+  cy.getWithTestId("add-module-button")
+    .first()
+    .then(($el) => {
+      if (!$el.is(":visible")) {
+        cy.wait(500); // Brief wait for retry
+        cy.getWithTestId("add-button-container")
+          .first()
+          .should("be.visible")
+          .realHover();
+      }
+    });
   cy.getWithTestId("add-module-button").first().should("be.visible").click();
 }
 
 export function clickLastAddModuleButton() {
-  cy.getWithTestId("add-button-container").last().realHover();
+  cy.getWithTestId("add-button-container")
+    .last()
+    .should("be.visible")
+    .realHover();
+
+  cy.getWithTestId("add-module-button")
+    .last()
+    .then(($el) => {
+      if (!$el.is(":visible")) {
+        cy.wait(500); // Brief wait for retry
+        cy.getWithTestId("add-button-container")
+          .last()
+          .should("be.visible")
+          .realHover();
+      }
+    });
   cy.getWithTestId("add-module-button").last().should("be.visible").click();
 }
 
@@ -55,6 +85,7 @@ export function resetToOrgDefault() {
   cy.getWithTestId("edit-home-page-settings").click({ force: true });
   cy.getWithTestId("reset-to-organization-default").click();
   cy.getWithTestId("modal-confirm-button").filter(":visible").click();
+  cy.getWithTestId("modal-confirm-button").should("not.be.visible");
 }
 
 export function startEditingDefaultTemplate() {
@@ -109,7 +140,9 @@ export function createHierarchyModule(name) {
   cy.getWithTestId("add-hierarchy-module").click();
   cy.getWithTestId("hierarchy-module-name").should("be.visible").type(name);
   cy.getWithTestId("hierarchy-module-nodes").should("exist");
-  cy.getWithTestId("hierarchy-selection-checkbox").eq(0).click({ force: true });
+  cy.getWithTestId("hierarchy-selection-checkbox")
+    .first()
+    .click({ force: true });
   cy.getWithTestId("create-update-module-button").click();
 }
 
@@ -175,4 +208,8 @@ export function dragAndDropModuleToNewRow(moduleId) {
     .last()
     .realMouseMove(0, 0, { position: "center" })
     .realMouseUp();
+}
+
+export function waitUntilTemplateIsLoaded() {
+  cy.getWithTestId("home-template-wrapper");
 }

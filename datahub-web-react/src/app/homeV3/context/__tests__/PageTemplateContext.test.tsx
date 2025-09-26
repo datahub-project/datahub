@@ -123,6 +123,7 @@ describe('PageTemplateContext', () => {
             removeModule: mockRemoveModule,
             upsertModule: mockUpsertModule,
             moveModule: mockMoveModule,
+            moduleContext: {} as any,
         });
     });
 
@@ -194,6 +195,7 @@ describe('PageTemplateContext', () => {
                 mockUpsertTemplate,
                 false,
                 null,
+                PageTemplateSurfaceType.HomePage,
             );
         });
 
@@ -297,6 +299,7 @@ describe('PageTemplateContext', () => {
                 mockUpsertTemplate,
                 false,
                 null,
+                PageTemplateSurfaceType.HomePage,
             );
         });
 

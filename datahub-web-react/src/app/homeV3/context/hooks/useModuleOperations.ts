@@ -27,7 +27,7 @@ import {
     useDeletePageModuleMutation,
     useUpsertPageModuleMutation,
 } from '@graphql/template.generated';
-import { EntityType, PageModuleScope } from '@types';
+import { EntityType, PageModuleScope, PageTemplateSurfaceType } from '@types';
 
 // Helper functions for input validation
 const validateAddModuleInput = (input: AddModuleInput): string | null => {
@@ -113,6 +113,7 @@ export function useModuleOperations(
     ) => Promise<any>,
     isEditingModule: boolean,
     originalModuleData: PageModuleFragment | null,
+    templateType: PageTemplateSurfaceType,
 ) {
     const [upsertPageModuleMutation] = useUpsertPageModuleMutation();
     const [deletePageModule] = useDeletePageModuleMutation();
@@ -161,7 +162,14 @@ export function useModuleOperations(
             const adjustedRowIndex = calculateAdjustedRowIndex(fromPosition, toRowIndex, wasRowRemoved);
 
             // Step 3: Insert module into new position
-            const finalRows = insertModuleIntoRows(updatedRows, module, toPosition, adjustedRowIndex, insertNewRow);
+            const finalRows = insertModuleIntoRows(
+                updatedRows,
+                module,
+                toPosition,
+                adjustedRowIndex,
+                templateType,
+                insertNewRow,
+            );
 
             // Step 4: Return updated template
             return {
@@ -172,7 +180,7 @@ export function useModuleOperations(
                 },
             };
         },
-        [],
+        [templateType],
     );
 
     // Updates template state with a new module and updates the appropriate template on the backend
@@ -192,6 +200,7 @@ export function useModuleOperations(
                 module,
                 position,
                 updateTemplateWithModule,
+                templateType,
                 isEditingModule,
             );
 
@@ -206,9 +215,10 @@ export function useModuleOperations(
                 templateUrn: templateToUpdate.urn,
                 moduleType: module.properties.type,
                 isPersonal,
+                location: templateType,
             });
         },
-        [context, isEditingModule, updateTemplateWithModule],
+        [context, isEditingModule, updateTemplateWithModule, templateType],
     );
 
     // Removes a module from the template state and updates the appropriate template on the backend
@@ -244,9 +254,10 @@ export function useModuleOperations(
                 templateUrn: templateToUpdate.urn,
                 moduleType: module.properties.type,
                 isPersonal,
+                location: templateType,
             });
         },
-        [context, removeModuleFromTemplate, deletePageModule],
+        [context, removeModuleFromTemplate, templateType, deletePageModule],
     );
 
     // Takes input and makes a call to create a module then add that module to the template
@@ -315,6 +326,7 @@ export function useModuleOperations(
                         templateUrn: templateToUpdate?.urn ?? '',
                         moduleType: moduleFragment.properties.type,
                         isPersonal,
+                        location: templateType,
                     });
 
                     // If we created a new module to replace a global one, remove the old module first
@@ -340,6 +352,7 @@ export function useModuleOperations(
                                 moduleFragment,
                                 position,
                                 updateTemplateWithModule,
+                                templateType,
                                 false,
                             );
 
@@ -371,6 +384,7 @@ export function useModuleOperations(
             context,
             removeModuleFromTemplate,
             updateTemplateWithModule,
+            templateType,
         ],
     );
 
@@ -418,9 +432,10 @@ export function useModuleOperations(
                 type: EventType.HomePageTemplateModuleMove,
                 templateUrn: templateToUpdate.urn,
                 isPersonal,
+                location: templateType,
             });
         },
-        [context, moveModuleInTemplate],
+        [context, moveModuleInTemplate, templateType],
     );
 
     return {
@@ -428,5 +443,6 @@ export function useModuleOperations(
         removeModule,
         upsertModule,
         moveModule,
+        moduleContext: context,
     };
 }

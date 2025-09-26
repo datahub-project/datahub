@@ -3,10 +3,11 @@ import {
     AddSummaryElementInput,
     ReplaceSummaryElementInput,
 } from '@app/homeV3/context/hooks/useAssetSummaryOperations';
+import { TemplateUpdateContext } from '@app/homeV3/context/hooks/utils/templateOperationUtils';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
-import { DataHubPageModuleType, PageModuleScope } from '@types';
+import { DataHubPageModuleType, PageModuleScope, PageTemplateSurfaceType, SummaryElementType } from '@types';
 
 // Input types for the methods
 export interface UpsertModuleInput {
@@ -57,6 +58,7 @@ export type PageTemplateContextState = {
     globalTemplate: PageTemplateFragment | null;
     template: PageTemplateFragment | null;
     isEditingGlobalTemplate: boolean;
+    templateType: PageTemplateSurfaceType;
     setIsEditingGlobalTemplate: (val: boolean) => void;
     setPersonalTemplate: (template: PageTemplateFragment | null) => void;
     setGlobalTemplate: (template: PageTemplateFragment | null) => void;
@@ -67,11 +69,10 @@ export type PageTemplateContextState = {
     removeModule: (input: RemoveModuleInput) => void;
     moveModule: (input: MoveModuleInput) => void;
     resetTemplateToDefault: () => void;
-    reloadHomepageModules: boolean;
-    setReloadHomepageModules: (val: boolean) => void;
+    moduleContext: TemplateUpdateContext;
     // Asset summary operations
     summaryElements?: AssetProperty[];
     addSummaryElement: (input: AddSummaryElementInput) => void;
-    removeSummaryElement: (position: number) => void;
+    removeSummaryElement: (position: number, elementType: SummaryElementType) => void;
     replaceSummaryElement: (input: ReplaceSummaryElementInput) => void;
 };

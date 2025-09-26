@@ -24,4 +24,9 @@ record InstitutionalMemoryMetadata {
    * Audit stamp associated with updation of this record
    */
   updateStamp: optional AuditStamp
+  
+  /**
+   * Settings for this record
+   */
+  settings: optional InstitutionalMemoryMetadataSettings
 }
