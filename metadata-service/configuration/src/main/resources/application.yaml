@@ -593,10 +593,10 @@ springdoc:
   cache:
     disabled: false
   swagger-ui:
-    path: ${DATAHUB_BASE_PATH}/openapi/swagger-ui
+    path: /openapi/swagger-ui
     urls-primary-name: DataHub v3 (OpenAPI)
   api-docs:
-    path: ${DATAHUB_BASE_PATH}/openapi/v3/api-docs
+    path: /openapi/v3/api-docs
     # Do not change this even though some APIs are using 3.1
     # Serialization of enum types will break
     version: openapi_3_0

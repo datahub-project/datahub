@@ -32,6 +32,9 @@ public class RAPServletFactory {
   @Value("${" + INGESTION_MAX_SERIALIZED_STRING_LENGTH + ":16000000}")
   private int maxSerializedStringLength;
 
+  @Value("${datahub.gms.basePath:/}")
+  private String gmsBasePath;
+
   @Bean(name = "restliSpringInjectResourceFactory")
   public SpringInjectResourceFactory springInjectResourceFactory(final ApplicationContext ctx) {
     SpringInjectResourceFactory springInjectResourceFactory = new SpringInjectResourceFactory();
@@ -75,6 +78,7 @@ public class RAPServletFactory {
     return new RAPJakartaServlet(
         new FilterChainDispatcher(
             new DelegatingTransportDispatcher(restLiServer, restLiServer), FilterChains.empty()),
-        restliTimeoutSeconds);
+        restliTimeoutSeconds,
+        gmsBasePath);
   }
 }

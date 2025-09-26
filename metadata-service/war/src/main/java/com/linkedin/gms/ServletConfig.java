@@ -20,8 +20,10 @@ import com.linkedin.restli.server.RestliHandlerServlet;
 import io.datahubproject.iceberg.catalog.rest.common.IcebergJsonConverter;
 import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.openapi.converter.StringToChangeCategoryConverter;
+import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.iceberg.rest.RESTSerializers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -52,6 +54,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @EnableWebMvc
 @ComponentScan(
     basePackages = {"io.datahubproject.openapi.schema.registry.config", "com.linkedin.gms.servlet"})
+@Slf4j
 public class ServletConfig implements WebMvcConfigurer {
   @Autowired private TracingInterceptor tracingInterceptor;
 
@@ -126,17 +129,28 @@ public class ServletConfig implements WebMvcConfigurer {
       RAPJakartaServlet r2Servlet) {
     ServletRegistrationBean<RestliHandlerServlet> registration =
         new ServletRegistrationBean<>(new RestliHandlerServlet(r2Servlet));
-    registration.addUrlMappings(
-        "/aspects/*",
-        "/entities/*",
-        "/entitiesV2/*",
-        "/entitiesVersionedV2/*",
-        "/usageStats/*",
-        "/platform/*",
-        "/relationships/*",
-        "/analytics/*",
-        "/operations/*",
-        "/runs/*");
+
+    // Spring Boot automatically handles context path prefixing for servlet registrations
+    // So we use relative paths here, and Spring Boot will add the context path automatically
+    String[] urlMappings = {
+      "/aspects/*",
+      "/entities/*",
+      "/entitiesV2/*",
+      "/entitiesVersionedV2/*",
+      "/usageStats/*",
+      "/platform/*",
+      "/relationships/*",
+      "/analytics/*",
+      "/operations/*",
+      "/runs/*"
+    };
+
+    log.info(
+        "Registering RestLi servlet with gmsBasePath='{}', urlMappings={} (Spring Boot will add context path automatically)",
+        gmsBasePath,
+        Arrays.toString(urlMappings));
+
+    registration.addUrlMappings(urlMappings);
     registration.setLoadOnStartup(2);
     registration.setOrder(Integer.MAX_VALUE); // lowest priority
     return registration;

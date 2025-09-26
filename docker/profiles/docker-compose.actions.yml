@@ -16,7 +16,7 @@ x-datahub-actions-service: &datahub-actions-service
     ACTIONS_EXTRA_PACKAGES: ${ACTIONS_EXTRA_PACKAGES:-}
     ACTIONS_CONFIG: ${ACTIONS_CONFIG:-}
     KAFKA_BOOTSTRAP_SERVER: broker:29092
-    SCHEMA_REGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
+    SCHEMA_REGISTRY_URL: http://datahub-gms:8080${DATAHUB_BASE_PATH}/schema-registry/api/
 
 x-datahub-actions-service-dev: &datahub-actions-service-dev
   <<: *datahub-actions-service
@@ -104,18 +104,4 @@ services:
       - debug-elasticsearch
     depends_on:
       datahub-gms-debug-elasticsearch:
-        condition: service_healthy
-  datahub-actions-debug-basepath-consumers:
-    <<: *datahub-actions-service-dev
-    profiles:
-      - debug-basepath-consumers
-    environment:
-      <<: *search-datastore-env
-      ACTIONS_EXTRA_PACKAGES: ${ACTIONS_EXTRA_PACKAGES:-}
-      ACTIONS_CONFIG: ${ACTIONS_CONFIG:-}
-      KAFKA_BOOTSTRAP_SERVER: broker:29092
-      SCHEMA_REGISTRY_URL: http://datahub-gms:8080/datahub/schema-registry/api/
-      DATAHUB_GMS_URL: http://datahub-gms:8080/datahub
-    depends_on:
-      datahub-gms-debug-basepath-consumers:
         condition: service_healthy

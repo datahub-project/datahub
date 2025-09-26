@@ -5,7 +5,6 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.openapi.v3.OpenAPIV3Customizer;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Info;
-import io.swagger.v3.oas.annotations.servers.Server;
 import io.swagger.v3.oas.models.SpecVersion;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -15,6 +14,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,9 +24,7 @@ import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @EnableWebMvc
-@OpenAPIDefinition(
-    info = @Info(title = "DataHub OpenAPI", version = "2.0.0"),
-    servers = {@Server(url = "/", description = "Default Server URL")})
+@OpenAPIDefinition(info = @Info(title = "DataHub OpenAPI", version = "2.0.0"))
 @Order(2)
 @Configuration
 public class SpringWebConfig implements WebMvcConfigurer {
@@ -44,6 +42,9 @@ public class SpringWebConfig implements WebMvcConfigurer {
 
   @Autowired private TracingInterceptor tracingInterceptor;
 
+  @Value("${datahub.gms.basePath:}")
+  private String gmsBasePath;
+
   @Bean
   public GroupedOpenApi v3OpenApiGroup(
       final EntityRegistry entityRegistry, final ConfigurationProvider configurationProvider) {
@@ -53,6 +54,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
         .addOpenApiCustomizer(
             openApi ->
                 OpenAPIV3Customizer.customizer(openApi, entityRegistry, configurationProvider))
+        .addOpenApiCustomizer(this::configureServerUrl)
         .packagesToScan(V3_PACKAGES.toArray(String[]::new))
         .build();
   }
@@ -64,6 +66,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
         .displayName("DataHub v2 (OpenAPI)")
         .addOpenApiCustomizer(
             openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
+        .addOpenApiCustomizer(this::configureServerUrl)
         .packagesToScan(V2_PACKAGES.toArray(String[]::new))
         .build();
   }
@@ -75,6 +78,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
         .displayName("DataHub v1 (OpenAPI)")
         .addOpenApiCustomizer(
             openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
+        .addOpenApiCustomizer(this::configureServerUrl)
         .packagesToScan(V1_PACKAGES.toArray(String[]::new))
         .build();
   }
@@ -86,6 +90,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
         .displayName("Operations")
         .addOpenApiCustomizer(
             openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
+        .addOpenApiCustomizer(this::configureServerUrl)
         .packagesToScan(OPERATIONS_PACKAGES.toArray(String[]::new))
         .build();
   }
@@ -97,6 +102,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
         .displayName("OpenLineage")
         .addOpenApiCustomizer(
             openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
+        .addOpenApiCustomizer(this::configureServerUrl)
         .packagesToScan(OPENLINEAGE_PACKAGES.toArray(String[]::new))
         .build();
   }
@@ -109,6 +115,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
         .displayName("Events")
         .addOpenApiCustomizer(
             openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
+        .addOpenApiCustomizer(this::configureServerUrl)
         .packagesToScan(EVENTS_PACKAGES.toArray(String[]::new))
         .build();
   }
@@ -118,6 +125,13 @@ public class SpringWebConfig implements WebMvcConfigurer {
     registry
         .addResourceHandler("/swagger-ui/**")
         .addResourceLocations("classpath:/META-INF/resources/webjars/swagger-ui/");
+  }
+
+  private void configureServerUrl(io.swagger.v3.oas.models.OpenAPI openApi) {
+    // Clear any existing servers and set a relative server URL with base path
+    openApi.setServers(null);
+    String serverUrl = gmsBasePath.isEmpty() ? "/" : gmsBasePath;
+    openApi.addServersItem(new io.swagger.v3.oas.models.servers.Server().url(serverUrl));
   }
 
   /** Concatenates two maps. */

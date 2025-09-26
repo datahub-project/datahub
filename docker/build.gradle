@@ -22,6 +22,34 @@ ext {
     python_services_modules = [
     ]
 
+    // Load environment variables from file if DATAHUB_LOCAL_COMMON_ENV is set
+    loadCommonEnvFile = {
+        def envFile = System.getenv("DATAHUB_LOCAL_COMMON_ENV")
+        def envVars = [:]
+        
+        if (envFile && new File(envFile).exists()) {
+            logger.lifecycle("Loading environment variables from: ${envFile}")
+            new File(envFile).eachLine { line ->
+                line = line.trim()
+                if (line && !line.startsWith("#") && line.contains("=")) {
+                    def parts = line.split("=", 2)
+                    if (parts.length == 2) {
+                        envVars[parts[0].trim()] = parts[1].trim()
+                    }
+                }
+            }
+        }
+        
+        // Also load any environment variables that start with DATAHUB_
+        System.getenv().each { key, value ->
+            if (key.startsWith("DATAHUB_")) {
+                envVars[key] = value
+            }
+        }
+        
+        return envVars
+    }
+
     // Common configuration for all tasks
     common_config = [
             captureContainersOutput: true,
@@ -54,14 +82,6 @@ ext {
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
                     ]
             ],
-            'quickstartDebugBasePath': [
-                    profile: 'debug-basepath',
-                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
-                    isDebug: true,
-                    additionalEnv: [
-                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
-                    ]
-            ],
             'quickstartCypress': [
                     profile: 'debug',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
@@ -85,16 +105,6 @@ ext {
                                                                           ':metadata-jobs:mce-consumer-job',
                                                                           ':metadata-jobs:mae-consumer-job',
                                                                           ':datahub-actions'],
-                    isDebug: true,
-                    additionalEnv: [
-                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
-                    ]
-            ],
-            'quickstartDebugBasePathConsumers': [
-                    profile: 'debug-basepath-consumers',
-                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
-                                                                                  ':metadata-jobs:mce-consumer-job',
-                                                                                  ':metadata-jobs:mae-consumer-job'],
                     isDebug: true,
                     additionalEnv: [
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
@@ -192,6 +202,12 @@ dockerCompose {
             isRequiredBy(tasks.named(taskName))
             if (config.profile) {
                 composeAdditionalArgs = ['--profile', config.profile]
+            }
+
+            // Load common environment variables from file if DATAHUB_LOCAL_COMMON_ENV is set
+            def commonEnvVars = loadCommonEnvFile.call()
+            commonEnvVars.each { key, value ->
+                environment.put key, value
             }
 
             // Common environment variables

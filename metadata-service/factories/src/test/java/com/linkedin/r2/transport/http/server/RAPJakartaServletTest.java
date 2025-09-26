@@ -81,20 +81,20 @@ public class RAPJakartaServletTest {
 
   @Test
   public void testConstructorWithHttpDispatcher() {
-    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS);
+    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS, "");
     assertEquals(servlet.getDispatcher(), mockHttpDispatcher);
   }
 
   @Test
   public void testConstructorWithTransportDispatcher() {
-    RAPJakartaServlet servlet = new RAPJakartaServlet(mockTransportDispatcher, TIMEOUT_SECONDS);
+    RAPJakartaServlet servlet = new RAPJakartaServlet(mockTransportDispatcher, TIMEOUT_SECONDS, "");
     assertNotNull(servlet.getDispatcher());
   }
 
   @Test
   public void testSuccessfulRequest() throws ServletException, IOException {
     // Setup
-    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS);
+    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS, "");
     RestResponse mockRestResponse = RestStatus.responseForStatus(200, "OK");
     TransportResponse<RestResponse> transportResponse =
         TransportResponseImpl.success(mockRestResponse);
@@ -145,7 +145,7 @@ public class RAPJakartaServletTest {
     when(mockRequest.getAttribute("javax.servlet.request.X509Certificate")).thenReturn(certs);
     when(mockRequest.getAttribute("javax.servlet.request.cipher_suite")).thenReturn(cipherSuite);
 
-    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS);
+    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS, "");
 
     ArgumentCaptor<RequestContext> contextCaptor = ArgumentCaptor.forClass(RequestContext.class);
 
@@ -171,7 +171,7 @@ public class RAPJakartaServletTest {
     when(mockRequest.getContextPath()).thenReturn("");
     when(mockRequest.getServletPath()).thenReturn("");
 
-    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS);
+    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS, "");
 
     // Execute
     servlet.service(mockRequest, mockResponse);
@@ -201,9 +201,129 @@ public class RAPJakartaServletTest {
   }
 
   @Test
+  public void testContextPathExtraction() throws ServletException {
+    // Test with context path (e.g., /datahub)
+    when(mockRequest.getRequestURI()).thenReturn("/datahub/entities/dataset1");
+    when(mockRequest.getContextPath()).thenReturn("/datahub");
+    when(mockRequest.getServletPath()).thenReturn("/entities");
+    when(mockRequest.getPathInfo()).thenReturn("/dataset1");
+
+    String pathInfo = AbstractJakartaR2Servlet.extractPathInfo(mockRequest, "");
+    assertEquals(pathInfo, "/datahub/entities/dataset1");
+  }
+
+  @Test
+  public void testContextPathExtractionWithEmptyPathInfo() throws ServletException {
+    // Test with context path but no additional path info
+    when(mockRequest.getRequestURI()).thenReturn("/datahub/entities");
+    when(mockRequest.getContextPath()).thenReturn("/datahub");
+    when(mockRequest.getServletPath()).thenReturn("/entities");
+    when(mockRequest.getPathInfo()).thenReturn(null);
+
+    String pathInfo = AbstractJakartaR2Servlet.extractPathInfo(mockRequest, "");
+    assertEquals(pathInfo, "/datahub/entities");
+  }
+
+  @Test
+  public void testContextPathExtractionWithNestedPath() throws ServletException {
+    // Test with deeply nested path
+    when(mockRequest.getRequestURI()).thenReturn("/datahub/platform/datasets/dataset1/versions/v1");
+    when(mockRequest.getContextPath()).thenReturn("/datahub");
+    when(mockRequest.getServletPath()).thenReturn("/platform");
+    when(mockRequest.getPathInfo()).thenReturn("/datasets/dataset1/versions/v1");
+
+    String pathInfo = AbstractJakartaR2Servlet.extractPathInfo(mockRequest, "");
+    assertEquals(pathInfo, "/datahub/platform/datasets/dataset1/versions/v1");
+  }
+
+  @Test
+  public void testContextPathExtractionWithEmptyContextPath() throws ServletException {
+    // Test with no context path (root deployment)
+    when(mockRequest.getRequestURI()).thenReturn("/entities/dataset1");
+    when(mockRequest.getContextPath()).thenReturn("");
+    when(mockRequest.getServletPath()).thenReturn("/entities");
+    when(mockRequest.getPathInfo()).thenReturn("/dataset1");
+
+    String pathInfo = AbstractJakartaR2Servlet.extractPathInfo(mockRequest, "");
+    assertEquals(pathInfo, "/entities/dataset1");
+  }
+
+  @Test
+  public void testContextPathExtractionWithFullRequestUriFallback() throws ServletException {
+    // Test fallback behavior when prefix doesn't match
+    when(mockRequest.getRequestURI()).thenReturn("/some/other/path");
+    when(mockRequest.getContextPath()).thenReturn("/datahub");
+    when(mockRequest.getServletPath()).thenReturn("/entities");
+    when(mockRequest.getPathInfo()).thenReturn("/dataset1");
+
+    String pathInfo = AbstractJakartaR2Servlet.extractPathInfo(mockRequest, "");
+    assertEquals(pathInfo, "/some/other/path");
+  }
+
+  @Test
+  public void testGmsServletWithContextPathAndEmptyPathInfo() throws ServletException {
+    // Test /gms servlet with context path but no additional path info
+    when(mockRequest.getRequestURI()).thenReturn("/datahub/gms");
+    when(mockRequest.getContextPath()).thenReturn("/datahub");
+    when(mockRequest.getServletPath()).thenReturn("/gms");
+    when(mockRequest.getPathInfo()).thenReturn(null);
+
+    String pathInfo = AbstractJakartaR2Servlet.extractPathInfo(mockRequest, "");
+    assertEquals(pathInfo, "/datahub/gms");
+  }
+
+  @Test
+  public void testGmsServletWithoutContextPath() throws ServletException {
+    // Test /gms servlet without context path (original behavior)
+    when(mockRequest.getRequestURI()).thenReturn("/gms/entities/dataset1");
+    when(mockRequest.getContextPath()).thenReturn("");
+    when(mockRequest.getServletPath()).thenReturn("/gms");
+    when(mockRequest.getPathInfo()).thenReturn("/entities/dataset1");
+
+    String pathInfo = AbstractJakartaR2Servlet.extractPathInfo(mockRequest, "");
+    assertEquals(pathInfo, "/entities/dataset1");
+  }
+
+  @Test
+  public void testGmsServletWithoutContextPathAndEmptyPathInfo() throws ServletException {
+    // Test /gms servlet without context path but no additional path info
+    when(mockRequest.getRequestURI()).thenReturn("/gms");
+    when(mockRequest.getContextPath()).thenReturn("");
+    when(mockRequest.getServletPath()).thenReturn("/gms");
+    when(mockRequest.getPathInfo()).thenReturn(null);
+
+    String pathInfo = AbstractJakartaR2Servlet.extractPathInfo(mockRequest, "");
+    assertEquals(pathInfo, "/gms");
+  }
+
+  @Test
+  public void testAspectsServletWithContextPath() throws ServletException {
+    // Test /aspects servlet with context path (like the failing smoke test)
+    when(mockRequest.getRequestURI()).thenReturn("/datahub/aspects/");
+    when(mockRequest.getContextPath()).thenReturn("/datahub");
+    when(mockRequest.getServletPath()).thenReturn("/aspects");
+    when(mockRequest.getPathInfo()).thenReturn("/");
+
+    String pathInfo = AbstractJakartaR2Servlet.extractPathInfo(mockRequest, "");
+    assertEquals(pathInfo, "/datahub/aspects/");
+  }
+
+  @Test
+  public void testAspectsServletWithContextPathAndQuery() throws ServletException {
+    // Test /aspects servlet with context path and query parameters
+    when(mockRequest.getRequestURI()).thenReturn("/datahub/aspects/");
+    when(mockRequest.getContextPath()).thenReturn("/datahub");
+    when(mockRequest.getServletPath()).thenReturn("/aspects");
+    when(mockRequest.getPathInfo()).thenReturn("/");
+
+    String pathInfo = AbstractJakartaR2Servlet.extractPathInfo(mockRequest, "");
+    assertEquals(pathInfo, "/datahub/aspects/");
+  }
+
+  @Test
   public void testRequestTimeout() throws ServletException, IOException {
     // Setup with very short timeout
-    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, 1);
+    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, 1, "");
 
     doAnswer(
             invocation -> {
@@ -254,7 +374,7 @@ public class RAPJakartaServletTest {
   public void testHeaderHandling(String headerName, String headerValue)
       throws ServletException, IOException {
     // Setup
-    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS);
+    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS, "");
     when(mockRequest.getHeaderNames())
         .thenReturn(Collections.enumeration(Collections.singletonList(headerName)));
     when(mockRequest.getHeaders(headerName))

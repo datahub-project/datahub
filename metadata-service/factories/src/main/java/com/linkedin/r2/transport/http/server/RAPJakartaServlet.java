@@ -9,13 +9,13 @@ public class RAPJakartaServlet extends AbstractJakartaR2Servlet {
 
   @Getter private final HttpDispatcher dispatcher;
 
-  public RAPJakartaServlet(HttpDispatcher dispatcher, int timeoutSeconds) {
-    super(Duration.ofSeconds(timeoutSeconds));
+  public RAPJakartaServlet(HttpDispatcher dispatcher, int timeoutSeconds, String basePath) {
+    super(Duration.ofSeconds(timeoutSeconds), basePath);
     this.dispatcher = dispatcher;
   }
 
-  public RAPJakartaServlet(TransportDispatcher dispatcher, int timeoutSeconds) {
-    this(HttpDispatcherFactory.create((dispatcher)), timeoutSeconds);
+  public RAPJakartaServlet(TransportDispatcher dispatcher, int timeoutSeconds, String basePath) {
+    this(HttpDispatcherFactory.create((dispatcher)), timeoutSeconds, basePath);
   }
 
   /**
@@ -24,8 +24,12 @@ public class RAPJakartaServlet extends AbstractJakartaR2Servlet {
    * @see #AbstractJakartaR2Servlet
    */
   public RAPJakartaServlet(
-      HttpDispatcher dispatcher, boolean useContinuations, int timeOut, int timeOutDelta) {
-    super(Duration.ofSeconds(timeOut));
+      HttpDispatcher dispatcher,
+      boolean useContinuations,
+      int timeOut,
+      int timeOutDelta,
+      String basePath) {
+    super(Duration.ofSeconds(timeOut), basePath);
     this.dispatcher = dispatcher;
   }
 }

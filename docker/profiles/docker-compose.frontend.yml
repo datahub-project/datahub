@@ -26,7 +26,6 @@ x-datahub-frontend-service-dev: &datahub-frontend-service-dev
     <<: *datahub-frontend-service-env
     JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5002
     DATAHUB_ANALYTICS_ENABLED: ${DATAHUB_ANALYTICS_ENABLED:-true}
-    AUTH_VERBOSE_LOGGING: true
   volumes:
     - ../../datahub-frontend/build/stage/main:/datahub-frontend
     - ./monitoring/client-prometheus-config.yaml:/datahub-frontend/client-prometheus-config.yaml
@@ -126,20 +125,3 @@ services:
     depends_on:
       system-update-debug-elasticsearch:
         condition: service_completed_successfully
-  frontend-debug-basepath:
-    <<: *datahub-frontend-service-dev
-    profiles:
-      - debug-basepath
-      - debug-basepath-consumers
-    environment:
-      DATAHUB_BASE_PATH: "/datahub"
-      PLAY_HTTP_CONTEXT: "/datahub"
-    ports:
-      - "9002:9002"
-      - "5002:5002"
-    healthcheck:
-      test: curl -sS --fail http://localhost:9002/datahub/admin
-      start_period: 90s
-      interval: 1s
-      retries: 3
-      timeout: 5s

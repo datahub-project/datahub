@@ -40,12 +40,7 @@ x-kafka-env: &kafka-env
   KAFKA_BOOTSTRAP_SERVER: broker:29092
   # KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
   SCHEMA_REGISTRY_TYPE: INTERNAL
-  KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
-
-x-kafka-basepath-env: &kafka-basepath-env
-  KAFKA_BOOTSTRAP_SERVER: broker:29092
-  SCHEMA_REGISTRY_TYPE: INTERNAL
-  KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/datahub/schema-registry/api/
+  KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080${DATAHUB_BASE_PATH}/schema-registry/api/
 
 x-datahub-quickstart-telemetry-env: &datahub-quickstart-telemetry-env
   DATAHUB_SERVER_TYPE: ${DATAHUB_SERVER_TYPE:-quickstart}
@@ -106,9 +101,6 @@ x-datahub-system-update-service-dev: &datahub-system-update-service-dev
     - ../../datahub-upgrade/build/libs/:/datahub/datahub-upgrade/bin/
     - ../../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
-
-x-datahub-system-update-service-basepath-env: &datahub-system-update-service-basepath-env
-  <<: [*datahub-system-update-dev-env, *kafka-basepath-env]
 
 #################################
 # GMS
@@ -346,33 +338,6 @@ services:
         condition: service_healthy
       opensearch-setup-dev:
         condition: service_completed_successfully
-  system-update-debug-basepath:
-    <<: *system-update-debug
-    profiles:
-      - debug-basepath
-    environment:
-      <<: [*datahub-system-update-service-basepath-env]
-      KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/datahub/schema-registry/api/
-      DATAHUB_BASE_PATH: "/datahub"
-    depends_on:
-      mysql-setup-dev:
-        condition: service_completed_successfully
-      opensearch-setup-dev:
-        condition: service_completed_successfully
-  system-update-debug-basepath-consumers:
-    <<: *system-update-debug
-    profiles:
-      - debug-basepath-consumers
-    environment:
-      <<: [*datahub-system-update-service-basepath-env]
-      KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/datahub/schema-registry/api/
-      DATAHUB_BASE_PATH: "/datahub"
-    depends_on:
-      mysql-setup-dev:
-        condition: service_completed_successfully
-      opensearch-setup-dev:
-        condition: service_completed_successfully
-
   #################################
   # GMS
   #################################
@@ -465,7 +430,6 @@ services:
       <<: *datahub-gms-dev-env
       MAE_CONSUMER_ENABLED: false
       MCE_CONSUMER_ENABLED: false
-      DATAHUB_BASE_PATH: "/datahub"
     depends_on:
       system-update-debug-consumers:
         condition: service_completed_successfully
@@ -488,42 +452,6 @@ services:
     depends_on:
       system-update-debug-elasticsearch:
         condition: service_completed_successfully
-  datahub-gms-debug-basepath:
-    <<: *datahub-gms-service-dev
-    profiles:
-      - debug-basepath
-    environment:
-      <<: [*datahub-gms-dev-env, *kafka-basepath-env]
-      KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/datahub/schema-registry/api/
-      DATAHUB_BASE_PATH: "/datahub"
-    healthcheck:
-      test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/datahub/health
-      start_period: 90s
-      interval: 1s
-      retries: 3
-      timeout: 5s
-    depends_on:
-      system-update-debug-basepath:
-        condition: service_completed_successfully
-  datahub-gms-debug-basepath-consumers:
-    <<: *datahub-gms-service-dev
-    profiles:
-      - debug-basepath-consumers
-    environment:
-      <<: [*datahub-gms-dev-env, *kafka-basepath-env]
-      KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/datahub/schema-registry/api/
-      DATAHUB_BASE_PATH: "/datahub"
-      MAE_CONSUMER_ENABLED: false
-      MCE_CONSUMER_ENABLED: false
-    healthcheck:
-      test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/datahub/health
-      start_period: 90s
-      interval: 1s
-      retries: 3
-      timeout: 5s
-    depends_on:
-      system-update-debug-basepath-consumers:
-        condition: service_completed_successfully
   #################################
   # MAE Consumer
   #################################
@@ -541,20 +469,6 @@ services:
     depends_on:
       datahub-gms-debug-consumers:
         condition: service_healthy
-  datahub-mae-consumer-debug-basepath-consumers:
-    <<: *datahub-mae-consumer-service-dev
-    profiles:
-      - debug-basepath-consumers
-    environment:
-      <<: [*datahub-dev-telemetry-env, *primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-basepath-env]
-      ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
-      DATAHUB_GMS_HOST: datahub-gms
-      DATAHUB_GMS_PORT: 8080
-      DATAHUB_GMS_PROTOCOL: http
-      DATAHUB_BASE_PATH: /datahub
-    depends_on:
-      datahub-gms-debug-basepath-consumers:
-        condition: service_healthy
   #################################
   # MCE Consumer
   #################################
@@ -571,21 +485,4 @@ services:
       - debug-consumers
     depends_on:
       datahub-gms-debug-consumers:
-        condition: service_healthy
-  datahub-mce-consumer-debug-basepath-consumers:
-    <<: *datahub-mce-consumer-service-dev
-    profiles:
-      - debug-basepath-consumers
-    environment:
-      <<: [*datahub-dev-telemetry-env, *primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-basepath-env]
-      ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
-      STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
-      ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
-      JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5009"
-      DATAHUB_GMS_HOST: datahub-gms
-      DATAHUB_GMS_PORT: 8080
-      DATAHUB_GMS_PROTOCOL: http
-      DATAHUB_BASE_PATH: /datahub
-    depends_on:
-      datahub-gms-debug-basepath-consumers:
         condition: service_healthy
