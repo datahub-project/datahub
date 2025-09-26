@@ -23,6 +23,7 @@ const addToCache = (existingProperties, newProperty) => {
                 showInSearchFilters: newProperty.settings.showInSearchFilters,
                 showAsAssetBadge: newProperty.settings.showAsAssetBadge,
                 showInAssetSummary: newProperty.settings.showInAssetSummary,
+                hideInAssetSummaryWhenEmpty: newProperty.settings.hideInAssetSummaryWhenEmpty,
                 showInColumnsTable: newProperty.settings.showInColumnsTable,
             },
             exists: newProperty.exists,

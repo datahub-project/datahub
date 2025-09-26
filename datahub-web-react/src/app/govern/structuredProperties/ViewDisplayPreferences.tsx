@@ -64,6 +64,16 @@ const ViewDisplayPreferences = ({ propEntity }: Props) => {
                                 isDisabled
                             />
                         </StyledFormItem>
+                        {/* TODO:: should we update it? */}
+                        <StyledFormItem name={['settings', 'hideInAssetSummaryWhenEmpty']}>
+                            <Switch
+                                label="hideInAssetSummaryWhenEmpty AAAAA"
+                                size="sm"
+                                checked={propEntity?.settings?.hideInAssetSummaryWhenEmpty}
+                                labelStyle={{ fontSize: 12, color: colors.gray[1700], fontWeight: 700 }}
+                                isDisabled
+                            />
+                        </StyledFormItem>
                         <StyledFormItem name={['settings', 'showAsAssetBadge']}>
                             <Switch
                                 label="Show as Asset Badge"

@@ -893,6 +893,7 @@ interface StructuredPropertyEvent extends BaseEvent {
     showInSearchFilters: boolean;
     showAsAssetBadge: boolean;
     showInAssetSummary: boolean;
+    hideInAssetSummaryWhenEmpty: boolean;
     showInColumnsTable: boolean;
 }
 

@@ -11,15 +11,18 @@ import { borders, colors, radius, spacing, transform, zIndices } from '@componen
 
 import { SizeOptions } from '@src/alchemy-components/theme/config';
 
-export const CheckboxContainer = styled.div({
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-});
+export const CheckboxContainer = styled.div<{ justifyContent?: 'center' | 'flex-start' | undefined }>(
+    ({ justifyContent }) => ({
+        display: 'flex',
+        justifyContent: justifyContent ?? 'center',
+        alignItems: 'center',
+    }),
+);
 
-export const Label = styled.div({
+export const Label = styled.div<{ clickable?: boolean }>(({ clickable }) => ({
     ...formLabelTextStyles,
-});
+    ...(clickable ? { cursor: 'pointer' } : {}),
+}));
 
 export const Required = styled.span({
     color: colors.red[500],

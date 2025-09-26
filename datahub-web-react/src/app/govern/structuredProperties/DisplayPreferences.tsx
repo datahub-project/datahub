@@ -2,13 +2,16 @@ import { Collapse } from 'antd';
 import React, { useState } from 'react';
 
 import {
+    CheckboxContainer,
     CollapseHeader,
+    CompoundedItemWrapper,
     StyledCollapse,
     StyledFormItem,
+    StyledFormSubItem,
     TogglesContainer,
 } from '@app/govern/structuredProperties/styledComponents';
 import { StructuredProp, canBeAssetBadge, getDisplayName } from '@app/govern/structuredProperties/utils';
-import { Icon, Pill, Switch, Text } from '@src/alchemy-components';
+import { Checkbox, Icon, Pill, Switch, Text } from '@src/alchemy-components';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { useUpdateStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
 import { AllowedValue, StructuredPropertyEntity } from '@src/types.generated';
@@ -93,16 +96,44 @@ const DisplayPreferences = ({
                                 labelHoverText="If enabled, this property will appear in search filters"
                             />
                         </StyledFormItem>
-                        <StyledFormItem name={['settings', 'showInAssetSummary']}>
-                            <Switch
-                                label="Show in Asset Sidebar"
+                        <CompoundedItemWrapper>
+                            <StyledFormItem name={['settings', 'showInAssetSummary']}>
+                                <Switch
+                                    label="Show in Asset Sidebar"
+                                    size="sm"
+                                    checked={formValues?.settings?.showInAssetSummary}
+                                    onChange={(e) => handleDisplaySettingChange('showInAssetSummary', e.target.checked)}
+                                    isDisabled={formValues?.settings?.isHidden}
+                                    labelHoverText="If enabled, this property will appear in asset sidebar"
+                                />
+                            </StyledFormItem>
+                            {/* TODO:: adjust to designs */}
+                            {formValues?.settings?.showInAssetSummary && (<StyledFormSubItem name={['settings', 'hideInAssetSummaryWhenEmpty']}>
+                                
+                                    <CheckboxContainer>
+                                        <Checkbox
+                                            label="Hide when Empty"
+                                            isChecked={formValues?.settings?.hideInAssetSummaryWhenEmpty}
+                                            size="sm"
+                                            onCheckboxChange={(isChecked) =>
+                                                handleDisplaySettingChange('hideInAssetSummaryWhenEmpty', isChecked)
+                                            }
+                                            justifyContent='flex-start'
+                                            shouldHandleLabelClicks
+                                        />
+                                    </CheckboxContainer>
+                                {/* <Switch
+                                label="Hide if empty"
                                 size="sm"
-                                checked={formValues?.settings?.showInAssetSummary}
-                                onChange={(e) => handleDisplaySettingChange('showInAssetSummary', e.target.checked)}
-                                isDisabled={formValues?.settings?.isHidden}
+                                checked={formValues?.settings?.hideInAssetSummaryWhenEmpty}
+                                onChange={(e) => handleDisplaySettingChange('hideInAssetSummaryWhenEmpty', e.target.checked)}
+                                isDisabled={!formValues?.settings?.showInAssetSummary || formValues?.settings?.isHidden}
                                 labelHoverText="If enabled, this property will appear in asset sidebar"
-                            />
-                        </StyledFormItem>
+                            /> */}
+                            </StyledFormSubItem>
+                                )}
+
+                        </CompoundedItemWrapper>
                         <StyledFormItem name={['settings', 'showAsAssetBadge']}>
                             <Switch
                                 label="Show as Asset Badge"
