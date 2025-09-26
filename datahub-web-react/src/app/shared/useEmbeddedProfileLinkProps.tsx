@@ -10,7 +10,7 @@ const isEmbeddedProfile = (location: Location) => location.pathname.startsWith(P
 
 export const useIsEmbeddedProfile = () => {
     const location = useLocation();
-    return useMemo(() => isEmbeddedProfile(location), []);
+    return useMemo(() => isEmbeddedProfile(location), [location]);
 };
 
 export const useEmbeddedProfileLinkProps = () => {

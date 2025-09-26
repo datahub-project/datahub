@@ -119,7 +119,15 @@ export const ManageIngestionPage = () => {
                 history.replace(tabUrlMap[defaultTabType]);
             }
         }
-    }, [loadedAppConfig, loadedPlatformPrivileges, showIngestionTab, showSecretsTab, selectedTab, history]);
+    }, [
+        loadedAppConfig,
+        loadedPlatformPrivileges,
+        showIngestionTab,
+        showSecretsTab,
+        selectedTab,
+        history,
+        location.pathname,
+    ]);
 
     const tabs: Tab[] = [
         showIngestionTab && {

@@ -39,6 +39,6 @@ export default function useGoToSearchPage(quickFilter: QuickFilter | null) {
                 selectedSortOption,
             });
         },
-        [filters, history, quickFilter, selectedSortOption],
+        [filters, history, quickFilter, selectedSortOption, location.pathname],
     );
 }
