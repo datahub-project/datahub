@@ -125,7 +125,8 @@ def access_token_setup(auth_session, auth_exclude_filter):
     res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data
     assert res_data["data"]
-    assert res_data["data"]["listAccessTokens"]["total"] == 0, res_data["data"]
+    # Total may be incorrect if index has a deleted result, and the deleted results are correctly removed
+    # so asserting len(res_data["data"]["listAccessTokens"]["tokens"])  == 0 or equivalent works more reliably.
     assert not res_data["data"]["listAccessTokens"]["tokens"]
 
     yield
