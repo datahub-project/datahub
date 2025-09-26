@@ -193,6 +193,16 @@ const meta: Meta = {
                 defaultValue: { summary: 'undefined' },
             },
         },
+        autoUpdate: {
+            description: 'Set to `true` to update value on option click',
+            type: 'boolean',
+            table: {
+                defaultValue: { summary: 'undefined' },
+            },
+            control: {
+                type: 'boolean',
+            },
+        },
     },
 
     // Define defaults
@@ -369,6 +379,33 @@ export const simpleSelectWithIcon = () => (
     />
 );
 
+export const withMultiSelectAndAutoUpdate = () => (
+    <Select
+        options={[
+            { label: 'Option 1', value: '1' },
+            { label: 'Option 2', value: '2' },
+            { label: 'Option 3', value: '3' },
+        ]}
+        label="Select with multi-select and auto update"
+        values={['2', '3']}
+        isMultiSelect
+        autoUpdate
+    />
+);
+
+export const withAutoUpdate = () => (
+    <Select
+        options={[
+            { label: 'Option 1', value: '1' },
+            { label: 'Option 2', value: '2' },
+            { label: 'Option 3', value: '3' },
+        ]}
+        label="Select with auto update"
+        values={['2']}
+        autoUpdate
+    />
+);
+
 // Basic story is what is displayed 1st in storybook & is used as the code sandbox
 // Pass props to this so that it can be customized via the UI props panel
 export const BasicSelectSandbox: Story = {
@@ -390,6 +427,7 @@ export const BasicSelectSandbox: Story = {
             isMultiSelect={props.isMultiSelect}
             placeholder={props.placeholder}
             icon={props.icon}
+            autoUpdate={props.autoUpdate}
         />
     ),
 };
