@@ -114,7 +114,9 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
-        "root\\['totalCount'\\]"
+        "root\\['totalCount'\\]",
+        "root\\['entities'\\]\\[.+?\\]\\['scrollId'\\]",
+        "root\\['facets'\\]"
       ],
       "json": {
         "entities": [
@@ -129,7 +131,8 @@
               }
             }
           }
-        ]
+        ],
+        "totalCount": 3
       }
     }
   },
@@ -168,7 +171,9 @@
     },
     "response": {
       "exclude_regex_paths": [
-        "root\\['scrollId'\\]"
+        "root\\['scrollId'\\]",
+        "root\\['facets'\\]",
+        "root\\['entities'\\]\\[.+?\\]\\['scrollId'\\]"
       ],
       "json": {
         "entities": [
@@ -223,7 +228,9 @@
     },
     "response": {
       "exclude_regex_paths": [
-        "root\\['scrollId'\\]"
+        "root\\['scrollId'\\]",
+        "root\\['facets'\\]",
+        "root\\['entities'\\]\\[.+?\\]\\['scrollId'\\]"
       ],
       "json": {
         "entities": [
@@ -269,6 +276,7 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
+        "root\\['entities'\\]\\[.+?\\]\\['scrollId'\\]",
         "root\\['totalCount'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['sourceIP'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['telemetryTraceId'\\]",
@@ -302,6 +310,14 @@
               }
             }
           }
+        ],
+        "facets":[
+          {
+            "field":"entity",
+            "aggregations":{
+              "dataset":1
+            }
+          }
         ]
       }
     }
@@ -322,6 +338,7 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
+        "root\\['entities'\\]\\[.+?\\]\\['scrollId'\\]",
         "root\\['totalCount'\\]"
       ],
       "json": {
@@ -342,7 +359,9 @@
               }
             }
           }
-        ]
+        ],
+        "facets": [],
+        "totalCount": 3
       }
     }
   },

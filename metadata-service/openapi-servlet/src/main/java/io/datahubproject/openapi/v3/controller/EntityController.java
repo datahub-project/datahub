@@ -44,9 +44,11 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
@@ -61,6 +63,7 @@ import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.util.RequestInputUtil;
 import io.datahubproject.openapi.v3.models.AspectItem;
+import io.datahubproject.openapi.v3.models.FacetMetadata;
 import io.datahubproject.openapi.v3.models.Filter;
 import io.datahubproject.openapi.v3.models.GenericAspectV3;
 import io.datahubproject.openapi.v3.models.GenericEntityAspectsBodyV3;
@@ -263,6 +266,7 @@ public class EntityController
         buildScrollResult(
             opContext,
             result.getEntities(),
+            result.getMetadata(),
             entityAspectsBody.getAspects(),
             withSystemMetadata,
             result.getScrollId(),
@@ -595,17 +599,33 @@ public class EntityController
   public GenericEntityScrollResultV3 buildScrollResult(
       @Nonnull OperationContext opContext,
       SearchEntityArray searchEntities,
+      @Nullable SearchResultMetadata searchResultMetadata,
       Set<String> aspectNames,
       boolean withSystemMetadata,
       @Nullable String scrollId,
       boolean expandEmpty,
       int totalCount)
       throws URISyntaxException {
+
+    List<FacetMetadata> facets = new ArrayList<>();
+
+    if (searchResultMetadata != null && searchResultMetadata.hasAggregations()) {
+      for (AggregationMetadata aggregationMetadata : searchResultMetadata.getAggregations()) {
+        FacetMetadata facetMetadata =
+            FacetMetadata.builder()
+                .field(aggregationMetadata.getName())
+                .aggregations(aggregationMetadata.getAggregations())
+                .build();
+        facets.add(facetMetadata);
+      }
+    }
+
     return GenericEntityScrollResultV3.builder()
         .entities(
             toRecordTemplates(
                 opContext, searchEntities, aspectNames, withSystemMetadata, expandEmpty))
         .scrollId(scrollId)
+        .facets(facets)
         .totalCount(totalCount)
         .build();
   }
@@ -808,12 +828,37 @@ public class EntityController
       boolean withSystemMetadata,
       boolean expandEmpty)
       throws URISyntaxException {
-    return buildEntityList(
-        opContext,
-        searchEntities.stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
-        aspectNames,
-        withSystemMetadata,
-        expandEmpty);
+    // Build a map of URN -> per-entity scrollId if provided via SearchEntity.extraFields
+    Map<String, String> perEntityScrollIds =
+        searchEntities.stream()
+            .collect(
+                Collectors.toMap(
+                    searchEntity -> searchEntity.getEntity().toString(),
+                    searchEntity ->
+                        searchEntity.getExtraFields() != null
+                            ? searchEntity.getExtraFields().get("scrollId")
+                            : null,
+                    (a, b) -> a,
+                    LinkedHashMap::new));
+
+    List<GenericEntityV3> entities =
+        buildEntityList(
+            opContext,
+            searchEntities.stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
+            aspectNames,
+            withSystemMetadata,
+            expandEmpty);
+
+    // Attach scrollId to each entity element when available
+    for (GenericEntityV3 entity : entities) {
+      String urn = entity.getUrn();
+      String scrollId = perEntityScrollIds.get(urn);
+      if (scrollId != null) {
+        entity.put("scrollId", scrollId);
+      }
+    }
+
+    return entities;
   }
 
   private LinkedHashMap<Urn, Map<AspectSpec, Long>> toEntityVersionRequest(
