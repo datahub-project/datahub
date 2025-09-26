@@ -1,8 +1,8 @@
 package controllers;
 
 import auth.sso.SsoManager;
-import com.typesafe.config.Config;
 import com.linkedin.metadata.utils.BasePathUtils;
+import com.typesafe.config.Config;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import javax.annotation.Nonnull;
