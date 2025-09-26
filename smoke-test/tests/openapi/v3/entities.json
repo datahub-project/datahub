@@ -114,11 +114,13 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
-        "root\\['totalCount'\\]"
+        "root\\['totalCount'\\]",
+        "root\\['entities'\\]\\[\\d+\\]\\['scrollId'\\]"
       ],
       "json": {
         "entities": [
           {
+            "scrollId": "",
             "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetSingle1EntityV3,PROD)",
             "datasetProperties": {
               "value": {
@@ -168,7 +170,8 @@
     },
     "response": {
       "exclude_regex_paths": [
-        "root\\['scrollId'\\]"
+        "root\\['scrollId'\\]",
+        "root\\['entities'\\]\\[\\d+\\]\\['scrollId'\\]"
       ],
       "json": {
         "entities": [
@@ -223,7 +226,8 @@
     },
     "response": {
       "exclude_regex_paths": [
-        "root\\['scrollId'\\]"
+        "root\\['scrollId'\\]",
+        "root\\['entities'\\]\\[\\d+\\]\\['scrollId'\\]"
       ],
       "json": {
         "entities": [
@@ -269,6 +273,7 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
+        "root\\['entities'\\]\\[\\d+\\]\\['scrollId'\\]",
         "root\\['totalCount'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['sourceIP'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['telemetryTraceId'\\]",
@@ -322,6 +327,7 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
+        "root\\['entities'\\]\\[\\d+\\]\\['scrollId'\\]",
         "root\\['totalCount'\\]"
       ],
       "json": {
