@@ -62,7 +62,7 @@ public class Application extends Controller {
    * @return the normalized base path
    */
   @Nonnull
-  private String getB asePath() {
+  private String getBasePath() {
     return BasePathUtils.normalizeBasePath(config.getString("datahub.basePath"));
   }
 
