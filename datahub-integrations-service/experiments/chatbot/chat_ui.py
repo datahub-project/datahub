@@ -1,3 +1,10 @@
+# Load environment variables first before any other imports
+import os
+from dotenv import load_dotenv
+
+# Load .env file if it exists
+load_dotenv()
+
 from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
 
 import streamlit as st

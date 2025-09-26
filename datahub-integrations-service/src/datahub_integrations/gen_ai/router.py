@@ -93,7 +93,7 @@ def suggest_description(
     if isinstance(urn, QueryUrn):
         with PerfTimer() as timer:
             query_context = get_query_context(graph, entity_urn)
-            desc = generate_query_desc(query_context)
+            desc = generate_query_desc(graph, query_context)
 
             track_saas_event(
                 InferDocsApiResponseEvent(

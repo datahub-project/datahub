@@ -5,13 +5,14 @@ from datahub_integrations.experimentation.ai_init import (
 import fnmatch
 import pathlib
 import time
-from typing import Annotated, List, Optional
+from typing import Annotated, Dict, List, Optional
 
 import asyncer
 import mlflow
 import more_itertools
 import pandas as pd
 import typer
+import yaml
 from anyio import to_thread
 from datahub.sdk.main_client import DataHubClient
 from loguru import logger
@@ -41,11 +42,29 @@ assert AI_EXPERIMENTATION_INITIALIZED
 experiments_dir = pathlib.Path(__file__).parent
 
 # Control parallelism by batching prompt execution rather than limiting threads
-BATCH_SIZE = 15  # Number of prompts to run concurrently per batch
+BATCH_SIZE = 25  # Number of prompts to run concurrently per batch
+
+
+def load_instruction_overrides() -> Optional[Dict[str, str]]:
+    """Load instruction overrides if the file exists."""
+    override_file = experiments_dir / "instructions-override.yaml"
+    if override_file.exists():
+        logger.info(f"Loading instruction overrides from {override_file}")
+        with open(override_file) as f:
+            content = yaml.safe_load(f)
+            # If content is None or empty, return None
+            if not content:
+                return None
+            return content
+    return None
 
 
 @mlflow.trace
-async def run_prompt(case: Prompt, local_results_dir: pathlib.Path) -> dict:
+async def run_prompt(
+    case: Prompt, 
+    local_results_dir: pathlib.Path,
+    instruction_overrides: Optional[Dict[str, str]] = None,
+) -> dict:
     # Add experiment context to all logs within this function
     with logger.contextualize(prompt_id=case.id, instance=case.instance):
         logger.info(f"Starting experiment for prompt: {case.id}")
@@ -62,9 +81,20 @@ async def run_prompt(case: Prompt, local_results_dir: pathlib.Path) -> dict:
         client = DataHubClient(graph=graph)
 
         try:
+            # Get override for this instance if available
+            extra_instructions_override = None
+            if instruction_overrides and case.instance in instruction_overrides:
+                logger.info(f"Using instruction override for instance: {case.instance}")
+                extra_instructions_override = instruction_overrides[case.instance]
+            
             logger.debug("Setting up chat session")
             history = ChatHistory(messages=[HumanMessage(text=case.message)])
-            session = ChatSession(tools=[mcp], client=client, history=history)
+            session = ChatSession(
+                tools=[mcp], 
+                client=client, 
+                history=history,
+                extra_instructions_override=extra_instructions_override,
+            )
             output_file = local_results_dir / f"{case.id}.json"
 
             logger.debug("Generating chatbot response")
@@ -122,6 +152,7 @@ async def process_batch(
     batch_idx: int,
     total_batches: int,
     experiment_results_dir: pathlib.Path,
+    instruction_overrides: Optional[Dict[str, str]] = None,
 ) -> List[tuple[Prompt, dict]]:
     """Process a single batch of prompts concurrently."""
     logger.info(
@@ -137,7 +168,9 @@ async def process_batch(
                 (
                     prompt,
                     tg.soonify(run_prompt)(
-                        prompt, local_results_dir=experiment_results_dir
+                        prompt, 
+                        local_results_dir=experiment_results_dir,
+                        instruction_overrides=instruction_overrides,
                     ),
                 )
             )
@@ -154,6 +187,7 @@ async def process_batch(
 async def process_all_batches(
     filtered_prompts: List[Prompt],
     experiment_results_dir: pathlib.Path,
+    instruction_overrides: Optional[Dict[str, str]] = None,
 ) -> List[tuple[Prompt, dict]]:
     """Process all prompts in batches and return results."""
     logger.info(
@@ -170,7 +204,7 @@ async def process_all_batches(
 
     for batch_idx, batch in enumerate(prompt_batches):
         batch_results = await process_batch(
-            batch, batch_idx, len(prompt_batches), experiment_results_dir
+            batch, batch_idx, len(prompt_batches), experiment_results_dir, instruction_overrides
         )
         all_results.extend(batch_results)
 
@@ -237,6 +271,11 @@ async def main(
         logger.info(f"Running {len(filtered_prompts)} prompts")
         logger.debug(f"Filtered prompts: {[p.id for p in filtered_prompts]}")
 
+    # Load instruction overrides once at the start
+    instruction_overrides = load_instruction_overrides()
+    if instruction_overrides:
+        logger.info(f"Loaded instruction overrides for instances: {list(instruction_overrides.keys())}")
+    
     to_thread.current_default_thread_limiter().total_tokens = ANYIO_THREAD_COUNT
     with mlflow.start_run() as run:
         assert run.info.run_name is not None
@@ -251,12 +290,13 @@ async def main(
                 "model": CHATBOT_MODEL,
                 "anyio_thread_count": ANYIO_THREAD_COUNT,
                 "batch_size": BATCH_SIZE,
+                "has_instruction_overrides": instruction_overrides is not None,
             }
         )
 
         # Process all prompts in batches
         task_results = await process_all_batches(
-            filtered_prompts, experiment_results_dir
+            filtered_prompts, experiment_results_dir, instruction_overrides
         )
 
         logger.debug(f"Processing results for {len(task_results)} completed tasks")

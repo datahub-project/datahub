@@ -33,6 +33,7 @@
    dotenv
    ```
 1. Download `prompts.yaml` (stored in Notion) into `datahub-integrations-service/experiments/chatbot` folder
+1. (Optional) Download `instructions-override.yaml` from the same Notion location to test custom LLM instructions per instance (see [Instructions Override](#instructions-override) section below)
 1. Generate `graph_credentials.json` file using [this script](https://github.com/acryldata/experimental/blob/main/hsheth/graph_credentials/generate_many_graph_credentials.py) and copy to `datahub-integrations-service/experiments` folder
    ```bash
    cd experimental/hsheth/graph_credentials
@@ -66,6 +67,40 @@ Evals logged to our shared MLFlow instance can be viewed via the MLFlow web UI. 
 - `response_guidelines` (Optional): the response guidelines for the prompt; passed to the LLM judge
 - `tags` (Optional): list of tags
 - `expected_tool_calls` (Optional): the list of tool calls supposed to be present in chat history
+
+### Instructions Override
+
+The `instructions-override.yaml` file allows you to test custom LLM instructions for specific customer instances without modifying environment variables or restarting services. This is particularly useful for:
+
+- Testing new customer-specific requirements before deploying them
+- Evaluating how different instructions affect the chatbot's responses
+- A/B testing instruction variations for the same prompts
+
+**How it works:**
+
+1. Place `instructions-override.yaml` in the same directory as `prompts.yaml` (`experiments/chatbot/`)
+2. The file should map instance names to their custom instructions:
+
+```yaml
+instance_name: |
+  Your custom instructions here
+  Can be multiple lines
+
+roku: |
+  When discussing data assets, prioritize medallion architecture tiers:
+  Platinum > Gold > Silver > Bronze
+  Always mention the tier if relevant tags exist
+```
+
+3. When running evals, if an instance in `prompts.yaml` has a matching entry in `instructions-override.yaml`, those instructions will be used instead of the default environment variable
+4. The override instructions are sent as a separate system message, just like production instructions
+
+**Important notes:**
+
+- Override instructions take precedence over the `DATAHUB_INTEGRATIONS_EXTRA_LLM_INSTRUCTIONS` environment variable
+- The override file is optional - evals will run normally without it
+- Each instance can have different instructions, allowing you to test multiple configurations in a single eval run
+- Download the sample `instructions-override.yaml` from the same Notion location as `prompts.yaml`
 
 ## Other tools
 

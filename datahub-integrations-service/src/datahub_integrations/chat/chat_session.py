@@ -16,6 +16,7 @@ from typing import (
     TypeGuard,
 )
 
+import cachetools
 import mlflow
 import mlflow.entities
 import mlflow.tracing
@@ -66,6 +67,7 @@ from datahub_integrations.telemetry.telemetry import track_saas_event
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime.type_defs import (
         ContentBlockOutputTypeDef,
+        SystemContentBlockTypeDef,
         TokenUsageTypeDef,
     )
 
@@ -184,8 +186,87 @@ DataHub AI avoids writing lists, but if it does need to write a list, DataHub AI
 
 For any progress or reasoning updates, always use short, user-friendly, and non-technical statements. Keep each step under 75 characters if possible, and never exceed 300 characters. If a step is too long, provide a concise summary suitable for a progress bar or status update.
 
-DataHub AI is now being connected with a person.
-"""
+DataHub AI is now being connected with a person."""
+
+
+@cachetools.cached(cache=cachetools.TTLCache(maxsize=1, ttl=60 * 5))
+def _get_extra_llm_instructions(client: DataHubClient) -> Optional[str]:
+    """
+    Retrieve optional extra LLM instructions from GraphQL API.
+
+    Instructions are cached for 5 minutes via TTLCache decorator.
+    Fetches the most recent ACTIVE GENERAL_CONTEXT instruction from global AI assistant settings.
+
+    Args:
+        client: DataHub client instance to use for GraphQL queries
+
+    Returns:
+        Optional extra instructions string, or None if not configured.
+
+    Raises:
+        Exception: If GraphQL call fails
+    """
+
+    query = """
+    query getGlobalSettings {
+        globalSettings {
+            aiAssistant {
+                instructions {
+                    id
+                    type
+                    state
+                    instruction
+                    lastModified {
+                        time
+                        actor
+                    }
+                }
+            }
+        }
+    }
+    """
+
+    try:
+        response = client._graph.execute_graphql(query)
+
+        # Extract AI assistant instructions
+        global_settings = response.get("globalSettings")
+        if not global_settings:
+            return None
+
+        ai_assistant = global_settings.get("aiAssistant")
+        if not ai_assistant:
+            return None
+
+        instructions = ai_assistant.get("instructions", [])
+
+        # Filter for GENERAL_CONTEXT and ACTIVE instructions
+        valid_instructions = [
+            instr
+            for instr in instructions
+            if (
+                instr.get("type") == "GENERAL_CONTEXT"
+                and instr.get("state") == "ACTIVE"
+            )
+        ]
+
+        if not valid_instructions:
+            return None
+
+        # Use the last item from the array as the most recent instruction
+        latest_instruction = valid_instructions[-1]
+        instruction_text = latest_instruction.get("instruction")
+
+        if instruction_text and instruction_text.strip():
+            return instruction_text.strip()
+        else:
+            return None
+
+    except Exception as e:
+        # GraphQL call failed - re-raise the exception as per requirements
+        raise Exception(
+            f"Failed to fetch AI instructions from GraphQL: {str(e)}"
+        ) from e
 
 
 class FilteredProgressListener:
@@ -241,6 +322,7 @@ class ChatSession:
         tools: Sequence[ToolWrapper | FastMCP],
         client: DataHubClient,
         history: Optional[ChatHistory] = None,
+        extra_instructions_override: Optional[str] = None,
         # Custom context reducers can be supported in future
     ):
         self.session_id = str(uuid.uuid4())  # TODO: use uuid7 in the future
@@ -252,6 +334,7 @@ class ChatSession:
             )
         ] + [_respond_to_user_tool]
         self.client = client
+        self.extra_instructions_override = extra_instructions_override
         self.history: ChatHistory = history or ChatHistory()
 
         self.context_reducers: Iterable[ChatContextReducer] = (
@@ -325,6 +408,32 @@ class ChatSession:
         finally:
             self._progress_listener = prev_progress_listener
 
+    def _get_system_messages(self) -> List["SystemContentBlockTypeDef"]:
+        """
+        Get the system messages for the LLM.
+
+        Returns a list of system messages, including the base prompt and any
+        optional extra instructions as separate messages.
+        """
+        system_messages: List["SystemContentBlockTypeDef"] = [{"text": _SYSTEM_PROMPT}]
+
+        # Use override if provided, otherwise fall back to standard retrieval
+        extra_instructions = (
+            self.extra_instructions_override
+            if self.extra_instructions_override is not None
+            else _get_extra_llm_instructions(self.client)
+        )
+
+        if extra_instructions:
+            # Add a concise header to indicate these are customer-specific requirements
+            formatted_instructions = (
+                f"CUSTOMER-SPECIFIC REQUIREMENTS - You must follow these in addition to base instructions:\n\n"
+                f"{extra_instructions}"
+            )
+            system_messages.append({"text": formatted_instructions})
+
+        return system_messages
+
     def _prepare_messages(self) -> list[dict]:
         # Message history will have something like this. Potential locations
         # for cache points are marked with <cachepoint>. In general, potential
@@ -391,15 +500,13 @@ class ChatSession:
         try:
             response = bedrock_client.converse(
                 modelId=self._get_model_id(),
-                system=[
-                    {"text": _SYSTEM_PROMPT},
-                ],
+                system=self._get_system_messages(),
                 messages=messages,  # type: ignore
                 toolConfig={
                     "tools": tools,  # type: ignore
                 },
                 inferenceConfig={
-                    "temperature": 0.7,
+                    "temperature": 0.5,
                     "maxTokens": 4096,
                 },
             )
