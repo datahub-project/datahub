@@ -14,6 +14,8 @@ export type LineChartProps = {
     xScale?: ScaleConfig<AxisScaleOutput, any, any>;
     yScale?: ScaleConfig<AxisScaleOutput, any, any>;
     maxYDomainForZeroData?: number;
+    shouldAdjustYZeroPoint?: boolean;
+    yZeroPointThreshold?: number;
 
     lineColor?: string;
     areaColor?: string;
