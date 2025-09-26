@@ -2,6 +2,9 @@ package com.linkedin.metadata.aspect.patch.template.common;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.VersionProperties;
+import com.linkedin.common.VersionTag;
+import com.linkedin.common.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.patch.template.Template;
 import javax.annotation.Nonnull;
@@ -26,8 +29,13 @@ public class VersionPropertiesTemplate implements Template<VersionProperties> {
   @Nonnull
   @Override
   public VersionProperties getDefault() {
-    throw new UnsupportedOperationException(
-        "Unable to generate default version properties, no sensible default for " + "version set.");
+    VersionProperties versionProperties = new VersionProperties();
+    // Set default values for required fields
+    versionProperties.setVersionSet(UrnUtils.getUrn("urn:li:versionSet:default"));
+    versionProperties.setVersion(new VersionTag().setVersionTag("1.0.0"));
+    versionProperties.setSortId("00000000");
+    // versioningScheme has a default value in the PDL, so we don't need to set it explicitly
+    return versionProperties;
   }
 
   @Nonnull
