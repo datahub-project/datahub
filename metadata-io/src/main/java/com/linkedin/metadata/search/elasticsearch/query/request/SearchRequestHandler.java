@@ -16,6 +16,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.template.DoubleMap;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -446,22 +447,49 @@ public class SearchRequestHandler extends BaseRequestHandler {
       boolean supportsPointInTime) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
-    Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
+
+    // Build per-hit results and attach a per-element scrollId
+    final SearchHit[] searchHits = searchResponse.getHits().getHits();
+    long expirationTimeMs = 0L;
+    if (keepAlive != null && supportsPointInTime) {
+      expirationTimeMs =
+          TimeValue.parseTimeValue(keepAlive, "expirationTime").getMillis()
+              + System.currentTimeMillis();
+    }
+
+    List<SearchEntity> results = new ArrayList<>(searchHits.length);
+    for (SearchHit hit : searchHits) {
+      // Build base SearchEntity
+      SearchEntity entity = getResult(hit);
+      // Compute per-hit scrollId using this hit's sort values
+      Object[] sort = hit.getSortValues();
+      String perHitScrollId =
+          new SearchAfterWrapper(sort, searchResponse.pointInTimeId(), expirationTimeMs)
+              .toScrollId();
+      // Merge into existing extraFields if present
+      StringMap extra = entity.getExtraFields();
+      if (extra == null) {
+        entity.setExtraFields(new StringMap(Map.of("scrollId", perHitScrollId)));
+      } else {
+        extra.put("scrollId", perHitScrollId);
+        entity.setExtraFields(extra);
+      }
+      results.add(entity);
+    }
+
+    // Apply access control restrictions while preserving order
+    Collection<SearchEntity> resultList =
+        ESAccessControlUtil.restrictSearchResult(opContext, results);
+
     SearchResultMetadata searchResultMetadata =
         extractSearchResultMetadata(opContext, searchResponse, filter);
-    SearchHit[] searchHits = searchResponse.getHits().getHits();
+
     // Only return next scroll ID if there are more results, indicated by full size results
     String nextScrollId = null;
-    if (searchHits.length == size) {
-      Object[] sort = searchHits[searchHits.length - 1].getSortValues();
-      long expirationTimeMs = 0L;
-      if (keepAlive != null && supportsPointInTime) {
-        expirationTimeMs =
-            TimeValue.parseTimeValue(keepAlive, "expirationTime").getMillis()
-                + System.currentTimeMillis();
-      }
+    if (searchHits.length == size && searchHits.length > 0) {
+      Object[] lastSort = searchHits[searchHits.length - 1].getSortValues();
       nextScrollId =
-          new SearchAfterWrapper(sort, searchResponse.pointInTimeId(), expirationTimeMs)
+          new SearchAfterWrapper(lastSort, searchResponse.pointInTimeId(), expirationTimeMs)
               .toScrollId();
     }
 

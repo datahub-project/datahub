@@ -32,7 +32,9 @@ public class Criterion {
     ENDS_WITH,
     EXISTS,
     IN,
-    CONTAIN
+    CONTAIN,
+    GREATER_THAN,
+    LESS_THAN,
   }
 
   /** Convert this criterion to its counterpart in RecordTemplate. */
