@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
 
-import { CorpGroup, CorpUser, Entity, OwnerEntityType } from '@types';
+import { CorpGroup, CorpUser, OwnerEntityType } from '@types';
 
 // Interface for pending owner
 export interface PendingOwner {
