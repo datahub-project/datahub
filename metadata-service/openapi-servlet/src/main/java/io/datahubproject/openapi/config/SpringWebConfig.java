@@ -1,7 +1,9 @@
 package io.datahubproject.openapi.config;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.GMSConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.BasePathUtils;
 import io.datahubproject.openapi.v3.OpenAPIV3Customizer;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Info;
@@ -14,7 +16,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -42,8 +43,7 @@ public class SpringWebConfig implements WebMvcConfigurer {
 
   @Autowired private TracingInterceptor tracingInterceptor;
 
-  @Value("${datahub.gms.basePath:}")
-  private String gmsBasePath;
+  @Autowired private GMSConfiguration gmsConfiguration;
 
   @Bean
   public GroupedOpenApi v3OpenApiGroup(
@@ -130,7 +130,9 @@ public class SpringWebConfig implements WebMvcConfigurer {
   private void configureServerUrl(io.swagger.v3.oas.models.OpenAPI openApi) {
     // Clear any existing servers and set a relative server URL with base path
     openApi.setServers(null);
-    String serverUrl = gmsBasePath.isEmpty() ? "/" : gmsBasePath;
+    String serverUrl =
+        BasePathUtils.resolveBasePath(
+            gmsConfiguration.getBasePathEnabled(), gmsConfiguration.getBasePath(), "/");
     openApi.addServersItem(new io.swagger.v3.oas.models.servers.Server().url(serverUrl));
   }
 

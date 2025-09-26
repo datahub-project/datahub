@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.utils.BasePathUtils;
 import com.typesafe.config.Config;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -50,7 +51,6 @@ import play.mvc.Http;
 import play.mvc.Result;
 import play.mvc.Results;
 import security.AuthenticationManager;
-import utils.BasePathUtils;
 
 public class AuthenticationController extends Controller {
   public static final String AUTH_VERBOSE_LOGGING = "auth.verbose.logging";

@@ -47,13 +47,16 @@ def get_base_path():
     base_path = os.getenv("DATAHUB_BASE_PATH", "")
     return "" if base_path == "/" else base_path
 
+def get_gms_base_path():
+    base_gms_path = os.getenv("DATAHUB_GMS_BASE_PATH", "")
+    return "" if base_gms_path == "/" else base_gms_path
 
 def get_root_urn():
     return "urn:li:corpuser:datahub"
 
 
 def get_gms_url():
-    return os.getenv("DATAHUB_GMS_URL") or f"http://localhost:8080{get_base_path()}"
+    return os.getenv("DATAHUB_GMS_URL") or f"http://localhost:8080{get_gms_base_path()}"
 
 
 def get_frontend_url():
@@ -70,7 +73,7 @@ def get_kafka_schema_registry():
     #  internal registry "http://localhost:8080/schema-registry/api/"
     return (
         os.getenv("DATAHUB_KAFKA_SCHEMA_REGISTRY_URL")
-        or f"http://localhost:8080{get_base_path()}/schema-registry/api"
+        or f"http://localhost:8080{get_gms_base_path()}/schema-registry/api"
     )
 
 

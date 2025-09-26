@@ -15,6 +15,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.linkedin.metadata.config.GMSConfiguration;
+import com.linkedin.metadata.utils.BasePathUtils;
 import com.linkedin.r2.transport.http.server.RAPJakartaServlet;
 import com.linkedin.restli.server.RestliHandlerServlet;
 import io.datahubproject.iceberg.catalog.rest.common.IcebergJsonConverter;
@@ -61,8 +63,7 @@ public class ServletConfig implements WebMvcConfigurer {
   @Value("${datahub.gms.async.request-timeout-ms}")
   private long asyncTimeoutMilliseconds;
 
-  @Value("${datahub.gms.basePath}")
-  private String gmsBasePath;
+  @Autowired private GMSConfiguration gmsConfiguration;
 
   @Bean
   public FilterRegistrationBean<AuthenticationExtractionFilter> authExtractionFilter(
@@ -147,7 +148,8 @@ public class ServletConfig implements WebMvcConfigurer {
 
     log.info(
         "Registering RestLi servlet with gmsBasePath='{}', urlMappings={} (Spring Boot will add context path automatically)",
-        gmsBasePath,
+        BasePathUtils.resolveBasePath(
+            gmsConfiguration.getBasePathEnabled(), gmsConfiguration.getBasePath()),
         Arrays.toString(urlMappings));
 
     registration.addUrlMappings(urlMappings);

@@ -1,6 +1,8 @@
 package com.linkedin.r2.transport.http.server;
 
 import com.linkedin.data.ByteString;
+import com.linkedin.metadata.config.GMSConfiguration;
+import com.linkedin.metadata.utils.BasePathUtils;
 import com.linkedin.r2.message.RequestContext;
 import com.linkedin.r2.message.rest.*;
 import com.linkedin.r2.transport.common.WireAttributeHelper;
@@ -31,9 +33,11 @@ public abstract class AbstractJakartaR2Servlet extends HttpServlet {
 
   protected abstract HttpDispatcher getDispatcher();
 
-  protected AbstractJakartaR2Servlet(Duration timeout, String basePath) {
+  protected AbstractJakartaR2Servlet(Duration timeout, GMSConfiguration gmsConfiguration) {
     this.timeout = timeout;
-    this.basePath = basePath == null || "/".equals(basePath) ? "" : basePath;
+    this.basePath =
+        BasePathUtils.resolveBasePath(
+            gmsConfiguration.getBasePathEnabled(), gmsConfiguration.getBasePath());
   }
 
   @Override

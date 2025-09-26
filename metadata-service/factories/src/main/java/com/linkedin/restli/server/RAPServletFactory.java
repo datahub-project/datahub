@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.linkedin.data.codec.AbstractJacksonDataCodec;
+import com.linkedin.metadata.config.GMSConfiguration;
 import com.linkedin.metadata.filter.RestliLoggingFilter;
 import com.linkedin.parseq.Engine;
 import com.linkedin.parseq.EngineBuilder;
@@ -14,6 +15,7 @@ import com.linkedin.restli.docgen.DefaultDocumentationRequestHandler;
 import com.linkedin.restli.server.spring.SpringInjectResourceFactory;
 import java.util.concurrent.Executors;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
@@ -32,8 +34,7 @@ public class RAPServletFactory {
   @Value("${" + INGESTION_MAX_SERIALIZED_STRING_LENGTH + ":16000000}")
   private int maxSerializedStringLength;
 
-  @Value("${datahub.gms.basePath:/}")
-  private String gmsBasePath;
+  @Autowired private GMSConfiguration gmsConfiguration;
 
   @Bean(name = "restliSpringInjectResourceFactory")
   public SpringInjectResourceFactory springInjectResourceFactory(final ApplicationContext ctx) {
@@ -79,6 +80,6 @@ public class RAPServletFactory {
         new FilterChainDispatcher(
             new DelegatingTransportDispatcher(restLiServer, restLiServer), FilterChains.empty()),
         restliTimeoutSeconds,
-        gmsBasePath);
+        gmsConfiguration);
   }
 }

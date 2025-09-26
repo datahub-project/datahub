@@ -33,7 +33,11 @@ public class StartupModule extends AbstractModule {
       log.info("Base Path: {}", config.getString("datahub.basePath"));
       log.info("GMS Host: {}", config.getString("metadataService.host"));
       log.info("GMS Port: {}", config.getInt("metadataService.port"));
-      log.info("GMS Base Path: {}", config.getString("metadataService.basePath"));
+      log.info(
+          "GMS Base Path: {}",
+          config.hasPath("metadataService.basePath")
+              ? config.getString("metadataService.basePath")
+              : "not set");
 
       // Dump all datahub.* configuration if available
       if (config.hasPath("datahub")) {

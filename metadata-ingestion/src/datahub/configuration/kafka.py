@@ -13,7 +13,7 @@ def _get_schema_registry_url() -> str:
     if explicit_url:
         return explicit_url
 
-    base_path = os.getenv("DATAHUB_BASE_PATH", "")
+    base_path = os.getenv("DATAHUB_GMS_BASE_PATH", "")
     if base_path in ("/", ""):
         base_path = ""
 
@@ -27,7 +27,7 @@ class _KafkaConnectionConfig(ConfigModel):
     # schema registry location
     schema_registry_url: str = Field(
         default_factory=_get_schema_registry_url,
-        description="Schema registry URL. Can be overridden with KAFKA_SCHEMAREGISTRY_URL environment variable, or will use DATAHUB_BASE_PATH if not set.",
+        description="Schema registry URL. Can be overridden with KAFKA_SCHEMAREGISTRY_URL environment variable, or will use DATAHUB_GMS_BASE_PATH if not set.",
     )
 
     schema_registry_config: dict = Field(

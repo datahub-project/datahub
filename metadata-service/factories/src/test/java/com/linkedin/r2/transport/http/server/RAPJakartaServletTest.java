@@ -9,6 +9,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.metadata.config.GMSConfiguration;
 import com.linkedin.r2.filter.R2Constants;
 import com.linkedin.r2.message.RequestContext;
 import com.linkedin.r2.message.rest.RestRequest;
@@ -41,6 +42,7 @@ public class RAPJakartaServletTest {
   private HttpServletRequest mockRequest;
   private HttpServletResponse mockResponse;
   private ServletOutputStream mockOutputStream;
+  private GMSConfiguration gmsConfiguration;
 
   @BeforeMethod
   public void setUp() throws IOException {
@@ -49,6 +51,11 @@ public class RAPJakartaServletTest {
     mockRequest = mock(HttpServletRequest.class);
     mockResponse = mock(HttpServletResponse.class);
     mockOutputStream = mock(ServletOutputStream.class);
+
+    // Create a real GMS configuration instance
+    gmsConfiguration = new GMSConfiguration();
+    gmsConfiguration.setBasePath("");
+    gmsConfiguration.setBasePathEnabled(false);
 
     // Basic request setup
     when(mockRequest.getMethod()).thenReturn("GET");
@@ -81,20 +88,38 @@ public class RAPJakartaServletTest {
 
   @Test
   public void testConstructorWithHttpDispatcher() {
-    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS, "");
+    RAPJakartaServlet servlet =
+        new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS, gmsConfiguration);
     assertEquals(servlet.getDispatcher(), mockHttpDispatcher);
   }
 
   @Test
   public void testConstructorWithTransportDispatcher() {
-    RAPJakartaServlet servlet = new RAPJakartaServlet(mockTransportDispatcher, TIMEOUT_SECONDS, "");
+    RAPJakartaServlet servlet =
+        new RAPJakartaServlet(mockTransportDispatcher, TIMEOUT_SECONDS, gmsConfiguration);
     assertNotNull(servlet.getDispatcher());
+  }
+
+  @Test
+  public void testBasePathConfiguration() throws ServletException, IOException {
+    // Setup GMS configuration with base path
+    GMSConfiguration gmsConfigWithBasePath = new GMSConfiguration();
+    gmsConfigWithBasePath.setBasePath("/datahub");
+    gmsConfigWithBasePath.setBasePathEnabled(true);
+
+    RAPJakartaServlet servlet =
+        new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS, gmsConfigWithBasePath);
+
+    // Test that the servlet is created successfully with base path configuration
+    assertNotNull(servlet);
+    assertEquals(servlet.getDispatcher(), mockHttpDispatcher);
   }
 
   @Test
   public void testSuccessfulRequest() throws ServletException, IOException {
     // Setup
-    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS, "");
+    RAPJakartaServlet servlet =
+        new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS, gmsConfiguration);
     RestResponse mockRestResponse = RestStatus.responseForStatus(200, "OK");
     TransportResponse<RestResponse> transportResponse =
         TransportResponseImpl.success(mockRestResponse);
@@ -145,7 +170,8 @@ public class RAPJakartaServletTest {
     when(mockRequest.getAttribute("javax.servlet.request.X509Certificate")).thenReturn(certs);
     when(mockRequest.getAttribute("javax.servlet.request.cipher_suite")).thenReturn(cipherSuite);
 
-    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS, "");
+    RAPJakartaServlet servlet =
+        new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS, gmsConfiguration);
 
     ArgumentCaptor<RequestContext> contextCaptor = ArgumentCaptor.forClass(RequestContext.class);
 
@@ -171,7 +197,8 @@ public class RAPJakartaServletTest {
     when(mockRequest.getContextPath()).thenReturn("");
     when(mockRequest.getServletPath()).thenReturn("");
 
-    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS, "");
+    RAPJakartaServlet servlet =
+        new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS, gmsConfiguration);
 
     // Execute
     servlet.service(mockRequest, mockResponse);
@@ -323,7 +350,7 @@ public class RAPJakartaServletTest {
   @Test
   public void testRequestTimeout() throws ServletException, IOException {
     // Setup with very short timeout
-    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, 1, "");
+    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, 1, gmsConfiguration);
 
     doAnswer(
             invocation -> {
@@ -374,7 +401,8 @@ public class RAPJakartaServletTest {
   public void testHeaderHandling(String headerName, String headerValue)
       throws ServletException, IOException {
     // Setup
-    RAPJakartaServlet servlet = new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS, "");
+    RAPJakartaServlet servlet =
+        new RAPJakartaServlet(mockHttpDispatcher, TIMEOUT_SECONDS, gmsConfiguration);
     when(mockRequest.getHeaderNames())
         .thenReturn(Collections.enumeration(Collections.singletonList(headerName)));
     when(mockRequest.getHeaders(headerName))

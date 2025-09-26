@@ -9,6 +9,7 @@ import com.datahub.authentication.AuthenticationConstants;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.metadata.utils.BasePathUtils;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
 import java.net.URI;
@@ -34,7 +35,6 @@ import play.mvc.Http.Cookie;
 import play.mvc.ResponseHeader;
 import play.mvc.Result;
 import play.mvc.Security;
-import utils.BasePathUtils;
 import utils.ConfigUtil;
 
 public class Application extends Controller {
@@ -133,20 +133,26 @@ public class Application extends Controller {
             config,
             ConfigUtil.METADATA_SERVICE_BASE_PATH_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_BASE_PATH);
+    final boolean metadataServiceBasePathEnabled =
+        ConfigUtil.getBoolean(
+            config,
+            ConfigUtil.METADATA_SERVICE_BASE_PATH_ENABLED_CONFIG_PATH,
+            ConfigUtil.DEFAULT_METADATA_SERVICE_BASE_PATH_ENABLED);
     final boolean metadataServiceUseSsl =
         ConfigUtil.getBoolean(
             config,
             ConfigUtil.METADATA_SERVICE_USE_SSL_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_USE_SSL);
+
+    // Use the same logic as GMSConfiguration.getResolvedBasePath()
+    String resolvedBasePath =
+        BasePathUtils.resolveBasePath(metadataServiceBasePathEnabled, metadataServiceBasePath);
+
     final String protocol = metadataServiceUseSsl ? "https" : "http";
     final String targetUrl =
         String.format(
             "%s://%s:%s%s%s",
-            protocol,
-            metadataServiceHost,
-            metadataServicePort,
-            metadataServiceBasePath.equals("/") ? "" : metadataServiceBasePath,
-            resolvedUri);
+            protocol, metadataServiceHost, metadataServicePort, resolvedBasePath, resolvedUri);
     HttpRequest.Builder httpRequestBuilder =
         HttpRequest.newBuilder().uri(URI.create(targetUrl)).timeout(Duration.ofSeconds(120));
     httpRequestBuilder.method(request.method(), buildBodyPublisher(request));

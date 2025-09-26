@@ -115,7 +115,8 @@ datahub:
   gms:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
-    basePath: ${DATAHUB_BASE_PATH:}
+    basePath: ${DATAHUB_GMS_BASE_PATH:}
+    basePathEnabled: ${DATAHUB_GMS_BASE_PATH_ENABLED:false}
     useSSL: ${DATAHUB_GMS_USE_SSL:${GMS_USE_SSL:false}}
     truststore:
       path: ${DATAHUB_GMS_SSL_TRUSTSTORE_PATH:#{null}} # Required if useSSL is true
@@ -584,11 +585,11 @@ management:
 #    include-binding-errors: always
 #    include-stacktrace: always
 
-# GMS needs to have its context path, / is used when undefined, DATAHUB_BASE_PATH otherwise
+# GMS needs to have its context path, / is used when undefined, DATAHUB_GMS_BASE_PATH otherwise
 server:
   server-header: false
   servlet:
-    context-path: ${DATAHUB_BASE_PATH:/}
+    context-path: ${DATAHUB_GMS_BASE_PATH:/}
 
 springdoc:
   cache:

@@ -1,11 +1,11 @@
 package controllers;
 
+import com.linkedin.metadata.utils.BasePathUtils;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Result;
-import utils.BasePathUtils;
 
 /**
  * Controller for serving robots.txt with proper base path configuration.

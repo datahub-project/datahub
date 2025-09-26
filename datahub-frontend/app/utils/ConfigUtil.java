@@ -11,6 +11,8 @@ public class ConfigUtil {
   public static final String METADATA_SERVICE_HOST_CONFIG_PATH = "metadataService.host";
   public static final String METADATA_SERVICE_PORT_CONFIG_PATH = "metadataService.port";
   public static final String METADATA_SERVICE_BASE_PATH_CONFIG_PATH = "metadataService.basePath";
+  public static final String METADATA_SERVICE_BASE_PATH_ENABLED_CONFIG_PATH =
+      "metadataService.basePathEnabled";
   public static final String METADATA_SERVICE_USE_SSL_CONFIG_PATH = "metadataService.useSsl";
   public static final String METADATA_SERVICE_SSL_PROTOCOL_CONFIG_PATH =
       "metadataService.sslProtocol";
@@ -32,6 +34,7 @@ public class ConfigUtil {
   public static final String DEFAULT_GMS_HOST = "localhost";
   public static final String DEFAULT_GMS_PORT = "8080";
   public static final String DEFAULT_GMS_BASE_PATH = "";
+  public static final String DEFAULT_GMS_BASE_PATH_ENABLED = "false";
   public static final String DEFAULT_GMS_USE_SSL = "False";
 
   public static final String DEFAULT_METADATA_SERVICE_HOST =
@@ -39,6 +42,7 @@ public class ConfigUtil {
   public static final Integer DEFAULT_METADATA_SERVICE_PORT =
       Integer.parseInt(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, "8080"));
   public static final String DEFAULT_METADATA_SERVICE_BASE_PATH = "";
+  public static final Boolean DEFAULT_METADATA_SERVICE_BASE_PATH_ENABLED = false;
   public static final Boolean DEFAULT_METADATA_SERVICE_USE_SSL =
       Boolean.parseBoolean(Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, "False"));
   public static final String DEFAULT_METADATA_SERVICE_SSL_PROTOCOL =

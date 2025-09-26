@@ -40,7 +40,7 @@ x-kafka-env: &kafka-env
   KAFKA_BOOTSTRAP_SERVER: broker:29092
   # KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
   SCHEMA_REGISTRY_TYPE: INTERNAL
-  KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080${DATAHUB_BASE_PATH}/schema-registry/api/
+  KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH}/schema-registry/api/
 
 x-datahub-quickstart-telemetry-env: &datahub-quickstart-telemetry-env
   DATAHUB_SERVER_TYPE: ${DATAHUB_SERVER_TYPE:-quickstart}
@@ -57,6 +57,10 @@ x-localstack-env: &localstack-env
   AWS_REGION: ${DATAHUB_AWS_REGION:-us-east-1}
   DATAHUB_EXECUTOR_ROLE_ARN: ${DATAHUB_EXECUTOR_ROLE_ARN:-arn:aws:iam::000000000000:role/test-role}
 
+x-datahub-common: &datahub-common-env
+  DATAHUB_BASE_PATH: ${DATAHUB_BASE_PATH:-/}
+  DATAHUB_GMS_BASE_PATH: ${DATAHUB_GMS_BASE_PATH:-/}
+
 #################################
 # System Update
 #################################
@@ -71,7 +75,7 @@ x-datahub-system-update-service: &datahub-system-update-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_SYS_UPDATE_ENV:-empty2.env}
   environment: &datahub-system-update-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env]
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env, *datahub-common-env]
     SCHEMA_REGISTRY_SYSTEM_UPDATE: ${SCHEMA_REGISTRY_SYSTEM_UPDATE:-true}
     SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS: ${SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS:-true}
     SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION: ${SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION:-true}
@@ -115,7 +119,7 @@ x-datahub-gms-service: &datahub-gms-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_GMS_ENV:-empty2.env}
   environment: &datahub-gms-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
     ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
     STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
@@ -174,7 +178,7 @@ x-datahub-mae-consumer-service: &datahub-mae-consumer-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_MAE_ENV:-empty2.env}
   environment: &datahub-mae-consumer-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env]
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env, *datahub-common-env]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
 
 x-datahub-mae-consumer-service-dev: &datahub-mae-consumer-service-dev
@@ -202,7 +206,7 @@ x-datahub-mce-consumer-service: &datahub-mce-consumer-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_MCE_ENV:-empty2.env}
   environment: &datahub-mce-consumer-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
     ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
     STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}

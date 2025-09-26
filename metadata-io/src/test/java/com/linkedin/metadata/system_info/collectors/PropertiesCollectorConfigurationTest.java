@@ -836,7 +836,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Base Path
           "datahub.basePath",
           "server.servlet.context-path",
-          "datahub.gms.basePath"
+          "datahub.gms.basePath",
+          "datahub.gms.basePathEnabled"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to

@@ -6,6 +6,7 @@ import auth.sso.SsoProvider;
 import auth.sso.oidc.OidcCallbackLogic;
 import client.AuthServiceClient;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.utils.BasePathUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -28,7 +29,6 @@ import org.pac4j.play.context.PlayFrameworkParameters;
 import play.mvc.Http;
 import play.mvc.Result;
 import play.mvc.Results;
-import utils.BasePathUtils;
 
 /**
  * A dedicated Controller for handling redirects to DataHub by 3rd-party Identity Providers after
