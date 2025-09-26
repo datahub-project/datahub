@@ -1,3 +1,6 @@
+# Set default base path if not provided
+DATAHUB_BASE_PATH=${DATAHUB_BASE_PATH:-}
+
 # Handle base path properly to avoid double slashes
 if [ "${DATAHUB_BASE_PATH}" = "/" ] || [ -z "${DATAHUB_BASE_PATH}" ]; then
     export DATAHUB_KAFKA_SCHEMA_REGISTRY_URL=http://localhost:8080/schema-registry/api
