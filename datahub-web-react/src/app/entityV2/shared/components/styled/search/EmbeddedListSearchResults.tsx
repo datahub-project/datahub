@@ -63,6 +63,7 @@ const ResultContainer = styled.div`
     width: 100%;
     display: flex;
     flex-direction: column;
+    min-height: 0;
 `;
 
 const PaginationInfoContainer = styled.span`
