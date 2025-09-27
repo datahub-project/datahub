@@ -10,12 +10,13 @@ import { EntityCapabilityType } from '@app/entityV2/Entity';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
 import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useBatchSetApplicationMutation } from '@graphql/application.generated';
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
 import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '@graphql/mutations.generated';
-import { EntityType } from '@types';
+import { DataHubPageModuleType, EntityType } from '@types';
 
 export enum EntityActionItem {
     /**
@@ -83,6 +84,7 @@ function EntityActions(props: Props) {
     const [batchSetDomainMutation] = useBatchSetDomainMutation();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [batchSetApplicationMutation] = useBatchSetApplicationMutation();
+    const { reloadModules } = useModulesContext();
 
     // eslint-disable-next-line
     const batchAddGlossaryTerms = (entityUrns: Array<string>) => {
@@ -107,6 +109,9 @@ function EntityActions(props: Props) {
                         });
                         refetchForEntity?.();
                         setShouldRefetchEmbeddedListSearch?.(true);
+                        // Reload modules
+                        // Assets - to reload shown related assets on asset summary tab
+                        reloadModules([DataHubPageModuleType.Assets]);
                     }, 3000);
                 }
             })
@@ -145,6 +150,10 @@ function EntityActions(props: Props) {
                         refetchForEntity?.();
                         setShouldRefetchEmbeddedListSearch?.(true);
                         entityState?.setShouldRefetchContents(true);
+                        // Reload modules
+                        // Assets - to reload shown related assets on asset summary tab
+                        // Domains - to reload Domains module with top domains on home page as list of domains can be changed after adding assets
+                        reloadModules([DataHubPageModuleType.Assets, DataHubPageModuleType.Domains]);
                     }, 3000);
                     analytics.event({
                         type: EventType.BatchEntityActionEvent,
@@ -185,6 +194,9 @@ function EntityActions(props: Props) {
                         });
                         refetchForEntity?.();
                         setShouldRefetchEmbeddedListSearch?.(true);
+                        // Reload modules
+                        // Assets - to reload shown related assets on asset summary tab
+                        reloadModules([DataHubPageModuleType.Assets]);
                     }, 3000);
                     analytics.event({
                         type: EventType.BatchEntityActionEvent,
@@ -250,6 +262,7 @@ function EntityActions(props: Props) {
                             variant="outline"
                             onClick={() => setIsBatchAddGlossaryTermModalVisible(true)}
                             data-testid="glossary-batch-add"
+                            size="sm"
                         >
                             <LinkOutlined /> Add to Assets
                         </Button>
@@ -261,6 +274,7 @@ function EntityActions(props: Props) {
                             variant="outline"
                             onClick={() => setIsBatchSetDomainModalVisible(true)}
                             data-testid="domain-batch-add"
+                            size="sm"
                         >
                             <LinkOutlined /> Add to Assets
                         </Button>
@@ -273,7 +287,7 @@ function EntityActions(props: Props) {
                         placement="bottom"
                         data-testid="data-product-batch-add"
                     >
-                        <Button variant="outline" onClick={() => setIsBatchSetDataProductModalVisible(true)}>
+                        <Button variant="outline" onClick={() => setIsBatchSetDataProductModalVisible(true)} size="sm">
                             <LinkOutlined />
                             Add Assets
                         </Button>

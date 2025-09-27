@@ -82,49 +82,53 @@ describe('useGetChildDataProducts', () => {
         it('should use default initialCount of 50 when not provided', () => {
             setup();
 
-            expect(useGetSearchResultsForMultipleQuery).toHaveBeenCalledWith({
-                variables: {
-                    input: {
-                        query: '*',
-                        start: 0,
-                        count: 50,
-                        types: [EntityType.DataProduct],
-                        filters: [
-                            {
-                                field: DOMAINS_FILTER_NAME,
-                                value: urn,
-                                values: [urn],
-                            },
-                        ],
-                        searchFlags: { skipCache: true },
+            expect(useGetSearchResultsForMultipleQuery).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    variables: {
+                        input: {
+                            query: '*',
+                            start: 0,
+                            count: 50,
+                            types: [EntityType.DataProduct],
+                            filters: [
+                                {
+                                    field: DOMAINS_FILTER_NAME,
+                                    value: urn,
+                                    values: [urn],
+                                },
+                            ],
+                            searchFlags: { skipCache: true },
+                        },
                     },
-                },
-                skip: false,
-            });
+                    skip: false,
+                }),
+            );
         });
 
         it('should use custom initialCount when provided', () => {
             setup(25);
 
-            expect(useGetSearchResultsForMultipleQuery).toHaveBeenCalledWith({
-                variables: {
-                    input: {
-                        query: '*',
-                        start: 0,
-                        count: 25,
-                        types: [EntityType.DataProduct],
-                        filters: [
-                            {
-                                field: DOMAINS_FILTER_NAME,
-                                value: urn,
-                                values: [urn],
-                            },
-                        ],
-                        searchFlags: { skipCache: true },
+            expect(useGetSearchResultsForMultipleQuery).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    variables: {
+                        input: {
+                            query: '*',
+                            start: 0,
+                            count: 25,
+                            types: [EntityType.DataProduct],
+                            filters: [
+                                {
+                                    field: DOMAINS_FILTER_NAME,
+                                    value: urn,
+                                    values: [urn],
+                                },
+                            ],
+                            searchFlags: { skipCache: true },
+                        },
                     },
-                },
-                skip: false,
-            });
+                    skip: false,
+                }),
+            );
         });
     });
 
@@ -180,10 +184,11 @@ describe('useGetChildDataProducts', () => {
 
             setup();
 
-            expect(useGetSearchResultsForMultipleQuery).toHaveBeenCalledWith({
-                variables: expect.any(Object),
-                skip: true,
-            });
+            expect(useGetSearchResultsForMultipleQuery).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    skip: true,
+                }),
+            );
         });
 
         it('should skip query when urn is empty string', () => {
@@ -191,10 +196,11 @@ describe('useGetChildDataProducts', () => {
 
             setup();
 
-            expect(useGetSearchResultsForMultipleQuery).toHaveBeenCalledWith({
-                variables: expect.any(Object),
-                skip: true,
-            });
+            expect(useGetSearchResultsForMultipleQuery).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    skip: true,
+                }),
+            );
         });
     });
 
@@ -330,25 +336,27 @@ describe('useGetChildDataProducts', () => {
         it('should generate correct search variables with domain filter', () => {
             setup();
 
-            expect(useGetSearchResultsForMultipleQuery).toHaveBeenCalledWith({
-                variables: {
-                    input: {
-                        query: '*',
-                        start: 0,
-                        count: 50,
-                        types: [EntityType.DataProduct],
-                        filters: [
-                            {
-                                field: DOMAINS_FILTER_NAME,
-                                value: urn,
-                                values: [urn],
-                            },
-                        ],
-                        searchFlags: { skipCache: true },
+            expect(useGetSearchResultsForMultipleQuery).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    variables: {
+                        input: {
+                            query: '*',
+                            start: 0,
+                            count: 50,
+                            types: [EntityType.DataProduct],
+                            filters: [
+                                {
+                                    field: DOMAINS_FILTER_NAME,
+                                    value: urn,
+                                    values: [urn],
+                                },
+                            ],
+                            searchFlags: { skipCache: true },
+                        },
                     },
-                },
-                skip: false,
-            });
+                    skip: false,
+                }),
+            );
         });
 
         it('should use wildcard query to find all data products', () => {

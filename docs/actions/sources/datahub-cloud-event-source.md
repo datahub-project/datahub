@@ -39,8 +39,7 @@ If you've configured your Action pipeline `failure_mode` to be `THROW`, then eve
 The DataHub Cloud Event Source produces
 
 - [Entity Change Event V1](../../managed-datahub/datahub-api/entity-events-api.md)
-
-Note that the DataHub Cloud Event Source does _not_ yet support the full [Metadata Change Log V1](../events/metadata-change-log-event.md) event stream.
+- [Metadata Change Log V1](../events/metadata-change-log-event.md) (By changing config > topics to include `MetadataChangeLog_Versioned_v1` and `MetadataChangeLog_Timeseries_v1`)
 
 ## Configure the Event Source
 
@@ -75,6 +74,7 @@ datahub:
 source:
   type: "datahub-cloud"
   config:
+    topics: ["PlatformEvent_v1"] # Add MetadataChangeLog_Versioned_v1 and / or MetadataChangeLog_Timeseries_v1 to generate raw MCL events.
     lookback_days: 7 # Look back 7 days for events
     reset_offsets: true # Ignore stored offsets and start fresh
     kill_after_idle_timeout: true # Enable shutdown after idle period
@@ -89,14 +89,14 @@ Note that the `datahub` configuration block is **required** to connect to your D
 <details>
   <summary>View All Configuration Options</summary>
 
-| Field                                        | Required |      Default       | Description                                                                                                     |
-| -------------------------------------------- | :------: | :----------------: | --------------------------------------------------------------------------------------------------------------- |
-| `topic`                                      |    ❌    | `PlatformEvent_v1` | The name of the topic from which events will be consumed. Do not change this unless you know what you're doing! |
-| `lookback_days`                              |    ❌    |        None        | Optional number of days to look back when polling for events.                                                   |
-| `reset_offsets`                              |    ❌    |      `False`       | When set to `True`, the consumer will ignore any stored offsets and start fresh.                                |
-| `kill_after_idle_timeout`                    |    ❌    |      `False`       | If `True`, stops the consumer after being idle for the specified timeout duration.                              |
-| `idle_timeout_duration_seconds`              |    ❌    |        `30`        | Duration in seconds after which, if no events are received, the consumer is considered idle.                    |
-| `event_processing_time_max_duration_seconds` |    ❌    |        `30`        | Maximum allowed time in seconds for processing events before timing out.                                        |
+| Field                                        | Required |      Default       | Description                                                                                                                                                                                                                                                 |
+| -------------------------------------------- | :------: | :----------------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `topics`                                     |    ❌    | `PlatformEvent_v1` | The name of the topic from which events will be consumed. By default only produces `EntityChangeEvent_v1` events. To include `MetadataChangeLog_v1` events, set this value to include ["MetadataChangeLog_Versioned_v1", "MetadataChangeLog_Timeseries_v1"] |
+| `lookback_days`                              |    ❌    |        None        | Optional number of days to look back when polling for events.                                                                                                                                                                                               |
+| `reset_offsets`                              |    ❌    |      `False`       | When set to `True`, the consumer will ignore any stored offsets and start fresh.                                                                                                                                                                            |
+| `kill_after_idle_timeout`                    |    ❌    |      `False`       | If `True`, stops the consumer after being idle for the specified timeout duration.                                                                                                                                                                          |
+| `idle_timeout_duration_seconds`              |    ❌    |        `30`        | Duration in seconds after which, if no events are received, the consumer is considered idle.                                                                                                                                                                |
+| `event_processing_time_max_duration_seconds` |    ❌    |        `30`        | Maximum allowed time in seconds for processing events before timing out.                                                                                                                                                                                    |
 
 </details>
 

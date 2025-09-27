@@ -639,17 +639,6 @@
       }
     },
     {
-      "Path": "docs/actions/actions/teams",
-      "imgPath": "img/logos/companies/microsoft-teams.svg",
-      "Title": "Microsoft Teams",
-      "Description": "Send notifications to Teams channels on updates to entities in DataHub.",
-      "tags": {
-        "Platform Type": "Messaging",
-        "Connection Type": "Push",
-        "Features": "Notifications, Alerting"
-      }
-    },
-    {
       "Path": "docs/generated/ingestion/sources/teradata",
       "imgPath": "img/logos/platforms/teradata.svg",
       "Title": "Teradata",

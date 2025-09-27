@@ -1,4 +1,5 @@
 import { ThunderboltOutlined } from '@ant-design/icons';
+import { colors } from '@components';
 import CloseIcon from '@mui/icons-material/Close';
 import { Modal, Tag, message } from 'antd';
 import React from 'react';
@@ -7,30 +8,35 @@ import styled from 'styled-components';
 
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveTermMutation } from '@graphql/mutations.generated';
-import { GlossaryTermAssociation, SubResourceType } from '@types';
+import { DataHubPageModuleType, GlossaryTermAssociation, SubResourceType } from '@types';
 
 const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
-const TermContainer = styled.div`
+const TermContainer = styled.div<{ $shouldHighlightBorderOnHover?: boolean }>`
     position: relative;
     max-width: 200px;
 
     .ant-tag.ant-tag {
         border-radius: 5px;
-        border: 1px solid #ccd1dd;
+        border: 1px solid ${colors.gray[100]};
     }
 
-    :hover {
-        .ant-tag.ant-tag {
-            border: 1px solid ${(props) => props.theme.styles['primary-color']};
+    ${(props) =>
+        props.$shouldHighlightBorderOnHover &&
+        `
+        :hover {
+            .ant-tag.ant-tag {
+                border: 1px solid ${props.theme.styles['primary-color']};
+            }
         }
-    }
+    `}
 `;
 
 const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; showOneAndCount?: boolean }>`
@@ -132,6 +138,7 @@ export default function TermContent({
     showOneAndCount,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const { reloadModules } = useModulesContext();
     const [removeTermMutation] = useRemoveTermMutation();
     const { parentNodes, urn, type } = term.term;
     const generateColor = useGenerateGlossaryColorFromPalette();
@@ -163,6 +170,13 @@ export default function TermContent({
                         .then(({ errors }) => {
                             if (!errors) {
                                 message.success({ content: 'Removed Term!', duration: 2 });
+                                // Reload modules
+                                // RelatedTerms - to update related terms in case some of them was removed
+                                // ChildHierarchy - to update contents module in glossary node
+                                reloadModules(
+                                    [DataHubPageModuleType.RelatedTerms, DataHubPageModuleType.ChildHierarchy],
+                                    3000,
+                                );
                             }
                         })
                         .then(refetch)
@@ -180,7 +194,7 @@ export default function TermContent({
     };
 
     return (
-        <TermContainer>
+        <TermContainer $shouldHighlightBorderOnHover={!readOnly}>
             <StyledTerm
                 style={{ cursor: 'pointer' }}
                 fontSize={fontSize}

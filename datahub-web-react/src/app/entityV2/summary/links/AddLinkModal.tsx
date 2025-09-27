@@ -10,7 +10,7 @@ type Props = {
 
 export default function AddLinkModal({ setShowAddLinkModal }: Props) {
     const [form] = useForm();
-    const { handleAddLink } = useLinkUtils();
+    const { handleAddLink, showInAssetPreview, setShowInAssetPreview } = useLinkUtils();
 
     const handleClose = () => {
         setShowAddLinkModal(false);
@@ -22,5 +22,14 @@ export default function AddLinkModal({ setShowAddLinkModal }: Props) {
             .then(() => handleClose());
     };
 
-    return <AddEditLinkModal variant="create" form={form} onSubmit={handleAdd} onClose={handleClose} />;
+    return (
+        <AddEditLinkModal
+            variant="create"
+            form={form}
+            onSubmit={handleAdd}
+            onClose={handleClose}
+            showInAssetPreview={showInAssetPreview}
+            setShowInAssetPreview={setShowInAssetPreview}
+        />
+    );
 }
