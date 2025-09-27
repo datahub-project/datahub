@@ -9,6 +9,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
@@ -17,12 +18,15 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.kafka.config.CDCProcessorCondition;
 import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.time.Duration;
+import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -210,47 +214,51 @@ public class CDCProcessor {
     JsonNode afterRecord = payload.get("after");
 
     // Step 3: Check if we should process this record (only latest versions)
-    if (!shouldProcessCDCRecord(afterRecord, beforeRecord)) {
+    Pair<Boolean, ChangeType> recordState = shouldProcessCDCRecord(afterRecord, beforeRecord);
+    if (!recordState.getFirst()) {
       return Optional.empty();
     }
 
     // Step 4: Extract urn, aspect, metadata, systemmetadata fields from both before/after CDC
     // records
     String urn =
-        afterRecord != null ? afterRecord.get("urn").asText() : beforeRecord.get("urn").asText();
+        afterRecord != null && !afterRecord.isNull()
+            ? afterRecord.get("urn").asText()
+            : beforeRecord.get("urn").asText();
     String aspectName =
-        afterRecord != null
+        afterRecord != null && !afterRecord.isNull()
             ? afterRecord.get("aspect").asText()
             : beforeRecord.get("aspect").asText();
 
     String beforeMetadata =
-        beforeRecord != null && beforeRecord.has("metadata")
+        beforeRecord != null && !beforeRecord.isNull() && beforeRecord.has("metadata")
             ? beforeRecord.get("metadata").asText()
             : null;
     String afterMetadata =
-        afterRecord != null && afterRecord.has("metadata")
+        afterRecord != null && !afterRecord.isNull() && afterRecord.has("metadata")
             ? afterRecord.get("metadata").asText()
             : null;
 
     String beforeSystemMetadata =
-        beforeRecord != null && beforeRecord.has("systemmetadata")
+        beforeRecord != null && !beforeRecord.isNull() && beforeRecord.has("systemmetadata")
             ? beforeRecord.get("systemmetadata").asText()
             : null;
     String afterSystemMetadata =
-        afterRecord != null && afterRecord.has("systemmetadata")
+        afterRecord != null && !afterRecord.isNull() && afterRecord.has("systemmetadata")
             ? afterRecord.get("systemmetadata").asText()
             : null;
 
     String createdOn =
-        afterRecord != null
+        afterRecord != null && !afterRecord.isNull()
             ? afterRecord.get("createdon").asText()
             : beforeRecord.get("createdon").asText();
     String createdBy =
-        afterRecord != null
+        afterRecord != null && !afterRecord.isNull()
             ? afterRecord.get("createdby").asText()
             : beforeRecord.get("createdby").asText();
     String createdFor =
         afterRecord != null
+                && !afterRecord.isNull()
                 && afterRecord.has("createdfor")
                 && !afterRecord.get("createdfor").isNull()
             ? afterRecord.get("createdfor").asText()
@@ -271,9 +279,11 @@ public class CDCProcessor {
       oldValue = RecordUtils.toRecordTemplate(aspectSpec.getDataTemplateClass(), beforeDataMap);
     }
 
-    DataMap afterDataMap = RecordUtils.toDataMap(afterMetadata);
-    RecordTemplate newValue =
-        RecordUtils.toRecordTemplate(aspectSpec.getDataTemplateClass(), afterDataMap);
+    RecordTemplate newValue = null;
+    if (afterMetadata != null) {
+      DataMap afterDataMap = RecordUtils.toDataMap(afterMetadata);
+      newValue = RecordUtils.toRecordTemplate(aspectSpec.getDataTemplateClass(), afterDataMap);
+    }
 
     // Step 6: Parse systemmetadata JSON strings to SystemMetadata objects
     SystemMetadata oldSystemMetadata = null;
@@ -295,11 +305,34 @@ public class CDCProcessor {
       auditStamp.setImpersonator(Urn.createFromString(createdFor));
     }
 
+    boolean isKeyAspect = systemOperationContext.getKeyAspectName(entityUrn).equals(aspectName);
+    ChangeType changeType = recordState.getSecond();
+    // if (changeType.equals(ChangeType.DELETE) && !isKeyAspect){
+    //  changeType = ChangeType.UPSERT; // Only the Key aspect delete can be a DELETE.
+    // }
+    // else
+    if (changeType.equals(ChangeType.UPSERT)) {
+      if (SystemMetadataUtils.isNoOp(newSystemMetadata) || Objects.equals(oldValue, newValue)) {
+        changeType = ChangeType.RESTATE;
+      }
+    }
+
+    if (changeType.equals(ChangeType.DELETE)) {
+      RecordTemplate temp = newValue;
+      newValue = oldValue;
+      oldValue = temp;
+
+      SystemMetadata tempMetadata = newSystemMetadata;
+      newSystemMetadata = oldSystemMetadata;
+      oldSystemMetadata = tempMetadata;
+    }
+
     MetadataChangeLog mcl =
         constructMCL(
             null,
             urnToEntityName(entityUrn),
             entityUrn,
+            changeType,
             aspectName,
             auditStamp,
             newValue,
@@ -310,22 +343,18 @@ public class CDCProcessor {
   }
 
   @com.google.common.annotations.VisibleForTesting
-  boolean shouldProcessCDCRecord(JsonNode afterRecord, JsonNode beforeRecord) {
-    // if ((afterRecord == null || !afterRecord.has("version")) && beforeRecord != null) {
-    //  return true; // This is a delete
-    // }
-
-    if (afterRecord == null || !afterRecord.has("version")) {
-      log.warn("CDC record missing after.version field, skipping");
-      return false;
+  Pair<Boolean, ChangeType> shouldProcessCDCRecord(JsonNode afterRecord, JsonNode beforeRecord) {
+    if ((afterRecord != null && !afterRecord.isNull() && afterRecord.has("version"))
+        && afterRecord.get("version").asLong() == 0) {
+      return Pair.of(true, ChangeType.UPSERT);
     }
-
-    long version = afterRecord.get("version").asLong();
-    if (version != 0) {
-      log.debug("CDC record version {} != 0, skipping (only processing latest versions)", version);
-      return false;
+    if ((afterRecord == null || afterRecord.isNull() || !afterRecord.has("version"))
+        && beforeRecord != null
+        && !beforeRecord.isNull()
+        && beforeRecord.has("version")
+        && beforeRecord.get("version").asLong() == 0) {
+      return Pair.of(true, ChangeType.DELETE); // This is a delete
     }
-
-    return true;
+    return Pair.of(false, ChangeType.$UNKNOWN);
   }
 }

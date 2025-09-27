@@ -431,6 +431,13 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     return rs.getExecutionInfo().getErrors().size() == 0 ? -1 : 0;
   }
 
+  @Override
+  public int deleteUrn(
+      @Nullable TransactionContext txContext, @Nonnull String urn, @Nonnull String keyAspect) {
+    throw new UnsupportedOperationException(
+        "This method is required for CDC mode only, not supported for Cassandra");
+  }
+
   public List<EntityAspect> getAllAspects(String urn, String aspectName) {
     SimpleStatement ss =
         selectFrom(CassandraAspect.TABLE_NAME)

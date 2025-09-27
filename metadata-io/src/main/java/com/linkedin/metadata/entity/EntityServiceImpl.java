@@ -2556,20 +2556,24 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     rowsDeletedFromEntityDeletion.addAndGet(result.additionalRowsAffected);
                     removedAspects.add(aspectToRemove);
                     removedAspectResults.add(result);
-                    return alwaysProduceMCLAsync(
-                            opContext,
-                            result.getUrn(),
-                            result.getEntityName(),
-                            result.getAspectName(),
-                            aspectSpec.get(),
-                            result.getOldValue(),
-                            result.getNewValue(),
-                            result.getOldSystemMetadata(),
-                            result.getNewSystemMetadata(),
-                            // TODO: use properly attributed audit stamp.
-                            createSystemAuditStamp(),
-                            result.getChangeType())
-                        .getFirst();
+                    if (!cdcModeChangeLog) {
+                      return alwaysProduceMCLAsync(
+                              opContext,
+                              result.getUrn(),
+                              result.getEntityName(),
+                              result.getAspectName(),
+                              aspectSpec.get(),
+                              result.getOldValue(),
+                              result.getNewValue(),
+                              result.getOldSystemMetadata(),
+                              result.getNewSystemMetadata(),
+                              // TODO: use properly attributed audit stamp.
+                              createSystemAuditStamp(),
+                              result.getChangeType())
+                          .getFirst();
+                    } else {
+                      return null; // CDC Consumer will emit the MCL. Nothing to wait on here.
+                    }
                   }
 
                   return null;
@@ -2633,20 +2637,24 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       rowsDeletedFromEntityDeletion = result.additionalRowsAffected;
       removedAspects.add(summary);
       removedAspectResults.add(result);
-      Future<?> future =
-          alwaysProduceMCLAsync(
-                  opContext,
-                  result.getUrn(),
-                  result.getEntityName(),
-                  result.getAspectName(),
-                  keySpec,
-                  result.getOldValue(),
-                  result.getNewValue(),
-                  result.getOldSystemMetadata(),
-                  result.getNewSystemMetadata(),
-                  opContext.getAuditStamp(),
-                  result.getChangeType())
-              .getFirst();
+
+      Future<?> future = null;
+      if (!cdcModeChangeLog) {
+        future =
+            alwaysProduceMCLAsync(
+                    opContext,
+                    result.getUrn(),
+                    result.getEntityName(),
+                    result.getAspectName(),
+                    keySpec,
+                    result.getOldValue(),
+                    result.getNewValue(),
+                    result.getOldSystemMetadata(),
+                    result.getNewSystemMetadata(),
+                    opContext.getAuditStamp(),
+                    result.getChangeType())
+                .getFirst();
+      }
 
       if (future != null) {
         try {
@@ -2871,7 +2879,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     if (isKeyAspect) {
                       if (hardDelete) {
                         // If this is the key aspect, delete the entity entirely.
-                        additionalRowsDeleted = aspectDao.deleteUrn(txContext, urn);
+                        // If Using CDCs, need to ensure key aspect is the deleted last.
+                        if (cdcModeChangeLog) {
+                          additionalRowsDeleted = aspectDao.deleteUrn(txContext, urn, aspectName);
+                        } else {
+                          additionalRowsDeleted = aspectDao.deleteUrn(txContext, urn);
+                        }
                       } else if (deleteItem
                           .getEntitySpec()
                           .hasAspect(Constants.STATUS_ASPECT_NAME)) {

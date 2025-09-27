@@ -125,8 +125,7 @@ def access_token_setup(auth_session, auth_exclude_filter):
     res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     assert res_data
     assert res_data["data"]
-    # Total may be incorrect if index has a deleted result, and the deleted results are correctly removed
-    # so asserting len(res_data["data"]["listAccessTokens"]["tokens"])  == 0 or equivalent works more reliably.
+    assert res_data["data"]["listAccessTokens"]["total"] == 0
     assert not res_data["data"]["listAccessTokens"]["tokens"]
 
     yield
@@ -135,8 +134,6 @@ def access_token_setup(auth_session, auth_exclude_filter):
     res_data = listAccessTokens(admin_session, filters=[auth_exclude_filter])
     for metadata in res_data["data"]["listAccessTokens"]["tokens"]:
         revokeAccessToken(admin_session, metadata["id"])
-
-    wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
 
 
 def test_audit_token_events(auth_exclude_filter):
