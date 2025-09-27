@@ -358,6 +358,11 @@ module.exports = {
           type: "doc",
           id: "docs/tags",
         },
+        {
+          label: "Views",
+          type: "doc",
+          id: "docs/features/feature-guides/views",
+        },
       ],
     },
     // DataHub Cloud.
