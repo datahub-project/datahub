@@ -73,14 +73,19 @@ ext {
             ],
             'quickstartCDC': [
                     profile: 'quickstart-consumers-cdc',
-                    modules: backend_profile_modules + [':datahub-frontend'],
+                    modules: backend_profile_modules + [':datahub-frontend',
+                                                        ':metadata-jobs:mce-consumer-job',
+                                                        ':metadata-jobs:mae-consumer-job',
+                                                        ':datahub-actions',
+                    ],
+
             ],
             'quickstartCDCDebug': [
                     profile: 'debug-consumers-cdc',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
                                                                                   ':metadata-jobs:mce-consumer-job',
                                                                                   ':metadata-jobs:mae-consumer-job',
-                                                                                  //':datahub-actions'
+                                                                                  ':datahub-actions'
                     ],
                     isDebug: true,
             ],
