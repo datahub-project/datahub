@@ -11,6 +11,7 @@ import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import styles from '@app/auth/login.module.css';
 import { Message } from '@app/shared/Message';
 import { useAppConfig } from '@app/useAppConfig';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 type FormValues = {
     username: string;
@@ -83,7 +84,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: values.username, password: values.password }),
             };
-            fetch('/logIn', requestOptions)
+            fetch(resolveRuntimePath('/logIn'), requestOptions)
                 .then(async (response) => {
                     if (!response.ok) {
                         const data = await response.json();

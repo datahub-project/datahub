@@ -49,7 +49,7 @@ export const ProtectedRoutes = (): JSX.Element => {
 
     useEffect(() => {
         if (location.pathname.indexOf('/Validation') !== -1) {
-            history.replace(getRedirectUrl(NEW_ROUTE_MAP));
+            history.replace(getRedirectUrl(NEW_ROUTE_MAP, location));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location]);

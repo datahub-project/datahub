@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
-import static play.mvc.Http.Status.NOT_FOUND;
+import static play.mvc.Http.Status.MOVED_PERMANENTLY;
 import static play.mvc.Http.Status.OK;
 import static play.test.Helpers.fakeRequest;
 import static play.test.Helpers.route;
@@ -97,6 +97,8 @@ public class ApplicationTest extends WithBrowser {
   protected Application provideApplication() {
     return new GuiceApplicationBuilder()
         .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+        .configure("metadataService.host", "localhost")
+        .configure("datahub.basePath", "")
         .configure("auth.baseUrl", "http://localhost:" + providePort())
         .configure(
             "auth.oidc.discoveryUri",
@@ -133,6 +135,7 @@ public class ApplicationTest extends WithBrowser {
   private String wellKnownUrl;
   private int actualOauthServerPort;
   private int actualGmsServerPort;
+  private String actualGmsServerHost;
 
   private static final String TEST_USER = "urn:li:corpuser:testUser@myCompany.com";
   private static final String TEST_TOKEN = "faketoken_YCpYIrjQH4sD3_rAc3VPPFg4";
@@ -180,7 +183,7 @@ public class ApplicationTest extends WithBrowser {
           }
         });
 
-    gmsServer.start(actualGmsServerPort);
+    gmsServer.start(InetAddress.getByName("localhost"), actualGmsServerPort);
 
     // Start Mock Identity Provider
     startMockOauthServer();
@@ -477,10 +480,11 @@ public class ApplicationTest extends WithBrowser {
   }
 
   @Test
-  public void testIndexNotFound() {
+  public void testMovedPermanently() {
+    // We expect now to be redirected instead of returning 404
     Http.RequestBuilder request = fakeRequest(routes.Application.index("/other"));
     Result result = route(app, request);
-    assertEquals(NOT_FOUND, result.status());
+    assertEquals(MOVED_PERMANENTLY, result.status());
   }
 
   @Test

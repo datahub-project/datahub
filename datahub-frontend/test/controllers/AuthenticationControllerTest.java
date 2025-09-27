@@ -67,6 +67,8 @@ public class AuthenticationControllerTest {
     configMap.put("auth.cookie.ttlInHours", 24);
     configMap.put("auth.cookie.secure", true);
     configMap.put("auth.cookie.sameSite", "Lax");
+    configMap.put("datahub.basePath", "");
+
     mockConfig = ConfigFactory.parseMap(configMap);
 
     // Mock SSO config

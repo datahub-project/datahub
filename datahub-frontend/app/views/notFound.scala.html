@@ -1,0 +1,29 @@
+@(basePath: String, requestUri: String)
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <base href="@basePath" />
+        <link rel="icon" href="assets/icons/favicon.ico" id="favicon-link" />
+        <link rel="mask-icon" href="assets/icons/favicon.ico" id="mask-icon-link" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#000000" />
+        <meta name="description" content="Page Not Found - DataHub" />
+        <title>404 - Page Not Found | DataHub</title>
+        <link rel="stylesheet" href="@{basePath}datahub-error-pages.css">
+    </head>
+    <body class="error-404">
+        <div class="container">
+            <h1 class="error-code">404</h1>
+            <h2 class="error-message">Page Not Found</h2>
+            <p class="error-description">
+                The page you're looking for doesn't exist or has been moved.
+            </p>
+            <div class="request-info">
+                Requested: @requestUri
+            </div>
+            <a href="@basePath" class="home-link">Return to DataHub Home</a>
+            <div class="datahub-logo">DataHub</div>
+        </div>
+    </body>
+</html>
