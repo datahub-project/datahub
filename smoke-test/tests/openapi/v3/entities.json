@@ -185,7 +185,7 @@
                 "datasetNameDelimiter": ".",
                 "type": "OTHERS",
                 "displayName": "OpenAPI",
-                "logoUrl": "/assets/platforms/openapilogo.png"
+                "logoUrl": "assets/platforms/openapilogo.png"
               }
             }
           }
