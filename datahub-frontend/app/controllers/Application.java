@@ -41,6 +41,8 @@ public class Application extends Controller {
   private static final Logger logger = LoggerFactory.getLogger(Application.class.getName());
   private static final Set<String> RESTRICTED_HEADERS =
       Set.of("connection", "host", "content-length", "expect", "upgrade", "transfer-encoding");
+  private static final Set<String> SWAGGER_PATHS =
+      Set.of("/openapi/swagger-ui", "/openapi/v3/api-docs");
   private final HttpClient httpClient;
 
   private final Config config;
@@ -383,8 +385,16 @@ public class Application extends Controller {
   }
 
   private String mapPath(@Nonnull final String path) {
-    // First, strip the base path if present
-    String strippedPath = BasePathUtils.stripBasePath(path, this.basePath);
+
+    final String strippedPath;
+
+    // Cannot strip base path from swagger urls
+    if (SWAGGER_PATHS.stream().noneMatch(path::contains)) {
+      // First, strip the base path if present
+      strippedPath = BasePathUtils.stripBasePath(path, this.basePath);
+    } else {
+      strippedPath = path;
+    }
 
     // Case 1: Map legacy GraphQL path to GMS GraphQL API (for compatibility)
     if (strippedPath.equals("/api/v2/graphql")) {
