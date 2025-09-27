@@ -240,7 +240,7 @@
                 "datasetNameDelimiter": ".",
                 "type": "OTHERS",
                 "displayName": "vertexai",
-                "logoUrl": "/assets/platforms/vertexai.png"
+                "logoUrl": "assets/platforms/vertexai.png"
               }
             }
           }
