@@ -32,23 +32,9 @@ export function useSetAppTheme() {
         // here is where we can start adding new custom themes based on customThemeId
 
         if (isThemeV2) {
-            fetch('assets/conf/theme/theme_v2.config.json')
-                .then((response) => response.json())
-                .then((theme) => updateTheme(theme))
-                .catch((error) => {
-                    console.error('Failed to load theme_v2 config:', error);
-                    // Fallback to static import as backup
-                    import('../conf/theme/theme_v2.config.json').then((theme) => updateTheme(theme));
-                });
+            import('../conf/theme/theme_v2.config.json').then((theme) => updateTheme(theme));
         } else {
-            fetch('assets/conf/theme/theme_light.config.json')
-                .then((response) => response.json())
-                .then((theme) => updateTheme(theme))
-                .catch((error) => {
-                    console.error('Failed to load theme_light config:', error);
-                    // Fallback to static import as backup
-                    import('../conf/theme/theme_light.config.json').then((theme) => updateTheme(theme));
-                });
+            import('../conf/theme/theme_light.config.json').then((theme) => updateTheme(theme));
         }
     }, [config, isThemeV2, updateTheme, customThemeId]);
 }
