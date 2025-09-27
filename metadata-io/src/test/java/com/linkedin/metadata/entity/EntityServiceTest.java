@@ -98,6 +98,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -2525,7 +2526,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
             .patch(
                 GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
                     .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag2)))
                     .build()
                     .getJsonPatch())
@@ -2543,7 +2544,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
             .patch(
                 GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
                     .patch(List.of(tagPatchOp(PatchOperationType.REMOVE, tagOther)))
                     .build()
                     .getJsonPatch())
@@ -2624,7 +2625,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
             .patch(
                 GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
                     .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag3)))
                     .build()
                     .getJsonPatch())
@@ -2642,7 +2643,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
             .patch(
                 GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
                     .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag2)))
                     .build()
                     .getJsonPatch())
@@ -2660,7 +2661,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
             .patch(
                 GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
                     .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag1)))
                     .build()
                     .getJsonPatch())
@@ -2698,7 +2699,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     EnvelopedAspect envelopedAspect =
         _entityServiceImpl.getLatestEnvelopedAspect(
             opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
-    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "3", "Expected version 3");
+    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "4", "Expected version 4");
     assertEquals(
         new GlobalTags(envelopedAspect.getValue().data())
             .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
@@ -2748,7 +2749,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
             .patch(
                 GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
                     .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag2)))
                     .build()
                     .getJsonPatch())
@@ -2814,7 +2815,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
             .patch(
                 GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
                     .patch(List.of(tagPatchOp(PatchOperationType.REMOVE, tag1)))
                     .build()
                     .getJsonPatch())
@@ -2871,7 +2872,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
             .patch(
                 GenericJsonPatch.builder()
-                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .arrayPrimaryKeys(Map.of("tags", List.of("tag")))
                     .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag1)))
                     .build()
                     .getJsonPatch())
@@ -3129,7 +3130,12 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     patchOp.setOp(op.getValue());
     patchOp.setPath(String.format("/tags/%s", tagUrn));
     if (PatchOperationType.ADD.equals(op)) {
-      patchOp.setValue(Map.of("tag", tagUrn.toString()));
+      // Create a proper TagAssociation structure
+      Map<String, Object> tagAssociation = new HashMap<>();
+      tagAssociation.put("tag", tagUrn.toString());
+      // Add optional context field with a non-null value to avoid coercion issues
+      tagAssociation.put("context", "test-context");
+      patchOp.setValue(tagAssociation);
     }
     return patchOp;
   }
