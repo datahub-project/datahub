@@ -40,7 +40,7 @@ x-kafka-env: &kafka-env
   KAFKA_BOOTSTRAP_SERVER: broker:29092
   # KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
   SCHEMA_REGISTRY_TYPE: INTERNAL
-  KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH}/schema-registry/api/
+  KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH:-}/schema-registry/api/
 
 x-datahub-quickstart-telemetry-env: &datahub-quickstart-telemetry-env
   DATAHUB_SERVER_TYPE: ${DATAHUB_SERVER_TYPE:-quickstart}
