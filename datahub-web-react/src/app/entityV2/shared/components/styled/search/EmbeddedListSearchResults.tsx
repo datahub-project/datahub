@@ -66,7 +66,7 @@ const ResultContainer = styled.div`
     min-height: 0;
 `;
 
-const PaginationInfoContainer = styled.span`
+const PaginationInfoContainer = styled.div`
     grid-area: footer;
     padding: 8px;
     padding-left: 16px;
@@ -74,7 +74,20 @@ const PaginationInfoContainer = styled.span`
     border-color: ${(props) => props.theme.styles['border-color-base']};
     background-color: ${REDESIGN_COLORS.WHITE};
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 8px;
+`;
+
+const PaginationRow = styled.div`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+`;
+
+const ViewMessageRow = styled.div`
+    display: flex;
+    justify-content: center;
     align-items: center;
 `;
 
@@ -279,30 +292,32 @@ export const EmbeddedListSearchResults = ({
                     )}
                 </ResultContainer>
                 <PaginationInfoContainer>
-                    <PaginationInfo>
-                        <b>
-                            {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                        </b>{' '}
-                        of <b>{totalResults}</b>
-                    </PaginationInfo>
-                    <StyledPagination
-                        current={page}
-                        pageSize={numResultsPerPage}
-                        total={totalResults}
-                        showLessItems
-                        onChange={onChangePage}
-                        showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
-                        onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
-                        pageSizeOptions={['10', '20', '30']}
-                    />
-                    {applyView ? (
-                        <MatchingViewsLabel
-                            view={view}
-                            selectedViewUrn={selectedViewUrn}
-                            setSelectedViewUrn={setSelectedViewUrn}
+                    <PaginationRow>
+                        <PaginationInfo>
+                            <b>
+                                {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
+                            </b>{' '}
+                            of <b>{totalResults}</b>
+                        </PaginationInfo>
+                        <StyledPagination
+                            current={page}
+                            pageSize={numResultsPerPage}
+                            total={totalResults}
+                            showLessItems
+                            onChange={onChangePage}
+                            showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
+                            onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
+                            pageSizeOptions={['10', '20', '30']}
                         />
-                    ) : (
-                        <span />
+                    </PaginationRow>
+                    {applyView && (
+                        <ViewMessageRow>
+                            <MatchingViewsLabel
+                                view={view}
+                                selectedViewUrn={selectedViewUrn}
+                                setSelectedViewUrn={setSelectedViewUrn}
+                            />
+                        </ViewMessageRow>
                     )}
                 </PaginationInfoContainer>
             </SearchBody>
