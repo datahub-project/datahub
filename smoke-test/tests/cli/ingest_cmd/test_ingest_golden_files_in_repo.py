@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import tempfile
 from pathlib import Path
@@ -11,6 +12,18 @@ from tests.utils import run_datahub_cmd, wait_for_writes_to_sync
 # Golden file ingestion creates many entities that are only soft-deleted during cleanup,
 # which can cause relationship artifacts to persist as hidden and may potentially affect other tests.
 pytestmark = pytest.mark.order("last")
+
+
+SKIPPED_GOLDEN_FILES = {
+    # skip because of missing structured property definitions
+    "datahub/metadata-ingestion/tests/unit/sdk_v2/dataset_golden/test_structured_properties_golden.json",
+    # skip because of missing structured property definitions
+    "datahub/metadata-ingestion/tests/integration/snowflake/snowflake_structured_properties_golden.json",
+    # skip because of missing structured property definitions
+    "datahub/metadata-ingestion/tests/unit/cli/dataset/test_resources/golden_test_dataset_sync_mpcs.json",
+}
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
@@ -65,7 +78,7 @@ def cleanup_golden_files(auth_session, golden_files):
 
     # after yield => teardown method
 
-    print("Collecting URNs from all golden files for batch deletion...")
+    logger.info("Collecting URNs from all golden files for batch deletion...")
 
     all_urns = set()
 
@@ -94,10 +107,12 @@ def cleanup_golden_files(auth_session, golden_files):
                     all_urns.add(urn)
 
         except Exception as e:
-            print(f"Warning: Failed to extract URNs from {file_path}: {e}")
+            logger.error(
+                f"Warning: Failed to extract URNs from {file_path}", exc_info=e
+            )
 
     if all_urns:
-        print(
+        logger.info(
             f"Creating temp file with {len(all_urns)} unique URNs for batch deletion..."
         )
 
@@ -123,9 +138,9 @@ def cleanup_golden_files(auth_session, golden_files):
                 },
             )
             if result.exit_code == 0:
-                print("✅ Batch deletion completed successfully")
+                logger.info("✅ Batch deletion completed successfully")
             else:
-                print(f"⚠️ Batch deletion failed: {result.output}")
+                logger.info(f"⚠️ Batch deletion failed: {result.output}")
 
         finally:
             os.unlink(temp_file_path)
@@ -142,27 +157,20 @@ def test_golden_files_discovery(golden_files):
         assert os.path.isabs(file_path), f"Path should be absolute: {file_path}"
         assert os.path.exists(file_path), f"File should exist: {file_path}"
 
-    print(f"Successfully discovered {len(golden_files)} golden files")
+    logger.info(f"Successfully discovered {len(golden_files)} golden files")
 
 
 def test_ingest_golden_files(auth_session, golden_files):
     repo_root = Path(__file__).parents[5]
     failed_files = []
 
-    # TODO: Fix these failing golden files
-    known_failing_files = {
-        "datahub/metadata-ingestion/tests/unit/sdk_v2/dataset_golden/test_structured_properties_golden.json",
-        "datahub/metadata-ingestion/tests/integration/snowflake/snowflake_structured_properties_golden.json",
-        "datahub/metadata-ingestion/tests/unit/cli/dataset/test_resources/golden_test_dataset_sync_mpcs.json",
-    }
-
     for golden_file_path in golden_files:
         relative_path = Path(golden_file_path).relative_to(repo_root)
-        print(f"Testing ingestion of golden file: {relative_path}")
+        logger.info(f"Testing ingestion of golden file: {relative_path}")
 
         # Skip known failing files temporarily
-        if str(relative_path) in known_failing_files:
-            print(f"Skipping known failing file: {relative_path} ⚠️")
+        if str(relative_path) in SKIPPED_GOLDEN_FILES:
+            logger.info(f"Skipping known failing file: {relative_path} ⚠️")
             continue
 
         try:
@@ -173,9 +181,10 @@ def test_ingest_golden_files(auth_session, golden_files):
                     "DATAHUB_GMS_TOKEN": auth_session.gms_token(),
                 },
             )
-            print(
-                f"Ingestion of golden file {relative_path}: {'✅' if result.exit_code == 0 else '❌'}"
-            )
+            if result.exit_code == 0:
+                logger.info(f"Ingestion of golden file {relative_path}: ✅")
+            else:
+                logger.warning(f"Ingestion of golden file {relative_path}: ❌")
 
             if result.exit_code != 0:
                 failed_files.append(f"{relative_path}: {result.output}")
