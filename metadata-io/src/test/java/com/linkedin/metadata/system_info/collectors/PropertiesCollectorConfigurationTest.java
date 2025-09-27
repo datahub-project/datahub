@@ -831,7 +831,35 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Gradle and test-specific properties
           "org.gradle.internal.worker.tmpdir",
           "org.springframework.boot.test.context.SpringBootTestContextBootstrapper",
-          "datahub.policies.systemPolicyUrnList"
+          "datahub.policies.systemPolicyUrnList",
+
+          // CDC (Change Data Capture) configuration properties
+          "kafka.serde.cdc.key.serializer",
+          "kafka.serde.cdc.key.deserializer",
+          "kafka.serde.cdc.key.delegateDeserializer",
+          "kafka.serde.cdc.value.serializer",
+          "kafka.serde.cdc.value.deserializer",
+          "kafka.serde.cdc.value.delegateDeserializer",
+          "mclProcessing.cdcSource.type",
+          "mclProcessing.cdcSource.converter",
+          "mclProcessing.cdcSource.configureSource",
+          "mclProcessing.cdcSource.debeziumConfig.name",
+          "mclProcessing.cdcSource.debeziumConfig.url",
+          "mclProcessing.cdcSource.debeziumConfig.config.connector.class",
+          "mclProcessing.cdcSource.debeziumConfig.config.tasks.max",
+          "mclProcessing.cdcSource.debeziumConfig.config.topic.prefix",
+          "mclProcessing.cdcSource.debeziumConfig.config.tables.include.list",
+          "mclProcessing.cdcSource.debeziumConfig.config.database.include.list",
+          "mclProcessing.cdcSource.debeziumConfig.config.database.user",
+          "mclProcessing.cdcSource.debeziumConfig.config.database.server.id",
+          "mclProcessing.cdcSource.debeziumConfig.config.transforms",
+          "mclProcessing.cdcSource.debeziumConfig.config.transforms.setKey.type",
+          "mclProcessing.cdcSource.debeziumConfig.config.transforms.setKey.fields",
+          "mclProcessing.cdcSource.debeziumConfig.config.transforms.setKey.predicate",
+          "mclProcessing.cdcSource.debeziumConfig.config.predicates",
+          "mclProcessing.cdcSource.debeziumConfig.config.predicates.aspectsTablePredicate.type",
+          "mclProcessing.cdcSource.debeziumConfig.config.predicates.aspectsTablePredicate.pattern",
+          "mclProcessing.cdcSource.debeziumConfig.config.schema.history.internal.kafka.topic"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to

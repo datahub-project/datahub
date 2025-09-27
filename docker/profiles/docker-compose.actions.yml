@@ -55,6 +55,13 @@ services:
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
+  datahub-actions-quickstart-consumers-cdc:
+    <<: *datahub-actions-service
+    profiles:
+      - quickstart-consumers-cdc
+    depends_on:
+      datahub-gms-quickstart-consumers-cdc:
+        condition: service_healthy
   datahub-actions-debug:
     <<: *datahub-actions-service-dev
     profiles:
@@ -90,6 +97,13 @@ services:
       - debug-consumers
     depends_on:
       datahub-gms-debug-consumers:
+        condition: service_healthy
+  datahub-actions-debug-consumers-cdc:
+    <<: *datahub-actions-service-dev
+    profiles:
+      - debug-consumers-cdc
+    depends_on:
+      datahub-gms-debug-consumers-cdc:
         condition: service_healthy
   datahub-actions-debug-neo4j:
     <<: *datahub-actions-service-dev

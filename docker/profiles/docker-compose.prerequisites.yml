@@ -28,17 +28,21 @@ x-mysql-profiles: &mysql-profiles
   - quickstart-frontend
   - quickstart-storage
   - quickstart-consumers
+  - quickstart-consumers-cdc
   - debug
   - debug-min
   - debug-datahub-actions
   - debug-frontend
   - debug-backend
   - debug-consumers
+  - debug-consumers-cdc
   - debug-neo4j
   - debug-elasticsearch
   - debug-backend-aws
   - debug-aws
-
+x-mysql-profiles-cdc: &mysql-profiles-cdc
+  - quickstart-consumers-cdc
+  - debug-consumers-cdc
 x-postgres-profiles-quickstart: &postgres-profiles-quickstart
   - quickstart-postgres
 x-postgres-profiles-dev: &postgres-profiles-dev
@@ -69,6 +73,7 @@ x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart-cassandra
   - quickstart-postgres
   - quickstart-consumers
+  - quickstart-consumers-cdc
 x-opensearch-profiles-dev: &opensearch-profiles-dev
   - debug
   - debug-min
@@ -78,6 +83,7 @@ x-opensearch-profiles-dev: &opensearch-profiles-dev
   - debug-postgres
   - debug-cassandra
   - debug-consumers
+  - debug-consumers-cdc
   - debug-neo4j
   - debug-backend-aws
   - debug-aws
@@ -90,6 +96,7 @@ x-opensearch-profiles: &opensearch-profiles
   - quickstart-cassandra
   - quickstart-postgres
   - quickstart-consumers
+  - quickstart-consumers-cdc
   - debug
   - debug-min
   - debug-datahub-actions
@@ -98,6 +105,7 @@ x-opensearch-profiles: &opensearch-profiles
   - debug-postgres
   - debug-cassandra
   - debug-consumers
+  - debug-consumers-cdc
   - debug-neo4j
   - debug-backend-aws
   - debug-aws
@@ -117,6 +125,7 @@ x-profiles-quickstart: &profiles-quickstart
   - quickstart-cassandra
   - quickstart-postgres
   - quickstart-consumers
+  - quickstart-consumers-cdc
 x-profiles-dev: &profiles-dev
   - debug
   - debug-min
@@ -126,10 +135,21 @@ x-profiles-dev: &profiles-dev
   - debug-postgres
   - debug-cassandra
   - debug-consumers
+  - debug-consumers-cdc
   - debug-neo4j
   - debug-elasticsearch
   - debug-backend-aws
   - debug-aws
+x-mysql-setup-common: &mysql-setup-common
+  hostname: mysql-setup
+  image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-head}
+  env_file:
+    - mysql-setup/env/docker.env
+  depends_on:
+    mysql:
+      condition: service_healthy
+  labels:
+    datahub_setup_job: true
 
 services:
   mysql:
@@ -149,20 +169,26 @@ services:
       retries: 5
     volumes:
       - mysqldata:/var/lib/mysql
-  mysql-setup: &mysql-setup
+  mysql-setup:
+    <<: *mysql-setup-common
     profiles: *mysql-profiles-quickstart
-    hostname: mysql-setup
-    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-head}
-    env_file: mysql-setup/env/docker.env
-    depends_on:
-      mysql:
-        condition: service_healthy
-    labels:
-      datahub_setup_job: true
+  mysql-setup-cdc:
+    <<: *mysql-setup-common
+    environment: &mysql-setup-env-cdc
+      CDC_MCL_PROCESSING_ENABLED: ${CDC_MCL_PROCESSING_ENABLED:-true}
+    profiles:
+      - quickstart-consumers-cdc
   mysql-setup-dev:
-    <<: *mysql-setup
+    <<: *mysql-setup-common
     profiles: *mysql-profiles-dev
     image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-debug}
+  mysql-setup-dev-cdc:
+    <<: *mysql-setup-common
+    profiles:
+      - debug-consumers-cdc
+    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-debug}
+    environment:
+      <<: *mysql-setup-env-cdc
   postgres:
     profiles: *postgres-profiles
     hostname: postgres
@@ -279,6 +305,35 @@ services:
       timeout: 5s
     volumes:
       - broker:/var/lib/kafka/data/
+  kafka-connect:
+    hostname: kafka-connect
+    container_name: kafka_connect
+    image: debezium/connect:2.7.3.Final
+    #image: quay.io/debezium/connect:3.2
+    profiles:
+      - debug-consumers-cdc
+      - quickstart-consumers-cdc
+    ports:
+      - '8083:8083'
+    depends_on:
+      kafka-broker:
+        condition: service_healthy
+    environment:
+      - ENABLE_APICURIO_CONVERTERS=true
+      - BOOTSTRAP_SERVERS=broker:29092
+      - GROUP_ID=datahub_connect
+      - CONFIG_STORAGE_TOPIC=${CDC_CONFIG_STORAGE_TOPIC:-datahub_cdc_configs}
+      - OFFSET_STORAGE_TOPIC=${CDC_CONFIG_OFFSETS_TOPIC:-datahub_cdc_offsets}
+      - STATUS_STORAGE_TOPIC=${CDC_CONFIG_STATUS_TOPIC:-datahub_cdc_statuses}
+      - CONFIG_STORAGE_REPLICATION_FACTOR=1
+      - OFFSET_STORAGE_REPLICATION_FACTOR=1
+      - STATUS_STORAGE_REPLICATION_FACTOR=1
+    healthcheck:
+      test: curl -f http://localhost:8083/connectors
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 5
   elasticsearch:
     profiles: *elasticsearch-profiles
     hostname: search
