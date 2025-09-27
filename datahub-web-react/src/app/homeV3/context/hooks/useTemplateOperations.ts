@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { insertModuleIntoRows } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
+import { filterNonExistentStructuredProperties } from '@app/homeV3/context/hooks/utils/utils';
 import { DEFAULT_TEMPLATE_URN } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 import useShowToast from '@app/homeV3/toast/useShowToast';
@@ -211,7 +212,9 @@ export function useTemplateOperations(
                     templateToUpsert.properties.assetSummary?.summaryElements !== undefined
                         ? {
                               summaryElements:
-                                  templateToUpsert.properties.assetSummary?.summaryElements?.map((el) => ({
+                                  filterNonExistentStructuredProperties(
+                                      templateToUpsert.properties.assetSummary?.summaryElements || [],
+                                  ).map((el) => ({
                                       elementType: el.elementType,
                                       structuredPropertyUrn: el.structuredProperty?.urn,
                                   })) || [],

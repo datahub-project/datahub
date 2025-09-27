@@ -6,9 +6,10 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
 from ruamel.yaml import YAML
+from typing_extensions import assert_never
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, LaxStr
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
@@ -110,7 +111,7 @@ class DataProduct(ConfigModel):
     description: Optional[str] = None
     tags: Optional[List[str]] = None
     terms: Optional[List[str]] = None
-    properties: Optional[Dict[str, str]] = None
+    properties: Optional[Dict[str, LaxStr]] = None
     external_url: Optional[str] = None
     _original_yaml_dict: Optional[dict] = None
 
@@ -414,7 +415,9 @@ class DataProduct(ConfigModel):
                                 "type": new_owner_type_map[owner_urn],
                             }
                     else:
-                        patches_drop[i] = o
+                        patches_drop[i] = o.model_dump()
+                else:
+                    assert_never(o)
 
         # Figure out what if any are new owners to add
         new_owners_to_add = {o for o in new_owner_type_map} - set(owners_matched)

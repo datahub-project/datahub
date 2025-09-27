@@ -115,14 +115,7 @@ profiling_flags_to_report = [
     "include_field_sample_values",
 ]
 
-
-# LOCAL_BROWSE_PATH_TRANSFORMER_CONFIG = AddDatasetBrowsePathConfig(
-#     path_templates=["/ENV/PLATFORMDATASET_PARTS"], replace_existing=True
-# )
-#
-# LOCAL_BROWSE_PATH_TRANSFORMER = AddDatasetBrowsePathTransformer(
-#     ctx=None, config=LOCAL_BROWSE_PATH_TRANSFORMER_CONFIG
-# )
+URI_SCHEME_REGEX = re.compile(r"^[a-z0-9]+://")
 
 
 def partitioned_folder_comparator(folder1: str, folder2: str) -> int:
@@ -448,9 +441,8 @@ class S3Source(StatefulIngestionSourceBase):
                 self.source_config.verify_ssl
             )
 
-            file = smart_open(
-                table_data.full_path, "rb", transport_params={"client": s3_client}
-            )
+            path = re.sub(URI_SCHEME_REGEX, "s3://", table_data.full_path)
+            file = smart_open(path, "rb", transport_params={"client": s3_client})
         else:
             # We still use smart_open here to take advantage of the compression
             # capabilities of smart_open.
@@ -668,11 +660,9 @@ class S3Source(StatefulIngestionSourceBase):
         aspects: List[Optional[_Aspect]] = []
 
         logger.info(f"Extracting table schema from file: {table_data.full_path}")
-        browse_path: str = (
-            self.strip_s3_prefix(table_data.table_path)
-            if self.is_s3_platform()
-            else table_data.table_path.strip("/")
-        )
+
+        # remove protocol and any leading or trailing slashes
+        browse_path = re.sub(URI_SCHEME_REGEX, "", table_data.table_path).strip("/")
 
         data_platform_urn = make_data_platform_urn(self.source_config.platform)
         logger.info(f"Creating dataset urn with name: {browse_path}")
@@ -806,10 +796,20 @@ class S3Source(StatefulIngestionSourceBase):
         else:
             return relative_path
 
-    def extract_table_name(self, path_spec: PathSpec, named_vars: dict) -> str:
-        if path_spec.table_name is None:
-            raise ValueError("path_spec.table_name is not set")
-        return path_spec.table_name.format_map(named_vars)
+    def extract_table_name_and_path(
+        self, path_spec: PathSpec, path: str
+    ) -> Tuple[str, str]:
+        # Extract the table name and base path from a path that's been normalized back to the
+        # "s3://" scheme that matches the path_spec
+        table_name, table_path = path_spec.extract_table_name_and_path(
+            self._normalize_uri_for_pattern_matching(path)
+        )
+        # Then convert the table base path back to the original scheme
+        scheme = re.match(URI_SCHEME_REGEX, path)
+        if scheme:
+            table_path = re.sub(URI_SCHEME_REGEX, scheme[0], table_path)
+
+        return table_name, table_path
 
     def extract_table_data(
         self,
@@ -819,7 +819,7 @@ class S3Source(StatefulIngestionSourceBase):
         path = browse_path.file
         partitions = browse_path.partitions
         logger.debug(f"Getting table data for path: {path}")
-        table_name, table_path = path_spec.extract_table_name_and_path(path)
+        table_name, table_path = self.extract_table_name_and_path(path_spec, path)
         return TableData(
             display_name=table_name,
             is_s3=self.is_s3_platform(),
@@ -992,7 +992,9 @@ class S3Source(StatefulIngestionSourceBase):
             )
 
             # If partition_id is None, it means the folder is not a partition
-            partition_id = path_spec.get_partition_from_path(max_file_s3_path)
+            partition_id = path_spec.get_partition_from_path(
+                self._normalize_uri_for_pattern_matching(max_file_s3_path)
+            )
 
             yield Folder(
                 partition_id=partition_id,
@@ -1143,8 +1145,8 @@ class S3Source(StatefulIngestionSourceBase):
 
                     # Extract table name using the ORIGINAL path spec pattern matching (not the modified one)
                     # This uses the compiled regex pattern to extract the table name from the full path
-                    table_name, table_path = path_spec.extract_table_name_and_path(
-                        table_s3_path
+                    table_name, _ = self.extract_table_name_and_path(
+                        path_spec, table_s3_path
                     )
 
                     # Apply table name filtering if configured

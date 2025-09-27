@@ -132,7 +132,8 @@ export default function ModuleMenu({ module, position }: Props) {
                         : 'Are you sure you want to remove this module? You can always create a new one later if needed.'
                 }
                 closeButtonText="Cancel"
-                confirmButtonText="Confirm"
+                confirmButtonText="Remove"
+                isDeleteModal
             />
         </>
     );
