@@ -2,7 +2,7 @@ import json
 from unittest.mock import patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 try:
     from datahub.api.circuit_breaker import (
@@ -42,7 +42,7 @@ def test_operation_circuit_breaker_with_empty_response(pytestconfig):
         assert result is True
 
 
-@freeze_time("2022-06-20 05:00:00")
+@time_machine.travel("2022-06-20 05:00:00+00:00", tick=False)
 @pytest.mark.integration
 def test_operation_circuit_breaker_with_valid_response(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
@@ -62,7 +62,7 @@ def test_operation_circuit_breaker_with_valid_response(pytestconfig):
         assert result is False
 
 
-@freeze_time("2022-06-21 07:00:00")
+@time_machine.travel("2022-06-21 07:00:00+00:00", tick=False)
 @pytest.mark.integration
 def test_operation_circuit_breaker_with_not_recent_operation(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:

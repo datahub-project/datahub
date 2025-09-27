@@ -1,5 +1,5 @@
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -8,9 +8,9 @@ from tests.test_helpers.docker_helpers import wait_for_port
 FROZEN_TIME = "2021-08-24 09:00:00"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
-def test_remote_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_remote_ingest(docker_compose_runner, pytestconfig, tmp_path):
     """
     Using Apache http server to host the files.
     """

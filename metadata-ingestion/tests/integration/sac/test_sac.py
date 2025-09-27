@@ -19,7 +19,6 @@ def test_sac(
     pytestconfig,
     tmp_path,
     requests_mock,
-    mock_time,
 ):
     requests_mock.post(
         MOCK_TOKEN_URL,

@@ -5,7 +5,7 @@ from datahub.testing import mce_helpers
 
 
 @pytest.mark.integration
-def test_excel(pytestconfig, tmp_path, mock_time):
+def test_excel(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/excel"
     test_files = "tests/integration/excel/data/*.xlsx"
 

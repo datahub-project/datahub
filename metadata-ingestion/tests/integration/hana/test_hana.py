@@ -1,7 +1,7 @@
 import platform
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -11,13 +11,13 @@ pytestmark = pytest.mark.integration_batch_4
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.xfail  # TODO: debug the flakes for this test
 @pytest.mark.skipif(
     platform.machine().lower() == "aarch64",
     reason="The hdbcli dependency is not available for aarch64",
 )
-def test_hana_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_hana_ingest(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hana"
 
     with docker_compose_runner(

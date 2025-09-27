@@ -81,9 +81,7 @@ def abs_populate(pytestconfig, mock_azure_blob_setup):
 
 
 @pytest.mark.integration
-def test_excel_abs(
-    pytestconfig, abs_populate, tmp_path, mock_time, mock_azure_blob_setup
-):
+def test_excel_abs(pytestconfig, abs_populate, tmp_path, mock_azure_blob_setup):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/excel"
     mock_blob_service_client = mock_azure_blob_setup["mock_blob_service_client"]
 

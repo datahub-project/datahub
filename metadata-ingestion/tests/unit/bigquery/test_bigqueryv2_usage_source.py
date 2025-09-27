@@ -1,7 +1,7 @@
 import json
 import os
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
@@ -16,7 +16,7 @@ from datahub.ingestion.source.bigquery_v2.common import BigQueryIdentifierBuilde
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
-FROZEN_TIME = "2021-07-20 00:00:00"
+FROZEN_TIME = "2021-07-20 00:00:00+00:00"
 
 
 def test_bigqueryv2_uri_with_credential():
@@ -64,7 +64,7 @@ def test_bigqueryv2_uri_with_credential():
         raise e
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_bigqueryv2_filters():
     config = BigQueryV2Config.parse_obj(
         {

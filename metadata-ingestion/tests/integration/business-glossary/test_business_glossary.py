@@ -1,7 +1,7 @@
 from typing import Any, Dict
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -36,13 +36,12 @@ def get_default_recipe(
         (True, "glossary_events_auto_id_golden.json"),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_glossary_ingest(
     mock_datahub_graph_instance,
     pytestconfig,
     tmp_path,
-    mock_time,
     enable_auto_id,
     golden_file,
 ):
@@ -70,13 +69,12 @@ def test_glossary_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_single_owner_types(
     mock_datahub_graph_instance,
     pytestconfig,
     tmp_path,
-    mock_time,
 ):
     """Test basic single owner cases with different ownership types"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/business-glossary"
@@ -101,13 +99,12 @@ def test_single_owner_types(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_multiple_owners_same_type(
     mock_datahub_graph_instance,
     pytestconfig,
     tmp_path,
-    mock_time,
 ):
     """Test multiple owners all having the same type"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/business-glossary"
@@ -134,13 +131,12 @@ def test_multiple_owners_same_type(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_multiple_owners_different_types(
     mock_datahub_graph_instance,
     pytestconfig,
     tmp_path,
-    mock_time,
 ):
     """Test multiple owners with different types"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/business-glossary"
@@ -167,13 +163,12 @@ def test_multiple_owners_different_types(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_custom_ownership_urns(
     mock_datahub_graph_instance,
     pytestconfig,
     tmp_path,
-    mock_time,
 ):
     """Test custom ownership URNs"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/business-glossary"
@@ -198,13 +193,12 @@ def test_custom_ownership_urns(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_url_cleaning(
     mock_datahub_graph_instance,
     pytestconfig,
     tmp_path,
-    mock_time,
 ):
     """Test URL cleaning functionality when auto_id is disabled"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/business-glossary"

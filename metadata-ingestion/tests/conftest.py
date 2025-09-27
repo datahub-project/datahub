@@ -1,7 +1,6 @@
 import logging
 import os
 import pathlib
-import time
 from typing import List
 
 import pytest
@@ -40,22 +39,6 @@ try:
     import pandas  # noqa: F401
 except ImportError:
     pass
-
-import freezegun  # noqa: E402
-
-# The freezegun library has incomplete type annotations.
-# See https://github.com/spulec/freezegun/issues/469
-freezegun.configure(extend_ignore_list=["datahub.utilities.cooperative_timeout"])  # type: ignore[attr-defined]
-
-
-@pytest.fixture
-def mock_time(monkeypatch):
-    def fake_time():
-        return 1615443388.0975091  # 2021-03-11 06:16:28.097509
-
-    monkeypatch.setattr(time, "time", fake_time)
-
-    yield
 
 
 def pytest_collection_modifyitems(

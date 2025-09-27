@@ -89,7 +89,6 @@ def generate_mlflow_data(tracking_uri: str, monkeypatch: pytest.MonkeyPatch) -> 
 
 def test_ingestion(
     pytestconfig,
-    mock_time,
     sink_file_path,
     pipeline_config,
     generate_mlflow_data,

@@ -4,7 +4,7 @@ from typing import Any, Dict, List, cast
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from tableauserverclient import Server
 
 import datahub.ingestion.source.tableau.tableau_constant as c
@@ -53,7 +53,7 @@ def read_response(file_name):
         return data
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_tableau_test_connection_success():
     with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
         report = test_connection_helpers.run_test_connection(
@@ -62,7 +62,7 @@ def test_tableau_test_connection_success():
         test_connection_helpers.assert_basic_connectivity_success(report)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_tableau_test_connection_failure():
     report = test_connection_helpers.run_test_connection(TableauSource, default_config)
     test_connection_helpers.assert_basic_connectivity_failure(report, "Unable to login")

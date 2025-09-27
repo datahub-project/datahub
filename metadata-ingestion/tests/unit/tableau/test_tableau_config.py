@@ -4,7 +4,7 @@ from typing import Dict
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from pydantic import ValidationError
 from tableauserverclient import Server
 from tableauserverclient.models import SiteItem
@@ -110,7 +110,7 @@ def test_ingest_hidden_assets_invalid():
         TableauConfig.parse_obj(config)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.parametrize(
     "extract_project_hierarchy, allowed_projects",
     [

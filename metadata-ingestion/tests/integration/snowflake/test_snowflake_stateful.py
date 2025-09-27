@@ -1,6 +1,6 @@
 from unittest import mock
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline
@@ -50,7 +50,7 @@ def stateful_pipeline_config(include_tables: bool) -> PipelineConfig:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_stale_metadata_removal(mock_datahub_graph):
     with (
         mock.patch(

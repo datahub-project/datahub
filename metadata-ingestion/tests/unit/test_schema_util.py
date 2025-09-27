@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Type
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.emitter.mce_builder import (
     make_global_tag_aspect_with_tag_list,
@@ -781,7 +781,7 @@ def test_ignore_exceptions():
     assert not fields
 
 
-@freeze_time("2023-09-12")
+@time_machine.travel("2023-09-12", tick=False)
 def test_avro_schema_to_mce_fields_with_field_meta_mapping():
     schema = """
 {

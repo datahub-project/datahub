@@ -53,7 +53,7 @@ config_file = os.listdir(SOURCE_FILES_PATH)
 
 @pytest.mark.parametrize("config_file", config_file)
 @pytest.mark.integration
-def test_mssql_ingest(mssql_runner, pytestconfig, tmp_path, mock_time, config_file):
+def test_mssql_ingest(mssql_runner, pytestconfig, tmp_path, config_file):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_server"
     # Run the metadata ingestion pipeline.
     config_file_path = (test_resources_dir / f"source_files/{config_file}").resolve()

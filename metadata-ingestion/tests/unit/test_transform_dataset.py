@@ -212,7 +212,7 @@ def make_dataset_with_properties() -> models.MetadataChangeEventClass:
     )
 
 
-def test_dataset_ownership_transformation(mock_time):
+def test_dataset_ownership_transformation():
     no_owner_aspect = make_generic_dataset()
 
     with_owner_aspect = make_dataset_with_owner()
@@ -296,7 +296,7 @@ def test_dataset_ownership_transformation(mock_time):
     assert inputs[-1] == outputs[-1].record
 
 
-def test_simple_dataset_ownership_with_type_transformation(mock_time):
+def test_simple_dataset_ownership_with_type_transformation():
     input = make_generic_dataset()
 
     transformer = SimpleAddDatasetOwnership.create(
@@ -330,7 +330,7 @@ def test_simple_dataset_ownership_with_type_transformation(mock_time):
     assert ownership_aspect.owners[0].type == models.OwnershipTypeClass.PRODUCER
 
 
-def test_simple_dataset_ownership_with_type_urn_transformation(mock_time):
+def test_simple_dataset_ownership_with_type_urn_transformation():
     input = make_generic_dataset()
 
     transformer = SimpleAddDatasetOwnership.create(
@@ -395,7 +395,7 @@ def _test_extract_tags(in_urn: str, regex_str: str, out_tag: str) -> None:
     assert tags_aspect.tags[0].tag == out_tag
 
 
-def test_extract_dataset_tags(mock_time):
+def test_extract_dataset_tags():
     _test_extract_tags(
         in_urn="urn:li:dataset:(urn:li:dataPlatform:kafka,clusterid.part1-part2-part3_part4,PROD)",
         regex_str="(.*)",
@@ -418,7 +418,7 @@ def test_extract_dataset_tags(mock_time):
     )
 
 
-def test_simple_dataset_ownership_with_invalid_type_transformation(mock_time):
+def test_simple_dataset_ownership_with_invalid_type_transformation():
     with pytest.raises(ValueError):
         SimpleAddDatasetOwnership.create(
             {
@@ -864,7 +864,7 @@ def test_add_dataset_browse_paths():
     ]
 
 
-def test_simple_dataset_tags_transformation(mock_time):
+def test_simple_dataset_tags_transformation():
     dataset_mce = make_generic_dataset()
 
     transformer = SimpleAddDatasetTags.create(
@@ -910,7 +910,7 @@ def dummy_tag_resolver_method(dataset_snapshot):
     return []
 
 
-def test_pattern_dataset_tags_transformation(mock_time):
+def test_pattern_dataset_tags_transformation():
     dataset_mce = make_generic_dataset()
 
     transformer = PatternAddDatasetTags.create(
@@ -960,7 +960,7 @@ def test_add_dataset_tags_transformation():
     assert output
 
 
-def test_pattern_dataset_ownership_transformation(mock_time):
+def test_pattern_dataset_ownership_transformation():
     no_owner_aspect = make_generic_dataset()
 
     with_owner_aspect = models.MetadataChangeEventClass(
@@ -1062,7 +1062,7 @@ def test_pattern_dataset_ownership_transformation(mock_time):
     assert inputs[-1] == outputs[-1].record
 
 
-def test_pattern_dataset_ownership_with_type_transformation(mock_time):
+def test_pattern_dataset_ownership_with_type_transformation():
     input = make_generic_dataset()
 
     transformer = PatternAddDatasetOwnership.create(
@@ -1094,7 +1094,7 @@ def test_pattern_dataset_ownership_with_type_transformation(mock_time):
     assert ownership_aspect.owners[0].type == models.OwnershipTypeClass.PRODUCER
 
 
-def test_pattern_dataset_ownership_with_invalid_type_transformation(mock_time):
+def test_pattern_dataset_ownership_with_invalid_type_transformation():
     with pytest.raises(ValueError):
         PatternAddDatasetOwnership.create(
             {
@@ -1110,7 +1110,7 @@ def test_pattern_dataset_ownership_with_invalid_type_transformation(mock_time):
 
 
 def test_pattern_container_and_dataset_ownership_transformation(
-    mock_time, mock_datahub_graph_instance
+    mock_datahub_graph_instance,
 ):
     def fake_get_aspect(
         entity_urn: str,
@@ -1248,7 +1248,7 @@ def test_pattern_container_and_dataset_ownership_transformation(
 
 
 def test_pattern_container_and_dataset_ownership_with_no_container(
-    mock_time, mock_datahub_graph_instance
+    mock_datahub_graph_instance,
 ):
     def fake_get_aspect(
         entity_urn: str,
@@ -1365,7 +1365,7 @@ def test_pattern_container_and_dataset_ownership_with_no_container(
 
 
 def test_pattern_container_and_dataset_ownership_with_no_match(
-    mock_time, mock_datahub_graph_instance
+    mock_datahub_graph_instance,
 ):
     def fake_get_aspect(
         entity_urn: str,
@@ -1472,7 +1472,7 @@ def gen_owners(
     )
 
 
-def test_ownership_patching_intersect(mock_time):
+def test_ownership_patching_intersect():
     mock_graph = mock.MagicMock()
     server_ownership = gen_owners(["foo", "bar"])
     mce_ownership = gen_owners(["baz", "foo"])
@@ -1487,7 +1487,7 @@ def test_ownership_patching_intersect(mock_time):
     assert "baz" in [o.owner for o in test_ownership.owners]
 
 
-def test_ownership_patching_with_nones(mock_time):
+def test_ownership_patching_with_nones():
     mock_graph = mock.MagicMock()
     mce_ownership = gen_owners(["baz", "foo"])
     mock_graph.get_ownership.return_value = None
@@ -1506,7 +1506,7 @@ def test_ownership_patching_with_nones(mock_time):
     assert not test_ownership
 
 
-def test_ownership_patching_with_empty_mce_none_server(mock_time):
+def test_ownership_patching_with_empty_mce_none_server():
     mock_graph = mock.MagicMock()
     mce_ownership = gen_owners([])
     mock_graph.get_ownership.return_value = None
@@ -1517,7 +1517,7 @@ def test_ownership_patching_with_empty_mce_none_server(mock_time):
     assert test_ownership is None
 
 
-def test_ownership_patching_with_empty_mce_nonempty_server(mock_time):
+def test_ownership_patching_with_empty_mce_nonempty_server():
     mock_graph = mock.MagicMock()
     server_ownership = gen_owners(["baz", "foo"])
     mce_ownership = gen_owners([])
@@ -1529,7 +1529,7 @@ def test_ownership_patching_with_empty_mce_nonempty_server(mock_time):
     assert test_ownership is None
 
 
-def test_ownership_patching_with_different_types_1(mock_time):
+def test_ownership_patching_with_different_types_1():
     mock_graph = mock.MagicMock()
     server_ownership = gen_owners(["baz", "foo"], models.OwnershipTypeClass.PRODUCER)
     mce_ownership = gen_owners(["foo"], models.OwnershipTypeClass.DATAOWNER)
@@ -1551,7 +1551,7 @@ def test_ownership_patching_with_different_types_1(mock_time):
     ]
 
 
-def test_ownership_patching_with_different_types_2(mock_time):
+def test_ownership_patching_with_different_types_2():
     mock_graph = mock.MagicMock()
     server_ownership = gen_owners(["baz", "foo"], models.OwnershipTypeClass.PRODUCER)
     mce_ownership = gen_owners(["foo", "baz"], models.OwnershipTypeClass.DATAOWNER)
@@ -1585,7 +1585,7 @@ class DummyPropertiesResolverClass(AddDatasetPropertiesResolverBase):
         return PROPERTIES_TO_ADD
 
 
-def test_add_dataset_properties(mock_time):
+def test_add_dataset_properties():
     dataset_mce = make_dataset_with_properties()
 
     transformer = AddDatasetProperties.create(
@@ -1691,7 +1691,7 @@ def test_simple_add_dataset_properties_patch(mock_datahub_graph_instance):
     }
 
 
-def test_simple_add_dataset_properties(mock_time):
+def test_simple_add_dataset_properties():
     new_properties = {"new-simple-property": "new-value"}
     outputs = run_dataset_transformer_pipeline(
         transformer_type=SimpleAddDatasetProperties,
@@ -1715,7 +1715,7 @@ def test_simple_add_dataset_properties(mock_time):
     }
 
 
-def test_simple_add_dataset_properties_replace_existing(mock_time):
+def test_simple_add_dataset_properties_replace_existing():
     new_properties = {"new-simple-property": "new-value"}
     outputs = run_dataset_transformer_pipeline(
         transformer_type=SimpleAddDatasetProperties,
@@ -1740,7 +1740,7 @@ def test_simple_add_dataset_properties_replace_existing(mock_time):
     }
 
 
-def test_simple_dataset_terms_transformation(mock_time):
+def test_simple_dataset_terms_transformation():
     dataset_mce = make_generic_dataset()
 
     transformer = SimpleAddDatasetTerms.create(
@@ -1770,7 +1770,7 @@ def test_simple_dataset_terms_transformation(mock_time):
     assert terms_aspect.terms[0].urn == builder.make_term_urn("Test")
 
 
-def test_pattern_dataset_terms_transformation(mock_time):
+def test_pattern_dataset_terms_transformation():
     dataset_mce = make_generic_dataset()
 
     transformer = PatternAddDatasetTerms.create(
@@ -1806,7 +1806,7 @@ def test_pattern_dataset_terms_transformation(mock_time):
     assert builder.make_term_urn("AccountBalance") not in terms_aspect.terms
 
 
-def test_mcp_add_tags_missing(mock_time):
+def test_mcp_add_tags_missing():
     dataset_mcp = make_generic_dataset_mcp()
 
     transformer = SimpleAddDatasetTags.create(
@@ -1833,7 +1833,7 @@ def test_mcp_add_tags_missing(mock_time):
     assert isinstance(outputs[-1].record, EndOfStream)
 
 
-def test_mcp_add_tags_existing(mock_time):
+def test_mcp_add_tags_existing():
     dataset_mcp = make_generic_dataset_mcp(
         aspect=GlobalTagsClass(
             tags=[TagAssociationClass(tag=builder.make_tag_urn("Test"))]
@@ -1874,7 +1874,7 @@ def test_mcp_add_tags_existing(mock_time):
     assert isinstance(outputs[-1].record, EndOfStream)
 
 
-def test_mcp_multiple_transformers(mock_time, tmp_path):
+def test_mcp_multiple_transformers(tmp_path):
     events_file = f"{tmp_path}/multi_transformer_test.json"
 
     pipeline = Pipeline.create(
@@ -1949,7 +1949,7 @@ def test_mcp_multiple_transformers(mock_time, tmp_path):
     )
 
 
-def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
+def test_mcp_multiple_transformers_replace(tmp_path):
     mcps: MutableSequence[
         Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]
     ] = [
@@ -2093,7 +2093,7 @@ def test_supression_works():
     assert len(outputs) == 2  # MCP will be dropped
 
 
-def test_pattern_dataset_schema_terms_transformation(mock_time):
+def test_pattern_dataset_schema_terms_transformation():
     dataset_mce = make_generic_dataset(
         aspects=[
             models.SchemaMetadataClass(
@@ -2187,7 +2187,7 @@ def test_pattern_dataset_schema_terms_transformation(mock_time):
     )
 
 
-def test_pattern_dataset_schema_tags_transformation(mock_time):
+def test_pattern_dataset_schema_tags_transformation():
     dataset_mce = make_generic_dataset(
         aspects=[
             models.SchemaMetadataClass(
@@ -2485,7 +2485,7 @@ def test_simple_add_dataset_domain_semantics_overwrite(mock_datahub_graph_instan
 
 
 def test_simple_add_dataset_domain_semantics_patch(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph_instance
+    pytestconfig, tmp_path, mock_datahub_graph_instance
 ):
     acryl_domain = builder.make_domain_urn("acryl.io")
     datahub_domain = builder.make_domain_urn("datahubproject.io")
@@ -2525,7 +2525,7 @@ def test_simple_add_dataset_domain_semantics_patch(
 
 
 def test_simple_add_dataset_domain_on_conflict_do_nothing(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph_instance
+    pytestconfig, tmp_path, mock_datahub_graph_instance
 ):
     acryl_domain = builder.make_domain_urn("acryl.io")
     datahub_domain = builder.make_domain_urn("datahubproject.io")
@@ -2559,7 +2559,7 @@ def test_simple_add_dataset_domain_on_conflict_do_nothing(
 
 
 def test_simple_add_dataset_domain_on_conflict_do_nothing_no_conflict(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph_instance
+    pytestconfig, tmp_path, mock_datahub_graph_instance
 ):
     acryl_domain = builder.make_domain_urn("acryl.io")
     datahub_domain = builder.make_domain_urn("datahubproject.io")
@@ -2776,7 +2776,7 @@ def test_pattern_add_dataset_domain_semantics_overwrite(mock_datahub_graph_insta
 
 
 def test_pattern_add_dataset_domain_semantics_patch(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph_instance
+    pytestconfig, tmp_path, mock_datahub_graph_instance
 ):
     acryl_domain = builder.make_domain_urn("acryl.io")
     datahub_domain = builder.make_domain_urn("datahubproject.io")
@@ -3209,9 +3209,7 @@ def run_pattern_dataset_schema_terms_transformation_semantics(
     return output
 
 
-def test_pattern_dataset_schema_terms_transformation_patch(
-    mock_time, mock_datahub_graph_instance
-):
+def test_pattern_dataset_schema_terms_transformation_patch(mock_datahub_graph_instance):
     output = run_pattern_dataset_schema_terms_transformation_semantics(
         TransformerSemantics.PATCH, mock_datahub_graph_instance
     )
@@ -3243,7 +3241,7 @@ def test_pattern_dataset_schema_terms_transformation_patch(
 
 
 def test_pattern_dataset_schema_terms_transformation_overwrite(
-    mock_time, mock_datahub_graph_instance
+    mock_datahub_graph_instance,
 ):
     output = run_pattern_dataset_schema_terms_transformation_semantics(
         TransformerSemantics.OVERWRITE, mock_datahub_graph_instance
@@ -3381,7 +3379,7 @@ def run_pattern_dataset_schema_tags_transformation_semantics(
 
 
 def test_pattern_dataset_schema_tags_transformation_overwrite(
-    mock_time, mock_datahub_graph_instance
+    mock_datahub_graph_instance,
 ):
     output = run_pattern_dataset_schema_tags_transformation_semantics(
         TransformerSemantics.OVERWRITE, mock_datahub_graph_instance
@@ -3414,9 +3412,7 @@ def test_pattern_dataset_schema_tags_transformation_overwrite(
     assert builder.make_tag_urn("Name") in global_tags_urn
 
 
-def test_pattern_dataset_schema_tags_transformation_patch(
-    mock_time, mock_datahub_graph_instance
-):
+def test_pattern_dataset_schema_tags_transformation_patch(mock_datahub_graph_instance):
     output = run_pattern_dataset_schema_tags_transformation_semantics(
         TransformerSemantics.PATCH, mock_datahub_graph_instance
     )
@@ -3448,7 +3444,7 @@ def test_pattern_dataset_schema_tags_transformation_patch(
     assert builder.make_tag_urn("Name") in global_tags_urn
 
 
-def test_simple_dataset_data_product_transformation(mock_time):
+def test_simple_dataset_data_product_transformation():
     transformer = SimpleAddDatasetDataProduct.create(
         {
             "dataset_to_data_product_urns": {
@@ -3510,7 +3506,7 @@ def test_simple_dataset_data_product_transformation(mock_time):
     assert isinstance(outputs[5].record, EndOfStream)
 
 
-def test_pattern_dataset_data_product_transformation(mock_time):
+def test_pattern_dataset_data_product_transformation():
     transformer = PatternAddDatasetDataProduct.create(
         {
             "dataset_to_data_product_urns_pattern": {

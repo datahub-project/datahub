@@ -675,8 +675,7 @@ base_dev_requirements = {
     "pytest-cov>=2.8.1",
     "pytest-random-order~=1.1.0",
     "requests-mock",
-    "freezegun",  # TODO: fully remove and use time-machine
-    "time-machine",  # better Pydantic v2 compatibility
+    "time-machine",  # Replaces freezegun because of better Pydantic v2 compatibility
     "jsonpickle",
     "build",
     "twine",
