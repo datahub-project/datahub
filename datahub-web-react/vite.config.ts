@@ -27,35 +27,6 @@ const injectMeticulous = () => {
     };
 };
 
-// Replacing at build time, TODO: use Mustache
-const injectDatahubEnv = () => {
-    // List of environment variables to inject into index.html
-    // Format: template placeholder → environment variable name
-    const envVariables = [
-        { placeholder: '{{__DATAHUB_BASE_PATH__}}', envVar: 'DATAHUB_BASE_PATH' },
-    ];
-
-    return {
-        name: 'inject-env',
-        transformIndexHtml: {
-            order: 'pre', // Run after Vite generates assets
-            handler(html) {
-                let transformedHtml = html;
-
-                // Iterate through all environment variables and replace placeholders
-                envVariables.forEach(({ placeholder, envVar }) => {
-                    // Provide sensible defaults for missing env vars
-                    const value = process.env[envVar];
-                    transformedHtml = transformedHtml.replaceAll(placeholder, value);
-                });
-
-                return transformedHtml;
-            },
-        },
-    };
-}
-
-
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
     const { viteStaticCopy } = await import('vite-plugin-static-copy');
@@ -69,48 +40,24 @@ export default defineConfig(async ({ mode }) => {
     const themeConfig = require(themeConfigFile);
 
     // Setup proxy to the datahub-frontend service.
-    const frontendProxyTarget = process.env.REACT_APP_PROXY_TARGET || 'http://localhost:9002';
-
-    // Extract base path from the target URL if present
-    const targetUrl = new URL(frontendProxyTarget);
-    const basePath = targetUrl.pathname !== '/' ? targetUrl.pathname : '';
-    const targetOrigin = targetUrl.origin;
-
     const frontendProxy = {
-        target: targetOrigin,
+        target: process.env.REACT_APP_PROXY_TARGET || 'http://localhost:9002',
         changeOrigin: true,
-        rewrite: (path) => {
-            // Prepend the base path from the target URL to the request path
-            const rewrittenPath = basePath ? `${basePath}${path}` : path;
-            console.log(`Proxying ${path} -> ${rewrittenPath}`);
-            return rewrittenPath;
-        },
+    };
+    const proxyOptions = {
+        '/logIn': frontendProxy,
+        '/authenticate': frontendProxy,
+        '/api/v2/graphql': frontendProxy,
+        '/openapi/v1/tracking/track': frontendProxy,
     };
 
-    // Standard API endpoints that need proxying
-    const apiEndpoints = [
-        '/logIn',
-        '/authenticate',
-        '/api/v2/graphql',
-        '/openapi/v1/tracking/track',
-    ];
-
-    const proxyOptions = {};
-
-    // Add proxy rules for each endpoint
-    apiEndpoints.forEach(endpoint => {
-        proxyOptions[endpoint] = frontendProxy;
-    });
-
     const devPlugins = mode === 'development' ? [injectMeticulous()] : [];
-    const envs = [injectDatahubEnv()];
 
     return {
         appType: 'spa',
-        base: './',  // Always use root - runtime base path detection handles deployment paths
+        base: './', // Always use root - runtime base path detection handles deployment paths
         plugins: [
             ...devPlugins,
-            ...envs,
             react(),
             svgr(),
             macrosPlugin(),
@@ -161,14 +108,15 @@ export default defineConfig(async ({ mode }) => {
             reportCompressedSize: false,
             // Limit number of worker threads to reduce CPU pressure
             workers: 3, // default is number of CPU cores
+            // TODO: remove once we inject into index.html directly and remove index.scala
             cssCodeSplit: 'true',
             rollupOptions: {
                 output: {
                     assetFileNames: (assetInfo) => {
-                        if (/\.(css)$/.test(assetInfo.name)) {
+                        if (/\.(css)$/.test(assetInfo.name || '')) {
                             return `assets/css/[name].[ext]`;
                         }
-                        if (/\.(png|jpe?g|svg|gif|webp|ico)$/.test(assetInfo.name)) {
+                        if (/\.(png|jpe?g|svg|gif|webp|ico)$/.test(assetInfo.name || '')) {
                             return `assets/img/[name].[ext]`;
                         }
                         return `assets/[name].[ext]`;
