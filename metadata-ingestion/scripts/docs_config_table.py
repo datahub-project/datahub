@@ -365,8 +365,8 @@ def _is_removed_field(field_name: str, removed_fields: Optional[Set[str]]) -> bo
 
 
 def should_hide_field(
-    schema_field: SchemaFieldClass, 
-    current_source: str, 
+    schema_field: SchemaFieldClass,
+    current_source: str,
     schema_dict: Dict[str, Any],
     removed_fields: Optional[Set[str]] = None,
 ) -> bool:
