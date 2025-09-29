@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import Mock, call, patch
 
 import moto.s3
 import pytest
@@ -11,6 +11,13 @@ from moto import mock_s3
 from pydantic import ValidationError
 
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.aws.s3_boto_utils import (
+    list_folders,
+    list_folders_path,
+    list_objects_recursive,
+    list_objects_recursive_path,
+)
 from datahub.ingestion.source.s3.source import S3Source
 from datahub.testing import mce_helpers
 
@@ -367,3 +374,197 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
     }
     with pytest.raises(ValidationError, match=r"\*\*"):
         S3Source.create(source, ctx)
+
+
+@pytest.mark.parametrize(
+    "calls_test_tuple",
+    [
+        (
+            "partitions_and_filename_with_prefix",
+            {
+                "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/year={year}/month={month}/part*.json",
+                "tables_filter_pattern": {"allow": ["^pokemon_abilities_json$"]},
+            },
+            [
+                call.list_folders_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
+                ),
+                call.list_folders(
+                    "my-test-bucket",
+                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json",
+                ),
+                call.list_folders(
+                    bucket_name="my-test-bucket",
+                    prefix="folder_a/folder_aa/folder_aaa/pokemon_abilities_json/",
+                ),
+                call.list_folders(
+                    bucket_name="my-test-bucket",
+                    prefix="folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/",
+                ),
+                call.list_folders(
+                    bucket_name="my-test-bucket",
+                    prefix="folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
+                ),
+                call.list_objects_recursive(
+                    "my-test-bucket",
+                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan",
+                ),
+            ],
+        ),
+        (
+            "filter_specific_partition",
+            {
+                "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/year=2022/month={month}/*.json",
+                "tables_filter_pattern": {"allow": ["^pokemon_abilities_json$"]},
+            },
+            [
+                call.list_folders_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
+                ),
+                call.list_folders(
+                    "my-test-bucket",
+                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json",
+                ),
+                call.list_folders(
+                    bucket_name="my-test-bucket",
+                    prefix="folder_a/folder_aa/folder_aaa/pokemon_abilities_json/",
+                ),
+                call.list_folders(
+                    bucket_name="my-test-bucket",
+                    prefix="folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/",
+                ),
+                call.list_folders(
+                    bucket_name="my-test-bucket",
+                    prefix="folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
+                ),
+                call.list_objects_recursive(
+                    "my-test-bucket",
+                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan",
+                ),
+            ],
+        ),
+        (
+            "partition_autodetection",
+            {
+                "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/",
+                "tables_filter_pattern": {"allow": ["^pokemon_abilities_json$"]},
+            },
+            [
+                call.list_folders_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
+                ),
+                call.list_folders(
+                    "my-test-bucket",
+                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json",
+                ),
+                call.list_folders(
+                    bucket_name="my-test-bucket",
+                    prefix="folder_a/folder_aa/folder_aaa/pokemon_abilities_json/",
+                ),
+                call.list_folders(
+                    bucket_name="my-test-bucket",
+                    prefix="folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/",
+                ),
+                call.list_folders(
+                    bucket_name="my-test-bucket",
+                    prefix="folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
+                ),
+                call.list_objects_recursive(
+                    "my-test-bucket",
+                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan",
+                ),
+            ],
+        ),
+        (
+            "partitions_traversal_all",
+            {
+                "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/year={year}/month={month}/*.json",
+                "tables_filter_pattern": {"allow": ["^pokemon_abilities_json$"]},
+                "traversal_method": "ALL",
+            },
+            [
+                call.list_folders_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
+                ),
+                call.list_folders(
+                    "my-test-bucket",
+                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json",
+                ),
+                call.list_objects_recursive(
+                    "my-test-bucket",
+                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json",
+                ),
+            ],
+        ),
+        (
+            "filter_specific_partition_traversal_all",
+            {
+                "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/year=2022/month={month}/part*.json",
+                "tables_filter_pattern": {"allow": ["^pokemon_abilities_json$"]},
+                "traversal_method": "ALL",
+            },
+            [
+                call.list_folders_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
+                ),
+                call.list_folders(
+                    "my-test-bucket",
+                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json",
+                ),
+                call.list_objects_recursive(
+                    "my-test-bucket",
+                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json",
+                ),
+            ],
+        ),
+    ],
+    ids=lambda calls_test_tuple: calls_test_tuple[0],
+)
+def test_data_lake_s3_calls(s3_populate, calls_test_tuple):
+    _, path_spec, expected_calls = calls_test_tuple
+
+    ctx = PipelineContext(run_id="test-s3")
+    config = {
+        "path_specs": [path_spec],
+        "aws_config": {
+            "aws_region": "us-east-1",
+            "aws_access_key_id": "testing",
+            "aws_secret_access_key": "testing",
+        },
+    }
+    source = S3Source.create(config, ctx)
+
+    m = Mock()
+    m.list_folders.side_effect = list_folders
+    m.list_folders_path.side_effect = list_folders_path
+    m.list_objects_recursive.side_effect = list_objects_recursive
+    m.list_objects_recursive_path.side_effect = list_objects_recursive_path
+
+    with (
+        patch("datahub.ingestion.source.s3.source.list_folders", m.list_folders),
+        patch(
+            "datahub.ingestion.source.s3.source.list_folders_path", m.list_folders_path
+        ),
+        patch(
+            "datahub.ingestion.source.s3.source.list_objects_recursive",
+            m.list_objects_recursive,
+        ),
+        patch(
+            "datahub.ingestion.source.s3.source.list_objects_recursive_path",
+            m.list_objects_recursive_path,
+        ),
+    ):
+        for _ in source.get_workunits_internal():
+            pass
+
+    # Verify S3 calls. We're checking that we make the minimum necessary calls with
+    # prefixes when possible to reduce the amount of queries to the S3 API.
+    calls = []
+    for c in m.mock_calls:
+        if isinstance(c.kwargs, dict):  # type assertion
+            c.kwargs.pop("aws_config", None)
+        if len(c.args) == 3 and isinstance(c.args[2], AwsConnectionConfig):
+            c = getattr(call, c[0])(*(c.args[:2]), **c.kwargs)
+        calls.append(c)
+
+    assert calls == expected_calls
