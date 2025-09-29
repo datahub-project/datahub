@@ -189,10 +189,10 @@ def get_config_from_details(
         action_name = f"{consumer_group_prefix}_{action_name}"
 
     recipe = {
+        **base_action_config,
         **overridable_action_config,
         **action_details_recipe,
         "name": action_name,
-        **base_action_config,
     }
 
     return recipe

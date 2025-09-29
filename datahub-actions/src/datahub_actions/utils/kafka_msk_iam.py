@@ -26,5 +26,7 @@ def oauth_cb(oauth_config: dict) -> tuple[str, float]:
         # Convert expiry from milliseconds to seconds as required by Kafka client
         return auth_token, float(expiry_ms) / 1000
     except Exception as e:
-        logger.error(f"Error generating AWS MSK IAM authentication token: {e}")
+        logger.error(
+            f"Error generating AWS MSK IAM authentication token: {e}", exc_info=True
+        )
         raise
