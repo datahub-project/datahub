@@ -79,10 +79,6 @@ public class DataHubAppConfigurationTest extends AbstractTestNGSpringContextTest
     assertFalse(
         cdcSource.isEnabled(),
         "CDC should be disabled by default (CDC_MCL_PROCESSING_ENABLED:false)");
-    assertEquals(
-        cdcSource.getConverter(),
-        "com.datahub.cdc.MySQLToMCLConverter",
-        "CDC converter should match application.yaml configuration");
     assertFalse(
         cdcSource.isConfigureSource(), "CDC configureSource should be false from application.yaml");
     assertEquals(

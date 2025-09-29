@@ -12,9 +12,6 @@ public class CDCSourceConfiguration {
   /** Whether CDC processing is enabled. */
   private boolean enabled;
 
-  /** Converter class for CDC processing. */
-  private String converter;
-
   /** Whether to configure the CDC source (e.g., Debezium connector). */
   private boolean configureSource;
 

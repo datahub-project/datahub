@@ -459,6 +459,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.alternateMCPValidation",
           "featureFlags.assetSummaryPageV1",
           "featureFlags.businessAttributeEntityEnabled",
+          "featureFlags.cdcModeChangeLog",
           "featureFlags.dataContractsEnabled",
           "featureFlags.editableDatasetNameEnabled",
           "featureFlags.entityVersioning",
@@ -873,7 +874,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "mclProcessing.cdcSource.debeziumConfig.config.transforms.route.type",
           "mclProcessing.cdcSource.debeziumConfig.config.transforms.route.regex",
           "mclProcessing.cdcSource.debeziumConfig.config.transforms.route.replacement",
-          "mclProcessing.cdcSource.debeziumConfig.config.database.user"
+          "mclProcessing.cdcSource.debeziumConfig.config.database.user",
+          "mclProcessing.cdcSource.debeziumConfig.config.message.key.columns"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to
