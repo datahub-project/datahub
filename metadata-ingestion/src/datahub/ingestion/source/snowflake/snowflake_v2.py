@@ -532,6 +532,7 @@ class SnowflakeV2Source(
             filters=self.filters,
             identifiers=self.identifiers,
             fetch_views_from_information_schema=self.config.fetch_views_from_information_schema,
+            is_temp_table=self._is_temp_table,
         )
 
         with self.report.new_stage(f"*: {METADATA_EXTRACTION}"):
