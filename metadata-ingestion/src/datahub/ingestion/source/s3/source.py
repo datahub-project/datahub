@@ -1131,15 +1131,12 @@ class S3Source(StatefulIngestionSourceBase):
                     bucket = s3.Bucket(bucket_name)
 
                     # Create the full S3 path for this table
-                    table_s3_path = self.create_s3_path(bucket_name, table_folder)
-                    logger.info(
-                        f"Processing table folder: {table_folder} -> {table_s3_path}"
-                    )
+                    logger.info(f"Processing table path: {folder.path}")
 
                     # Extract table name using the ORIGINAL path spec pattern matching (not the modified one)
                     # This uses the compiled regex pattern to extract the table name from the full path
                     table_name, _ = self.extract_table_name_and_path(
-                        path_spec, table_s3_path
+                        path_spec, folder.path
                     )
 
                     # Apply table name filtering if configured
