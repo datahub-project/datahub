@@ -590,7 +590,10 @@ def setup_mock_all_user(mocked_client):
 
 
 def side_effect_query_inline(
-    result_format: str, body: WriteQuery, transport_options: Optional[TransportOptions]
+    result_format: str,
+    body: WriteQuery,
+    transport_options: Optional[TransportOptions],
+    cache: Optional[bool] = None,
 ) -> str:
     query_type: looker_usage.QueryId
     if result_format == "sql":
