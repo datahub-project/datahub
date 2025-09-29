@@ -554,11 +554,14 @@ def search(
     - entity_type: ["dataset"], ["dashboard", "chart"], ["corp_user"], ["corp_group"]
     - entity_subtype: ["Table"], ["View", "Model"]
     - platform: ["snowflake"], ["looker", "tableau"]
-    - env: ["PROD"], ["DEV", "STAGING"]
-    - status: ["NOT_SOFT_DELETED"] (for non-deleted entities)
     - domain: ["urn:li:domain:marketing"] (full URN required)
     - container: ["urn:li:container:..."] (full URN required)
+    - tag: ["urn:li:tag:PII"] (full tag URN required)
+    - glossary_term: ["urn:li:glossaryTerm:uuid"] (full term URN required)
+    - owner: ["urn:li:corpuser:alice", "urn:li:corpGroup:marketing"] (full user or group URN required)
     - custom: {"field": "fieldName", "condition": "EQUAL", "values": [...]}
+    - status: ["NOT_SOFT_DELETED"] (for non-deleted entities)
+    - env: ["PROD"], ["DEV", "STAGING"] (Should not use unless explicitly requested)
     - and: [filter1, filter2] (combines multiple filters)
     - or: [filter1, filter2] (matches any filter)
     - not: {"entity_type": ["dataset"]} (excludes matches)
