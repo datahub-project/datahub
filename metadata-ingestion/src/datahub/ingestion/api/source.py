@@ -569,7 +569,7 @@ class Source(Closeable, metaclass=ABCMeta):
         yield from self._process_profiling_stage(workunit_processors)
 
     def _process_profiling_stage(
-        self, processors: List[MetadataWorkUnitProcessor]
+        self, processors: List[Optional[MetadataWorkUnitProcessor]]
     ) -> Iterable[MetadataWorkUnit]:
         """Process profiling stage if source supports it."""
         if (
