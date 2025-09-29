@@ -110,7 +110,8 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
           "Built connector configuration with {} properties",
           opContext.getObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(config));
     } catch (JsonProcessingException e) {
-      throw new RuntimeException(e);
+      log.warn(
+          "Unable to process config as json with error {} for config {}", e.getMessage(), config);
     }
 
     return config;
@@ -122,9 +123,7 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
 
     // Parse JDBC URL to extract hostname, port, and database name
     if (dbConnectionUrl != null && !dbConnectionUrl.isEmpty()) {
-      // Handle MySQL: jdbc:mysql://hostname:port/database
-      // Handle PostgreSQL: jdbc:postgresql://hostname:port/database
-      String urlPattern = "jdbc:(mysql|postgresql)://([^:/]+)(?::(\\d+))?/([^?]+)";
+      String urlPattern = "jdbc:([^:]+)://([^:/]+)(?::(\\d+))?/([^?]+)";
       java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(urlPattern);
       java.util.regex.Matcher matcher = pattern.matcher(dbConnectionUrl);
 

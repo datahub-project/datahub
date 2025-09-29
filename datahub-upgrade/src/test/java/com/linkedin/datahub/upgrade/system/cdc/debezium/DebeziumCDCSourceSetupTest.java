@@ -36,7 +36,6 @@ public class DebeziumCDCSourceSetupTest {
     cdcSourceConfig.setEnabled(true);
     cdcSourceConfig.setConfigureSource(true);
     cdcSourceConfig.setType("debezium-kafka-connector");
-    cdcSourceConfig.setConverter("com.datahub.cdc.MySQLToMCLConverter");
 
     // Create DebeziumConfiguration for the test
     debeziumConfig = new com.linkedin.metadata.config.DebeziumConfiguration();

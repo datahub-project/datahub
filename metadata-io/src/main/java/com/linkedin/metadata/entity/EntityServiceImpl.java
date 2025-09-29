@@ -2291,7 +2291,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         }
       }
 
-      // return emissionStatus.getFirst() != null ? Optional.of(emissionStatus) : Optional.empty();
       return MCLEmitResult.builder()
           .metadataChangeLog(metadataChangeLog)
           .mclFuture(emissionStatus.getFirst())
