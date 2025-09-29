@@ -375,7 +375,7 @@ public class AuthenticationController extends Controller {
     String serialized = Base64.getEncoder().encodeToString(compressBytes(javaSerBytes));
     Http.CookieBuilder redirectCookieBuilder =
         Http.Cookie.builder(REDIRECT_URL_COOKIE_NAME, serialized);
-    redirectCookieBuilder.withPath("/");
+    redirectCookieBuilder.withPath(BasePathUtils.addBasePath("/", this.basePath));
     redirectCookieBuilder.withSecure(true);
     redirectCookieBuilder.withHttpOnly(true);
     redirectCookieBuilder.withMaxAge(Duration.ofSeconds(86400));
