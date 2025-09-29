@@ -20,6 +20,7 @@ from typing import (
 )
 
 import asyncer
+import cachetools
 import jmespath
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.errors import ItemNotFoundError
@@ -241,6 +242,49 @@ def _is_semantic_search_enabled() -> bool:
     return get_boolean_env_variable("SEMANTIC_SEARCH_ENABLED", default=False)
 
 
+# Global View Configuration
+DISABLE_DEFAULT_VIEW = get_boolean_env_variable(
+    "DATAHUB_MCP_DISABLE_DEFAULT_VIEW", default=False
+)
+VIEW_CACHE_TTL_SECONDS = 300  # 5 minutes hardcoded
+
+# Log configuration on startup
+if not DISABLE_DEFAULT_VIEW:
+    logger.info("Default view application ENABLED (cache TTL: 5 minutes)")
+else:
+    logger.info("Default view application DISABLED")
+
+
+@cachetools.cached(cache=cachetools.TTLCache(maxsize=1, ttl=VIEW_CACHE_TTL_SECONDS))
+def fetch_global_default_view(graph: DataHubGraph) -> Optional[str]:
+    """
+    Fetch the organization's default global view URN unless disabled.
+    Cached for VIEW_CACHE_TTL_SECONDS seconds.
+    Returns None if disabled or if no default view is configured.
+    """
+    # Return None immediately if feature is disabled
+    if DISABLE_DEFAULT_VIEW:
+        return None
+
+    query = """
+    query getGlobalViewsSettings {
+        globalViewsSettings {
+            defaultView
+        }
+    }
+    """
+
+    result = _execute_graphql(graph, query=query)
+    settings = result.get("globalViewsSettings")
+    if settings:
+        view_urn = settings.get("defaultView")
+        if view_urn:
+            logger.debug(f"Fetched global default view: {view_urn}")
+            return view_urn
+    logger.debug("No global default view configured")
+    return None
+
+
 def clean_gql_response(response: Any) -> Any:
     if isinstance(response, dict):
         banned_keys = {
@@ -380,11 +424,20 @@ def _search_implementation(
 
     types, compiled_filters = compile_filters(filters)
 
+    # Fetch and apply default view (returns None if disabled or not configured)
+    # Note: If view fetching fails, the search will fail to ensure data governance
+    view_urn = fetch_global_default_view(client._graph)
+    if view_urn:
+        logger.debug(f"Applying default view: {view_urn}")
+    else:
+        logger.debug("No default view to apply")
+
     variables = {
         "query": query,
         "types": types,
         "orFilters": compiled_filters,
         "count": max(num_results, 1),  # 0 is not a valid value for count.
+        "viewUrn": view_urn,  # Will be None if disabled or not set
     }
 
     # Choose GraphQL query and operation based on strategy

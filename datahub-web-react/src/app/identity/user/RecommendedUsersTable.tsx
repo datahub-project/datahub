@@ -3,6 +3,7 @@ import { useDebounce } from 'react-use';
 
 import {
     EmptyStateContainer,
+    EmptyStateWrapper,
     FiltersHeader,
     HeaderSection,
     PaginationContainer,
@@ -20,6 +21,7 @@ import { useUserRecommendations } from '@app/identity/user/useUserRecommendation
 import { PLATFORM_URN_TO_LOGO } from '@app/ingest/source/builder/constants';
 import { Avatar, Button, Heading, Pagination, Pill, SearchBar, Table, Text, Tooltip } from '@src/alchemy-components';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
+import EmptyUsersImage from '@src/images/empty-users.svg?react';
 
 import { CorpUser, DataHubRole, UserUsageSortField } from '@types';
 
@@ -320,14 +322,14 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
             </FiltersHeader>
             <RecommendedTableContainer $hasSsoBanner={hasSsoBanner}>
                 {recommendedUsers.length === 0 && !loading ? (
-                    <EmptyStateContainer>
+                    <EmptyStateWrapper>
+                        <EmptyStateContainer>
+                            <EmptyUsersImage style={{ width: '120px', height: '120px' }} />
+                        </EmptyStateContainer>
                         <Text size="lg" weight="medium">
-                            No recommended users found
+                            No recommended users yet!
                         </Text>
-                        <Text size="sm" color="gray">
-                            Try adjusting your search or filters
-                        </Text>
-                    </EmptyStateContainer>
+                    </EmptyStateWrapper>
                 ) : (
                     <>
                         <Table

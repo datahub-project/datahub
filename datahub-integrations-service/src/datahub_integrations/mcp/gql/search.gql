@@ -73,6 +73,7 @@ query search(
   $orFilters: [AndFilterInput!]
   $count: Int!
   $scrollId: String
+  $viewUrn: String
 ) {
   scrollAcrossEntities(
     input: {
@@ -81,6 +82,7 @@ query search(
       scrollId: $scrollId
       types: $types
       orFilters: $orFilters
+      viewUrn: $viewUrn
       searchFlags: { skipHighlighting: true, maxAggValues: 5 }
     }
   ) {
