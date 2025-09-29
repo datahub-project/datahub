@@ -10,26 +10,16 @@ import { NotificationTypesSelector } from '@app/observe/shared/bulkCreate/form/s
 import { SubscriptionsFormState } from '@app/observe/shared/bulkCreate/form/types';
 import Loading from '@app/shared/Loading';
 import { getGroupOptions } from '@app/shared/subscribe/drawer/section/SelectGroupSection.utils';
-import { getEntityChangeTypesFromCheckedKeys, getTreeDataForEntity } from '@app/shared/subscribe/drawer/utils';
+import {
+    DEFAULT_SELECTED_KEYS,
+    getEntityChangeTypesFromCheckedKeys,
+    getTreeDataForEntity,
+} from '@app/shared/subscribe/drawer/utils';
 import useGroupRelationships from '@app/shared/subscribe/useGroupRelationships';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetAuthenticatedUserUrn } from '@app/useGetAuthenticatedUser';
 
-import { CorpGroup, EntityChangeDetailsInput, EntityChangeType, EntityRelationshipsResult, EntityType } from '@types';
-
-// Default selected notification types
-const DEFAULT_SELECTED_KEYS = [
-    // Assertion changes
-    EntityChangeType.AssertionFailed,
-    EntityChangeType.AssertionError,
-    // Incident changes
-    EntityChangeType.IncidentRaised,
-    EntityChangeType.IncidentResolved,
-    // Schema changes
-    EntityChangeType.OperationColumnAdded,
-    EntityChangeType.OperationColumnRemoved,
-    EntityChangeType.OperationColumnModified,
-];
+import { CorpGroup, EntityChangeDetailsInput, EntityRelationshipsResult, EntityType } from '@types';
 
 const SectionContainer = styled.div`
     margin-top: 32px;

@@ -1,5 +1,6 @@
 import { createInitialState, reducer } from '@app/shared/subscribe/drawer/state/reducer';
 import { ActionTypes, ChannelSelections } from '@app/shared/subscribe/drawer/state/types';
+import { ASSERTION_NODE_KEY } from '@app/shared/subscribe/drawer/utils';
 
 import { DataHubSubscription, EntityChangeType, EntityType, NotificationSinkType } from '@types';
 
@@ -156,25 +157,15 @@ describe('reducer', () => {
                 isPersonal: true,
                 notificationTypes: {
                     checkedKeys: [
-                        EntityChangeType.Deprecated,
                         EntityChangeType.AssertionFailed,
-                        EntityChangeType.AssertionPassed,
                         EntityChangeType.AssertionError,
                         EntityChangeType.IncidentRaised,
                         EntityChangeType.IncidentResolved,
                         EntityChangeType.OperationColumnAdded,
                         EntityChangeType.OperationColumnRemoved,
                         EntityChangeType.OperationColumnModified,
-                        EntityChangeType.OwnerAdded,
-                        EntityChangeType.OwnerRemoved,
-                        EntityChangeType.GlossaryTermAdded,
-                        EntityChangeType.GlossaryTermRemoved,
-                        EntityChangeType.GlossaryTermProposed,
-                        EntityChangeType.TagAdded,
-                        EntityChangeType.TagRemoved,
-                        EntityChangeType.TagProposed,
                     ],
-                    expandedKeys: [],
+                    expandedKeys: [ASSERTION_NODE_KEY],
                     keysWithAllFilteringCleared: [],
                 },
                 settings: {
@@ -246,25 +237,15 @@ describe('reducer', () => {
                 isPersonal: true,
                 notificationTypes: {
                     checkedKeys: [
-                        EntityChangeType.Deprecated,
                         EntityChangeType.AssertionFailed,
-                        EntityChangeType.AssertionPassed,
                         EntityChangeType.AssertionError,
                         EntityChangeType.IncidentRaised,
                         EntityChangeType.IncidentResolved,
                         EntityChangeType.OperationColumnAdded,
                         EntityChangeType.OperationColumnRemoved,
                         EntityChangeType.OperationColumnModified,
-                        EntityChangeType.OwnerAdded,
-                        EntityChangeType.OwnerRemoved,
-                        EntityChangeType.GlossaryTermAdded,
-                        EntityChangeType.GlossaryTermRemoved,
-                        EntityChangeType.GlossaryTermProposed,
-                        EntityChangeType.TagAdded,
-                        EntityChangeType.TagRemoved,
-                        EntityChangeType.TagProposed,
                     ],
-                    expandedKeys: [],
+                    expandedKeys: [ASSERTION_NODE_KEY],
                     keysWithAllFilteringCleared: [],
                 },
                 settings: {

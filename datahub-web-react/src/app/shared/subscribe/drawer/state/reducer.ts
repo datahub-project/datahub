@@ -2,8 +2,13 @@ import uniq from 'lodash/uniq';
 
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '@app/settings/personal/notifications/constants';
 import { Action, ActionTypes, ChannelSelections, State } from '@app/shared/subscribe/drawer/state/types';
+import {
+    ASSERTION_NODE_KEY,
+    ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES,
+    DEFAULT_SELECTED_KEYS,
+} from '@app/shared/subscribe/drawer/utils';
 
-import { EntityChangeType, NotificationSinkType, SubscriptionType } from '@types';
+import { NotificationSinkType, SubscriptionType } from '@types';
 
 export const createInitialState = (): State => ({
     edited: false,
@@ -63,7 +68,6 @@ export const reducer = (state: State, action: Action): State => {
                 teamsSettingsChannelName,
                 settingsSinkTypes,
             } = action.payload;
-
             const relevantEntityChangeDetails = forSubResource?.assertion
                 ? subscription?.entityChangeTypes?.filter(
                       (details) =>
@@ -83,34 +87,8 @@ export const reducer = (state: State, action: Action): State => {
             if (emailSinkEnabled && !subscription) notificationSinkTypes.push(NotificationSinkType.Email);
             if (teamsSinkEnabled && !subscription) {
                 notificationSinkTypes.push(NotificationSinkType.Teams);
-                // Auto-select ALL notification types when Teams is enabled for the first time
                 if (entityChangeTypes.length === 0) {
-                    entityChangeTypes = [
-                        // Entity deprecation
-                        EntityChangeType.Deprecated,
-                        // Assertion changes
-                        EntityChangeType.AssertionFailed,
-                        EntityChangeType.AssertionPassed,
-                        EntityChangeType.AssertionError,
-                        // Incident changes
-                        EntityChangeType.IncidentRaised,
-                        EntityChangeType.IncidentResolved,
-                        // Schema changes
-                        EntityChangeType.OperationColumnAdded,
-                        EntityChangeType.OperationColumnRemoved,
-                        EntityChangeType.OperationColumnModified,
-                        // Ownership changes
-                        EntityChangeType.OwnerAdded,
-                        EntityChangeType.OwnerRemoved,
-                        // Glossary term changes
-                        EntityChangeType.GlossaryTermAdded,
-                        EntityChangeType.GlossaryTermRemoved,
-                        EntityChangeType.GlossaryTermProposed,
-                        // Tag changes
-                        EntityChangeType.TagAdded,
-                        EntityChangeType.TagRemoved,
-                        EntityChangeType.TagProposed,
-                    ];
+                    entityChangeTypes = DEFAULT_SELECTED_KEYS;
                 }
             }
 
@@ -145,7 +123,18 @@ export const reducer = (state: State, action: Action): State => {
             const hasUpstreamSubscription =
                 ENABLE_UPSTREAM_NOTIFICATIONS &&
                 !!subscription?.subscriptionTypes?.includes(SubscriptionType.UpstreamEntityChange);
-
+            const expandedKeys: string[] = [];
+            if (
+                entityChangeTypes.some((entityChangeType) =>
+                    ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES.includes(entityChangeType),
+                )
+            ) {
+                // Some of the other assertion warnings like "assertion passed"
+                // can be very noisy, so we auto-expand this option so users are
+                // aware of which ones are default and can uncheck the noisy
+                // ones.
+                expandedKeys.push(ASSERTION_NODE_KEY);
+            }
             return {
                 ...state,
                 isPersonal,
@@ -165,7 +154,7 @@ export const reducer = (state: State, action: Action): State => {
                 },
                 notificationTypes: {
                     checkedKeys: entityChangeTypes,
-                    expandedKeys: [],
+                    expandedKeys,
                     keysWithAllFilteringCleared: [],
                 },
                 subscribeToUpstream: hasUpstreamSubscription,

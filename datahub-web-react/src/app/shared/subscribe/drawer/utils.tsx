@@ -49,7 +49,7 @@ const TooltipIcon = styled(QuestionCircleOutlined)`
     font-size: 12px;
 `;
 
-const ASSERTION_NODE_KEY = 'assertion_changes';
+export const ASSERTION_NODE_KEY = 'assertion_changes';
 const INCIDENTS_NODE_KEY = 'incident_changes';
 const DEPRECATION_NODE_KEY = EntityChangeType.Deprecated;
 const SCHEMA_NODE_KEY = 'schema_changes';
@@ -74,6 +74,20 @@ export const ASSERTION_SUBSCRIPTION_RELATED_ENTITY_CHANGE_TYPES = [
     EntityChangeType.AssertionFailed,
     EntityChangeType.AssertionPassed,
     EntityChangeType.AssertionError,
+];
+
+// Default selected notification types
+export const DEFAULT_SELECTED_KEYS = [
+    // Assertion changes
+    EntityChangeType.AssertionFailed,
+    EntityChangeType.AssertionError,
+    // Incident changes
+    EntityChangeType.IncidentRaised,
+    EntityChangeType.IncidentResolved,
+    // Schema changes
+    EntityChangeType.OperationColumnAdded,
+    EntityChangeType.OperationColumnRemoved,
+    EntityChangeType.OperationColumnModified,
 ];
 
 const getDetailsLabelForAssertionTypeChange = (
