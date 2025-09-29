@@ -835,6 +835,17 @@
         "Connection Type": "Pull",
         "Features": ""
       }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/snaplogic",
+      "imgPath": "img/logos/platforms/snaplogic.svg",
+      "Title": "Snaplogic",
+      "Description": "SnapLogic is an enterprise integration platform as a service (iPaaS) that enables organizations to connect applications, data sources, and APIs across cloud and on-premises environments through a low-code drag-and-drop interface with hundreds of pre-built connectors, simplifying and accelerating data and application integration.",
+      "tags": {
+        "Platform Type": "ETL and Processing",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
     }
   ]
 }
