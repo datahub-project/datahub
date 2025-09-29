@@ -123,10 +123,7 @@ export const useAssertionsTableColumns = ({
                 render: renderAssertionName,
                 width: '35%',
                 sorter: (a, b) => {
-                    if (a.type && b.type) {
-                        return getAssertionGroupName(a.type).localeCompare(getAssertionGroupName(b.type));
-                    }
-                    return 0;
+                    return a.description.localeCompare(b.description);
                 },
                 ellipsis: {
                     showTitle: false,
@@ -139,7 +136,10 @@ export const useAssertionsTableColumns = ({
                 render: renderCategory,
                 width: '12%',
                 sorter: (a, b) => {
-                    return a.description.localeCompare(b.description);
+                    if (a.type && b.type) {
+                        return getAssertionGroupName(a.type).localeCompare(getAssertionGroupName(b.type));
+                    }
+                    return 0;
                 },
                 ellipsis: {
                     showTitle: false,
