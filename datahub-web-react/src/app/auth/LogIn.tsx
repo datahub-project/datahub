@@ -155,7 +155,13 @@ export const LogIn: React.VFC<LogInProps> = () => {
                         </Form.Item>
                     </Form>
                     <SsoDivider />
-                    <SsoButton type="primary" href="/sso" block htmlType="submit" className={styles.sso_button}>
+                    <SsoButton
+                        type="primary"
+                        href={resolveRuntimePath('/sso')}
+                        block
+                        htmlType="submit"
+                        className={styles.sso_button}
+                    >
                         <LoginLogo />
                         <SsoTextSpan>Sign in with SSO</SsoTextSpan>
                         <span />
