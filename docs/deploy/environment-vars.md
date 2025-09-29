@@ -1017,6 +1017,23 @@ Reference Links:
 
 ---
 
+# DataHub Integrations Service
+
+The DataHub Integrations Service provides integrations between DataHub and external platforms.
+
+## MCP Server Configuration
+
+Reference Links:
+
+- **MCP Server Guide**: [DataHub MCP Server](../features/feature-guides/mcp.md)
+
+| Environment Variable               | Default | Description                                                                                                                  | Components           |
+| ---------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `SEMANTIC_SEARCH_ENABLED`          | `false` | Enable semantic search capabilities (requires DataHub Cloud with semantic search support)                                    | Integrations Service |
+| `DATAHUB_MCP_DISABLE_DEFAULT_VIEW` | `false` | Disable automatic application of organization's default global view to MCP search operations (by default, views are applied) | Integrations Service |
+
+---
+
 ## Notes
 
 - Environment variables follow the pattern of converting YAML property paths to uppercase with underscores

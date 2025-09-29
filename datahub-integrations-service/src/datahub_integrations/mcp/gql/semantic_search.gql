@@ -72,6 +72,7 @@ query semanticSearch(
   $query: String!
   $orFilters: [AndFilterInput!]
   $count: Int!
+  $viewUrn: String
 ) {
   semanticSearchAcrossEntities(
     input: {
@@ -79,6 +80,7 @@ query semanticSearch(
       count: $count
       types: $types
       orFilters: $orFilters
+      viewUrn: $viewUrn
       searchFlags: { skipHighlighting: true, maxAggValues: 5 }
     }
   ) {

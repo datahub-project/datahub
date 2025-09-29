@@ -90,18 +90,25 @@ class TestSearchImplementation:
         )
 
         # Verify correct GraphQL query was used
-        mock_execute_graphql.assert_called_once()
-        call_args = mock_execute_graphql.call_args
+        # Note: _execute_graphql is called twice now - first for getGlobalViewsSettings, then for search
+        assert mock_execute_graphql.call_count == 2
 
-        assert call_args[0][0] == mock_graph  # First arg is the graph
-        assert call_args[1]["query"] == semantic_search_gql  # Semantic GraphQL query
-        assert call_args[1]["operation_name"] == "semanticSearch"
+        # First call should be for getGlobalViewsSettings
+        first_call = mock_execute_graphql.call_args_list[0]
+        assert "getGlobalViewsSettings" in first_call[1]["query"]
 
-        # Verify variables
-        variables = call_args[1]["variables"]
+        # Second call should be the semantic search
+        second_call = mock_execute_graphql.call_args_list[1]
+        assert second_call[0][0] == mock_graph  # First arg is the graph
+        assert second_call[1]["query"] == semantic_search_gql  # Semantic GraphQL query
+        assert second_call[1]["operation_name"] == "semanticSearch"
+
+        # Verify variables for the search call
+        variables = second_call[1]["variables"]
         assert variables["query"] == "customer data"
         assert variables["count"] == 10
         assert "scrollId" not in variables  # Semantic search doesn't use scrollId
+        assert "viewUrn" in variables  # Should include viewUrn (even if None)
 
         # Verify response processing
         assert result["count"] == 5
@@ -135,18 +142,25 @@ class TestSearchImplementation:
         )
 
         # Verify correct GraphQL query was used
-        mock_execute_graphql.assert_called_once()
-        call_args = mock_execute_graphql.call_args
+        # Note: _execute_graphql is called twice now - first for getGlobalViewsSettings, then for search
+        assert mock_execute_graphql.call_count == 2
 
-        assert call_args[0][0] == mock_graph
-        assert call_args[1]["query"] == search_gql  # Keyword GraphQL query
-        assert call_args[1]["operation_name"] == "search"
+        # First call should be for getGlobalViewsSettings
+        first_call = mock_execute_graphql.call_args_list[0]
+        assert "getGlobalViewsSettings" in first_call[1]["query"]
 
-        # Verify variables
-        variables = call_args[1]["variables"]
+        # Second call should be the keyword search
+        second_call = mock_execute_graphql.call_args_list[1]
+        assert second_call[0][0] == mock_graph
+        assert second_call[1]["query"] == search_gql  # Keyword GraphQL query
+        assert second_call[1]["operation_name"] == "search"
+
+        # Verify variables for the search call
+        variables = second_call[1]["variables"]
         assert variables["query"] == "user_events"
         assert variables["count"] == 5
         assert variables["scrollId"] is None  # Keyword search includes scrollId
+        assert "viewUrn" in variables  # Should include viewUrn (even if None)
 
     @mock.patch("datahub_integrations.mcp.mcp_server.get_datahub_client")
     @mock.patch("datahub_integrations.mcp.mcp_server._execute_graphql")

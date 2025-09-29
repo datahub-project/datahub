@@ -1,5 +1,6 @@
 import inspect
 import logging
+import sys
 
 from datahub.utilities.logging_manager import DATAHUB_PACKAGES
 from loguru import logger
@@ -27,6 +28,17 @@ class InterceptHandler(logging.Handler):
             level, record.getMessage()
         )
 
+
+# Configure loguru for structured logging to prevent stack trace splitting
+logger.remove()  # Remove default handler
+logger.add(
+    sink=sys.stderr,
+    serialize=True,  # JSON serialization keeps multi-line exceptions together
+    format="{time} {level} {name}:{function}:{line} - {message}",
+    backtrace=True,
+    diagnose=True,  # Keep False in production for security
+    level="INFO",
+)
 
 logging.basicConfig(handlers=[InterceptHandler()], level=logging.INFO, force=True)
 for package in [*DATAHUB_PACKAGES, "datahub_integrations"]:

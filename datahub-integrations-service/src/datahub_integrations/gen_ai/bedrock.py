@@ -1,6 +1,7 @@
 import enum
 import functools
 import json
+import logging
 import os
 import pprint
 import time
@@ -18,6 +19,11 @@ if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime import BedrockRuntimeClient
 
 _LLM_TRACE = get_boolean_env_variable("DATAHUB_LLM_TRACE")
+
+# Enable boto3 debug logging for troubleshooting timeouts
+logging.getLogger("boto3").setLevel(logging.DEBUG)
+logging.getLogger("botocore").setLevel(logging.DEBUG)
+logging.getLogger("urllib3").setLevel(logging.DEBUG)
 
 # e.g. "us", "eu", or "apac"
 _ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX = os.getenv(
