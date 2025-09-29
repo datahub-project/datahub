@@ -29,7 +29,7 @@ const injectMeticulous = () => {
 
 // since we have base: './' for relative paths, vite will set static assets at "./assets/..."
 // with a base path configured we can't find them. We want simple "assets/..."
-function stripDotSlashFromAssets() {
+export function stripDotSlashFromAssets() {
     return {
         name: 'strip-dot-slash',
         transformIndexHtml(html) {

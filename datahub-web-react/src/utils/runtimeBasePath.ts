@@ -2,7 +2,7 @@
  * Gets the base path from HTML base tag (set by server) or fallback methods.
  * Priority order: 1. HTML base tag, 2. Global variable, 3. Root fallback
  */
-function getBasePath(): string {
+export function getBasePath(): string {
     // automatically return '/' as the basepath for local dev at 3000 since we rely on injecting @basepath in index.html
     if (process.env.NODE_ENV === 'development') {
         return '/';
@@ -82,4 +82,9 @@ export function removeRuntimePath(path: string): string {
     }
 
     return path.replace(basePath, '');
+}
+
+// used for testing
+export function resetCachedBasePath() {
+    cachedBasePath = null;
 }
