@@ -161,9 +161,26 @@ export const ActionsButtonGroup = styled.div`
     gap: 8px;
 `;
 
+export const EmptyStateWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    height: 400px;
+    font-weight: bold;
+`;
+
 export const EmptyStateContainer = styled.div`
-    text-align: center;
-    padding: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+    background-color: ${colors.gray[1500]};
+    border-radius: 50%;
+    border: 1px solid ${colors.gray[100]};
+    width: fit-content;
+    height: fit-content;
 `;
 
 export const PaginationContainer = styled.div`
