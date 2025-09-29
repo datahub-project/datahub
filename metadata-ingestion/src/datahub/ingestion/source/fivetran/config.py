@@ -285,7 +285,7 @@ class FivetranSourceConfig(
         "Set to -1 to disable the limit entirely (not recommended for very large connectors).",
     )
 
-    @root_validator(pre=False)
+    @root_validator(skip_on_failure=True)
     def validate_config_based_on_mode(cls, values: Dict) -> Dict:
         """Validate configuration based on the selected mode."""
         mode = values.get("fivetran_mode", FivetranMode.AUTO)

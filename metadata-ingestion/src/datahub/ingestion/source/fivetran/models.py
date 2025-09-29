@@ -119,7 +119,7 @@ class FivetranConnectorResponse(BaseModel):
     schedule: Optional[Dict[str, int]] = None  # For nested sync_frequency
     status: Optional[FivetranConnectorStatus] = None
 
-    @root_validator(pre=False)
+    @root_validator(skip_on_failure=True)
     def extract_nested_fields(cls, values):
         """Extract fields from nested structures."""
         # Extract group_id from nested group structure

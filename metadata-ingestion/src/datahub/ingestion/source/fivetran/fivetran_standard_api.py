@@ -282,9 +282,15 @@ class FivetranStandardAPI(FivetranAccessInterface):
 
     def _create_synthetic_lineage_fallback(self, connector: Connector) -> bool:
         """Create synthetic lineage as fallback when real lineage is unavailable."""
-        logger.info(
-            f"No real lineage extracted for connector {connector.connector_id}, creating synthetic lineage"
+        logger.warning(
+            f"No real lineage data available for connector '{connector.connector_name}' ({connector.connector_id}). "
+            f"This could indicate: 1) Connector has no table lineage configured, 2) API permissions issue, "
+            f"3) Connector is not syncing data, or 4) Fivetran lineage API limitations. "
+            f"Attempting to create synthetic lineage from schema information."
         )
+
+        # Check expected lineage based on connector properties
+        self._log_expected_lineage_from_properties(connector)
         try:
             schemas = self.api_client.list_connector_schemas(connector.connector_id)
             destination_platform = (
@@ -301,11 +307,15 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     return True
                 else:
                     logger.warning(
-                        f"Synthetic lineage creation returned no results for connector {connector.connector_id}"
+                        f"Synthetic lineage creation returned no results for connector '{connector.connector_name}' ({connector.connector_id}). "
+                        f"This means no table lineage will be available for this connector. "
+                        f"Check that the connector has enabled tables and proper schema configuration."
                     )
             else:
                 logger.warning(
-                    f"Cannot create synthetic lineage for connector {connector.connector_id}: schemas={bool(schemas)}, platform={destination_platform}"
+                    f"Cannot create synthetic lineage for connector '{connector.connector_name}' ({connector.connector_id}): "
+                    f"schemas_available={bool(schemas)}, destination_platform={destination_platform}. "
+                    f"This connector will have no lineage information."
                 )
         except Exception as synthetic_error:
             logger.warning(
@@ -319,52 +329,117 @@ class FivetranStandardAPI(FivetranAccessInterface):
         self, connector: Connector, schemas: List[dict], destination_platform: str
     ) -> None:
         """Create synthetic lineage for a connector using all available metadata."""
-        lineage_list = []
+        # Extract metadata for lineage creation
+        metadata = self._extract_lineage_metadata(connector, destination_platform)
 
-        # Extract platform and environment information from connector properties
-        source_platform = None
-        source_env = None
-        source_database = None
-        destination_env = None
-        destination_database = None
+        # Process schemas to create lineage
+        lineage_list = self._process_schemas_for_synthetic_lineage(
+            connector, schemas, metadata
+        )
+
+        # Set the lineage on the connector
+        connector.lineage = lineage_list
+        logger.info(
+            f"Created {len(lineage_list)} synthetic lineage entries for connector {connector.connector_id}"
+        )
+
+    def _extract_lineage_metadata(
+        self, connector: Connector, destination_platform: str
+    ) -> Dict[str, Optional[str]]:
+        """Extract metadata needed for lineage creation from connector properties."""
+        metadata: Dict[str, Optional[str]] = {
+            "source_platform": None,
+            "source_env": None,
+            "source_database": None,
+            "destination_env": None,
+            "destination_database": None,
+            "destination_platform": destination_platform,
+        }
 
         if (
             hasattr(connector, "additional_properties")
             and connector.additional_properties
         ):
-            source_platform = connector.additional_properties.get("source.platform")
-            source_env = connector.additional_properties.get("source.env")
-            source_database = connector.additional_properties.get("source.database")
-            destination_env = connector.additional_properties.get("destination.env")
-            destination_database = connector.additional_properties.get(
-                "destination.database"
+            props = connector.additional_properties
+            metadata.update(
+                {
+                    "source_platform": str(props.get("source.platform"))
+                    if props.get("source.platform")
+                    else None,
+                    "source_env": str(props.get("source.env"))
+                    if props.get("source.env")
+                    else None,
+                    "source_database": str(props.get("source.database"))
+                    if props.get("source.database")
+                    else None,
+                    "destination_env": str(props.get("destination.env"))
+                    if props.get("destination.env")
+                    else None,
+                    "destination_database": str(props.get("destination.database"))
+                    if props.get("destination.database")
+                    else None,
+                }
             )
 
-            # If destination database is empty, try to get it from the API
-            if not destination_database and hasattr(self, "api_client"):
+            # Try to get destination database from API if not available
+            if not metadata["destination_database"] and hasattr(self, "api_client"):
                 try:
-                    destination_database = self.api_client.get_destination_database(
+                    db = self.api_client.get_destination_database(
                         connector.destination_id
                     )
-                    if destination_database:
-                        logger.info(
-                            f"Retrieved destination database '{destination_database}' from API for connector {connector.connector_id}"
-                        )
+                    if db:
+                        metadata["destination_database"] = db
+                        logger.info(f"Retrieved destination database '{db}' from API")
                 except Exception as e:
                     logger.debug(
                         f"Could not retrieve destination database from API: {e}"
                     )
 
-        # Fallback to detecting source platform from connector type if not available
-        if not source_platform:
-            source_platform = self._detect_source_platform_from_connector_type(
-                connector.connector_type
+        # Fallback platform detection
+        if not metadata["source_platform"]:
+            metadata["source_platform"] = (
+                self._detect_source_platform_from_connector_type(
+                    connector.connector_type
+                )
             )
 
+        return metadata
+
+    def _process_schemas_for_synthetic_lineage(
+        self,
+        connector: Connector,
+        schemas: List[dict],
+        metadata: Dict[str, Optional[str]],
+    ) -> List[TableLineage]:
+        """Process schemas to create synthetic lineage entries."""
+        lineage_list = []
+
         logger.info(
-            f"Creating synthetic lineage with: source_platform={source_platform}, dest_platform={destination_platform}, source_env={source_env}, dest_env={destination_env}"
+            f"Creating synthetic lineage for connector {connector.connector_id} with: "
+            f"source_platform={metadata['source_platform']}, dest_platform={metadata['destination_platform']}, "
+            f"source_env={metadata['source_env']}, dest_env={metadata['destination_env']}, "
+            f"source_database={metadata['source_database']}, dest_database={metadata['destination_database']}, "
+            f"schemas_count={len(schemas)}"
         )
 
+        # Process schema information
+        for schema_data in schemas:
+            if isinstance(schema_data, dict) and "tables" in schema_data:
+                tables = schema_data["tables"]
+                if isinstance(tables, dict):
+                    for table_name, table_data in tables.items():
+                        enabled = (
+                            table_data.get("enabled", False)
+                            if isinstance(table_data, dict)
+                            else getattr(table_data, "enabled", False)
+                        )
+                        logger.debug(f"    Table {table_name}: enabled={enabled}")
+                else:
+                    logger.debug(f"  Tables format: {type(tables)}")
+            else:
+                logger.debug("  No tables in schema or unexpected format")
+
+        # Process schemas to create lineage entries
         for schema_data in schemas:
             try:
                 # Parse schema response
@@ -388,10 +463,10 @@ class FivetranStandardAPI(FivetranAccessInterface):
 
                         # Get destination names with proper case handling
                         dest_schema = self._get_destination_schema_name(
-                            schema.name, destination_platform
+                            schema.name, metadata["destination_platform"] or "snowflake"
                         )
                         dest_table = self._get_destination_table_name(
-                            table.name, destination_platform
+                            table.name, metadata["destination_platform"] or "snowflake"
                         )
                         destination_table = f"{dest_schema}.{dest_table}"
 
@@ -411,8 +486,8 @@ class FivetranStandardAPI(FivetranAccessInterface):
                                         "_fivetran"
                                     ):
                                         is_bigquery = (
-                                            destination_platform.lower() == "bigquery"
-                                        )
+                                            metadata["destination_platform"] or ""
+                                        ).lower() == "bigquery"
                                         dest_col = (
                                             self._transform_column_name_for_platform(
                                                 column.name, is_bigquery
@@ -435,21 +510,21 @@ class FivetranStandardAPI(FivetranAccessInterface):
                             source_table=source_table,
                             destination_table=destination_table,
                             column_lineage=column_lineage,
-                            source_platform=str(source_platform)
-                            if source_platform is not None
+                            source_platform=str(metadata["source_platform"])
+                            if metadata["source_platform"] is not None
                             else None,
-                            destination_platform=destination_platform,
-                            source_env=str(source_env)
-                            if source_env is not None
+                            destination_platform=metadata["destination_platform"],
+                            source_env=str(metadata["source_env"])
+                            if metadata["source_env"] is not None
                             else None,
-                            destination_env=str(destination_env)
-                            if destination_env is not None
+                            destination_env=str(metadata["destination_env"])
+                            if metadata["destination_env"] is not None
                             else None,
-                            source_database=str(source_database)
-                            if source_database is not None
+                            source_database=str(metadata["source_database"])
+                            if metadata["source_database"] is not None
                             else None,
-                            destination_database=str(destination_database)
-                            if destination_database is not None
+                            destination_database=str(metadata["destination_database"])
+                            if metadata["destination_database"] is not None
                             else None,
                             connector_type_id=connector.connector_type,
                             connector_name=connector.connector_name,
@@ -466,12 +541,7 @@ class FivetranStandardAPI(FivetranAccessInterface):
                 logger.warning(f"Error processing schema: {e}")
                 continue
 
-        if lineage_list:
-            logger.info(
-                f"Created {len(lineage_list)} synthetic table lineage entries for connector {connector.connector_id} with enhanced metadata"
-            )
-            # Set the lineage directly on the connector instead of using _lineage_cache
-            connector.lineage = lineage_list
+        return lineage_list
 
     def _process_connector(
         self,
@@ -684,7 +754,7 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     if sync_time:
                         sync_id = f"{connector_id}-latest"
                         logger.info(
-                            f"Creating synthetic sync history for connector {connector_id} with status {status}"
+                            f"Creating synthetic sync history for connector {connector_id}"
                         )
                         return [
                             {
@@ -922,6 +992,52 @@ class FivetranStandardAPI(FivetranAccessInterface):
 
         return None
 
+    def _log_expected_lineage_from_properties(self, connector: Connector) -> None:
+        """Log what lineage should be expected based on connector properties."""
+        if not (
+            hasattr(connector, "additional_properties")
+            and connector.additional_properties
+        ):
+            logger.info(
+                f"No additional properties available for connector {connector.connector_id}"
+            )
+            return
+
+        props = connector.additional_properties
+
+        # Extract key properties
+        source_platform = props.get("source.platform", "unknown")
+        source_database = props.get("source.database", "unknown")
+        source_table = props.get("source_table", "unknown")
+        dest_platform = props.get("destination.platform", "unknown")
+        dest_database = props.get("destination.database", "unknown")
+        dest_table = props.get("destination_table", "unknown")
+        source_env = props.get("source.env", "PROD")
+        dest_env = props.get("destination.env", "PROD")
+
+        logger.info(
+            f"Expected lineage for connector {connector.connector_id} based on properties:\n"
+            f"  Source: urn:li:dataset:(urn:li:dataPlatform:{source_platform},{source_database}.{source_table},{source_env})\n"
+            f"  Destination: urn:li:dataset:(urn:li:dataPlatform:{dest_platform},{dest_database}.{dest_table},{dest_env})\n"
+            f"  This lineage should be created if schemas API returns table information."
+        )
+
+        # Check if we have the minimum required information
+        missing_info = []
+        if source_table == "unknown":
+            missing_info.append("source_table")
+        if dest_table == "unknown":
+            missing_info.append("destination_table")
+        if source_database == "unknown":
+            missing_info.append("source.database")
+        if dest_database == "unknown":
+            missing_info.append("destination.database")
+
+        if missing_info:
+            logger.warning(
+                f"Missing key information for lineage creation: {', '.join(missing_info)}"
+            )
+
     def _try_alternative_job_extraction(self, connector: Connector) -> None:
         """
         Try alternative approaches to extract job history when standard methods fail.
@@ -946,7 +1062,7 @@ class FivetranStandardAPI(FivetranAccessInterface):
 
                 # Try to get connector details to see if there are any status indicators
                 try:
-                    connector_details = self.api_client.get_connector_by_id(
+                    connector_details = self.api_client.get_connector(
                         connector.connector_id
                     )
                     if connector_details:
@@ -997,10 +1113,10 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     from datetime import datetime
 
                     success_time = datetime.fromisoformat(
-                        succeeded_at.replace("Z", "+00:00")
+                        str(succeeded_at).replace("Z", "+00:00")
                     )
                     failure_time = datetime.fromisoformat(
-                        failed_at.replace("Z", "+00:00")
+                        str(failed_at).replace("Z", "+00:00")
                     )
 
                     if success_time > failure_time:
@@ -1034,7 +1150,7 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     from datetime import datetime
 
                     success_time = datetime.fromisoformat(
-                        succeeded_at.replace("Z", "+00:00")
+                        str(succeeded_at).replace("Z", "+00:00")
                     )
                     end_time = int(success_time.timestamp())
                     start_time = end_time - 3600

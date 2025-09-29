@@ -191,7 +191,7 @@ class FivetranAPIClient:
                         )
                         return connector_id
 
-            # Log diagnostic info if not found
+            # Check diagnostic info if not found
             logger.warning(
                 f"Could not find connector with name: {connector_name_or_id}"
             )
@@ -436,7 +436,17 @@ class FivetranAPIClient:
             # First, try the standard schema endpoint
             response = self._make_request("GET", f"/connectors/{connector_id}/schemas")
 
-            logger.debug(f"Schema response for connector {connector_id}: {response}")
+            logger.info(f"Schema API response for connector {connector_id}: {response}")
+
+            # Check for schema information
+            data_section = response.get("data", {})
+            schemas_section = data_section.get("schemas", [])
+            logger.info(
+                f"Schema response structure for {connector_id}: "
+                f"data keys: {list(data_section.keys()) if isinstance(data_section, dict) else 'not dict'}, "
+                f"schemas type: {type(schemas_section)}, "
+                f"schemas length: {len(schemas_section) if isinstance(schemas_section, (list, dict)) else 'not iterable'}"
+            )
 
             # Process raw schemas based on format received
             raw_schemas = response.get("data", {}).get("schemas", [])
@@ -903,7 +913,7 @@ class FivetranAPIClient:
             batch = tables_missing_columns[start_idx:end_idx]
 
             logger.info(
-                f"Processing batch {batch_num + 1}/{total_batches}: "
+                f"Processing batch {batch_num + 1}/{total_batches} "
                 f"Fetching column information for {len(batch)} tables "
                 f"(tables {start_idx + 1}-{end_idx} out of {len(tables_missing_columns)} missing column info)"
             )
@@ -2151,7 +2161,9 @@ class FivetranAPIClient:
             if not schemas:
                 logger.warning(
                     f"No schema information found for connector {connector_id}. "
-                    f"This may indicate: 1) Connector has no configured tables, 2) API permissions issue, or 3) Connector setup incomplete."
+                    f"This will result in NO LINEAGE being generated for this connector. "
+                    f"Possible causes: 1) Connector has no enabled tables, 2) API permissions issue, "
+                    f"3) Connector setup incomplete, or 4) All tables are disabled in Fivetran."
                 )
                 return
 
@@ -2542,7 +2554,7 @@ class FivetranAPIClient:
             if dest_col == col_name:
                 dest_col = self._transform_column_name(col_name, destination_platform)
 
-            # Log column mapping for debugging
+            # Process column mapping
             logger.debug(f"Column mapping: {col_name} -> {dest_col}")
 
             column_lineage.append(

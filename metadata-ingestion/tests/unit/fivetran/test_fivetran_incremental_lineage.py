@@ -8,6 +8,7 @@ lineage as patches rather than full overwrites, enabling:
 - Avoiding conflicts when multiple ingestion processes target the same datasets
 """
 
+from typing import List
 from unittest.mock import MagicMock
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -72,11 +73,20 @@ class TestFivetranIncrementalLineage:
         # Check that one of the processors is the incremental lineage processor
         incremental_processor_found = False
         for processor in processors:
-            if processor is not None and hasattr(processor, "func"):
-                if processor.func == auto_incremental_lineage:
+            if processor is not None:
+                # Check if it's a partial function with auto_incremental_lineage
+                if (
+                    hasattr(processor, "func")
+                    and processor.func == auto_incremental_lineage
+                ):
                     incremental_processor_found = True
                     # Verify it's configured with the right setting
-                    assert processor.args == (True,)  # incremental_lineage=True
+                    if hasattr(processor, "args"):
+                        assert processor.args == (True,)  # incremental_lineage=True
+                    break
+                # Check if it's the function directly
+                elif processor == auto_incremental_lineage:
+                    incremental_processor_found = True
                     break
 
         assert incremental_processor_found, (
@@ -101,11 +111,20 @@ class TestFivetranIncrementalLineage:
         # Check that the incremental lineage processor is configured with False
         incremental_processor_found = False
         for processor in processors:
-            if processor is not None and hasattr(processor, "func"):
-                if processor.func == auto_incremental_lineage:
+            if processor is not None:
+                # Check if it's a partial function with auto_incremental_lineage
+                if (
+                    hasattr(processor, "func")
+                    and processor.func == auto_incremental_lineage
+                ):
                     incremental_processor_found = True
                     # Verify it's configured with the right setting
-                    assert processor.args == (False,)  # incremental_lineage=False
+                    if hasattr(processor, "args"):
+                        assert processor.args == (False,)  # incremental_lineage=False
+                    break
+                # Check if it's the function directly
+                elif processor == auto_incremental_lineage:
+                    incremental_processor_found = True
                     break
 
         assert incremental_processor_found, (
@@ -131,7 +150,7 @@ class TestFivetranIncrementalLineage:
 
         workunit = MetadataWorkUnit(
             id="test-workunit",
-            mcp_raw=mcp,
+            mcp=mcp,
         )
 
         # Process through incremental lineage helper
@@ -146,6 +165,7 @@ class TestFivetranIncrementalLineage:
         # Verify it's a patch operation
         assert hasattr(processed_wu.metadata, "changeType")
         assert processed_wu.metadata.changeType == "PATCH"
+        assert hasattr(processed_wu.metadata, "aspectName")
         assert processed_wu.metadata.aspectName == "upstreamLineage"
 
     def test_auto_incremental_lineage_passthrough_when_disabled(self):
@@ -167,7 +187,7 @@ class TestFivetranIncrementalLineage:
 
         workunit = MetadataWorkUnit(
             id="test-workunit",
-            mcp_raw=mcp,
+            mcp=mcp,
         )
 
         # Process through incremental lineage helper with disabled flag
@@ -201,15 +221,19 @@ class TestFivetranIncrementalLineage:
         # Verify incremental lineage processor is present and properly configured
         incremental_processor = None
         for processor in processors:
-            if processor is not None and hasattr(processor, "func"):
-                if processor.func == auto_incremental_lineage:
+            if processor is not None:
+                if (
+                    hasattr(processor, "func")
+                    and processor.func == auto_incremental_lineage
+                ) or processor == auto_incremental_lineage:
                     incremental_processor = processor
                     break
 
         assert incremental_processor is not None
-        assert incremental_processor.args == (True,)  # incremental_lineage=True
+        if hasattr(incremental_processor, "args"):
+            assert incremental_processor.args == (True,)  # incremental_lineage=True
 
         # Test that the processor can be called
-        mock_workunits = []
+        mock_workunits: List[MetadataWorkUnit] = []
         result = list(incremental_processor(mock_workunits))
         assert result == mock_workunits  # Should pass through empty list

@@ -2,12 +2,13 @@ import functools
 import logging
 from typing import Dict, Iterable, List, Optional, Union
 
-import datahub.emitter.mce_builder as builder
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
+from datahub.emitter import mce_builder as builder
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -44,10 +45,13 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetLineageTypeClass
 from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DatasetUrn
 from datahub.sdk.dataflow import DataFlow
@@ -1018,10 +1022,10 @@ class FivetranSource(StatefulIngestionSourceBase):
             platform = connector.additional_properties["destination_platform"]
             if platform is not None:
                 platform_str = str(platform)
-                logger.info(
-                    f"Using destination platform '{platform_str}' from connector properties for {connector.connector_id}"
-                )
-                return platform_str
+            logger.info(
+                f"Using destination platform '{platform_str}' from connector properties for {connector.connector_id}"
+            )
+            return platform_str
 
         # Use _get_destination_details which has its own logic for detecting platforms
         destination_details = self._get_destination_details(connector)
@@ -1346,6 +1350,17 @@ class FivetranSource(StatefulIngestionSourceBase):
         # Store field lineage workunits to emit after dataset workunits
         field_lineage_workunits = []
 
+        # Check if connector has any lineage at all
+        if not connector.lineage:
+            logger.warning(
+                f"No lineage data available for connector '{connector.connector_name}' ({connector.connector_id}). "
+                f"This connector will not contribute any lineage information to DataHub. "
+                f"If lineage is expected, check: 1) Connector has enabled tables, 2) Tables are syncing data, "
+                f"3) API permissions include lineage access, 4) Connector is properly configured."
+            )
+            # Still create the dataflow, but without lineage
+            return
+
         # Special handling for connectors with lineage but no job history
         if not connector.jobs and connector.lineage:
             logger.info(
@@ -1423,6 +1438,11 @@ class FivetranSource(StatefulIngestionSourceBase):
                         field_lineage_workunits.append(wu)
                     else:
                         yield wu
+
+        # Generate upstreamLineage aspects for destination datasets
+        # This is crucial for DataHub to display lineage relationships
+        if connector.lineage:
+            yield from self._create_upstream_lineage_workunits(connector)
 
         # Now emit the field lineage workunits after all dataset workunits
         for wu in field_lineage_workunits:
@@ -1537,6 +1557,19 @@ class FivetranSource(StatefulIngestionSourceBase):
         """
         logger.info("Fivetran plugin execution is started")
 
+        # Track statistics for final summary
+        ingestion_stats: Dict[str, Union[int, List[str]]] = {
+            "connectors_processed": 0,
+            "total_datasets": 0,
+            "total_datajobs": 0,
+            "total_lineage_aspects": 0,
+            "sample_inputs": [],
+            "sample_outputs": [],
+            "sample_datajobs": [],
+            "connectors_with_lineage": 0,
+            "connectors_without_lineage": 0,
+        }
+
         # Process connectors progressively, yielding work units as we go
         logger.info("Processing connectors with progressive workunit emission")
         for connector in self.fivetran_access.get_allowed_connectors_stream(
@@ -1546,7 +1579,265 @@ class FivetranSource(StatefulIngestionSourceBase):
             self.config.history_sync_lookback_period,
         ):
             logger.info(f"Processing connector id: {connector.connector_id}")
-            yield from self._get_connector_workunits(connector)
+            connectors_processed = ingestion_stats["connectors_processed"]
+            assert isinstance(connectors_processed, int)
+            ingestion_stats["connectors_processed"] = connectors_processed + 1
+
+            # Track lineage availability
+            if connector.lineage:
+                connectors_with_lineage = ingestion_stats["connectors_with_lineage"]
+                assert isinstance(connectors_with_lineage, int)
+                ingestion_stats["connectors_with_lineage"] = connectors_with_lineage + 1
+            else:
+                connectors_without_lineage = ingestion_stats[
+                    "connectors_without_lineage"
+                ]
+                assert isinstance(connectors_without_lineage, int)
+                ingestion_stats["connectors_without_lineage"] = (
+                    connectors_without_lineage + 1
+                )
+
+            # Process connector and track statistics
+            for workunit in self._get_connector_workunits(connector):
+                self._update_ingestion_stats(workunit, ingestion_stats)
+                yield workunit
+
+        # Log comprehensive summary at the end
+        self._log_ingestion_summary(ingestion_stats)
+
+    def _update_ingestion_stats(self, workunit: MetadataWorkUnit, stats: Dict) -> None:
+        """Update ingestion statistics based on the workunit."""
+        if not workunit.metadata:
+            return
+
+        entity_type = getattr(workunit.metadata, "entityType", "unknown")
+        aspect_name = getattr(workunit.metadata, "aspectName", "unknown")
+        urn = str(workunit.get_urn())
+
+        # Count entity types
+        if entity_type == "dataset":
+            stats["total_datasets"] += 1
+
+            # Collect sample inputs and outputs based on platform
+            if "snowflake" in urn or "bigquery" in urn or "redshift" in urn:
+                # This is likely a destination/output
+                if len(stats["sample_outputs"]) < 5:
+                    stats["sample_outputs"].append(urn)
+            else:
+                # This is likely a source/input
+                if len(stats["sample_inputs"]) < 5:
+                    stats["sample_inputs"].append(urn)
+
+        elif entity_type == "dataJob":
+            stats["total_datajobs"] += 1
+            if len(stats["sample_datajobs"]) < 5:
+                stats["sample_datajobs"].append(urn)
+
+        # Count lineage aspects
+        if aspect_name == "upstreamLineage":
+            stats["total_lineage_aspects"] += 1
+
+    def _log_ingestion_summary(self, stats: Dict) -> None:
+        """Log comprehensive summary of what was ingested."""
+        logger.info("=" * 80)
+        logger.info("FIVETRAN INGESTION SUMMARY")
+        logger.info("=" * 80)
+
+        # Overall statistics
+        logger.info("OVERALL STATISTICS:")
+        logger.info(f"  • Connectors Processed: {stats['connectors_processed']}")
+        logger.info(f"  • Connectors with Lineage: {stats['connectors_with_lineage']}")
+        logger.info(
+            f"  • Connectors without Lineage: {stats['connectors_without_lineage']}"
+        )
+        logger.info(f"  • Total Datasets: {stats['total_datasets']}")
+        logger.info(f"  • Total DataJobs: {stats['total_datajobs']}")
+        logger.info(f"  • Total Lineage Aspects: {stats['total_lineage_aspects']}")
+
+        # Sample inputs (sources)
+        if stats["sample_inputs"]:
+            logger.info("\nSAMPLE INPUT URNS (Sources):")
+            for i, urn in enumerate(stats["sample_inputs"], 1):
+                logger.info(f"  {i}. {urn}")
+        else:
+            logger.warning(
+                "  WARNING: No input URNs found - this may indicate missing source lineage"
+            )
+
+        # Sample outputs (destinations)
+        if stats["sample_outputs"]:
+            logger.info("\nSAMPLE OUTPUT URNS (Destinations):")
+            for i, urn in enumerate(stats["sample_outputs"], 1):
+                logger.info(f"  {i}. {urn}")
+        else:
+            logger.warning(
+                "  WARNING: No output URNs found - this may indicate missing destination lineage"
+            )
+
+        # Sample datajobs
+        if stats["sample_datajobs"]:
+            logger.info("\nSAMPLE DATAJOB URNS (Fivetran Syncs):")
+            for i, urn in enumerate(stats["sample_datajobs"], 1):
+                logger.info(f"  {i}. {urn}")
+        else:
+            logger.warning(
+                "  WARNING: No DataJob URNs found - this may indicate missing job history"
+            )
+
+        # Lineage validation
+        if stats["total_lineage_aspects"] == 0:
+            logger.warning("\nLINEAGE VALIDATION:")
+            logger.warning("  WARNING: NO LINEAGE ASPECTS FOUND!")
+            logger.warning(
+                "  This means no lineage relationships will be created in DataHub."
+            )
+            logger.warning("  Check:")
+            logger.warning("    1. Connector configurations in Fivetran")
+            logger.warning("    2. API permissions for lineage access")
+            logger.warning("    3. Table sync status and enabled tables")
+            logger.warning("    4. Fivetran connector types support lineage")
+        else:
+            logger.info("\nLINEAGE VALIDATION:")
+            logger.info(
+                f"  Successfully found {stats['total_lineage_aspects']} lineage relationships"
+            )
+
+        # Configuration info
+        logger.info("\nCONFIGURATION:")
+        logger.info(f"  • Incremental Lineage: {self.config.incremental_lineage}")
+        logger.info(f"  • Include Column Lineage: {self.config.include_column_lineage}")
+        logger.info(
+            f"  • History Lookback Days: {self.config.history_sync_lookback_period}"
+        )
+        logger.info(
+            f"  • Max Table Lineage per Connector: {self.config.max_table_lineage_per_connector}"
+        )
+
+        logger.info("=" * 80)
+
+    def _create_upstream_lineage_workunits(
+        self, connector: Connector
+    ) -> Iterable[MetadataWorkUnit]:
+        """Create upstreamLineage aspects for destination datasets."""
+        # Get platform details
+        source_details = self._get_source_details(connector)
+        destination_details = self._get_destination_details(connector)
+
+        # Group lineage by destination table to avoid duplicate upstreamLineage aspects
+        dest_to_sources: Dict[str, List[TableLineage]] = {}
+
+        for lineage in connector.lineage:
+            dest_table = lineage.destination_table
+            if dest_table not in dest_to_sources:
+                dest_to_sources[dest_table] = []
+            dest_to_sources[dest_table].append(lineage)
+
+        logger.info(
+            f"Creating upstreamLineage aspects for {len(dest_to_sources)} destination tables"
+        )
+
+        # Create upstreamLineage aspect for each destination table
+        for dest_table, source_lineages in dest_to_sources.items():
+            try:
+                # Create destination URN
+                dest_urn = self._create_dataset_urn(
+                    dest_table,
+                    destination_details,
+                    is_source=False,
+                )
+
+                if not dest_urn:
+                    logger.warning(f"Failed to create destination URN for {dest_table}")
+                    continue
+
+                # Create upstream entries
+                upstreams = []
+                fine_grained_lineages = []
+
+                for lineage in source_lineages:
+                    # Create source URN
+                    source_urn = self._create_dataset_urn(
+                        lineage.source_table,
+                        source_details,
+                        is_source=True,
+                    )
+
+                    if not source_urn:
+                        logger.warning(
+                            f"Failed to create source URN for {lineage.source_table}"
+                        )
+                        continue
+
+                    # Create upstream entry
+                    upstream = UpstreamClass(
+                        dataset=str(source_urn),
+                        type=DatasetLineageTypeClass.TRANSFORMED,
+                    )
+                    upstreams.append(upstream)
+
+                    # Add column-level lineage if available
+                    if self.config.include_column_lineage and lineage.column_lineage:
+                        for col_lineage in lineage.column_lineage:
+                            if (
+                                col_lineage.source_column
+                                and col_lineage.destination_column
+                            ):
+                                fine_grained_lineage = FineGrainedLineageClass(
+                                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                                    upstreams=[
+                                        str(
+                                            builder.make_schema_field_urn(
+                                                str(source_urn),
+                                                col_lineage.source_column,
+                                            )
+                                        )
+                                    ],
+                                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                                    downstreams=[
+                                        str(
+                                            builder.make_schema_field_urn(
+                                                str(dest_urn),
+                                                col_lineage.destination_column,
+                                            )
+                                        )
+                                    ],
+                                )
+                                fine_grained_lineages.append(fine_grained_lineage)
+
+                if not upstreams:
+                    logger.warning(
+                        f"No valid upstreams found for destination {dest_table}"
+                    )
+                    continue
+
+                # Create upstreamLineage aspect
+                upstream_lineage = UpstreamLineageClass(
+                    upstreams=upstreams,
+                    fineGrainedLineages=fine_grained_lineages
+                    if fine_grained_lineages
+                    else None,
+                )
+
+                # Create workunit
+                mcp = MetadataChangeProposalWrapper(
+                    entityUrn=str(dest_urn),
+                    aspect=upstream_lineage,
+                )
+                workunit = mcp.as_workunit()
+
+                logger.debug(
+                    f"Created upstreamLineage aspect for {dest_urn} with {len(upstreams)} upstreams"
+                )
+                yield workunit
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to create upstreamLineage for {dest_table}: {e}"
+                )
+                import traceback
+
+                logger.debug(f"Full traceback: {traceback.format_exc()}")
+                continue
 
     def get_report(self) -> SourceReport:
         """Get the report for this source."""
