@@ -27,6 +27,17 @@ const injectMeticulous = () => {
     };
 };
 
+// since we have base: './' for relative paths, vite will set static assets at "./assets/..."
+// with a base path configured we can't find them. We want simple "assets/..."
+function stripDotSlashFromAssets() {
+    return {
+        name: 'strip-dot-slash',
+        transformIndexHtml(html) {
+            return html.replace(/src="\.\//g, 'src="').replace(/href="\.\//g, 'href="');
+        },
+    };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
     const { viteStaticCopy } = await import('vite-plugin-static-copy');
@@ -96,6 +107,7 @@ export default defineConfig(async ({ mode }) => {
                 uploadToken: process.env.CODECOV_TOKEN,
                 gitService: 'github',
             }),
+            stripDotSlashFromAssets(),
         ],
         // optimizeDeps: {
         //     include: ['@ant-design/colors', '@ant-design/icons', 'lodash-es', '@ant-design/icons/es/icons'],
@@ -108,23 +120,6 @@ export default defineConfig(async ({ mode }) => {
             reportCompressedSize: false,
             // Limit number of worker threads to reduce CPU pressure
             workers: 3, // default is number of CPU cores
-            // TODO: remove once we inject into index.html directly and remove index.scala
-            cssCodeSplit: 'true',
-            rollupOptions: {
-                output: {
-                    assetFileNames: (assetInfo) => {
-                        if (/\.(css)$/.test(assetInfo.name || '')) {
-                            return `assets/css/[name].[ext]`;
-                        }
-                        if (/\.(png|jpe?g|svg|gif|webp|ico)$/.test(assetInfo.name || '')) {
-                            return `assets/img/[name].[ext]`;
-                        }
-                        return `assets/[name].[ext]`;
-                    },
-                    chunkFileNames: `assets/js/[name].js`,
-                    entryFileNames: `assets/js/[name].js`,
-                },
-            },
         },
         server: {
             open: false,

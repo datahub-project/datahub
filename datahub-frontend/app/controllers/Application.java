@@ -12,10 +12,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.metadata.utils.BasePathUtils;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -59,27 +61,33 @@ public class Application extends Controller {
   }
 
   /**
-   * Serves the build output index.html for any given path using Play template
+   * Serves the build output index.html for any given path
    *
    * @param path takes a path string, which essentially is ignored routing is managed client side
-   * @return {Result} rendered index template with dynamic base path and version
+   * @return {Result} rendered index template with dynamic base path
    */
   @Nonnull
   private Result serveAsset(@Nullable String path) {
     try {
-      String basePath = this.basePath;
-      String datahubVersion = config.getString("app.version");
+      InputStream indexHtml = environment.resourceAsStream("public/index.html");
+      if (indexHtml == null) {
+        throw new IllegalStateException("index.html not found");
+      }
 
+      String html = new String(indexHtml.readAllBytes(), StandardCharsets.UTF_8);
+
+      String basePath = this.basePath;
       // Ensure base path ends with / for HTML base tag
       if (!basePath.endsWith("/")) {
         basePath += "/";
       }
-      return ok(views.html.index.render(basePath, datahubVersion));
+      // Inject <base href="..."/> right after <head> for use in the frontend.
+      String modifiedHtml = html.replace("@basePath", basePath);
+
+      return ok(modifiedHtml).withHeader("Cache-Control", "no-cache").as("text/html");
     } catch (Exception e) {
-      logger.warn("Cannot render index template", e);
-      return internalServerError("Template rendering failed")
-          .withHeader("Cache-Control", "no-cache")
-          .as("text/html");
+      logger.warn("Cannot load public/index.html resource. Static assets or assets jar missing?");
+      return notFound().withHeader("Cache-Control", "no-cache").as("text/html");
     }
   }
 

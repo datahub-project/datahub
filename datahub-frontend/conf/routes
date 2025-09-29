@@ -46,7 +46,6 @@ GET           /assets/icons/favicon.ico                                        c
 GET           /assets/*file                                                    controllers.Assets.at(path="/public/assets", file)
 GET           /node_modules/*file                                              controllers.Assets.at(path="/public/node_modules", file)
 GET           /manifest.json                                                   controllers.Assets.at(path="/public", file="manifest.json")
-GET           /robots.txt                                                      controllers.RobotsController.robots(request: Request)
 
 # Wildcard route accepts any routes and delegates to serveAsset which in turn serves the React Bundle's index.html
 GET           /*path                                                           controllers.Application.index(path)
