@@ -62,6 +62,8 @@ public class SsoCallbackController extends CallbackController {
     String homeUrl = basePath.isEmpty() ? "/" : basePath + "/";
     setDefaultUrl(homeUrl);
 
+    log.info("Home URL: {}", getDefaultUrl());
+
     callbackLogic =
         new SsoCallbackLogic(
             ssoManager,
