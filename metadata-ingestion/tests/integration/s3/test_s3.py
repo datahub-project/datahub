@@ -474,10 +474,6 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
                 call.list_folders_path(
                     "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
                 ),
-                call.list_folders(
-                    "my-test-bucket",
-                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json",
-                ),
                 call.list_objects_recursive(
                     "my-test-bucket",
                     "folder_a/folder_aa/folder_aaa/pokemon_abilities_json",
@@ -494,10 +490,6 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
             [
                 call.list_folders_path(
                     "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
-                ),
-                call.list_folders(
-                    "my-test-bucket",
-                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json",
                 ),
                 call.list_objects_recursive(
                     "my-test-bucket",

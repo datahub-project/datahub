@@ -1149,15 +1149,9 @@ class S3Source(StatefulIngestionSourceBase):
 
                     if path_spec.traversal_method == FolderTraversalMethod.ALL:
                         # Process ALL partitions (original behavior)
-                        dirs_to_process = list(
-                            list_folders(
-                                bucket_name,
-                                table_folder,
-                                self.source_config.aws_config,
-                            )
-                        )
-                        logger.info(
-                            f"Found ALL {len(dirs_to_process)} partition folders under table {table_name}"
+                        dirs_to_process = [get_bucket_relative_path(folder.path)]
+                        logger.debug(
+                            f"Processing ALL partition folders under: {folder.path}"
                         )
 
                     else:
