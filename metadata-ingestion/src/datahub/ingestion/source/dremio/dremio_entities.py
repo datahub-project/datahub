@@ -6,7 +6,7 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any, Deque, Dict, Iterator, List, Optional
 
 from sqlglot import parse_one
 
@@ -374,6 +374,55 @@ class DremioCatalog:
         self.set_datasets()
         return self.datasets
 
+    def get_datasets_iter(self) -> Iterator["DremioDataset"]:
+        """
+        Memory-efficient streaming version that yields datasets one at a time.
+        Avoids collecting all datasets in memory before processing.
+        """
+        # Stream containers directly without storing them
+        containers_stream = self._get_containers_iter()
+
+        for dataset_details in self.dremio_api.get_all_tables_and_columns_iter(
+            containers_stream
+        ):
+            dremio_dataset = DremioDataset(
+                dataset_details=dataset_details,
+                api_operations=self.dremio_api,
+            )
+
+            yield dremio_dataset
+
+    def _get_containers_iter(self) -> Iterator["DremioContainer"]:
+        """
+        Stream containers without storing them in memory.
+        """
+        for container in self.dremio_api.get_all_containers():
+            container_type = container.get("container_type")
+            if container_type == DremioEntityContainerType.SOURCE:
+                yield DremioSourceContainer(
+                    container_name=container.get("name"),
+                    location_id=container.get("id"),
+                    path=[],
+                    api_operations=self.dremio_api,
+                    dremio_source_type=container.get("source_type") or "",
+                    root_path=container.get("root_path"),
+                    database_name=container.get("database_name"),
+                )
+            elif container_type == DremioEntityContainerType.SPACE:
+                yield DremioSpace(
+                    container_name=container.get("name"),
+                    location_id=container.get("id"),
+                    path=[],
+                    api_operations=self.dremio_api,
+                )
+            elif container_type == DremioEntityContainerType.FOLDER:
+                yield DremioFolder(
+                    container_name=container.get("name"),
+                    location_id=container.get("id"),
+                    path=container.get("path"),
+                    api_operations=self.dremio_api,
+                )
+
     def set_containers(self) -> None:
         if not self.containers_populated:
             for container in self.dremio_api.get_all_containers():
@@ -427,6 +476,12 @@ class DremioCatalog:
         self.set_containers()
         return deque(itertools.chain(self.sources, self.spaces, self.folders))
 
+    def get_containers_iter(self) -> Iterator["DremioContainer"]:
+        """
+        Stream containers without storing them in deques.
+        """
+        return self._get_containers_iter()
+
     def get_sources(self) -> Deque[DremioSourceContainer]:
         self.set_containers()
         return self.sources
@@ -435,6 +490,19 @@ class DremioCatalog:
         self.set_datasets()
         self.set_containers()
         return self.glossary_terms
+
+    def get_glossary_terms_iter(self) -> Iterator[DremioGlossaryTerm]:
+        """
+        Stream glossary terms without storing them in deque.
+        Note: This processes datasets to extract glossary terms on-the-fly.
+        """
+        glossary_terms_seen = set()
+
+        for dataset in self.get_datasets_iter():
+            for glossary_term in dataset.glossary_terms:
+                if glossary_term not in glossary_terms_seen:
+                    glossary_terms_seen.add(glossary_term)
+                    yield glossary_term
 
     def is_valid_query(self, query: Dict[str, Any]) -> bool:
         required_fields = [
