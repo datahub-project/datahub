@@ -54,12 +54,6 @@ const AddDescriptionText = styled.span`
     }
 `;
 
-const DescriptionWrapper = styled.div`
-    display: flex;
-    gap: 4px;
-    align-items: center;
-`;
-
 interface Props {
     expandedField: SchemaField;
     editableFieldInfo?: EditableSchemaFieldInfo;
@@ -183,10 +177,10 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                                     isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />
                                 }
                             >
-                                <DescriptionWrapper>
+                                <>
                                     {isInferred && <InferenceDetailsIndicator />}
                                     <DescriptionSection description={displayedDescription} isExpandable />
-                                </DescriptionWrapper>
+                                </>
                             </Tooltip>
                         )}
                     </>

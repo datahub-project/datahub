@@ -279,8 +279,12 @@ export default function DescriptionField({
                             title={isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}
                         >
                             <DescriptionWrapper>
-                                {isInferred && <InferenceDetailsIndicator />}
-                                &nbsp;
+                                {isInferred && (
+                                    <>
+                                        <InferenceDetailsIndicator />
+                                        &nbsp;
+                                    </>
+                                )}
                                 <CompactMarkdownViewer
                                     content={description}
                                     lineLimit={1}

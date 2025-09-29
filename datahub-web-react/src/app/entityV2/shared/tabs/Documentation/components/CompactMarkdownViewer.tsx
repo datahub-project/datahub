@@ -25,6 +25,7 @@ const MarkdownContainer = styled.div<{ lineLimit?: number | null }>`
         align-items: center;
         gap: 4px;
     `}
+    min-width: 0;
 `;
 
 const CustomButton = styled(Button)`

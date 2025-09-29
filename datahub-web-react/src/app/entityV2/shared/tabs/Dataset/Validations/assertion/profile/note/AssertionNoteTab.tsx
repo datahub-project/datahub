@@ -10,7 +10,7 @@ import analytics, { EventType } from '@app/analytics';
 import { useUpdateAssertionMetadataMutation } from '@graphql/assertion.generated';
 import { Assertion, Maybe } from '@types';
 
-const StyledEditor = styled(Editor)`
+export const StyledEditor = styled(Editor)`
     &&& {
         .remirror-theme {
             width: 100%;
