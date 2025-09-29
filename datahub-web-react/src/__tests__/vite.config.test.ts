@@ -256,7 +256,7 @@ describe('stripDotSlashFromAssets', () => {
                 expect(transformFn(input)).toBe(expected);
             });
 
-            it('should handle a typical index.html structure', () => {
+            it('should handle our exact index.html structure', () => {
                 const input = `<!DOCTYPE html>
 <html lang="en">
     <head>
