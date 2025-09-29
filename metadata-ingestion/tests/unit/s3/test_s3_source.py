@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timezone
 from typing import List, Tuple
-from unittest.mock import Mock, call
+from unittest.mock import Mock, call, patch
 
 import pytest
 from boto3.session import Session
@@ -330,13 +330,9 @@ def test_get_folder_info_ignores_disallowed_path(s3_resource, caplog):
     Test S3Source.get_folder_info skips disallowed files and logs a message
     """
     # arrange
-    path_spec = Mock(
-        spec=PathSpec,
+    path_spec = PathSpec(
         include="s3://my-bucket/{table}/{partition0}/*.csv",
-        glob_include="s3://my-bucket/*/*/*.csv",
-        table_name="{table}",
     )
-    path_spec.allowed = Mock(return_value=False)
 
     bucket = s3_resource.Bucket("my-bucket")
     bucket.create()
@@ -345,13 +341,17 @@ def test_get_folder_info_ignores_disallowed_path(s3_resource, caplog):
     s3_source = _get_s3_source(path_spec)
 
     # act
-    res = s3_source.get_folder_info(path_spec, "s3://my-bucket/my-folder")
-    res = list(res)
+    with patch(
+        "datahub.ingestion.source.data_lake_common.path_spec.PathSpec.allowed"
+    ) as allowed:
+        allowed.return_value = False
+        res = s3_source.get_folder_info(path_spec, "s3://my-bucket/my-folder")
+        res = list(res)
 
     # assert
     expected_called_s3_uri = "s3://my-bucket/my-folder/ignore/this/path/0001.csv"
 
-    assert path_spec.allowed.call_args_list == [call(expected_called_s3_uri)], (
+    assert allowed.call_args_list == [call(expected_called_s3_uri)], (
         "File should be checked if it's allowed"
     )
     assert f"File {expected_called_s3_uri} not allowed and skipping" in caplog.text, (

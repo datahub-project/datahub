@@ -3,6 +3,7 @@ import functools
 import logging
 import os
 import pathlib
+import posixpath
 import re
 import time
 from datetime import datetime
@@ -873,16 +874,14 @@ class S3Source(StatefulIngestionSourceBase):
         if not uri.endswith("/"):
             uri += "/"
 
-        path_slash = uri.count("/")
-        glob_slash = path_spec.glob_include.count("/")
-        if path_slash == glob_slash and not path_spec.glob_include.endswith("**"):
+        if path_spec.has_correct_number_of_directory_components(uri):
             # no need to list sub-folders, we're at the end of the include path
             return [uri]
 
         # Add next part of path_spec (if it exists) before globs to the prefix, so
         # that we don't unnecessarily list too many directories.
-        next_path_components = path_spec.glob_include.split("/")[path_slash:] or [""]
-        prefix = next_path_components[0].split("*")[0]
+        remaining_glob = path_spec.get_remaining_glob_include(uri)
+        prefix = remaining_glob.split("/")[0].split("*")[0]
 
         logger.debug(f"get_dir_to_process listing folders {uri=} {prefix=}")
         iterator = list_folders_path(
@@ -936,9 +935,6 @@ class S3Source(StatefulIngestionSourceBase):
         List[Folder]: A list of Folder objects representing the partitions found.
         """
 
-        if not uri.endswith("/"):
-            uri += "/"
-
         def _is_allowed_path(path_spec_: PathSpec, s3_uri: str) -> bool:
             # Normalize URI for pattern matching
             normalized_uri = self._normalize_uri_for_pattern_matching(s3_uri)
@@ -953,12 +949,9 @@ class S3Source(StatefulIngestionSourceBase):
         # so that we don't unnecessarily list too many objects.
         if not uri.endswith("/"):
             uri += "/"
-        path_slash = uri.count("/")
-        remaining_pattern = "/".join(path_spec.glob_include.split("/")[path_slash:])
-        prefix = remaining_pattern.split("*")[0]
-        if "/" in prefix:
-            uri += prefix.rsplit("/", 1)[0]
-            prefix = prefix.rsplit("/", 1)[1]
+        remaining = path_spec.get_remaining_glob_include(uri).split("*")[0]
+        uri += posixpath.dirname(remaining)
+        prefix = posixpath.basename(remaining)
 
         # Process objects in a memory-efficient streaming fashion
         # Instead of loading all objects into memory, we'll accumulate folder data incrementally

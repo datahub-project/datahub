@@ -224,9 +224,8 @@ class PathSpec(ConfigModel):
                 ):
                     return False
 
-        dummy_rest_of_path = self.include.split("/")[path_slash:]
         table_name, _ = self.extract_table_name_and_path(
-            os.path.join(path, *dummy_rest_of_path)
+            path + self.get_remaining_glob_include(path)
         )
         if not self.tables_filter_pattern.allowed(table_name):
             return False
@@ -574,3 +573,38 @@ class PathSpec(ConfigModel):
                 "/".join(path.split("/")[:depth]) + "/" + parsed_vars.named["table"]
             )
         return self._extract_table_name(parsed_vars.named), table_path
+
+    def has_correct_number_of_directory_components(self, path: str) -> bool:
+        """
+        Checks that a given path has the same number of components as the path spec
+        has directory components. Useful for checking if a path needs to descend further
+        into child directories or if the source can switch into file listing mode. If the
+        glob form of the path spec ends in "**", this always returns False.
+        """
+        if self.glob_include.endswith("**"):
+            return False
+
+        if not path.endswith("/"):
+            path += "/"
+        path_slash = path.count("/")
+        glob_slash = self.glob_include.count("/")
+        if path_slash == glob_slash:
+            return True
+        return False
+
+    def get_remaining_glob_include(self, path: str) -> str:
+        """
+        Given a path, return the remaining components of the path spec (if any
+        exist) in glob form. If the glob form of the path spec ends in "**", this
+        function's return value also always ends in "**", regardless of how
+        many components the input path has.
+        """
+        if not path.endswith("/"):
+            path += "/"
+        path_slash = path.count("/")
+        remainder = "/".join(self.glob_include.split("/")[path_slash:])
+        if remainder:
+            return remainder
+        if self.glob_include.endswith("**"):
+            return "**"
+        return ""
