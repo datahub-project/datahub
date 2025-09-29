@@ -124,7 +124,7 @@ export const useAssertionsTableColumns = ({
                 width: '35%',
                 sorter: (a, b) => {
                     if (a.type && b.type) {
-                        return getAssertionGroupName(a.type).localeCompare(getAssertionGroupName(a.type));
+                        return getAssertionGroupName(a.type).localeCompare(getAssertionGroupName(b.type));
                     }
                     return 0;
                 },
