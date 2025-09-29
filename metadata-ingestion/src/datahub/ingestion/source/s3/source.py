@@ -871,17 +871,20 @@ class S3Source(StatefulIngestionSourceBase):
         path_spec: PathSpec,
         min: bool = False,
     ) -> List[str]:
+        # Add any remaining parts of the path_spec before globs, excluding the
+        # final filename component, to the URI and prefix so that we don't
+        # unnecessarily list too many objects.
         if not uri.endswith("/"):
             uri += "/"
+        remaining = posixpath.dirname(path_spec.get_remaining_glob_include(uri)).split(
+            "*"
+        )[0]
+        uri += posixpath.dirname(remaining)
+        prefix = posixpath.basename(remaining)
 
+        # Check if we're at the end of the include path. If so, no need to list sub-folders.
         if path_spec.has_correct_number_of_directory_components(uri):
-            # no need to list sub-folders, we're at the end of the include path
             return [uri]
-
-        # Add next part of path_spec (if it exists) before globs to the prefix, so
-        # that we don't unnecessarily list too many directories.
-        remaining_glob = path_spec.get_remaining_glob_include(uri)
-        prefix = remaining_glob.split("/")[0].split("*")[0]
 
         logger.debug(f"get_dir_to_process listing folders {uri=} {prefix=}")
         iterator = list_folders_path(
