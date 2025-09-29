@@ -296,6 +296,7 @@ services:
     - quickstart-storage
     - quickstart-cassandra
     - quickstart-postgres
+    - quickstart-postgres-cdc
     - quickstart-consumers
     - quickstart-consumers-cdc
     - debug
@@ -304,6 +305,7 @@ services:
     - debug-frontend
     - debug-backend
     - debug-postgres
+    - debug-postgres-cdc
     - debug-cassandra
     - debug-consumers
     - debug-consumers-cdc
@@ -350,6 +352,7 @@ services:
     - quickstart-storage
     - quickstart-cassandra
     - quickstart-postgres
+    - quickstart-postgres-cdc
     - quickstart-consumers
     - quickstart-consumers-cdc
     depends_on:

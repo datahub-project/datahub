@@ -258,6 +258,7 @@ services:
       CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
       SYSTEM_UPDATE_CDC_MODE: false
+      DEBEZIUM_PLUGIN_NAME: pgoutput
     depends_on:
       mysql-setup-cdc:
         condition: service_completed_successfully
@@ -290,6 +291,28 @@ services:
       <<: [*primary-datastore-postgres-env, *datahub-system-update-env]
     depends_on:
       postgres-setup:
+        condition: service_completed_successfully
+      opensearch-setup:
+        condition: service_completed_successfully
+  system-update-quickstart-postgres-cdc:
+    <<: *datahub-system-update-service
+    profiles:
+      - quickstart-postgres-cdc
+    environment: &system-update-quickstart-postgres-cdc-env
+      <<: [*primary-datastore-postgres-env, *datahub-system-update-env]
+      DEBEZIUM_CONNECTOR_CLASS: io.debezium.connector.postgresql.PostgresConnector
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+      CDC_USER: ${CDC_USER:-datahub_cdc}
+      CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
+      DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
+      SYSTEM_UPDATE_CDC_MODE: false
+      DEBEZIUM_PLUGIN_NAME: pgoutput
+      SPRING_APPLICATION_JSON: '{"mclProcessing": {"cdcSource": {"debeziumConfig": {"config": {"table.include.list":"public.metadata_aspect_v2","schema.include.list":"public","publication.autocreate.mode":"disabled","publication.name":"dbz_publication","message.key.columns":"public.metadata_aspect_v2:urn","slot.name":"debezium","database.server.name": "datahub"}}}}}'
+      CDC_SERVER_ID: ""
+      CDC_DB_INCLUDE_LIST: ""
+    depends_on:
+      postgres-setup-cdc:
         condition: service_completed_successfully
       opensearch-setup:
         condition: service_completed_successfully
@@ -361,6 +384,17 @@ services:
         condition: service_completed_successfully
       opensearch-setup-dev:
         condition: service_completed_successfully
+  system-update-debug-postgres-cdc:
+    <<: *datahub-system-update-service-dev
+    profiles:
+      - debug-postgres-cdc
+    environment:
+      <<: *system-update-quickstart-postgres-cdc-env
+    depends_on:
+      postgres-setup-dev-cdc:
+        condition: service_completed_successfully
+      opensearch-setup-dev:
+        condition: service_completed_successfully
   system-update-debug-cassandra:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -412,6 +446,19 @@ services:
     depends_on:
       system-update-quickstart-postgres:
         condition: service_completed_successfully
+  datahub-gms-quickstart-postgres-cdc:
+    <<: *datahub-gms-service
+    profiles:
+      - quickstart-postgres-cdc
+    environment:
+      <<: [*primary-datastore-postgres-env, *datahub-gms-env]
+      DEBEZIUM_CONNECTOR_CLASS: io.debezium.connector.postgresql.PostgresConnector
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+    depends_on:
+      system-update-quickstart-postgres-cdc:
+        condition: service_completed_successfully
+
   datahub-gms-quickstart-consumers:
     <<: *datahub-gms-service
     profiles:
@@ -429,6 +476,7 @@ services:
       - quickstart-consumers-cdc
     environment:
       <<: *datahub-gms-quickstart-consumers-env
+      DEBEZIUM_CONNECTOR_CLASS: io.debezium.connector.postgresql.PostgresConnector
       CDC_MCL_PROCESSING_ENABLED: true
       CDC_CONFIGURE_SOURCE: true
     depends_on:
@@ -468,6 +516,23 @@ services:
       <<: [*primary-datastore-postgres-env, *datahub-gms-dev-env]
     depends_on:
       system-update-debug-postgres:
+        condition: service_completed_successfully
+  datahub-gms-debug-postgres-cdc:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug-postgres-cdc
+    environment:
+      <<: [*primary-datastore-postgres-env, *datahub-gms-dev-env]
+      DEBEZIUM_CONNECTOR_CLASS: io.debezium.connector.postgresql.PostgresConnector
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+      CDC_USER: ${CDC_USER:-datahub_cdc}
+      CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
+      DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
+      SYSTEM_UPDATE_CDC_MODE: false
+      DEBEZIUM_PLUGIN_NAME: pgoutput
+    depends_on:
+      system-update-debug-postgres-cdc:
         condition: service_completed_successfully
   datahub-gms-debug-cassandra:
     <<: *datahub-gms-service-dev

@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       profileName:
-        description: "Profile name for the build. Defaults to quickstart-consumers if not specified"
+        description: "Profile name for the smoke-test. Defaults to quickstart-consumers if not specified"
         required: false
         default: "quickstart-consumers"
         type: string

@@ -69,6 +69,13 @@ services:
     depends_on:
       system-update-quickstart-cdc:
         condition: service_completed_successfully
+  frontend-quickstart-postgres-cdc:
+    <<: *datahub-frontend-service
+    profiles:
+      - quickstart-postgres-cdc
+    depends_on:
+      system-update-quickstart-postgres-cdc:
+        condition: service_completed_successfully
   frontend-debug:
     <<: *datahub-frontend-service-dev
     profiles:
@@ -127,6 +134,14 @@ services:
     depends_on:
       system-update-debug-consumers-cdc:
         condition: service_completed_successfully
+  frontend-debug-posgres-cdc:
+    <<: *datahub-frontend-service-dev
+    profiles:
+      - debug-postgres-cdc
+    depends_on:
+      system-update-debug-postgres-cdc:
+        condition: service_completed_successfully
+
   frontend-debug-neo4j:
     <<: *datahub-frontend-service-dev
     profiles:

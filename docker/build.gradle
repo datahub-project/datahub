@@ -137,6 +137,14 @@ ext {
                             ':datahub-actions',
                     ]
             ],
+            'quickstartPgCdc': [
+                profile: 'quickstart-postgres-cdc',
+                modules: (backend_profile_modules - [':docker:mysql-setup']) + [
+                    ':docker:postgres-setup',
+                    ':datahub-frontend',
+                    ':datahub-actions',
+                ]
+            ],
             'quickstartPgDebug': [
                     profile: 'debug-postgres',
                     modules: python_services_modules + (backend_profile_modules - [':docker:mysql-setup']) + [
@@ -145,6 +153,15 @@ ext {
                     ],
                     isDebug: true
             ],
+            'quickstartPgCdcDebug': [
+                profile: 'debug-postgres-cdc',
+                modules: python_services_modules + (backend_profile_modules - [':docker:mysql-setup']) + [
+                    ':docker:postgres-setup',
+                    ':datahub-frontend'
+                ],
+                isDebug: true
+            ],
+
             'quickstartSlim': [
                     profile: 'quickstart-backend',
                     modules: backend_profile_modules + [

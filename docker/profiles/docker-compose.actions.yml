@@ -62,6 +62,13 @@ services:
     depends_on:
       datahub-gms-quickstart-consumers-cdc:
         condition: service_healthy
+  datahub-actions-quickstart-postgres-cdc:
+    <<: *datahub-actions-service
+    profiles:
+      - quickstart-postgres-cdc
+    depends_on:
+      datahub-gms-quickstart-postgres-cdc:
+        condition: service_healthy
   datahub-actions-debug:
     <<: *datahub-actions-service-dev
     profiles:
@@ -83,6 +90,13 @@ services:
       - debug-postgres
     depends_on:
       datahub-gms-debug-postgres:
+        condition: service_healthy
+  datahub-actions-debug-postgres-cdc:
+    <<: *datahub-actions-service-dev
+    profiles:
+      - debug-postgres-cdc
+    depends_on:
+      datahub-gms-debug-postgres-cdc:
         condition: service_healthy
   datahub-actions-debug-cassandra:
     <<: *datahub-actions-service-dev

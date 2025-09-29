@@ -231,7 +231,6 @@ platformAnalytics:
 mclProcessing:
   cdcSource:
     enabled: ${CDC_MCL_PROCESSING_ENABLED:false} # Enable CDC Processing.
-    converter: ${CDC_SOURCE_CONVERTER:com.datahub.cdc.MySQLToMCLConverter}
     configureSource: ${CDC_CONFIGURE_SOURCE:false} # Set to false if externally configured.
     type: debezium-kafka-connector  # Only supported type for now.
     debeziumConfig: # Debezium-specific configuration
@@ -243,21 +242,21 @@ mclProcessing:
         tasks.max: 1
         topic.prefix: datahub
         table.include.list: ".*metadata_aspect_v2"
-        database.server.id: 184001 # unique db ID per connector instance
         database.user: ${CDC_USER:datahub_cdc}
         database.password: ${CDC_PASSWORD:datahub_cdc}
-        database.include.list: ${DATAHUB_DB_NAME:datahub}
-        database.dbname: ${DATAHUB_DB_NAME:datahub} # This is required for PG only
-        plugin.name: ${DEBEZIUM_PLUGIN_NAME:decoderbufs} # Use pgoutput for PostgreSQL, decoderbufs for others
         schema.history.internal.kafka.topic: datahub.schema-changes
         value.converter.schemas.enable: false
         key.converter: org.apache.kafka.connect.storage.StringConverter
         value.converter: org.apache.kafka.connect.json.JsonConverter
-        message.key.columns: datahub.metadata_aspect_v2:urn
+        message.key.columns: ${CDC_URN_KEY_SPEC:datahub.metadata_aspect_v2:urn}
         transforms: route
         transforms.route.type: org.apache.kafka.connect.transforms.RegexRouter
         transforms.route.regex: ".*metadata_aspect_v2"
         transforms.route.replacement: ${CDC_TOPIC_NAME:datahub.metadata_aspect_v2}
+        database.server.id: ${CDC_SERVER_ID:184001} # unique db ID per connector instance for MYSQL only
+        database.dbname: ${DATAHUB_DB_NAME:datahub}
+        database.include.list: ${CDC_DB_INCLUDE_LIST:datahub} # For MYSQL only
+        plugin.name: ${DEBEZIUM_PLUGIN_NAME:decoderbufs} # Use pgoutput for PostgreSQL, decoderbufs for others
         # Default configs injected by System Update. Any additional configs are applied on top of these.
         # Below are inferred from db connection config and injected by DebeziumCDCSetupStep.
         #datahub.hostname
