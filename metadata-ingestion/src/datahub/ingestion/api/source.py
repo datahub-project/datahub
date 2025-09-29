@@ -560,11 +560,9 @@ class Source(Closeable, metaclass=ABCMeta):
         workunit_processors = self.get_workunit_processors()
         workunit_processors.append(AutoSystemMetadata(self.ctx).stamp)
         # Process main workunits
-        main_stream = self._apply_workunit_processors(
+        yield from self._apply_workunit_processors(
             workunit_processors, auto_workunit(self.get_workunits_internal())
         )
-        yield from main_stream
-
         # Process profiling workunits
         yield from self._process_profiling_stage(workunit_processors)
 
