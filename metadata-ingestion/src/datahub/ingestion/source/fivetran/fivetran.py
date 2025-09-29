@@ -1,3 +1,4 @@
+import functools
 import logging
 from typing import Dict, Iterable, List, Optional, Union
 
@@ -16,6 +17,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
     SourceReport,
@@ -1521,6 +1523,9 @@ class FivetranSource(StatefulIngestionSourceBase):
         """Get the workunit processors for this source."""
         return [
             *super().get_workunit_processors(),
+            functools.partial(
+                auto_incremental_lineage, self.config.incremental_lineage
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,

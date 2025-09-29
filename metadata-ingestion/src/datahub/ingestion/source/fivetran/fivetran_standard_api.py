@@ -922,6 +922,143 @@ class FivetranStandardAPI(FivetranAccessInterface):
 
         return None
 
+    def _try_alternative_job_extraction(self, connector: Connector) -> None:
+        """
+        Try alternative approaches to extract job history when standard methods fail.
+        This is particularly useful for connectors that have recent activity but no sync history.
+        """
+        try:
+            # Check if connector has recent activity indicators
+            has_recent_activity = (
+                hasattr(connector, "additional_properties")
+                and connector.additional_properties
+                and (
+                    connector.additional_properties.get("connector.api.succeeded_at")
+                    or connector.additional_properties.get("connector.api.failed_at")
+                )
+            )
+
+            if has_recent_activity:
+                logger.info(
+                    f"Connector {connector.connector_id} shows recent activity but no sync history found. "
+                    f"This may indicate API limitations or connector configuration issues."
+                )
+
+                # Try to get connector details to see if there are any status indicators
+                try:
+                    connector_details = self.api_client.get_connector_by_id(
+                        connector.connector_id
+                    )
+                    if connector_details:
+                        status = connector_details.get("status", {})
+                        setup_state = status.get("setup_state")
+                        sync_state = status.get("sync_state")
+
+                        logger.info(
+                            f"Connector {connector.connector_id} status: setup_state={setup_state}, sync_state={sync_state}"
+                        )
+
+                        # If connector is connected and has activity, create a synthetic job
+                        if setup_state == "connected" and has_recent_activity:
+                            logger.info(
+                                f"Creating synthetic job for active connector {connector.connector_id}"
+                            )
+                            self._create_synthetic_job(connector)
+
+                except Exception as e:
+                    logger.debug(
+                        f"Failed to get connector details for {connector.connector_id}: {e}"
+                    )
+            else:
+                logger.info(
+                    f"No recent activity found for connector {connector.connector_id}, skipping job extraction"
+                )
+
+        except Exception as e:
+            logger.warning(
+                f"Alternative job extraction failed for connector {connector.connector_id}: {e}"
+            )
+
+    def _create_synthetic_job(self, connector: Connector) -> None:
+        """Create a synthetic job based on connector activity timestamps."""
+        try:
+            from datahub.ingestion.source.fivetran.models import Job
+
+            # Get timestamps from additional properties
+            succeeded_at = connector.additional_properties.get(
+                "connector.api.succeeded_at"
+            )
+            failed_at = connector.additional_properties.get("connector.api.failed_at")
+
+            # Use the most recent timestamp
+            if succeeded_at and failed_at:
+                # Compare timestamps to get the most recent
+                try:
+                    from datetime import datetime
+
+                    success_time = datetime.fromisoformat(
+                        succeeded_at.replace("Z", "+00:00")
+                    )
+                    failure_time = datetime.fromisoformat(
+                        failed_at.replace("Z", "+00:00")
+                    )
+
+                    if success_time > failure_time:
+                        end_time = int(success_time.timestamp())
+                        status = "SUCCESSFUL"
+                    else:
+                        end_time = int(failure_time.timestamp())
+                        status = "FAILURE_WITH_TASK"
+
+                    # Estimate start time (1 hour before end time)
+                    start_time = end_time - 3600
+
+                    synthetic_job = Job(
+                        job_id=f"synthetic_{connector.connector_id}_{end_time}",
+                        start_time=start_time,
+                        end_time=end_time,
+                        status=status,
+                    )
+
+                    connector.jobs = [synthetic_job]
+                    logger.info(
+                        f"Created synthetic job for connector {connector.connector_id} with status {status}"
+                    )
+
+                except Exception as e:
+                    logger.warning(f"Failed to parse timestamps for synthetic job: {e}")
+
+            elif succeeded_at:
+                # Only success timestamp available
+                try:
+                    from datetime import datetime
+
+                    success_time = datetime.fromisoformat(
+                        succeeded_at.replace("Z", "+00:00")
+                    )
+                    end_time = int(success_time.timestamp())
+                    start_time = end_time - 3600
+
+                    synthetic_job = Job(
+                        job_id=f"synthetic_{connector.connector_id}_{end_time}",
+                        start_time=start_time,
+                        end_time=end_time,
+                        status="SUCCESSFUL",
+                    )
+
+                    connector.jobs = [synthetic_job]
+                    logger.info(
+                        f"Created synthetic success job for connector {connector.connector_id}"
+                    )
+
+                except Exception as e:
+                    logger.warning(f"Failed to create synthetic success job: {e}")
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to create synthetic job for connector {connector.connector_id}: {e}"
+            )
+
     def _process_connector_jobs(
         self,
         connectors: List[Connector],
@@ -951,6 +1088,10 @@ class FivetranStandardAPI(FivetranAccessInterface):
                         )
                 except Exception as e:
                     logger.warning(f"Failed to get extended history: {e}")
+
+            # If still no jobs found, try even more aggressive approaches
+            if not connector.jobs:
+                self._try_alternative_job_extraction(connector)
 
             # Normalize job statuses for consistency with enterprise mode
             for job in connector.jobs:

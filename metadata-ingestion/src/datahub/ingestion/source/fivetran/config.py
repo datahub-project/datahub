@@ -16,6 +16,9 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
+)
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
@@ -204,7 +207,9 @@ class PlatformDetail(ConfigModel):
     )
 
 
-class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+class FivetranSourceConfig(
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
+):
     fivetran_mode: FivetranMode = Field(
         default=FivetranMode.AUTO,
         description="Mode of operation: 'enterprise' for log tables access (Snowflake/BigQuery destinations only), "

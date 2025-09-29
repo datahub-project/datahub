@@ -97,8 +97,10 @@ if TYPE_CHECKING:
 elif PYDANTIC_VERSION_2:
     HiddenFromDocs = pydantic.json_schema.SkipJsonSchema
 else:
-    # For Pydantic v1, use a simple annotation
-    HiddenFromDocs = Annotated[Any, ...]
+    # For Pydantic v1, create a simple callable that returns the type unchanged
+    def HiddenFromDocs(type_arg):
+        return type_arg
+
 
 if PYDANTIC_VERSION_2:
     LaxStr = Annotated[str, pydantic.BeforeValidator(lambda v: str(v))]

@@ -1699,7 +1699,7 @@ class FivetranAPIClient:
             since_timestamp = int(since_date.timestamp())
 
             logger.info(
-                f"Getting sync history for connector {valid_connector_id} from the past {days} days"
+                f"Getting sync history for connector {valid_connector_id} from the past {days} days (since {since_date})"
             )
 
             # First try: Use the sync-history endpoint (most reliable)
@@ -1717,8 +1717,10 @@ class FivetranAPIClient:
                     )
                     return sync_items
 
-                logger.info(
-                    "No sync history found via sync-history endpoint, trying logs endpoint"
+                logger.warning(
+                    f"No sync history found via sync-history endpoint for connector {valid_connector_id}. "
+                    f"This could indicate: 1) No syncs in the past {days} days, 2) API permissions issue, or 3) Connector is paused/inactive. "
+                    f"Trying logs endpoint as fallback."
                 )
             except Exception as e:
                 logger.warning(f"Error fetching from sync-history endpoint: {e}")
@@ -1983,6 +1985,10 @@ class FivetranAPIClient:
         """
         jobs = []
 
+        logger.debug(
+            f"Processing {len(sync_history)} sync history entries for job extraction"
+        )
+
         for job in sync_history:
             try:
                 # Parse job response
@@ -2024,6 +2030,14 @@ class FivetranAPIClient:
                             end_time=completed_at,
                             status=status,
                         )
+                    )
+                    logger.debug(
+                        f"Extracted job {job_response.id} with status {status}"
+                    )
+                else:
+                    logger.warning(
+                        f"Skipping job {job_response.id} due to missing timestamps: "
+                        f"started_at={started_at}, completed_at={completed_at}"
                     )
             except Exception as e:
                 logger.warning(f"Error processing sync history entry: {e}")
@@ -2136,9 +2150,12 @@ class FivetranAPIClient:
             schemas = self.list_connector_schemas(connector_id)
             if not schemas:
                 logger.warning(
-                    f"No schema information found for connector {connector_id}"
+                    f"No schema information found for connector {connector_id}. "
+                    f"This may indicate: 1) Connector has no configured tables, 2) API permissions issue, or 3) Connector setup incomplete."
                 )
                 return
+
+            logger.info(f"Found {len(schemas)} schemas for connector {connector_id}")
 
             # Get destination platform information
             destination_platform = self._get_destination_platform_for_connector(
