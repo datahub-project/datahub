@@ -7,7 +7,12 @@ import pydantic
 from pydantic import root_validator, validator
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigEnum, ConfigModel, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigEnum,
+    ConfigModel,
+    HiddenFromDocs,
+)
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.ingestion.api.incremental_lineage_helper import (
