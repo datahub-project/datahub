@@ -1005,6 +1005,12 @@ public class ApplicationTest extends WithBrowser {
 
   @Test
   public void testOidcRedirectToRequestedUrl() {
+    // Wait briefly to ensure browser is ready after @BeforeEach cleanup
+    Awaitility.await()
+        .timeout(Durations.TEN_SECONDS)
+        .pollDelay(Durations.ONE_HUNDRED_MILLISECONDS)
+        .until(() -> browser.getDriver() != null);
+
     browser.goTo("/authenticate?redirect_uri=%2Fcontainer%2Furn%3Ali%3Acontainer%3ADATABASE");
     assertEquals("container/urn:li:container:DATABASE", browser.url());
   }
@@ -1167,6 +1173,143 @@ public class ApplicationTest extends WithBrowser {
               })
           .when(mockClient)
           .batchUpdate(any(), any());
+    }
+  }
+
+  @Test
+  public void testMapPathGraphQLMappingWithBasePath() {
+    // Test that legacy GraphQL path is mapped correctly even with base path
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "/datahub")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModule())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    // Test legacy GraphQL path mapping with base path
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "/datahub/api/v2/graphql");
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+  }
+
+  @Test
+  public void testMapPathRegularApiPathWithBasePath() {
+    // Test that regular API paths with base path are handled correctly
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "/datahub")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModule())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    // Test regular API path with base path
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "/datahub/api/entities");
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+  }
+
+  @Test
+  public void testSwaggerUiPathWithBasePath() {
+    // Test swagger UI path with base path - should preserve full path and not strip base path
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "/datahub")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModule())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "/datahub/openapi/swagger-ui");
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+  }
+
+
+  @Test
+  public void testIndexWhenResourceNotFound() {
+    // Create a new application with a custom test module that overrides the Application controller
+    // to simulate the case where the index.html resource cannot be loaded
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModuleWithFailingResource())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    Http.RequestBuilder request = fakeRequest(routes.Application.index(""));
+
+    Result result = route(customApp, request);
+
+    // When the resource cannot be loaded, the controller should return a 404 status
+    assertEquals(play.mvc.Http.Status.NOT_FOUND, result.status());
+
+    // Verify the response has the correct content type and cache control header
+    assertEquals("text/html", result.contentType().orElse(""));
+    assertTrue(result.headers().containsKey("Cache-Control"));
+    assertEquals("no-cache", result.headers().get("Cache-Control"));
+  }
+
+
+  /**
+   * Test module that provides a mock Application controller that simulates resource loading failure
+   */
+  private static class TestModuleWithFailingResource extends AbstractModule {
+    @Override
+    protected void configure() {
+      // This module will override the Application controller
+    }
+
+    @Provides
+    @Singleton
+    protected controllers.Application provideFailingApplicationController(
+        Environment environment, com.typesafe.config.Config config) {
+      // Create a mock HttpClient
+      java.net.http.HttpClient mockHttpClient = mock(java.net.http.HttpClient.class);
+
+      // Create a mock Environment that returns null for resourceAsStream
+      Environment mockEnvironment = mock(Environment.class);
+      when(mockEnvironment.resourceAsStream("public/index.html")).thenReturn(null);
+
+      return new controllers.Application(mockHttpClient, mockEnvironment, config);
+    }
+
+    @Provides
+    @Singleton
+    protected SystemEntityClient provideMockSystemEntityClient() {
+      // Reuse the same mock SystemEntityClient as the base TestModule
+      return new TestModule().provideMockSystemEntityClient();
     }
   }
 }
