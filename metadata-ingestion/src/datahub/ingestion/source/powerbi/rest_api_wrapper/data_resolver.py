@@ -80,7 +80,7 @@ class DataResolverBase(ABC):
     GOVERNMENT_URLS = {
         "SCOPE": "https://analysis.windows.net/powerbi/api/.default",
         "MY_ORG_URL": "https://api.powerbigov.us/v1.0/myorg",
-        "AUTHORITY": "https://login.microsoftonline.us/",
+        "AUTHORITY": "https://login.microsoftonline.com/",
     }
 
     TOP: int = 1000
