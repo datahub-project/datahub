@@ -1248,7 +1248,6 @@ public class ApplicationTest extends WithBrowser {
     assertEquals(OK, result.status());
   }
 
-
   @Test
   public void testIndexWhenResourceNotFound() {
     // Create a new application with a custom test module that overrides the Application controller
@@ -1280,7 +1279,6 @@ public class ApplicationTest extends WithBrowser {
     assertTrue(result.headers().containsKey("Cache-Control"));
     assertEquals("no-cache", result.headers().get("Cache-Control"));
   }
-
 
   /**
    * Test module that provides a mock Application controller that simulates resource loading failure
