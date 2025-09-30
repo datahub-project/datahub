@@ -22,9 +22,11 @@ import { Assertion, DataContract } from '@src/types.generated';
 
 const AssertionListContainer = styled.div`
     display: flex;
+    height: 100%;
     flex-direction: column;
-    margin: 20px;
-    gap: 16px;
+    margin: 0px 20px;
+    flex: 1;
+    overflow: hidden;
 `;
 
 /**
@@ -89,7 +91,6 @@ export const AcrylAssertionList = () => {
                 <AcrylAssertionListTable
                     contract={contract}
                     assertionData={visibleAssertions}
-                    filter={selectedFilters}
                     refetch={() => {
                         refetch();
                         contractRefetch();

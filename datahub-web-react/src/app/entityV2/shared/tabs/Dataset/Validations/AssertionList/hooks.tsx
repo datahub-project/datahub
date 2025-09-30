@@ -1,6 +1,6 @@
 import { Typography } from 'antd';
 import { ColumnType } from 'antd/lib/table';
-import React, { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -10,7 +10,6 @@ import { AcrylAssertionTagColumn } from '@app/entityV2/shared/tabs/Dataset/Valid
 import {
     AssertionListFilter,
     AssertionListTableRow,
-    AssertionTable,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { getAssertionGroupName } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
@@ -42,39 +41,96 @@ const LastRun = styled(Typography.Text)`
 
 const TABLE_HEADER_HEIGHT = 50;
 
-export const useAssertionsTableColumns = ({ groupBy, contract, refetch }) => {
+export const useAssertionsTableColumns = ({ contract, refetch }) => {
+    const renderAssertionName = useCallback(
+        (_, record) => (
+            <AssertionName
+                key={record.urn}
+                assertion={record.assertion}
+                lastEvaluation={record.lastEvaluation}
+                lastEvaluationUrl={record.lastEvaluationUrl}
+                platform={record.platform}
+                contract={contract}
+            />
+        ),
+        [contract],
+    );
+
+    const renderCategory = useCallback(
+        (_, record) =>
+            !record.groupName &&
+            record?.type && <CategoryType key={record.urn}>{getAssertionGroupName(record.type)}</CategoryType>,
+        [],
+    );
+
+    const renderLastRun = useCallback(
+        (_, record) =>
+            !record.groupName && <LastRun key={record.urn}>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>,
+        [],
+    );
+
+    const renderTags = useCallback(
+        (_, record) =>
+            !record.groupName && <AcrylAssertionTagColumn key={record.urn} record={record} refetch={refetch} />,
+        [refetch],
+    );
+
+    const renderActions = useCallback(
+        (_, record) => {
+            return (
+                !record.groupName && (
+                    <ActionsColumn
+                        key={record.urn}
+                        assertion={record.assertion}
+                        contract={contract}
+                        canEditContract
+                        refetch={refetch}
+                        shouldRightAlign
+                        options={{ removeRightPadding: true }}
+                    />
+                )
+            );
+        },
+        [contract, refetch],
+    );
+
     return useMemo(() => {
         const columns: ColumnType<AssertionListTableRow>[] = [
             {
                 title: 'Name',
                 dataIndex: 'name',
                 key: 'name',
-                render: (_value, record) => <AssertionName record={record} groupBy={groupBy} contract={contract} />,
+                render: renderAssertionName,
                 width: '45%',
                 sorter: (a, b) => {
                     return a.description.localeCompare(b.description);
+                },
+                ellipsis: {
+                    showTitle: false,
                 },
             },
             {
                 title: 'Category',
                 dataIndex: 'type',
                 key: 'type',
-                render: (_value, record) =>
-                    !record.groupName &&
-                    record?.type && <CategoryType>{getAssertionGroupName(record.type)}</CategoryType>,
-                width: '10%',
+                render: renderCategory,
+                width: '12%',
                 sorter: (a, b) => {
-                    return a.description.localeCompare(b.description);
+                    if (a.type && b.type) {
+                        return getAssertionGroupName(a.type).localeCompare(getAssertionGroupName(b.type));
+                    }
+                    return 0;
+                },
+                ellipsis: {
+                    showTitle: false,
                 },
             },
             {
                 title: 'Last Run',
                 dataIndex: 'lastEvaluation',
                 key: 'lastEvaluation',
-                render: (_value, record) => {
-                    return !record.groupName && <LastRun>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>;
-                },
-                width: '10%',
+                render: renderLastRun,
+                width: '15%',
                 sorter: (sourceA, sourceB) => {
                     if (!sourceA.lastEvaluationTimeMs || !sourceB.lastEvaluationTimeMs) {
                         return 0;
@@ -82,39 +138,32 @@ export const useAssertionsTableColumns = ({ groupBy, contract, refetch }) => {
                     return sourceA.lastEvaluationTimeMs - sourceB.lastEvaluationTimeMs;
                 },
                 defaultSortOrder: 'descend',
+                ellipsis: {
+                    showTitle: false,
+                },
             },
             {
                 title: 'Tags',
                 dataIndex: 'tags',
                 key: 'tags',
-                width: '20%',
-                render: (_value, record) =>
-                    !record.groupName && <AcrylAssertionTagColumn record={record} refetch={refetch} />,
+                width: '18%',
+                render: renderTags,
+                ellipsis: {
+                    showTitle: false,
+                },
             },
             {
                 title: '',
                 dataIndex: '',
                 key: 'actions',
-                width: '15%',
-                render: (_value, record) => {
-                    return (
-                        !record.groupName && (
-                            <ActionsColumn
-                                assertion={record.assertion}
-                                contract={contract}
-                                canEditContract
-                                refetch={refetch}
-                                shouldRightAlign
-                                options={{ removeRightPadding: true }}
-                            />
-                        )
-                    );
-                },
+                width: '10%',
+                render: renderActions,
+                fixed: 'right',
             },
         ];
 
         return columns;
-    }, [groupBy, contract, refetch]);
+    }, [renderAssertionName, renderCategory, renderLastRun, renderTags, renderActions]);
 };
 
 export const usePinnedAssertionTableHeaderProps = () => {

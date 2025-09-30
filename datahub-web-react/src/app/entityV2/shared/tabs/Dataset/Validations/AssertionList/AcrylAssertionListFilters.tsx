@@ -29,7 +29,6 @@ interface AcrylAssertionListFiltersProps {
 
 const SearchFilterContainer = styled.div`
     display: flex;
-
     gap: 12px;
     justify-content: space-between;
 `;
