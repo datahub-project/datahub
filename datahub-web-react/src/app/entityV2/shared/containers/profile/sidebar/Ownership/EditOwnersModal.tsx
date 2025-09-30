@@ -10,6 +10,7 @@ import { handleBatchError } from '@app/entityV2/shared/utils';
 import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
+import { addUserFiltersToAutoCompleteInput } from '@app/shared/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
@@ -152,13 +153,18 @@ export const EditOwnersModal = ({
     // Invokes the search API as the owner types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
         if (text) {
+            const input = addUserFiltersToAutoCompleteInput(
+                {
+                    type,
+                    query: text,
+                    limit: 10,
+                },
+                type,
+            );
+
             searchQuery({
                 variables: {
-                    input: {
-                        type,
-                        query: text,
-                        limit: 10,
-                    },
+                    input,
                 },
             });
         }
