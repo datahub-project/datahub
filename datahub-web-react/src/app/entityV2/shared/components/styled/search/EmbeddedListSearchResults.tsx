@@ -307,7 +307,7 @@ export const EmbeddedListSearchResults = ({
                             pageSizeOptions={['10', '20', '30']}
                         />
                     </PaginationRow>
-                    {applyView && (
+                    {applyView && view && selectedViewUrn === view.urn && (
                         <ViewMessageRow>
                             <MatchingViewsLabel
                                 view={view}
