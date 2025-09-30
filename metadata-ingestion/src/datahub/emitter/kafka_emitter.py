@@ -104,7 +104,9 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         }
 
         self.producers = {
-            key: SerializingProducer(value) for (key, value) in producers_config.items()
+            key: SerializingProducer(value)
+            for (key, value) in producers_config.items()
+            if key in self.config.topic_routes
         }
 
     def emit(
@@ -126,6 +128,9 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         mce: MetadataChangeEvent,
         callback: Callable[[Exception, str], None],
     ) -> None:
+        # Return if MCE_KEY is not present
+        if MCE_KEY not in self.producers:
+            return
         # Call poll to trigger any callbacks on success / failure of previous writes
         producer: SerializingProducer = self.producers[MCE_KEY]
         producer.poll(0)
