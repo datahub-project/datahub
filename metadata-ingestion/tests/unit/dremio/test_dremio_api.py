@@ -12,7 +12,7 @@ from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 
 
-class TestDremioAPIFixes:
+class TestDremioAPI:
     @pytest.fixture
     def dremio_api(self, monkeypatch):
         """Setup mock Dremio API for testing"""
@@ -191,7 +191,7 @@ class TestDremioAPIFixes:
 
         dremio_api.cancel_query.assert_called_once_with("job-123")
 
-    def test_get_all_tables_and_columns_iter(self, dremio_api):
+    def test_get_all_tables_and_columns(self, dremio_api):
         """Test streaming version of get_all_tables_and_columns"""
         from datahub.ingestion.source.dremio.dremio_api import DremioEdition
 
@@ -222,7 +222,7 @@ class TestDremioAPIFixes:
         dremio_api.execute_query_iter = Mock(return_value=iter(mock_results))
 
         # Test streaming method
-        result_iterator = dremio_api.get_all_tables_and_columns_iter(containers)
+        result_iterator = dremio_api.get_all_tables_and_columns(containers)
         tables = list(result_iterator)
 
         assert len(tables) == 1

@@ -1,7 +1,7 @@
 import logging
 import re
 import time
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -12,6 +12,7 @@ from datahub.ingestion.source.dremio.dremio_api import (
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_entities import DremioDataset
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
@@ -32,10 +33,12 @@ class DremioProfiler:
         config: DremioSourceConfig,
         report: DremioSourceReport,
         api_operations: DremioAPIOperations,
+        state_handler: Optional[ProfilingHandler] = None,
     ) -> None:
         self.api_operations = api_operations
         self.config = config
         self.report = report
+        self.state_handler = state_handler
         self.QUERY_TIMEOUT = (
             config.profiling.query_timeout
         )  # 5 minutes timeout for each query

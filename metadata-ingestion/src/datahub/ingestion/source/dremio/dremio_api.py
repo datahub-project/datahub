@@ -7,7 +7,7 @@ from collections import defaultdict
 from enum import Enum
 from itertools import product
 from time import sleep, time
-from typing import TYPE_CHECKING, Any, Deque, Dict, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 from urllib.parse import quote
 
 import requests
@@ -15,6 +15,8 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 from urllib3.exceptions import InsecureRequestWarning
 
+from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.request_helper import make_curl_command
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
@@ -28,6 +30,16 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.dremio.dremio_entities import DremioContainer
 
 logger = logging.getLogger(__name__)
+
+# System table patterns to exclude (similar to BigQuery's approach)
+# Note: These patterns are applied to lowercase names for case-insensitive matching
+# Conservative patterns that only match actual system schemas/tables
+DREMIO_SYSTEM_TABLES_PATTERN = [
+    r"^information_schema$",  # Exact INFORMATION_SCHEMA schema match
+    r"^sys$",  # Exact SYS schema match
+    r"^information_schema\..*",  # Tables in INFORMATION_SCHEMA schema
+    r"^sys\..*",  # Tables in SYS schema
+]
 
 
 class DremioAPIException(Exception):
@@ -47,6 +59,98 @@ class DremioEntityContainerType(Enum):
     SOURCE = "SOURCE"
 
 
+class DremioFilter:
+    """
+    Dremio-specific filtering logic that follows the standard pattern used by other SQL platforms.
+    """
+
+    def __init__(
+        self, config: "DremioSourceConfig", structured_reporter: "DremioSourceReport"
+    ) -> None:
+        self.config = config
+        self.structured_reporter = structured_reporter
+
+    def is_schema_allowed(
+        self, schema_path: List[str], container_name: str = ""
+    ) -> bool:
+        """
+        Check if a schema (container path) is allowed based on schema_pattern and system schema filtering.
+        Uses the standard is_schema_allowed function for consistency with other platforms.
+
+        Args:
+            schema_path: List of path components (e.g., ['source', 'folder', 'subfolder'])
+            container_name: Name of the final container (optional, can be included in schema_path)
+
+        Returns:
+            True if the schema should be included, False otherwise
+        """
+        if container_name:
+            full_path_components = schema_path + [container_name]
+        else:
+            full_path_components = schema_path
+
+        if not full_path_components:
+            return True
+
+        # Construct full schema name for system schema filtering
+        full_schema_name = ".".join(full_path_components).lower()
+
+        # First, check if it's a system schema (excluded unless include_system_tables is True)
+        if not self.config.include_system_tables and not AllowDenyPattern(
+            deny=DREMIO_SYSTEM_TABLES_PATTERN
+        ).allowed(full_schema_name):
+            return False
+
+        # Use the standard is_schema_allowed function with fully qualified matching
+        # This makes Dremio consistent with Snowflake/BigQuery behavior
+        schema_name = full_path_components[-1]  # Last component
+        parent_path = (
+            ".".join(full_path_components[:-1]) if len(full_path_components) > 1 else ""
+        )
+
+        return is_schema_allowed(
+            self.config.schema_pattern,
+            schema_name,
+            parent_path,
+            True,  # Always use fully qualified names for Dremio's hierarchical structure
+        )
+
+    def is_dataset_allowed(
+        self, dataset_name: str, schema_path: List[str], dataset_type: str = "table"
+    ) -> bool:
+        """
+        Check if a dataset (table/view) is allowed based on dataset_pattern and system table filtering.
+
+        Args:
+            dataset_name: Name of the dataset
+            schema_path: List of schema path components
+            dataset_type: Type of dataset ('table', 'view', etc.)
+
+        Returns:
+            True if the dataset should be included, False otherwise
+        """
+        # Construct fully qualified name: source.folder.subfolder.table
+        if schema_path:
+            full_dataset_name = f"{'.'.join(schema_path)}.{dataset_name}".lower()
+        else:
+            full_dataset_name = dataset_name.lower()
+
+        # First, check if it's a system table (excluded unless include_system_tables is True)
+        if not self.config.include_system_tables and not AllowDenyPattern(
+            deny=DREMIO_SYSTEM_TABLES_PATTERN
+        ).allowed(full_dataset_name):
+            return False
+
+        # Then check the user-configured dataset pattern
+        return self.config.dataset_pattern.allowed(full_dataset_name)
+
+    def should_include_container(self, path: List[str], name: str) -> bool:
+        """
+        Backward compatibility method that uses the new filtering logic.
+        """
+        return self.is_schema_allowed(path, name)
+
+
 class DremioAPIOperations:
     _retry_count: int = 5
     _timeout: int = 1800
@@ -55,13 +159,20 @@ class DremioAPIOperations:
         self, connection_args: "DremioSourceConfig", report: "DremioSourceReport"
     ) -> None:
         self.dremio_to_datahub_source_mapper = DremioToDataHubSourceTypeMapping()
+
+        # Initialize the new filter
+        self.filter = DremioFilter(connection_args, report)
+
+        # Keep old fields for backward compatibility during transition
         self.allow_schema_pattern: List[str] = connection_args.schema_pattern.allow
         self.deny_schema_pattern: List[str] = connection_args.schema_pattern.deny
+
         self._max_workers: int = connection_args.max_workers
         self.is_dremio_cloud = connection_args.is_dremio_cloud
         self.start_time = connection_args.start_time
         self.end_time = connection_args.end_time
         self.report = report
+        self._chunk_size = 1000  # Sensible default to prevent OOM
         self.session = requests.Session()
         if connection_args.is_dremio_cloud:
             self.base_url = self._get_cloud_base_url(
@@ -386,8 +497,7 @@ class DremioAPIOperations:
 
     def _fetch_results_iter(self, job_id: str) -> Iterator[Dict]:
         """
-        Fetch job results in a streaming fashion to reduce memory usage.
-        Yields individual rows instead of collecting all in memory.
+        Fetch job results as an iterator.
         """
         limit = 500
         offset = 0
@@ -440,10 +550,10 @@ class DremioAPIOperations:
     def execute_query_iter(
         self, query: str, timeout: int = 3600
     ) -> Iterator[Dict[str, Any]]:
-        """Execute SQL query and return results as a streaming iterator"""
+        """Execute SQL query and return results as an iterator"""
         try:
             with PerfTimer() as timer:
-                logger.info(f"Executing streaming query: {query}")
+                logger.info(f"Executing query: {query}")
                 response = self.post(url="/sql", data=json.dumps({"sql": query}))
 
                 if "errorMessage" in response:
@@ -475,14 +585,14 @@ class DremioAPIOperations:
                     sleep(3)
 
                 logger.info(
-                    f"Query job completed in {timer.elapsed_seconds()} seconds, starting streaming"
+                    f"Query job completed in {timer.elapsed_seconds()} seconds, fetching results"
                 )
 
-                # Return streaming iterator
+                # Return iterator
                 return self._fetch_results_iter(job_id)
 
         except requests.RequestException as e:
-            raise DremioAPIException("Error executing streaming query") from e
+            raise DremioAPIException("Error executing query") from e
 
     def cancel_query(self, job_id: str) -> None:
         """Cancel a running query"""
@@ -632,11 +742,10 @@ class DremioAPIOperations:
         return f"AND {operator}({field}, '{pattern_str}')"
 
     def get_all_tables_and_columns(
-        self, containers: Deque["DremioContainer"]
-    ) -> List[Dict]:
+        self, containers: Iterator["DremioContainer"]
+    ) -> Iterator[Dict]:
         """
-        Legacy method that collects all results in memory.
-        For large datasets, consider using get_all_tables_and_columns_iter().
+        Get tables and columns as an iterator.
         """
         if self.edition == DremioEdition.ENTERPRISE:
             query_template = DremioSQLQueries.QUERY_DATASETS_EE
@@ -654,127 +763,61 @@ class DremioAPIOperations:
             self.deny_schema_pattern, schema_field, allow=False
         )
 
-        all_tables_and_columns = []
-
+        # Process each container's results with chunking
         for schema in containers:
-            formatted_query = ""
             try:
-                formatted_query = query_template.format(
-                    schema_pattern=schema_condition,
-                    deny_schema_pattern=deny_schema_condition,
-                    container_name=schema.container_name.lower(),
-                )
-                all_tables_and_columns.extend(
-                    self.execute_query(
-                        query=formatted_query,
-                    )
-                )
+                for table in self._get_container_tables_chunked(
+                    schema, query_template, schema_condition, deny_schema_condition
+                ):
+                    yield table
+
             except DremioAPIException as e:
                 self.report.warning(
                     message="Container has no tables or views",
                     context=f"{schema.subclass} {schema.container_name}",
                     exc=e,
                 )
+                continue
 
-        tables = []
-
-        if self.edition == DremioEdition.COMMUNITY:
-            tables = self.community_get_formatted_tables(all_tables_and_columns)
-
-        else:
-            column_dictionary: Dict[str, List[Dict]] = defaultdict(list)
-
-            for record in all_tables_and_columns:
-                if not record.get("COLUMN_NAME"):
-                    continue
-
-                table_full_path = record.get("FULL_TABLE_PATH")
-                if not table_full_path:
-                    continue
-
-                column_dictionary[table_full_path].append(
-                    {
-                        "name": record["COLUMN_NAME"],
-                        "ordinal_position": record["ORDINAL_POSITION"],
-                        "is_nullable": record["IS_NULLABLE"],
-                        "data_type": record["DATA_TYPE"],
-                        "column_size": record["COLUMN_SIZE"],
-                    }
-                )
-
-            distinct_tables_list = list(
-                {
-                    tuple(
-                        dictionary[key]
-                        for key in (
-                            "TABLE_SCHEMA",
-                            "TABLE_NAME",
-                            "FULL_TABLE_PATH",
-                            "VIEW_DEFINITION",
-                            "LOCATION_ID",
-                            "OWNER",
-                            "OWNER_TYPE",
-                            "CREATED",
-                            "FORMAT_TYPE",
-                        )
-                        if key in dictionary
-                    ): dictionary
-                    for dictionary in all_tables_and_columns
-                }.values()
-            )
-
-            for table in distinct_tables_list:
-                tables.append(
-                    {
-                        "TABLE_NAME": table.get("TABLE_NAME"),
-                        "TABLE_SCHEMA": table.get("TABLE_SCHEMA"),
-                        "COLUMNS": column_dictionary[table["FULL_TABLE_PATH"]],
-                        "VIEW_DEFINITION": table.get("VIEW_DEFINITION"),
-                        "RESOURCE_ID": table.get("RESOURCE_ID"),
-                        "LOCATION_ID": table.get("LOCATION_ID"),
-                        "OWNER": table.get("OWNER"),
-                        "OWNER_TYPE": table.get("OWNER_TYPE"),
-                        "CREATED": table.get("CREATED"),
-                        "FORMAT_TYPE": table.get("FORMAT_TYPE"),
-                    }
-                )
-
-        return tables
-
-    def get_all_tables_and_columns_iter(
-        self, containers: Iterator["DremioContainer"]
+    def _get_container_tables_chunked(
+        self,
+        schema: "DremioContainer",
+        query_template: str,
+        schema_condition: str,
+        deny_schema_condition: str,
     ) -> Iterator[Dict]:
         """
-        Memory-efficient streaming version that yields tables one at a time.
-        Reduces memory usage for large datasets by processing results as they come.
+        Fetch tables for a container using chunked queries with LIMIT and OFFSET
+        to prevent Dremio OOM errors.
         """
-        if self.edition == DremioEdition.ENTERPRISE:
-            query_template = DremioSQLQueries.QUERY_DATASETS_EE
-        elif self.edition == DremioEdition.CLOUD:
-            query_template = DremioSQLQueries.QUERY_DATASETS_CLOUD
-        else:
-            query_template = DremioSQLQueries.QUERY_DATASETS_CE
+        chunk_size = self._chunk_size
+        offset = 0
 
-        schema_field = "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
+        while True:
+            # Create chunked query with LIMIT and OFFSET
+            limit_clause = f"LIMIT {chunk_size} OFFSET {offset}"
 
-        schema_condition = self.get_pattern_condition(
-            self.allow_schema_pattern, schema_field
-        )
-        deny_schema_condition = self.get_pattern_condition(
-            self.deny_schema_pattern, schema_field, allow=False
-        )
+            formatted_query = query_template.format(
+                schema_pattern=schema_condition,
+                deny_schema_pattern=deny_schema_condition,
+                container_name=schema.container_name.lower(),
+                limit_clause=limit_clause,
+            )
 
-        # Process each container's results separately to avoid memory buildup
-        for schema in containers:
+            logger.info(
+                f"Fetching chunk of {chunk_size} tables for container {schema.container_name} "
+                f"(offset: {offset})"
+            )
+
             try:
-                formatted_query = query_template.format(
-                    schema_pattern=schema_condition,
-                    deny_schema_pattern=deny_schema_condition,
-                    container_name=schema.container_name.lower(),
-                )
-
-                # Use streaming query execution
                 container_results = list(self.execute_query_iter(query=formatted_query))
+
+                if not container_results:
+                    # No more results
+                    logger.info(
+                        f"No more tables found for container {schema.container_name}"
+                    )
+                    break
 
                 if self.edition == DremioEdition.COMMUNITY:
                     # Process community edition results
@@ -823,10 +866,15 @@ class DremioAPIOperations:
 
                     # Yield tables one at a time
                     for table_path, table_info in table_metadata.items():
+                        # Sort columns by ordinal_position to ensure consistent ordering
+                        columns = sorted(
+                            column_dictionary[table_path],
+                            key=lambda col: col.get("ordinal_position", 0),
+                        )
                         yield {
                             "TABLE_NAME": table_info.get("TABLE_NAME"),
                             "TABLE_SCHEMA": table_info.get("TABLE_SCHEMA"),
-                            "COLUMNS": column_dictionary[table_path],
+                            "COLUMNS": columns,
                             "VIEW_DEFINITION": table_info.get("VIEW_DEFINITION"),
                             "RESOURCE_ID": table_info.get("RESOURCE_ID"),
                             "LOCATION_ID": table_info.get("LOCATION_ID"),
@@ -836,12 +884,32 @@ class DremioAPIOperations:
                             "FORMAT_TYPE": table_info.get("FORMAT_TYPE"),
                         }
 
+                # If we got fewer results than chunk_size, we're done
+                if len(container_results) < chunk_size:
+                    logger.info(
+                        f"Completed fetching tables for container {schema.container_name}. "
+                        f"Final chunk had {len(container_results)} results."
+                    )
+                    break
+
+                offset += chunk_size
+
             except DremioAPIException as e:
-                self.report.warning(
-                    message="Container has no tables or views",
-                    context=f"{schema.subclass} {schema.container_name}",
-                    exc=e,
+                logger.error(
+                    f"Error in chunked query for container {schema.container_name} "
+                    f"at offset {offset}: {e}"
                 )
+                # Check if it's the KeyError: 'rows' that indicates Dremio crash/OOM
+                if "'rows'" in str(e):
+                    self.report.report_warning(
+                        f"Dremio crash detected for container {schema.container_name} "
+                        f"(KeyError: 'rows' - likely OOM). Current chunk_size: {chunk_size}. "
+                        f"Consider reducing chunk size if this persists.",
+                        context=f"container:{schema.container_name}",
+                        exc=e,
+                    )
+                # Stop processing this container on error
+                break
 
     def validate_schema_format(self, schema):
         if "." in schema:
@@ -879,36 +947,9 @@ class DremioAPIOperations:
 
         return parents_list
 
-    def extract_all_queries(self) -> List[Dict[str, Any]]:
-        """
-        Legacy method that collects all query results in memory.
-        For large query result sets, consider using extract_all_queries_iter().
-        """
-        # Convert datetime objects to string format for SQL queries
-        start_timestamp_str = None
-        end_timestamp_str = None
-
-        if self.start_time:
-            start_timestamp_str = self.start_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-        if self.end_time:
-            end_timestamp_str = self.end_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-
-        if self.edition == DremioEdition.CLOUD:
-            jobs_query = DremioSQLQueries.get_query_all_jobs_cloud(
-                start_timestamp_millis=start_timestamp_str,
-                end_timestamp_millis=end_timestamp_str,
-            )
-        else:
-            jobs_query = DremioSQLQueries.get_query_all_jobs(
-                start_timestamp_millis=start_timestamp_str,
-                end_timestamp_millis=end_timestamp_str,
-            )
-
-        return self.execute_query(query=jobs_query)
-
     def extract_all_queries_iter(self) -> Iterator[Dict[str, Any]]:
         """
-        Memory-efficient streaming version for extracting query results.
+        Get queries as an iterator.
         """
         # Convert datetime objects to string format for SQL queries
         start_timestamp_str = None
@@ -930,7 +971,56 @@ class DremioAPIOperations:
                 end_timestamp_millis=end_timestamp_str,
             )
 
-        return self.execute_query_iter(query=jobs_query)
+        # Use chunked query execution for large query result sets
+        return self._get_queries_chunked(jobs_query)
+
+    def _get_queries_chunked(self, base_query: str) -> Iterator[Dict[str, Any]]:
+        """
+        Fetch queries using chunked execution with LIMIT and OFFSET to prevent Dremio OOM.
+        """
+        chunk_size = self._chunk_size
+        offset = 0
+
+        while True:
+            # Create chunked query with LIMIT and OFFSET
+            limit_clause = f"LIMIT {chunk_size} OFFSET {offset}"
+
+            chunked_query = base_query.format(limit_clause=limit_clause)
+
+            logger.info(f"Fetching chunk of {chunk_size} queries (offset: {offset})")
+
+            try:
+                chunk_results = list(self.execute_query_iter(query=chunked_query))
+
+                if not chunk_results:
+                    logger.info("No more queries to fetch")
+                    break
+
+                for query_result in chunk_results:
+                    yield query_result
+
+                # If we got fewer results than chunk_size, we're done
+                if len(chunk_results) < chunk_size:
+                    logger.info(
+                        f"Completed fetching queries. Final chunk had {len(chunk_results)} results."
+                    )
+                    break
+
+                offset += chunk_size
+
+            except DremioAPIException as e:
+                logger.error(
+                    f"Error in chunked query extraction at offset {offset}: {e}"
+                )
+                # Check if it's the KeyError: 'rows' that indicates Dremio crash/OOM
+                if "'rows'" in str(e):
+                    self.report.report_warning(
+                        f"Dremio crash detected during query extraction "
+                        f"(KeyError: 'rows' - likely OOM). Current chunk_size: {chunk_size}. "
+                        f"Consider reducing chunk size if this persists.",
+                        context="query_extraction",
+                    )
+                break
 
     def get_tags_for_resource(self, resource_id: str) -> Optional[List[str]]:
         """

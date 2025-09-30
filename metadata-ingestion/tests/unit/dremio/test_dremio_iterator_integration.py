@@ -54,6 +54,7 @@ class TestDremioIteratorIntegration:
             [mock_dataset]
         )
         mock_dremio_source.dremio_catalog.get_containers.return_value = []
+        mock_dremio_source.dremio_catalog.get_containers_iter.return_value = iter([])
         mock_dremio_source.dremio_catalog.get_glossary_terms_iter.return_value = iter(
             []
         )
@@ -93,6 +94,7 @@ class TestDremioIteratorIntegration:
             [mock_dataset]
         )
         mock_dremio_source.dremio_catalog.get_containers.return_value = []
+        mock_dremio_source.dremio_catalog.get_containers_iter.return_value = iter([])
         mock_dremio_source.dremio_catalog.get_glossary_terms_iter.return_value = iter(
             []
         )
@@ -154,18 +156,18 @@ class TestDremioIteratorIntegration:
         # Verify streaming methods exist
         assert hasattr(DremioAPIOperations, "_fetch_results_iter")
         assert hasattr(DremioAPIOperations, "execute_query_iter")
-        assert hasattr(DremioAPIOperations, "get_all_tables_and_columns_iter")
+        assert hasattr(DremioAPIOperations, "get_all_tables_and_columns")
         assert hasattr(DremioAPIOperations, "extract_all_queries_iter")
 
     def test_backward_compatibility(self, mock_dremio_source):
-        """Test that legacy methods still work for backward compatibility"""
-        # Verify legacy methods still exist
+        """Test that core methods still exist for backward compatibility"""
+        # Verify core methods still exist
         assert hasattr(DremioAPIOperations, "_fetch_all_results")
         assert hasattr(DremioAPIOperations, "execute_query")
         assert hasattr(DremioAPIOperations, "get_all_tables_and_columns")
-        assert hasattr(DremioAPIOperations, "extract_all_queries")
+        assert hasattr(DremioAPIOperations, "extract_all_queries_iter")
 
-        # Test that legacy batch methods still exist for backward compatibility
+        # Test that batch methods still exist for backward compatibility
         mock_dataset = Mock(spec=DremioDataset)
         mock_dataset.path = ["test"]
         mock_dataset.resource_name = "table"

@@ -7,18 +7,23 @@ class DremioToDataHubSourceTypeMapping:
     """
 
     SOURCE_TYPE_MAPPING = {
-        # Dremio source types
+        # Dremio source types from https://docs.dremio.com/current/reference/api/catalog/source/container-source-config
         "ADL": "abfs",
         "AMAZONELASTIC": "elasticsearch",
         "AWSGLUE": "glue",
         "AZURE_STORAGE": "abfs",
+        "BIGQUERY": "bigquery",
         "DB2": "db2",
         "DREMIOTODREMIO": "dremio",
         "ELASTIC": "elasticsearch",
+        "EXTERNAL": "iceberg",
         "GCS": "gcs",
+        "HANA": "hana",
         "HDFS": "s3",
         "HIVE": "hive",
         "HIVE3": "hive",
+        "ICEBERG": "iceberg",
+        "KUSTO": "azure-data-explorer",
         "MONGO": "mongodb",
         "MSSQL": "mssql",
         "MYSQL": "mysql",
@@ -29,8 +34,10 @@ class DremioToDataHubSourceTypeMapping:
         "REDSHIFT": "redshift",
         "S3": "s3",
         "SNOWFLAKE": "snowflake",
+        "SNOWFLAKE_ICEBERG": "snowflake",
         "SYNAPSE": "mssql",
         "TERADATA": "teradata",
+        "UNITY": "unity-catalog",
         "VERTICA": "vertica",
     }
 
@@ -38,11 +45,16 @@ class DremioToDataHubSourceTypeMapping:
         "AMAZONELASTIC",
         "AWSGLUE",
         "AZURE_STORAGE",
+        "BIGQUERY",
         "DB2",
         "DREMIOTODREMIO",
         "ELASTIC",
+        "EXTERNAL",
+        "HANA",
         "HIVE",
         "HIVE3",
+        "ICEBERG",
+        "KUSTO",
         "MONGO",
         "MSSQL",
         "MYSQL",
@@ -51,8 +63,10 @@ class DremioToDataHubSourceTypeMapping:
         "POSTGRES",
         "REDSHIFT",
         "SNOWFLAKE",
+        "SNOWFLAKE_ICEBERG",
         "SYNAPSE",
         "TERADATA",
+        "UNITY",
         "VERTICA",
     }
 

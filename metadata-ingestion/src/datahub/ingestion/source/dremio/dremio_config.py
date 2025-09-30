@@ -11,11 +11,10 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.source.ge_profiling_config import GEProfilingBaseConfig
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StatefulStaleMetadataRemovalConfig,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
+    StatefulLineageConfigMixin,
+    StatefulProfilingConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
@@ -119,12 +118,26 @@ class DremioSourceConfig(
     DremioConnectionConfig,
     StatefulIngestionConfigBase,
     BaseTimeWindowConfig,
+    StatefulLineageConfigMixin,
+    StatefulProfilingConfigMixin,
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 ):
     domain: Optional[str] = Field(
         default=None,
         description="Domain for all source objects.",
+    )
+
+    include_system_tables: bool = Field(
+        default=False,
+        description="Whether to include system tables and schemas (INFORMATION_SCHEMA, SYS) in ingestion. "
+        "System tables are excluded by default as they are typically not useful for data discovery.",
+    )
+
+    # Backward compatibility: usage config parameter (hidden from docs)
+    usage: HiddenFromDocs[BaseUsageConfig] = Field(
+        default=BaseUsageConfig(),
+        description="Usage extraction configuration. For backward compatibility, this provides the same fields as the flattened time window config.",
     )
 
     source_mappings: Optional[List[DremioSourceMapping]] = Field(
@@ -142,13 +155,6 @@ class DremioSourceConfig(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables and views to filter in ingestion. Specify regex to match the entire table name in dremio.schema.table format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'dremio.public.customer.*'",
     )
-
-    usage: BaseUsageConfig = Field(
-        description="The usage config to use when generating usage statistics",
-        default=BaseUsageConfig(),
-    )
-
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     # Profiling
     profile_pattern: AllowDenyPattern = Field(
