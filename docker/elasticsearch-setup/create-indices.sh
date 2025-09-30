@@ -89,7 +89,7 @@ function create_if_not_exists {
 
   else
     # when `USE_AWS_ELASTICSEARCH` was forgotten to be set to `true` when running against AWS ES OSS,
-    # this script will use wrong paths (e.g. `_ilm/policy/` instead of AWS-compatible `_opendistro/_ism/policies/`)
+    # this script will use wrong paths (e.g. `_ilm/policy/` instead of AWS-compatible `_plugins/_ism/policies/`)
     # and the ES endpoint will return `401 Unauthorized` or `405 Method Not Allowed`
     # let's use this as chance to point that wrong config might be used!
     if [ $RESOURCE_STATUS -eq 401 ] || [ $RESOURCE_STATUS -eq 405 ]; then
