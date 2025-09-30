@@ -300,22 +300,22 @@ services:
     deploy:
       resources:
         limits:
-          memory: '1073741824'
+          memory: '2147483648'
     environment:
+      DISABLE_SECURITY_PLUGIN: 'true'
       ES_JAVA_OPTS: -Xms256m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
-      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
+      OPENSEARCH_JAVA_OPTS: -Xms768m -Xmx1024m -Dlog4j2.formatMsgNoLookups=true
       discovery.type: single-node
-      plugins.security.disabled: 'true'
     hostname: search
     healthcheck:
       test:
       - CMD-SHELL
       - curl -sS --fail http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
-      timeout: 5s
-      interval: 1s
-      retries: 3
-      start_period: 30s
-    image: opensearchproject/opensearch:2.11.0
+      timeout: 15s
+      interval: 5s
+      retries: 10
+      start_period: 1m0s
+    image: opensearchproject/opensearch:2.17.0
     networks:
       default: null
     ports:
@@ -326,7 +326,7 @@ services:
     volumes:
     - type: volume
       source: osdata
-      target: /usr/share/elasticsearch/data
+      target: /usr/share/opensearch/data
       volume: {}
   opensearch-setup:
     profiles:
@@ -338,6 +338,10 @@ services:
     - quickstart-cassandra
     - quickstart-postgres
     - quickstart-consumers
+    command:
+    - /bin/sh
+    - -c
+    - sleep 10 && /create-indices.sh
     depends_on:
       opensearch:
         condition: service_healthy
