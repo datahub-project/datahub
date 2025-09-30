@@ -2,17 +2,17 @@ import { renderHook } from '@testing-library/react-hooks';
 import { Mock, vi } from 'vitest';
 
 import useStructuredProp from '@app/govern/structuredProperties/useStructuredProp';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 vi.mock('@app/govern/structuredProperties/utils', () => ({
-    getEntityTypeUrn: vi.fn(),
+    getEntityTypeUrn: vi.fn((_, entityType) => `urn:li:entityType:${entityType}`),
     valueTypes: [
         { value: 'typeSingle', label: 'Single', cardinality: 'SINGLE' },
         { value: 'typeMultiple', label: 'Multiple', cardinality: 'MULTIPLE' },
     ],
 }));
 
-vi.mock('@src/app/useEntityRegistry');
+vi.mock('@app/useEntityRegistry');
 
 describe('useStructuredProp', () => {
     beforeEach(() => {
@@ -528,5 +528,137 @@ describe('useStructuredProp', () => {
                 showAsAssetBadge: true,
             },
         });
+    });
+
+    it('should return an empty array from getEntitiesListOptions when entitiesList is empty', () => {
+        const { result } = renderHook(() =>
+            useStructuredProp({
+                form: {} as any,
+                setFormValues: vi.fn(),
+                setCardinality: vi.fn(),
+                setSelectedValueType: vi.fn(),
+            }),
+        );
+
+        const entities = result.current.getEntitiesListOptions([]);
+        expect(entities).toEqual([]);
+    });
+
+    it('should correctly map entity types in getEntitiesListOptions', () => {
+        (useEntityRegistry as Mock).mockReturnValue({
+            getEntityName: vi.fn().mockReturnValue('Dataset'),
+        });
+        const { result } = renderHook(() =>
+            useStructuredProp({
+                form: {} as any,
+                setFormValues: vi.fn(),
+                setCardinality: vi.fn(),
+                setSelectedValueType: vi.fn(),
+            }),
+        );
+
+        const entities = result.current.getEntitiesListOptions(['DATASET' as any]);
+        expect(entities).toEqual([{ label: 'Dataset', value: 'urn:li:entityType:DATASET' }]);
+    });
+
+    it('should update form values correctly for other fields in updateFormValues', () => {
+        const setFormValues = vi.fn();
+        const { result } = renderHook(() =>
+            useStructuredProp({
+                form: { setFieldValue: vi.fn() } as any,
+                setFormValues,
+                setCardinality: vi.fn(),
+                setSelectedValueType: vi.fn(),
+            }),
+        );
+
+        result.current.handleSelectChange('someField', 'someValue');
+        const updaterFn = setFormValues.mock.calls[0][0];
+        const newState = updaterFn({ existing: 'data' });
+        expect(newState).toEqual({ existing: 'data', someField: 'someValue' });
+    });
+
+    it('should handle empty initial values in handleSelectUpdateChange', () => {
+        const setFieldValue = vi.fn();
+        const { result } = renderHook(() =>
+            useStructuredProp({
+                form: { setFieldValue } as any,
+                setFormValues: vi.fn(),
+                setCardinality: vi.fn(),
+                setSelectedValueType: vi.fn(),
+                selectedProperty: {
+                    entity: {
+                        definition: {
+                            entityTypes: [],
+                            typeQualifier: { allowedTypes: [] },
+                        },
+                    },
+                } as any,
+            }),
+        );
+
+        result.current.handleSelectUpdateChange('entityTypes', ['urn1']);
+        expect(setFieldValue).toHaveBeenCalledWith('entityTypes', ['urn1']);
+
+        result.current.handleSelectUpdateChange('typeQualifier', ['urn2']);
+        expect(setFieldValue).toHaveBeenCalledWith('typeQualifier', ['urn2']);
+    });
+
+    it('should merge values without duplicates in handleSelectUpdateChange', () => {
+        const setFieldValue = vi.fn();
+        const { result } = renderHook(() =>
+            useStructuredProp({
+                form: { setFieldValue } as any,
+                setFormValues: vi.fn(),
+                setCardinality: vi.fn(),
+                setSelectedValueType: vi.fn(),
+                selectedProperty: {
+                    entity: {
+                        definition: {
+                            entityTypes: [{ urn: 'urn1' }],
+                        },
+                    },
+                } as any,
+            }),
+        );
+
+        result.current.handleSelectUpdateChange('entityTypes', ['urn1', 'urn2']);
+        expect(setFieldValue).toHaveBeenCalledWith('entityTypes', ['urn1', 'urn2']);
+    });
+
+    it('should call setSelectedValueType and handleSelectChange in handleTypeUpdate', () => {
+        const setSelectedValueType = vi.fn();
+        const setFormValues = vi.fn();
+        const { result } = renderHook(() =>
+            useStructuredProp({
+                form: { setFieldValue: vi.fn() } as any,
+                setFormValues,
+                setCardinality: vi.fn(),
+                setSelectedValueType,
+            }),
+        );
+
+        result.current.handleTypeUpdate('typeSingle');
+        expect(setSelectedValueType).toHaveBeenCalledWith('typeSingle');
+        const updaterFn = setFormValues.mock.calls[0][0];
+        const newState = updaterFn({});
+        expect(newState).toEqual({ valueType: 'typeSingle' });
+    });
+
+    it('should handle undefined previous settings in handleDisplaySettingChange', () => {
+        const setFormValues = vi.fn();
+        const { result } = renderHook(() =>
+            useStructuredProp({
+                form: { setFieldValue: vi.fn() } as any,
+                setFormValues,
+                setCardinality: vi.fn(),
+                setSelectedValueType: vi.fn(),
+            }),
+        );
+
+        result.current.handleDisplaySettingChange('showInSearchFilters', true);
+        const updaterFn = setFormValues.mock.calls[0][0];
+        const newState = updaterFn(undefined);
+        expect(newState.settings.showInSearchFilters).toBe(true);
     });
 });
