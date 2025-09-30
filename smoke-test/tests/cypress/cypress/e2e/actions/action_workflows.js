@@ -159,7 +159,7 @@ describe("Action Workflows Test", () => {
     handleWorkflowProposal("approve-button");
   });
 
-  it("should handle workflow validation errors", () => {
+  it("should disable submit button if validation errors are present", () => {
     setWorkflowsEnabledFlags();
     cy.loginWithCredentials();
     cy.skipIntroducePage();
@@ -187,11 +187,8 @@ describe("Action Workflows Test", () => {
     // Select entity
     selectEntityInModal();
 
-    // Try to submit (should show validation error)
-    cy.get('[data-testid="workflow-submit-button"]').click({ force: true });
-    cy.get(".ant-form-item-has-error, .ant-form-item-explain-error").should(
-      "be.visible",
-    );
+    // Submit button should be disabled
+    cy.get('[data-testid="workflow-submit-button"]').should("be.disabled");
 
     // Fix by filling required field
     cy.get('form input[type="text"], form textarea')
