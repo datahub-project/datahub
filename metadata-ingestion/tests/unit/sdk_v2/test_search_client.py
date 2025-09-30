@@ -209,6 +209,8 @@ def test_filters_all_types() -> None:
                 },
                 {"env": ["PROD"]},
                 {"status": "NOT_SOFT_DELETED"},
+                {"glossary_term": ["urn:li:glossaryTerm:data-quality"]},
+                {"tag": ["urn:li:tag:data-quality"]},
                 {
                     "field": "custom_field",
                     "condition": "GREATER_THAN_OR_EQUAL_TO",
@@ -231,6 +233,8 @@ def test_filters_all_types() -> None:
         ),
         F.env("PROD"),
         F.soft_deleted(RemovedStatusFilter.NOT_SOFT_DELETED),
+        F.glossary_term("urn:li:glossaryTerm:data-quality"),
+        F.tag("urn:li:tag:data-quality"),
         F.custom_filter("custom_field", "GREATER_THAN_OR_EQUAL_TO", ["5"]),
     )
 
@@ -380,6 +384,116 @@ def test_filter_before_validators() -> None:
         ),
     ):
         load_filters(filter_str)
+
+
+def test_owner_filter() -> None:
+    """Test basic owner filter functionality."""
+    filter_obj: Filter = load_filters({"owner": ["urn:li:corpuser:john"]})
+    assert filter_obj == F.owner("urn:li:corpuser:john")
+
+    assert filter_obj.compile() == [
+        {
+            "and": [
+                SearchFilterRule(
+                    field="owners",
+                    condition="EQUAL",
+                    values=["urn:li:corpuser:john"],
+                )
+            ]
+        }
+    ]
+
+
+def test_glossary_term_filter() -> None:
+    """Test basic glossary term filter functionality."""
+    filter_obj: Filter = load_filters(
+        {"glossary_term": ["urn:li:glossaryTerm:data-quality"]}
+    )
+    assert filter_obj == F.glossary_term("urn:li:glossaryTerm:data-quality")
+
+    assert filter_obj.compile() == [
+        {
+            "and": [
+                SearchFilterRule(
+                    field="glossaryTerms",
+                    condition="EQUAL",
+                    values=["urn:li:glossaryTerm:data-quality"],
+                )
+            ]
+        }
+    ]
+
+
+def test_owner_filter_mixed_types() -> None:
+    """Test owner filter with both user and group URNs."""
+    filter_obj: Filter = load_filters(
+        {"owner": ["urn:li:corpuser:john", "urn:li:corpGroup:engineering"]}
+    )
+    assert filter_obj == F.owner(
+        ["urn:li:corpuser:john", "urn:li:corpGroup:engineering"]
+    )
+
+
+def test_invalid_owner_filter() -> None:
+    """Test validation error for invalid owner URN."""
+    with pytest.raises(
+        ValidationError, match="Owner must be a valid User or Group URN"
+    ):
+        F.owner("invalid-owner")
+
+
+def test_glossary_term_filter_multiple() -> None:
+    """Test glossary term filter with multiple terms."""
+    filter_obj: Filter = load_filters(
+        {
+            "glossary_term": [
+                "urn:li:glossaryTerm:data-quality",
+                "urn:li:glossaryTerm:compliance",
+            ]
+        }
+    )
+    assert filter_obj == F.glossary_term(
+        ["urn:li:glossaryTerm:data-quality", "urn:li:glossaryTerm:compliance"]
+    )
+
+
+def test_invalid_glossary_term_filter() -> None:
+    """Test validation error for invalid glossary term URN."""
+    with pytest.raises(
+        ValidationError, match="Glossary term must be a valid glossary term URN"
+    ):
+        F.glossary_term("urn:li:corpuser:john")
+
+
+def test_tag_filter() -> None:
+    """Test basic tag filter functionality."""
+    filter_obj: Filter = load_filters({"tag": ["urn:li:tag:data-quality"]})
+    assert filter_obj == F.tag("urn:li:tag:data-quality")
+    assert filter_obj.compile() == [
+        {
+            "and": [
+                SearchFilterRule(
+                    field="tags",
+                    condition="EQUAL",
+                    values=["urn:li:tag:data-quality"],
+                )
+            ]
+        }
+    ]
+
+
+def test_tag_filter_multiple() -> None:
+    """Test tag filter with multiple tags."""
+    filter_obj: Filter = load_filters(
+        {"tag": ["urn:li:tag:data-quality", "urn:li:tag:production"]}
+    )
+    assert filter_obj == F.tag(["urn:li:tag:data-quality", "urn:li:tag:production"])
+
+
+def test_invalid_tag_filter() -> None:
+    """Test validation error for invalid tag URN."""
+    with pytest.raises(ValidationError, match="Tag must be a valid tag URN"):
+        F.tag("urn:li:corpuser:john")
 
 
 def test_invalid_filter() -> None:
