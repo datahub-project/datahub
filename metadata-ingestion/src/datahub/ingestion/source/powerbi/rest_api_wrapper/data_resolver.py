@@ -72,7 +72,7 @@ class SessionWithTimeout(requests.Session):
 class DataResolverBase(ABC):
     # PowerBI environment URLs
     COMMERCIAL_URLS = {
-        "SCOPE": "https://analysis.windows.net/powerbi/api/.default",
+        "SCOPE": "https://analysis.usgovcloudapi.net/powerbi/api/.default",
         "MY_ORG_URL": "https://api.powerbi.com/v1.0/myorg",
         "AUTHORITY": "https://login.microsoftonline.com/",
     }
