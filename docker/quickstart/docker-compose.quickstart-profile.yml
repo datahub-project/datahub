@@ -40,6 +40,8 @@ services:
         required: true
     environment:
       ALTERNATE_MCP_VALIDATION: 'true'
+      DATAHUB_BASE_PATH: /
+      DATAHUB_GMS_BASE_PATH: /
       DATAHUB_SERVER_TYPE: quickstart
       DATAHUB_TELEMETRY_ENABLED: 'false'
       DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID: generic-duhe-consumer-job-client-gms
@@ -118,6 +120,8 @@ services:
         required: true
     environment:
       DATAHUB_APP_VERSION: ${DATAHUB_VERSION}
+      DATAHUB_BASE_PATH: /
+      DATAHUB_GMS_BASE_PATH: /
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: '8080'
       DATAHUB_PLAY_MEM_BUFFER_SIZE: 10MB
@@ -380,6 +384,8 @@ services:
         required: true
     environment:
       BACKFILL_BROWSE_PATHS_V2: 'true'
+      DATAHUB_BASE_PATH: /
+      DATAHUB_GMS_BASE_PATH: /
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: '8080'
       DATAHUB_PRECREATE_TOPICS: 'false'

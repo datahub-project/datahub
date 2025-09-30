@@ -1,7 +1,6 @@
 package controllers;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import auth.sso.SsoManager;
@@ -11,7 +10,6 @@ import com.typesafe.config.ConfigFactory;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
@@ -41,7 +39,7 @@ public class CentralLogoutControllerTest {
 
     // Create the controller
     controller = new CentralLogoutController();
-    
+
     // Use reflection to set private fields
     setPrivateField(controller, "ssoManager", mockSsoManager);
     setPrivateField(controller, "config", mockConfig);
@@ -60,7 +58,9 @@ public class CentralLogoutControllerTest {
 
     try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
       basePathUtilsMock.when(() -> BasePathUtils.normalizeBasePath(anyString())).thenReturn("");
-      basePathUtilsMock.when(() -> BasePathUtils.addBasePath(anyString(), anyString())).thenReturn("/login");
+      basePathUtilsMock
+          .when(() -> BasePathUtils.addBasePath(anyString(), anyString()))
+          .thenReturn("/login");
 
       // Execute the method
       Result result = controller.executeLogout(mockRequest);
@@ -69,7 +69,8 @@ public class CentralLogoutControllerTest {
       assertNotNull(result);
       assertEquals(303, result.status()); // 303 is correct for redirect with new session
       String redirectUrl = result.redirectLocation().orElse("");
-      assertTrue(redirectUrl.contains("error_msg") || redirectUrl.contains("Failed to sign out"), 
+      assertTrue(
+          redirectUrl.contains("error_msg") || redirectUrl.contains("Failed to sign out"),
           "Expected error message in redirect URL, but got: " + redirectUrl);
     }
 
@@ -84,7 +85,9 @@ public class CentralLogoutControllerTest {
 
     try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
       basePathUtilsMock.when(() -> BasePathUtils.normalizeBasePath(anyString())).thenReturn("");
-      basePathUtilsMock.when(() -> BasePathUtils.addBasePath(anyString(), anyString())).thenReturn("/login");
+      basePathUtilsMock
+          .when(() -> BasePathUtils.addBasePath(anyString(), anyString()))
+          .thenReturn("/login");
 
       // Execute the method - this will trigger the exception handling path
       Result result = controller.executeLogout(mockRequest);
@@ -93,7 +96,8 @@ public class CentralLogoutControllerTest {
       assertNotNull(result);
       assertEquals(303, result.status()); // 303 is correct for redirect with new session
       String redirectUrl = result.redirectLocation().orElse("");
-      assertTrue(redirectUrl.contains("error_msg") || redirectUrl.contains("Failed to sign out"), 
+      assertTrue(
+          redirectUrl.contains("error_msg") || redirectUrl.contains("Failed to sign out"),
           "Expected error message in redirect URL, but got: " + redirectUrl);
     }
 
@@ -108,7 +112,9 @@ public class CentralLogoutControllerTest {
 
     try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
       basePathUtilsMock.when(() -> BasePathUtils.normalizeBasePath(anyString())).thenReturn("");
-      basePathUtilsMock.when(() -> BasePathUtils.addBasePath(anyString(), anyString())).thenReturn("/login");
+      basePathUtilsMock
+          .when(() -> BasePathUtils.addBasePath(anyString(), anyString()))
+          .thenReturn("/login");
 
       // Execute the method
       Result result = controller.executeLogout(mockRequest);
@@ -134,8 +140,12 @@ public class CentralLogoutControllerTest {
     when(mockSsoManager.isSsoEnabled()).thenReturn(false);
 
     try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> BasePathUtils.normalizeBasePath("/custom")).thenReturn("/custom");
-      basePathUtilsMock.when(() -> BasePathUtils.addBasePath("/login", "/custom")).thenReturn("/custom/login");
+      basePathUtilsMock
+          .when(() -> BasePathUtils.normalizeBasePath("/custom"))
+          .thenReturn("/custom");
+      basePathUtilsMock
+          .when(() -> BasePathUtils.addBasePath("/login", "/custom"))
+          .thenReturn("/custom/login");
 
       // Execute the method
       Result result = controller.executeLogout(mockRequest);
@@ -208,7 +218,7 @@ public class CentralLogoutControllerTest {
   public void testConstructorSettings() {
     // Test that constructor sets the correct values
     CentralLogoutController newController = new CentralLogoutController();
-    
+
     // Verify that the controller extends LogoutController and has the expected behavior
     assertNotNull(newController);
     assertTrue(newController instanceof LogoutController);
@@ -225,8 +235,12 @@ public class CentralLogoutControllerTest {
     when(mockSsoManager.isSsoEnabled()).thenReturn(false);
 
     try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> BasePathUtils.normalizeBasePath("/test/path")).thenReturn("/test/path");
-      basePathUtilsMock.when(() -> BasePathUtils.addBasePath("/login", "/test/path")).thenReturn("/test/path/login");
+      basePathUtilsMock
+          .when(() -> BasePathUtils.normalizeBasePath("/test/path"))
+          .thenReturn("/test/path");
+      basePathUtilsMock
+          .when(() -> BasePathUtils.addBasePath("/login", "/test/path"))
+          .thenReturn("/test/path/login");
 
       // Execute the method
       Result result = controller.executeLogout(mockRequest);

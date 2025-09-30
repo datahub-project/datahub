@@ -6,32 +6,23 @@ import static org.mockito.Mockito.*;
 
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
-import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
-import com.google.inject.Key;
-import com.google.inject.name.Names;
-import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.utils.BasePathUtils;
 import com.typesafe.config.ConfigFactory;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.Nonnull;
-import org.apache.http.impl.client.CloseableHttpClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.MockedStatic;
 import org.pac4j.core.context.session.SessionStore;
 import org.pac4j.play.store.PlayCacheSessionStore;
 import org.pac4j.play.store.PlayCookieSessionStore;
 import play.Environment;
 import play.cache.SyncCacheApi;
-import utils.ConfigUtil;
 
 // @ExtendWith(MockitoExtension.class) - Not available in this project
 public class AuthModuleTest {
@@ -67,14 +58,16 @@ public class AuthModuleTest {
   }
 
   /**
-   * Helper method to create a test module that provides all required dependencies for Guice injector
+   * Helper method to create a test module that provides all required dependencies for Guice
+   * injector
    */
   private AbstractModule createTestModule(final com.typesafe.config.Config config) {
     return new AbstractModule() {
       @Override
       protected void configure() {
         bind(com.typesafe.config.Config.class).toInstance(config);
-        bind(java.util.concurrent.Executor.class).toInstance(mock(java.util.concurrent.Executor.class));
+        bind(java.util.concurrent.Executor.class)
+            .toInstance(mock(java.util.concurrent.Executor.class));
         bind(SyncCacheApi.class).toInstance(mockCacheApi);
       }
     };
@@ -177,16 +170,17 @@ public class AuthModuleTest {
     configMap.put("metadataService.basePathEnabled", true);
     configMap.put("systemClientId", "test-client-id");
     configMap.put("systemClientSecret", "test-client-secret");
-    
+
     com.typesafe.config.Config config = ConfigFactory.parseMap(configMap);
     AuthModule module = new AuthModule(mockEnvironment, config);
-    
+
     try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> BasePathUtils.resolveBasePath(true, "/api/v2"))
+      basePathUtilsMock
+          .when(() -> BasePathUtils.resolveBasePath(true, "/api/v2"))
           .thenReturn("/api/v2");
-      
+
       Injector injector = Guice.createInjector(module, createTestModule(config));
-      
+
       SsoManager ssoManager = injector.getInstance(SsoManager.class);
       assertNotNull(ssoManager);
     }
@@ -205,16 +199,15 @@ public class AuthModuleTest {
     configMap.put("metadataService.basePathEnabled", false);
     configMap.put("systemClientId", "test-client-id");
     configMap.put("systemClientSecret", "test-client-secret");
-    
+
     com.typesafe.config.Config config = ConfigFactory.parseMap(configMap);
     AuthModule module = new AuthModule(mockEnvironment, config);
-    
+
     try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> BasePathUtils.resolveBasePath(false, ""))
-          .thenReturn("");
-      
+      basePathUtilsMock.when(() -> BasePathUtils.resolveBasePath(false, "")).thenReturn("");
+
       Injector injector = Guice.createInjector(module, createTestModule(config));
-      
+
       SsoManager ssoManager = injector.getInstance(SsoManager.class);
       assertNotNull(ssoManager);
     }
@@ -233,16 +226,17 @@ public class AuthModuleTest {
     configMap.put("metadataService.basePathEnabled", true);
     configMap.put("systemClientId", "test-client-id");
     configMap.put("systemClientSecret", "test-client-secret");
-    
+
     com.typesafe.config.Config config = ConfigFactory.parseMap(configMap);
     AuthModule module = new AuthModule(mockEnvironment, config);
-    
+
     try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> BasePathUtils.resolveBasePath(true, "/api/v2"))
+      basePathUtilsMock
+          .when(() -> BasePathUtils.resolveBasePath(true, "/api/v2"))
           .thenReturn("/api/v2");
-      
+
       Injector injector = Guice.createInjector(module, createTestModule(config));
-      
+
       AuthServiceClient authClient = injector.getInstance(AuthServiceClient.class);
       assertNotNull(authClient);
     }
@@ -261,16 +255,15 @@ public class AuthModuleTest {
     configMap.put("metadataService.basePathEnabled", false);
     configMap.put("systemClientId", "test-client-id");
     configMap.put("systemClientSecret", "test-client-secret");
-    
+
     com.typesafe.config.Config config = ConfigFactory.parseMap(configMap);
     AuthModule module = new AuthModule(mockEnvironment, config);
-    
+
     try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> BasePathUtils.resolveBasePath(false, ""))
-          .thenReturn("");
-      
+      basePathUtilsMock.when(() -> BasePathUtils.resolveBasePath(false, "")).thenReturn("");
+
       Injector injector = Guice.createInjector(module, createTestModule(config));
-      
+
       AuthServiceClient authClient = injector.getInstance(AuthServiceClient.class);
       assertNotNull(authClient);
     }
@@ -292,14 +285,15 @@ public class AuthModuleTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("metadataService.basePath", "/api/v2");
     configMap.put("metadataService.basePathEnabled", true);
-    
+
     com.typesafe.config.Config config = ConfigFactory.parseMap(configMap);
     AuthModule module = new AuthModule(mockEnvironment, config);
-    
+
     try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> BasePathUtils.resolveBasePath(true, "/api/v2"))
+      basePathUtilsMock
+          .when(() -> BasePathUtils.resolveBasePath(true, "/api/v2"))
           .thenReturn("/api/v2");
-      
+
       String result = module.getMetadataServiceBasePath(config);
       assertEquals("/api/v2", result);
     }
@@ -311,14 +305,13 @@ public class AuthModuleTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("metadataService.basePath", "/api/v2");
     configMap.put("metadataService.basePathEnabled", false);
-    
+
     com.typesafe.config.Config config = ConfigFactory.parseMap(configMap);
     AuthModule module = new AuthModule(mockEnvironment, config);
-    
+
     try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> BasePathUtils.resolveBasePath(false, "/api/v2"))
-          .thenReturn("");
-      
+      basePathUtilsMock.when(() -> BasePathUtils.resolveBasePath(false, "/api/v2")).thenReturn("");
+
       String result = module.getMetadataServiceBasePath(config);
       assertEquals("", result);
     }
@@ -329,14 +322,15 @@ public class AuthModuleTest {
     // Test getMetadataServiceBasePath with environment variables
     Map<String, Object> configMap = new HashMap<>();
     // Don't set the config values, let them fall back to environment variables
-    
+
     com.typesafe.config.Config config = ConfigFactory.parseMap(configMap);
     AuthModule module = new AuthModule(mockEnvironment, config);
-    
+
     try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> BasePathUtils.resolveBasePath(anyBoolean(), anyString()))
+      basePathUtilsMock
+          .when(() -> BasePathUtils.resolveBasePath(anyBoolean(), anyString()))
           .thenReturn("/env/basepath");
-      
+
       String result = module.getMetadataServiceBasePath(config);
       assertEquals("/env/basepath", result);
     }
@@ -351,14 +345,15 @@ public class AuthModuleTest {
     configMap.put("metadataService.useSsl", false);
     configMap.put("metadataService.basePath", "/api/v2");
     configMap.put("metadataService.basePathEnabled", true);
-    
+
     com.typesafe.config.Config config = ConfigFactory.parseMap(configMap);
     AuthModule module = new AuthModule(mockEnvironment, config);
-    
+
     try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> BasePathUtils.resolveBasePath(true, "/api/v2"))
+      basePathUtilsMock
+          .when(() -> BasePathUtils.resolveBasePath(true, "/api/v2"))
           .thenReturn("/api/v2");
-      
+
       String result = module.getSsoSettingsRequestUrl(config);
       assertEquals("http://localhost:8080/api/v2/auth/getSsoSettings", result);
     }
@@ -373,14 +368,13 @@ public class AuthModuleTest {
     configMap.put("metadataService.useSsl", false);
     configMap.put("metadataService.basePath", "");
     configMap.put("metadataService.basePathEnabled", false);
-    
+
     com.typesafe.config.Config config = ConfigFactory.parseMap(configMap);
     AuthModule module = new AuthModule(mockEnvironment, config);
-    
+
     try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> BasePathUtils.resolveBasePath(false, ""))
-          .thenReturn("");
-      
+      basePathUtilsMock.when(() -> BasePathUtils.resolveBasePath(false, "")).thenReturn("");
+
       String result = module.getSsoSettingsRequestUrl(config);
       assertEquals("http://localhost:8080/auth/getSsoSettings", result);
     }
@@ -395,14 +389,15 @@ public class AuthModuleTest {
     configMap.put("metadataService.useSsl", true);
     configMap.put("metadataService.basePath", "/api/v2");
     configMap.put("metadataService.basePathEnabled", true);
-    
+
     com.typesafe.config.Config config = ConfigFactory.parseMap(configMap);
     AuthModule module = new AuthModule(mockEnvironment, config);
-    
+
     try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> BasePathUtils.resolveBasePath(true, "/api/v2"))
+      basePathUtilsMock
+          .when(() -> BasePathUtils.resolveBasePath(true, "/api/v2"))
           .thenReturn("/api/v2");
-      
+
       String result = module.getSsoSettingsRequestUrl(config);
       assertEquals("https://localhost:8443/api/v2/auth/getSsoSettings", result);
     }
@@ -413,10 +408,10 @@ public class AuthModuleTest {
     // Test getMetadataServiceHost
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("metadataService.host", "test-host");
-    
+
     com.typesafe.config.Config config = ConfigFactory.parseMap(configMap);
     AuthModule module = new AuthModule(mockEnvironment, config);
-    
+
     String result = module.getMetadataServiceHost(config);
     assertEquals("test-host", result);
   }
@@ -426,10 +421,10 @@ public class AuthModuleTest {
     // Test getMetadataServicePort
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("metadataService.port", 9999);
-    
+
     com.typesafe.config.Config config = ConfigFactory.parseMap(configMap);
     AuthModule module = new AuthModule(mockEnvironment, config);
-    
+
     Integer result = module.getMetadataServicePort(config);
     assertEquals(Integer.valueOf(9999), result);
   }
@@ -439,10 +434,10 @@ public class AuthModuleTest {
     // Test doesMetadataServiceUseSsl
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("metadataService.useSsl", true);
-    
+
     com.typesafe.config.Config config = ConfigFactory.parseMap(configMap);
     AuthModule module = new AuthModule(mockEnvironment, config);
-    
+
     boolean result = module.doesMetadataServiceUseSsl(config);
     assertTrue(result);
   }
@@ -452,10 +447,10 @@ public class AuthModuleTest {
     // Test doesMetadataServiceUseSsl with environment variable fallback
     Map<String, Object> configMap = new HashMap<>();
     // Don't set the config value, let it fall back to environment variable
-    
+
     com.typesafe.config.Config config = ConfigFactory.parseMap(configMap);
     AuthModule module = new AuthModule(mockEnvironment, config);
-    
+
     // This will use the environment variable fallback
     boolean result = module.doesMetadataServiceUseSsl(config);
     // The result depends on the environment variable, so we just verify it doesn't throw

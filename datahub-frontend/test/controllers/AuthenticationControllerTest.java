@@ -226,13 +226,14 @@ public class AuthenticationControllerTest {
     Config config = ConfigFactory.parseMap(configMap);
     AuthenticationController testController = new AuthenticationController(config);
 
-    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock = 
-         mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath(""))
+    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock =
+        mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
+      basePathUtilsMock
+          .when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath(""))
           .thenReturn("");
 
       // Use reflection to test the private method
-      java.lang.reflect.Method getBasePathMethod = 
+      java.lang.reflect.Method getBasePathMethod =
           AuthenticationController.class.getDeclaredMethod("getBasePath");
       getBasePathMethod.setAccessible(true);
       String result = (String) getBasePathMethod.invoke(testController);
@@ -255,13 +256,14 @@ public class AuthenticationControllerTest {
     Config config = ConfigFactory.parseMap(configMap);
     AuthenticationController testController = new AuthenticationController(config);
 
-    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock = 
-         mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath("/datahub"))
+    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock =
+        mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
+      basePathUtilsMock
+          .when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath("/datahub"))
           .thenReturn("/datahub");
 
       // Use reflection to test the private method
-      java.lang.reflect.Method getBasePathMethod = 
+      java.lang.reflect.Method getBasePathMethod =
           AuthenticationController.class.getDeclaredMethod("getBasePath");
       getBasePathMethod.setAccessible(true);
       String result = (String) getBasePathMethod.invoke(testController);
@@ -284,15 +286,17 @@ public class AuthenticationControllerTest {
     Config config = ConfigFactory.parseMap(configMap);
     AuthenticationController testController = new AuthenticationController(config);
 
-    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock = 
-         mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath("/api/v2"))
+    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock =
+        mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
+      basePathUtilsMock
+          .when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath("/api/v2"))
           .thenReturn("/api/v2");
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.addBasePath("/login", "/api/v2"))
+      basePathUtilsMock
+          .when(() -> com.linkedin.metadata.utils.BasePathUtils.addBasePath("/login", "/api/v2"))
           .thenReturn("/api/v2/login");
 
       // Use reflection to test the private method
-      java.lang.reflect.Method getLoginUrlMethod = 
+      java.lang.reflect.Method getLoginUrlMethod =
           AuthenticationController.class.getDeclaredMethod("getLoginUrl");
       getLoginUrlMethod.setAccessible(true);
       String result = (String) getLoginUrlMethod.invoke(testController);
@@ -315,15 +319,17 @@ public class AuthenticationControllerTest {
     Config config = ConfigFactory.parseMap(configMap);
     AuthenticationController testController = new AuthenticationController(config);
 
-    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock = 
-         mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath(""))
+    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock =
+        mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
+      basePathUtilsMock
+          .when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath(""))
           .thenReturn("");
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.addBasePath("/login", ""))
+      basePathUtilsMock
+          .when(() -> com.linkedin.metadata.utils.BasePathUtils.addBasePath("/login", ""))
           .thenReturn("/login");
 
       // Use reflection to test the private method
-      java.lang.reflect.Method getLoginUrlMethod = 
+      java.lang.reflect.Method getLoginUrlMethod =
           AuthenticationController.class.getDeclaredMethod("getLoginUrl");
       getLoginUrlMethod.setAccessible(true);
       String result = (String) getLoginUrlMethod.invoke(testController);
@@ -358,16 +364,20 @@ public class AuthenticationControllerTest {
 
     Http.Request request = requestBuilder.build();
 
-    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock = 
-         mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath("/datahub"))
+    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock =
+        mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
+      basePathUtilsMock
+          .when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath("/datahub"))
           .thenReturn("/datahub");
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.addBasePath(anyString(), anyString()))
-          .thenAnswer(invocation -> {
-            String path = invocation.getArgument(0);
-            String basePath = invocation.getArgument(1);
-            return basePath + path;
-          });
+      basePathUtilsMock
+          .when(
+              () -> com.linkedin.metadata.utils.BasePathUtils.addBasePath(anyString(), anyString()))
+          .thenAnswer(
+              invocation -> {
+                String path = invocation.getArgument(0);
+                String basePath = invocation.getArgument(1);
+                return basePath + path;
+              });
 
       // Test the authenticate method
       Result result = testController.authenticate(request);
@@ -409,18 +419,23 @@ public class AuthenticationControllerTest {
 
     Http.Request request = requestBuilder.build();
 
-    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock = 
-         mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath("/datahub"))
+    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock =
+        mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
+      basePathUtilsMock
+          .when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath("/datahub"))
           .thenReturn("/datahub");
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.addBasePath("/logOut", "/datahub"))
+      basePathUtilsMock
+          .when(() -> com.linkedin.metadata.utils.BasePathUtils.addBasePath("/logOut", "/datahub"))
           .thenReturn("/datahub/logOut");
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.addBasePath(anyString(), anyString()))
-          .thenAnswer(invocation -> {
-            String path = invocation.getArgument(0);
-            String basePath = invocation.getArgument(1);
-            return basePath + path;
-          });
+      basePathUtilsMock
+          .when(
+              () -> com.linkedin.metadata.utils.BasePathUtils.addBasePath(anyString(), anyString()))
+          .thenAnswer(
+              invocation -> {
+                String path = invocation.getArgument(0);
+                String basePath = invocation.getArgument(1);
+                return basePath + path;
+              });
 
       // Test the authenticate method
       Result result = testController.authenticate(request);
@@ -459,16 +474,20 @@ public class AuthenticationControllerTest {
     Http.RequestBuilder requestBuilder = new Http.RequestBuilder().method("GET").uri("/sso");
     Http.Request request = requestBuilder.build();
 
-    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock = 
-         mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath("/api/v2"))
+    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock =
+        mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
+      basePathUtilsMock
+          .when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath("/api/v2"))
           .thenReturn("/api/v2");
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.addBasePath(anyString(), anyString()))
-          .thenAnswer(invocation -> {
-            String path = invocation.getArgument(0);
-            String basePath = invocation.getArgument(1);
-            return basePath + path;
-          });
+      basePathUtilsMock
+          .when(
+              () -> com.linkedin.metadata.utils.BasePathUtils.addBasePath(anyString(), anyString()))
+          .thenAnswer(
+              invocation -> {
+                String path = invocation.getArgument(0);
+                String basePath = invocation.getArgument(1);
+                return basePath + path;
+              });
 
       // Test the SSO method
       Result result = testController.sso(request);
@@ -506,16 +525,20 @@ public class AuthenticationControllerTest {
     Http.RequestBuilder requestBuilder = new Http.RequestBuilder().method("GET").uri("/sso");
     Http.Request request = requestBuilder.build();
 
-    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock = 
-         mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath("/datahub"))
+    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock =
+        mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
+      basePathUtilsMock
+          .when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath("/datahub"))
           .thenReturn("/datahub");
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.addBasePath(anyString(), anyString()))
-          .thenAnswer(invocation -> {
-            String path = invocation.getArgument(0);
-            String basePath = invocation.getArgument(1);
-            return basePath + path;
-          });
+      basePathUtilsMock
+          .when(
+              () -> com.linkedin.metadata.utils.BasePathUtils.addBasePath(anyString(), anyString()))
+          .thenAnswer(
+              invocation -> {
+                String path = invocation.getArgument(0);
+                String basePath = invocation.getArgument(1);
+                return basePath + path;
+              });
 
       // Test the SSO method
       Result result = testController.sso(request);
@@ -552,13 +575,17 @@ public class AuthenticationControllerTest {
     CallContext callContext = new CallContext(new PlayWebContext(request), playCookieSessionStore);
     Result initialResult = new Result(302);
 
-    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock = 
-         mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath("/api/v2"))
+    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock =
+        mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
+      basePathUtilsMock
+          .when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath("/api/v2"))
           .thenReturn("/api/v2");
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.addBasePath("/dashboard", "/api/v2"))
+      basePathUtilsMock
+          .when(
+              () -> com.linkedin.metadata.utils.BasePathUtils.addBasePath("/dashboard", "/api/v2"))
           .thenReturn("/api/v2/dashboard");
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.addBasePath("/", "/api/v2"))
+      basePathUtilsMock
+          .when(() -> com.linkedin.metadata.utils.BasePathUtils.addBasePath("/", "/api/v2"))
           .thenReturn("/api/v2/");
 
       // Call the method to test
@@ -603,26 +630,31 @@ public class AuthenticationControllerTest {
 
     Http.Request request = requestBuilder.build();
 
-    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock = 
-         mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath("/datahub"))
+    try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock =
+        mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
+      basePathUtilsMock
+          .when(() -> com.linkedin.metadata.utils.BasePathUtils.normalizeBasePath("/datahub"))
           .thenReturn("/datahub");
-      basePathUtilsMock.when(() -> com.linkedin.metadata.utils.BasePathUtils.addBasePath(anyString(), anyString()))
-          .thenAnswer(invocation -> {
-            String path = invocation.getArgument(0);
-            String basePath = invocation.getArgument(1);
-            return basePath + path;
-          });
+      basePathUtilsMock
+          .when(
+              () -> com.linkedin.metadata.utils.BasePathUtils.addBasePath(anyString(), anyString()))
+          .thenAnswer(
+              invocation -> {
+                String path = invocation.getArgument(0);
+                String basePath = invocation.getArgument(1);
+                return basePath + path;
+              });
 
       // Use reflection to test the private method
-      java.lang.reflect.Method redirectToIdentityProviderMethod = 
-          AuthenticationController.class.getDeclaredMethod("redirectToIdentityProvider", 
-              Http.RequestHeader.class, String.class);
+      java.lang.reflect.Method redirectToIdentityProviderMethod =
+          AuthenticationController.class.getDeclaredMethod(
+              "redirectToIdentityProvider", Http.RequestHeader.class, String.class);
       redirectToIdentityProviderMethod.setAccessible(true);
-      
+
       @SuppressWarnings("unchecked")
-      Optional<Result> result = (Optional<Result>) redirectToIdentityProviderMethod.invoke(
-          testController, request, "/dashboard");
+      Optional<Result> result =
+          (Optional<Result>)
+              redirectToIdentityProviderMethod.invoke(testController, request, "/dashboard");
 
       assertTrue(result.isPresent(), "Result should be present");
       Result redirectResult = result.get();
