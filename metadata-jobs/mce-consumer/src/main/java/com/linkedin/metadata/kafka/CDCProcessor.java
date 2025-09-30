@@ -172,7 +172,7 @@ public class CDCProcessor {
 
       // Step 1: Parse JSON using Jackson ObjectMapper
       JsonNode cdcRecord = systemOperationContext.getObjectMapper().readTree(record);
-      log.info("CDC Record {}", record);
+      log.debug("CDC Record {}", record);
 
       Optional<MetadataChangeLog> mcl = mclFromCDCRecord(cdcRecord);
       if (mcl.isPresent()) {
@@ -183,7 +183,7 @@ public class CDCProcessor {
             mcl.get().getAspectName());
       }
     } catch (Exception e) {
-      log.error("Error processing CDC record", e);
+      log.error("Error processing CDC record {} with error", record, e);
     }
   }
 
@@ -301,6 +301,7 @@ public class CDCProcessor {
             && !record.isNull()
             && record.has(fieldName)
             && !record.get(fieldName).isNull()
+            && !record.get(fieldName).asText().isEmpty()
         ? record.get(fieldName).asText()
         : null;
   }

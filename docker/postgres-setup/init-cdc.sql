@@ -44,5 +44,6 @@ ALTER USER "CDC_USER" WITH SUPERUSER;
 -- Alternative Method 2: Grant owner privileges on specific tables (more secure)
 -- This would require knowing the exact tables beforehand
 ALTER TABLE public.metadata_aspect_v2 OWNER TO "CDC_USER";
+ALTER TABLE public.metadata_aspect_v2 REPLICA IDENTITY FULL;
 
 CREATE PUBLICATION dbz_publication FOR TABLE public.metadata_aspect_v2;
