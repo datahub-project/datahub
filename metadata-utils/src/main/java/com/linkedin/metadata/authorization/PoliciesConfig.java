@@ -43,7 +43,7 @@ public class PoliciesConfig {
           "Manage Policies",
           "Create and remove access control policies. Be careful - Actors with this privilege are effectively super users.");
 
-  static final Privilege MANAGE_INGESTION_PRIVILEGE =
+  public static final Privilege MANAGE_INGESTION_PRIVILEGE =
       Privilege.of(
           "MANAGE_INGESTION",
           "Manage Metadata Ingestion",

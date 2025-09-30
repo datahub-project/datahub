@@ -137,3 +137,10 @@ query ingestionSourceForEntity($urn: String!) {
         }
     }
 }
+
+query getExecutionRequestDownloadUrl($input: GetExecutionRequestDownloadUrlInput!) {
+    getExecutionRequestDownloadUrl(input: $input) {
+        downloadUrl
+        expiresIn
+    }
+}

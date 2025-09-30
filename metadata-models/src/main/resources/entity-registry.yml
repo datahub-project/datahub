@@ -410,6 +410,7 @@ entities:
       - dataHubExecutionRequestInput
       - dataHubExecutionRequestSignal
       - dataHubExecutionRequestResult
+      - dataHubExecutionRequestArtifactsLocation
   - name: assertion
     doc: Assertion represents a data quality rule applied on one or more dataset.
     category: core

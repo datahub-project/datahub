@@ -62,8 +62,10 @@ import com.linkedin.datahub.graphql.resolvers.form.GetFormsForActorResolver;
 import com.linkedin.datahub.graphql.resolvers.form.NumEntitiesToCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.credentials.ListExecutorConfigsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.GetExecutionRequestDownloadUrlResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListExecutionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListSignalRequestsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.StoreExecutionRequestUploadLocationResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.logging.CloudLoggingConfigsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.integration.GetLinkPreviewResolver;
@@ -149,6 +151,7 @@ import com.linkedin.datahub.graphql.types.remoteexecutor.RemoteExecutorPoolType;
 import com.linkedin.datahub.graphql.types.remoteexecutor.RemoteExecutorType;
 import com.linkedin.datahub.graphql.types.subscription.SubscriptionType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
+import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
@@ -179,8 +182,10 @@ import graphql.schema.idl.RuntimeWiring;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.*;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.services.sts.StsClient;
 
+@Slf4j
 public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
 
   // OSS Types
@@ -220,6 +225,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private ActionRequestService actionRequestService;
   private ActionWorkflowService actionWorkflowService;
   private StsClient stsClient;
+  private S3Util s3Util;
   private InviteTokenService inviteTokenService;
   private String baseUrl;
   private UserService userService;
@@ -310,6 +316,12 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.executorConfiguration = args.getExecutorConfiguration();
     this.actionConfiguration = args.getActionPipelineConfiguration();
     this.actionRequestService = args.getActionRequestService();
+    String executorRoleArn = args.getExecutorConfiguration().getExecutorRoleArn();
+    if (executorRoleArn == null || executorRoleArn.trim().isEmpty()) {
+      log.info("Executor role ARN is not set, not creating S3Util");
+    } else {
+      this.s3Util = new S3Util(args.getEntityClient(), args.getStsClient(), executorRoleArn);
+    }
 
     this.initialized = true;
   }
@@ -561,7 +573,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                         this.entityClient, this.entityService, this.inviteTokenService))
                 .dataFetcher(
                     "dismissUserSuggestion",
-                    new DismissUserSuggestionResolver(this.entityClient, this.entityService)));
+                    new DismissUserSuggestionResolver(this.entityClient, this.entityService))
+                .dataFetcher(
+                    "storeExecutionRequestUploadLocation",
+                    new StoreExecutionRequestUploadLocationResolver(this.entityClient)));
   }
 
   private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
@@ -620,7 +635,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "listUsersAndGroups",
                     new ListUsersAndGroupsResolver(
-                        this.entityClient, this.viewService, this.formService)));
+                        this.entityClient, this.viewService, this.formService))
+                .dataFetcher(
+                    "getExecutionRequestDownloadUrl",
+                    new GetExecutionRequestDownloadUrlResolver(this.entityClient, this.s3Util)));
   }
 
   private void configureContainerResolvers(final RuntimeWiring.Builder builder) {

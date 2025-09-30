@@ -1,0 +1,15 @@
+namespace com.linkedin.execution
+
+/**
+ * The result location of an execution request
+ */
+@Aspect = {
+  "name": "dataHubExecutionRequestArtifactsLocation"
+}
+record ExecutionRequestArtifactsLocation {
+
+    /**
+     * The location where artifacts are present
+     */
+    location: string
+}

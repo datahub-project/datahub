@@ -14,7 +14,9 @@ import {
     EXECUTION_REQUEST_STATUS_SUCCESS,
     EXECUTION_REQUEST_STATUS_UP_FOR_RETRY,
 } from '@app/ingestV2/executions/constants';
+import { downloadFile } from '@app/search/utils/csvUtils';
 
+import { useGetExecutionRequestDownloadUrlLazyQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequest } from '@types';
 
 export function isExecutionRequestActive(executionRequest: ExecutionRequest) {
@@ -99,4 +101,42 @@ export const getExecutionRequestSummaryText = (status: string) => {
         default:
             return 'Ingestion status not recognized.';
     }
+};
+
+export const useExecutionLogsDownload = () => {
+    const [getDownloadUrl] = useGetExecutionRequestDownloadUrlLazyQuery();
+
+    const downloadExecutionLogs = async (executionRequestUrn: string, filename: string, fallbackLogs?: string) => {
+        try {
+            const { data } = await getDownloadUrl({
+                variables: {
+                    input: {
+                        executionRequestUrn,
+                    },
+                },
+            });
+
+            const downloadUrl = data?.getExecutionRequestDownloadUrl?.downloadUrl;
+
+            if (downloadUrl) {
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = filename;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else if (fallbackLogs) {
+                downloadFile(fallbackLogs, filename);
+            }
+        } catch (error) {
+            if (fallbackLogs) {
+                downloadFile(fallbackLogs, filename);
+            } else {
+                console.error('Failed to download execution logs:', error);
+            }
+        }
+    };
+
+    return downloadExecutionLogs;
 };
