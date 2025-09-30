@@ -265,8 +265,16 @@ jobs:
       - name: Build all Images (For Smoke tests)
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         # If not publishing, just a subset of images required for smoke tests is sufficient.
+        # Use buildImagesAll for workflow_dispatch, otherwise buildImagesQuickStartDebugConsumers
         run: |
-          ./gradlew :docker:buildImagesQuickStartDebugConsumers  -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # if triggered via workflow_dispatch, this can run other quickstart variants, so lets build all images to allow that.
+            # we still dont need matrixed builds since this is for smoke test only.
+            BUILD_TASK=":docker:buildImagesAll"
+          else
+            BUILD_TASK=":docker:buildImagesQuickstart"
+          fi
+          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
 
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
