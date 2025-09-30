@@ -260,13 +260,12 @@ mclProcessing:
 
         # Below are inferred from available kafka configs
         #schema.history.internal.kafka.bootstrap.servers: broker:29092
-        #schema.history.internal.internal.kafka.topic: datahub.schema-changes
 
       postgresConfig: # Used then CDC_DB_TYPE is set to postgres
         connector.class: ${DEBEZIUM_CONNECTOR_CLASS:io.debezium.connector.postgresql.PostgresConnector}
         plugin.name: ${DEBEZIUM_PLUGIN_NAME:pgoutput}
-        table.include.list: public.metadata_aspect_v2
-        schema.include.list: public
+        table.include.list: ${CDC_INCLUDE_TABLE:public.metadata_aspect_v2}
+        schema.include.list: ${CDC_INCLUDE_SCHEMA:public}
         publication.autocreate.mode: disabled
         publication.name: dbz_publication
         message.key.columns: public.metadata_aspect_v2:urn
@@ -277,7 +276,7 @@ mclProcessing:
         plugin.name: ${DEBEZIUM_PLUGIN_NAME:decoderbufs} # Use pgoutput for PostgreSQL, decoderbufs for others
         table.include.list: ".*metadata_aspect_v2"
         database.server.id: ${CDC_SERVER_ID:184001} # unique db ID per connector instance for MYSQL only
-        database.include.list: ${CDC_DB_INCLUDE_LIST:datahub} # For MYSQL only
+        database.include.list: ${DATAHUB_DB_NAME:datahub} # For MYSQL only
 
 visualConfig:
   queriesTab:
