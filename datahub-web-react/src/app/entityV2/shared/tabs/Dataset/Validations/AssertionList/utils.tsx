@@ -58,6 +58,7 @@ const ASSERTION_STATUS_NAME_MAP = {
     FAILURE: 'Failing',
     SUCCESS: 'Passing',
     ERROR: 'Error',
+    INIT: 'Initializing',
     [NO_STATUS]: 'No Status',
 };
 
