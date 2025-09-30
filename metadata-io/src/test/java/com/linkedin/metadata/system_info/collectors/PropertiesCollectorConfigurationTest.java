@@ -133,7 +133,23 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
           // IAM authentication flags
           "*.postgresUseIamAuth",
-          "*.opensearchUseAwsIamAuth");
+          "*.opensearchUseAwsIamAuth",
+
+          // Bulk rules
+          "featureFlags.*",
+          "*.*nabled",
+          "*.*.*nabled",
+          "*.*.*.*nabled",
+          "*.*.*.*.*nabled",
+          "*.consumerGroupSuffix",
+          "*.*.consumerGroupSuffix",
+          "*.*.*.consumerGroupSuffix",
+          "authentication.authenticators[*].configs.trustedIssuers",
+          "authentication.authenticators[*].configs.allowedAudiences",
+          "authentication.authenticators[*].configs.jwksUri",
+          "authentication.authenticators[*].configs.userIdClaim",
+          "authentication.authenticators[*].configs.algorithm",
+          "authentication.authenticators[*].configs.discoveryUri");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
@@ -429,6 +445,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.metrics.hookLatency.slo",
           "datahub.plugin.auth.path",
           "datahub.plugin.entityRegistry.loadDelaySeconds",
+          "datahub.plugin.entityRegistry.ignoreFailureWhenLoadingRegistry",
           "datahub.plugin.entityRegistry.path",
           "datahub.plugin.pluginSecurityMode",
           "datahub.plugin.retention.path",

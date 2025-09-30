@@ -35,7 +35,7 @@ export const Preview = ({
     logoComponent?: JSX.Element;
     entityCount?: number;
     headerDropdownItems?: Set<EntityMenuItems>;
-    previewType?: PreviewType;
+    previewType: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (

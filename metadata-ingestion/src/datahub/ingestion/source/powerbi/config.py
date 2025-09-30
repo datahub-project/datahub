@@ -4,11 +4,10 @@ from enum import Enum
 from typing import Dict, List, Literal, Optional, Union
 
 import pydantic
-from pydantic import validator
-from pydantic.class_validators import root_validator
+from pydantic import root_validator, validator
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigEnum, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigEnum, ConfigModel, HiddenFromDocs
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -300,27 +299,23 @@ class PowerBiEnvironment(ConfigEnum):
 class PowerBiDashboardSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
-    platform_name: str = pydantic.Field(
-        default=Constant.PLATFORM_NAME, hidden_from_docs=True
-    )
+    platform_name: HiddenFromDocs[str] = pydantic.Field(default=Constant.PLATFORM_NAME)
 
     environment: PowerBiEnvironment = pydantic.Field(
         default=PowerBiEnvironment.COMMERCIAL,
         description="PowerBI environment to connect to. Options: 'commercial' (default) for commercial PowerBI, 'government' for PowerBI Government Community Cloud (GCC)",
     )
 
-    platform_urn: str = pydantic.Field(
+    platform_urn: HiddenFromDocs[str] = pydantic.Field(
         default=builder.make_data_platform_urn(platform=Constant.PLATFORM_NAME),
-        hidden_from_docs=True,
     )
 
     # Organization Identifier
     tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
     # PowerBi workspace identifier
-    workspace_id: Optional[str] = pydantic.Field(
+    workspace_id: HiddenFromDocs[Optional[str]] = pydantic.Field(
         default=None,
         description="[deprecated] Use workspace_id_pattern instead",
-        hidden_from_docs=True,
     )
     # PowerBi workspace identifier
     workspace_id_pattern: AllowDenyPattern = pydantic.Field(
@@ -340,15 +335,14 @@ class PowerBiDashboardSourceConfig(
     # Dataset type mapping PowerBI support many type of data-sources. Here user needs to define what type of PowerBI
     # DataSource needs to be mapped to corresponding DataHub Platform DataSource. For example, PowerBI `Snowflake` is
     # mapped to DataHub `snowflake` PowerBI `PostgreSQL` is mapped to DataHub `postgres` and so on.
-    dataset_type_mapping: Union[Dict[str, str], Dict[str, PlatformDetail]] = (
-        pydantic.Field(
-            default_factory=default_for_dataset_type_mapping,
-            description="[deprecated] Use server_to_platform_instance instead. Mapping of PowerBI datasource type to "
-            "DataHub supported datasources."
-            "You can configured platform instance for dataset lineage. "
-            "See Quickstart Recipe for mapping",
-            hidden_from_docs=True,
-        )
+    dataset_type_mapping: HiddenFromDocs[
+        Union[Dict[str, str], Dict[str, PlatformDetail]]
+    ] = pydantic.Field(
+        default_factory=default_for_dataset_type_mapping,
+        description="[deprecated] Use server_to_platform_instance instead. Mapping of PowerBI datasource type to "
+        "DataHub supported datasources."
+        "You can configured platform instance for dataset lineage. "
+        "See Quickstart Recipe for mapping",
     )
     # PowerBI datasource's server to platform instance mapping
     server_to_platform_instance: Dict[
@@ -555,10 +549,9 @@ class PowerBiDashboardSourceConfig(
         "Increase this value if you encounter the 'M-Query Parsing Timeout' message in the connector report.",
     )
 
-    metadata_api_timeout: int = pydantic.Field(
+    metadata_api_timeout: HiddenFromDocs[int] = pydantic.Field(
         default=30,
         description="timeout in seconds for Metadata Rest Api.",
-        hidden_from_docs=True,
     )
 
     @root_validator(skip_on_failure=True)

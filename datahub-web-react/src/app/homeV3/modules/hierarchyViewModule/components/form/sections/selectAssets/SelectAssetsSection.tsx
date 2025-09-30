@@ -13,6 +13,11 @@ import FormItem from '@app/homeV3/modules/shared/Form/FormItem';
 
 const Wrapper = styled.div``;
 
+const ScrollWrapper = styled.div`
+    max-height: 40vh;
+    overflow: auto;
+`;
+
 export default function SelectAssetsSection() {
     const form = Form.useFormInstance();
 
@@ -35,7 +40,9 @@ export default function SelectAssetsSection() {
             label: 'Domains',
             content: (
                 <FormItem name="domainAssets">
-                    <DomainsSelectableTreeView />
+                    <ScrollWrapper>
+                        <DomainsSelectableTreeView />
+                    </ScrollWrapper>
                 </FormItem>
             ),
         },
@@ -44,7 +51,9 @@ export default function SelectAssetsSection() {
             label: 'Glossary',
             content: (
                 <FormItem name="glossaryAssets">
-                    <GlossarySelectableTreeView />
+                    <ScrollWrapper>
+                        <GlossarySelectableTreeView />
+                    </ScrollWrapper>
                 </FormItem>
             ),
         },
@@ -52,7 +61,7 @@ export default function SelectAssetsSection() {
 
     return (
         <Wrapper>
-            <Text color="gray" weight="bold">
+            <Text color="gray" colorLevel={600} weight="bold">
                 Search and Select Assets
             </Text>
             <FormItem name={FORM_FIELD_ASSET_TYPE}>

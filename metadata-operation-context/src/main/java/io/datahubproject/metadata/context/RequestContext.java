@@ -275,11 +275,11 @@ public class RequestContext implements ContextInterface {
       metricUtils.incrementMicrometer(
           MetricUtils.DATAHUB_REQUEST_COUNT,
           1,
-          "user.category",
+          "user_category",
           userCategory,
-          "agent.class",
+          "agent_class",
           agentClass,
-          "request.api",
+          "request_api",
           requestAPI);
     }
   }

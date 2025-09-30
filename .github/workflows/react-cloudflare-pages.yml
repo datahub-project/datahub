@@ -52,7 +52,7 @@ jobs:
         run: |
           ./gradlew :datahub-web-react:build -x test -x check --parallel
       - name: Publish
-        if: ${{ needs.setup.outputs.frontend_change == 'true' }}
+        if: ${{ needs.setup.outputs.frontend_change == 'true' && secrets.CLOUDFLARE_API_TOKEN != '' }}
         uses: cloudflare/pages-action@1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
