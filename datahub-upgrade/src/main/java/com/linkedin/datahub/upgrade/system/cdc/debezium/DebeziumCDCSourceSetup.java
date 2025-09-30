@@ -3,20 +3,24 @@ package com.linkedin.datahub.upgrade.system.cdc.debezium;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.system.cdc.CDCSourceSetup;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.CDCSourceConfiguration;
 import com.linkedin.metadata.config.DebeziumConfiguration;
-import com.linkedin.metadata.config.EbeanConfiguration;
-import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.stereotype.Component;
 
 /**
  * Debezium-specific implementation of CDC setup. Handles the creation and configuration of Debezium
  * connectors.
  */
 @Slf4j
+@Component
+@ConditionalOnExpression(
+    "'${mclProcessing.cdcSource.configureSource:false}' == 'true' && '${mclProcessing.cdcSource.type:}' == 'debezium-kafka-connector'")
 public class DebeziumCDCSourceSetup extends CDCSourceSetup {
 
   /** The CDC type identifier for Debezium implementations. */
@@ -27,12 +31,17 @@ public class DebeziumCDCSourceSetup extends CDCSourceSetup {
 
   public DebeziumCDCSourceSetup(
       OperationContext opContext,
-      CDCSourceConfiguration cdcSourceConfig,
-      EbeanConfiguration ebeanConfig,
-      KafkaConfiguration kafkaConfig,
+      ConfigurationProvider configurationProvider,
       KafkaProperties kafkaProperties) {
-    super(opContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+    super(
+        opContext,
+        configurationProvider.getMclProcessing().getCdcSource(),
+        configurationProvider.getEbean(),
+        configurationProvider.getKafka(),
+        kafkaProperties);
 
+    CDCSourceConfiguration cdcSourceConfig =
+        configurationProvider.getMclProcessing().getCdcSource();
     this.debeziumConfig = (DebeziumConfiguration) cdcSourceConfig.getCdcImplConfig();
 
     if (debeziumConfig == null) {

@@ -1,10 +1,14 @@
 package com.linkedin.datahub.upgrade.system.cdc.debezium;
 
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
 import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.CDCSourceConfiguration;
 import com.linkedin.metadata.config.DebeziumConfiguration;
 import com.linkedin.metadata.config.EbeanConfiguration;
+import com.linkedin.metadata.config.MCLProcessingConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Arrays;
@@ -20,25 +24,27 @@ import org.testng.annotations.Test;
 public class DebeziumCDCSourceSetupTest {
 
   @Mock private OperationContext mockOpContext;
+  @Mock private ConfigurationProvider mockConfigProvider;
 
-  private com.linkedin.metadata.config.CDCSourceConfiguration cdcSourceConfig;
+  private CDCSourceConfiguration cdcSourceConfig;
   private DebeziumConfiguration debeziumConfig;
   private EbeanConfiguration ebeanConfig;
   private KafkaConfiguration kafkaConfig;
   private KafkaProperties kafkaProperties;
+  private MCLProcessingConfiguration mclProcessingConfig;
 
   @BeforeMethod
   public void setUp() {
     MockitoAnnotations.openMocks(this);
 
     // Create real CDCSourceConfiguration with test data
-    cdcSourceConfig = new com.linkedin.metadata.config.CDCSourceConfiguration();
+    cdcSourceConfig = new CDCSourceConfiguration();
     cdcSourceConfig.setEnabled(true);
     cdcSourceConfig.setConfigureSource(true);
     cdcSourceConfig.setType("debezium-kafka-connector");
 
     // Create DebeziumConfiguration for the test
-    debeziumConfig = new com.linkedin.metadata.config.DebeziumConfiguration();
+    debeziumConfig = new DebeziumConfiguration();
     debeziumConfig.setName("test-connector");
     debeziumConfig.setUrl("http://localhost:8083");
 
@@ -50,9 +56,11 @@ public class DebeziumCDCSourceSetupTest {
     config.put("topic.prefix", "test-prefix");
     debeziumConfig.setConfig(config);
 
-    cdcSourceConfig.setDebeziumConfig(debeziumConfig);
+    cdcSourceConfig.setCdcImplConfig(debeziumConfig);
 
-    // Use DebeziumConfiguration directly (this is what DebeziumCDCSetup now expects)
+    // Create real MCLProcessingConfiguration
+    mclProcessingConfig = new MCLProcessingConfiguration();
+    mclProcessingConfig.setCdcSource(cdcSourceConfig);
 
     // Create real EbeanConfiguration with test data
     ebeanConfig = new EbeanConfiguration();
@@ -67,21 +75,24 @@ public class DebeziumCDCSourceSetupTest {
     // Create real KafkaProperties with test data
     kafkaProperties = new KafkaProperties();
     kafkaProperties.setBootstrapServers(Arrays.asList("localhost:9092"));
+
+    // Setup ConfigurationProvider mock
+    when(mockConfigProvider.getMclProcessing()).thenReturn(mclProcessingConfig);
+    when(mockConfigProvider.getEbean()).thenReturn(ebeanConfig);
+    when(mockConfigProvider.getKafka()).thenReturn(kafkaConfig);
   }
 
   @Test
   public void testId() {
     DebeziumCDCSourceSetup setup =
-        new DebeziumCDCSourceSetup(
-            mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
     assertEquals(setup.id(), "DebeziumCDCSetup");
   }
 
   @Test
   public void testStepsCreation() {
     DebeziumCDCSourceSetup setup =
-        new DebeziumCDCSourceSetup(
-            mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
 
     List<UpgradeStep> steps = setup.steps();
     assertNotNull(steps);
@@ -95,8 +106,7 @@ public class DebeziumCDCSourceSetupTest {
   @Test
   public void testStepsHaveCorrectIds() {
     DebeziumCDCSourceSetup setup =
-        new DebeziumCDCSourceSetup(
-            mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
 
     List<UpgradeStep> steps = setup.steps();
 
@@ -108,8 +118,7 @@ public class DebeziumCDCSourceSetupTest {
   @Test
   public void testCanRun() {
     DebeziumCDCSourceSetup setup =
-        new DebeziumCDCSourceSetup(
-            mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
     assertTrue(setup.canRun());
   }
 
@@ -119,8 +128,7 @@ public class DebeziumCDCSourceSetupTest {
     debeziumConfig.setConfig(null);
 
     DebeziumCDCSourceSetup setup =
-        new DebeziumCDCSourceSetup(
-            mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
     // This should return false because the config is not valid
     assertTrue(!setup.canRun()); // We expect this to be false for invalid config
   }
@@ -128,17 +136,15 @@ public class DebeziumCDCSourceSetupTest {
   @Test
   public void testGetCdcType() {
     DebeziumCDCSourceSetup setup =
-        new DebeziumCDCSourceSetup(
-            mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
     assertEquals(setup.getCdcType(), DebeziumCDCSourceSetup.DEBEZIUM_TYPE);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testConstructorWithNullDebeziumConfig() {
-    cdcSourceConfig.setDebeziumConfig(null);
+    cdcSourceConfig.setCdcImplConfig(null);
 
-    new DebeziumCDCSourceSetup(
-        mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+    new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
   }
 
   @Test
@@ -148,8 +154,7 @@ public class DebeziumCDCSourceSetupTest {
     debeziumConfig.setConfig(config);
 
     DebeziumCDCSourceSetup setup =
-        new DebeziumCDCSourceSetup(
-            mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
 
     assertFalse(setup.canRun());
   }
@@ -159,8 +164,7 @@ public class DebeziumCDCSourceSetupTest {
     debeziumConfig.setName(null);
 
     DebeziumCDCSourceSetup setup =
-        new DebeziumCDCSourceSetup(
-            mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
 
     assertEquals(setup.id(), "DebeziumCDCSetup");
   }

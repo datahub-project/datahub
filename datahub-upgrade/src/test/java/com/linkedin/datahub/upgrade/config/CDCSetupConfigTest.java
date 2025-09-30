@@ -1,12 +1,12 @@
 package com.linkedin.datahub.upgrade.config;
 
-import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
+import com.linkedin.datahub.upgrade.system.cdc.CDCSourceSetup;
 import com.linkedin.datahub.upgrade.system.cdc.debezium.DebeziumCDCSourceSetup;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.CDCSourceConfiguration;
@@ -15,7 +15,8 @@ import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.MCLProcessingConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import io.datahubproject.metadata.context.OperationContext;
-import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,10 +29,8 @@ import org.testng.annotations.Test;
 public class CDCSetupConfigTest {
 
   @Mock private OperationContext mockOpContext;
-  @Mock private ConfigurationProvider mockConfigProvider;
 
   private CDCSetupConfig cdcSetupConfig;
-  private MCLProcessingConfiguration mclProcessingConfig;
   private CDCSourceConfiguration cdcSourceConfig;
   private DebeziumConfiguration debeziumConfig;
   private EbeanConfiguration ebeanConfig;
@@ -43,11 +42,6 @@ public class CDCSetupConfigTest {
     MockitoAnnotations.openMocks(this);
 
     cdcSetupConfig = new CDCSetupConfig();
-
-    // Use reflection to inject the mock OperationContext
-    Field opContextField = CDCSetupConfig.class.getDeclaredField("opContext");
-    opContextField.setAccessible(true);
-    opContextField.set(cdcSetupConfig, mockOpContext);
 
     // Create real configuration objects
     setupRealConfigurations();
@@ -69,12 +63,8 @@ public class CDCSetupConfigTest {
     cdcSourceConfig = new CDCSourceConfiguration();
     cdcSourceConfig.setEnabled(true);
     cdcSourceConfig.setConfigureSource(true);
-    cdcSourceConfig.setType("debezium");
+    cdcSourceConfig.setType("debezium-kafka-connector");
     cdcSourceConfig.setCdcImplConfig(debeziumConfig);
-
-    // Create real MCLProcessingConfiguration
-    mclProcessingConfig = new MCLProcessingConfiguration();
-    mclProcessingConfig.setCdcSource(cdcSourceConfig);
 
     // Create real EbeanConfiguration
     ebeanConfig = new EbeanConfiguration();
@@ -89,169 +79,94 @@ public class CDCSetupConfigTest {
     // Create real KafkaProperties
     kafkaProperties = new KafkaProperties();
     kafkaProperties.setBootstrapServers(List.of("localhost:9092"));
-
-    // Setup ConfigurationProvider mock to return real config objects
-    when(mockConfigProvider.getMclProcessing()).thenReturn(mclProcessingConfig);
-    when(mockConfigProvider.getEbean()).thenReturn(ebeanConfig);
-    when(mockConfigProvider.getKafka()).thenReturn(kafkaConfig);
   }
 
   @Test
-  public void testCdcSetupNullMclProcessing() {
-    when(mockConfigProvider.getMclProcessing()).thenReturn(null);
-
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(mockConfigProvider, kafkaProperties);
-
+  public void testCdcSetupWithNullList() {
+    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(null);
     assertNull(result);
   }
 
   @Test
-  public void testCdcSetupNullCdcSource() {
-    mclProcessingConfig.setCdcSource(null);
-
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(mockConfigProvider, kafkaProperties);
-
+  public void testCdcSetupWithEmptyList() {
+    List<CDCSourceSetup> emptyList = Collections.emptyList();
+    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(emptyList);
     assertNull(result);
   }
 
   @Test
-  public void testCdcSetupCdcNotEnabled() {
-    cdcSourceConfig.setEnabled(false);
+  public void testCdcSetupWithSingleImplementation() {
+    // Create mock ConfigurationProvider
+    ConfigurationProvider mockConfigProvider =
+        org.mockito.Mockito.mock(ConfigurationProvider.class);
+    MCLProcessingConfiguration mclConfig = new MCLProcessingConfiguration();
+    mclConfig.setCdcSource(cdcSourceConfig);
 
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(mockConfigProvider, kafkaProperties);
+    org.mockito.Mockito.when(mockConfigProvider.getMclProcessing()).thenReturn(mclConfig);
+    org.mockito.Mockito.when(mockConfigProvider.getEbean()).thenReturn(ebeanConfig);
+    org.mockito.Mockito.when(mockConfigProvider.getKafka()).thenReturn(kafkaConfig);
 
-    assertNull(result);
-  }
+    DebeziumCDCSourceSetup debeziumSetup =
+        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
 
-  @Test
-  public void testCdcSetupConfigureSourceDisabled() {
-    cdcSourceConfig.setConfigureSource(false);
-
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(mockConfigProvider, kafkaProperties);
-
-    assertNull(result);
-  }
-
-  @Test
-  public void testCdcSetupDebeziumType() {
-    resetToValidConfiguration();
-    cdcSourceConfig.setType("debezium");
-
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(mockConfigProvider, kafkaProperties);
-
-    assertNotNull(result, "Expected DebeziumCDCSourceSetup but got null");
-    assertTrue(result instanceof DebeziumCDCSourceSetup);
-  }
-
-  @Test
-  public void testCdcSetupDebeziumKafkaConnectorType() {
-    resetToValidConfiguration();
-    cdcSourceConfig.setType("debezium-kafka-connector");
-
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(mockConfigProvider, kafkaProperties);
+    List<CDCSourceSetup> cdcSetups = List.of(debeziumSetup);
+    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(cdcSetups);
 
     assertNotNull(result);
     assertTrue(result instanceof DebeziumCDCSourceSetup);
+    assertEquals(result.id(), "DebeziumCDCSetup");
   }
 
   @Test
-  public void testCdcSetupDebeziumTypeCaseInsensitive() {
-    resetToValidConfiguration();
-    cdcSourceConfig.setType("DEBEZIUM");
+  public void testCdcSetupWithMultipleImplementations() {
+    // Create mock ConfigurationProvider
+    ConfigurationProvider mockConfigProvider =
+        org.mockito.Mockito.mock(ConfigurationProvider.class);
+    MCLProcessingConfiguration mclConfig = new MCLProcessingConfiguration();
+    mclConfig.setCdcSource(cdcSourceConfig);
 
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(mockConfigProvider, kafkaProperties);
+    org.mockito.Mockito.when(mockConfigProvider.getMclProcessing()).thenReturn(mclConfig);
+    org.mockito.Mockito.when(mockConfigProvider.getEbean()).thenReturn(ebeanConfig);
+    org.mockito.Mockito.when(mockConfigProvider.getKafka()).thenReturn(kafkaConfig);
+
+    DebeziumCDCSourceSetup debeziumSetup1 =
+        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
+
+    DebeziumCDCSourceSetup debeziumSetup2 =
+        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
+
+    List<CDCSourceSetup> cdcSetups = new ArrayList<>();
+    cdcSetups.add(debeziumSetup1);
+    cdcSetups.add(debeziumSetup2);
+
+    // Should return the first one and log a warning
+    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(cdcSetups);
 
     assertNotNull(result);
     assertTrue(result instanceof DebeziumCDCSourceSetup);
+    assertEquals(result, debeziumSetup1); // Should be the first one
   }
 
   @Test
-  public void testCdcSetupUnsupportedType() {
-    cdcSourceConfig.setType("unsupported-type");
+  public void testCdcSetupReturnsFirstFromList() {
+    // Create mock ConfigurationProvider
+    ConfigurationProvider mockConfigProvider =
+        org.mockito.Mockito.mock(ConfigurationProvider.class);
+    MCLProcessingConfiguration mclConfig = new MCLProcessingConfiguration();
+    mclConfig.setCdcSource(cdcSourceConfig);
 
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(mockConfigProvider, kafkaProperties);
+    org.mockito.Mockito.when(mockConfigProvider.getMclProcessing()).thenReturn(mclConfig);
+    org.mockito.Mockito.when(mockConfigProvider.getEbean()).thenReturn(ebeanConfig);
+    org.mockito.Mockito.when(mockConfigProvider.getKafka()).thenReturn(kafkaConfig);
 
-    assertNull(result);
-  }
+    DebeziumCDCSourceSetup debeziumSetup =
+        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
 
-  @Test
-  public void testCdcSetupExceptionHandling() {
-    cdcSourceConfig.setType("debezium");
-    when(mockConfigProvider.getEbean())
-        .thenThrow(new RuntimeException("Database configuration error"));
-
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(mockConfigProvider, kafkaProperties);
-
-    assertNull(result);
-  }
-
-  @Test
-  public void testCdcSetupWithNullCdcType() {
-    cdcSourceConfig.setType(null);
-
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(mockConfigProvider, kafkaProperties);
-
-    assertNull(result);
-  }
-
-  @Test
-  public void testCdcSetupWithEmptyCdcType() {
-    cdcSourceConfig.setType("");
-
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(mockConfigProvider, kafkaProperties);
-
-    assertNull(result);
-  }
-
-  @Test
-  public void testDebeziumCDCSetupConfigurationInjection() {
-    resetToValidConfiguration();
-    cdcSourceConfig.setType("debezium");
-
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(mockConfigProvider, kafkaProperties);
+    List<CDCSourceSetup> cdcSetups = List.of(debeziumSetup);
+    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(cdcSetups);
 
     assertNotNull(result);
-    DebeziumCDCSourceSetup debeziumSetup = (DebeziumCDCSourceSetup) result;
-    assertEquals(debeziumSetup.getCdcType(), "debezium");
-  }
-
-  @Test
-  public void testCdcSetupWithNullDebeziumConfig() {
-    resetToValidConfiguration();
-    cdcSourceConfig.setType("debezium");
-    cdcSourceConfig.setCdcImplConfig(null);
-
-    BlockingSystemUpgrade result = cdcSetupConfig.cdcSetup(mockConfigProvider, kafkaProperties);
-
-    assertNull(result);
-  }
-
-  private void resetToValidConfiguration() {
-    // Recreate DebeziumConfiguration fresh to avoid any issues
-    debeziumConfig = new DebeziumConfiguration();
-    debeziumConfig.setName("test-connector");
-    debeziumConfig.setUrl("http://localhost:8083");
-
-    Map<String, String> connectorConfig = new HashMap<>();
-    connectorConfig.put("connector.class", "io.debezium.connector.mysql.MySqlConnector");
-    connectorConfig.put("database.include.list", "testdb");
-    connectorConfig.put("topic.prefix", "test-prefix");
-    debeziumConfig.setConfig(connectorConfig);
-
-    // Recreate CDCSourceConfiguration to ensure clean state
-    cdcSourceConfig = new CDCSourceConfiguration();
-    cdcSourceConfig.setEnabled(true);
-    cdcSourceConfig.setConfigureSource(true);
-    cdcSourceConfig.setType("debezium");
-    cdcSourceConfig.setCdcImplConfig(debeziumConfig);
-
-    // Recreate MCLProcessingConfiguration with new CDC source config
-    mclProcessingConfig = new MCLProcessingConfiguration();
-    mclProcessingConfig.setCdcSource(cdcSourceConfig);
-
-    // Reset ConfigurationProvider mock behavior
-    when(mockConfigProvider.getMclProcessing()).thenReturn(mclProcessingConfig);
-    when(mockConfigProvider.getEbean()).thenReturn(ebeanConfig);
-    when(mockConfigProvider.getKafka()).thenReturn(kafkaConfig);
+    assertEquals(result, debeziumSetup);
+    assertEquals(((CDCSourceSetup) result).getCdcType(), "debezium");
   }
 }
