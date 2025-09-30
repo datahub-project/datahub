@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade;
 
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.metadata.EventSchemaData;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -8,9 +9,12 @@ import com.linkedin.metadata.registry.SchemaRegistryService;
 import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.mxe.TopicConventionImpl;
+import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import jakarta.annotation.Nonnull;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
@@ -37,8 +41,16 @@ public class UpgradeCliApplicationTestConfiguration {
     return new SimpleMeterRegistry();
   }
 
+  @Bean(name = "eventSchemaData")
+  @Nonnull
+  protected EventSchemaData eventSchemaData(
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
+    return new EventSchemaData(systemOpContext.getYamlMapper());
+  }
+
   @Bean
-  public SchemaRegistryService schemaRegistryService() {
-    return new SchemaRegistryServiceImpl(new TopicConventionImpl());
+  public SchemaRegistryService schemaRegistryService(
+      @Qualifier("eventSchemaData") final EventSchemaData eventSchemaData) {
+    return new SchemaRegistryServiceImpl(new TopicConventionImpl(), eventSchemaData);
   }
 }
