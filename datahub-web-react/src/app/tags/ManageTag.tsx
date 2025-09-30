@@ -274,7 +274,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     }
 
     // Dynamic modal title
-    const modalTitle = tagDisplayName ? `Edit Tag: ${tagDisplayName}` : 'Edit Tag';
+    const modalTitle = tagDisplayName ? `Edit Tag` : 'Edit Tag';
 
     return (
         <Modal
@@ -289,7 +289,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
             <div>
                 <FormSection>
                     <Input
-                        label="Tag Name"
+                        label="Name"
                         value={tagName}
                         setValue={handleTagNameChange}
                         placeholder="Enter tag name"
