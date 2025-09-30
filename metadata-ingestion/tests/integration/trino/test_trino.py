@@ -57,7 +57,7 @@ def loaded_trino(trino_runner):
     subprocess.run(command, shell=True, check=True)
 
 
-@time_machine.travel(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_trino_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
@@ -132,7 +132,7 @@ def test_trino_ingest(
         )
 
 
-@time_machine.travel(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_trino_hive_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
@@ -199,7 +199,7 @@ def test_trino_hive_ingest(
     # Limitation 3 - Limited DatasetProperties available in Trino than in direct hive source - https://trino.io/docs/current/connector/hive.html#table-properties.
 
 
-@time_machine.travel(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_trino_instance_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
