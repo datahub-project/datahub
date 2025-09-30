@@ -136,12 +136,11 @@ def get_bedrock_client(
     else:
         # Option 3: Default - use instance profile or standard AWS credential chain
         # This will check ~/.aws/credentials, EC2 instance profile, etc.
+        # Region is determined from AWS config, AWS_REGION env var, or instance metadata
         logger.info(
             "Initializing Bedrock client from default credential chain (instance profile or AWS CLI)"
         )
-        boto3_session = boto3.Session(
-            region_name=os.environ.get("BEDROCK_AWS_REGION", "us-west-2")
-        )
+        boto3_session = boto3.Session()
 
     return boto3_session.client("bedrock-runtime", config=config)  # type: ignore
 
