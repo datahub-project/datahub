@@ -2984,7 +2984,7 @@
         },
         {
           "capability": "PLATFORM_INSTANCE",
-          "description": "Snaplogic does not support platform instances",
+          "description": "SnapLogic does not support platform instances",
           "subtype_modifier": null,
           "supported": false
         },
@@ -2997,7 +2997,7 @@
       ],
       "classname": "datahub.ingestion.source.snaplogic.snaplogic.SnaplogicSource",
       "platform_id": "snaplogic",
-      "platform_name": "Snaplogic",
+      "platform_name": "SnapLogic",
       "support_status": "TESTING"
     },
     "snowflake": {
