@@ -134,7 +134,6 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
         String database = matcher.group(4);
 
         config.put("database.hostname", hostname);
-        config.put("database.include.list", database);
 
         // Set default port if not specified
         if (portStr != null) {

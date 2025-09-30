@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config;
 
+import java.util.HashMap;
 import java.util.Map;
 import lombok.Data;
 
@@ -9,6 +10,8 @@ import lombok.Data;
  */
 @Data
 public class DebeziumConfiguration {
+  public static final String TYPE_POSTGRES = "postgres";
+  public static final String TYPE_MYSQL = "mysql";
 
   /** The name of the Debezium connector. */
   private String name;
@@ -19,9 +22,30 @@ public class DebeziumConfiguration {
   /** Request timeout for kafka connect config REST API calls. */
   private int requestTimeoutMillis;
 
-  /**
-   * Debezium connector configuration properties. These are passed directly to Kafka Connect and
-   * must follow Debezium's connector-specific schema (e.g., database.hostname, connector.class).
-   */
+  /** Base configuration properties shared across all connector types */
   private Map<String, String> config;
+
+  /** Type of database being used */
+  private String type;
+
+  private Map<String, String> postgresConfig;
+
+  private Map<String, String> mysqlConfig;
+
+  /**
+   * Get the complete configuration by merging base config with database-specific config.
+   *
+   * @return Combined configuration map including both base and database-specific settings
+   */
+  public Map<String, String> getConfig() {
+    Map<String, String> mergedConfig = new HashMap<>(config != null ? config : new HashMap<>());
+
+    if (TYPE_POSTGRES.equals(type) && postgresConfig != null) {
+      mergedConfig.putAll(postgresConfig);
+    } else if (TYPE_MYSQL.equals(type) && mysqlConfig != null) {
+      mergedConfig.putAll(mysqlConfig);
+    }
+
+    return mergedConfig;
+  }
 }

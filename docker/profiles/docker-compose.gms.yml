@@ -307,10 +307,7 @@ services:
       CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
       SYSTEM_UPDATE_CDC_MODE: false
-      DEBEZIUM_PLUGIN_NAME: pgoutput
-      SPRING_APPLICATION_JSON: '{"mclProcessing": {"cdcSource": {"debeziumConfig": {"config": {"table.include.list":"public.metadata_aspect_v2","schema.include.list":"public","publication.autocreate.mode":"disabled","publication.name":"dbz_publication","message.key.columns":"public.metadata_aspect_v2:urn","slot.name":"debezium","database.server.name": "datahub"}}}}}'
-      CDC_SERVER_ID: ""
-      CDC_DB_INCLUDE_LIST: ""
+      CDC_DB_TYPE: postgres
     depends_on:
       postgres-setup-cdc:
         condition: service_completed_successfully
@@ -361,6 +358,7 @@ services:
       CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
       SYSTEM_UPDATE_CDC_MODE: false
+      DEBEZIUM_CONFIG_OVERRIDE: mclProcessing.cdcSource.debeziumConfig.mysqlConfig
   system-update-debug-elasticsearch:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -455,6 +453,7 @@ services:
       DEBEZIUM_CONNECTOR_CLASS: io.debezium.connector.postgresql.PostgresConnector
       CDC_MCL_PROCESSING_ENABLED: true
       CDC_CONFIGURE_SOURCE: true
+      CDC_DB_TYPE: postgres
     depends_on:
       system-update-quickstart-postgres-cdc:
         condition: service_completed_successfully
@@ -530,7 +529,7 @@ services:
       CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
       SYSTEM_UPDATE_CDC_MODE: false
-      DEBEZIUM_PLUGIN_NAME: pgoutput
+      CDC_DB_TYPE: postgres
     depends_on:
       system-update-debug-postgres-cdc:
         condition: service_completed_successfully

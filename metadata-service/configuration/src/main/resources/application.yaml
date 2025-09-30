@@ -234,14 +234,13 @@ mclProcessing:
     configureSource: ${CDC_CONFIGURE_SOURCE:false} # Set to false if externally configured.
     type: debezium-kafka-connector  # Only supported type for now.
     debeziumConfig: # Debezium-specific configuration
+      type: ${CDC_DB_TYPE:mysql} # Set to one of mysql or postgres to load additional db specific config.
       name: ${DATAHUB_CDC_CONNECTOR_NAME:datahub-cdc-connector}
       url: ${CDC_KAFKA_CONNECT_URL:http://kafka-connect:8083}
       requestTimeoutMillis: ${CDC_KAFKA_CONNECT_REQUEST_TIMEOUT:10000} # request timeout for config rest API calls.
-      config:
-        connector.class: ${DEBEZIUM_CONNECTOR_CLASS:io.debezium.connector.mysql.MySqlConnector}
+      config: # Resulting config is the common config + the type specific config bassed on debeziumConfig.type
         tasks.max: 1
         topic.prefix: datahub
-        table.include.list: ".*metadata_aspect_v2"
         database.user: ${CDC_USER:datahub_cdc}
         database.password: ${CDC_PASSWORD:datahub_cdc}
         schema.history.internal.kafka.topic: datahub.schema-changes
@@ -253,10 +252,7 @@ mclProcessing:
         transforms.route.type: org.apache.kafka.connect.transforms.RegexRouter
         transforms.route.regex: ".*metadata_aspect_v2"
         transforms.route.replacement: ${CDC_TOPIC_NAME:datahub.metadata_aspect_v2}
-        database.server.id: ${CDC_SERVER_ID:184001} # unique db ID per connector instance for MYSQL only
         database.dbname: ${DATAHUB_DB_NAME:datahub}
-        database.include.list: ${CDC_DB_INCLUDE_LIST:datahub} # For MYSQL only
-        plugin.name: ${DEBEZIUM_PLUGIN_NAME:decoderbufs} # Use pgoutput for PostgreSQL, decoderbufs for others
         # Default configs injected by System Update. Any additional configs are applied on top of these.
         # Below are inferred from db connection config and injected by DebeziumCDCSetupStep.
         #datahub.hostname
@@ -265,6 +261,24 @@ mclProcessing:
         # Below are inferred from available kafka configs
         #schema.history.internal.kafka.bootstrap.servers: broker:29092
         #schema.history.internal.internal.kafka.topic: datahub.schema-changes
+
+      postgresConfig: # Used then CDC_DB_TYPE is set to postgres
+        connector.class: ${DEBEZIUM_CONNECTOR_CLASS:io.debezium.connector.postgresql.PostgresConnector}
+        plugin.name: ${DEBEZIUM_PLUGIN_NAME:pgoutput}
+        table.include.list: public.metadata_aspect_v2
+        schema.include.list: public
+        publication.autocreate.mode: disabled
+        publication.name: dbz_publication
+        message.key.columns: public.metadata_aspect_v2:urn
+        slot.name: debezium
+        database.server.name: datahub
+      mysqlConfig: # Used then CDC_DB_TYPE is set to mysql
+        connector.class: ${DEBEZIUM_CONNECTOR_CLASS:io.debezium.connector.mysql.MySqlConnector}
+        plugin.name: ${DEBEZIUM_PLUGIN_NAME:decoderbufs} # Use pgoutput for PostgreSQL, decoderbufs for others
+        table.include.list: ".*metadata_aspect_v2"
+        database.server.id: ${CDC_SERVER_ID:184001} # unique db ID per connector instance for MYSQL only
+        database.include.list: ${CDC_DB_INCLUDE_LIST:datahub} # For MYSQL only
+
 visualConfig:
   queriesTab:
     # Experimental! This env var is subject to change and may be deprecated in the future. The Queries tab has a larger
