@@ -369,7 +369,8 @@ public class AuthenticationController extends Controller {
     // Set the originally requested path for post-auth redirection. We split off into a separate
     // cookie from the session
     // to reduce size of the session cookie
-    FoundAction foundAction = new FoundAction(BasePathUtils.addBasePath(redirectPath, this.basePath));
+    FoundAction foundAction =
+        new FoundAction(BasePathUtils.addBasePath(redirectPath, this.basePath));
     byte[] javaSerBytes =
         ((PlayCookieSessionStore) ctx.sessionStore()).getSerializer().serializeToBytes(foundAction);
     String serialized = Base64.getEncoder().encodeToString(compressBytes(javaSerBytes));
