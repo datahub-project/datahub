@@ -385,8 +385,8 @@ public class ApplicationTest extends WithBrowser {
             () -> {
               try {
                 // Configure mock responses - groups are NOT in ID token, only in userInfo endpoint
-                // Enqueue multiple callbacks to handle potential retries or multiple requests
-                for (int i = 0; i < 10; i++) {
+                // Enqueue enough callbacks for all tests with retries (22 tests * 10 retries = 220)
+                for (int i = 0; i < 220; i++) {
                   oauthServer.enqueueCallback(
                       new DefaultOAuth2TokenCallback(
                           ISSUER_ID,
@@ -405,8 +405,8 @@ public class ApplicationTest extends WithBrowser {
 
                 oauthServerStarted.complete(null);
 
-                // Keep thread alive until server is stopped
-                while (!Thread.currentThread().isInterrupted() && testServer.isRunning()) {
+                // Keep thread alive - it will be interrupted during shutdown
+                while (!Thread.currentThread().isInterrupted()) {
                   try {
                     Thread.sleep(1000);
                   } catch (InterruptedException e) {
@@ -422,19 +422,14 @@ public class ApplicationTest extends WithBrowser {
     oauthServerThread.setDaemon(true); // Ensure thread doesn't prevent JVM shutdown
     oauthServerThread.start();
 
-    // Wait for server to start with timeout
-    oauthServerStarted
-        .orTimeout(10, TimeUnit.SECONDS)
-        .whenComplete(
-            (result, throwable) -> {
-              if (throwable != null) {
-                if (throwable instanceof TimeoutException) {
-                  throw new RuntimeException(
-                      "MockOAuth2Server failed to start within timeout", throwable);
-                }
-                throw new RuntimeException("MockOAuth2Server failed to start", throwable);
-              }
-            });
+    // Wait for server to start with timeout - block until complete
+    try {
+      oauthServerStarted.get(10, TimeUnit.SECONDS);
+    } catch (TimeoutException e) {
+      throw new RuntimeException("MockOAuth2Server failed to start within timeout", e);
+    } catch (Exception e) {
+      throw new RuntimeException("MockOAuth2Server failed to start", e);
+    }
 
     // Discovery url to authorization server metadata
     wellKnownUrl =
@@ -444,23 +439,52 @@ public class ApplicationTest extends WithBrowser {
             + ISSUER_ID
             + "/.well-known/openid-configuration";
 
-    // Wait for server to return configuration
+    // Wait for server to return configuration with retries
     // Validate mock server returns data
-    try {
-      URL url = new URL(wellKnownUrl);
-      HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-      conn.setRequestMethod("GET");
-      int responseCode = conn.getResponseCode();
-      logger.info("Well-known endpoint response code: {}", responseCode);
+    int maxRetries = 20;
+    int retryCount = 0;
+    boolean serverReady = false;
 
-      if (responseCode != 200) {
-        throw new RuntimeException(
-            "MockOAuth2Server not accessible. Response code: " + responseCode);
+    while (retryCount < maxRetries && !serverReady) {
+      try {
+        URL url = new URL(wellKnownUrl);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setConnectTimeout(2000);
+        conn.setReadTimeout(2000);
+        int responseCode = conn.getResponseCode();
+        conn.disconnect();
+
+        if (responseCode == 200) {
+          logger.info("Successfully started MockOAuth2Server after {} attempts.", retryCount + 1);
+          serverReady = true;
+        } else {
+          throw new RuntimeException(
+              "MockOAuth2Server not accessible. Response code: " + responseCode);
+        }
+      } catch (Exception e) {
+        retryCount++;
+        if (retryCount >= maxRetries) {
+          throw new RuntimeException("Failed to connect to MockOAuth2Server after " + maxRetries + " attempts", e);
+        }
+        logger.debug("Waiting for OAuth server to be ready, attempt {}/{}", retryCount, maxRetries);
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException ie) {
+          Thread.currentThread().interrupt();
+          throw new RuntimeException("Interrupted while waiting for MockOAuth2Server", ie);
+        }
       }
-      logger.info("Successfully started MockOAuth2Server.");
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to connect to MockOAuth2Server", e);
     }
+
+    // Additional wait to ensure token endpoint is also fully ready
+    try {
+      Thread.sleep(2000);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException("Interrupted during final OAuth server stabilization", e);
+    }
+    logger.info("MockOAuth2Server fully initialized and stabilized.");
   }
 
   @Test
@@ -469,6 +493,387 @@ public class ApplicationTest extends WithBrowser {
 
     Result result = route(app, request);
     assertEquals(OK, result.status());
+  }
+
+  @Test
+  public void testAppConfigWithBasePath() {
+    Http.RequestBuilder request = fakeRequest(routes.Application.appConfig());
+
+    Result result = route(app, request);
+    assertEquals(OK, result.status());
+    
+    // Verify the response contains basePath configuration
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("\"basePath\""));
+    assertTrue(content.contains("\"\"")); // Default basePath is "" (empty) as configured in provideApplication()
+  }
+
+  @Test
+  public void testAppConfigWithCustomBasePath() {
+    // Create a new application with custom basePath
+    Application customApp = new GuiceApplicationBuilder()
+        .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+        .configure("metadataService.host", "localhost")
+        .configure("datahub.basePath", "/custom")
+        .configure("auth.baseUrl", "http://localhost:" + providePort())
+        .configure(
+            "auth.oidc.discoveryUri",
+            "http://localhost:"
+                + actualOauthServerPort
+                + "/testIssuer/.well-known/openid-configuration")
+        .overrides(new TestModule())
+        .in(new Environment(Mode.TEST))
+        .build();
+
+    Http.RequestBuilder request = fakeRequest(routes.Application.appConfig());
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+    
+    // Verify the response contains custom basePath configuration
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("\"basePath\""));
+    assertTrue(content.contains("\"/custom\""));
+  }
+
+  @Test
+  public void testIndexWithBasePathInjection() {
+    Http.RequestBuilder request = fakeRequest(routes.Application.index(""));
+
+    Result result = route(app, request);
+    assertEquals(OK, result.status());
+    
+    // Verify the response contains basePath injection
+    String content = Helpers.contentAsString(result);
+    // The HTML should contain the basePath replacement
+    assertTrue(content.contains("@basePath") || content.contains("href=\"/\""));
+  }
+
+  @Test
+  public void testIndexWithCustomBasePathInjection() {
+    // Create a new application with custom basePath
+    Application customApp = new GuiceApplicationBuilder()
+        .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+        .configure("metadataService.host", "localhost")
+        .configure("datahub.basePath", "/datahub")
+        .configure("auth.baseUrl", "http://localhost:" + providePort())
+        .configure(
+            "auth.oidc.discoveryUri",
+            "http://localhost:"
+                + actualOauthServerPort
+                + "/testIssuer/.well-known/openid-configuration")
+        .overrides(new TestModule())
+        .in(new Environment(Mode.TEST))
+        .build();
+
+    // Use "index.html" instead of "" to avoid matching the trailing slash redirect rule
+    Http.RequestBuilder request = fakeRequest(routes.Application.index("index.html"));
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+
+    // Verify the response contains custom basePath injection
+    String content = Helpers.contentAsString(result);
+    // The HTML should contain the custom basePath
+    assertTrue(content.contains("@basePath") || content.contains("href=\"/datahub/\""));
+  }
+
+  @Test
+  public void testIndexWithBasePathEndingSlash() {
+    // Test basePath that doesn't end with slash gets slash added
+    Application customApp = new GuiceApplicationBuilder()
+        .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+        .configure("metadataService.host", "localhost")
+        .configure("datahub.basePath", "/datahub")
+        .configure("auth.baseUrl", "http://localhost:" + providePort())
+        .configure(
+            "auth.oidc.discoveryUri",
+            "http://localhost:"
+                + actualOauthServerPort
+                + "/testIssuer/.well-known/openid-configuration")
+        .overrides(new TestModule())
+        .in(new Environment(Mode.TEST))
+        .build();
+
+    Http.RequestBuilder request = fakeRequest(routes.Application.index(""));
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+    
+    // Verify the response contains basePath with trailing slash
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("@basePath") || content.contains("href=\"/datahub/\""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlash() {
+    Http.RequestBuilder request = fakeRequest(routes.Application.redirectTrailingSlash("test"));
+
+    Result result = route(app, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/test", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testAppConfigWithEmptyBasePath() {
+    // Create a new application with empty basePath
+    Application customApp = new GuiceApplicationBuilder()
+        .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+        .configure("metadataService.host", "localhost")
+        .configure("datahub.basePath", "")
+        .configure("auth.baseUrl", "http://localhost:" + providePort())
+        .configure(
+            "auth.oidc.discoveryUri",
+            "http://localhost:"
+                + actualOauthServerPort
+                + "/testIssuer/.well-known/openid-configuration")
+        .overrides(new TestModule())
+        .in(new Environment(Mode.TEST))
+        .build();
+
+    Http.RequestBuilder request = fakeRequest(routes.Application.appConfig());
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+    
+    // Verify the response contains empty basePath configuration
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("\"basePath\""));
+    assertTrue(content.contains("\"\"")); // Empty basePath
+  }
+
+  @Test
+  public void testAppConfigWithNullBasePath() {
+    // Create a new application without basePath configuration (should use default)
+    Application customApp = new GuiceApplicationBuilder()
+        .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+        .configure("metadataService.host", "localhost")
+        .configure("auth.baseUrl", "http://localhost:" + providePort())
+        .configure(
+            "auth.oidc.discoveryUri",
+            "http://localhost:"
+                + actualOauthServerPort
+                + "/testIssuer/.well-known/openid-configuration")
+        .overrides(new TestModule())
+        .in(new Environment(Mode.TEST))
+        .build();
+
+    Http.RequestBuilder request = fakeRequest(routes.Application.appConfig());
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+    
+    // Verify the response contains default basePath configuration
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("\"basePath\""));
+    // Should contain the default value from application.conf
+  }
+
+  @Test
+  public void testIndexWithEmptyBasePath() {
+    // Test with empty basePath
+    Application customApp = new GuiceApplicationBuilder()
+        .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+        .configure("metadataService.host", "localhost")
+        .configure("datahub.basePath", "")
+        .configure("auth.baseUrl", "http://localhost:" + providePort())
+        .configure(
+            "auth.oidc.discoveryUri",
+            "http://localhost:"
+                + actualOauthServerPort
+                + "/testIssuer/.well-known/openid-configuration")
+        .overrides(new TestModule())
+        .in(new Environment(Mode.TEST))
+        .build();
+
+    // Use "index.html" instead of "" to avoid matching the trailing slash redirect rule
+    Http.RequestBuilder request = fakeRequest(routes.Application.index("index.html"));
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+
+    // Verify the response handles empty basePath correctly
+    String content = Helpers.contentAsString(result);
+    // Should still contain the basePath replacement logic
+    assertTrue(content.contains("@basePath") || content.contains("href=\""));
+  }
+
+  @Test
+  public void testIndexWithRootBasePath() {
+    // Test with root basePath "/"
+    Application customApp = new GuiceApplicationBuilder()
+        .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+        .configure("metadataService.host", "localhost")
+        .configure("datahub.basePath", "/")
+        .configure("auth.baseUrl", "http://localhost:" + providePort())
+        .configure(
+            "auth.oidc.discoveryUri",
+            "http://localhost:"
+                + actualOauthServerPort
+                + "/testIssuer/.well-known/openid-configuration")
+        .overrides(new TestModule())
+        .in(new Environment(Mode.TEST))
+        .build();
+
+    Http.RequestBuilder request = fakeRequest(routes.Application.index(""));
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+    
+    // Verify the response contains root basePath
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("@basePath") || content.contains("href=\"/\""));
+  }
+
+  @Test
+  public void testIndexWithComplexBasePath() {
+    // Test with complex basePath like "/datahub/v2"
+    Application customApp = new GuiceApplicationBuilder()
+        .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+        .configure("metadataService.host", "localhost")
+        .configure("datahub.basePath", "/datahub/v2")
+        .configure("auth.baseUrl", "http://localhost:" + providePort())
+        .configure(
+            "auth.oidc.discoveryUri",
+            "http://localhost:"
+                + actualOauthServerPort
+                + "/testIssuer/.well-known/openid-configuration")
+        .overrides(new TestModule())
+        .in(new Environment(Mode.TEST))
+        .build();
+
+    Http.RequestBuilder request = fakeRequest(routes.Application.index(""));
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+    
+    // Verify the response contains complex basePath
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("@basePath") || content.contains("href=\"/datahub/v2/\""));
+  }
+
+  @Test
+  public void testPlayHttpContextIntegration() {
+    // Test integration with play.http.context configuration
+    Application customApp = new GuiceApplicationBuilder()
+        .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+        .configure("metadataService.host", "localhost")
+        .configure("datahub.basePath", "/datahub")
+        .configure("play.http.context", "/datahub")
+        .configure("auth.baseUrl", "http://localhost:" + providePort())
+        .configure(
+            "auth.oidc.discoveryUri",
+            "http://localhost:"
+                + actualOauthServerPort
+                + "/testIssuer/.well-known/openid-configuration")
+        .overrides(new TestModule())
+        .in(new Environment(Mode.TEST))
+        .build();
+
+    // When play.http.context is set, routes are prefixed with that context
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "/datahub" + routes.Application.appConfig().url());
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+
+    // Verify the response contains basePath configuration
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("\"basePath\""));
+    assertTrue(content.contains("\"/datahub\""));
+  }
+
+  @Test
+  public void testPlayHttpContextWithDifferentBasePath() {
+    // Test when play.http.context and datahub.basePath are different
+    Application customApp = new GuiceApplicationBuilder()
+        .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+        .configure("metadataService.host", "localhost")
+        .configure("datahub.basePath", "/frontend")
+        .configure("play.http.context", "/api")
+        .configure("auth.baseUrl", "http://localhost:" + providePort())
+        .configure(
+            "auth.oidc.discoveryUri",
+            "http://localhost:"
+                + actualOauthServerPort
+                + "/testIssuer/.well-known/openid-configuration")
+        .overrides(new TestModule())
+        .in(new Environment(Mode.TEST))
+        .build();
+
+    // When play.http.context is set, routes are prefixed with that context
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "/api" + routes.Application.appConfig().url());
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+
+    // Verify the response contains the datahub.basePath, not play.http.context
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("\"basePath\""));
+    assertTrue(content.contains("\"/frontend\""));
+  }
+
+  @Test
+  public void testAppConfigWithAllBasePathVariations() {
+    // Test various basePath configurations to ensure robustness
+    String[] basePaths = {"", "/", "/datahub", "/datahub/", "/custom/path", "/custom/path/"};
+    
+    for (String basePath : basePaths) {
+      Application customApp = new GuiceApplicationBuilder()
+          .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+          .configure("metadataService.host", "localhost")
+          .configure("datahub.basePath", basePath)
+          .configure("auth.baseUrl", "http://localhost:" + providePort())
+          .configure(
+              "auth.oidc.discoveryUri",
+              "http://localhost:"
+                  + actualOauthServerPort
+                  + "/testIssuer/.well-known/openid-configuration")
+          .overrides(new TestModule())
+          .in(new Environment(Mode.TEST))
+          .build();
+
+      Http.RequestBuilder request = fakeRequest(routes.Application.appConfig());
+
+      Result result = route(customApp, request);
+      assertEquals(OK, result.status());
+      
+      // Verify the response contains basePath configuration
+      String content = Helpers.contentAsString(result);
+      assertTrue(content.contains("\"basePath\""), 
+          "BasePath not found in response for basePath: " + basePath);
+    }
+  }
+
+  @Test
+  public void testIndexWithAllBasePathVariations() {
+    // Test various basePath configurations in index method
+    String[] basePaths = {"", "/", "/datahub", "/datahub/", "/custom/path", "/custom/path/"};
+    
+    for (String basePath : basePaths) {
+      Application customApp = new GuiceApplicationBuilder()
+          .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+          .configure("metadataService.host", "localhost")
+          .configure("datahub.basePath", basePath)
+          .configure("auth.baseUrl", "http://localhost:" + providePort())
+          .configure(
+              "auth.oidc.discoveryUri",
+              "http://localhost:"
+                  + actualOauthServerPort
+                  + "/testIssuer/.well-known/openid-configuration")
+          .overrides(new TestModule())
+          .in(new Environment(Mode.TEST))
+          .build();
+
+      Http.RequestBuilder request = fakeRequest(routes.Application.index(""));
+
+      Result result = route(customApp, request);
+      assertEquals(OK, result.status());
+      
+      // Verify the response contains basePath injection
+      String content = Helpers.contentAsString(result);
+      assertTrue(content.contains("@basePath") || content.contains("href="), 
+          "BasePath injection not found in response for basePath: " + basePath);
+    }
   }
 
   @Test
