@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
-import { AnnouncementCard } from '@app/homeV3/announcements/AnnouncementCard';
+import analytics, { EventType } from '@app/analytics';
+import ExpandableAnnouncements from '@app/homeV3/announcements/ExpandableAnnouncements';
 import { useGetAnnouncementsForUser } from '@app/homeV3/announcements/useGetAnnouncementsForUser';
 
 const AnnouncementsContainer = styled.div`
@@ -18,15 +19,20 @@ export const Announcements = () => {
         return b?.lastModified?.time - a?.lastModified?.time;
     });
 
+    const onDismiss = useCallback(
+        (urn: string) => {
+            onDismissAnnouncement(urn);
+
+            analytics.event({
+                type: EventType.HomePageTemplateModuleAnnouncementDismiss,
+            });
+        },
+        [onDismissAnnouncement],
+    );
+
     return (
         <AnnouncementsContainer>
-            {sortedAnnouncements.map((announcement) => (
-                <AnnouncementCard
-                    key={announcement.urn}
-                    announcement={announcement}
-                    onDismiss={onDismissAnnouncement}
-                />
-            ))}
+            <ExpandableAnnouncements announcements={sortedAnnouncements} onDismiss={onDismiss} />
         </AnnouncementsContainer>
     );
 };

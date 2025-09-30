@@ -192,6 +192,11 @@ type PlatformPrivileges {
   Whether the user can manage platform features.
   """
   manageFeatures: Boolean!
+
+  """
+  Whether the user can manage default home page template.
+  """
+  manageHomePageTemplates: Boolean!
 }
 
 """
@@ -210,6 +215,16 @@ type SearchBarConfig {
   API variant
   """
   apiVariant: SearchBarAPI!
+}
+
+"""
+Configurations related to the Search card
+"""
+type SearchCardConfig {
+  """
+  Whether the search card should show description
+  """
+  showDescription: Boolean!
 }
 
 """
@@ -312,6 +327,11 @@ type AppConfig {
   Configurations related to the Search bar
   """
   searchBarConfig: SearchBarConfig!
+
+  """
+  Configurations related to the Search card
+  """
+  searchCardConfig: SearchCardConfig!
 
   """
   Feature flags telling the UI whether a feature is enabled or not
@@ -744,6 +764,11 @@ type FeatureFlagsConfig {
   showLineageExpandMore: Boolean!
 
   """
+  If turned on, show the re-designed Stats tab on the entity page
+  """
+  showStatsTabRedesign: Boolean!
+
+  """
   If turned on, show the re-designed home page
   """
   showHomePageRedesign: Boolean!
@@ -762,6 +787,21 @@ type FeatureFlagsConfig {
   Enables logical models feature
   """
   logicalModelsEnabled: Boolean!
+
+  """
+  Enables displaying the homepage user role underneath the name. Only available for custom home page.
+  """
+  showHomepageUserRole: Boolean!
+
+  """
+  If enabled, show the default external links on the entity page
+  """
+  showDefaultExternalLinks: Boolean!
+
+  """
+  Enables displaying the asset summary page
+  """
+  assetSummaryPageV1: Boolean!
 }
 
 """

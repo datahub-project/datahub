@@ -32,7 +32,6 @@ import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '@graphql/dataFlo
 import { DataFlow, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
@@ -58,10 +57,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
         return (
             <ShareAltOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
@@ -238,6 +234,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 headerDropdownItems={headerDropdownItems}
                 parentContainers={data.parentContainers}
                 subTypes={genericProperties?.subTypes}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

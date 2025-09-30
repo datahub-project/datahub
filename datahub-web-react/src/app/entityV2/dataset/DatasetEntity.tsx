@@ -46,7 +46,7 @@ import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/Sid
 import AccessManagement from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagement';
 import QueriesTab from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesTab';
 import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
-import StatsTab from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTab';
+import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabWrapper';
 import { AcrylValidationsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylValidationsTab';
 import ViewDefinitionTab from '@app/entityV2/shared/tabs/Dataset/View/ViewDefinitionTab';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
@@ -58,6 +58,7 @@ import {
     SidebarTitleActionType,
     getDataProduct,
     getDatasetLastUpdatedMs,
+    getFirstSubType,
     isOutputPort,
 } from '@app/entityV2/shared/utils';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
@@ -77,7 +78,6 @@ const SUBTYPES = {
 };
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.RAISE_INCIDENT,
@@ -112,10 +112,7 @@ export class DatasetEntity implements Entity<Dataset> {
         return (
             <ViewComfyOutlinedIcon
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
@@ -222,7 +219,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
                 {
                     name: 'Stats',
-                    component: StatsTab,
+                    component: StatsTabWrapper,
                     icon: FundOutlined,
                     display: {
                         visible: (_, _1) => true,
@@ -251,6 +248,11 @@ export class DatasetEntity implements Entity<Dataset> {
                         </span>
                     ),
                     component: GovernanceTab,
+                    getCount: (_, dataset) => {
+                        const passingTests = dataset?.dataset?.testResults?.passing || [];
+                        const failingTests = dataset?.dataset?.testResults?.failing || [];
+                        return passingTests.length + failingTests.length;
+                    },
                 },
                 {
                     name: 'Runs', // TODO: Rename this to DatasetRunsTab.
@@ -387,7 +389,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 data={genericProperties}
                 name={data.properties?.name || data.name}
                 origin={data.origin}
-                subtype={data.subTypes?.typeNames?.[0]}
+                subtype={getFirstSubType(data)}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={
                     data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
@@ -440,7 +442,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 deprecation={data.deprecation}
                 glossaryTerms={data.glossaryTerms}
-                subtype={data.subTypes?.typeNames?.[0]}
+                subtype={getFirstSubType(data)}
                 container={data.container}
                 parentContainers={data.parentContainers}
                 snippet={<MatchedFieldList customFieldRenderer={matchedFieldPathsRenderer} />}
@@ -459,6 +461,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
@@ -477,7 +480,7 @@ export class DatasetEntity implements Entity<Dataset> {
             name: entity?.properties?.name || entity.name,
             expandedName: entity?.properties?.qualifiedName || entity?.properties?.name || entity.name,
             type: EntityType.Dataset,
-            subtype: entity?.subTypes?.typeNames?.[0] || undefined,
+            subtype: getFirstSubType(entity) || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
             health: entity?.health || undefined,

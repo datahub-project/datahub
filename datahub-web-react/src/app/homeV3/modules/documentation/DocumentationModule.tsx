@@ -7,6 +7,7 @@ import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 
 const StyledEditor = styled(Editor)`
     border: none;
+    padding: 8px;
     &&& {
         .remirror-editor {
             padding: 0;
@@ -17,7 +18,7 @@ const StyledEditor = styled(Editor)`
 const DocumentationModule = (props: ModuleProps) => {
     const content = props.module.properties.params.richTextParams?.content;
     return (
-        <LargeModule {...props}>
+        <LargeModule {...props} dataTestId="documentation-module">
             <StyledEditor content={content} readOnly />
         </LargeModule>
     );

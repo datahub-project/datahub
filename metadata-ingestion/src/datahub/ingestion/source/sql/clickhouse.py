@@ -18,6 +18,7 @@ from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import HiddenFromDocs, LaxStr
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
@@ -32,6 +33,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.sql_common import (
     SqlWorkUnit,
     logger,
@@ -127,16 +129,20 @@ class ClickHouseConfig(
 ):
     # defaults
     host_port: str = Field(default="localhost:8123", description="ClickHouse host URL.")
-    scheme: str = Field(default="clickhouse", description="", hidden_from_docs=True)
+    scheme: HiddenFromDocs[str] = Field(default="clickhouse")
     password: pydantic.SecretStr = Field(
         default=pydantic.SecretStr(""), description="password"
     )
-    secure: Optional[bool] = Field(default=None, description="")
-    protocol: Optional[str] = Field(default=None, description="")
+    secure: Optional[bool] = Field(
+        default=None, description="[deprecated] Use uri_opts instead."
+    )
+    protocol: Optional[str] = Field(
+        default=None, description="[deprecated] Use uri_opts instead."
+    )
     _deprecate_secure = pydantic_field_deprecated("secure")
     _deprecate_protocol = pydantic_field_deprecated("protocol")
 
-    uri_opts: Dict[str, str] = Field(
+    uri_opts: Dict[str, LaxStr] = Field(
         default={},
         description="The part of the URI and it's used to provide additional configuration options or parameters for the database connection.",
     )
@@ -184,9 +190,9 @@ class ClickHouseConfig(
                 "Initializing uri_opts from deprecated secure or protocol options"
             )
             values["uri_opts"] = {}
-            if secure:
-                values["uri_opts"]["secure"] = secure
-            if protocol:
+            if secure is not None:
+                values["uri_opts"]["secure"] = str(secure)
+            if protocol is not None:
                 values["uri_opts"]["protocol"] = protocol
             logger.debug(f"uri_opts: {uri_opts}")
         elif (secure or protocol) and uri_opts:
@@ -383,6 +389,14 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default to get lineage for views via `include_view_lineage`",
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.TABLE,
+    ],
+)
 class ClickHouseSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:

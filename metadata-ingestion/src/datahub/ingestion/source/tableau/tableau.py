@@ -3,6 +3,7 @@ import logging
 import re
 import time
 from collections import OrderedDict, defaultdict
+from copy import deepcopy
 from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
@@ -474,6 +475,13 @@ class TableauPageSizeConfig(ConfigModel):
         return self.database_table_page_size or self.page_size
 
 
+_IngestHiddenAssetsOptionsType = Literal["worksheet", "dashboard"]
+_IngestHiddenAssetsOptions: List[_IngestHiddenAssetsOptionsType] = [
+    "worksheet",
+    "dashboard",
+]
+
+
 class TableauConfig(
     DatasetLineageProviderConfigBase,
     StatefulIngestionConfigBase,
@@ -523,6 +531,10 @@ class TableauConfig(
     ingest_owner: Optional[bool] = Field(
         default=False,
         description="Ingest Owner from source. This will override Owner info entered from UI",
+    )
+    use_email_as_username: bool = Field(
+        default=False,
+        description="Use email address instead of username for entity owners. Requires ingest_owner to be True.",
     )
     ingest_tables_external: bool = Field(
         default=False,
@@ -582,13 +594,13 @@ class TableauConfig(
     )
 
     extract_lineage_from_unsupported_custom_sql_queries: bool = Field(
-        default=False,
-        description="[Experimental] Whether to extract lineage from unsupported custom sql queries using SQL parsing",
+        default=True,
+        description="[Experimental] Extract lineage from Custom SQL queries using DataHub's SQL parser in cases where the Tableau Catalog API fails to return lineage for the query.",
     )
 
     force_extraction_of_lineage_from_custom_sql_queries: bool = Field(
         default=False,
-        description="[Experimental] Force extraction of lineage from custom sql queries using SQL parsing, ignoring Tableau metadata",
+        description="[Experimental] Force extraction of lineage from Custom SQL queries using DataHub's SQL parser, even when the Tableau Catalog API returns lineage already.",
     )
 
     sql_parsing_disable_schema_awareness: bool = Field(
@@ -621,8 +633,8 @@ class TableauConfig(
         description="Configuration settings for ingesting Tableau groups and their capabilities as custom properties.",
     )
 
-    ingest_hidden_assets: Union[List[Literal["worksheet", "dashboard"]], bool] = Field(
-        default=["worksheet", "dashboard"],
+    ingest_hidden_assets: Union[List[_IngestHiddenAssetsOptionsType], bool] = Field(
+        _IngestHiddenAssetsOptions,
         description=(
             "When enabled, hidden worksheets and dashboards are ingested into Datahub."
             " If a dashboard or worksheet is hidden in Tableau the luid is blank."
@@ -644,6 +656,11 @@ class TableauConfig(
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
+        # In-place update of the input dict would cause state contamination. This was discovered through test failures
+        # in test_hex.py where the same dict is reused.
+        # So a copy is performed first.
+        values = deepcopy(values)
+
         projects = values.get("projects")
         project_pattern = values.get("project_pattern")
         project_path_pattern = values.get("project_path_pattern")
@@ -655,6 +672,7 @@ class TableauConfig(
             values["project_pattern"] = AllowDenyPattern(
                 allow=[f"^{prj}$" for prj in projects]
             )
+            values.pop("projects")
         elif (project_pattern or project_path_pattern) and projects:
             raise ValueError(
                 "projects is deprecated. Please use project_path_pattern only."
@@ -666,7 +684,7 @@ class TableauConfig(
 
         return values
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def validate_config_values(cls, values: Dict) -> Dict:
         tags_for_hidden_assets = values.get("tags_for_hidden_assets")
         ingest_tags = values.get("ingest_tags")
@@ -678,6 +696,14 @@ class TableauConfig(
             raise ValueError(
                 "tags_for_hidden_assets is only allowed with ingest_tags enabled. Be aware that this will overwrite tags entered from the UI."
             )
+
+        use_email_as_username = values.get("use_email_as_username")
+        ingest_owner = values.get("ingest_owner")
+        if use_email_as_username and not ingest_owner:
+            raise ValueError(
+                "use_email_as_username requires ingest_owner to be enabled."
+            )
+
         return values
 
 
@@ -838,6 +864,9 @@ class TableauSourceReport(
     num_paginated_queries_by_connection_type: Dict[str, int] = dataclass_field(
         default_factory=(lambda: defaultdict(int))
     )
+
+    # Owner extraction statistics
+    num_email_fallback_to_username: int = 0
 
 
 def report_user_role(report: TableauSourceReport, server: Server) -> None:
@@ -1184,7 +1213,7 @@ class TableauSiteSource:
                     self.report.warning(
                         title="Incomplete project hierarchy",
                         message="Project details missing. Child projects will be ingested without reference to their parent project. We generally need Site Administrator Explorer permissions to extract the complete project hierarchy.",
-                        context=f"Missing {project.parent_id}, referenced by {project.id} {project.project_name}",
+                        context=f"Missing {project.parent_id}, referenced by {project.id} {project.name}",
                     )
                     project.parent_id = None
 
@@ -1561,12 +1590,15 @@ class TableauSiteSource:
                         }}""",
                     )
             else:
-                # As of Tableau Server 2024.2, the metadata API sporadically returns a 30-second
-                # timeout error.
-                # It doesn't reliably happen, so retrying a couple of times makes sense.
                 if all(
+                    # As of Tableau Server 2024.2, the metadata API sporadically returns a 30-second
+                    # timeout error.
+                    # It doesn't reliably happen, so retrying a couple of times makes sense.
                     error.get("message")
                     == "Execution canceled because timeout of 30000 millis was reached"
+                    # The Metadata API sometimes returns an 'unexpected error' message when querying
+                    # embeddedDatasourcesConnection. Try retrying a couple of times.
+                    or error.get("message") == "Unexpected error occurred"
                     for error in errors
                 ):
                     # If it was only a timeout error, we can retry.
@@ -1578,8 +1610,8 @@ class TableauSiteSource:
                         (self.config.max_retries - retries_remaining + 1) ** 2, 60
                     )
                     logger.info(
-                        f"Query {connection_type} received a 30 second timeout error - will retry in {backoff_time} seconds. "
-                        f"Retries remaining: {retries_remaining}"
+                        f"Query {connection_type} received a retryable error with {retries_remaining} retries remaining, "
+                        f"will retry in {backoff_time} seconds: {errors}"
                     )
                     time.sleep(backoff_time)
                     return self.get_connection_object_page(
@@ -2713,13 +2745,12 @@ class TableauSiteSource:
             dataset_snapshot.aspects.append(browse_paths)
 
         # Ownership
-        owner = (
-            self._get_ownership(datasource_info[c.OWNER][c.USERNAME])
-            if datasource_info
-            and datasource_info.get(c.OWNER)
-            and datasource_info[c.OWNER].get(c.USERNAME)
+        owner_identifier = (
+            self._get_owner_identifier(datasource_info[c.OWNER])
+            if datasource_info and datasource_info.get(c.OWNER)
             else None
         )
+        owner = self._get_ownership(owner_identifier) if owner_identifier else None
         if owner is not None:
             dataset_snapshot.aspects.append(owner)
 
@@ -3124,7 +3155,7 @@ class TableauSiteSource:
 
         creator: Optional[str] = None
         if workbook is not None and workbook.get(c.OWNER) is not None:
-            creator = workbook[c.OWNER].get(c.USERNAME)
+            creator = self._get_owner_identifier(workbook[c.OWNER])
         created_at = sheet.get(c.CREATED_AT, datetime.now())
         updated_at = sheet.get(c.UPDATED_AT, datetime.now())
         last_modified = self.get_last_modified(creator, created_at, updated_at)
@@ -3273,7 +3304,7 @@ class TableauSiteSource:
 
     def emit_workbook_as_container(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         workbook_container_key = self.gen_workbook_key(workbook[c.ID])
-        creator = workbook.get(c.OWNER, {}).get(c.USERNAME)
+        creator = self._get_owner_identifier(workbook.get(c.OWNER, {}))
 
         owner_urn = (
             builder.make_user_urn(creator)
@@ -3455,7 +3486,7 @@ class TableauSiteSource:
 
         creator: Optional[str] = None
         if workbook is not None and workbook.get(c.OWNER) is not None:
-            creator = workbook[c.OWNER].get(c.USERNAME)
+            creator = self._get_owner_identifier(workbook[c.OWNER])
         created_at = dashboard.get(c.CREATED_AT, datetime.now())
         updated_at = dashboard.get(c.UPDATED_AT, datetime.now())
         last_modified = self.get_last_modified(creator, created_at, updated_at)
@@ -3601,6 +3632,20 @@ class TableauSiteSource:
                 lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
             )
         return last_modified
+
+    def _get_owner_identifier(self, owner_dict: dict) -> Optional[str]:
+        """Extract owner identifier (email or username) based on configuration."""
+        if not owner_dict:
+            return None
+
+        if self.config.use_email_as_username:
+            email = owner_dict.get(c.EMAIL)
+            if email:
+                return email
+            # Fall back to username if email is not available
+            self.report.num_email_fallback_to_username += 1
+
+        return owner_dict.get(c.USERNAME)
 
     @lru_cache(maxsize=None)
     def _get_ownership(self, user: str) -> Optional[OwnershipClass]:
@@ -3825,3 +3870,15 @@ class TableauSiteSource:
                     self.report.emit_upstream_tables_timer[self.site_content_url] = (
                         timer.elapsed_seconds(digits=2)
                     )
+
+            # Log owner extraction statistics if there were fallbacks
+            if (
+                self.config.use_email_as_username
+                and self.config.ingest_owner
+                and self.report.num_email_fallback_to_username > 0
+            ):
+                logger.info(
+                    f"Owner extraction summary for site '{self.site_content_url}': "
+                    f"{self.report.num_email_fallback_to_username} entities fell back from email to username "
+                    f"(email was not available)"
+                )

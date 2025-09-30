@@ -30,6 +30,7 @@ class DatasetSubTypes(StrEnum):
     NEO4J_NODE = "Neo4j Node"
     NEO4J_RELATIONSHIP = "Neo4j Relationship"
     SNOWFLAKE_STREAM = "Snowflake Stream"
+    DYNAMIC_TABLE = "Dynamic Table"
     API_ENDPOINT = "API Endpoint"
     SLACK_CHANNEL = "Slack Channel"
     PROJECTIONS = "Projections"
@@ -53,6 +54,8 @@ class DatasetContainerSubTypes(StrEnum):
     ABS_CONTAINER = "ABS container"
     KEYSPACE = "Keyspace"  # Cassandra
     NAMESPACE = "Namespace"  # Iceberg
+    DREMIO_SPACE = "Dremio Space"
+    DREMIO_SOURCE = "Dremio Source"
 
 
 class BIContainerSubTypes(StrEnum):
@@ -62,6 +65,7 @@ class BIContainerSubTypes(StrEnum):
     TABLEAU_SITE = "Site"
     TABLEAU_PROJECT = "Project"
     TABLEAU_WORKBOOK = "Workbook"
+    POWERBI_WORKSPACE = "Workspace"
     POWERBI_DATASET = "Semantic Model"
     POWERBI_DATASET_TABLE = "Table"
     QLIK_SPACE = "Qlik Space"
@@ -69,6 +73,8 @@ class BIContainerSubTypes(StrEnum):
     SIGMA_WORKSPACE = "Sigma Workspace"
     SIGMA_WORKBOOK = "Sigma Workbook"
     MODE_COLLECTION = "Collection"
+    GRAFANA_FOLDER = "Folder"
+    GRAFANA_DASHBOARD = "Dashboard"
 
 
 class FlowContainerSubTypes(StrEnum):

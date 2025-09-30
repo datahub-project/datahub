@@ -68,21 +68,12 @@ export const IncidentTab = () => {
 
     const hasData = (data?.entity as any)?.incidents;
     const combinedData = (entityType === EntityType.Dataset && combineEntityDataWithSiblings(data)) || data;
-    const allIncidents =
+    const allIncidents: Incident[] =
         (combinedData && (combinedData as any).entity?.incidents?.incidents?.map((incident) => incident as Incident)) ||
         [];
     const filteredIncidents = allIncidents.filter(
-        (incident) => !selectedIncidentState || incident.status?.state === selectedIncidentState,
+        (incident) => !selectedIncidentState || incident.incidentStatus?.state === selectedIncidentState,
     );
-    const incidentList = filteredIncidents?.map((incident) => ({
-        urn: incident?.urn,
-        created: incident.created,
-        customType: incident.customType,
-        description: incident.description,
-        status: incident.status,
-        type: incident?.incidentType,
-        title: incident?.title,
-    }));
 
     return (
         <>
@@ -130,7 +121,7 @@ export const IncidentTab = () => {
                                 />
                             ),
                         }}
-                        dataSource={incidentList}
+                        dataSource={filteredIncidents}
                         renderItem={(item: any) => <IncidentListItem refetch={refetch} incident={item} />}
                     />
                 </IncidentList>

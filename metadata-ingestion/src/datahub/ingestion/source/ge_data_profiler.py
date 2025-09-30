@@ -216,6 +216,14 @@ def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> in
                 )
             ).scalar()
         )
+    elif self.engine.dialect.name.lower() == DATABRICKS:
+        return convert_to_json_serializable(
+            self.engine.execute(
+                sa.select(sa.func.approx_count_distinct(sa.column(column))).select_from(
+                    self._table
+                )
+            ).scalar()
+        )
     return convert_to_json_serializable(
         self.engine.execute(
             sa.select([sa.func.count(sa.func.distinct(sa.column(column)))]).select_from(
@@ -299,7 +307,6 @@ def _is_single_row_query_method(query: Any) -> bool:
         "get_column_max",
         "get_column_mean",
         "get_column_stdev",
-        "get_column_nonnull_count",
         "get_column_unique_count",
     }
     CONSTANT_ROW_QUERY_METHODS = {
@@ -323,6 +330,7 @@ def _is_single_row_query_method(query: Any) -> bool:
 
     FIRST_PARTY_SINGLE_ROW_QUERY_METHODS = {
         "get_column_unique_count_dh_patch",
+        "_get_column_cardinality",
     }
 
     # We'll do this the inefficient way since the arrays are pretty small.
@@ -489,7 +497,20 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self, column_spec: _SingleColumnSpec, column: str
     ) -> None:
         try:
-            nonnull_count = self.dataset.get_column_nonnull_count(column)
+            # Don't use Great Expectations get_column_nonnull_count because it
+            # generates this SQL:
+            #
+            #   sum(CASE WHEN (mycolumn IN (NULL) OR mycolumn IS NULL) THEN 1 ELSE 0 END)
+            #
+            # which fails for complex types (such as Databricks maps) that don't
+            # support the IN operator.
+            nonnull_count = convert_to_json_serializable(
+                self.dataset.engine.execute(
+                    sa.select(sa.func.count(sa.column(column))).select_from(
+                        self.dataset._table
+                    )
+                ).scalar()
+            )
             column_spec.nonnull_count = nonnull_count
         except Exception as e:
             logger.debug(
@@ -1497,9 +1518,17 @@ class DatahubGEProfiler:
                 logger.error(
                     f"Unexpected {pretty_name} while profiling. Should have 3 parts but has {len(name_parts)} parts."
                 )
+            if platform == DATABRICKS:
+                # TODO: Review logic for BigQuery as well, probably project.dataset.table should be quoted there as well
+                quoted_name = ".".join(
+                    batch.engine.dialect.identifier_preparer.quote(part)
+                    for part in name_parts
+                )
+                batch._table = sa.text(quoted_name)
+                logger.debug(f"Setting quoted table name to be {batch._table}")
             # If we only have two parts that means the project_id is missing from the table name and we add it
             # Temp tables has 3 parts while normal tables only has 2 parts
-            if len(str(batch._table).split(".")) == 2:
+            elif len(str(batch._table).split(".")) == 2:
                 batch._table = sa.text(f"{name_parts[0]}.{str(batch._table)}")
                 logger.debug(f"Setting table name to be {batch._table}")
 

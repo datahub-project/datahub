@@ -25,6 +25,7 @@ const addToCache = (existingProperties, newProperty) => {
                 showInAssetSummary: newProperty.settings.showInAssetSummary,
                 showInColumnsTable: newProperty.settings.showInColumnsTable,
             },
+            exists: newProperty.exists,
             __typename: 'StructuredPropertyEntity',
         },
         matchedFields: [],

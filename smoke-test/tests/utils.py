@@ -263,6 +263,11 @@ class TestSessionWrapper:
                 if name in ("get", "head", "post", "put", "delete", "option", "patch"):
                     if "headers" not in kwargs:
                         kwargs["headers"] = CaseInsensitiveDict()
+                    else:
+                        # Clone the headers dict to prevent mutation of caller's data
+                        # This fixes test pollution where shared header dicts get contaminated
+                        kwargs["headers"] = dict(kwargs["headers"])
+
                     kwargs["headers"].update(
                         {"Authorization": f"Bearer {self._gms_token}"}
                     )
@@ -347,3 +352,5 @@ class TestSessionWrapper:
                 f"{self._frontend_url}/api/v2/graphql", json=json
             )
             response.raise_for_status()
+            # Clear the token ID after successful revocation to prevent double-call issues
+            self._gms_token_id = None

@@ -1,11 +1,14 @@
 import { Button, Loader, borders, colors, radius, spacing } from '@components';
 import { useDraggable } from '@dnd-kit/core';
-import React, { memo } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import ModuleContainer from '@app/homeV3/module/components/ModuleContainer';
 import ModuleMenu from '@app/homeV3/module/components/ModuleMenu';
 import ModuleName from '@app/homeV3/module/components/ModuleName';
+import { DragIcon } from '@app/homeV3/module/components/SmallModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import { FloatingRightHeaderSection } from '@app/homeV3/styledComponents';
 
@@ -15,7 +18,7 @@ const ModuleHeader = styled.div`
     flex-direction: column;
     gap: 2px;
     border-radius: ${radius.lg} ${radius.lg} 0 0;
-    padding: ${spacing.md} ${spacing.md} ${spacing.xsm} ${spacing.md};
+    padding: ${spacing.sm} ${spacing.lg} ${spacing.sm} ${spacing.md};
     border-bottom: ${borders['1px']} ${colors.white};
     user-select: none;
 
@@ -27,17 +30,28 @@ const ModuleHeader = styled.div`
         background: linear-gradient(180deg, #fff 0%, #fafafb 100%);
         border-bottom: 1px solid ${colors.gray[100]};
     }
+
+    :hover ${DragIcon} {
+        display: block;
+    }
 `;
 
-const DragHandle = styled.div<{ $isDragging?: boolean }>`
-    cursor: ${({ $isDragging }) => ($isDragging ? 'grabbing' : 'grab')};
+const DragHandle = styled.div<{ $isDragging?: boolean; $isDisabled?: boolean }>`
+    cursor: ${({ $isDisabled, $isDragging }) => {
+        if ($isDisabled) return 'default';
+        if ($isDragging) return 'grabbing';
+        return 'grab';
+    }};
     flex: 1;
+    max-width: calc(100% - 10px);
 `;
 
 const Content = styled.div<{ $hasViewAll: boolean }>`
-    margin: 16px;
+    margin: 0 0 8px 8px;
     overflow-y: auto;
-    height: ${({ $hasViewAll }) => ($hasViewAll ? '210px' : '222px')};
+    padding-right: 5px;
+    scrollbar-gutter: stable;
+    height: ${({ $hasViewAll }) => ($hasViewAll ? '234px' : '246px')};
 `;
 
 const LoaderContainer = styled.div`
@@ -46,17 +60,24 @@ const LoaderContainer = styled.div`
 `;
 
 const ViewAllButton = styled(Button)`
-    margin-left: auto;
-    margin-right: 16px;
     margin: 0 16px 0 auto;
+    padding-right: 8px;
 `;
 
 interface Props extends ModuleProps {
     loading?: boolean;
     onClickViewAll?: () => void;
+    dataTestId?: string;
 }
 
-function LargeModule({ children, module, position, loading, onClickViewAll }: React.PropsWithChildren<Props>) {
+function LargeModule({
+    children,
+    module,
+    position,
+    loading,
+    onClickViewAll,
+    dataTestId,
+}: React.PropsWithChildren<Props>) {
     const { name } = module.properties;
 
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -64,22 +85,53 @@ function LargeModule({ children, module, position, loading, onClickViewAll }: Re
         data: {
             module,
             position,
+            isSmall: false,
         },
     });
+    const { isTemplateEditable, templateType } = usePageTemplateContext();
+
+    const hasViewAll = useMemo(() => !!onClickViewAll, [onClickViewAll]);
+
+    const onClickViewAllHandler = useCallback(() => {
+        onClickViewAll?.();
+        analytics.event({
+            type: EventType.HomePageTemplateModuleViewAllClick,
+            moduleType: module.properties.type,
+            location: templateType,
+        });
+    }, [onClickViewAll, module.properties.type, templateType]);
 
     return (
-        <ModuleContainer $height="316px" ref={setNodeRef}>
+        <ModuleContainer $height="316px" ref={setNodeRef} data-testId={dataTestId}>
             <ModuleHeader>
-                <DragHandle {...listeners} {...attributes} $isDragging={isDragging}>
+                <DragHandle
+                    {...(isTemplateEditable ? listeners : {})}
+                    {...(isTemplateEditable ? attributes : {})}
+                    $isDragging={isDragging}
+                    $isDisabled={!isTemplateEditable}
+                    data-testid="large-module-drag-handle"
+                >
+                    {isTemplateEditable && (
+                        <DragIcon
+                            {...listeners}
+                            size="lg"
+                            color="gray"
+                            icon="DotsSixVertical"
+                            source="phosphor"
+                            isDragging={isDragging}
+                        />
+                    )}
                     <ModuleName text={name} />
                     {/* TODO: implement description for modules CH-548 */}
                     {/* <ModuleDescription text={description} /> */}
                 </DragHandle>
-                <FloatingRightHeaderSection>
-                    <ModuleMenu module={module} position={position} />
-                </FloatingRightHeaderSection>
+                {isTemplateEditable && (
+                    <FloatingRightHeaderSection>
+                        <ModuleMenu module={module} position={position} />
+                    </FloatingRightHeaderSection>
+                )}
             </ModuleHeader>
-            <Content $hasViewAll={!!onClickViewAll}>
+            <Content $hasViewAll={hasViewAll}>
                 {loading ? (
                     <LoaderContainer>
                         <Loader />
@@ -88,8 +140,14 @@ function LargeModule({ children, module, position, loading, onClickViewAll }: Re
                     children
                 )}
             </Content>
-            {onClickViewAll && (
-                <ViewAllButton variant="link" color="gray" size="sm" onClick={onClickViewAll} data-testid="view-all">
+            {hasViewAll && (
+                <ViewAllButton
+                    variant="link"
+                    color="gray"
+                    size="sm"
+                    onClick={onClickViewAllHandler}
+                    data-testid="view-all"
+                >
                     View all
                 </ViewAllButton>
             )}

@@ -76,7 +76,15 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
-from datahub.metadata.urns import CorpUserUrn, Urn
+from datahub.metadata.urns import (
+    CorpUserUrn,
+    MlFeatureTableUrn,
+    MlFeatureUrn,
+    MlModelGroupUrn,
+    MlModelUrn,
+    MlPrimaryKeyUrn,
+    Urn,
+)
 from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.str_enum import StrEnum
@@ -118,8 +126,16 @@ def entity_type_to_graphql(entity_type: str) -> str:
     """Convert the entity types into GraphQL "EntityType" enum values."""
 
     # Hard-coded special cases.
-    if entity_type == CorpUserUrn.ENTITY_TYPE:
-        return "CORP_USER"
+    special_cases = {
+        CorpUserUrn.ENTITY_TYPE: "CORP_USER",
+        MlModelUrn.ENTITY_TYPE: "MLMODEL",
+        MlModelGroupUrn.ENTITY_TYPE: "MLMODEL_GROUP",
+        MlFeatureTableUrn.ENTITY_TYPE: "MLFEATURE_TABLE",
+        MlFeatureUrn.ENTITY_TYPE: "MLFEATURE",
+        MlPrimaryKeyUrn.ENTITY_TYPE: "MLPRIMARY_KEY",
+    }
+    if entity_type in special_cases:
+        return special_cases[entity_type]
 
     # Convert camelCase to UPPER_UNDERSCORE.
     entity_type = (
@@ -955,7 +971,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 $orFilters: [AndFilterInput!],
                 $batchSize: Int!,
                 $scrollId: String,
-                $skipCache: Boolean!) {
+                $skipCache: Boolean!,
+                $includeSoftDeleted: Boolean) {
 
                 scrollAcrossEntities(input: {
                     query: $query,
@@ -967,6 +984,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                         skipHighlighting: true
                         skipAggregates: true
                         skipCache: $skipCache
+                        includeSoftDeleted: $includeSoftDeleted
                     }
                 }) {
                     nextScrollId
@@ -986,6 +1004,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "orFilters": orFilters,
             "batchSize": batch_size,
             "skipCache": skip_cache,
+            "includeSoftDeleted": (
+                None
+                if status is None
+                else status != RemovedStatusFilter.NOT_SOFT_DELETED
+            ),
         }
 
         for entity in self._scroll_across_entities(graphql_query, variables):

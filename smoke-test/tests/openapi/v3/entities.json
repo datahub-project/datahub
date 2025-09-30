@@ -113,7 +113,8 @@
     },
     "response": {
       "exclude_regex_paths": [
-        "root\\['scrollId'\\]"
+        "root\\['scrollId'\\]",
+        "root\\['totalCount'\\]"
       ],
       "json": {
         "entities": [
@@ -125,6 +126,179 @@
                 "qualifiedName": "entities.datasetSingle1EntityV3",
                 "customProperties": {},
                 "tags": []
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/scroll",
+      "params": {
+        "count": "10"
+      },
+      "description": "Generic scroll with filters",
+      "json": {
+        "sortCriteria": [
+          {
+            "field": "name",
+            "order": "ASCENDING"
+          }
+        ],
+        "aspects": [],
+        "entities": [
+          "dataPlatform"
+        ],
+        "filter": {
+          "and": [
+            {
+              "criteria": [
+                {
+                  "field": "name",
+                  "values": ["openapi"],
+                  "condition": "EQUAL"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "response": {
+      "exclude_regex_paths": [
+        "root\\['scrollId'\\]"
+      ],
+      "json": {
+        "entities": [
+          {
+            "urn": "urn:li:dataPlatform:OpenApi",
+            "dataPlatformKey": {
+              "value": {
+                "platformName": "OpenApi"
+              }
+            },
+            "dataPlatformInfo": {
+              "value": {
+                "name": "openapi",
+                "datasetNameDelimiter": ".",
+                "type": "OTHERS",
+                "displayName": "OpenAPI",
+                "logoUrl": "/assets/platforms/openapilogo.png"
+              }
+            }
+          }
+        ],
+        "totalCount": 1
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/scroll",
+      "params": {
+        "count": "1"
+      },
+      "description": "Generic scroll with filters",
+      "json": {
+        "aspects": [],
+        "entities": [
+          "dataPlatform"
+        ],
+        "filter": {
+          "and": [
+            {
+              "criteria": [
+                {
+                  "field": "name",
+                  "values": ["vert"],
+                  "condition": "CONTAIN"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "response": {
+      "exclude_regex_paths": [
+        "root\\['scrollId'\\]"
+      ],
+      "json": {
+        "entities": [
+          {
+            "urn": "urn:li:dataPlatform:vertexai",
+            "dataPlatformKey": {
+              "value": {
+                "platformName": "vertexai"
+              }
+            },
+            "dataPlatformInfo": {
+              "value": {
+                "name": "vertexai",
+                "datasetNameDelimiter": ".",
+                "type": "OTHERS",
+                "displayName": "vertexai",
+                "logoUrl": "/assets/platforms/vertexai.png"
+              }
+            }
+          }
+        ],
+        "totalCount": 2
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/scroll",
+      "params": {
+        "pitKeepAlive": "1m",
+        "count": "1",
+        "query": "qualifiedName:entities\\.datasetSingle*",
+        "sortCriteria": "urn",
+        "systemMetadata": "true"
+      },
+      "description": "Generic scroll",
+      "json": {
+        "aspects": [
+          "datasetProperties"
+        ]
+      }
+    },
+    "response": {
+      "exclude_regex_paths": [
+        "root\\['scrollId'\\]",
+        "root\\['totalCount'\\]",
+        "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['sourceIP'\\]",
+        "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['telemetryTraceId'\\]",
+        "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['auditStamp'\\]",
+        "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['lastObserved'\\]",
+        "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['aspectCreated'\\]\\['time'\\]",
+        "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['aspectModified'\\]\\['time'\\]"
+      ],
+      "json": {
+        "entities": [
+          {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetSingle1EntityV3,PROD)",
+            "datasetProperties": {
+              "value": {
+                "name": "datasetSingle1EntityV3",
+                "qualifiedName": "entities.datasetSingle1EntityV3",
+                "customProperties": {},
+                "tags": []
+              },
+              "systemMetadata": {
+                "aspectCreated": {
+                  "actor":"urn:li:corpuser:datahub"
+                },
+                "aspectModified": {
+                  "actor":"urn:li:corpuser:datahub"
+                },
+                "version":"1",
+                "properties": {
+                  "eventSource":"OPENAPI"
+                }
               }
             }
           }
@@ -147,7 +321,8 @@
     },
     "response": {
       "exclude_regex_paths": [
-        "root\\['scrollId'\\]"
+        "root\\['scrollId'\\]",
+        "root\\['totalCount'\\]"
       ],
       "json": {
         "entities": [

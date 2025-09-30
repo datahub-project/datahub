@@ -1,9 +1,10 @@
 package com.linkedin.metadata.search.opensearch;
 
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.indexbuilder.IndexBuilderTestBase;
 import com.linkedin.metadata.version.GitVersion;
@@ -28,6 +29,12 @@ public class IndexBuilderOpenSearchTest extends IndexBuilderTestBase {
     return _searchClient;
   }
 
+  @NotNull
+  @Override
+  protected ElasticSearchConfiguration getElasticSearchConfiguration() {
+    return TEST_OS_SEARCH_CONFIG;
+  }
+
   @Test
   public void initTest() {
     assertNotNull(_searchClient);
@@ -47,7 +54,7 @@ public class IndexBuilderOpenSearchTest extends IndexBuilderTestBase {
             false,
             false,
             false,
-            TEST_ES_SEARCH_CONFIG,
+            TEST_OS_SEARCH_CONFIG,
             gitVersion);
     customIndexBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
     GetIndexResponse resp = getTestIndex();

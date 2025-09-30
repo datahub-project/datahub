@@ -23,6 +23,14 @@ export function getTimestampMillisNumDaysAgo(numDays) {
 }
 
 const SKIP_ONBOARDING_TOUR_KEY = "skipOnboardingTour";
+const SKIP_WELCOME_MODAL_KEY = "skipWelcomeModal";
+
+function notFirstTimeVisit() {
+  cy.window().then((win) => {
+    win.localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true");
+    win.localStorage.setItem(SKIP_WELCOME_MODAL_KEY, "true");
+  });
+}
 
 Cypress.Commands.add("login", () => {
   cy.request({
@@ -33,29 +41,43 @@ Cypress.Commands.add("login", () => {
       password: Cypress.env("ADMIN_PASSWORD"),
     },
     retryOnStatusCodeFailure: true,
-  }).then(() => localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true"));
+  }).then(() => notFirstTimeVisit());
 });
 
 Cypress.Commands.add("loginWithCredentials", (username, password) => {
   cy.visit("/login");
-  if ((username, password)) {
-    cy.get("input[data-testid=username]").type(username);
-    cy.get("input[data-testid=password]").type(password);
-  } else {
-    cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));
-    cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
-  }
+  cy.get("input[data-testid=username]").type(
+    username || Cypress.env("ADMIN_USERNAME"),
+    { delay: 0 },
+  );
+  cy.get("input[data-testid=password]").type(
+    password || Cypress.env("ADMIN_PASSWORD"),
+    { delay: 0 },
+  );
   cy.contains("Sign In").click();
   cy.get(".ant-avatar-circle").should("be.visible");
-  localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true");
+  notFirstTimeVisit();
 });
 
 Cypress.Commands.add("visitWithLogin", (url) => {
   cy.visit(url);
   cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));
   cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
-  localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true");
+  notFirstTimeVisit();
   cy.contains("Sign In").click();
+});
+
+// Login commands for onboarding tour testing (without setting skipOnboardingTour)
+Cypress.Commands.add("loginForOnboarding", () => {
+  cy.request({
+    method: "POST",
+    url: "/logIn",
+    body: {
+      username: Cypress.env("ADMIN_USERNAME"),
+      password: Cypress.env("ADMIN_PASSWORD"),
+    },
+    retryOnStatusCodeFailure: true,
+  });
 });
 
 Cypress.Commands.add("deleteUrn", (urn) => {
@@ -299,6 +321,10 @@ Cypress.Commands.add("ensureTextNotPresent", (text) => {
 
 Cypress.Commands.add("ensureElementPresent", (element) => {
   cy.get(element).should("be.visible");
+});
+
+Cypress.Commands.add("ensureElementWithTestIdPresent", (testId) => {
+  cy.get(selectorWithtestId(testId)).should("be.visible");
 });
 
 Cypress.Commands.add("waitTextPresent", (text) => {
@@ -554,12 +580,21 @@ Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
 });
 
 Cypress.on("uncaught:exception", (err) => {
-  const resizeObserverLoopErrMessage = "ResizeObserver loop limit exceeded";
+  const resizeObserverLoopLimitErrMessage =
+    "ResizeObserver loop limit exceeded";
+  const resizeObserverLoopErrMessage =
+    "ResizeObserver loop completed with undelivered notifications.";
 
   /* returning false here prevents Cypress from failing the test */
-  if (err.message.includes(resizeObserverLoopErrMessage)) {
+  if (
+    err.message.includes(resizeObserverLoopLimitErrMessage) ||
+    err.message.includes(resizeObserverLoopErrMessage)
+  ) {
     return false;
   }
+
+  // Allow other uncaught exceptions to fail the test
+  return true;
 });
 
 //

@@ -1,9 +1,18 @@
 {
-  "generated_at": "2025-07-14T09:20:09.632850+00:00",
+  "generated_at": "2025-08-28T07:13:19.226648+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
       "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Extract ABS containers and folders",
+          "subtype_modifier": [
+            "Folder",
+            "ABS container"
+          ],
+          "supported": true
+        },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
@@ -49,6 +58,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Supported for S3 tables",
           "subtype_modifier": [
+            "View",
             "Table"
           ],
           "supported": true
@@ -95,6 +105,7 @@
           "capability": "LINEAGE_COARSE",
           "description": "Supported for S3 tables",
           "subtype_modifier": [
+            "View",
             "Table"
           ],
           "supported": true
@@ -305,7 +316,8 @@
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -463,6 +475,14 @@
     "datahub": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database"
+          ],
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
@@ -521,13 +541,6 @@
       "platform_id": "file-based-lineage",
       "platform_name": "File Based Lineage",
       "support_status": "CERTIFIED"
-    },
-    "datahub-mock-data": {
-      "capabilities": [],
-      "classname": "datahub.ingestion.source.mock_data.datahub_mock_data.DataHubMockDataSource",
-      "platform_id": "datahubmockdata",
-      "platform_name": "DataHubMockData",
-      "support_status": "TESTING"
     },
     "dbt": {
       "capabilities": [
@@ -596,6 +609,14 @@
     "delta-lake": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Folder"
+          ],
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
@@ -625,7 +646,18 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Dremio Space",
+            "Dremio Source"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Extract column-level lineage",
+          "subtype_modifier": [
+            "Table"
+          ],
           "supported": true
         },
         {
@@ -673,7 +705,9 @@
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Table"
+          ],
           "supported": true
         }
       ],
@@ -803,6 +837,38 @@
       "platform_name": "Elasticsearch",
       "support_status": "CERTIFIED"
     },
+    "excel": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.excel.source.ExcelSource",
+      "platform_id": "excel",
+      "platform_name": "Excel",
+      "support_status": "INCUBATING"
+    },
     "feast": {
       "capabilities": [
         {
@@ -919,6 +985,14 @@
     "glue": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database"
+          ],
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_FINE",
           "description": "Support via the `emit_s3_lineage` config field",
           "subtype_modifier": null,
@@ -957,8 +1031,38 @@
     "grafana": {
       "capabilities": [
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
-          "description": "Enabled by default via stateful ingestion",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         }
@@ -966,7 +1070,7 @@
       "classname": "datahub.ingestion.source.grafana.grafana_source.GrafanaSource",
       "platform_id": "grafana",
       "platform_name": "Grafana",
-      "support_status": "TESTING"
+      "support_status": "CERTIFIED"
     },
     "hana": {
       "capabilities": [
@@ -1055,6 +1159,14 @@
           "capability": "CONTAINERS",
           "description": "Enabled by default",
           "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Supported by default",
+          "subtype_modifier": [
+            "Project"
+          ],
           "supported": true
         },
         {
@@ -1168,7 +1280,7 @@
           "capability": "CONTAINERS",
           "description": "Enabled by default",
           "subtype_modifier": [
-            "Database",
+            "Catalog",
             "Schema"
           ],
           "supported": true
@@ -1434,6 +1546,15 @@
     "looker": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "LookML Model",
+            "Folder"
+          ],
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configured using `extract_column_level_lineage`",
           "subtype_modifier": null,
@@ -1489,6 +1610,14 @@
     },
     "lookml": {
       "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "LookML Project"
+          ],
+          "supported": true
+        },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configured using `extract_column_level_lineage`",
@@ -1712,6 +1841,14 @@
     },
     "mongodb": {
       "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database"
+          ],
+          "supported": true
+        },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
@@ -2129,7 +2266,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Workspace",
+            "Semantic Model"
+          ],
           "supported": true
         },
         {
@@ -2233,6 +2373,12 @@
           "supported": true
         },
         {
+          "capability": "TAGS",
+          "description": "Supported by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "subtype_modifier": null,
@@ -2301,8 +2447,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Extract table-level lineage",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -2325,7 +2472,7 @@
           "capability": "CONTAINERS",
           "description": "Enabled by default",
           "subtype_modifier": [
-            "Database",
+            "Catalog",
             "Schema"
           ],
           "supported": true
@@ -2434,7 +2581,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Disabled by default. ",
+          "description": "Disabled by default.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2511,7 +2658,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -2534,7 +2684,7 @@
         },
         {
           "capability": "USAGE_STATS",
-          "description": "Enabled by default, can be disabled via configuration `include_usage_statistics`",
+          "description": "Optionally enabled via `include_usage_statistics`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2591,7 +2741,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Folder",
+            "S3 bucket"
+          ],
           "supported": true
         },
         {
@@ -2721,6 +2874,15 @@
           "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Extract table-level lineage for Salesforce objects",
+          "subtype_modifier": [
+            "Custom Object",
+            "Object"
+          ],
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.salesforce.SalesforceSource",
@@ -2804,6 +2966,38 @@
       "classname": "datahub.ingestion.source.slack.slack.SlackSource",
       "platform_id": "slack",
       "platform_name": "Slack",
+      "support_status": "TESTING"
+    },
+    "snaplogic": {
+      "capabilities": [
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Not supported yet",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "SnapLogic does not support platform instances",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.snaplogic.snaplogic.SnaplogicSource",
+      "platform_id": "snaplogic",
+      "platform_name": "SnapLogic",
       "support_status": "TESTING"
     },
     "snowflake": {
@@ -3019,6 +3213,12 @@
           "supported": true
         },
         {
+          "capability": "TAGS",
+          "description": "Supported by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "subtype_modifier": null,
@@ -3116,7 +3316,9 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database"
+          ],
           "supported": true
         },
         {
@@ -3248,8 +3450,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Extract table-level lineage",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true

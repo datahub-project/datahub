@@ -2,6 +2,7 @@ from typing import Iterable
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import platform_name
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
@@ -24,13 +25,14 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 def _get_urn(table_name: str = "fooIndex") -> str:
     return str(
         DatasetUrn.create_from_ids(
-            platform_id="elasticsearch",
+            platform_id="fake",
             table_name=table_name,
             env="PROD",
         )
     )
 
 
+@platform_name("fake")
 class FakeSource(Source):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         return [
@@ -46,6 +48,7 @@ class FakeSource(Source):
     def __init__(self, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_report = SourceReport()
+        self.source_report.set_platform("fake")
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "FakeSource":
@@ -353,21 +356,84 @@ def test_discretize_dict_values():
     }
 
 
+def _add_status_aspect(source: FakeSource, urn: str, removed: bool = False) -> None:
+    """Helper to add a status aspect to a URN."""
+    source.source_report.report_workunit(
+        MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=StatusClass(removed=removed),
+        ).as_workunit()
+    )
+
+
+def _add_subtype_aspect(source: FakeSource, urn: str, subtype: str = "Table") -> None:
+    """Helper to add a subtype aspect to a URN."""
+    source.source_report.report_workunit(
+        MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=SubTypesClass(typeNames=[subtype]),
+        ).as_workunit()
+    )
+
+
+def _add_profile_aspect(source: FakeSource, urn: str) -> None:
+    """Helper to add a dataset profile aspect to a URN."""
+    source.source_report.report_workunit(
+        MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=DatasetProfileClass(
+                timestampMillis=0,
+                rowCount=100,
+                columnCount=10,
+                sizeInBytes=1000,
+            ),
+        ).as_workunit()
+    )
+
+
 def test_multiple_same_aspects_count_correctly():
     source = FakeSource(PipelineContext(run_id="test_multiple_same_aspects"))
     urn = _get_urn()
 
     for _ in range(5):
-        source.source_report.report_workunit(
-            MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=StatusClass(removed=False),
-            ).as_workunit()
-        )
+        _add_status_aspect(source, urn, removed=False)
 
     source.source_report.compute_stats()
 
     assert source.source_report.aspects == {"dataset": {"status": 5}}
     assert source.source_report.aspects_by_subtypes == {
+        "dataset": {"unknown": {"status": 1}}
+    }
+    assert source.source_report.aspects_by_subtypes_full_count == {
         "dataset": {"unknown": {"status": 5}}
+    }
+
+
+def test_stale_entity_removal_excludes_all_aspects():
+    """Test that all aspects from stale entity removal URNs are excluded from counts."""
+    source = FakeSource(PipelineContext(run_id="test_stale_entity_removal"))
+
+    # Create regular and stale entities
+    regular_urn = _get_urn("regular_table")
+    stale_urn = _get_urn("stale_table")
+
+    # Add various aspects to regular entity
+    _add_status_aspect(source, regular_urn, removed=False)
+    _add_subtype_aspect(source, regular_urn)
+    _add_profile_aspect(source, regular_urn)
+
+    # Add various aspects to stale entity
+    _add_status_aspect(source, stale_urn, removed=True)
+    _add_subtype_aspect(source, stale_urn)
+    _add_profile_aspect(source, stale_urn)
+
+    source.source_report.compute_stats()
+
+    # Verify that all aspects from stale entity are excluded
+    # Should only have aspects from regular entity
+    assert source.source_report.aspects == {
+        "dataset": {"status": 1, "subTypes": 1, "datasetProfile": 1}
+    }
+    assert source.source_report.aspects_by_subtypes == {
+        "dataset": {"Table": {"status": 1, "subTypes": 1, "datasetProfile": 1}}
     }

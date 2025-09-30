@@ -91,6 +91,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    SiblingsClass,
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
@@ -98,6 +99,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.metadata.urns import DatasetUrn
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingDebugInfo,
@@ -120,6 +122,7 @@ logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
 
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
+_DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
 
 
 @dataclass
@@ -144,6 +147,9 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     )
 
     nodes_filtered: LossyList[str] = field(default_factory=LossyList)
+
+    duplicate_sources_dropped: Optional[int] = None
+    duplicate_sources_references_updated: Optional[int] = None
 
 
 class EmitDirective(ConfigEnum):
@@ -240,6 +246,23 @@ class DBTEntitiesEnabled(ConfigModel):
         return self.model_performance == EmitDirective.YES
 
 
+class MaterializedNodePatternConfig(ConfigModel):
+    """Configuration for filtering materialized nodes based on their physical location"""
+
+    database_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for database names to filter materialized nodes.",
+    )
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for schema names in format '{database}.{schema}' to filter materialized nodes.",
+    )
+    table_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for table/view names in format '{database}.{schema}.{table}' to filter materialized nodes.",
+    )
+
+
 class DBTCommonConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
@@ -287,6 +310,11 @@ class DBTCommonConfig(
     node_name_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for dbt model names to filter in ingestion.",
+    )
+    materialized_node_pattern: MaterializedNodePatternConfig = Field(
+        default=MaterializedNodePatternConfig(),
+        description="Advanced filtering for materialized nodes based on their physical database location. "
+        "Provides fine-grained control over database.schema.table patterns for catalog consistency.",
     )
     meta_mapping: Dict = Field(
         default={},
@@ -368,6 +396,20 @@ class DBTCommonConfig(
         default=True,
         description="Whether to add database name to the table urn. "
         "Set to False to skip it for engines like AWS Athena where it's not required.",
+    )
+
+    dbt_is_primary_sibling: bool = Field(
+        default=True,
+        description="Experimental: Controls sibling relationship primary designation between dbt entities and target platform entities. "
+        "When True (default), dbt entities are primary and target platform entities are secondary. "
+        "When False, target platform entities are primary and dbt entities are secondary. "
+        "Uses aspect patches for precise control. Requires DataHub server 1.3.0+.",
+    )
+
+    drop_duplicate_sources: bool = Field(
+        default=True,
+        description="When enabled, drops sources that have the same name in the target platform as a model. "
+        "This ensures that lineage is generated reliably, but will lose any documentation associated only with the source.",
     )
 
     @validator("target_platform")
@@ -509,7 +551,7 @@ class DBTNode:
     raw_code: Optional[str]
 
     dbt_adapter: str
-    dbt_name: str
+    dbt_name: str  # dbt unique identifier
     dbt_file_path: Optional[str]
     dbt_package_name: Optional[str]  # this is pretty much always present
 
@@ -975,6 +1017,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self._infer_schemas_and_update_cll(all_nodes_map)
 
         nodes = self._filter_nodes(all_nodes)
+        nodes = self._drop_duplicate_sources(nodes)
+
         non_test_nodes = [
             dataset_node for dataset_node in nodes if dataset_node.node_type != "test"
         ]
@@ -996,19 +1040,113 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             all_nodes_map,
         )
 
-    def _is_allowed_node(self, key: str) -> bool:
-        return self.config.node_name_pattern.allowed(key)
+    def _is_allowed_node(self, node: DBTNode) -> bool:
+        """
+        Check whether a node should be processed, using multi-layer rules. Checks for materialized nodes might need to be restricted in the future to some cases
+        """
+        if not self.config.node_name_pattern.allowed(node.dbt_name):
+            return False
+
+        if not self._is_allowed_materialized_node(node):
+            return False
+
+        return True
+
+    def _is_allowed_materialized_node(self, node: DBTNode) -> bool:
+        """Filter nodes based on their materialized database location for catalog consistency"""
+
+        # Database level filtering
+        if not node.database:
+            return True
+        if not self.config.materialized_node_pattern.database_pattern.allowed(
+            node.database
+        ):
+            return False
+
+        # Schema level filtering: {database}.{schema}
+        if not node.schema:
+            return True
+        if not self.config.materialized_node_pattern.schema_pattern.allowed(
+            node._join_parts([node.database, node.schema])
+        ):
+            return False
+
+        # Table level filtering: {database}.{schema}.{table}
+        if not node.name:
+            return True
+        if not self.config.materialized_node_pattern.table_pattern.allowed(
+            node.get_db_fqn()
+        ):
+            return False
+
+        return True
 
     def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
-        nodes = []
+        nodes: List[DBTNode] = []
         for node in all_nodes:
             key = node.dbt_name
 
-            if not self._is_allowed_node(key):
+            if not self._is_allowed_node(node):
                 self.report.nodes_filtered.append(key)
                 continue
 
             nodes.append(node)
+
+        return nodes
+
+    def _drop_duplicate_sources(self, original_nodes: List[DBTNode]) -> List[DBTNode]:
+        """Detect and correct cases where a model and source have the same name.
+
+        In these cases, we don't want to generate both because they'll have the same
+        urn and hence overwrite each other. Instead, we drop the source and update
+        references to it to point at the model.
+
+        The risk here is that the source might have documentation that'd be lost,
+        which is why we maintain optionality with a config flag.
+        """
+        if not self.config.drop_duplicate_sources:
+            return original_nodes
+
+        self.report.duplicate_sources_dropped = 0
+        self.report.duplicate_sources_references_updated = 0
+
+        # Pass 1 - find all model names in the warehouse.
+        warehouse_model_names: Dict[str, str] = {}  # warehouse name -> model unique id
+        for node in original_nodes:
+            if node.node_type == "model" and node.exists_in_target_platform:
+                warehouse_model_names[node.get_db_fqn()] = node.dbt_name
+
+        # Pass 2 - identify + drop duplicate sources.
+        source_references_to_update: Dict[
+            str, str
+        ] = {}  # source unique id -> model unique id
+        nodes: List[DBTNode] = []
+        for node in original_nodes:
+            if (
+                node.node_type == "source"
+                and node.exists_in_target_platform
+                and (model_name := warehouse_model_names.get(node.get_db_fqn()))
+            ):
+                self.report.warning(
+                    title="Duplicate model and source names detected",
+                    message="We found a dbt model and dbt source with the same name. To ensure reliable lineage generation, the source node was ignored. "
+                    "If you associated documentation/tags/other metadata with the source, it will be lost. "
+                    "To avoid this, you should remove the source node from your dbt project and replace any `source(<source_name>)` calls with `ref(<model_name>)`.",
+                    context=f"{node.dbt_name} (called {node.get_db_fqn()} in {self.config.target_platform}) duplicates {model_name}",
+                )
+                self.report.duplicate_sources_dropped += 1
+                source_references_to_update[node.dbt_name] = model_name
+            else:
+                nodes.append(node)
+
+        # Pass 3 - update references to the dropped sources.
+        for node in nodes:
+            for i, current_upstream in enumerate(node.upstream_nodes):
+                if current_upstream in source_references_to_update:
+                    node.upstream_nodes[i] = source_references_to_update[
+                        current_upstream
+                    ]
+                    self.report.duplicate_sources_references_updated += 1
 
         return nodes
 
@@ -1040,8 +1178,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             cll_nodes.add(dbt_name)
             schema_nodes.add(dbt_name)
 
-        for dbt_name in all_nodes_map:
-            if self._is_allowed_node(dbt_name):
+        for dbt_name, dbt_node in all_nodes_map.items():
+            if self._is_allowed_node(dbt_node):
                 add_node_to_cll_list(dbt_name)
 
         return schema_nodes, cll_nodes
@@ -1408,6 +1546,23 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 dataset_snapshot = DatasetSnapshot(
                     urn=node_datahub_urn, aspects=list(snapshot_aspects)
                 )
+                # Emit sibling aspect for dbt entity (dbt is authoritative source for sibling relationships)
+                if self._should_create_sibling_relationships(node):
+                    # Get the target platform URN
+                    target_platform_urn = node.get_urn(
+                        self.config.target_platform,
+                        self.config.env,
+                        self.config.target_platform_instance,
+                    )
+
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=node_datahub_urn,
+                        aspect=SiblingsClass(
+                            siblings=[target_platform_urn],
+                            primary=self.config.dbt_is_primary_sibling,
+                        ),
+                    ).as_workunit()
+
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 if self.config.write_semantics == "PATCH":
                     mce = self.get_patched_mce(mce)
@@ -1510,6 +1665,31 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             # We are creating empty node for platform and only add lineage/keyaspect.
             if not node.exists_in_target_platform:
                 continue
+
+            # Emit sibling patch for target platform entity BEFORE any other aspects.
+            # This ensures the hook can detect explicit primary settings when processing later aspects.
+            if self._should_create_sibling_relationships(node):
+                # Get the dbt platform URN
+                dbt_platform_urn = node.get_urn(
+                    DBT_PLATFORM,
+                    self.config.env,
+                    self.config.platform_instance,
+                )
+
+                # Create patch for target platform entity (make it primary when dbt_is_primary_sibling=False)
+                target_patch = DatasetPatchBuilder(node_datahub_urn)
+                target_patch.add_sibling(
+                    dbt_platform_urn, primary=not self.config.dbt_is_primary_sibling
+                )
+
+                yield from auto_workunit(
+                    MetadataWorkUnit(
+                        id=MetadataWorkUnit.generate_workunit_id(mcp),
+                        mcp_raw=mcp,
+                        is_primary_source=False,  # Not authoritative over warehouse metadata
+                    )
+                    for mcp in target_patch.build()
+                )
 
             # This code block is run when we are generating entities of platform type.
             # We will not link the platform not to the dbt node for type "source" because
@@ -1617,6 +1797,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def get_external_url(self, node: DBTNode) -> Optional[str]:
         pass
 
+    @staticmethod
+    def _truncate_code(code: str, max_length: int) -> str:
+        if len(code) > max_length:
+            return code[:max_length] + "..."
+        return code
+
     def _create_view_properties_aspect(
         self, node: DBTNode
     ) -> Optional[ViewPropertiesClass]:
@@ -1627,6 +1813,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if self.config.include_compiled_code and node.compiled_code:
             compiled_code = try_format_query(
                 node.compiled_code, platform=self.config.target_platform
+            )
+            compiled_code = self._truncate_code(
+                compiled_code, _DBT_MAX_COMPILED_CODE_LENGTH
             )
 
         materialized = node.materialization in {"table", "incremental", "snapshot"}
@@ -2056,6 +2245,28 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 for existing_term in existing_terms_class.terms:
                     term_id_set.add(existing_term.urn)
         return [GlossaryTermAssociation(term_urn) for term_urn in sorted(term_id_set)]
+
+    def _should_create_sibling_relationships(self, node: DBTNode) -> bool:
+        """
+        Determines whether to emit sibling relationships for a dbt node.
+
+        Sibling relationships (both dbt entity's aspect and target entity's patch) are only
+        emitted when dbt_is_primary_sibling=False to establish explicit primary/secondary
+        relationships. When dbt_is_primary_sibling=True,
+        the SiblingAssociationHook handles sibling creation automatically.
+
+        Args:
+            node: The dbt node to evaluate
+
+        Returns:
+            True if sibling patches should be emitted for this node
+        """
+        # Only create siblings for entities that exist in target platform
+        if not node.exists_in_target_platform:
+            return False
+
+        # Only emit patches when explicit primary/secondary control is needed
+        return self.config.dbt_is_primary_sibling is False
 
     def get_report(self):
         return self.report

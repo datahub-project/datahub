@@ -1,6 +1,7 @@
 import pathlib
 from typing import Dict, List, Optional, Sequence, Set, cast
-from unittest.mock import MagicMock, Mock, patch
+from unittest import TestCase
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -141,7 +142,6 @@ def test_infer_lineage_from_sql(client: DataHubClient) -> None:
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD)"
         ],
         query_type=QueryType.SELECT,
-        debug_info=MagicMock(error=None, table_error=None),
     )
 
     query_text = (
@@ -197,7 +197,6 @@ def test_infer_lineage_from_sql_with_multiple_upstreams(
             ),
         ],
         query_type=QueryType.SELECT,
-        debug_info=MagicMock(error=None, table_error=None),
     )
 
     query_text = """
@@ -696,4 +695,78 @@ def test_get_lineage_column_lineage_with_schema_field_urn(
     assert (
         results[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
+    )
+
+
+def test_get_lineage_no_platform(client: DataHubClient) -> None:
+    mock_response = {
+        "scrollAcrossLineage": {
+            "nextScrollId": None,
+            "searchResults": [
+                {
+                    "entity": {
+                        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table1,PROD)",
+                        "type": "DATASET",
+                        "platform": None,
+                        "properties": {
+                            "name": "downstream_table",
+                            "description": "Downstream target table",
+                        },
+                    },
+                    "degree": 1,
+                },
+                {
+                    "entity": {
+                        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table2,PROD)",
+                        "type": "DATASET",
+                        "dataPlatformInstance": None,
+                        "properties": {
+                            "name": "downstream_table",
+                            "description": "Downstream target table",
+                        },
+                    },
+                    "degree": 1,
+                },
+                {
+                    "entity": {
+                        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table3,PROD)",
+                        "type": "DATASET",
+                        "platform": {"name": "snowflake"},
+                        "properties": {
+                            "name": "downstream_table",
+                            "description": "Downstream target table",
+                        },
+                    },
+                    "degree": 1,
+                },
+                {
+                    "entity": {
+                        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table4,PROD)",
+                        "type": "DATASET",
+                        "dataPlatformInstance": {"platform": None},
+                        "properties": {
+                            "name": "downstream_table",
+                            "description": "Downstream target table",
+                        },
+                    },
+                    "degree": 1,
+                },
+            ],
+        }
+    }
+
+    with patch.object(client._graph, "execute_graphql", return_value=mock_response):
+        results = client.lineage.get_lineage(
+            source_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)",
+            direction="downstream",
+        )
+    results_urns = [result.urn for result in results]
+    TestCase().assertCountEqual(
+        results_urns,
+        [
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table4,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table3,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table2,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table1,PROD)",
+        ],
     )

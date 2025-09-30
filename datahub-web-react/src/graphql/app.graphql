@@ -69,6 +69,9 @@ query appConfig {
         searchBarConfig {
             apiVariant
         }
+        searchCardConfig {
+            showDescription
+        }
         homePageConfig {
             firstInPersonalSidebar
         }
@@ -102,10 +105,14 @@ query appConfig {
             showIntroducePage
             showIngestionPageRedesign
             showLineageExpandMore
+            showStatsTabRedesign
             showHomePageRedesign
+            showDefaultExternalLinks
             showProductUpdates
             lineageGraphV3
             logicalModelsEnabled
+            showHomepageUserRole
+            assetSummaryPageV1
         }
         chromeExtensionConfig {
             enabled

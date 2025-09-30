@@ -32,12 +32,16 @@ import lombok.extern.slf4j.Slf4j;
 public class PageModuleService {
   private final EntityClient entityClient;
 
-  // Default module URNs that cannot be deleted
+  // Default module URNs that cannot be deleted. Keep this in sync with homeV3/modules/constants.ts
   private static final List<String> DEFAULT_MODULE_URNS =
       List.of(
           "urn:li:dataHubPageModule:your_assets",
           "urn:li:dataHubPageModule:your_subscriptions",
-          "urn:li:dataHubPageModule:top_domains");
+          "urn:li:dataHubPageModule:top_domains",
+          "urn:li:dataHubPageModule:assets",
+          "urn:li:dataHubPageModule:child_hierarchy",
+          "urn:li:dataHubPageModule:data_products",
+          "urn:li:dataHubPageModule:related_terms");
 
   public PageModuleService(@Nonnull EntityClient entityClient) {
     this.entityClient = entityClient;
@@ -198,15 +202,18 @@ public class PageModuleService {
     }
 
     if (properties.getVisibility().getScope().equals(PageModuleScope.GLOBAL)
-        && AuthUtil.isAuthorized(opContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE)) {
+        && !AuthUtil.isAuthorized(opContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE)) {
       throw new UnauthorizedException("User is unauthorized to delete global modules.");
     }
 
     if (properties.getVisibility().getScope().equals(PageModuleScope.PERSONAL)
-        && !properties.getCreated().getActor().equals(opContext.getActorContext().getActorUrn())) {
+        && !properties
+            .getCreated()
+            .getActor()
+            .toString()
+            .equals(opContext.getSessionAuthentication().getActor().toUrnStr())) {
       throw new UnauthorizedException(
           "Attempted to delete personal a page module that was not created by the actor");
     }
-    // TODO: check permissions for deleting a GLOBAL module in CH-510
   }
 }

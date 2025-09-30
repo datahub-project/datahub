@@ -194,6 +194,23 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
     return structuredReport;
 };
 
+export const getAspectsBySubtypes = (structuredReportObject: any, entityRegistry: EntityRegistry) => {
+    const searchEntityTypesInCamelCase = new Set(entityRegistry.getSearchEntityTypesAsCamelCase());
+
+    const aspectsBySubtypes = structuredReportObject?.source?.report?.aspects_by_subtypes;
+    if (!aspectsBySubtypes) {
+        return null;
+    }
+    Object.keys(aspectsBySubtypes).forEach((entityName) => {
+        if (!searchEntityTypesInCamelCase.has(entityName)) {
+            // We are doing this otherwise in the UI we will show a total number
+            // On clicking view all the number will not match
+            delete aspectsBySubtypes[entityName];
+        }
+    });
+    return aspectsBySubtypes;
+};
+
 /** *
  * This function is used to get the entities ingested by type from the structured report.
  * It returns an array of objects with the entity type and the count of entities ingested.
@@ -235,7 +252,10 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
  * @param result - The result of the execution request.
  * @returns {EntityTypeCount[] | null}
  */
-export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult>): EntityTypeCount[] | null => {
+export const getEntitiesIngestedByTypeOrSubtype = (
+    result: Partial<ExecutionRequestResult>,
+    entityRegistry: EntityRegistry,
+): EntityTypeCount[] | null => {
     const structuredReportObject = extractStructuredReportPOJO(result);
     if (!structuredReportObject) {
         return null;
@@ -262,17 +282,21 @@ export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult
          *     ...
          * }
          */
-        const entities = structuredReportObject.source.report.aspects;
+        const entities = getAspectsBySubtypes(structuredReportObject, entityRegistry);
         const entitiesIngestedByType: { [key: string]: number } = {};
-        Object.entries(entities).forEach(([entityName, aspects]) => {
+        Object.entries(entities).forEach(([entityName, aspectsBySubtypes]) => {
             // Use the status aspect count instead of max count
-            const statusCount = (aspects as any)?.status;
-            if (statusCount !== undefined) {
-                entitiesIngestedByType[entityName] = statusCount;
-            } else {
-                // Get the max count of all the sub-aspects for this entity type if status is not present.
-                entitiesIngestedByType[entityName] = Math.max(...(Object.values(aspects as object) as number[]));
-            }
+            Object.entries(aspectsBySubtypes as any)?.forEach(([subtype, aspects]) => {
+                const statusCount = (aspects as any)?.status;
+                if (statusCount !== undefined) {
+                    entitiesIngestedByType[subtype !== 'unknown' ? subtype : entityName] = statusCount;
+                } else {
+                    // Get the max count of all the sub-aspects for this entity type if status is not present.
+                    entitiesIngestedByType[subtype !== 'unknown' ? subtype : entityName] = Math.max(
+                        ...(Object.values(aspects as object) as number[]),
+                    );
+                }
+            });
         });
 
         if (Object.keys(entitiesIngestedByType).length === 0) {
@@ -294,13 +318,131 @@ export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult
  * @param result - The result of the execution request.
  * @returns {number | null}
  */
-export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>) => {
-    const entityTypeCounts = getEntitiesIngestedByType(result);
+export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>, entityRegistry: EntityRegistry) => {
+    const entityTypeCounts = getEntitiesIngestedByTypeOrSubtype(result, entityRegistry);
     if (!entityTypeCounts) {
         return null;
     }
 
     return entityTypeCounts.reduce((total, entityType) => total + entityType.count, 0);
+};
+
+export const getOtherIngestionContents = (
+    executionResult: Partial<ExecutionRequestResult>,
+    entityRegistry: EntityRegistry,
+) => {
+    const structuredReportObject = extractStructuredReportPOJO(executionResult);
+    if (!structuredReportObject) {
+        return null;
+    }
+    const aspectsBySubtypes = getAspectsBySubtypes(structuredReportObject, entityRegistry);
+
+    if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
+        return null;
+    }
+
+    let totalStatusCount = 0;
+    let totalDatasetProfileCount = 0;
+    let totalDatasetUsageStatisticsCount = 0;
+
+    Object.entries(aspectsBySubtypes).forEach(([entityType, subtypes]) => {
+        if (entityType !== 'dataset') {
+            // temporary for now - we have not decided on the design for non dataset entity types
+            return;
+        }
+        Object.entries(subtypes as Record<string, any>).forEach(([_, aspects]) => {
+            const statusCount = (aspects as any)?.status || 0;
+            if (statusCount === 0) {
+                return;
+            }
+            const dataSetProfileCount = (aspects as any)?.datasetProfile || 0;
+            const dataSetUsageStatisticsCount = (aspects as any)?.datasetUsageStatistics || 0;
+
+            totalStatusCount += statusCount;
+            totalDatasetProfileCount += dataSetProfileCount;
+            totalDatasetUsageStatisticsCount += dataSetUsageStatisticsCount;
+        });
+    });
+
+    if (totalStatusCount === 0) {
+        return null;
+    }
+
+    const result: Array<{ type: string; count: number; percent: string }> = [];
+
+    if (totalDatasetProfileCount > 0) {
+        const datasetProfilePercent = `${((totalDatasetProfileCount / totalStatusCount) * 100).toFixed(0)}%`;
+        result.push({
+            type: 'Profiling',
+            count: totalDatasetProfileCount,
+            percent: datasetProfilePercent,
+        });
+    }
+
+    if (totalDatasetUsageStatisticsCount > 0) {
+        const datasetUsageStatisticsPercent = `${((totalDatasetUsageStatisticsCount / totalStatusCount) * 100).toFixed(0)}%`;
+        result.push({
+            type: 'Usage',
+            count: totalDatasetUsageStatisticsCount,
+            percent: datasetUsageStatisticsPercent,
+        });
+    } else {
+        result.push({
+            type: 'Usage',
+            count: 0,
+            percent: '0%',
+        });
+    }
+
+    if (result.length === 0) {
+        return null;
+    }
+
+    return result;
+};
+
+export const getIngestionContents = (
+    executionResult: Partial<ExecutionRequestResult>,
+    entityRegistry: EntityRegistry,
+) => {
+    const structuredReportObject = extractStructuredReportPOJO(executionResult);
+    if (!structuredReportObject) {
+        return null;
+    }
+    const aspectsBySubtypes = getAspectsBySubtypes(structuredReportObject, entityRegistry);
+
+    if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
+        return null;
+    }
+
+    const result: Array<{ title: string; count: number; percent: string }> = [];
+    Object.entries(aspectsBySubtypes).forEach(([entityType, subtypes]) => {
+        if (entityType !== 'dataset') {
+            // temporary for now - we have not decided on the design for non dataset entity types
+            return;
+        }
+        Object.entries(subtypes as Record<string, any>).forEach(([subtype, aspects]) => {
+            const statusCount = (aspects as any)?.status || 0;
+            const upstreamLineage = (aspects as any)?.upstreamLineage || 0;
+            if (statusCount === 0) {
+                return;
+            }
+            const percent = `${((upstreamLineage / statusCount) * 100).toFixed(0)}%`;
+            if (percent === '0%') {
+                return;
+            }
+            result.push({
+                title: subtype,
+                count: upstreamLineage,
+                percent,
+            });
+        });
+    });
+    if (result.length === 0) {
+        return null;
+    }
+
+    return result;
 };
 
 export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult> | null) => {

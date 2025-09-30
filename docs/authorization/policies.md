@@ -214,6 +214,7 @@ These privileges are to view & modify any entity within DataHub.
 | Delete                             | Allow actor to delete this entity.                                                         |
 | Create Entity                      | Allow actor to create an entity if it doesn't exist.                                       |
 | Entity Exists                      | Allow actor to determine whether the entity exists.                                        |
+| Execute Entity                     | Allow actor to execute entity ingestion.                                                   |
 | Get Timeline API[^3]               | Allow actor to use the GET Timeline API.                                                   |
 | Get Entity + Relationships API[^3] | Allow actor to use the GET Entity and Relationships API.                                   |
 | Get Aspect/Entity Count APIs[^3]   | Allow actor to use the GET Aspect/Entity Count APIs.                                       |
