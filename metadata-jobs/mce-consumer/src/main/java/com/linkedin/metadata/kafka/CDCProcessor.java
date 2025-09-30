@@ -110,11 +110,6 @@ public class CDCProcessor {
       containerFactory = CDC_EVENT_CONSUMER_NAME,
       autoStartup = "false")
   public void consume(final ConsumerRecord<String, String> consumerRecord) {
-    if (!cdcMclProcessingEnabled) {
-      log.warn("CDC processing is disabled but consumer received message. This should not happen.");
-      return;
-    }
-
     try {
 
       systemOperationContext

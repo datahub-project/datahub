@@ -103,22 +103,6 @@ public class CDCProcessorTest {
   }
 
   @Test
-  public void testConsumeWhenCdcProcessingDisabled() throws Exception {
-    // Setup
-    ConsumerRecord<String, String> mockRecord = mock(ConsumerRecord.class);
-    when(mockRecord.value()).thenReturn("test-record");
-
-    cdcProcessor.cdcMclProcessingEnabled = false;
-
-    // Execute
-    cdcProcessor.consume(mockRecord);
-
-    // Verify that no processing occurs
-    verifyNoInteractions(mockEntityService);
-    verify(mockObjectMapper, never()).readTree(any(String.class));
-  }
-
-  @Test
   public void testConsumeWithValidRecord() throws Exception {
     ConsumerRecord<String, String> mockRecord = mock(ConsumerRecord.class);
     when(mockRecord.value()).thenReturn("test-record");

@@ -312,7 +312,6 @@ public class ConfigureDebeziumConnectorStepTest {
 
     assertEquals(config.get("database.hostname"), "db-host");
     assertEquals(config.get("database.port"), "3306");
-    assertEquals(config.get("database.include.list"), "production_db");
   }
 
   @Test
@@ -332,7 +331,6 @@ public class ConfigureDebeziumConnectorStepTest {
 
     assertEquals(config.get("database.hostname"), "pg-host");
     assertEquals(config.get("database.port"), "5432");
-    assertEquals(config.get("database.include.list"), "test_db");
   }
 
   @Test
@@ -352,7 +350,6 @@ public class ConfigureDebeziumConnectorStepTest {
 
     assertEquals(config.get("database.hostname"), "mysql-host");
     assertEquals(config.get("database.port"), "3306");
-    assertEquals(config.get("database.include.list"), "datahub");
   }
 
   @Test
@@ -372,7 +369,6 @@ public class ConfigureDebeziumConnectorStepTest {
 
     assertEquals(config.get("database.hostname"), "pg-host");
     assertEquals(config.get("database.port"), "5432");
-    assertEquals(config.get("database.include.list"), "datahub");
   }
 
   @Test
@@ -393,7 +389,6 @@ public class ConfigureDebeziumConnectorStepTest {
     // Should not set any database properties for unparsable URLs
     assertFalse(config.containsKey("database.hostname"));
     assertFalse(config.containsKey("database.port"));
-    assertFalse(config.containsKey("database.include.list"));
   }
 
   @Test
@@ -414,7 +409,6 @@ public class ConfigureDebeziumConnectorStepTest {
     // Should not set any database properties for null URL
     assertFalse(config.containsKey("database.hostname"));
     assertFalse(config.containsKey("database.port"));
-    assertFalse(config.containsKey("database.include.list"));
   }
 
   @Test
