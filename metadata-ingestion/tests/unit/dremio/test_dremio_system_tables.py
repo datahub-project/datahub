@@ -1,3 +1,4 @@
+from typing import List, Tuple
 from unittest.mock import Mock
 
 from datahub.ingestion.source.dremio.dremio_api import (
@@ -47,7 +48,7 @@ class TestDremioSystemTableFiltering:
         filter_obj = DremioFilter(config, report)
 
         # Test exact system schema matches only
-        system_schemas = [
+        system_schemas: List[Tuple[List[str], str]] = [
             ([], "information_schema"),  # Direct information_schema schema
             ([], "sys"),  # Direct sys schema
         ]
@@ -162,7 +163,7 @@ class TestDremioSystemTableFiltering:
             )
 
         # These schema names should also NOT be filtered
-        non_system_schemas = [
+        non_system_schemas: List[Tuple[List[str], str]] = [
             ([], "my_sys_schema"),
             ([], "user_information_schema"),
             ([], "system_logs"),
