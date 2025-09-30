@@ -99,7 +99,7 @@ Models: bundled
 Python version: 3.11.11 (main, Mar 17 2025, 21:33:08) [Clang 20.1.0 ]
 ```
 
-You can pass `--include-server` flag to include server information too. This is helpful to share cli and server version at once for debugging purposes.
+You can pass `--include-server` flag to include server information too. This is helpful to share cli and server version at once for debugging purposes. This does require `datahub init` to be run before that so there is a server that CLI is able to connect to.
 
 ```console
 datahub version --include-server
