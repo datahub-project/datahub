@@ -379,7 +379,7 @@ quickstart_configs.each { taskName, config ->
 
 tasks.register('minDockerCompose2.20', Exec) {
     executable 'bash'
-    args '-c', 'echo -e "$(docker compose version --short)\n2.20"|sort --version-sort --check=quiet --reverse'
+    args '-c', 'echo -e "$(docker compose version | grep -oP \'v\\K[0-9.]+\')\n2.20"|sort --version-sort --check=quiet --reverse'
 }
 
 // Create nuke tasks for all configurations

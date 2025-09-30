@@ -74,47 +74,51 @@ export const SidebarAboutSection = ({ readOnly: readOnlyFromProps }: Props) => {
                             placement="topLeft"
                             title={isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}
                         >
-                            {displayedDescription && [
-                                isInferred && <InferenceDetailsPill pillStyles={{ marginBottom: 4 }} />,
-                                <DescriptionSection
-                                    description={displayedDescription}
-                                    isExpandable
-                                    lineLimit={LINE_LIMIT}
-                                />,
-                            ]}
+                            {displayedDescription && (
+                                <>
+                                    {isInferred && <InferenceDetailsPill pillStyles={{ marginBottom: 4 }} />}
+                                    <DescriptionSection
+                                        description={displayedDescription}
+                                        isExpandable
+                                        lineLimit={LINE_LIMIT}
+                                    />
+                                </>
+                            )}
                         </Tooltip>
                         {hasContent && <LinksSection readOnly />}
-                        {!hasContent && [
-                            <EmptySectionText message={EMPTY_MESSAGES.documentation.title} />,
-                            showInferDocsButton && (
-                                <InferDocsButton
-                                    style={{ height: 32, width: 128, marginTop: 8 }}
-                                    surface="entity-sidebar"
-                                    onClick={() => {
-                                        if (!isEmbeddedProfile) {
-                                            routeToTab({
-                                                tabName: 'Documentation',
-                                                tabParams: { editing: true, inferOnMount: true },
-                                            });
-                                        } else {
-                                            const url = getEntityPath(
-                                                entityType,
-                                                urn,
-                                                entityRegistry,
-                                                isLineageMode,
-                                                isHideSiblingMode,
-                                                'Documentation',
-                                                {
-                                                    editing: true,
-                                                    inferOnMount: true,
-                                                },
-                                            );
-                                            window.open(url, '_blank');
-                                        }
-                                    }}
-                                />
-                            ),
-                        ]}
+                        {!hasContent && (
+                            <>
+                                <EmptySectionText message={EMPTY_MESSAGES.documentation.title} />
+                                {showInferDocsButton && (
+                                    <InferDocsButton
+                                        style={{ height: 32, width: 128, marginTop: 8 }}
+                                        surface="entity-sidebar"
+                                        onClick={() => {
+                                            if (!isEmbeddedProfile) {
+                                                routeToTab({
+                                                    tabName: 'Documentation',
+                                                    tabParams: { editing: true, inferOnMount: true },
+                                                });
+                                            } else {
+                                                const url = getEntityPath(
+                                                    entityType,
+                                                    urn,
+                                                    entityRegistry,
+                                                    isLineageMode,
+                                                    isHideSiblingMode,
+                                                    'Documentation',
+                                                    {
+                                                        editing: true,
+                                                        inferOnMount: true,
+                                                    },
+                                                );
+                                                window.open(url, '_blank');
+                                            }
+                                        }}
+                                    />
+                                )}
+                            </>
+                        )}
                     </>
                 }
                 extra={

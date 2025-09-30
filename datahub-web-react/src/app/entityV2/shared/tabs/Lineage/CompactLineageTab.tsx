@@ -97,10 +97,14 @@ const StyledArrowUpOutlined = styled(ArrowUpOutlined)`
 
 const Results = styled.div`
     flex: 1;
-    overflow: auto;
+    overflow: hidden;
     display: flex;
+    min-height: 0;
     & > div {
         width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
     }
 `;
 

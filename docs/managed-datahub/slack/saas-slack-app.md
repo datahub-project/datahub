@@ -7,7 +7,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 The DataHub Slack App brings several of DataHub's key capabilities directly into your Slack experience. These include:
 
 1. Receive notifications
-2. Chat with the @DataHub bot
+2. Chat with **Ask DataHub**
 3. Searching for Data Assets
 4. Subscribing to notifications for Data Assets
 5. Managing Data Incidents
@@ -25,9 +25,9 @@ Notifications [can be configured](../subscription-and-notification.md) in the Da
     <img width="70%" alt="Example DataHub notification in Slack." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/notification_1.png" />
 </p>
 
-## @DataHub AI in Slack
+## **Ask DataHub**
 
-With the DataHub AI in Slack, you can mention @DataHub in any channel and ask it questions about your metadata.
+**Ask DataHub** is DataHub's conversational AI assistant. In Slack, you can mention @DataHub in any channel to ask questions about your metadata.
 
 <p align="center">
 <video width="80%" autoPlay muted loop playsInline crossOrigin="anonymous">
@@ -44,15 +44,15 @@ Key capabilities include:
 - Dig into specific assets and their glossary terms, owners, and more.
 - Write first-drafts of SQL queries to answer specific questions.
 
-#### Enabling @DataHub AI in Slack
+#### Enabling **Ask DataHub** in Slack
 
 :::warning Permissions
 
-The current version of the @DataHub AI in Slack assumes that all users have read permissions for all assets. A future version will support more granular permissions.
+The current version of **Ask DataHub** assumes that all users have read permissions for all assets. A future version will support more granular permissions.
 
 :::
 
-In DataHub Cloud v0.3.13 (July 2025), the @DataHub AI command is in **public beta** and can be enabled in the Settings → AI page. In prior versions, it was in private beta and required a request to your DataHub Cloud representative to get access.
+In DataHub Cloud v0.3.13 (July 2025), **Ask DataHub** is in **public beta** and can be enabled in the Settings → AI page. In prior versions, it was in private beta and required a request to your DataHub Cloud representative to get access.
 
 <p align="center">
     <img width="70%" alt="Enabling @DataHub AI in Slack" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/chatbot_config.png" />

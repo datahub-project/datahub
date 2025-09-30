@@ -183,3 +183,63 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **289c5c1184** - fix(structured-properties): fix structured properties manage role (#14751)
   _by david-leifker on 2025-09-12_
+
+## Upstream Merge Session - 2025-09-25 14:55:25
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-backfill-09-13-2025`
+- **Merge Base**: `289c5c118457304fed79adc7f687723573690e2c`
+- **End Commit**: `e479ca59b77e8e9698374bba64c8d4de25beeb7d`
+- **Total Commits**: 15
+- **Strategy**: stacked
+- **Started**: Thu Sep 25 14:55:25 UTC 2025
+
+### Commits Included in This Merge
+- **45ba15f4ac** - fix(ci): revert workaround to enumerate image targets (#14755)
+  *by Chakru on 2025-09-15*
+
+- **f706465a05** - fix(ci): use correct path for cypress test result xmls (#14756)
+  *by Chakru on 2025-09-15*
+
+- **492e28a938** - feat(ingest/neo4j): migrate Neo4j source to DataHub Python SDK v2 (#14591)
+  *by Sergio Gómez Villamor on 2025-09-15*
+
+- **b568eac9bc** - chore(ingestion/iceberg): Include explicit extras in dependencies (#14766)
+  *by skrydal on 2025-09-15*
+
+- **92bcccd2bc** - docs(ingestion/redshift): add required permissions for table and view discovery in pre-requisites documentation (#14765)
+  *by Jonny Dixon on 2025-09-15*
+
+- **2788b867c5** - fix(ingest/pipeline):  Fix BatchPartitionExecutor Shutdown Race Condition (#14750)
+  *by Tamas Nemeth on 2025-09-15*
+
+- **acd7236290** - fixes to improve stability of the ci build (#14752)
+  *by Alex on 2025-09-15*
+
+- **f8a401ddd1** - fix(ui) Fix weird indents on schema table descriptions (#14652)
+  *by Chris Collins on 2025-09-15*
+
+- **229911a495** - fix(ui): Increasing the 'Try your test' modal width (#14612)
+  *by Saketh Varma on 2025-09-15*
+
+- **36cf767d2d** - Revert "chore(ingestion/iceberg): Safe-guard pyiceberg version before pydantic 1->2 transition (#14736)" (#14767)
+  *by skrydal on 2025-09-15*
+
+- **d82ae8014e** - feat(bigquery): add created and modified timestamps to dataset containers (#14716)
+  *by Sergio Gómez Villamor on 2025-09-15*
+
+- **f5f753343f** - fix(web): Search results Scroll Issue with filters sidebar (#14484)
+  *by andrewsrajasekar on 2025-09-15*
+
+- **f38c25dabb** - refactor(ui): Prevent console warnings in Tabs.tsx and SidebarAboutSection.tsx (#14144)
+  *by Andrew Sikowitz on 2025-09-15*
+
+- **29f717b7d1** - fix(ui/browse): Fix bug where browse would not paginate when leaving a nested container (#14483)
+  *by Andrew Sikowitz on 2025-09-15*
+
+- **e479ca59b7** - docs(Ask DataHub) Update naming conventions for Ask DataHub (#14746)
+  *by Maggie Hays on 2025-09-15*
+
