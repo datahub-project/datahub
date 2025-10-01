@@ -13,6 +13,12 @@ public class DataHubConfiguration {
 
   public String serverEnv;
 
+  /** The base path for the URL where DataHub will be deployed */
+  private String basePath;
+
+  /** GMS (Graph Metadata Service) configuration */
+  private GMSConfiguration gms;
+
   private PluginConfiguration plugin;
 
   private DataHubMetrics metrics;

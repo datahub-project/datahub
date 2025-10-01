@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
@@ -9,7 +10,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { QueryEntity } from '@types';
 
-const DefinitionLink = styled.a`
+const DefinitionLink = styled(Link)`
     align-items: center;
     display: flex;
     margin-bottom: 4px;
@@ -44,7 +45,7 @@ export default function SidebarQueryDefinitionSection() {
             title="Definition"
             content={
                 <>
-                    <DefinitionLink href={entityRegistry.getEntityUrl(origin.type, origin.urn)}>
+                    <DefinitionLink to={entityRegistry.getEntityUrl(origin.type, origin.urn)}>
                         {entity?.platform && (
                             <DefinitionIcon platform={entity?.platform} size={16} entityType={origin.type} />
                         )}

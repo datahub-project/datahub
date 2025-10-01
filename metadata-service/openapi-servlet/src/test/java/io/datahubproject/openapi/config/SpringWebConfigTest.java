@@ -84,7 +84,7 @@ public class SpringWebConfigTest extends AbstractTestNGSpringContextTests {
 
       // The customizer is what actually performs the merge
       // We need to simulate what Spring does when it builds the OpenAPI spec
-      assertEquals(1, groupedApi.getOpenApiCustomizers().size());
+      assertEquals(2, groupedApi.getOpenApiCustomizers().size());
 
       // Apply the customizer to openApi1 (simulating Spring's behavior)
       groupedApi.getOpenApiCustomizers().forEach(customizer -> customizer.customise(openApi1));

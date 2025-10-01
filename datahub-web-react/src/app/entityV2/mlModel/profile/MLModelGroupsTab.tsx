@@ -1,7 +1,7 @@
 import { Space, Table, Typography } from 'antd';
 import { ColumnsType } from 'antd/es/table';
-import Link from 'antd/lib/typography/Link';
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
@@ -33,7 +33,7 @@ export default function MLModelGroupsTab() {
             dataIndex: 'name',
             render: (name, record) => {
                 return (
-                    <Link href={entityRegistry.getEntityUrl(EntityType.MlmodelGroup, record.urn)}>
+                    <Link to={entityRegistry.getEntityUrl(EntityType.MlmodelGroup, record.urn)}>
                         {record.properties?.name || name}
                     </Link>
                 );
