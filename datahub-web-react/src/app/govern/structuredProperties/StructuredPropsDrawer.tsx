@@ -6,7 +6,7 @@ import React, { useEffect, useState } from 'react';
 
 import AllowedValuesDrawer from '@app/govern/structuredProperties/AllowedValuesDrawer';
 import StructuredPropsForm from '@app/govern/structuredProperties/StructuredPropsForm';
-import { updatePropertiesList } from '@app/govern/structuredProperties/cacheUtils';
+import { updateCachedProperty, updatePropertiesList } from '@app/govern/structuredProperties/cacheUtils';
 import {
     DrawerHeader,
     FooterContainer,
@@ -50,7 +50,6 @@ interface Props {
     setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
     selectedProperty?: SearchResult;
     setSelectedProperty: React.Dispatch<React.SetStateAction<SearchResult | undefined>>;
-    refetch: () => void;
     inputs: SearchAcrossEntitiesInput;
     searchAcrossEntities?: SearchResults | null;
     badgeProperty?: StructuredPropertyEntity;
@@ -61,7 +60,6 @@ const StructuredPropsDrawer = ({
     setIsDrawerOpen,
     selectedProperty,
     setSelectedProperty,
-    refetch,
     inputs,
     searchAcrossEntities,
     badgeProperty,
@@ -160,7 +158,7 @@ const StructuredPropsDrawer = ({
                         input: editInput,
                     },
                 })
-                    .then(() => {
+                    .then(async (res) => {
                         analytics.event({
                             type: EventType.EditStructuredPropertyEvent,
                             propertyUrn: selectedProperty.entity.urn,
@@ -178,7 +176,7 @@ const StructuredPropsDrawer = ({
                             showInAssetSummary: form.getFieldValue(['settings', 'showInAssetSummary']) ?? false,
                             showInColumnsTable: form.getFieldValue(['settings', 'showInColumnsTable']) ?? false,
                         });
-                        refetch();
+                        updateCachedProperty(client, res.data?.updateStructuredProperty);
                         showSuccessMessage();
                     })
                     .catch(() => {
@@ -389,7 +387,7 @@ const StructuredPropsDrawer = ({
                         allowedValues={allowedValues}
                         valueField={valueField}
                         setShowAllowedValuesDrawer={setShowAllowedValuesDrawer}
-                        refetchProperties={refetch}
+                        refetchProperties={() => {}}
                         badgeProperty={badgeProperty}
                     />
                 )}
