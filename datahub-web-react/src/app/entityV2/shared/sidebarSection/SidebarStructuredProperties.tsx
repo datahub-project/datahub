@@ -111,7 +111,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                 const propertyName = getDisplayName(structuredProperty);
                 const shouldHideIfPropertyIsEmpty = structuredProperty.settings?.hideInAssetSummaryWhenEmpty;
 
-                if (shouldHideIfPropertyIsEmpty && !values) {
+                if (!isSchemaSidebar && shouldHideIfPropertyIsEmpty && !values) {
                     return null;
                 }
 
