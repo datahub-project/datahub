@@ -271,7 +271,7 @@ class DataHubBasedS3Dataset:
             )
 
     def _generate_schema_metadata(
-        self, duckdb_columns: List[Tuple[str, str]]
+        self, duckdb_columns: List[Tuple[str, Any]]
     ) -> SchemaMetadataClass:
         def get_type_from_dtype(dtype: str) -> SchemaFieldDataTypeClass:
             if "int" in dtype or "float" in dtype or "number" in dtype:
