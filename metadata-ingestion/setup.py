@@ -560,6 +560,7 @@ plugins: Dict[str, Set[str]] = {
     "superset": superset_common,
     "preset": superset_common,
     "tableau": {"tableauserverclient>=0.24.0"} | sqlglot_lib,
+    "timescaledb": sql_common | postgres_common,
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
@@ -718,6 +719,7 @@ base_dev_requirements = {
             "snaplogic",
             "slack",
             "tableau",
+            "timescaledb",
             "teradata",
             "trino",
             "hive",
@@ -869,6 +871,7 @@ entry_points = {
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
+        "timescaledb = datahub.ingestion.source.sql.timescaledb:TimescaleDBSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
