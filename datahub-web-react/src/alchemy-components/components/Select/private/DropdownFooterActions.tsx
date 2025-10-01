@@ -26,7 +26,12 @@ export default function DropdownFooterActions({ onCancel, onUpdate, size }: Prop
             <Button onClick={onCancel} variant="text" size={size}>
                 Cancel
             </Button>
-            <Button onClick={onUpdate} size={size} onFocus={(e) => e.stopPropagation()}>
+            <Button
+                onClick={onUpdate}
+                size={size}
+                onFocus={(e) => e.stopPropagation()}
+                data-testid="select-update-button"
+            >
                 Update
             </Button>
         </FooterBase>
