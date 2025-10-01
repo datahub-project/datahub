@@ -1,5 +1,8 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import (
+    MagicMock,
+    patch,
+)
 
 import pydantic
 import pytest
@@ -7,10 +10,10 @@ import pytest
 from datahub.emitter.kafka_emitter import (
     DEFAULT_MCE_KAFKA_TOPIC,
     DEFAULT_MCP_KAFKA_TOPIC,
-    KafkaEmitterConfig,
     MCE_KEY,
     MCP_KEY,
     DatahubKafkaEmitter,
+    KafkaEmitterConfig,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
