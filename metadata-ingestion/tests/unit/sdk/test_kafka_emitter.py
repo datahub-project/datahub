@@ -1,11 +1,10 @@
 import unittest
-from unittest.mock import (
-    MagicMock,
-    patch,
-)
+from unittest.mock import patch
 
 import pydantic
 import pytest
+
+from datahub.metadata.schema_classes import DatasetSnapshotClass, StatusClass
 
 from datahub.emitter.kafka_emitter import (
     DEFAULT_MCE_KAFKA_TOPIC,
@@ -103,8 +102,12 @@ class KafkaEmitterTest(unittest.TestCase):
         emitter = DatahubKafkaEmitter(config=emitter_config)
 
         # Attempt to emit an MCE
-        mce = MetadataChangeEvent(proposedSnapshot=None)  # Mock MCE object
-        emitter.emit_mce_async(mce, callback=None)
+        mce = MetadataChangeEvent(
+            proposedSnapshot=DatasetSnapshotClass(
+                urn="urn:li:dataset:123", aspects=[StatusClass(False)]
+            )
+        )  # Mock MCE object
+        emitter.emit_mce_async(mce, callback=lambda err, msg: None)
 
         mock_producer.return_value.produce.assert_not_called()  # Ensure produce is not called
 
@@ -128,9 +131,11 @@ class KafkaEmitterTest(unittest.TestCase):
 
         # Emit an MCE
         mce = MetadataChangeEvent(
-            proposedSnapshot=MagicMock(urn="urn:li:dataset:123")
+            proposedSnapshot=DatasetSnapshotClass(
+                urn="urn:li:dataset:123", aspects=[StatusClass(False)]
+            )
         )  # Mock MCE object
-        emitter.emit_mce_async(mce, callback=None)
+        emitter.emit_mce_async(mce, callback=lambda err, msg: None)
         mock_producer.return_value.produce.assert_called()
 
         # Emit an MCP
@@ -139,5 +144,5 @@ class KafkaEmitterTest(unittest.TestCase):
             entityType="dataset",
             changeType="UPSERT",
         )  # Mock MCP object
-        emitter.emit_mcp_async(mcp, callback=None)
+        emitter.emit_mcp_async(mcp, callback=lambda err, msg: None)
         mock_producer.return_value.produce.assert_called()
