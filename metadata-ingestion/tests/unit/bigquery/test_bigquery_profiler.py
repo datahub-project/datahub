@@ -1169,7 +1169,6 @@ def test_partition_discovery_information_schema_without_restrictive_windowing():
         )
 
         # Mock some partition results
-        from types import SimpleNamespace
 
         return [
             SimpleNamespace(
@@ -1204,7 +1203,6 @@ def test_partition_discovery_strategy2_fallback_for_internal_tables():
             return []
         elif "GROUP BY" in query and "ORDER BY" in query:
             # Simulate Strategy 2 finding actual max date
-            from types import SimpleNamespace
 
             return [SimpleNamespace(val="2024-11-15", record_count=5000)]
         return []
@@ -1287,7 +1285,6 @@ def test_internal_table_finds_actual_latest_date_comprehensive():
     2. Profiling phase applies 30-day window from November 15
     3. Result: Profiles the actual latest data
     """
-    from datetime import date, datetime, timezone
 
     # Setup: Current date is December 30, 2024
     current_date = datetime(2024, 12, 30, tzinfo=timezone.utc)
@@ -1305,7 +1302,6 @@ def test_internal_table_finds_actual_latest_date_comprehensive():
         if "INFORMATION_SCHEMA.PARTITIONS" in query:
             # Simulate INFORMATION_SCHEMA finding partitions (without restrictive windowing)
             # This should now work because we removed the restrictive windowing
-            from types import SimpleNamespace
 
             return [
                 SimpleNamespace(
@@ -1322,7 +1318,6 @@ def test_internal_table_finds_actual_latest_date_comprehensive():
 
         elif "GROUP BY" in query and "ORDER BY" in query:
             # Simulate Strategy 2: Direct table query finding actual max date
-            from types import SimpleNamespace
 
             return [
                 SimpleNamespace(
@@ -1335,7 +1330,6 @@ def test_internal_table_finds_actual_latest_date_comprehensive():
 
         elif "SELECT 1" in query and "LIMIT 1" in query:
             # Simulate partition verification - data exists
-            from types import SimpleNamespace
 
             return [SimpleNamespace(cnt=1)]
 
@@ -1400,7 +1394,6 @@ def test_internal_table_strategy2_fallback_with_old_data():
 
     Scenario: Table has latest data from 6 months ago, INFORMATION_SCHEMA returns no results
     """
-    from datetime import date
 
     config = create_test_config(partition_datetime_window_days=30)
     discovery = PartitionDiscovery(config)
@@ -1418,7 +1411,6 @@ def test_internal_table_strategy2_fallback_with_old_data():
 
         elif "GROUP BY" in query and "ORDER BY" in query:
             # Strategy 2: Direct table query finds the actual max date from 6 months ago
-            from types import SimpleNamespace
 
             return [
                 SimpleNamespace(
@@ -1459,7 +1451,6 @@ def test_internal_table_uses_same_process_as_external_tables():
     This means they should use direct table query to find actual max dates instead of
     just checking today/yesterday strategic dates.
     """
-    from datetime import date
 
     config = create_test_config()
     discovery = PartitionDiscovery(config)
@@ -1481,7 +1472,6 @@ def test_internal_table_uses_same_process_as_external_tables():
 
         elif "GROUP BY" in query and "ORDER BY" in query:
             # Direct table query finds the actual max date from 2 weeks ago
-            from types import SimpleNamespace
 
             return [
                 SimpleNamespace(
@@ -1523,7 +1513,6 @@ def test_external_vs_internal_table_consistency():
 
     Both should find the actual latest dates using direct table query.
     """
-    from datetime import date
 
     config = create_test_config()
     discovery = PartitionDiscovery(config)
@@ -1540,7 +1529,6 @@ def test_external_vs_internal_table_consistency():
 
         elif "GROUP BY" in query and "ORDER BY" in query:
             # Both should use direct table query and find the same data
-            from types import SimpleNamespace
 
             return [
                 SimpleNamespace(val=actual_latest_date, record_count=8000),
@@ -1687,6 +1675,118 @@ def test_security_validate_sql_structure_comprehensive():
     for valid_sql in complex_valid:
         # Should not raise exception
         validate_sql_structure(valid_sql)
+
+
+def test_hierarchical_year_month_day_components():
+    """
+    Test that year/month/day components are processed hierarchically to avoid invalid future dates.
+
+    This ensures we get valid date combinations like 2024-11-15, not impossible ones like 2024-12-31
+    when the actual latest data is from November.
+    """
+
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    # Create table with year/month/day partition components
+    table = create_test_table(name="logs_by_date", partitioned=True)
+    # Override partition info to have year/month/day fields
+
+    partition_info = SimpleNamespace(
+        type_="DAY",
+        field="year",  # Primary field
+        fields=["year", "month", "day", "source"],  # All partition fields
+        require_partition_filter=True,
+    )
+    table.partition_info = partition_info  # type: ignore[assignment]
+
+    def mock_execute_query_hierarchical_dates(query, job_config, context):
+        """Mock that simulates hierarchical date component queries."""
+
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            # Return year/month/day columns
+            return [
+                SimpleNamespace(column_name="year", data_type="INT64"),
+                SimpleNamespace(column_name="month", data_type="INT64"),
+                SimpleNamespace(column_name="day", data_type="INT64"),
+                SimpleNamespace(column_name="source", data_type="STRING"),
+            ]
+
+        elif "INFORMATION_SCHEMA.PARTITIONS" in query:
+            # Return empty for INFORMATION_SCHEMA.PARTITIONS to force fallback to table query
+            return []
+
+        elif "GROUP BY" in query and "ORDER BY" in query:
+            # Simulate hierarchical queries - check SELECT clause to determine which column is being queried
+            if (
+                "SELECT `year`" in query
+                and "`month`" not in query
+                and "`day`" not in query
+            ):
+                # Step 1: Max year query (no constraints)
+                return [
+                    SimpleNamespace(
+                        val=2024, record_count=50000
+                    ),  # Latest year is 2024
+                ]
+
+            elif (
+                "SELECT `month`" in query
+                and "`year` =" in query
+                and "`day`" not in query
+            ):
+                # Step 2: Max month within 2024
+                return [
+                    SimpleNamespace(
+                        val=11, record_count=15000
+                    ),  # Latest month in 2024 is November (11)
+                ]
+
+            elif (
+                "SELECT `day`" in query and "`year` =" in query and "`month` =" in query
+            ):
+                # Step 3: Max day within 2024-11
+                return [
+                    SimpleNamespace(
+                        val=15, record_count=5000
+                    ),  # Latest day in 2024-11 is 15th
+                ]
+
+            elif (
+                "SELECT `source`" in query
+                and "`year` =" in query
+                and "`month` =" in query
+                and "`day` =" in query
+            ):
+                # Step 4: Most populated source within 2024-11-15
+                return [
+                    SimpleNamespace(val="app", record_count=3000),
+                    SimpleNamespace(val="api", record_count=2000),
+                ]
+
+        return []
+
+    # Test hierarchical date component discovery
+    partition_filters = discovery.get_required_partition_filters(
+        table, "test-project", "dataset", mock_execute_query_hierarchical_dates
+    )
+
+    # Should successfully find partition filters
+    assert partition_filters is not None
+    assert len(partition_filters) > 0
+
+    filter_str = " ".join(partition_filters)
+
+    # Key assertions: Should get valid date combination 2024-11-15, not impossible dates
+    assert "2024" in filter_str  # Latest year
+    assert "11" in filter_str  # Latest month within 2024 (November, not December)
+    assert "15" in filter_str  # Latest day within 2024-11 (15th, not 31st)
+    assert "app" in filter_str  # Most populated source within that date
+
+    print(f"✅ Hierarchical date components: {partition_filters}")
+    print(
+        "🎯 SUCCESS: Year/month/day components processed hierarchically to avoid invalid future dates!"
+    )
 
 
 def test_security_edge_cases():

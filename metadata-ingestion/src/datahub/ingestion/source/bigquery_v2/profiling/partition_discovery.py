@@ -3,7 +3,7 @@
 import logging
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Dict, List, Optional, Tuple, TypedDict, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypedDict, Union
 
 from dateutil.relativedelta import relativedelta
 from google.cloud.bigquery import QueryJobConfig, Row, ScalarQueryParameter
@@ -576,26 +576,69 @@ LIMIT @max_results"""
             return {}
 
         safe_table_ref = build_safe_table_reference(project, schema, table.name)
-
-        # Get column data types first for better strategy decisions
         column_types = self._get_partition_column_types(
             table, project, schema, partition_columns, execute_query_func
         )
 
-        # Separate date and non-date columns
-        # Prioritize data types over column names for more reliable detection
+        # Categorize columns by type
+        date_columns, date_component_columns, non_date_columns = (
+            self._categorize_partition_columns(partition_columns, column_types)
+        )
+
+        result_values: Dict[str, Any] = {}
+        latest_date_filters = []
+
+        # Process regular date columns
+        latest_date_filters.extend(
+            self._process_regular_date_columns(
+                date_columns,
+                safe_table_ref,
+                column_types,
+                max_results,
+                execute_query_func,
+                table,
+                result_values,
+            )
+        )
+
+        # Process year/month/day components hierarchically
+        latest_date_filters.extend(
+            self._process_date_components_hierarchically(
+                date_component_columns,
+                safe_table_ref,
+                execute_query_func,
+                result_values,
+            )
+        )
+
+        # Process non-date columns within latest date constraints
+        self._process_non_date_columns(
+            non_date_columns,
+            safe_table_ref,
+            latest_date_filters,
+            column_types,
+            max_results,
+            execute_query_func,
+            table,
+            result_values,
+        )
+
+        return result_values
+
+    def _categorize_partition_columns(self, partition_columns, column_types):
+        """Categorize partition columns into date, date components, and non-date columns."""
         date_columns = []
+        date_component_columns = {"year": None, "month": None, "day": None}
         non_date_columns = []
 
         for col_name in partition_columns:
             col_data_type = column_types.get(col_name, "")
             # Primary check: Use data type (most reliable)
-            if self._is_date_type_column(col_data_type) or col_name.lower() in [
-                "year",
-                "month",
-                "day",
-            ]:
+            if self._is_date_type_column(col_data_type):
                 date_columns.append(col_name)
+            # Secondary check: Date component columns (year/month/day) - handle specially
+            elif col_name.lower() in ["year", "month", "day"]:
+                date_component_columns[col_name.lower()] = col_name
             # Fallback: Column name patterns (only when data type is unknown)
             elif not col_data_type and self._is_date_like_column(col_name):
                 date_columns.append(col_name)
@@ -605,10 +648,21 @@ LIMIT @max_results"""
             else:
                 non_date_columns.append(col_name)
 
-        result_values = {}
+        return date_columns, date_component_columns, non_date_columns
 
-        # Step 1: Find the latest date values first
+    def _process_regular_date_columns(
+        self,
+        date_columns,
+        safe_table_ref,
+        column_types,
+        max_results,
+        execute_query_func,
+        table,
+        result_values,
+    ):
+        """Process regular date columns (DATE, DATETIME, TIMESTAMP types)."""
         latest_date_filters = []
+
         for col_name in date_columns:
             try:
                 if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", col_name):
@@ -641,12 +695,9 @@ LIMIT @max_results"""
                 )
 
                 result_values[col_name] = chosen_result.val
-
-                # Create filter for this latest date to constrain non-date column queries
                 latest_date_filters.append(
                     self._create_safe_filter(col_name, chosen_result.val)
                 )
-
                 self._log_partition_attempt(
                     "table query", table.name, [col_name], success=True
                 )
@@ -657,7 +708,164 @@ LIMIT @max_results"""
                 )
                 continue
 
-        # Step 2: Find most populated values for non-date columns within the latest date(s)
+        return latest_date_filters
+
+    def _process_date_components_hierarchically(
+        self, date_component_columns, safe_table_ref, execute_query_func, result_values
+    ):
+        """Process year/month/day components hierarchically to avoid invalid future dates."""
+        active_date_components = {
+            k: v for k, v in date_component_columns.items() if v is not None
+        }
+        if not active_date_components:
+            return []
+
+        logger.info(
+            f"Found date components: {list(active_date_components.keys())}. Using hierarchical approach to find valid latest date combination."
+        )
+
+        component_filters = []
+
+        # Step 1: Find max year
+        if "year" in active_date_components:
+            component_filters.extend(
+                self._find_max_year(
+                    active_date_components["year"],
+                    safe_table_ref,
+                    execute_query_func,
+                    result_values,
+                )
+            )
+
+        # Step 2: Find max month within max year
+        if "month" in active_date_components and component_filters:
+            component_filters.extend(
+                self._find_max_month_within_year(
+                    active_date_components["month"],
+                    safe_table_ref,
+                    component_filters,
+                    execute_query_func,
+                    result_values,
+                )
+            )
+
+        # Step 3: Find max day within max year/month
+        if "day" in active_date_components and component_filters:
+            component_filters.extend(
+                self._find_max_day_within_year_month(
+                    active_date_components["day"],
+                    safe_table_ref,
+                    component_filters,
+                    execute_query_func,
+                    result_values,
+                )
+            )
+
+        return component_filters
+
+    def _find_max_year(
+        self, year_col, safe_table_ref, execute_query_func, result_values
+    ):
+        """Find the maximum year value."""
+        try:
+            query, job_config = self._create_partition_stats_query(
+                safe_table_ref,
+                year_col,
+                1,
+                "",  # Get top 1 year
+            )
+            partition_values_results = execute_query_func(
+                query, job_config, f"partition component {year_col}"
+            )
+            if partition_values_results and partition_values_results[0].val is not None:
+                max_year = partition_values_results[0].val
+                result_values[year_col] = max_year
+                filter_expr = self._create_safe_filter(year_col, max_year)
+                logger.info(f"Found latest year: {max_year}")
+                return [filter_expr]
+        except Exception as e:
+            logger.error(f"Error getting max year for {year_col}: {e}")
+        return []
+
+    def _find_max_month_within_year(
+        self, month_col, safe_table_ref, year_filters, execute_query_func, result_values
+    ):
+        """Find the maximum month value within the maximum year."""
+        try:
+            year_constraint = " AND ".join(year_filters)
+            constrained_query = f"""WITH PartitionStats AS (
+    SELECT `{month_col}` as val, COUNT(*) as record_count
+    FROM {safe_table_ref}
+    WHERE `{month_col}` IS NOT NULL AND {year_constraint}
+    GROUP BY `{month_col}`
+    HAVING record_count > 0
+    ORDER BY `{month_col}` DESC
+    LIMIT 1
+)
+SELECT val, record_count FROM PartitionStats"""
+
+            job_config = QueryJobConfig()
+            partition_values_results = execute_query_func(
+                constrained_query, job_config, f"partition component {month_col}"
+            )
+            if partition_values_results and partition_values_results[0].val is not None:
+                max_month = partition_values_results[0].val
+                result_values[month_col] = max_month
+                filter_expr = self._create_safe_filter(month_col, max_month)
+                logger.info(f"Found latest month within max year: {max_month}")
+                return [filter_expr]
+        except Exception as e:
+            logger.error(f"Error getting max month for {month_col}: {e}")
+        return []
+
+    def _find_max_day_within_year_month(
+        self,
+        day_col,
+        safe_table_ref,
+        year_month_filters,
+        execute_query_func,
+        result_values,
+    ):
+        """Find the maximum day value within the maximum year/month."""
+        try:
+            year_month_constraint = " AND ".join(year_month_filters)
+            constrained_query = f"""WITH PartitionStats AS (
+    SELECT `{day_col}` as val, COUNT(*) as record_count
+    FROM {safe_table_ref}
+    WHERE `{day_col}` IS NOT NULL AND {year_month_constraint}
+    GROUP BY `{day_col}`
+    HAVING record_count > 0
+    ORDER BY `{day_col}` DESC
+    LIMIT 1
+)
+SELECT val, record_count FROM PartitionStats"""
+
+            job_config = QueryJobConfig()
+            partition_values_results = execute_query_func(
+                constrained_query, job_config, f"partition component {day_col}"
+            )
+            if partition_values_results and partition_values_results[0].val is not None:
+                max_day = partition_values_results[0].val
+                result_values[day_col] = max_day
+                filter_expr = self._create_safe_filter(day_col, max_day)
+                logger.info(f"Found latest day within max year/month: {max_day}")
+                return [filter_expr]
+        except Exception as e:
+            logger.error(f"Error getting max day for {day_col}: {e}")
+        return []
+
+    def _process_non_date_columns(
+        self,
+        non_date_columns,
+        safe_table_ref,
+        latest_date_filters,
+        column_types,
+        max_results,
+        execute_query_func,
+        table,
+        result_values,
+    ):
+        """Process non-date columns within the latest date constraints."""
         for col_name in non_date_columns:
             try:
                 if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", col_name):
@@ -723,8 +931,6 @@ SELECT val, record_count FROM PartitionStats"""
                     f"Error getting partition value for non-date column {col_name}: {e}"
                 )
                 continue
-
-        return result_values
 
     def _create_partition_stats_query(
         self, table_ref: str, col_name: str, max_results: int = 10, data_type: str = ""
