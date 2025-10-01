@@ -34,7 +34,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sql.rds_iam_utils import RDSIAMTokenManager
+from datahub.ingestion.source.aws.aws_common import RDSIAMTokenManager
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,

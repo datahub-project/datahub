@@ -3,24 +3,27 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datahub.ingestion.source.sql.rds_iam_utils import (
+from datahub.ingestion.source.aws.aws_common import (
     RDSIAMTokenGenerator,
     RDSIAMTokenManager,
 )
 
 
 class TestRDSIAMTokenGenerator:
-    @patch("datahub.ingestion.source.sql.rds_iam_utils.boto3")
+    @patch("datahub.ingestion.source.aws.aws_common.boto3")
     def test_init_success(self, mock_boto3):
         generator = RDSIAMTokenGenerator(
-            "us-west-2", "test.rds.amazonaws.com", "testuser", 5432
+            endpoint="test.rds.amazonaws.com",
+            username="testuser",
+            port=5432,
+            region="us-west-2",
         )
         assert generator.region == "us-west-2"
         assert generator.endpoint == "test.rds.amazonaws.com"
         assert generator.username == "testuser"
         assert generator.port == 5432
 
-    @patch("datahub.ingestion.source.sql.rds_iam_utils.boto3")
+    @patch("datahub.ingestion.source.aws.aws_common.boto3")
     def test_generate_token_success(self, mock_boto3):
         mock_client = MagicMock()
         # Simulate full presigned URL returned by boto3
@@ -29,7 +32,10 @@ class TestRDSIAMTokenGenerator:
         mock_boto3.client.return_value = mock_client
 
         generator = RDSIAMTokenGenerator(
-            "us-west-2", "test.rds.amazonaws.com", "testuser"
+            endpoint="test.rds.amazonaws.com",
+            username="testuser",
+            port=5432,
+            region="us-west-2",
         )
         token = generator.generate_token()
 
@@ -40,19 +46,22 @@ class TestRDSIAMTokenGenerator:
             DBHostname="test.rds.amazonaws.com", Port=5432, DBUsername="testuser"
         )
 
-    @patch("datahub.ingestion.source.sql.rds_iam_utils.boto3")
+    @patch("datahub.ingestion.source.aws.aws_common.boto3")
     def test_generate_token_no_credentials_error(self, mock_boto3):
         from botocore.exceptions import NoCredentialsError
 
         mock_boto3.client.side_effect = NoCredentialsError()
 
+        generator = RDSIAMTokenGenerator(
+            endpoint="test.rds.amazonaws.com",
+            username="testuser",
+            port=5432,
+            region="us-west-2",
+        )
         with pytest.raises(ValueError, match="AWS credentials not found"):
-            generator = RDSIAMTokenGenerator(
-                "us-west-2", "test.rds.amazonaws.com", "testuser"
-            )
             generator.generate_token()
 
-    @patch("datahub.ingestion.source.sql.rds_iam_utils.boto3")
+    @patch("datahub.ingestion.source.aws.aws_common.boto3")
     def test_generate_token_client_error(self, mock_boto3):
         from botocore.exceptions import ClientError
 
@@ -68,13 +77,16 @@ class TestRDSIAMTokenGenerator:
         mock_boto3.client.return_value = mock_client
 
         generator = RDSIAMTokenGenerator(
-            "us-west-2", "test.rds.amazonaws.com", "testuser"
+            endpoint="test.rds.amazonaws.com",
+            username="testuser",
+            port=5432,
+            region="us-west-2",
         )
 
         with pytest.raises(ValueError, match="Failed to generate RDS IAM token"):
             generator.generate_token()
 
-    @patch("datahub.ingestion.source.sql.rds_iam_utils.boto3")
+    @patch("datahub.ingestion.source.aws.aws_common.boto3")
     def test_generate_token_returns_full_url(self, mock_boto3):
         """Test that full presigned URL is returned from boto3."""
         mock_client = MagicMock()
@@ -87,10 +99,10 @@ class TestRDSIAMTokenGenerator:
         mock_boto3.client.return_value = mock_client
 
         generator = RDSIAMTokenGenerator(
-            "us-west-2",
-            "database-1.cluster-xxx.us-west-2.rds.amazonaws.com",
-            "iam-user",
-            3306,
+            endpoint="database-1.cluster-xxx.us-west-2.rds.amazonaws.com",
+            username="iam-user",
+            port=3306,
+            region="us-west-2",
         )
         token = generator.generate_token()
 
@@ -101,7 +113,7 @@ class TestRDSIAMTokenGenerator:
         assert "DBUser=iam-user" in token
         assert "X-Amz-Algorithm" in token
 
-    @patch("datahub.ingestion.source.sql.rds_iam_utils.boto3")
+    @patch("datahub.ingestion.source.aws.aws_common.boto3")
     def test_generate_token_no_query_params(self, mock_boto3):
         """Test handling of token without query parameters (edge case)."""
         mock_client = MagicMock()
@@ -110,7 +122,10 @@ class TestRDSIAMTokenGenerator:
         mock_boto3.client.return_value = mock_client
 
         generator = RDSIAMTokenGenerator(
-            "us-west-2", "test.rds.amazonaws.com", "testuser"
+            endpoint="test.rds.amazonaws.com",
+            username="testuser",
+            port=5432,
+            region="us-west-2",
         )
         token = generator.generate_token()
 
@@ -120,23 +135,33 @@ class TestRDSIAMTokenGenerator:
 
 class TestRDSIAMTokenManager:
     def test_init(self):
-        with patch("datahub.ingestion.source.sql.rds_iam_utils.RDSIAMTokenGenerator"):
+        with patch("datahub.ingestion.source.aws.aws_common.RDSIAMTokenGenerator"):
             manager = RDSIAMTokenManager(
-                "us-west-2", "test.rds.amazonaws.com", "testuser", 5432, 5
+                endpoint="test.rds.amazonaws.com",
+                username="testuser",
+                port=5432,
+                region="us-west-2",
+                refresh_threshold_minutes=5,
             )
             assert manager.refresh_threshold == timedelta(minutes=5)
 
     def test_needs_refresh_no_token(self):
-        with patch("datahub.ingestion.source.sql.rds_iam_utils.RDSIAMTokenGenerator"):
+        with patch("datahub.ingestion.source.aws.aws_common.RDSIAMTokenGenerator"):
             manager = RDSIAMTokenManager(
-                "us-west-2", "test.rds.amazonaws.com", "testuser"
+                endpoint="test.rds.amazonaws.com",
+                username="testuser",
+                port=5432,
+                region="us-west-2",
             )
             assert manager._needs_refresh() is True
 
     def test_needs_refresh_token_expired(self):
-        with patch("datahub.ingestion.source.sql.rds_iam_utils.RDSIAMTokenGenerator"):
+        with patch("datahub.ingestion.source.aws.aws_common.RDSIAMTokenGenerator"):
             manager = RDSIAMTokenManager(
-                "us-west-2", "test.rds.amazonaws.com", "testuser"
+                endpoint="test.rds.amazonaws.com",
+                username="testuser",
+                port=5432,
+                region="us-west-2",
             )
             manager._current_token = "old-token"
             manager._token_expires_at = datetime.now() - timedelta(minutes=1)
@@ -144,9 +169,12 @@ class TestRDSIAMTokenManager:
             assert manager._needs_refresh() is True
 
     def test_needs_refresh_token_valid(self):
-        with patch("datahub.ingestion.source.sql.rds_iam_utils.RDSIAMTokenGenerator"):
+        with patch("datahub.ingestion.source.aws.aws_common.RDSIAMTokenGenerator"):
             manager = RDSIAMTokenManager(
-                "us-west-2", "test.rds.amazonaws.com", "testuser"
+                endpoint="test.rds.amazonaws.com",
+                username="testuser",
+                port=5432,
+                region="us-west-2",
             )
             manager._current_token = "valid-token"
             manager._token_expires_at = datetime.now() + timedelta(minutes=12)
@@ -158,12 +186,15 @@ class TestRDSIAMTokenManager:
         mock_generator.generate_token.return_value = "new-token-456"
 
         with patch(
-            "datahub.ingestion.source.sql.rds_iam_utils.RDSIAMTokenGenerator"
+            "datahub.ingestion.source.aws.aws_common.RDSIAMTokenGenerator"
         ) as MockGenerator:
             MockGenerator.return_value = mock_generator
 
             manager = RDSIAMTokenManager(
-                "us-west-2", "test.rds.amazonaws.com", "testuser"
+                endpoint="test.rds.amazonaws.com",
+                username="testuser",
+                port=5432,
+                region="us-west-2",
             )
 
             token = manager.get_token()
@@ -178,12 +209,15 @@ class TestRDSIAMTokenManager:
         mock_generator.generate_token.return_value = "forced-token-789"
 
         with patch(
-            "datahub.ingestion.source.sql.rds_iam_utils.RDSIAMTokenGenerator"
+            "datahub.ingestion.source.aws.aws_common.RDSIAMTokenGenerator"
         ) as MockGenerator:
             MockGenerator.return_value = mock_generator
 
             manager = RDSIAMTokenManager(
-                "us-west-2", "test.rds.amazonaws.com", "testuser"
+                endpoint="test.rds.amazonaws.com",
+                username="testuser",
+                port=5432,
+                region="us-west-2",
             )
             manager._current_token = "old-token"
 

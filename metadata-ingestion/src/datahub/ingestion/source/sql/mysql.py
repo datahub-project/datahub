@@ -22,7 +22,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.source.sql.rds_iam_utils import RDSIAMTokenManager
+from datahub.ingestion.source.aws.aws_common import RDSIAMTokenManager
 from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
     register_custom_type,

@@ -9,6 +9,7 @@ import boto3
 import requests
 from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
+from botocore.exceptions import ClientError
 from botocore.utils import fix_s3_host
 from pydantic.fields import Field
 
@@ -457,6 +458,177 @@ class AwsConnectionConfig(ConfigModel):
 
     def get_lakeformation_client(self) -> "LakeFormationClient":
         return self.get_session().client("lakeformation", config=self._aws_config())
+
+
+class RDSIAMTokenGenerator:
+    """Generates AWS RDS IAM authentication tokens using boto3 session."""
+
+    def __init__(
+        self,
+        endpoint: str,
+        username: str,
+        port: int,
+        aws_config: Optional[AwsConnectionConfig] = None,
+        region: Optional[str] = None,
+    ):
+        """
+        Initialize the token generator.
+
+        Args:
+            endpoint: RDS endpoint hostname
+            username: Database username for IAM authentication
+            port: Database port (5432 for PostgreSQL, 3306 for MySQL)
+            aws_config: AwsConnectionConfig to use for session management (recommended)
+            region: AWS region (only used if aws_config is not provided)
+        """
+        self.endpoint = endpoint
+        self.username = username
+        self.port = port
+        self.aws_config = aws_config
+        self.region = region
+        self._client: Optional[object] = None
+
+    def _get_rds_client(self):
+        """Get or create RDS client using AWS configuration."""
+        if self._client is None:
+            try:
+                if self.aws_config:
+                    self._client = self.aws_config.get_session().client(
+                        "rds", config=self.aws_config._aws_config()
+                    )
+                else:
+                    # Fallback to simple boto3 client for backward compatibility
+                    if not self.region:
+                        raise ValueError(
+                            "Either aws_config or region must be provided for RDS IAM authentication"
+                        )
+                    self._client = boto3.client("rds", region_name=self.region)
+            except Exception as e:
+                # Import here to avoid circular dependency issues
+                from botocore.exceptions import NoCredentialsError
+
+                if isinstance(e, NoCredentialsError):
+                    raise ValueError(
+                        "AWS credentials not found. Configure AWS credentials using "
+                        "AWS CLI, environment variables, or IAM roles."
+                    ) from e
+                raise
+        return self._client
+
+    def generate_token(self) -> str:
+        """
+        Generate a new RDS IAM authentication token.
+
+        boto3's generate_db_auth_token() returns a presigned URL in the format:
+        "hostname:port/?Action=connect&DBUser=username&X-Amz-Algorithm=..."
+
+        This token should be used as-is by pymysql/psycopg2 drivers. When using
+        SQLAlchemy, inject the token via event listeners rather than the URL
+        to avoid URL parsing issues.
+
+        Returns:
+            Full authentication token (presigned URL format)
+            Valid for 15 minutes
+
+        Raises:
+            ValueError: If AWS credentials are not configured
+            ClientError: If AWS API call fails
+        """
+        try:
+            client = self._get_rds_client()
+            token = client.generate_db_auth_token(
+                DBHostname=self.endpoint, Port=self.port, DBUsername=self.username
+            )
+            logger.debug(
+                f"Generated RDS IAM token for {self.username}@{self.endpoint}:{self.port}"
+            )
+            return token
+
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "Unknown")
+            raise ValueError(
+                f"Failed to generate RDS IAM token: {error_code} - {e}"
+            ) from e
+
+
+class RDSIAMTokenManager:
+    """
+    Manages RDS IAM token lifecycle with automatic refresh.
+
+    RDS IAM tokens expire after 15 minutes. This manager automatically
+    refreshes tokens at 10-minute intervals (5 minutes before expiry)
+    to ensure uninterrupted database access.
+
+    For additional protection against token expiration during long-running
+    connections, use SQLAlchemy's pool_recycle=600 and pool_pre_ping=True
+    options to force connection recycling every 10 minutes.
+    """
+
+    def __init__(
+        self,
+        endpoint: str,
+        username: str,
+        port: int,
+        aws_config: Optional[AwsConnectionConfig] = None,
+        region: Optional[str] = None,
+        refresh_threshold_minutes: int = 10,
+    ):
+        """
+        Initialize the token manager.
+
+        Args:
+            endpoint: RDS endpoint hostname
+            username: Database username for IAM authentication
+            port: Database port
+            aws_config: AwsConnectionConfig to use for session management (recommended)
+            region: AWS region (only used if aws_config is not provided)
+            refresh_threshold_minutes: Refresh token when this many minutes remain
+        """
+        self.generator = RDSIAMTokenGenerator(
+            endpoint=endpoint,
+            username=username,
+            port=port,
+            aws_config=aws_config,
+            region=region,
+        )
+        self.refresh_threshold = timedelta(minutes=refresh_threshold_minutes)
+
+        self._current_token: Optional[str] = None
+        self._token_expires_at: Optional[datetime] = None
+
+    def get_token(self) -> str:
+        """
+        Get current token, refreshing if necessary.
+
+        Returns:
+            Valid authentication token
+        """
+        if self._needs_refresh():
+            self._refresh_token()
+
+        assert self._current_token is not None
+        return self._current_token
+
+    def _needs_refresh(self) -> bool:
+        """Check if token needs to be refreshed."""
+        if self._current_token is None or self._token_expires_at is None:
+            return True
+
+        time_until_expiry = self._token_expires_at - datetime.now()
+        return time_until_expiry <= self.refresh_threshold
+
+    def _refresh_token(self) -> None:
+        """Generate and store a new token."""
+        logger.info("Refreshing RDS IAM authentication token")
+        self._current_token = self.generator.generate_token()
+        # Tokens are valid for 15 minutes, but we refresh earlier for safety
+        self._token_expires_at = datetime.now() + timedelta(minutes=15)
+
+    def force_refresh(self) -> str:
+        """Force token refresh and return new token."""
+        self._refresh_token()
+        assert self._current_token is not None
+        return self._current_token
 
 
 class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):
