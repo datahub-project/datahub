@@ -563,32 +563,63 @@ LIMIT @max_results"""
         execute_query_func,
         max_results=5,
     ):
-        """Get partition information by querying the actual table using parameterized queries."""
+        """
+        Get partition information by querying the actual table using parameterized queries.
+
+        For tables with date/timestamp columns, uses a hierarchical approach:
+        1. Find the latest date first
+        2. Find most populated values for other columns within that latest date
+
+        This ensures we get a valid combination that actually exists in the data.
+        """
         if not partition_columns:
             return {}
 
-        result_values = {}
         safe_table_ref = build_safe_table_reference(project, schema, table.name)
 
-        # Get column data types first for better ordering strategy
+        # Get column data types first for better strategy decisions
         column_types = self._get_partition_column_types(
             table, project, schema, partition_columns, execute_query_func
         )
 
+        # Separate date and non-date columns
+        # Prioritize data types over column names for more reliable detection
+        date_columns = []
+        non_date_columns = []
+
         for col_name in partition_columns:
+            col_data_type = column_types.get(col_name, "")
+            # Primary check: Use data type (most reliable)
+            if self._is_date_type_column(col_data_type) or col_name.lower() in [
+                "year",
+                "month",
+                "day",
+            ]:
+                date_columns.append(col_name)
+            # Fallback: Column name patterns (only when data type is unknown)
+            elif not col_data_type and self._is_date_like_column(col_name):
+                date_columns.append(col_name)
+                logger.debug(
+                    f"Column {col_name} detected as date-like based on name (no data type available)"
+                )
+            else:
+                non_date_columns.append(col_name)
+
+        result_values = {}
+
+        # Step 1: Find the latest date values first
+        latest_date_filters = []
+        for col_name in date_columns:
             try:
-                # Use utility for validation
                 if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", col_name):
                     logger.warning(f"Invalid column name: {col_name}")
                     continue
 
-                # Use utility for query building with parameters
                 col_data_type = column_types.get(col_name, "")
                 query, job_config = self._create_partition_stats_query(
                     safe_table_ref, col_name, max_results, col_data_type
                 )
 
-                # Use utility for execution with context
                 self._log_partition_attempt("table query", table.name, [col_name])
                 partition_values_results = execute_query_func(
                     query, job_config, f"partition column {col_name}"
@@ -599,28 +630,88 @@ LIMIT @max_results"""
                     or partition_values_results[0].val is None
                 ):
                     logger.warning(
-                        f"No non-empty partition values found for column {col_name}"
-                    )
-                    self._log_partition_attempt(
-                        "table query", table.name, [col_name], success=False
+                        f"No non-empty partition values found for date column {col_name}"
                     )
                     continue
 
-                # Use utility to determine how to choose the result
-                if self._is_date_like_column(col_name):
-                    chosen_result = partition_values_results[
-                        0
-                    ]  # Already sorted by date DESC
-                    logger.info(
-                        f"Found latest date for {col_name}: {chosen_result.val} with {chosen_result.record_count} records (queried table directly for maximum date)"
+                # For date columns, always take the latest (first result, ordered by date DESC)
+                chosen_result = partition_values_results[0]
+                logger.info(
+                    f"Found latest date for {col_name}: {chosen_result.val} with {chosen_result.record_count} records (queried table directly for maximum date)"
+                )
+
+                result_values[col_name] = chosen_result.val
+
+                # Create filter for this latest date to constrain non-date column queries
+                latest_date_filters.append(
+                    self._create_safe_filter(col_name, chosen_result.val)
+                )
+
+                self._log_partition_attempt(
+                    "table query", table.name, [col_name], success=True
+                )
+
+            except Exception as e:
+                logger.error(
+                    f"Error getting partition value for date column {col_name}: {e}"
+                )
+                continue
+
+        # Step 2: Find most populated values for non-date columns within the latest date(s)
+        for col_name in non_date_columns:
+            try:
+                if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", col_name):
+                    logger.warning(f"Invalid column name: {col_name}")
+                    continue
+
+                # Create constrained query that only looks within the latest date(s)
+                if latest_date_filters:
+                    # Query with date constraints to ensure valid combinations
+                    date_constraint = " AND ".join(latest_date_filters)
+                    constrained_query = f"""WITH PartitionStats AS (
+    SELECT `{col_name}` as val, COUNT(*) as record_count
+    FROM {safe_table_ref}
+    WHERE `{col_name}` IS NOT NULL AND {date_constraint}
+    GROUP BY `{col_name}`
+    HAVING record_count > 0
+    ORDER BY record_count DESC
+    LIMIT @max_results
+)
+SELECT val, record_count FROM PartitionStats"""
+
+                    job_config = QueryJobConfig(
+                        query_parameters=[
+                            ScalarQueryParameter("max_results", "INT64", max_results)
+                        ]
                     )
                 else:
-                    chosen_result = max(
-                        partition_values_results, key=lambda r: r.record_count
+                    # No date constraints, use regular query
+                    constrained_query, job_config = self._create_partition_stats_query(
+                        safe_table_ref,
+                        col_name,
+                        max_results,
+                        column_types.get(col_name, ""),
                     )
-                    logger.info(
-                        f"Found most populated partition for {col_name}: {chosen_result.val} with {chosen_result.record_count} records (queried table directly for partition statistics)"
+
+                self._log_partition_attempt("table query", table.name, [col_name])
+                partition_values_results = execute_query_func(
+                    constrained_query, job_config, f"partition column {col_name}"
+                )
+
+                if (
+                    not partition_values_results
+                    or partition_values_results[0].val is None
+                ):
+                    logger.warning(
+                        f"No non-empty partition values found for non-date column {col_name}"
                     )
+                    continue
+
+                # For non-date columns, take the most populated (first result, ordered by record_count DESC)
+                chosen_result = partition_values_results[0]
+                logger.info(
+                    f"Found most populated partition for {col_name}: {chosen_result.val} with {chosen_result.record_count} records (within latest date, queried table directly for partition statistics)"
+                )
 
                 result_values[col_name] = chosen_result.val
                 self._log_partition_attempt(
@@ -628,9 +719,8 @@ LIMIT @max_results"""
                 )
 
             except Exception as e:
-                logger.error(f"Error getting partition value for {col_name}: {e}")
-                self._log_partition_attempt(
-                    "table query", table.name, [col_name], success=False
+                logger.error(
+                    f"Error getting partition value for non-date column {col_name}: {e}"
                 )
                 continue
 
@@ -666,10 +756,18 @@ SELECT val, record_count FROM PartitionStats"""
 
     def _get_column_ordering_strategy(self, col_name: str, data_type: str = "") -> str:
         """
-        Get the appropriate ORDER BY strategy for a column based on its name and data type.
+        Get the appropriate ORDER BY strategy for a column based on its data type and name.
+        Prioritizes data type over column name for reliable detection.
         """
-        if self._is_date_like_column(col_name) or self._is_date_type_column(data_type):
-            return f"`{col_name}` DESC"  # Most recent first for time-based columns
+        # Primary check: Use data type (most reliable)
+        if self._is_date_type_column(data_type):
+            return f"`{col_name}` DESC"  # Most recent first for date/timestamp types
+        # Secondary check: Date component columns
+        elif col_name.lower() in ["year", "month", "day"]:
+            return f"`{col_name}` DESC"  # Most recent first for date components
+        # Fallback: Column name patterns (only when data type is unknown)
+        elif not data_type and self._is_date_like_column(col_name):
+            return f"`{col_name}` DESC"  # Most recent first for date-like names
         else:
             return "record_count DESC"  # Most populated first for other columns
 
@@ -693,6 +791,23 @@ SELECT val, record_count FROM PartitionStats"""
             "modified_at",
             "updated_at",
             "event_time",
+            # Trading/Financial date columns
+            "trade_date",
+            "trader_date",
+            "trading_date",
+            "business_date",
+            "settlement_date",
+            "value_date",
+            "booking_date",
+            # General date patterns
+            "start_date",
+            "end_date",
+            "effective_date",
+            "expiry_date",
+            "maturity_date",
+            "process_date",
+            "load_date",
+            "insert_date",
         }
 
     def _is_date_type_column(self, data_type: str) -> bool:
@@ -1316,11 +1431,8 @@ LIMIT 1"""
             table, project, schema, required_columns, execute_query_func
         )
 
-        # Strategy 1: For tables with date-like columns, date types, or date component columns,
-        # use the same approach as external tables - query directly for actual max dates
-        has_date_columns = any(
-            self._is_date_like_column(col) for col in required_columns
-        )
+        # Strategy 1: For tables with date/timestamp columns, use direct table query
+        # Prioritize data types over column names for reliable detection
         has_date_types = any(
             self._is_date_type_column(column_types.get(col, ""))
             for col in required_columns
@@ -1328,8 +1440,13 @@ LIMIT 1"""
         has_date_components = any(
             col.lower() in ["year", "month", "day"] for col in required_columns
         )
+        # Only use column name patterns as fallback when data type is unknown
+        has_date_like_names = any(
+            not column_types.get(col, "") and self._is_date_like_column(col)
+            for col in required_columns
+        )
 
-        if has_date_columns or has_date_types or has_date_components:
+        if has_date_types or has_date_components or has_date_like_names:
             # For date/timestamp partitioned tables, use direct table query like external tables
             # This finds the actual latest dates instead of just checking today/yesterday
             logger.info(
