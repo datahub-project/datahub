@@ -447,7 +447,7 @@ public class EntityController
         throw new IllegalArgumentException(
             "Value of property '" + entityName + "' must be an array");
       }
-      entityTypes.add(entityName.toLowerCase());
+      entityTypes.add(entityName);
     }
 
     OperationContext opContext =
@@ -492,12 +492,18 @@ public class EntityController
     // Group results by entity type for response structure
     Map<String, List<IngestResult>> resultsByEntityType = new HashMap<>();
     for (IngestResult result : results) {
-      String entityType = result.getUrn().getEntityType().toLowerCase();
+      String entityType = result.getUrn().getEntityType();
       resultsByEntityType.computeIfAbsent(entityType, k -> new ArrayList<>()).add(result);
     }
 
     for (String entityName : entityTypes) {
+
+      // Case-insensitive matching.
       List<IngestResult> entityResults = resultsByEntityType.getOrDefault(entityName, List.of());
+      if (entityResults.isEmpty()) {
+        entityResults = resultsByEntityType.getOrDefault(entityName.toLowerCase(), List.of());
+      }
+
       response.put(entityName, buildEntityList(opContext, entityResults, withSystemMetadata));
     }
 
