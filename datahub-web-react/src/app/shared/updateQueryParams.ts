@@ -6,12 +6,12 @@ type QueryParam = {
 };
 
 export default function updateQueryParams(newParams: QueryParam, location: Location, history: History) {
-    const parsedParams = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const parsedParams = QueryString.parse(location.search, { arrayFormat: 'comma', decode: false });
     const updatedParams = {
         ...parsedParams,
         ...newParams,
     };
-    const stringifiedParams = QueryString.stringify(updatedParams, { arrayFormat: 'comma' });
+    const stringifiedParams = QueryString.stringify(updatedParams, { arrayFormat: 'comma', encode: false });
 
     history.replace({
         pathname: location.pathname,
