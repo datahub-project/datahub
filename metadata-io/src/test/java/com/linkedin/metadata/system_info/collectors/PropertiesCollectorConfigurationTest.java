@@ -842,8 +842,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.basePath",
           "server.servlet.context-path",
           "datahub.gms.basePath",
-          "datahub.gms.basePathEnabled"
-          "datahub.policies.systemPolicyUrnList",
+          "datahub.gms.basePathEnabled",
 
           // CDC (Change Data Capture) configuration properties
           "kafka.serde.cdc.key.serializer",
