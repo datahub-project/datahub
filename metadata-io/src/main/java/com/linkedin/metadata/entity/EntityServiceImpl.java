@@ -242,9 +242,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     this.aspectDao = aspectDao;
     this.producer = producer;
     this.alwaysEmitChangeLog = alwaysEmitChangeLog;
-    String systemUpdateCDCMode = System.getenv("SYSTEM_UPDATE_CDC_MODE");
-    this.cdcModeChangeLog =
-        systemUpdateCDCMode != null ? Boolean.parseBoolean(systemUpdateCDCMode) : cdcModeChangeLog;
+    this.cdcModeChangeLog = cdcModeChangeLog;
     this.preProcessHooks = preProcessHooks;
     ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
     this.enableBrowseV2 = enableBrowseV2;

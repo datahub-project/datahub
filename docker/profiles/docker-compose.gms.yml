@@ -257,7 +257,6 @@ services:
       CDC_USER: ${CDC_USER:-datahub_cdc}
       CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
-      SYSTEM_UPDATE_CDC_MODE: false
       DEBEZIUM_PLUGIN_NAME: pgoutput
     depends_on:
       mysql-setup-cdc:
@@ -306,7 +305,6 @@ services:
       CDC_USER: ${CDC_USER:-datahub_cdc}
       CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
-      SYSTEM_UPDATE_CDC_MODE: false
       CDC_DB_TYPE: postgres
     depends_on:
       postgres-setup-cdc:
@@ -357,7 +355,6 @@ services:
       CDC_USER: ${CDC_USER:-datahub_cdc}
       CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
-      SYSTEM_UPDATE_CDC_MODE: false
       DEBEZIUM_CONFIG_OVERRIDE: mclProcessing.cdcSource.debeziumConfig.mysqlConfig
   system-update-debug-elasticsearch:
     <<: *datahub-system-update-service-dev
@@ -528,7 +525,6 @@ services:
       CDC_USER: ${CDC_USER:-datahub_cdc}
       CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
-      SYSTEM_UPDATE_CDC_MODE: false
       CDC_DB_TYPE: postgres
     depends_on:
       system-update-debug-postgres-cdc:
