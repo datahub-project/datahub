@@ -8,7 +8,12 @@ import pydantic
 from pydantic import Field
 from typing_extensions import Literal
 
-from datahub.configuration.common import AllowDenyPattern, ConfigEnum, ConfigModel
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigEnum,
+    ConfigModel,
+    HiddenFromDocs,
+)
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -285,10 +290,9 @@ class UnityCatalogSourceConfig(
         description="Limit the number of columns to get column level lineage. ",
     )
 
-    lineage_max_workers: int = pydantic.Field(
+    lineage_max_workers: HiddenFromDocs[int] = pydantic.Field(
         default=5 * (os.cpu_count() or 4),
         description="Number of worker threads to use for column lineage thread pool executor. Set to 1 to disable.",
-        hidden_from_docs=True,
     )
 
     databricks_api_page_size: int = pydantic.Field(

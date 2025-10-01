@@ -375,11 +375,15 @@ fragment institutionalMemoryFields on InstitutionalMemory {
             ...resolvedActorFields
         }
         description
+        label
         created {
             actor
             time
         }
         associatedUrn
+        settings {
+            showInAssetPreview
+        }
     }
 }
 
@@ -1105,6 +1109,9 @@ fragment nonRecursiveMLModel on MLModel {
             properties {
                 name
             }
+            editableProperties {
+                description
+            }
         }
         customProperties {
             key
@@ -1209,6 +1216,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     browsePathV2 {
         ...browsePathV2Fields
+    }
+    institutionalMemory {
+        ...institutionalMemoryFields
     }
 }
 
@@ -1570,6 +1580,7 @@ fragment datasetERModelRelationshipFields on Dataset {
 fragment structuredPropertyFields on StructuredPropertyEntity {
     urn
     type
+    exists
     definition {
         displayName
         qualifiedName
@@ -1795,6 +1806,7 @@ fragment entityPrivileges on EntityPrivileges {
     canViewDatasetUsage
     canViewDatasetProfile
     canViewDatasetOperations
+    canManageAssetSummary
 }
 
 fragment businessAttribute on BusinessAttributeAssociation {
@@ -1946,6 +1958,9 @@ fragment ingestionSourceFields on IngestionSource {
         urn
         type
         name
+    }
+    source {
+        type
     }
 }
 

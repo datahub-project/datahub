@@ -20,7 +20,7 @@ bootstrap:
       mcps_location: "bootstrap_mcps/root-user-editable-info.yaml"
 
     - name: data-platforms
-      version: v3
+      version: v4
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/data-platforms.yaml"
@@ -44,7 +44,7 @@ bootstrap:
       mcps_location: "bootstrap_mcps/roles.yaml"
 
     - name: page-modules
-      version: v3
+      version: v5
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/page-modules.yaml"

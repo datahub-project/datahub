@@ -178,7 +178,7 @@ public class PoliciesConfig {
           "Manage Connections",
           "Manage connections to external DataHub platforms.");
 
-  public static final Privilege MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE =
+  private static final Privilege MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE =
       Privilege.of(
           "MANAGE_STRUCTURED_PROPERTIES",
           "Manage Structured Properties",
@@ -388,6 +388,12 @@ public class PoliciesConfig {
           "Create erModelRelationship",
           "The ability to add erModelRelationship on a dataset.");
 
+  public static final Privilege MANAGE_ASSET_SUMMARY_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ASSET_SUMMARY",
+          "Manage Asset Summary",
+          "The ability to manage the asset summary tab for an entity.");
+
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES =
       ImmutableList.of(
           VIEW_ENTITY_PAGE_PRIVILEGE,
@@ -406,7 +412,8 @@ public class PoliciesConfig {
           EDIT_ENTITY_PROPERTIES_PRIVILEGE,
           EDIT_ENTITY_INCIDENTS_PRIVILEGE,
           CREATE_ENTITY_PRIVILEGE,
-          EXISTS_ENTITY_PRIVILEGE);
+          EXISTS_ENTITY_PRIVILEGE,
+          MANAGE_ASSET_SUMMARY_PRIVILEGE);
 
   // Dataset Privileges
   public static final Privilege EDIT_DATASET_COL_TAGS_PRIVILEGE =
@@ -687,6 +694,14 @@ public class PoliciesConfig {
                   ImmutableList.of(EDIT_LINEAGE_PRIVILEGE).stream())
               .collect(Collectors.toList()));
 
+  // Data Process Instance Privileges
+  public static final ResourcePrivileges DATA_PROCESS_INSTANCE_PRIVILEGES =
+      ResourcePrivileges.of(
+          "dataProcessInstance",
+          "Data Task/Pipeline Runs",
+          "Data Tasks/Pipeline Runs indexed by DataHub",
+          COMMON_ENTITY_PRIVILEGES);
+
   // Tag Privileges
   public static final ResourcePrivileges TAG_PRIVILEGES =
       ResourcePrivileges.of(
@@ -919,6 +934,7 @@ public class PoliciesConfig {
           CHART_PRIVILEGES,
           DATA_FLOW_PRIVILEGES,
           DATA_JOB_PRIVILEGES,
+          DATA_PROCESS_INSTANCE_PRIVILEGES,
           TAG_PRIVILEGES,
           CONTAINER_PRIVILEGES,
           DOMAIN_PRIVILEGES,
@@ -1228,6 +1244,38 @@ public class PoliciesConfig {
                           ApiOperation.EXISTS,
                           Disjunctive.disjoint(
                               MANAGE_ACCESS_TOKENS,
+                              EXISTS_ENTITY_PRIVILEGE,
+                              EDIT_ENTITY_PRIVILEGE,
+                              DELETE_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              SEARCH_PRIVILEGE))
+                      .build())
+              .put(
+                  Constants.STRUCTURED_PROPERTY_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(
+                          ApiOperation.CREATE,
+                          Disjunctive.disjoint(MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE))
+                      .put(
+                          ApiOperation.READ,
+                          Disjunctive.disjoint(
+                              VIEW_ENTITY_PAGE_PRIVILEGE, MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE))
+                      .put(
+                          ApiOperation.UPDATE,
+                          Disjunctive.disjoint(
+                              EDIT_ENTITY_PRIVILEGE, MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE))
+                      .put(
+                          ApiOperation.DELETE,
+                          Disjunctive.disjoint(
+                              DELETE_ENTITY_PRIVILEGE, MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXECUTE,
+                          Disjunctive.disjoint(
+                              EXECUTE_ENTITY_PRIVILEGE, MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXISTS,
+                          Disjunctive.disjoint(
+                              MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE,
                               EXISTS_ENTITY_PRIVILEGE,
                               EDIT_ENTITY_PRIVILEGE,
                               DELETE_ENTITY_PRIVILEGE,

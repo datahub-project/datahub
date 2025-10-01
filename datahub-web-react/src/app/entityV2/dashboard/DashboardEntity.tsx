@@ -65,7 +65,6 @@ const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
  */
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
@@ -339,6 +338,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

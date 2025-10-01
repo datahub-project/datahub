@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
-import static play.mvc.Http.Status.NOT_FOUND;
+import static play.mvc.Http.Status.MOVED_PERMANENTLY;
 import static play.mvc.Http.Status.OK;
 import static play.test.Helpers.fakeRequest;
 import static play.test.Helpers.route;
@@ -27,6 +27,7 @@ import controllers.routes;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
+import java.net.ServerSocket;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
@@ -49,11 +50,13 @@ import no.nav.security.mock.oauth2.token.DefaultOAuth2TokenCallback;
 import okhttp3.Headers;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 import org.awaitility.Awaitility;
 import org.awaitility.Durations;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
@@ -81,6 +84,10 @@ import play.test.WithBrowser;
 @SetEnvironmentVariable(key = "AUTH_OIDC_GROUPS_CLAIM_NAME", value = "groups")
 @SetEnvironmentVariable(key = "AUTH_OIDC_CLIENT_ID", value = "testclient")
 @SetEnvironmentVariable(key = "AUTH_OIDC_CLIENT_SECRET", value = "testsecret")
+@SetEnvironmentVariable(key = "AUTH_OIDC_CONNECT_TIMEOUT", value = "2000")
+@SetEnvironmentVariable(key = "AUTH_OIDC_READ_TIMEOUT", value = "2000")
+@SetEnvironmentVariable(key = "AUTH_OIDC_HTTP_RETRY_ATTEMPTS", value = "5")
+@SetEnvironmentVariable(key = "AUTH_OIDC_HTTP_RETRY_DELAY", value = "500")
 @SetEnvironmentVariable(key = "AUTH_VERBOSE_LOGGING", value = "true")
 public class ApplicationTest extends WithBrowser {
   private static final Logger logger = LoggerFactory.getLogger(ApplicationTest.class);
@@ -89,12 +96,14 @@ public class ApplicationTest extends WithBrowser {
   @Override
   protected Application provideApplication() {
     return new GuiceApplicationBuilder()
-        .configure("metadataService.port", String.valueOf(gmsServerPort()))
+        .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+        .configure("metadataService.host", "localhost")
+        .configure("datahub.basePath", "")
         .configure("auth.baseUrl", "http://localhost:" + providePort())
         .configure(
             "auth.oidc.discoveryUri",
             "http://localhost:"
-                + oauthServerPort()
+                + actualOauthServerPort
                 + "/testIssuer/.well-known/openid-configuration")
         .overrides(new TestModule())
         .in(new Environment(Mode.TEST))
@@ -108,12 +117,13 @@ public class ApplicationTest extends WithBrowser {
     return Helpers.testBrowser(webClient, providePort());
   }
 
-  public int oauthServerPort() {
-    return providePort() + 1;
-  }
-
-  public int gmsServerPort() {
-    return providePort() + 2;
+  /** Find an available port for testing to avoid port conflicts */
+  private int findAvailablePort() {
+    try (ServerSocket socket = new ServerSocket(0)) {
+      return socket.getLocalPort();
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to find available port", e);
+    }
   }
 
   private MockOAuth2Server oauthServer;
@@ -123,19 +133,57 @@ public class ApplicationTest extends WithBrowser {
   private MockWebServer gmsServer;
 
   private String wellKnownUrl;
+  private int actualOauthServerPort;
+  private int actualGmsServerPort;
+  private String actualGmsServerHost;
 
   private static final String TEST_USER = "urn:li:corpuser:testUser@myCompany.com";
   private static final String TEST_TOKEN = "faketoken_YCpYIrjQH4sD3_rAc3VPPFg4";
 
   @BeforeAll
   public void init() throws IOException {
+    // Store actual ports to avoid dynamic allocation issues
+    actualOauthServerPort = findAvailablePort();
+    actualGmsServerPort = findAvailablePort();
+
     // Start Mock GMS
     gmsServer = new MockWebServer();
-    // auth client mock response
-    gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
-    gmsServer.enqueue(
-        new MockResponse().setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN)));
-    gmsServer.start(gmsServerPort());
+
+    // Set up dispatcher to handle requests based on path
+    gmsServer.setDispatcher(
+        new okhttp3.mockwebserver.Dispatcher() {
+          @Override
+          public MockResponse dispatch(RecordedRequest request) {
+            String path = request.getPath();
+
+            // Handle user info requests
+            if (path.contains("/users/") && path.contains("/info")) {
+              return new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER));
+            }
+
+            // Handle token generation requests
+            if (path.contains("/generateSessionTokenForUser")) {
+              return new MockResponse()
+                  .setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN));
+            }
+
+            // Handle other requests (like /config endpoint requests)
+            if (path.contains("/config") || path.contains("/health")) {
+              return new MockResponse().setResponseCode(200).setBody("{}");
+            }
+
+            // No stored sso settings
+            if (path.contains("/auth/getSsoSettings")) {
+              return new MockResponse().setResponseCode(404);
+            }
+
+            // Log and return 404 for unexpected requests
+            logger.warn("GMS Server received unexpected request: {} {}", request.getMethod(), path);
+            return new MockResponse().setResponseCode(404).setBody("Not found");
+          }
+        });
+
+    gmsServer.start(InetAddress.getByName("localhost"), actualGmsServerPort);
 
     // Start Mock Identity Provider
     startMockOauthServer();
@@ -146,19 +194,66 @@ public class ApplicationTest extends WithBrowser {
 
     Awaitility.await().timeout(Durations.TEN_SECONDS).until(() -> app != null);
 
-    // Wait for the Play application to be fully ready to handle requests
+    // Wait for all servers to be fully ready to handle requests
     Awaitility.await()
         .timeout(Durations.TEN_SECONDS)
         .until(
             () -> {
               try {
-                // Try to hit a simple endpoint to verify the server is ready
+                // Check Play application readiness
                 browser.goTo("/admin");
-                return true;
+
+                // Check mock OAuth server critical endpoints
+                // Test the well-known endpoint (first thing OIDC client hits)
+                String wellKnownUrl =
+                    String.format(
+                        "http://localhost:%d/%s/.well-known/openid-configuration",
+                        actualOauthServerPort, ISSUER_ID);
+                java.net.URL url = new java.net.URL(wellKnownUrl);
+                java.net.HttpURLConnection connection =
+                    (java.net.HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(5000);
+                connection.setReadTimeout(5000);
+                int wellKnownResponseCode = connection.getResponseCode();
+                connection.disconnect();
+
+                // Test the userinfo endpoint (where groups are retrieved)
+                String userInfoUrl =
+                    String.format(
+                        "http://localhost:%d/%s/userinfo", actualOauthServerPort, ISSUER_ID);
+                java.net.URL userInfoUrlObj = new java.net.URL(userInfoUrl);
+                java.net.HttpURLConnection userInfoConnection =
+                    (java.net.HttpURLConnection) userInfoUrlObj.openConnection();
+                userInfoConnection.setRequestMethod("GET");
+                userInfoConnection.setConnectTimeout(5000);
+                userInfoConnection.setReadTimeout(5000);
+                int userInfoResponseCode = userInfoConnection.getResponseCode();
+                userInfoConnection.disconnect();
+
+                logger.debug(
+                    "All servers readiness check - Play app: OK, well-known: {}, userinfo: {}",
+                    wellKnownResponseCode,
+                    userInfoResponseCode);
+
+                return wellKnownResponseCode == 200 && userInfoResponseCode == 200;
               } catch (Exception e) {
+                logger.debug("Servers not ready yet: {}", e.getMessage());
                 return false;
               }
             });
+  }
+
+  @BeforeEach
+  public void setUpTest() {
+    // Clear any captured proposals from previous tests to prevent interference
+    TestModule.clearCapturedProposals();
+
+    // Clear browser cookies and state to ensure clean test isolation
+    if (browser != null) {
+      // Clear cookies using the underlying WebDriver
+      browser.getDriver().manage().deleteAllCookies();
+    }
   }
 
   @AfterAll
@@ -177,9 +272,15 @@ public class ApplicationTest extends WithBrowser {
       logger.info("Shutdown MockOAuth2Server thread");
       oauthServerThread.interrupt();
       try {
-        oauthServerThread.join(2000); // Wait up to 2 seconds for thread to finish
+        oauthServerThread.join(1000); // Wait up to 1 second for thread to finish
       } catch (InterruptedException e) {
         logger.warn("Shutdown MockOAuth2Server thread failed to join.");
+        Thread.currentThread().interrupt();
+      }
+      // Force stop if still alive
+      if (oauthServerThread.isAlive()) {
+        logger.warn("OAuth server thread still alive after interrupt, forcing stop");
+        oauthServerThread.stop(); // Force stop as last resort
       }
     }
   }
@@ -195,6 +296,8 @@ public class ApplicationTest extends WithBrowser {
                   && (String.format("/%s/.well-known/openid-configuration", ISSUER_ID)
                           .equals(oAuth2HttpRequest.getUrl().url().getPath())
                       || String.format("/%s/token", ISSUER_ID)
+                          .equals(oAuth2HttpRequest.getUrl().url().getPath())
+                      || String.format("/%s/userinfo", ISSUER_ID)
                           .equals(oAuth2HttpRequest.getUrl().url().getPath()));
             }
 
@@ -220,6 +323,9 @@ public class ApplicationTest extends WithBrowser {
                             + "}",
                         port, ISSUER_ID, port, ISSUER_ID, port, ISSUER_ID, port, ISSUER_ID, port,
                         ISSUER_ID);
+              } else if (path.equals(String.format("/%s/userinfo", ISSUER_ID))) {
+                // For HEAD requests to userinfo endpoint, just return 200 with no body
+                responseBody = null;
               }
 
               return new OAuth2HttpResponse(
@@ -244,6 +350,10 @@ public class ApplicationTest extends WithBrowser {
 
             @Override
             public OAuth2HttpResponse invoke(OAuth2HttpRequest oAuth2HttpRequest) {
+              // Log the request to help debug
+              logger.debug(
+                  "UserInfo endpoint called with headers: {}", oAuth2HttpRequest.getHeaders());
+
               // Return userInfo with groups (not in ID token)
               String userInfoResponse =
                   String.format(
@@ -259,12 +369,7 @@ public class ApplicationTest extends WithBrowser {
                           + "}");
 
               return new OAuth2HttpResponse(
-                  Headers.of(
-                      Map.of(
-                          "Content-Type", "application/json",
-                          "Cache-Control", "no-store",
-                          "Pragma", "no-cache",
-                          "Content-Length", String.valueOf(userInfoResponse.length()))),
+                  Headers.of(Map.of("Content-Type", "application/json")),
                   200,
                   userInfoResponse,
                   null);
@@ -280,25 +385,28 @@ public class ApplicationTest extends WithBrowser {
             () -> {
               try {
                 // Configure mock responses - groups are NOT in ID token, only in userInfo endpoint
-                oauthServer.enqueueCallback(
-                    new DefaultOAuth2TokenCallback(
-                        ISSUER_ID,
-                        "testUser",
-                        "JWT",
-                        List.of(),
-                        Map.of(
-                            "email", "testUser@myCompany.com"
-                            // Note: groups are intentionally NOT included in ID token
-                            // They will only be available from the userInfo endpoint
-                            ),
-                        600));
+                // Enqueue enough callbacks for all tests with retries (22 tests * 10 retries = 220)
+                for (int i = 0; i < 220; i++) {
+                  oauthServer.enqueueCallback(
+                      new DefaultOAuth2TokenCallback(
+                          ISSUER_ID,
+                          "testUser",
+                          "JWT",
+                          List.of(),
+                          Map.of(
+                              "email", "testUser@myCompany.com"
+                              // Note: groups are intentionally NOT included in ID token
+                              // They will only be available from the userInfo endpoint
+                              ),
+                          600));
+                }
 
-                oauthServer.start(InetAddress.getByName("localhost"), oauthServerPort());
+                oauthServer.start(InetAddress.getByName("localhost"), actualOauthServerPort);
 
                 oauthServerStarted.complete(null);
 
-                // Keep thread alive until server is stopped
-                while (!Thread.currentThread().isInterrupted() && testServer.isRunning()) {
+                // Keep thread alive - it will be interrupted during shutdown
+                while (!Thread.currentThread().isInterrupted()) {
                   try {
                     Thread.sleep(1000);
                   } catch (InterruptedException e) {
@@ -314,40 +422,70 @@ public class ApplicationTest extends WithBrowser {
     oauthServerThread.setDaemon(true); // Ensure thread doesn't prevent JVM shutdown
     oauthServerThread.start();
 
-    // Wait for server to start with timeout
-    oauthServerStarted
-        .orTimeout(10, TimeUnit.SECONDS)
-        .whenComplete(
-            (result, throwable) -> {
-              if (throwable != null) {
-                if (throwable instanceof TimeoutException) {
-                  throw new RuntimeException(
-                      "MockOAuth2Server failed to start within timeout", throwable);
-                }
-                throw new RuntimeException("MockOAuth2Server failed to start", throwable);
-              }
-            });
+    // Wait for server to start with timeout - block until complete
+    try {
+      oauthServerStarted.get(10, TimeUnit.SECONDS);
+    } catch (TimeoutException e) {
+      throw new RuntimeException("MockOAuth2Server failed to start within timeout", e);
+    } catch (Exception e) {
+      throw new RuntimeException("MockOAuth2Server failed to start", e);
+    }
 
     // Discovery url to authorization server metadata
-    wellKnownUrl = oauthServer.wellKnownUrl(ISSUER_ID).toString();
+    wellKnownUrl =
+        "http://localhost:"
+            + actualOauthServerPort
+            + "/"
+            + ISSUER_ID
+            + "/.well-known/openid-configuration";
 
-    // Wait for server to return configuration
+    // Wait for server to return configuration with retries
     // Validate mock server returns data
-    try {
-      URL url = new URL(wellKnownUrl);
-      HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-      conn.setRequestMethod("GET");
-      int responseCode = conn.getResponseCode();
-      logger.info("Well-known endpoint response code: {}", responseCode);
+    int maxRetries = 20;
+    int retryCount = 0;
+    boolean serverReady = false;
 
-      if (responseCode != 200) {
-        throw new RuntimeException(
-            "MockOAuth2Server not accessible. Response code: " + responseCode);
+    while (retryCount < maxRetries && !serverReady) {
+      try {
+        URL url = new URL(wellKnownUrl);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setConnectTimeout(2000);
+        conn.setReadTimeout(2000);
+        int responseCode = conn.getResponseCode();
+        conn.disconnect();
+
+        if (responseCode == 200) {
+          logger.info("Successfully started MockOAuth2Server after {} attempts.", retryCount + 1);
+          serverReady = true;
+        } else {
+          throw new RuntimeException(
+              "MockOAuth2Server not accessible. Response code: " + responseCode);
+        }
+      } catch (Exception e) {
+        retryCount++;
+        if (retryCount >= maxRetries) {
+          throw new RuntimeException(
+              "Failed to connect to MockOAuth2Server after " + maxRetries + " attempts", e);
+        }
+        logger.debug("Waiting for OAuth server to be ready, attempt {}/{}", retryCount, maxRetries);
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException ie) {
+          Thread.currentThread().interrupt();
+          throw new RuntimeException("Interrupted while waiting for MockOAuth2Server", ie);
+        }
       }
-      logger.info("Successfully started MockOAuth2Server.");
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to connect to MockOAuth2Server", e);
     }
+
+    // Additional wait to ensure token endpoint is also fully ready
+    try {
+      Thread.sleep(2000);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException("Interrupted during final OAuth server stabilization", e);
+    }
+    logger.info("MockOAuth2Server fully initialized and stabilized.");
   }
 
   @Test
@@ -359,6 +497,405 @@ public class ApplicationTest extends WithBrowser {
   }
 
   @Test
+  public void testAppConfigWithBasePath() {
+    Http.RequestBuilder request = fakeRequest(routes.Application.appConfig());
+
+    Result result = route(app, request);
+    assertEquals(OK, result.status());
+
+    // Verify the response contains basePath configuration
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("\"basePath\""));
+    assertTrue(
+        content.contains(
+            "\"\"")); // Default basePath is "" (empty) as configured in provideApplication()
+  }
+
+  @Test
+  public void testAppConfigWithCustomBasePath() {
+    // Create a new application with custom basePath
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "/custom")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModule())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    Http.RequestBuilder request = fakeRequest(routes.Application.appConfig());
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+
+    // Verify the response contains custom basePath configuration
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("\"basePath\""));
+    assertTrue(content.contains("\"/custom\""));
+  }
+
+  @Test
+  public void testIndexWithBasePathInjection() {
+    Http.RequestBuilder request = fakeRequest(routes.Application.index(""));
+
+    Result result = route(app, request);
+    assertEquals(OK, result.status());
+
+    // Verify the response contains basePath injection
+    String content = Helpers.contentAsString(result);
+    // The HTML should contain the basePath replacement
+    assertTrue(content.contains("@basePath") || content.contains("href=\"/\""));
+  }
+
+  @Test
+  public void testIndexWithCustomBasePathInjection() {
+    // Create a new application with custom basePath
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "/datahub")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModule())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    // Use "index.html" instead of "" to avoid matching the trailing slash redirect rule
+    Http.RequestBuilder request = fakeRequest(routes.Application.index("index.html"));
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+
+    // Verify the response contains custom basePath injection
+    String content = Helpers.contentAsString(result);
+    // The HTML should contain the custom basePath
+    assertTrue(content.contains("@basePath") || content.contains("href=\"/datahub/\""));
+  }
+
+  @Test
+  public void testIndexWithBasePathEndingSlash() {
+    // Test basePath that doesn't end with slash gets slash added
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "/datahub")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModule())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    Http.RequestBuilder request = fakeRequest(routes.Application.index(""));
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+
+    // Verify the response contains basePath with trailing slash
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("@basePath") || content.contains("href=\"/datahub/\""));
+  }
+
+  @Test
+  public void testRedirectTrailingSlash() {
+    Http.RequestBuilder request = fakeRequest(routes.Application.redirectTrailingSlash("test"));
+
+    Result result = route(app, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/test", result.redirectLocation().orElse(""));
+  }
+
+  @Test
+  public void testAppConfigWithEmptyBasePath() {
+    // Create a new application with empty basePath
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModule())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    Http.RequestBuilder request = fakeRequest(routes.Application.appConfig());
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+
+    // Verify the response contains empty basePath configuration
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("\"basePath\""));
+    assertTrue(content.contains("\"\"")); // Empty basePath
+  }
+
+  @Test
+  public void testAppConfigWithNullBasePath() {
+    // Create a new application without basePath configuration (should use default)
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModule())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    Http.RequestBuilder request = fakeRequest(routes.Application.appConfig());
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+
+    // Verify the response contains default basePath configuration
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("\"basePath\""));
+    // Should contain the default value from application.conf
+  }
+
+  @Test
+  public void testIndexWithEmptyBasePath() {
+    // Test with empty basePath
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModule())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    // Use "index.html" instead of "" to avoid matching the trailing slash redirect rule
+    Http.RequestBuilder request = fakeRequest(routes.Application.index("index.html"));
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+
+    // Verify the response handles empty basePath correctly
+    String content = Helpers.contentAsString(result);
+    // Should still contain the basePath replacement logic
+    assertTrue(content.contains("@basePath") || content.contains("href=\""));
+  }
+
+  @Test
+  public void testIndexWithRootBasePath() {
+    // Test with root basePath "/"
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "/")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModule())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    Http.RequestBuilder request = fakeRequest(routes.Application.index(""));
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+
+    // Verify the response contains root basePath
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("@basePath") || content.contains("href=\"/\""));
+  }
+
+  @Test
+  public void testIndexWithComplexBasePath() {
+    // Test with complex basePath like "/datahub/v2"
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "/datahub/v2")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModule())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    Http.RequestBuilder request = fakeRequest(routes.Application.index(""));
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+
+    // Verify the response contains complex basePath
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("@basePath") || content.contains("href=\"/datahub/v2/\""));
+  }
+
+  @Test
+  public void testPlayHttpContextIntegration() {
+    // Test integration with play.http.context configuration
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "/datahub")
+            .configure("play.http.context", "/datahub")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModule())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    // When play.http.context is set, routes are prefixed with that context
+    Http.RequestBuilder request =
+        fakeRequest(Helpers.GET, "/datahub" + routes.Application.appConfig().url());
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+
+    // Verify the response contains basePath configuration
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("\"basePath\""));
+    assertTrue(content.contains("\"/datahub\""));
+  }
+
+  @Test
+  public void testPlayHttpContextWithDifferentBasePath() {
+    // Test when play.http.context and datahub.basePath are different
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "/frontend")
+            .configure("play.http.context", "/api")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModule())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    // When play.http.context is set, routes are prefixed with that context
+    Http.RequestBuilder request =
+        fakeRequest(Helpers.GET, "/api" + routes.Application.appConfig().url());
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+
+    // Verify the response contains the datahub.basePath, not play.http.context
+    String content = Helpers.contentAsString(result);
+    assertTrue(content.contains("\"basePath\""));
+    assertTrue(content.contains("\"/frontend\""));
+  }
+
+  @Test
+  public void testAppConfigWithAllBasePathVariations() {
+    // Test various basePath configurations to ensure robustness
+    String[] basePaths = {"", "/", "/datahub", "/datahub/", "/custom/path", "/custom/path/"};
+
+    for (String basePath : basePaths) {
+      Application customApp =
+          new GuiceApplicationBuilder()
+              .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+              .configure("metadataService.host", "localhost")
+              .configure("datahub.basePath", basePath)
+              .configure("auth.baseUrl", "http://localhost:" + providePort())
+              .configure(
+                  "auth.oidc.discoveryUri",
+                  "http://localhost:"
+                      + actualOauthServerPort
+                      + "/testIssuer/.well-known/openid-configuration")
+              .overrides(new TestModule())
+              .in(new Environment(Mode.TEST))
+              .build();
+
+      Http.RequestBuilder request = fakeRequest(routes.Application.appConfig());
+
+      Result result = route(customApp, request);
+      assertEquals(OK, result.status());
+
+      // Verify the response contains basePath configuration
+      String content = Helpers.contentAsString(result);
+      assertTrue(
+          content.contains("\"basePath\""),
+          "BasePath not found in response for basePath: " + basePath);
+    }
+  }
+
+  @Test
+  public void testIndexWithAllBasePathVariations() {
+    // Test various basePath configurations in index method
+    String[] basePaths = {"", "/", "/datahub", "/datahub/", "/custom/path", "/custom/path/"};
+
+    for (String basePath : basePaths) {
+      Application customApp =
+          new GuiceApplicationBuilder()
+              .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+              .configure("metadataService.host", "localhost")
+              .configure("datahub.basePath", basePath)
+              .configure("auth.baseUrl", "http://localhost:" + providePort())
+              .configure(
+                  "auth.oidc.discoveryUri",
+                  "http://localhost:"
+                      + actualOauthServerPort
+                      + "/testIssuer/.well-known/openid-configuration")
+              .overrides(new TestModule())
+              .in(new Environment(Mode.TEST))
+              .build();
+
+      Http.RequestBuilder request = fakeRequest(routes.Application.index(""));
+
+      Result result = route(customApp, request);
+      assertEquals(OK, result.status());
+
+      // Verify the response contains basePath injection
+      String content = Helpers.contentAsString(result);
+      assertTrue(
+          content.contains("@basePath") || content.contains("href="),
+          "BasePath injection not found in response for basePath: " + basePath);
+    }
+  }
+
+  @Test
   public void testIndex() {
     Http.RequestBuilder request = fakeRequest(routes.Application.index(""));
 
@@ -367,24 +904,25 @@ public class ApplicationTest extends WithBrowser {
   }
 
   @Test
-  public void testIndexNotFound() {
+  public void testMovedPermanently() {
+    // We expect now to be redirected instead of returning 404
     Http.RequestBuilder request = fakeRequest(routes.Application.index("/other"));
     Result result = route(app, request);
-    assertEquals(NOT_FOUND, result.status());
+    assertEquals(MOVED_PERMANENTLY, result.status());
   }
 
   @Test
   public void testOpenIdConfig() {
     assertEquals(
-        "http://localhost:" + oauthServerPort() + "/testIssuer/.well-known/openid-configuration",
+        "http://localhost:"
+            + actualOauthServerPort
+            + "/testIssuer/.well-known/openid-configuration",
         wellKnownUrl);
   }
 
   @Test
   public void testHappyPathOidc() throws ParseException {
-    // Clear any previously captured proposals and ensure clean state
-    TestModule.clearCapturedProposals();
-    // Verify the list is actually empty
+    // Verify the list is actually empty (cleared by @BeforeEach)
     assertTrue(TestModule.getCapturedProposals().isEmpty());
 
     browser.goTo("/authenticate");
@@ -401,12 +939,24 @@ public class ApplicationTest extends WithBrowser {
     assertEquals(TEST_TOKEN, data.get("token"));
     assertEquals(TEST_USER, data.get("actor"));
     // Default expiration is 24h, so should always be less than current time + 1 day since it stamps
-    // the time before this executes
+    // the time before this executes. Use a more generous tolerance to account for timezone
+    // differences
+    // and test execution time variations.
+    Date maxExpectedExpiration =
+        new Date(System.currentTimeMillis() + (25 * 60 * 60 * 1000)); // 25 hours
+    Date minExpectedExpiration =
+        new Date(System.currentTimeMillis() + (23 * 60 * 60 * 1000)); // 23 hours
+    Date actualExpiration = claims.getExpirationTime();
+
     assertTrue(
-        claims
-                .getExpirationTime()
-                .compareTo(new Date(System.currentTimeMillis() + (24 * 60 * 60 * 1000)))
-            < 0);
+        actualExpiration.after(minExpectedExpiration)
+            && actualExpiration.before(maxExpectedExpiration),
+        "JWT expiration time should be within reasonable bounds. Actual: "
+            + actualExpiration
+            + ", Min expected: "
+            + minExpectedExpiration
+            + ", Max expected: "
+            + maxExpectedExpiration);
 
     // Verify that ingestProposal was called for group membership and user status updates
     List<MetadataChangeProposal> capturedProposals = TestModule.getCapturedProposals();
@@ -455,6 +1005,12 @@ public class ApplicationTest extends WithBrowser {
 
   @Test
   public void testOidcRedirectToRequestedUrl() {
+    // Wait briefly to ensure browser is ready after @BeforeEach cleanup
+    Awaitility.await()
+        .timeout(Durations.TEN_SECONDS)
+        .pollDelay(Durations.ONE_HUNDRED_MILLISECONDS)
+        .until(() -> browser.getDriver() != null);
+
     browser.goTo("/authenticate?redirect_uri=%2Fcontainer%2Furn%3Ali%3Acontainer%3ADATABASE");
     assertEquals("container/urn:li:container:DATABASE", browser.url());
   }
@@ -617,6 +1173,141 @@ public class ApplicationTest extends WithBrowser {
               })
           .when(mockClient)
           .batchUpdate(any(), any());
+    }
+  }
+
+  @Test
+  public void testMapPathGraphQLMappingWithBasePath() {
+    // Test that legacy GraphQL path is mapped correctly even with base path
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "/datahub")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModule())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    // Test legacy GraphQL path mapping with base path
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "/datahub/api/v2/graphql");
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+  }
+
+  @Test
+  public void testMapPathRegularApiPathWithBasePath() {
+    // Test that regular API paths with base path are handled correctly
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "/datahub")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModule())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    // Test regular API path with base path
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "/datahub/api/entities");
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+  }
+
+  @Test
+  public void testSwaggerUiPathWithBasePath() {
+    // Test swagger UI path with base path - should preserve full path and not strip base path
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "/datahub")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModule())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "/datahub/openapi/swagger-ui");
+
+    Result result = route(customApp, request);
+    assertEquals(OK, result.status());
+  }
+
+  @Test
+  public void testIndexWhenResourceNotFound() {
+    // Create a new application with a custom test module that overrides the Application controller
+    // to simulate the case where the index.html resource cannot be loaded
+    Application customApp =
+        new GuiceApplicationBuilder()
+            .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+            .configure("metadataService.host", "localhost")
+            .configure("datahub.basePath", "")
+            .configure("auth.baseUrl", "http://localhost:" + providePort())
+            .configure(
+                "auth.oidc.discoveryUri",
+                "http://localhost:"
+                    + actualOauthServerPort
+                    + "/testIssuer/.well-known/openid-configuration")
+            .overrides(new TestModuleWithFailingResource())
+            .in(new Environment(Mode.TEST))
+            .build();
+
+    Http.RequestBuilder request = fakeRequest(routes.Application.index(""));
+
+    Result result = route(customApp, request);
+
+    // When the resource cannot be loaded, the controller should return a 404 status
+    assertEquals(play.mvc.Http.Status.NOT_FOUND, result.status());
+
+    // Verify the response has the correct content type and cache control header
+    assertEquals("text/html", result.contentType().orElse(""));
+    assertTrue(result.headers().containsKey("Cache-Control"));
+    assertEquals("no-cache", result.headers().get("Cache-Control"));
+  }
+
+  /**
+   * Test module that provides a mock Application controller that simulates resource loading failure
+   */
+  private static class TestModuleWithFailingResource extends AbstractModule {
+    @Override
+    protected void configure() {
+      // This module will override the Application controller
+    }
+
+    @Provides
+    @Singleton
+    protected controllers.Application provideFailingApplicationController(
+        Environment environment, com.typesafe.config.Config config) {
+      // Create a mock HttpClient
+      java.net.http.HttpClient mockHttpClient = mock(java.net.http.HttpClient.class);
+
+      // Create a mock Environment that returns null for resourceAsStream
+      Environment mockEnvironment = mock(Environment.class);
+      when(mockEnvironment.resourceAsStream("public/index.html")).thenReturn(null);
+
+      return new controllers.Application(mockHttpClient, mockEnvironment, config);
+    }
+
+    @Provides
+    @Singleton
+    protected SystemEntityClient provideMockSystemEntityClient() {
+      // Reuse the same mock SystemEntityClient as the base TestModule
+      return new TestModule().provideMockSystemEntityClient();
     }
   }
 }

@@ -60,7 +60,6 @@ import { Chart, EntityType, LineageDirection, SearchResult } from '@types';
 const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
@@ -278,7 +277,7 @@ export class ChartEntity implements Entity<Chart> {
         };
     };
 
-    renderPreview = (_: PreviewType, data: Chart) => {
+    renderPreview = (previewType: PreviewType, data: Chart) => {
         const genericProperties = this.getGenericEntityProperties(data);
 
         return (
@@ -300,6 +299,7 @@ export class ChartEntity implements Entity<Chart> {
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
                 externalUrl={data.properties?.externalUrl}
+                previewType={previewType}
             />
         );
     };
@@ -339,6 +339,7 @@ export class ChartEntity implements Entity<Chart> {
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
