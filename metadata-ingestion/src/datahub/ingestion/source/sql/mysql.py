@@ -1,8 +1,9 @@
 # This import verifies that the dependencies are available.
 import logging
+import os
+from enum import Enum
 from typing import TYPE_CHECKING, Any, List, Optional
 
-import pydantic
 import pymysql  # noqa: F401
 from pydantic.fields import Field
 from sqlalchemy import util
@@ -22,12 +23,16 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.source.aws.aws_common import RDSIAMTokenManager
+from datahub.ingestion.source.aws.aws_common import (
+    AwsConnectionConfig,
+    RDSIAMTokenManager,
+)
 from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
+from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
 )
@@ -61,26 +66,32 @@ base.ischema_names["polygon"] = POLYGON
 base.ischema_names["decimal128"] = DECIMAL128
 
 
+class MySQLAuthMode(str, Enum):
+    """Authentication mode for MySQL connection."""
+
+    PASSWORD = "PASSWORD"
+    IAM = "IAM"
+
+
 class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
     # defaults
     host_port: str = Field(default="localhost:3306", description="MySQL host URL.")
     scheme: HiddenFromDocs[str] = "mysql+pymysql"
 
-    # RDS IAM authentication options
-    use_rds_iam: bool = Field(
-        default=False,
-        description="Enable AWS RDS IAM authentication. When enabled, password field is ignored and AWS RDS IAM tokens are used instead.",
+    # Authentication configuration
+    auth_mode: MySQLAuthMode = Field(
+        default=MySQLAuthMode.PASSWORD,
+        description="Authentication mode to use for the MySQL connection. "
+        "Options are 'PASSWORD' (default) for standard username/password authentication, "
+        "or 'IAM' for AWS RDS IAM authentication.",
     )
-    aws_region: Optional[str] = Field(
-        default=None,
-        description="AWS region for RDS IAM authentication (e.g., 'us-west-2'). Required when use_rds_iam is True.",
+    aws_config: AwsConnectionConfig = Field(
+        default_factory=AwsConnectionConfig,
+        description="AWS configuration for RDS IAM authentication (only used when auth_mode is IAM). "
+        "Provides full control over AWS credentials, region, profiles, role assumption, retry logic, and proxy settings. "
+        "If not explicitly configured, boto3 will automatically use the default credential chain and region from "
+        "environment variables (AWS_DEFAULT_REGION, AWS_REGION), AWS config files (~/.aws/config), or IAM role metadata.",
     )
-
-    @pydantic.model_validator(mode="after")
-    def validate_rds_iam_config(self) -> "MySQLConnectionConfig":
-        if self.use_rds_iam and not self.aws_region:
-            raise ValueError("aws_region is required when use_rds_iam is True")
-        return self
 
 
 class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
@@ -122,36 +133,26 @@ class MySQLSource(TwoTierSQLAlchemySource):
         super().__init__(config, ctx, self.get_platform())
 
         self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
-        if config.use_rds_iam:
+        if config.auth_mode == MySQLAuthMode.IAM:
             # Enable cleartext plugin required for AWS RDS IAM authentication
             # Must be set before any pymysql connections are made
-            import os
-
             os.environ["LIBMYSQL_ENABLE_CLEARTEXT_PLUGIN"] = "1"
 
             # Extract and store hostname/port for reuse
-            self._rds_iam_hostname = config.host_port.split(":")[0]
-            self._rds_iam_port = 3306  # Default MySQL port
-            if ":" in config.host_port:
-                try:
-                    self._rds_iam_port = int(config.host_port.split(":")[1])
-                except ValueError:
-                    logger.warning(
-                        f"Invalid port in host_port {config.host_port}, using default 3306"
-                    )
+            self._rds_iam_hostname, parsed_port = parse_host_port(
+                config.host_port, default_port=3306
+            )
+            # parse_host_port returns Optional[int], but we need int for RDSIAMTokenManager
+            self._rds_iam_port = parsed_port if parsed_port is not None else 3306
 
             if not config.username:
                 raise ValueError("username is required for RDS IAM authentication")
 
-            assert config.aws_region is not None, (
-                "aws_region must be set when use_rds_iam is True"
-            )
-
             self._rds_iam_token_manager = RDSIAMTokenManager(
-                region=config.aws_region,
                 endpoint=self._rds_iam_hostname,
                 username=config.username,
                 port=self._rds_iam_port,
+                aws_config=config.aws_config,
             )
 
     def get_platform(self):
@@ -168,7 +169,9 @@ class MySQLSource(TwoTierSQLAlchemySource):
         """Setup SQLAlchemy event listener to inject RDS IAM tokens."""
         from sqlalchemy import event
 
-        if not (self.config.use_rds_iam and self._rds_iam_token_manager):
+        if not (
+            self.config.auth_mode == MySQLAuthMode.IAM and self._rds_iam_token_manager
+        ):
             return
 
         # Type narrowing: assert token manager is not None after the guard check
@@ -216,7 +219,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
 
         # Configure engine options for RDS IAM authentication
         engine_options = dict(self.config.options)
-        if self.config.use_rds_iam:
+        if self.config.auth_mode == MySQLAuthMode.IAM:
             engine_options.setdefault("pool_recycle", 600)
             engine_options.setdefault("pool_pre_ping", True)
             logger.debug(
@@ -238,7 +241,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
 
                     # Configure engine options for database-specific connections
                     db_engine_options = dict(self.config.options)
-                    if self.config.use_rds_iam:
+                    if self.config.auth_mode == MySQLAuthMode.IAM:
                         db_engine_options.setdefault("pool_recycle", 600)
                         db_engine_options.setdefault("pool_pre_ping", True)
 

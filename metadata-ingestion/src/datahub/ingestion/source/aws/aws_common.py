@@ -468,8 +468,7 @@ class RDSIAMTokenGenerator:
         endpoint: str,
         username: str,
         port: int,
-        aws_config: Optional[AwsConnectionConfig] = None,
-        region: Optional[str] = None,
+        aws_config: AwsConnectionConfig,
     ):
         """
         Initialize the token generator.
@@ -478,31 +477,21 @@ class RDSIAMTokenGenerator:
             endpoint: RDS endpoint hostname
             username: Database username for IAM authentication
             port: Database port (5432 for PostgreSQL, 3306 for MySQL)
-            aws_config: AwsConnectionConfig to use for session management (recommended)
-            region: AWS region (only used if aws_config is not provided)
+            aws_config: AwsConnectionConfig for session management and credentials
         """
         self.endpoint = endpoint
         self.username = username
         self.port = port
         self.aws_config = aws_config
-        self.region = region
         self._client: Optional[object] = None
 
     def _get_rds_client(self):
         """Get or create RDS client using AWS configuration."""
         if self._client is None:
             try:
-                if self.aws_config:
-                    self._client = self.aws_config.get_session().client(
-                        "rds", config=self.aws_config._aws_config()
-                    )
-                else:
-                    # Fallback to simple boto3 client for backward compatibility
-                    if not self.region:
-                        raise ValueError(
-                            "Either aws_config or region must be provided for RDS IAM authentication"
-                        )
-                    self._client = boto3.client("rds", region_name=self.region)
+                self._client = self.aws_config.get_session().client(
+                    "rds", config=self.aws_config._aws_config()
+                )
             except Exception as e:
                 # Import here to avoid circular dependency issues
                 from botocore.exceptions import NoCredentialsError
@@ -569,8 +558,7 @@ class RDSIAMTokenManager:
         endpoint: str,
         username: str,
         port: int,
-        aws_config: Optional[AwsConnectionConfig] = None,
-        region: Optional[str] = None,
+        aws_config: AwsConnectionConfig,
         refresh_threshold_minutes: int = 10,
     ):
         """
@@ -580,8 +568,7 @@ class RDSIAMTokenManager:
             endpoint: RDS endpoint hostname
             username: Database username for IAM authentication
             port: Database port
-            aws_config: AwsConnectionConfig to use for session management (recommended)
-            region: AWS region (only used if aws_config is not provided)
+            aws_config: AwsConnectionConfig for session management and credentials
             refresh_threshold_minutes: Refresh token when this many minutes remain
         """
         self.generator = RDSIAMTokenGenerator(
@@ -589,7 +576,6 @@ class RDSIAMTokenManager:
             username=username,
             port=port,
             aws_config=aws_config,
-            region=region,
         )
         self.refresh_threshold = timedelta(minutes=refresh_threshold_minutes)
 
