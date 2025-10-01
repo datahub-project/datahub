@@ -693,6 +693,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemMetadataService.limit.results.strict",
           "systemUpdate.backOffFactor",
           "systemUpdate.bootstrap.mcpConfig",
+          "systemUpdate.cdcMode",
           "systemUpdate.browsePathsV2.batchSize",
           "systemUpdate.browsePathsV2.enabled",
           "systemUpdate.browsePathsV2.reprocess.enabled",
