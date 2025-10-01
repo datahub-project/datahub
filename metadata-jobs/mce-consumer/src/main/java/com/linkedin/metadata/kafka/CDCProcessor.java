@@ -263,11 +263,6 @@ public class CDCProcessor {
     }
 
     ChangeType changeType = recordState.getSecond();
-    if (changeType.equals(ChangeType.UPSERT)) {
-      if (SystemMetadataUtils.isNoOp(newSystemMetadata) || Objects.equals(oldValue, newValue)) {
-        changeType = ChangeType.RESTATE;
-      }
-    }
 
     if (changeType.equals(ChangeType.DELETE)) {
       // MCLs for DELETE contain current value in newValue for DELETE Records. TODO: Confirm
