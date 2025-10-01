@@ -103,6 +103,7 @@ import com.linkedin.datahub.graphql.resolvers.remoteexecutor.ListRemoteExecutors
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.UpdateDefaultRemoteExecutorPoolResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.UpdateRemoteExecutorPoolResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
+import com.linkedin.datahub.graphql.resolvers.role.BatchDismissUserSuggestionsResolver;
 import com.linkedin.datahub.graphql.resolvers.role.DismissUserSuggestionResolver;
 import com.linkedin.datahub.graphql.resolvers.role.RevokeUserInvitationResolver;
 import com.linkedin.datahub.graphql.resolvers.role.SendUserInvitationsResolver;
@@ -574,6 +575,9 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "dismissUserSuggestion",
                     new DismissUserSuggestionResolver(this.entityClient, this.entityService))
+                .dataFetcher(
+                    "batchDismissUserSuggestions",
+                    new BatchDismissUserSuggestionsResolver(this.entityClient, this.entityService))
                 .dataFetcher(
                     "storeExecutionRequestUploadLocation",
                     new StoreExecutionRequestUploadLocationResolver(this.entityClient)));

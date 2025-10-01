@@ -238,6 +238,8 @@ export enum EventType {
     ClickCopyInviteLinkEvent,
     ClickInviteViaEmailEvent,
     ClickInviteRecommendedUserEvent,
+    ClickBulkInviteRecommendedUsersEvent,
+    ClickBulkDismissRecommendedUsersEvent,
     InviteUserErrorEvent,
     RefreshInviteLinkEvent,
     AssetPageAddSummaryElement,
@@ -1748,6 +1750,23 @@ export interface ClickInviteRecommendedUserEvent extends BaseEvent {
     recommendationIndex?: number;
 }
 
+export interface ClickBulkInviteRecommendedUsersEvent extends BaseEvent {
+    type: EventType.ClickBulkInviteRecommendedUsersEvent;
+    roleUrn: string;
+    userEmails: string; // comma-separated list of emails
+    userCount: number;
+    location: 'recommended_users_list';
+    recommendationType: 'top_user';
+}
+
+export interface ClickBulkDismissRecommendedUsersEvent extends BaseEvent {
+    type: EventType.ClickBulkDismissRecommendedUsersEvent;
+    userEmails: string; // comma-separated list of emails
+    userCount: number;
+    location: 'recommended_users_list';
+    recommendationType: 'top_user';
+}
+
 export interface InviteUserErrorEvent extends BaseEvent {
     type: EventType.InviteUserErrorEvent;
     roleUrn: string;
@@ -1979,6 +1998,8 @@ export type Event =
     | ClickCopyInviteLinkEvent
     | ClickInviteViaEmailEvent
     | ClickInviteRecommendedUserEvent
+    | ClickBulkInviteRecommendedUsersEvent
+    | ClickBulkDismissRecommendedUsersEvent
     | InviteUserErrorEvent
     | AssetPageAddSummaryElementEvent
     | AssetPageRemoveSummaryElementEvent

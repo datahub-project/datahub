@@ -219,6 +219,9 @@ public enum DataHubUsageEventType {
   RETRAIN_AS_NEW_NORMAL_EVENT("RetrainAsNewNormalEvent"),
   DATASET_HEALTH_CLICK_EVENT("DatasetHealthClickEvent"),
   DATASET_HEALTH_FILTER_EVENT("DatasetHealthFilterEvent"),
+  CLICK_BULK_INVITE_RECOMMENDED_USERS_EVENT("ClickBulkInviteRecommendedUsersEvent"),
+  CLICK_BULK_DISMISS_RECOMMENDED_USERS_EVENT("ClickBulkDismissRecommendedUsersEvent"),
+
   // Integrations service events
   CHATBOT_INTERACTION_EVENT("ChatbotInteraction"),
   CHATBOT_INTERACTION_FEEDBACK_EVENT("ChatbotInteractionFeedback"),

@@ -189,3 +189,7 @@ mutation updateDisplayProperties($urn: String!, $input: DisplayPropertiesUpdateI
 mutation dismissUserSuggestion($userUrn: String!) {
     dismissUserSuggestion(userUrn: $userUrn)
 }
+
+mutation batchDismissUserSuggestions($input: BatchDismissUserSuggestionsInput!) {
+    batchDismissUserSuggestions(input: $input)
+}

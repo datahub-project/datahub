@@ -1,5 +1,5 @@
 import { message } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
@@ -8,6 +8,7 @@ import { ColorValues } from '@components/theme/config';
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
 import { EmailInvitationService } from '@app/identity/user/EmailInvitationService';
 import { RecommendedUsersTable } from '@app/identity/user/RecommendedUsersTable';
+import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import { UserListItem } from '@app/identity/user/UserAndGroupList.hooks';
 import { STATUS_FILTER_OPTIONS } from '@app/identity/user/UserList.utils';
 import { useRevokeUserInvitationMutation } from '@app/identity/user/hooks/useRevokeUserInvitation';
@@ -50,23 +51,11 @@ const GroupTags = styled.div`
     max-width: 200px;
 `;
 
-const StyledActionsButton = styled(Button)`
-    background: none !important;
-    border: none !important;
-    box-shadow: none !important;
-
-    &:hover {
-        background: none !important;
-        border: none !important;
-        box-shadow: none !important;
-    }
-
-    &:focus {
-        background: none !important;
-        border: none !important;
-        box-shadow: none !important;
-    }
-`;
+const ActionsButtonStyle = {
+    background: 'none',
+    border: 'none',
+    boxShadow: 'none',
+};
 
 export const UserContainer = styled.div`
     display: flex;
@@ -132,6 +121,72 @@ export const ModalFooter = styled.div`
     justify-content: flex-end;
     gap: 8px;
 `;
+
+export const BulkActionsContainer = styled.div`
+    position: sticky;
+    bottom: 100px;
+    display: flex;
+    justify-content: center;
+    padding: 16px 0;
+    z-index: 100;
+
+    > div {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background-color: white;
+        border-radius: 8px;
+        padding: 4px;
+        border: 1px solid ${colors.gray[200]};
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        width: fit-content;
+    }
+`;
+
+type BulkActionsWidgetProps = {
+    selectRoleOptions: DataHubRole[];
+    onBulkInvite: (role: DataHubRole) => Promise<void>;
+    onBulkDismiss: () => Promise<void>;
+};
+
+export const BulkActionsWidget = ({ selectRoleOptions, onBulkInvite, onBulkDismiss }: BulkActionsWidgetProps) => {
+    // Set default role to "Reader"
+    const readerRole = selectRoleOptions.find((role) => role.name === 'Reader');
+    const [selectedRole, setSelectedRole] = useState<DataHubRole | undefined>(readerRole);
+
+    const handleInviteAll = async () => {
+        if (!selectedRole) {
+            message.error('Please select a role before inviting users');
+            return;
+        }
+        await onBulkInvite(selectedRole);
+    };
+
+    return (
+        <BulkActionsContainer>
+            <div>
+                <SimpleSelectRole
+                    selectedRole={selectedRole}
+                    onRoleSelect={setSelectedRole}
+                    size="md"
+                    width="fit-content"
+                />
+                <Button variant="filled" size="md" onClick={onBulkDismiss} color="red">
+                    Dismiss All
+                </Button>
+                <Button variant="filled" size="md" onClick={handleInviteAll} color="green">
+                    Invite All
+                </Button>
+            </div>
+        </BulkActionsContainer>
+    );
+};
+
+export const ViewAllTabMessage = () => (
+    <Text size="sm">
+        View Invited users on the <a href="/settings/identities/users">All Users</a> tab.
+    </Text>
+);
 
 export const UserName = styled.div`
     font-size: 14px;
@@ -385,10 +440,11 @@ export const UserActionsMenu = ({
 
     return (
         <Menu items={items}>
-            <StyledActionsButton
+            <Button
                 variant="text"
                 icon={{ icon: 'DotsThreeVertical', weight: 'bold', size: 'xl', source: 'phosphor', color: 'gray' }}
                 isCircle
+                style={ActionsButtonStyle}
             />
         </Menu>
     );

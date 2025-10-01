@@ -77,16 +77,22 @@ public class UserInvitationService {
 
     try {
       List<String> errors = new ArrayList<>();
-      int successCount = 0;
 
       // Generate individual tokens for bulk invitations - one unique token per user
       List<String> individualTokens =
           inviteTokenService.generateIndividualTokens(operationContext, emails.size(), roleUrn);
 
+      // Resolve inviter display name once (not per invitation)
+      Urn inviterUrn = UrnUtils.getUrn(authentication.getActor().toUrnStr());
+      String inviterDisplayName = resolveUserDisplayName(operationContext, inviterUrn);
+
+      // Process invitations in parallel using CompletableFuture
+      List<java.util.concurrent.CompletableFuture<Boolean>> futures = new ArrayList<>();
+
       for (int i = 0; i < emails.size(); i++) {
-        String email = emails.get(i).trim(); // Trim whitespace from email
-        String inviteToken = individualTokens.get(i); // Get unique token for this email
-        String inviteLink = buildInviteLink(operationContext, inviteToken);
+        final String email = emails.get(i).trim(); // Trim whitespace from email
+        final String inviteToken = individualTokens.get(i); // Get unique token for this email
+        final String inviteLink = buildInviteLink(operationContext, inviteToken);
 
         // Log for debugging
         log.debug(
@@ -95,67 +101,100 @@ public class UserInvitationService {
             inviteToken,
             inviteLink);
 
-        try {
-          log.info(
-              "Sending invitation to email: {} with role: {} and subject: {} from user: {}",
-              email,
-              roleUrn,
-              subject,
-              authentication.getActor().toUrnStr());
+        // Create async task for each invitation
+        java.util.concurrent.CompletableFuture<Boolean> future =
+            java.util.concurrent.CompletableFuture.supplyAsync(
+                () -> {
+                  try {
+                    log.info(
+                        "Sending invitation to email: {} with role: {} and subject: {} from user: {}",
+                        email,
+                        roleUrn,
+                        subject,
+                        authentication.getActor().toUrnStr());
 
-          // Create notification parameters
-          Map<String, String> parametersMap = new HashMap<>();
-          parametersMap.put("recipientEmail", email);
+                    // Create notification parameters
+                    Map<String, String> parametersMap = new HashMap<>();
+                    parametersMap.put("recipientEmail", email);
+                    parametersMap.put("inviterName", inviterDisplayName);
+                    parametersMap.put("inviteLink", inviteLink);
 
-          // Resolve inviter display name from URN
-          Urn inviterUrn = UrnUtils.getUrn(authentication.getActor().toUrnStr());
-          String inviterDisplayName = resolveUserDisplayName(operationContext, inviterUrn);
-          parametersMap.put("inviterName", inviterDisplayName);
+                    if (subject != null) {
+                      parametersMap.put("title", subject);
+                    }
+                    if (roleUrn != null && !roleUrn.trim().isEmpty()) {
+                      parametersMap.put("roleName", roleUrn);
+                    }
 
-          parametersMap.put("inviteLink", inviteLink);
-          if (subject != null) {
-            parametersMap.put("title", subject);
-          }
-          if (roleUrn != null && !roleUrn.trim().isEmpty()) {
-            parametersMap.put("roleName", roleUrn);
-          }
+                    // Create notification message
+                    NotificationMessage message = new NotificationMessage();
+                    message.setTemplate(NotificationTemplateType.INVITATION);
+                    message.setParameters(new StringMap(parametersMap));
 
-          // Create notification message
-          NotificationMessage message = new NotificationMessage();
-          message.setTemplate(NotificationTemplateType.INVITATION);
-          message.setParameters(new StringMap(parametersMap));
+                    // Create recipient
+                    NotificationRecipient recipient = new NotificationRecipient();
+                    recipient.setType(NotificationRecipientType.EMAIL);
+                    recipient.setId(email);
+                    recipient.setDisplayName(email);
 
-          // Create recipient
-          NotificationRecipient recipient = new NotificationRecipient();
-          recipient.setType(NotificationRecipientType.EMAIL);
-          recipient.setId(email);
-          recipient.setDisplayName(email);
+                    // Build notification request
+                    NotificationRequest notificationRequest = new NotificationRequest();
+                    notificationRequest.setMessage(message);
+                    notificationRequest.setRecipients(
+                        new NotificationRecipientArray(List.of(recipient)));
 
-          // Build notification request
-          NotificationRequest notificationRequest = new NotificationRequest();
-          notificationRequest.setMessage(message);
-          notificationRequest.setRecipients(new NotificationRecipientArray(List.of(recipient)));
+                    // Send notification via integrations service
+                    integrationsService.sendNotification(notificationRequest);
 
-          // Send notification via integrations service
-          integrationsService.sendNotification(notificationRequest);
+                    // Create CorpUserInvitationStatus aspect for the invited user
+                    createInvitationAspect(
+                        operationContext, email, roleUrn, inviteToken, authentication);
 
-          // Create CorpUserInvitationStatus aspect for the invited user
-          createInvitationAspect(operationContext, email, roleUrn, inviteToken, authentication);
+                    log.info("Successfully sent invitation to email: {}", email);
+                    return true;
+                  } catch (Exception e) {
+                    String errorMsg =
+                        String.format("Failed to send invitation to %s: %s", email, e.getMessage());
+                    synchronized (errors) {
+                      errors.add(errorMsg);
+                    }
+                    log.error(errorMsg, e);
+                    return false;
+                  }
+                });
 
-          successCount++;
-
-          log.info("Successfully sent invitation to email: {}", email);
-        } catch (Exception e) {
-          String errorMsg =
-              String.format("Failed to send invitation to %s: %s", email, e.getMessage());
-          errors.add(errorMsg);
-          log.error(errorMsg, e);
-        }
+        futures.add(future);
       }
+
+      // Wait for all invitations to complete
+      java.util.concurrent.CompletableFuture<Void> allFutures =
+          java.util.concurrent.CompletableFuture.allOf(
+              futures.toArray(new java.util.concurrent.CompletableFuture[0]));
+
+      // Block until all complete (with reasonable timeout to avoid hanging)
+      try {
+        allFutures.get(60, java.util.concurrent.TimeUnit.SECONDS);
+      } catch (java.util.concurrent.TimeoutException e) {
+        log.error("Timeout waiting for bulk invitations to complete after 60 seconds");
+        errors.add("Some invitations timed out");
+      }
+
+      // Count successes
+      long successCount =
+          futures.stream()
+              .filter(
+                  f -> {
+                    try {
+                      return f.get();
+                    } catch (Exception e) {
+                      return false;
+                    }
+                  })
+              .count();
 
       SendUserInvitationsResult result = new SendUserInvitationsResult();
       result.setSuccess(errors.isEmpty());
-      result.setInvitationsSent(successCount);
+      result.setInvitationsSent((int) successCount);
       result.setErrors(errors);
 
       return result;
@@ -300,7 +339,7 @@ public class UserInvitationService {
           SettingsMapper.getGlobalSettings(operationContext, entityClient);
       if (globalSettings.hasSso() && globalSettings.getSso() != null) {
         var ssoSettings = globalSettings.getSso();
-        if (ssoSettings.hasOidcSettings()) {
+        if (ssoSettings != null && ssoSettings.hasOidcSettings()) {
           var oidcSettings = ssoSettings.getOidcSettings();
           if (oidcSettings != null) {
             return oidcSettings.isEnabled();

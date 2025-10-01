@@ -16,6 +16,8 @@ import {
     UserAvatarSection,
 } from '@app/identity/user/RecommendedUsersTable.components';
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
+import { BulkActionsWidget } from '@app/identity/user/UserAndGroupList.components';
+import { useBulkUserActions } from '@app/identity/user/hooks/useBulkUserActions';
 import { useDismissUserSuggestionMutation } from '@app/identity/user/hooks/useDismissUserSuggestion';
 import { useUserRecommendations } from '@app/identity/user/useUserRecommendations';
 import { PLATFORM_URN_TO_LOGO } from '@app/ingest/source/builder/constants';
@@ -41,6 +43,72 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
+    // Bulk actions hooks
+    const { handleBulkInvite, handleBulkDismissAll } = useBulkUserActions();
+
+    // Row selection state for bulk actions
+    const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+    const [selectedUsers, setSelectedUsers] = useState<CorpUser[]>([]);
+
+    // States for individual user invitation/dismissal status
+    const [invitationStates, setInvitationStates] = useState<Record<string, 'pending' | 'success' | 'failed'>>({});
+    const [dismissalStates, setDismissalStates] = useState<Record<string, 'pending' | 'success' | 'failed'>>({});
+
+    // Handle row selection changes
+    const handleRowSelectionChange = (_selectedKeys: string[], selectedRows: CorpUser[]) => {
+        // Filter out any users that are already dismissed or invited
+        const validSelectedRows = selectedRows.filter((user) => {
+            const invitationState = invitationStates[user.urn];
+            const dismissalState = dismissalStates[user.urn];
+            return !(dismissalState === 'success' || invitationState === 'success');
+        });
+
+        const validSelectedKeys = validSelectedRows.map((user) => user.urn);
+
+        setSelectedRowKeys(validSelectedKeys);
+        setSelectedUsers(validSelectedRows);
+    };
+
+    // Bulk actions handlers
+    const handleBulkInviteAll = async (role: DataHubRole) => {
+        await handleBulkInvite({
+            selectedUsers,
+            selectedRole: role,
+            clearSelection: () => {
+                setSelectedRowKeys([]);
+                setSelectedUsers([]);
+            },
+            setInvitationStates,
+            setDismissalStates,
+        });
+    };
+
+    const handleBulkDismissAllUsers = async () => {
+        await handleBulkDismissAll({
+            selectedUsers,
+            clearSelection: () => {
+                setSelectedRowKeys([]);
+                setSelectedUsers([]);
+            },
+            setInvitationStates,
+            setDismissalStates,
+        });
+    };
+
+    // Clean up selection when users are dismissed or invited
+    useEffect(() => {
+        const validSelectedKeys = selectedRowKeys.filter((key) => {
+            const invitationState = invitationStates[key];
+            const dismissalState = dismissalStates[key];
+            return !(dismissalState === 'success' || invitationState === 'success');
+        });
+
+        if (validSelectedKeys.length !== selectedRowKeys.length) {
+            setSelectedRowKeys(validSelectedKeys);
+            setSelectedUsers(selectedUsers.filter((user) => validSelectedKeys.includes(user.urn)));
+        }
+    }, [invitationStates, dismissalStates, selectedRowKeys, selectedUsers]);
+
     useDebounce(
         () => {
             const trimmedQuery = searchQuery.trim();
@@ -56,8 +124,6 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
     const defaultSortField = UserUsageSortField.UsagePercentilePast_30Days;
     const [sortField, setSortField] = useState<UserUsageSortField>(defaultSortField);
     const [userRoles, setUserRoles] = useState<Record<string, DataHubRole>>({});
-    const [invitationStates, setInvitationStates] = useState<Record<string, 'pending' | 'success' | 'failed'>>({});
-    const [dismissalStates, setDismissalStates] = useState<Record<string, 'pending' | 'success' | 'failed'>>({});
 
     const [dismissUserSuggestion] = useDismissUserSuggestionMutation();
 
@@ -337,6 +403,22 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
                             columns={columns}
                             data={recommendedUsers}
                             handleSortColumnChange={handleSortColumnChange}
+                            rowSelection={{
+                                selectedRowKeys,
+                                onChange: handleRowSelectionChange,
+                                getCheckboxProps: (record: CorpUser) => {
+                                    const invitationState = invitationStates[record.urn];
+                                    const dismissalState = dismissalStates[record.urn];
+
+                                    // Disable checkbox if user is dismissed or invited (success state)
+                                    const isDisabled = dismissalState === 'success' || invitationState === 'success';
+
+                                    return {
+                                        disabled: isDisabled,
+                                    };
+                                },
+                            }}
+                            rowKey="urn"
                         />
                         {totalRecommendedUsers > pageSize && (
                             <div>
@@ -356,6 +438,13 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
                     </>
                 )}
             </RecommendedTableContainer>
+            {selectedRowKeys.length > 0 && (
+                <BulkActionsWidget
+                    selectRoleOptions={selectRoleOptions}
+                    onBulkInvite={handleBulkInviteAll}
+                    onBulkDismiss={handleBulkDismissAllUsers}
+                />
+            )}
         </RecommendedUsersContainer>
     );
 };
