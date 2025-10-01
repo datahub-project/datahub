@@ -284,8 +284,9 @@ class PostgresSource(SQLAlchemySource):
             else:
                 # pg_database catalog -  https://www.postgresql.org/docs/current/catalog-pg-database.html
                 # exclude template databases - https://www.postgresql.org/docs/current/manage-ag-templatedbs.html
+                # exclude rdsadmin - AWS RDS administrative database
                 databases = conn.execute(
-                    "SELECT datname from pg_database where datname not in ('template0', 'template1')"
+                    "SELECT datname from pg_database where datname not in ('template0', 'template1', 'rdsadmin')"
                 )
                 for db in databases:
                     if not self.config.database_pattern.allowed(db["datname"]):
