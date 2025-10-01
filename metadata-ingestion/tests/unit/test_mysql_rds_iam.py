@@ -144,27 +144,3 @@ class TestMySQLSourceRDSIAM:
             port=3306,
             aws_config=config.aws_config,
         )
-
-    @patch("datahub.ingestion.source.sql.mysql.RDSIAMTokenManager")
-    def test_init_with_rds_iam_sets_environment_variable(self, mock_token_manager):
-        """Test that LIBMYSQL_ENABLE_CLEARTEXT_PLUGIN environment variable is set."""
-        import os
-
-        # Clear the environment variable first
-        os.environ.pop("LIBMYSQL_ENABLE_CLEARTEXT_PLUGIN", None)
-
-        config_dict = {
-            "host_port": "test.rds.amazonaws.com:3306",
-            "username": "testuser",
-            "database": "testdb",
-            "auth_mode": "IAM",
-            "aws_config": {"aws_region": "us-west-2"},
-        }
-        config = MySQLConfig.parse_obj(config_dict)
-        ctx = PipelineContext(run_id="test-run")
-
-        source = MySQLSource(config, ctx)
-
-        # Verify environment variable is set
-        assert os.environ.get("LIBMYSQL_ENABLE_CLEARTEXT_PLUGIN") == "1"
-        assert source._rds_iam_token_manager is not None

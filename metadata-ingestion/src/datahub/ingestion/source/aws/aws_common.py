@@ -9,7 +9,7 @@ import boto3
 import requests
 from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, NoCredentialsError
 from botocore.utils import fix_s3_host
 from pydantic.fields import Field
 
@@ -492,16 +492,11 @@ class RDSIAMTokenGenerator:
                 self._client = self.aws_config.get_session().client(
                     "rds", config=self.aws_config._aws_config()
                 )
-            except Exception as e:
-                # Import here to avoid circular dependency issues
-                from botocore.exceptions import NoCredentialsError
-
-                if isinstance(e, NoCredentialsError):
-                    raise ValueError(
-                        "AWS credentials not found. Configure AWS credentials using "
-                        "AWS CLI, environment variables, or IAM roles."
-                    ) from e
-                raise
+            except NoCredentialsError as e:
+                raise ValueError(
+                    "AWS credentials not found. Configure AWS credentials using "
+                    "AWS CLI, environment variables, or IAM roles."
+                ) from e
         return self._client
 
     def generate_token(self) -> str:
