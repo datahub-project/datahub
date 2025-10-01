@@ -6,19 +6,15 @@ type QueryParam = {
 };
 
 export default function updateQueryParams(newParams: QueryParam, location: Location, history: History) {
-    const searchParams = new URLSearchParams(location.search);
-
-    // Merge in new params
-    Object.entries(newParams).forEach(([key, value]) => {
-        if (value === undefined) {
-            searchParams.delete(key);
-        } else {
-            searchParams.set(key, value);
-        }
-    });
+    const parsedParams = QueryString.parse(location.search, { arrayFormat: 'comma', decode: false });
+    const updatedParams = {
+        ...parsedParams,
+        ...newParams,
+    };
+    const stringifiedParams = QueryString.stringify(updatedParams, { arrayFormat: 'comma', encode: false });
 
     history.replace({
         pathname: location.pathname,
-        search: searchParams.toString(),
+        search: stringifiedParams,
     });
 }
