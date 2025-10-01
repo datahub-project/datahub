@@ -8,8 +8,6 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.metadata.config.CDCSourceConfiguration;
 import com.linkedin.metadata.config.DebeziumConfiguration;
-import com.linkedin.metadata.config.EbeanConfiguration;
-import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -17,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -28,9 +25,6 @@ public class CDCSourceSetupTest {
   @Mock private UpgradeStep mockStep2;
 
   private CDCSourceConfiguration cdcSourceConfig;
-  private EbeanConfiguration ebeanConfig;
-  private KafkaConfiguration kafkaConfig;
-  private KafkaProperties kafkaProperties;
 
   private static class TestCDCSourceSetup extends CDCSourceSetup {
     private final List<UpgradeStep> steps;
@@ -39,12 +33,9 @@ public class CDCSourceSetupTest {
     public TestCDCSourceSetup(
         OperationContext opContext,
         CDCSourceConfiguration cdcSourceConfig,
-        EbeanConfiguration ebeanConfig,
-        KafkaConfiguration kafkaConfig,
-        KafkaProperties kafkaProperties,
         List<UpgradeStep> steps,
         boolean shouldThrowException) {
-      super(opContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+      super(opContext, cdcSourceConfig);
       this.steps = steps;
       this.shouldThrowException = shouldThrowException;
     }
@@ -84,34 +75,13 @@ public class CDCSourceSetupTest {
     connectorConfig.put("database.include.list", "testdb");
     debeziumConfig.setConfig(connectorConfig);
     cdcSourceConfig.setCdcImplConfig(debeziumConfig);
-
-    // Create valid EbeanConfiguration
-    ebeanConfig = new EbeanConfiguration();
-    ebeanConfig.setUrl("jdbc:mysql://localhost:3306/testdb");
-    ebeanConfig.setUsername("testuser");
-    ebeanConfig.setPassword("testpass");
-
-    // Create valid KafkaConfiguration
-    kafkaConfig = new KafkaConfiguration();
-    kafkaConfig.setBootstrapServers("localhost:9092");
-
-    // Create valid KafkaProperties
-    kafkaProperties = new KafkaProperties();
-    kafkaProperties.setBootstrapServers(Arrays.asList("localhost:9092"));
   }
 
   @Test
   public void testConstructorAndBasicMethods() {
     List<UpgradeStep> expectedSteps = Arrays.asList(mockStep1, mockStep2);
     TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            cdcSourceConfig,
-            ebeanConfig,
-            kafkaConfig,
-            kafkaProperties,
-            expectedSteps,
-            false);
+        new TestCDCSourceSetup(mockOpContext, cdcSourceConfig, expectedSteps, false);
 
     assertEquals(setup.getCdcType(), "debezium");
     assertNotNull(setup.steps());
@@ -122,14 +92,7 @@ public class CDCSourceSetupTest {
   @Test
   public void testCanRunValidConfiguration() {
     TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            cdcSourceConfig,
-            ebeanConfig,
-            kafkaConfig,
-            kafkaProperties,
-            Arrays.asList(mockStep1),
-            false);
+        new TestCDCSourceSetup(mockOpContext, cdcSourceConfig, Arrays.asList(mockStep1), false);
 
     assertTrue(setup.canRun());
   }
@@ -137,14 +100,7 @@ public class CDCSourceSetupTest {
   @Test
   public void testCanRunNullCdcSourceConfig() {
     TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            null,
-            ebeanConfig,
-            kafkaConfig,
-            kafkaProperties,
-            Arrays.asList(mockStep1),
-            false);
+        new TestCDCSourceSetup(mockOpContext, null, Arrays.asList(mockStep1), false);
 
     assertFalse(setup.canRun());
   }
@@ -154,14 +110,7 @@ public class CDCSourceSetupTest {
     cdcSourceConfig.setEnabled(false);
 
     TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            cdcSourceConfig,
-            ebeanConfig,
-            kafkaConfig,
-            kafkaProperties,
-            Arrays.asList(mockStep1),
-            false);
+        new TestCDCSourceSetup(mockOpContext, cdcSourceConfig, Arrays.asList(mockStep1), false);
 
     assertFalse(setup.canRun());
   }
@@ -171,14 +120,7 @@ public class CDCSourceSetupTest {
     cdcSourceConfig.setConfigureSource(false);
 
     TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            cdcSourceConfig,
-            ebeanConfig,
-            kafkaConfig,
-            kafkaProperties,
-            Arrays.asList(mockStep1),
-            false);
+        new TestCDCSourceSetup(mockOpContext, cdcSourceConfig, Arrays.asList(mockStep1), false);
 
     assertFalse(setup.canRun());
   }
@@ -188,14 +130,7 @@ public class CDCSourceSetupTest {
     cdcSourceConfig.setType(null);
 
     TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            cdcSourceConfig,
-            ebeanConfig,
-            kafkaConfig,
-            kafkaProperties,
-            Arrays.asList(mockStep1),
-            false);
+        new TestCDCSourceSetup(mockOpContext, cdcSourceConfig, Arrays.asList(mockStep1), false);
 
     assertFalse(setup.canRun());
   }
@@ -205,14 +140,7 @@ public class CDCSourceSetupTest {
     cdcSourceConfig.setType("");
 
     TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            cdcSourceConfig,
-            ebeanConfig,
-            kafkaConfig,
-            kafkaProperties,
-            Arrays.asList(mockStep1),
-            false);
+        new TestCDCSourceSetup(mockOpContext, cdcSourceConfig, Arrays.asList(mockStep1), false);
 
     assertFalse(setup.canRun());
   }
@@ -222,14 +150,7 @@ public class CDCSourceSetupTest {
     cdcSourceConfig.setType("   ");
 
     TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            cdcSourceConfig,
-            ebeanConfig,
-            kafkaConfig,
-            kafkaProperties,
-            Arrays.asList(mockStep1),
-            false);
+        new TestCDCSourceSetup(mockOpContext, cdcSourceConfig, Arrays.asList(mockStep1), false);
 
     assertFalse(setup.canRun());
   }
@@ -239,38 +160,14 @@ public class CDCSourceSetupTest {
     cdcSourceConfig.setCdcImplConfig(null);
 
     TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            cdcSourceConfig,
-            ebeanConfig,
-            kafkaConfig,
-            kafkaProperties,
-            Arrays.asList(mockStep1),
-            false);
-
-    assertFalse(setup.canRun());
-  }
-
-  @Test
-  public void testCanRunNullEbeanConfig() {
-    TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            cdcSourceConfig,
-            null,
-            kafkaConfig,
-            kafkaProperties,
-            Arrays.asList(mockStep1),
-            false);
+        new TestCDCSourceSetup(mockOpContext, cdcSourceConfig, Arrays.asList(mockStep1), false);
 
     assertFalse(setup.canRun());
   }
 
   @Test
   public void testStepsExceptionHandling() {
-    TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties, null, true);
+    TestCDCSourceSetup setup = new TestCDCSourceSetup(mockOpContext, cdcSourceConfig, null, true);
 
     List<UpgradeStep> steps = setup.steps();
     assertNotNull(steps);
@@ -280,14 +177,7 @@ public class CDCSourceSetupTest {
   @Test
   public void testGetCdcTypeWithNullConfig() {
     TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            null,
-            ebeanConfig,
-            kafkaConfig,
-            kafkaProperties,
-            Arrays.asList(mockStep1),
-            false);
+        new TestCDCSourceSetup(mockOpContext, null, Arrays.asList(mockStep1), false);
 
     assertEquals(setup.getCdcType(), null);
   }
@@ -295,62 +185,16 @@ public class CDCSourceSetupTest {
   @Test
   public void testGetCdcTypeWithValidConfig() {
     TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            cdcSourceConfig,
-            ebeanConfig,
-            kafkaConfig,
-            kafkaProperties,
-            Arrays.asList(mockStep1),
-            false);
+        new TestCDCSourceSetup(mockOpContext, cdcSourceConfig, Arrays.asList(mockStep1), false);
 
     assertEquals(setup.getCdcType(), "debezium");
-  }
-
-  @Test
-  public void testConstructorWithNullKafkaConfig() {
-    TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            cdcSourceConfig,
-            ebeanConfig,
-            null,
-            kafkaProperties,
-            Arrays.asList(mockStep1),
-            false);
-
-    assertNotNull(setup);
-    assertTrue(setup.canRun());
-  }
-
-  @Test
-  public void testConstructorWithNullKafkaProperties() {
-    TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            cdcSourceConfig,
-            ebeanConfig,
-            kafkaConfig,
-            null,
-            Arrays.asList(mockStep1),
-            false);
-
-    assertNotNull(setup);
-    assertTrue(setup.canRun());
   }
 
   @Test
   public void testStepsWithMultipleSteps() {
     List<UpgradeStep> expectedSteps = Arrays.asList(mockStep1, mockStep2);
     TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            cdcSourceConfig,
-            ebeanConfig,
-            kafkaConfig,
-            kafkaProperties,
-            expectedSteps,
-            false);
+        new TestCDCSourceSetup(mockOpContext, cdcSourceConfig, expectedSteps, false);
 
     List<UpgradeStep> actualSteps = setup.steps();
     assertEquals(actualSteps.size(), 2);
@@ -362,14 +206,7 @@ public class CDCSourceSetupTest {
   public void testStepsWithEmptySteps() {
     List<UpgradeStep> expectedSteps = Arrays.asList();
     TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            cdcSourceConfig,
-            ebeanConfig,
-            kafkaConfig,
-            kafkaProperties,
-            expectedSteps,
-            false);
+        new TestCDCSourceSetup(mockOpContext, cdcSourceConfig, expectedSteps, false);
 
     List<UpgradeStep> actualSteps = setup.steps();
     assertEquals(actualSteps.size(), 0);
@@ -380,14 +217,7 @@ public class CDCSourceSetupTest {
     cdcSourceConfig.setType("debezium-kafka-connector");
 
     TestCDCSourceSetup setup =
-        new TestCDCSourceSetup(
-            mockOpContext,
-            cdcSourceConfig,
-            ebeanConfig,
-            kafkaConfig,
-            kafkaProperties,
-            Arrays.asList(mockStep1),
-            false);
+        new TestCDCSourceSetup(mockOpContext, cdcSourceConfig, Arrays.asList(mockStep1), false);
 
     assertTrue(setup.canRun());
     assertEquals(setup.getCdcType(), "debezium-kafka-connector");

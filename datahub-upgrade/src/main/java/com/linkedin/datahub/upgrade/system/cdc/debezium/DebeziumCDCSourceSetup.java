@@ -6,6 +6,8 @@ import com.linkedin.datahub.upgrade.system.cdc.CDCSourceSetup;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.CDCSourceConfiguration;
 import com.linkedin.metadata.config.DebeziumConfiguration;
+import com.linkedin.metadata.config.EbeanConfiguration;
+import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -29,19 +31,30 @@ public class DebeziumCDCSourceSetup extends CDCSourceSetup {
   private final DebeziumConfiguration debeziumConfig;
   private final List<UpgradeStep> steps;
 
+  protected final OperationContext opContext;
+
+  // TODO: EbeanConfiguration is not available if using cassandra - need alternative for
+  // non-relational stores
+  protected final EbeanConfiguration ebeanConfig;
+  protected final KafkaConfiguration kafkaConfig;
+  protected final KafkaProperties kafkaProperties;
+
   public DebeziumCDCSourceSetup(
       OperationContext opContext,
       ConfigurationProvider configurationProvider,
       KafkaProperties kafkaProperties) {
-    super(
-        opContext,
-        configurationProvider.getMclProcessing().getCdcSource(),
-        configurationProvider.getEbean(),
-        configurationProvider.getKafka(),
-        kafkaProperties);
+    super(opContext, configurationProvider.getMclProcessing().getCdcSource());
+    this.opContext = opContext;
+    this.ebeanConfig = configurationProvider.getEbean();
+    this.kafkaConfig = configurationProvider.getKafka();
+    this.kafkaProperties = kafkaProperties;
 
     CDCSourceConfiguration cdcSourceConfig =
         configurationProvider.getMclProcessing().getCdcSource();
+
+    if (cdcSourceConfig == null) {
+      throw new IllegalArgumentException("CDC configuration is required");
+    }
     this.debeziumConfig = (DebeziumConfiguration) cdcSourceConfig.getCdcImplConfig();
 
     if (debeziumConfig == null) {
@@ -73,6 +86,11 @@ public class DebeziumCDCSourceSetup extends CDCSourceSetup {
   @Override
   public boolean canRun() {
     if (!super.canRun()) {
+      return false;
+    }
+
+    if (ebeanConfig == null) {
+      log.warn("Ebean configuration is null");
       return false;
     }
 

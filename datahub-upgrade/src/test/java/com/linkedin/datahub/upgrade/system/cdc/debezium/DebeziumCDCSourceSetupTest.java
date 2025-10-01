@@ -141,6 +141,14 @@ public class DebeziumCDCSourceSetupTest {
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testConstructorWithNullCdcSourceConfig() {
+    when(mockConfigProvider.getMclProcessing()).thenReturn(mclProcessingConfig);
+    mclProcessingConfig.setCdcSource(null);
+
+    new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
   public void testConstructorWithNullDebeziumConfig() {
     cdcSourceConfig.setCdcImplConfig(null);
 
@@ -152,6 +160,16 @@ public class DebeziumCDCSourceSetupTest {
     Map<String, String> config = new HashMap<>();
     config.put("topic.prefix", "test-prefix");
     debeziumConfig.setConfig(config);
+
+    DebeziumCDCSourceSetup setup =
+        new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
+
+    assertFalse(setup.canRun());
+  }
+
+  @Test
+  public void testCanRunWithNullEbeanConfig() {
+    when(mockConfigProvider.getEbean()).thenReturn(null);
 
     DebeziumCDCSourceSetup setup =
         new DebeziumCDCSourceSetup(mockOpContext, mockConfigProvider, kafkaProperties);
