@@ -50,9 +50,9 @@ from datahub.ingestion.api.source_protocols import (
     ProfilingCapable,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source_report.ingestion_high_stage import (
+from datahub.ingestion.source_report.ingestion_stage import (
     IngestionHighStage,
-    IngestionHighStageReport,
+    IngestionStageReport,
 )
 from datahub.telemetry import stats
 from datahub.utilities.lossy_collections import LossyDict, LossyList
@@ -211,7 +211,7 @@ class StructuredLogs(Report):
 
 
 @dataclass
-class SourceReport(ExamplesReport, IngestionHighStageReport):
+class SourceReport(ExamplesReport, IngestionStageReport):
     event_not_produced_warn: bool = True
     events_produced: int = 0
     events_produced_per_sec: int = 0
