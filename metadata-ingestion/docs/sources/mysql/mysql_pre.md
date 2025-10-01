@@ -11,29 +11,14 @@ In order to execute this source the user credentials needs the following privile
 
 For AWS RDS MySQL instances, you can use IAM authentication instead of traditional username/password authentication.
 
-**Prerequisites:**
+**Setup:**
 
-1. **Enable IAM Database Authentication** on your RDS instance
-2. **Create an IAM database user** in MySQL:
-   ```sql
-   CREATE USER 'iam_user' IDENTIFIED WITH AWSAuthenticationPlugin AS 'RDS';
-   GRANT SELECT ON database_name.* TO 'iam_user'@'%';
-   GRANT SHOW VIEW ON database_name.* TO 'iam_user'@'%';
-   ```
-3. **Configure IAM policy** to allow RDS connection:
-   ```json
-   {
-     "Version": "2012-10-17",
-     "Statement": [
-       {
-         "Effect": "Allow",
-         "Action": "rds-db:connect",
-         "Resource": "arn:aws:rds-db:region:account-id:dbuser:db-resource-id/iam_user"
-       }
-     ]
-   }
-   ```
-4. **Configure AWS credentials** via AWS CLI, environment variables, or IAM role
+Follow the [AWS RDS IAM Database Authentication](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.html) documentation to:
+
+- Enable IAM database authentication on your RDS instance
+- Create database users that use IAM authentication
+- Configure IAM policies with `rds-db:connect` permissions
 
 **Configuration:**
-Set `use_rds_iam: true` and specify `aws_region` in your recipe (see example below).
+
+Set `auth_mode: "IAM"` in your recipe and optionally configure `aws_config` for AWS credentials and region (see example below). If `aws_config` is not specified, boto3 will automatically use the default credential chain from environment variables, AWS config files, or IAM role metadata.
