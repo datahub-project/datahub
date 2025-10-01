@@ -1,9 +1,10 @@
 import logging
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
 
 # This import verifies that the dependencies are available.
 import psycopg2  # noqa: F401
+import pydantic
 import sqlalchemy.dialects.postgresql as custom_types
 
 # GeoAlchemy adds support for PostGIS extensions in SQLAlchemy. In order to
@@ -16,6 +17,9 @@ from pydantic import BaseModel
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Engine
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter import mce_builder
@@ -30,6 +34,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sql.rds_iam_utils import RDSIAMTokenManager
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
@@ -106,6 +111,22 @@ class BasePostgresConfig(BasicSQLAlchemyConfig):
         default=AllowDenyPattern(deny=["information_schema"])
     )
 
+    # RDS IAM authentication options
+    use_rds_iam: bool = Field(
+        default=False,
+        description="Enable AWS RDS IAM authentication. When enabled, password field is ignored and AWS RDS IAM tokens are used instead.",
+    )
+    aws_region: Optional[str] = Field(
+        default=None,
+        description="AWS region for RDS IAM authentication (e.g., 'us-west-2'). Required when use_rds_iam is True.",
+    )
+
+    @pydantic.model_validator(mode="after")
+    def validate_rds_iam_config(self) -> "BasePostgresConfig":
+        if self.use_rds_iam and not self.aws_region:
+            raise ValueError("aws_region is required when use_rds_iam is True")
+        return self
+
 
 class PostgresConfig(BasePostgresConfig):
     database_pattern: AllowDenyPattern = Field(
@@ -156,9 +177,38 @@ class PostgresSource(SQLAlchemySource):
     """
 
     config: PostgresConfig
+    _rds_iam_hostname: Optional[str] = None
+    _rds_iam_port: Optional[int] = None
 
     def __init__(self, config: PostgresConfig, ctx: PipelineContext):
         super().__init__(config, ctx, self.get_platform())
+
+        self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
+        if config.use_rds_iam:
+            # Extract and store hostname/port for reuse
+            self._rds_iam_hostname = config.host_port.split(":")[0]
+            self._rds_iam_port = 5432  # Default PostgreSQL port
+            if ":" in config.host_port:
+                try:
+                    self._rds_iam_port = int(config.host_port.split(":")[1])
+                except ValueError:
+                    logger.warning(
+                        f"Invalid port in host_port {config.host_port}, using default 5432"
+                    )
+
+            if not config.username:
+                raise ValueError("username is required for RDS IAM authentication")
+
+            assert config.aws_region is not None, (
+                "aws_region must be set when use_rds_iam is True"
+            )
+
+            self._rds_iam_token_manager = RDSIAMTokenManager(
+                region=config.aws_region,
+                endpoint=self._rds_iam_hostname,
+                username=config.username,
+                port=self._rds_iam_port,
+            )
 
     def get_platform(self):
         return "postgres"
@@ -168,13 +218,60 @@ class PostgresSource(SQLAlchemySource):
         config = PostgresConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def _setup_rds_iam_event_listener(
+        self, engine: "Engine", database_name: Optional[str] = None
+    ) -> None:
+        """Setup SQLAlchemy event listener to inject RDS IAM tokens."""
+        from sqlalchemy import event
+
+        if not (self.config.use_rds_iam and self._rds_iam_token_manager):
+            return
+
+        # Type narrowing: assert token manager is not None after the guard check
+        assert self._rds_iam_token_manager is not None
+
+        @event.listens_for(engine, "do_connect")  # type: ignore[misc]
+        def provide_token(
+            dialect: Any, conn_rec: Any, cargs: Any, cparams: Any
+        ) -> None:
+            """Inject fresh RDS IAM token before each connection."""
+            assert self._rds_iam_token_manager is not None
+            token = self._rds_iam_token_manager.get_token()
+            cparams["host"] = self._rds_iam_hostname
+            cparams["port"] = self._rds_iam_port
+            cparams["user"] = self.config.username
+            cparams["password"] = token
+            cparams["database"] = (
+                database_name or self.config.database or self.config.initial_database
+            )
+
+            # Merge user-provided password in connect_args
+            # (RDS IAM token takes precedence)
+            logger.debug(
+                f"Injected RDS IAM token for connection to {self._rds_iam_hostname}:{self._rds_iam_port}"
+                + (f" (database: {database_name})" if database_name else "")
+            )
+
     def get_inspectors(self) -> Iterable[Inspector]:
         # Note: get_sql_alchemy_url will choose `sqlalchemy_uri` over the passed in database
         url = self.config.get_sql_alchemy_url(
             database=self.config.database or self.config.initial_database
         )
+
         logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+
+        # Configure engine options for RDS IAM authentication
+        engine_options = dict(self.config.options)
+        if self.config.use_rds_iam:
+            engine_options.setdefault("pool_recycle", 600)
+            engine_options.setdefault("pool_pre_ping", True)
+            logger.debug(
+                "RDS IAM enabled: setting pool_recycle=600 and pool_pre_ping=True"
+            )
+
+        engine = create_engine(url, **engine_options)
+        self._setup_rds_iam_event_listener(engine)
+
         with engine.connect() as conn:
             if self.config.database or self.config.sqlalchemy_uri:
                 inspector = inspect(conn)
@@ -188,8 +285,21 @@ class PostgresSource(SQLAlchemySource):
                 for db in databases:
                     if not self.config.database_pattern.allowed(db["datname"]):
                         continue
+
                     url = self.config.get_sql_alchemy_url(database=db["datname"])
-                    with create_engine(url, **self.config.options).connect() as conn:
+
+                    # Configure engine options for database-specific connections
+                    db_engine_options = dict(self.config.options)
+                    if self.config.use_rds_iam:
+                        db_engine_options.setdefault("pool_recycle", 600)
+                        db_engine_options.setdefault("pool_pre_ping", True)
+
+                    db_engine = create_engine(url, **db_engine_options)
+                    self._setup_rds_iam_event_listener(
+                        db_engine, database_name=db["datname"]
+                    )
+
+                    with db_engine.connect() as conn:
                         inspector = inspect(conn)
                         yield inspector
 

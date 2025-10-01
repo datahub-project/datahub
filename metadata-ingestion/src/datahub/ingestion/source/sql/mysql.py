@@ -1,13 +1,17 @@
 # This import verifies that the dependencies are available.
+import logging
+from typing import TYPE_CHECKING, Any, List, Optional
 
-from typing import List
-
+import pydantic
 import pymysql  # noqa: F401
 from pydantic.fields import Field
 from sqlalchemy import util
 from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine.reflection import Inspector
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Engine
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.decorators import (
@@ -18,6 +22,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.source.sql.rds_iam_utils import RDSIAMTokenManager
 from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
     register_custom_type,
@@ -31,6 +36,8 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemySource,
 )
 from datahub.metadata.schema_classes import BytesTypeClass
+
+logger = logging.getLogger(__name__)
 
 SET.__repr__ = util.generic_repr  # type:ignore
 
@@ -58,6 +65,22 @@ class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
     # defaults
     host_port: str = Field(default="localhost:3306", description="MySQL host URL.")
     scheme: HiddenFromDocs[str] = "mysql+pymysql"
+
+    # RDS IAM authentication options
+    use_rds_iam: bool = Field(
+        default=False,
+        description="Enable AWS RDS IAM authentication. When enabled, password field is ignored and AWS RDS IAM tokens are used instead.",
+    )
+    aws_region: Optional[str] = Field(
+        default=None,
+        description="AWS region for RDS IAM authentication (e.g., 'us-west-2'). Required when use_rds_iam is True.",
+    )
+
+    @pydantic.model_validator(mode="after")
+    def validate_rds_iam_config(self) -> "MySQLConnectionConfig":
+        if self.use_rds_iam and not self.aws_region:
+            raise ValueError("aws_region is required when use_rds_iam is True")
+        return self
 
 
 class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
@@ -91,8 +114,45 @@ class MySQLSource(TwoTierSQLAlchemySource):
     Table, row, and column statistics via optional SQL profiling
     """
 
-    def __init__(self, config, ctx):
+    config: MySQLConfig
+    _rds_iam_hostname: Optional[str] = None
+    _rds_iam_port: Optional[int] = None
+
+    def __init__(self, config: MySQLConfig, ctx: Any):
         super().__init__(config, ctx, self.get_platform())
+
+        self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
+        if config.use_rds_iam:
+            # Enable cleartext plugin required for AWS RDS IAM authentication
+            # Must be set before any pymysql connections are made
+            import os
+
+            os.environ["LIBMYSQL_ENABLE_CLEARTEXT_PLUGIN"] = "1"
+
+            # Extract and store hostname/port for reuse
+            self._rds_iam_hostname = config.host_port.split(":")[0]
+            self._rds_iam_port = 3306  # Default MySQL port
+            if ":" in config.host_port:
+                try:
+                    self._rds_iam_port = int(config.host_port.split(":")[1])
+                except ValueError:
+                    logger.warning(
+                        f"Invalid port in host_port {config.host_port}, using default 3306"
+                    )
+
+            if not config.username:
+                raise ValueError("username is required for RDS IAM authentication")
+
+            assert config.aws_region is not None, (
+                "aws_region must be set when use_rds_iam is True"
+            )
+
+            self._rds_iam_token_manager = RDSIAMTokenManager(
+                region=config.aws_region,
+                endpoint=self._rds_iam_hostname,
+                username=config.username,
+                port=self._rds_iam_port,
+            )
 
     def get_platform(self):
         return "mysql"
@@ -101,6 +161,93 @@ class MySQLSource(TwoTierSQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = MySQLConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def _setup_rds_iam_event_listener(
+        self, engine: "Engine", database_name: Optional[str] = None
+    ) -> None:
+        """Setup SQLAlchemy event listener to inject RDS IAM tokens."""
+        from sqlalchemy import event
+
+        if not (self.config.use_rds_iam and self._rds_iam_token_manager):
+            return
+
+        # Type narrowing: assert token manager is not None after the guard check
+        assert self._rds_iam_token_manager is not None
+
+        @event.listens_for(engine, "do_connect")  # type: ignore[misc]
+        def provide_token(
+            dialect: Any, conn_rec: Any, cargs: Any, cparams: Any
+        ) -> None:
+            """Inject fresh RDS IAM token and SSL config before each connection."""
+            assert self._rds_iam_token_manager is not None
+            token = self._rds_iam_token_manager.get_token()
+            cparams["host"] = self._rds_iam_hostname
+            cparams["port"] = self._rds_iam_port
+            cparams["user"] = self.config.username
+            cparams["password"] = token
+            cparams["database"] = database_name or self.config.database
+
+            # Merge user-provided SSL settings with required RDS IAM settings
+            user_ssl = cparams.get("ssl", {})
+            if isinstance(user_ssl, dict):
+                user_ssl["ssl"] = True
+                cparams["ssl"] = user_ssl
+            else:
+                cparams["ssl"] = {"ssl": True}
+
+            # Merge user-provided auth_plugin_map with required RDS IAM plugin
+            user_auth_plugins = cparams.get("auth_plugin_map", {})
+            if isinstance(user_auth_plugins, dict):
+                user_auth_plugins["mysql_clear_password"] = None
+                cparams["auth_plugin_map"] = user_auth_plugins
+            else:
+                cparams["auth_plugin_map"] = {"mysql_clear_password": None}
+
+            logger.debug(
+                f"Injected RDS IAM token for connection to {self._rds_iam_hostname}:{self._rds_iam_port}"
+                + (f" (database: {database_name})" if database_name else "")
+            )
+
+    def get_inspectors(self):
+        from sqlalchemy import create_engine, inspect
+
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+
+        # Configure engine options for RDS IAM authentication
+        engine_options = dict(self.config.options)
+        if self.config.use_rds_iam:
+            engine_options.setdefault("pool_recycle", 600)
+            engine_options.setdefault("pool_pre_ping", True)
+            logger.debug(
+                "RDS IAM enabled: setting pool_recycle=600 and pool_pre_ping=True"
+            )
+
+        engine = create_engine(url, **engine_options)
+        self._setup_rds_iam_event_listener(engine)
+
+        with engine.connect() as conn:
+            inspector = inspect(conn)
+            if self.config.database and self.config.database != "":
+                databases = [self.config.database]
+            else:
+                databases = inspector.get_schema_names()
+            for db in databases:
+                if self.config.database_pattern.allowed(db):
+                    url = self.config.get_sql_alchemy_url(current_db=db)
+
+                    # Configure engine options for database-specific connections
+                    db_engine_options = dict(self.config.options)
+                    if self.config.use_rds_iam:
+                        db_engine_options.setdefault("pool_recycle", 600)
+                        db_engine_options.setdefault("pool_pre_ping", True)
+
+                    db_engine = create_engine(url, **db_engine_options)
+                    self._setup_rds_iam_event_listener(db_engine, database_name=db)
+
+                    with db_engine.connect() as conn:
+                        inspector = inspect(conn)
+                        yield inspector
 
     def add_profile_metadata(self, inspector: Inspector) -> None:
         if not self.config.is_profiling_enabled():
