@@ -447,7 +447,7 @@ public class EntityController
         throw new IllegalArgumentException(
             "Value of property '" + entityName + "' must be an array");
       }
-      entityTypes.add(entityName);
+      entityTypes.add(entityName.toLowerCase());
     }
 
     OperationContext opContext =
@@ -492,7 +492,7 @@ public class EntityController
     // Group results by entity type for response structure
     Map<String, List<IngestResult>> resultsByEntityType = new HashMap<>();
     for (IngestResult result : results) {
-      String entityType = result.getUrn().getEntityType();
+      String entityType = result.getUrn().getEntityType().toLowerCase();
       resultsByEntityType.computeIfAbsent(entityType, k -> new ArrayList<>()).add(result);
     }
 
