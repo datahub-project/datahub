@@ -1,3 +1,7 @@
+# Hack to remove /
+path-mappings:
+  "/": ""
+
 # Name of the data hub component or container (used for tracing)
 spring.application.name: ${APPLICATION_NAME:datahub-gms}
 
@@ -109,9 +113,14 @@ secretService:
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
   serverEnv: ${DATAHUB_SERVER_ENV:core}
+  # The base path for the URL where DataHub will be deployed
+  basePath: ${DATAHUB_BASE_PATH:}
+
   gms:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
+    basePath: ${DATAHUB_GMS_BASE_PATH:}
+    basePathEnabled: ${DATAHUB_GMS_BASE_PATH_ENABLED:false}
     useSSL: ${DATAHUB_GMS_USE_SSL:${GMS_USE_SSL:false}}
     truststore:
       path: ${DATAHUB_GMS_SSL_TRUSTSTORE_PATH:#{null}} # Required if useSSL is true
@@ -227,8 +236,8 @@ visualConfig:
   theme:
     themeId: ${REACT_APP_CUSTOM_THEME_ID:} # we have an enum defined on the frontend that this themeId maps to to render a specific custom theme file
   assets:
-    logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
-    faviconUrl: ${REACT_APP_FAVICON_URL:/assets/icons/favicon.ico}
+    logoUrl: ${REACT_APP_LOGO_URL:assets/platforms/datahublogo.png}
+    faviconUrl: ${REACT_APP_FAVICON_URL:assets/icons/favicon.ico}
   appTitle: ${REACT_APP_TITLE:}
   hideGlossary: ${REACT_APP_HIDE_GLOSSARY:false}
   showFullTitleInLineage: ${REACT_APP_SHOW_FULL_TITLE_IN_LINEAGE:false}
@@ -575,21 +584,25 @@ management:
       application: ${spring.application.name}
 
 # Useful to debug low-level Spring errors such as class version mismatches
-server:
-  server-header: false
 #  error:
 #    include-message: always
 #    include-binding-errors: always
 #    include-stacktrace: always
 
+# GMS needs to have its context path, / is used when undefined, DATAHUB_GMS_BASE_PATH otherwise
+server:
+  server-header: false
+  servlet:
+    context-path: ${DATAHUB_GMS_BASE_PATH:/}
+
 springdoc:
   cache:
     disabled: false
   swagger-ui:
-    path: /openapi/swagger-ui
-    urls-primary-name: DataHub v3 (OpenAPI)
+    path: ${path-mappings.${datahub.basePath:}:${datahub.basePath:}}/openapi/swagger-ui
+    disable-swagger-default-url: true
   api-docs:
-    path: /openapi/v3/api-docs
+    path: ${path-mappings.${datahub.basePath:}:${datahub.basePath:}}/openapi/v3/api-docs
     # Do not change this even though some APIs are using 3.1
     # Serialization of enum types will break
     version: openapi_3_0
