@@ -4,8 +4,6 @@ from unittest.mock import patch
 import pydantic
 import pytest
 
-from datahub.metadata.schema_classes import DatasetSnapshotClass, StatusClass
-
 from datahub.emitter.kafka_emitter import (
     DEFAULT_MCE_KAFKA_TOPIC,
     DEFAULT_MCP_KAFKA_TOPIC,
@@ -18,6 +16,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+from datahub.metadata.schema_classes import DatasetSnapshotClass, StatusClass
 
 
 class KafkaEmitterTest(unittest.TestCase):
