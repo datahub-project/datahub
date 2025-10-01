@@ -639,12 +639,17 @@ LIMIT @max_results"""
             # Secondary check: Date component columns (year/month/day) - handle specially
             elif col_name.lower() in ["year", "month", "day"]:
                 date_component_columns[col_name.lower()] = col_name
-            # Fallback: Column name patterns (only when data type is unknown)
-            elif not col_data_type and self._is_date_like_column(col_name):
+            # Tertiary check: Column name patterns (fallback for date columns with non-date types like STRING)
+            elif self._is_date_like_column(col_name):
                 date_columns.append(col_name)
-                logger.debug(
-                    f"Column {col_name} detected as date-like based on name (no data type available)"
-                )
+                if col_data_type:
+                    logger.debug(
+                        f"Column {col_name} detected as date-like based on name (data type: {col_data_type})"
+                    )
+                else:
+                    logger.debug(
+                        f"Column {col_name} detected as date-like based on name (no data type available)"
+                    )
             else:
                 non_date_columns.append(col_name)
 
