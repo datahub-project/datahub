@@ -1,6 +1,5 @@
 # This import verifies that the dependencies are available.
 import logging
-from enum import Enum
 from typing import TYPE_CHECKING, Any, List, Optional
 
 import pymysql  # noqa: F401
@@ -40,6 +39,7 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemySource,
 )
 from datahub.metadata.schema_classes import BytesTypeClass
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ base.ischema_names["polygon"] = POLYGON
 base.ischema_names["decimal128"] = DECIMAL128
 
 
-class MySQLAuthMode(str, Enum):
+class MySQLAuthMode(StrEnum):
     """Authentication mode for MySQL connection."""
 
     PASSWORD = "PASSWORD"

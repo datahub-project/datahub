@@ -1,6 +1,5 @@
 import logging
 from collections import defaultdict
-from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
 
 # This import verifies that the dependencies are available.
@@ -53,6 +52,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     MapTypeClass,
 )
+from datahub.utilities.str_enum import StrEnum
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ class ViewLineageEntry(BaseModel):
     dependent_schema: str
 
 
-class PostgresAuthMode(str, Enum):
+class PostgresAuthMode(StrEnum):
     """Authentication mode for PostgreSQL connection."""
 
     PASSWORD = "PASSWORD"
