@@ -22,13 +22,13 @@ class TestDremioSystemTableFiltering:
         ]
         assert expected_patterns == DREMIO_SYSTEM_TABLES_PATTERN
 
-    def test_system_tables_excluded_by_default(self):
-        """Test that system tables are excluded by default."""
+    def test_system_tables_included_by_default(self):
+        """Test that system tables are included by default for backward compatibility."""
         config = DremioSourceConfig()
         report = Mock(spec=DremioSourceReport)
         filter_obj = DremioFilter(config, report)
 
-        # Test various system table patterns - only exact matches should be filtered
+        # Test various system table patterns - should be included by default
         system_tables = [
             ("columns", ["information_schema"], "table"),  # information_schema.columns
             ("tables", ["sys"], "table"),  # sys.tables
@@ -37,25 +37,25 @@ class TestDremioSystemTableFiltering:
         ]
 
         for table_name, schema_path, table_type in system_tables:
-            assert not filter_obj.is_dataset_allowed(
-                table_name, schema_path, table_type
-            ), f"System table {schema_path}.{table_name} should be excluded by default"
+            assert filter_obj.is_dataset_allowed(table_name, schema_path, table_type), (
+                f"System table {schema_path}.{table_name} should be included by default"
+            )
 
-    def test_system_schemas_excluded_by_default(self):
-        """Test that system schemas are excluded by default."""
+    def test_system_schemas_included_by_default(self):
+        """Test that system schemas are included by default for backward compatibility."""
         config = DremioSourceConfig()
         report = Mock(spec=DremioSourceReport)
         filter_obj = DremioFilter(config, report)
 
-        # Test exact system schema matches only
+        # Test exact system schema matches - should be included by default
         system_schemas: List[Tuple[List[str], str]] = [
             ([], "information_schema"),  # Direct information_schema schema
             ([], "sys"),  # Direct sys schema
         ]
 
         for schema_path, container_name in system_schemas:
-            assert not filter_obj.is_schema_allowed(schema_path, container_name), (
-                f"System schema {schema_path}.{container_name} should be excluded by default"
+            assert filter_obj.is_schema_allowed(schema_path, container_name), (
+                f"System schema {schema_path}.{container_name} should be included by default"
             )
 
     def test_regular_tables_included_by_default(self):
@@ -130,9 +130,9 @@ class TestDremioSystemTableFiltering:
             )
 
     def test_config_default_value(self):
-        """Test that include_system_tables defaults to False."""
+        """Test that include_system_tables defaults to True for backward compatibility."""
         config = DremioSourceConfig()
-        assert config.include_system_tables is False
+        assert config.include_system_tables is True
 
     def test_config_can_be_set_to_true(self):
         """Test that include_system_tables can be set to True."""

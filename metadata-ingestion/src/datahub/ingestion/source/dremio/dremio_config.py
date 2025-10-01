@@ -129,9 +129,8 @@ class DremioSourceConfig(
     )
 
     include_system_tables: bool = Field(
-        default=False,
-        description="Whether to include system tables and schemas (INFORMATION_SCHEMA, SYS) in ingestion. "
-        "System tables are excluded by default as they are typically not useful for data discovery.",
+        default=True,
+        description="Whether to include system tables and schemas (INFORMATION_SCHEMA, SYS) in ingestion. ",
     )
 
     # Backward compatibility: usage config parameter (hidden from docs)

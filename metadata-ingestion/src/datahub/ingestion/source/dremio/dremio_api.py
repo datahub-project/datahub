@@ -658,12 +658,19 @@ class DremioAPIOperations:
             if not table_full_path:
                 continue
 
+            # Ensure ordinal_position is always an integer for proper sorting
+            raw_ordinal = record.get("ORDINAL_POSITION", ordinal_position)
+            try:
+                ordinal_pos = (
+                    int(raw_ordinal) if raw_ordinal is not None else ordinal_position
+                )
+            except (ValueError, TypeError):
+                ordinal_pos = ordinal_position
+
             column_dictionary[table_full_path].append(
                 {
                     "name": record["COLUMN_NAME"],
-                    "ordinal_position": record.get(
-                        "ORDINAL_POSITION", ordinal_position
-                    ),
+                    "ordinal_position": ordinal_pos,
                     "is_nullable": record["IS_NULLABLE"],
                     "data_type": record["DATA_TYPE"],
                     "column_size": record["COLUMN_SIZE"],
@@ -840,10 +847,19 @@ class DremioAPIOperations:
                             continue
 
                         # Store column information
+                        # Ensure ordinal_position is always an integer for proper sorting
+                        raw_ordinal = record.get("ORDINAL_POSITION")
+                        try:
+                            ordinal_pos = (
+                                int(raw_ordinal) if raw_ordinal is not None else 0
+                            )
+                        except (ValueError, TypeError):
+                            ordinal_pos = 0
+
                         column_dictionary[table_full_path].append(
                             {
                                 "name": record["COLUMN_NAME"],
-                                "ordinal_position": record["ORDINAL_POSITION"],
+                                "ordinal_position": ordinal_pos,
                                 "is_nullable": record["IS_NULLABLE"],
                                 "data_type": record["DATA_TYPE"],
                                 "column_size": record["COLUMN_SIZE"],

@@ -218,16 +218,25 @@ class DremioDataset:
         self.path = dataset_details.get("TABLE_SCHEMA", "")[1:-1].split(", ")[:-1]
         self.location_id = dataset_details.get("LOCATION_ID", "")
         # self.columns = dataset_details.get("COLUMNS", [])
-        # Initialize DremioDatasetColumn instances for each column
+        # Initialize DremioDatasetColumn instances for each column, sorted by ordinal_position
+        columns_data = dataset_details.get("COLUMNS", [])
+        # Ensure columns are sorted by ordinal_position for consistent field path ordering
+        sorted_columns = sorted(
+            columns_data, key=lambda col: col.get("ordinal_position", 0)
+        )
         self.columns = [
             DremioDatasetColumn(
                 name=col.get("name"),
-                ordinal_position=col.get("ordinal_position"),
+                ordinal_position=col.get(
+                    "ordinal_position", 0
+                ),  # Ensure we have a default integer
                 is_nullable=col.get("is_nullable", False),
                 data_type=col.get("data_type"),
-                column_size=col.get("column_size"),
+                column_size=col.get(
+                    "column_size", 0
+                ),  # Ensure we have a default integer
             )
-            for col in dataset_details.get("COLUMNS", [])
+            for col in sorted_columns
         ]
 
         self.sql_definition = dataset_details.get("VIEW_DEFINITION")
