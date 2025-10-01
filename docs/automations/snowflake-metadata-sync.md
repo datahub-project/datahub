@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Snowflake Tag Propagation Automation
+# Snowflake Metadata Sync Automation
 
 <FeatureAvailability saasOnly />
 
@@ -12,14 +12,16 @@ This feature is currently in open beta in DataHub Cloud. Reach out to your DataH
 
 ## Introduction
 
-Snowflake Tag Propagation is an automation that allows you to sync DataHub Glossary Terms and Tags on
+Snowflake Metadata Sync is an automation that allows you to sync DataHub Glossary Terms, Tags, and Descriptions on
 both columns and tables back to Snowflake. This automation is available in DataHub Cloud only.
 
 ## Capabilities
 
 - Automatically Add DataHub Glossary Terms to Snowflake Tables and Columns
 - Automatically Add DataHub Tags to Snowflake Tables and Columns
+- Automatically Sync DataHub Descriptions to Snowflake Tables and Columns as Comments
 - Automatically Remove DataHub Glossary Terms and Tags from Snowflake Tables and Columns when they are removed in DataHub
+- Support for both Username/Password and Private Key authentication
 
 ## Prerequisites
 
@@ -29,6 +31,7 @@ both columns and tables back to Snowflake. This automation is available in DataH
   Ensure the user or role has this privilege on the specific schema or database where tags will be created.
 - `APPLY TAG`: Required to assign tags to Snowflake objects such as tables, columns, or other database objects.
   This permission must be granted at the database, schema, or object level depending on the scope.
+- `OWNERSHIP` on objects: Required to update comments/descriptions on tables and columns. Alternatively, `INSERT` privilege may be sufficient for some operations.
 
 ### Permissions Required for Object Access
 
@@ -40,21 +43,35 @@ both columns and tables back to Snowflake. This automation is available in DataH
 To grant the necessary permissions for a specific role (DATAHUB_AUTOMATION_ROLE), you can use the following SQL commands:
 
 ```sql
+-- Database and schema access
+GRANT USAGE ON DATABASE your_database TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT USAGE ON SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+
 -- Tag management permissions
 GRANT CREATE TAG ON SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
 GRANT APPLY TAG ON SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
 
--- Object access for metadata operations
-GRANT USAGE ON DATABASE your_database TO ROLE DATAHUB_AUTOMATION_ROLE;
-GRANT USAGE ON SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+-- Object access and modification permissions
 GRANT SELECT ON ALL TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT SELECT ON ALL VIEWS IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
 
--- Future privileges for tagging
+-- For updating table/column comments, you need ownership or insert privileges
+-- Option 1: Grant ownership (most comprehensive, but may be too broad)
+-- GRANT OWNERSHIP ON ALL TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+-- GRANT OWNERSHIP ON ALL VIEWS IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+
+-- Option 2: Grant insert privileges (more restrictive, may be sufficient for comments)
+GRANT INSERT ON ALL TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+
+-- Future privileges for new objects
 GRANT SELECT ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT SELECT ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT INSERT ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
 GRANT APPLY TAG ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT APPLY TAG ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
 ```
 
-## Enabling Snowflake Tag Sync
+## Enabling Snowflake Metadata Sync
 
 1. **Navigate to Automations**: Click on 'Govern' > 'Automations' in the navigation bar.
 
@@ -62,18 +79,28 @@ GRANT APPLY TAG ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DAT
   <img width="20%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automations-nav-link.png"/>
 </p>
 
-2. **Create An Automation**: Click on 'Create' and select 'Snowflake Tag Propagation'.
+2. **Create An Automation**: Click on 'Create' and select 'Snowflake Metadata Sync'.
 
 <p align="center">
-  <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/automation-type.png"/>
+  <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-metadata-sync/automation-type.png"/>
 </p>
 
 3. **Configure Automation**: Fill in the required fields to connect to Snowflake, along with the name, description, and category.
-   Note that you can limit propagation based on specific Tags and Glossary Terms. If none are selected, then ALL Tags or Glossary Terms will be automatically
-   propagated to Snowflake tables and columns. Finally, click 'Save and Run' to start the automation
+
+   **Authentication Options:**
+
+   - **Username/Password**: Traditional authentication using Snowflake username and password
+   - **Private Key**: Key pair authentication using RSA private key (more secure for automated processes)
+
+   **Sync Options:**
+
+   - **Tags & Terms**: You can limit propagation based on specific Tags and Glossary Terms. If none are selected, then ALL Tags or Glossary Terms will be automatically propagated to Snowflake tables and columns.
+   - **Descriptions**: Enable description sync to automatically update Snowflake table and column comments with DataHub descriptions.
+
+   Finally, click 'Save and Run' to start the automation
 
 <p align="center">
-  <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/automation-form.png"/>
+  <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-metadata-sync/automation-form.png"/>
 </p>
 
 ## Propagating for Existing Assets
@@ -102,10 +129,18 @@ The back-filling of tags will be available in a future release.
 
 :::
 
-## Viewing Propagated Tags
+## Viewing Synced Metadata
 
-You can view propagated Tags (and corresponding DataHub URNs) inside the Snowflake UI to confirm the automation is working as expected.
+You can view propagated Tags, Terms, and updated Comments (and corresponding DataHub URNs) inside the Snowflake UI to confirm the automation is working as expected.
+
+### Tags and Terms
+
+Tags and glossary terms will appear as Snowflake tags on your tables and columns:
+
+### Descriptions
+
+DataHub descriptions will be synced as Snowflake comments on tables and columns, visible in the Snowflake UI and accessible via `SHOW TABLES` and `DESCRIBE TABLE` commands.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/view-snowflake-tags.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-metadata-sync/view-snowflake-tags.png"/>
 </p>

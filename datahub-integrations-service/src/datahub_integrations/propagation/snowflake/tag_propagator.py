@@ -15,6 +15,11 @@ from datahub_integrations.propagation.propagation_utils import SelectedAsset
 from datahub_integrations.propagation.snowflake.config import (
     SnowflakeConnectionConfigPermissive,
 )
+from datahub_integrations.propagation.snowflake.description_sync_action import (
+    DescriptionSyncAction,
+    DescriptionSyncConfig,
+    SnowflakeDescriptionSyncDirective,
+)
 from datahub_integrations.propagation.snowflake.util import (
     SnowflakeTagHelper,
     is_snowflake_urn,
@@ -37,6 +42,7 @@ class SnowflakeTagPropagatorConfig(AutomationActionConfig):
     snowflake: SnowflakeConnectionConfigPermissive
     tag_propagation: Optional[TagPropagationConfig] = None
     term_propagation: Optional[TermPropagationConfig] = None
+    description_sync: Optional[DescriptionSyncConfig] = None
 
 
 class SnowflakeTagPropagatorAction(ExtendedAction[SelectedAsset]):
@@ -51,6 +57,7 @@ class SnowflakeTagPropagatorAction(ExtendedAction[SelectedAsset]):
         logger.info("[Config] Snowflake tag sync enabled")
         self.tag_propagator = None
         self.term_propagator = None
+        self.description_sync_action = None
 
         if (
             self.config.tag_propagation is not None
@@ -69,6 +76,21 @@ class SnowflakeTagPropagatorAction(ExtendedAction[SelectedAsset]):
             logger.info("[Config] Will propagate Glossary Terms")
             self.term_propagator = TermPropagationAction(
                 self.config.term_propagation, ctx
+            )
+
+        if (
+            self.config.description_sync is not None
+            and self.config.description_sync.enabled
+        ):
+            logger.info("[Config] Will sync descriptions as comments")
+            if self.config.description_sync.table_description_sync_enabled:
+                logger.info("[Config] Will sync Table Descriptions")
+            if self.config.description_sync.column_description_sync_enabled:
+                logger.info("[Config] Will sync Column Descriptions")
+            self.description_sync_action = DescriptionSyncAction(
+                config=self.config.description_sync,
+                ctx=ctx,
+                snowflake_helper=self.snowflake_tag_helper,
             )
 
     def close(self) -> None:
@@ -105,26 +127,37 @@ class SnowflakeTagPropagatorAction(ExtendedAction[SelectedAsset]):
     #         #     self.process_directive(tag_propagation_directive)
 
     def process_directive(
-        self, directive: Union[TermPropagationDirective, TagPropagationDirective]
+        self,
+        directive: Union[
+            TermPropagationDirective,
+            TagPropagationDirective,
+            SnowflakeDescriptionSyncDirective,
+        ],
     ) -> None:
-        entity_to_apply = directive.entity
-        tag_to_apply = (
-            directive.tag
-            if isinstance(directive, TagPropagationDirective)
-            else directive.term
-        )
-        logger.debug(
-            f"Will {directive.operation.lower()} {tag_to_apply} on Snowflake {entity_to_apply}"
-        )
-
-        if directive.operation == "ADD":
-            self.snowflake_tag_helper.apply_tag_or_term(
-                entity_to_apply, tag_to_apply, self.ctx.graph
-            )
+        if isinstance(directive, SnowflakeDescriptionSyncDirective):
+            # Handle description sync directive
+            if self.description_sync_action:
+                self.description_sync_action.process_directive(directive)
         else:
-            self.snowflake_tag_helper.remove_tag_or_term(
-                entity_to_apply, tag_to_apply, self.ctx.graph
+            # Handle tag/term propagation directives
+            entity_to_apply = directive.entity
+            tag_to_apply = (
+                directive.tag
+                if isinstance(directive, TagPropagationDirective)
+                else directive.term
             )
+            logger.debug(
+                f"Will {directive.operation.lower()} {tag_to_apply} on Snowflake {entity_to_apply}"
+            )
+
+            if directive.operation == "ADD":
+                self.snowflake_tag_helper.apply_tag_or_term(
+                    entity_to_apply, tag_to_apply, self.ctx.graph
+                )
+            else:
+                self.snowflake_tag_helper.remove_tag_or_term(
+                    entity_to_apply, tag_to_apply, self.ctx.graph
+                )
 
     def act(self, event: EventEnvelope) -> None:
         if not self._stats.event_processing_stats:
@@ -139,7 +172,10 @@ class SnowflakeTagPropagatorAction(ExtendedAction[SelectedAsset]):
                 if not is_snowflake_urn(semantic_event.entityUrn):
                     return
                 propagation_directive: Union[
-                    TermPropagationDirective, TagPropagationDirective, None
+                    TermPropagationDirective,
+                    TagPropagationDirective,
+                    SnowflakeDescriptionSyncDirective,
+                    None,
                 ] = None
                 if self.tag_propagator is not None:
                     propagation_directive = self.tag_propagator.should_propagate(
@@ -148,6 +184,14 @@ class SnowflakeTagPropagatorAction(ExtendedAction[SelectedAsset]):
                 if self.term_propagator is not None and propagation_directive is None:
                     propagation_directive = self.term_propagator.should_propagate(
                         event=event
+                    )
+
+                if (
+                    self.description_sync_action is not None
+                    and propagation_directive is None
+                ):
+                    propagation_directive = (
+                        self.description_sync_action.should_propagate(event=event)
                     )
 
                 if (

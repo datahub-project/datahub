@@ -22,8 +22,11 @@ class SnowflakeConnection(_FrozenConnectionModel):
     account: str
     warehouse: str
     user: str
-    password: str
-    role: Optional[str]
+    password: Optional[str] = None
+    role: Optional[str] = None
+    authentication_type: str = "DEFAULT_AUTHENTICATOR"
+    private_key: Optional[str] = None
+    private_key_password: Optional[str] = None
 
     @classmethod
     def from_datahub(cls, graph: DataHubGraph) -> "SnowflakeConnection":

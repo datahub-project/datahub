@@ -89,12 +89,52 @@ export const SNOWFLAKE_SCHEMA = {
     required: false,
 };
 
+export const SNOWFLAKE_AUTHENTICATION_TYPE = {
+    name: 'authentication_type',
+    label: 'Authentication Type',
+    tooltip: 'The type of authenticator to use when connecting to Snowflake.',
+    type: FieldType.SELECT,
+    fieldPath: 'source.config.authentication_type',
+    placeholder: 'DEFAULT_AUTHENTICATOR',
+    options: [
+        { label: 'Username/Password', value: 'DEFAULT_AUTHENTICATOR' },
+        { label: 'Private Key', value: 'KEY_PAIR_AUTHENTICATOR' },
+    ],
+    rules: null,
+    required: true,
+};
+
+export const SNOWFLAKE_PRIVATE_KEY = {
+    name: 'private_key',
+    label: 'Private Key',
+    tooltip: 'Private key in PEM format for key pair authentication. Should start with -----BEGIN PRIVATE KEY-----',
+    type: FieldType.SECRET,
+    fieldPath: 'source.config.private_key',
+    placeholder: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
+    rules: null,
+    required: false,
+};
+
+export const SNOWFLAKE_PRIVATE_KEY_PASSWORD = {
+    name: 'private_key_password',
+    label: 'Private Key Password',
+    tooltip: 'Password for your private key. Required if using key pair authentication with encrypted private key.',
+    type: FieldType.SECRET,
+    fieldPath: 'source.config.private_key_password',
+    placeholder: 'Private key password (if encrypted)',
+    rules: null,
+    required: false,
+};
+
 export const fields = [
     SNOWFLAKE_CONNECTION_NAME,
     SNOWFLAKE_ACCOUNT_ID,
     SNOWFLAKE_WAREHOUSE,
     SNOWFLAKE_USERNAME,
+    SNOWFLAKE_AUTHENTICATION_TYPE,
     SNOWFLAKE_PASSWORD,
+    SNOWFLAKE_PRIVATE_KEY,
+    SNOWFLAKE_PRIVATE_KEY_PASSWORD,
     SNOWFLAKE_ROLE,
     // SNOWFLAKE_DATABASE, - Not yet supported on backend.
     // SNOWFLAKE_SCHEMA, - Not yet supported on backend.
