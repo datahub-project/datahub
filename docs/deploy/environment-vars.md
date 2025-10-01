@@ -868,6 +868,47 @@ The following environment variables are used in the codebase but may not be expl
 | `ENABLE_PUBLIC_READ`    | `false`             | Enable public read for Iceberg catalog    | GMS        |
 | `PUBLICLY_READABLE_TAG` | `PUBLICLY_READABLE` | Publicly readable tag for Iceberg catalog | GMS        |
 
+## Change Data Capture (CDC) Configuration
+
+Reference Links:
+
+- **MCP/MCL Documentation**: [MCP & MCL Events](../advanced/mcp-mcl.md)
+- **CDC Configuration Guide**: [Configure CDC Mode](../how/configure-cdc.md)
+
+DataHub supports CDC mode for MetadataChangeLog generation, which guarantees ordered MCL events matching the order of database writes. CDC mode is optional and disabled by default.
+
+### CDC Processing (Common)
+
+| Environment Variable                | Default                          | Description                                                          | Components                       |
+| ----------------------------------- | -------------------------------- | -------------------------------------------------------------------- | -------------------------------- |
+| `CDC_MCL_PROCESSING_ENABLED`        | `false`                          | Enable CDC mode for MCL generation                                   | GMS, MCE Consumer, System Update |
+| `CDC_CONFIGURE_SOURCE`              | `false`                          | Auto-configure Debezium connector (recommended false for production) | System Update                    |
+| `CDC_DB_TYPE`                       | `mysql`                          | Database type for CDC (mysql or postgres)                            | System Update                    |
+| `DATAHUB_CDC_CONNECTOR_NAME`        | `datahub-cdc-connector`          | Name of the Debezium connector                                       | System Update                    |
+| `CDC_KAFKA_CONNECT_URL`             | `http://kafka-connect:8083`      | Kafka Connect REST API URL                                           | System Update                    |
+| `CDC_KAFKA_CONNECT_REQUEST_TIMEOUT` | `10000`                          | Request timeout for Kafka Connect API calls in milliseconds          | System Update                    |
+| `CDC_USER`                          | `datahub_cdc`                    | Database username for CDC connector                                  | System Update                    |
+| `CDC_PASSWORD`                      | `datahub_cdc`                    | Database password for CDC connector                                  | System Update                    |
+| `CDC_TOPIC_NAME`                    | `datahub.metadata_aspect_v2`     | Kafka topic name for CDC events                                      | GMS, MCE Consumer, System Update |
+| `CDC_URN_KEY_SPEC`                  | `datahub.metadata_aspect_v2:urn` | Partitioning key specification (table:column format)                 | System Update                    |
+
+### CDC MySQL Configuration
+
+| Environment Variable       | Default                                      | Description                              | Components    |
+| -------------------------- | -------------------------------------------- | ---------------------------------------- | ------------- |
+| `DEBEZIUM_CONNECTOR_CLASS` | `io.debezium.connector.mysql.MySqlConnector` | Debezium connector class for MySQL       | System Update |
+| `DEBEZIUM_PLUGIN_NAME`     | `decoderbufs`                                | Logical decoding plugin for MySQL        | System Update |
+| `CDC_SERVER_ID`            | `184001`                                     | Unique server ID for MySQL CDC connector | System Update |
+
+### CDC PostgreSQL Configuration
+
+| Environment Variable       | Default                                              | Description                             | Components    |
+| -------------------------- | ---------------------------------------------------- | --------------------------------------- | ------------- |
+| `DEBEZIUM_CONNECTOR_CLASS` | `io.debezium.connector.postgresql.PostgresConnector` | Debezium connector class for PostgreSQL | System Update |
+| `DEBEZIUM_PLUGIN_NAME`     | `pgoutput`                                           | PostgreSQL logical decoding plugin      | System Update |
+| `CDC_INCLUDE_TABLE`        | `public.metadata_aspect_v2`                          | Tables to include in CDC capture        | System Update |
+| `CDC_INCLUDE_SCHEMA`       | `public`                                             | Schemas to include in CDC capture       | System Update |
+
 ## Component Configuration
 
 | Variable               | Default | Description                                                                               | Components        |
