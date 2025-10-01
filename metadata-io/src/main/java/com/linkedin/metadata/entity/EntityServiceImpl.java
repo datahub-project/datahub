@@ -2881,11 +2881,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       if (hardDelete) {
                         // If this is the key aspect, delete the entity entirely.
                         // If Using CDCs, need to ensure key aspect is the deleted last.
-                        if (cdcModeChangeLog) {
-                          additionalRowsDeleted = aspectDao.deleteUrn(txContext, urn, aspectName);
-                        } else {
-                          additionalRowsDeleted = aspectDao.deleteUrn(txContext, urn);
-                        }
+                        additionalRowsDeleted = aspectDao.deleteUrn(opContext, txContext, urn);
                       } else if (deleteItem
                           .getEntitySpec()
                           .hasAspect(Constants.STATUS_ASPECT_NAME)) {

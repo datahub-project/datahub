@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.entity.AspectDao;
@@ -418,24 +419,45 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public int deleteUrn(@Nullable TransactionContext txContext, @Nonnull final String urn) {
+  public int deleteUrn(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn) {
     validateConnection();
-    SimpleStatement ss =
+
+    Urn urnObj = UrnUtils.getUrn(urn);
+    String keyAspectName = opContext.getKeyAspectName(urnObj);
+
+    // First, delete all non-key aspects
+    SimpleStatement deleteNonKeyAspects =
         deleteFrom(CassandraAspect.TABLE_NAME)
             .whereColumn(CassandraAspect.URN_COLUMN)
             .isEqualTo(literal(urn))
+            .whereColumn(CassandraAspect.ASPECT_COLUMN)
+            .isNotEqualTo(literal(keyAspectName))
             .build();
-    ResultSet rs = _cqlSession.execute(ss);
+    ResultSet nonKeyResult = _cqlSession.execute(deleteNonKeyAspects);
+
+    // Then, delete the key aspect
+    SimpleStatement deleteKeyAspect =
+        deleteFrom(CassandraAspect.TABLE_NAME)
+            .whereColumn(CassandraAspect.URN_COLUMN)
+            .isEqualTo(literal(urn))
+            .whereColumn(CassandraAspect.ASPECT_COLUMN)
+            .isEqualTo(literal(keyAspectName))
+            .build();
+    ResultSet keyResult = _cqlSession.execute(deleteKeyAspect);
+
     // TODO: look into how to get around this for counts in Cassandra
     // https://stackoverflow.com/questions/28611459/how-to-know-affected-rows-in-cassandracql
-    return rs.getExecutionInfo().getErrors().size() == 0 ? -1 : 0;
-  }
+    // Check for errors in both operations
+    if (nonKeyResult.getExecutionInfo().getErrors().size() > 0
+        || keyResult.getExecutionInfo().getErrors().size() > 0) {
+      log.error("Failed to delete URN {} - errors in execution", urn);
+      return 0;
+    }
 
-  @Override
-  public int deleteUrn(
-      @Nullable TransactionContext txContext, @Nonnull String urn, @Nonnull String keyAspect) {
-    throw new UnsupportedOperationException(
-        "This method is required for CDC mode only, not supported for Cassandra");
+    return -1;
   }
 
   public List<EntityAspect> getAllAspects(String urn, String aspectName) {
