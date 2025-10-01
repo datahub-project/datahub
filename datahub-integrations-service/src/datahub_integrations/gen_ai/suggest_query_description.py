@@ -3,17 +3,17 @@ import dataclasses
 from datahub.ingestion.graph.client import DataHubGraph
 from loguru import logger
 
-from datahub_integrations.gen_ai.bedrock import (
-    BedrockModel,
-    call_bedrock_llm,
-    get_bedrock_model_env_variable,
-)
 from datahub_integrations.gen_ai.description_v3 import (
     get_extra_documentation_instructions,
 )
+from datahub_integrations.gen_ai.litellm import (
+    LiteLLM,
+    LiteLLMModel,
+    get_litellm_model_env_variable,
+)
 
-QUERY_DESCRIPTION_GENERATION_MODEL: BedrockModel | str = get_bedrock_model_env_variable(
-    "QUERY_DESCRIPTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_35_SONNET
+QUERY_DESCRIPTION_GENERATION_MODEL: LiteLLMModel | str = get_litellm_model_env_variable(
+    "QUERY_DESCRIPTION_GENERATION_BEDROCK_MODEL", LiteLLMModel.CLAUDE_35_SONNET
 )
 
 
@@ -94,11 +94,11 @@ Additional Requirements:
 </query>
 """
 
-    description = call_bedrock_llm(
-        model=QUERY_DESCRIPTION_GENERATION_MODEL,
-        max_tokens=500,
-        prompt=base_prompt,
+    litellm = LiteLLM(
+        model=QUERY_DESCRIPTION_GENERATION_MODEL, max_tokens=500, temperature=0.3
     )
+
+    description = litellm.call_lite_llm(prompt=base_prompt)
 
     return description
 

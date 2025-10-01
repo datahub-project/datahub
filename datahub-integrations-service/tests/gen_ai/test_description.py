@@ -247,7 +247,7 @@ def mock_graph_client() -> DataHubGraph:
 
 
 @pytest.fixture
-def mock_bedrock_responses() -> List[str]:
+def mock_litellm_responses() -> List[str]:
     # Sequence is important here.
     return [
         """### table name
@@ -265,15 +265,15 @@ def mock_bedrock_responses() -> List[str]:
 
 
 def test_generate_entity_descriptions_for_urn(
-    mock_graph_client: DataHubGraph, mock_bedrock_responses: List[str]
+    mock_graph_client: DataHubGraph, mock_litellm_responses: List[str]
 ) -> None:
     mock_client = mock_graph_client
 
     with patch(
-        "datahub_integrations.gen_ai.description_v3.call_bedrock_llm"
-    ) as mock_call_bedrock_llm:
-        # Set up the mock for call_bedrock_llm
-        mock_call_bedrock_llm.side_effect = mock_bedrock_responses
+        "datahub_integrations.gen_ai.litellm.LiteLLM.call_lite_llm"
+    ) as mock_call_litellm:
+        # Set up the mock for call_lite_llm
+        mock_call_litellm.side_effect = mock_litellm_responses
 
         # Call the function
         result = generate_entity_descriptions_for_urn(mock_client, TEST_URN)
@@ -293,13 +293,11 @@ def test_generate_entity_descriptions_for_urn(
             "[version=2.0].[type=string].address": "Address field",
         }
 
-        # Verify that call_bedrock_llm was called with the correct parameters
-        mock_call_bedrock_llm.assert_called()
-        assert mock_call_bedrock_llm.call_count == 2
-        call1 = mock_call_bedrock_llm.call_args_list[0]
-        call2 = mock_call_bedrock_llm.call_args_list[1]
-
-        assert call1[1]["max_tokens"] == 4096  # max_tokens
+        # Verify that call_litellm_llm was called with the correct parameters
+        mock_call_litellm.assert_called()
+        assert mock_call_litellm.call_count == 2
+        call1 = mock_call_litellm.call_args_list[0]
+        call2 = mock_call_litellm.call_args_list[1]
 
         # Verify that the extracted_entity_info is correct
         check_graph_to_info_class_mapping(result)
