@@ -60,7 +60,7 @@ const meta = {
         type: EntityType.Dataset,
         name: 'Entity name',
         nameHighlight: { text: 'name', color: colors.yellow[200] },
-        platformIcons: ['./assets/platforms/snowflakelogo.png', './assets/platforms/dbtlogo.png'],
+        platformIcons: ['assets/platforms/snowflakelogo.png', 'assets/platforms/dbtlogo.png'],
         properties: {
             type: EntityType.Dataset,
             subTypes: { typeNames: ['View'] },

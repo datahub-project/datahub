@@ -24,4 +24,12 @@
             </class>
         </classes>
     </test>
+
+    <!-- Additional test execution for EbeanEntityServiceTest with CDC mode -->
+    <test name="ebean-entity-service-cdc">
+        <parameter name="cdcMode" value="true"/>
+        <classes>
+            <class name="com.linkedin.metadata.entity.EbeanEntityServiceTest"/>
+        </classes>
+    </test>
 </suite>

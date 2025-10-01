@@ -7,6 +7,7 @@ import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
@@ -259,13 +260,34 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public int deleteUrn(@Nullable TransactionContext txContext, @Nonnull final String urn) {
+  public int deleteUrn(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn) {
     validateConnection();
-    return server
-        .createQuery(EbeanAspectV2.class)
-        .where()
-        .eq(EbeanAspectV2.URN_COLUMN, urn)
-        .delete();
+
+    Urn urnObj = UrnUtils.getUrn(urn);
+    String keyAspectName = opContext.getKeyAspectName(urnObj);
+
+    // First, delete all non-key aspects
+    int nonKeyCount =
+        server
+            .createQuery(EbeanAspectV2.class)
+            .where()
+            .eq(EbeanAspectV2.URN_COLUMN, urn)
+            .ne(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
+            .delete();
+
+    // Then, delete the key aspect
+    int keyCount =
+        server
+            .createQuery(EbeanAspectV2.class)
+            .where()
+            .eq(EbeanAspectV2.URN_COLUMN, urn)
+            .eq(EbeanAspectV2.ASPECT_COLUMN, keyAspectName)
+            .delete();
+
+    return nonKeyCount + keyCount;
   }
 
   @Override

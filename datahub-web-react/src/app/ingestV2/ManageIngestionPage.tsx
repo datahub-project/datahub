@@ -1,6 +1,6 @@
 import { Button, PageTitle, Tabs, Tooltip } from '@components';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useHistory } from 'react-router';
+import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { Tab } from '@components/components/Tabs/Tabs';
@@ -71,6 +71,7 @@ export const ManageIngestionPage = () => {
      */
     const { platformPrivileges, loaded: loadedPlatformPrivileges } = useUserContext();
     const { config, loaded: loadedAppConfig } = useAppConfig();
+    const location = useLocation();
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
     const canManageIngestion = platformPrivileges?.manageIngestion;
     const showIngestionTab = isIngestionEnabled && canManageIngestion;
@@ -93,7 +94,7 @@ export const ManageIngestionPage = () => {
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
         if (loadedAppConfig && loadedPlatformPrivileges && selectedTab === undefined) {
-            const currentPath = window.location.pathname;
+            const currentPath = location.pathname;
 
             // Check if current URL matches any tab URL
             const currentTab = Object.entries(tabUrlMap).find(([, url]) => url === currentPath)?.[0] as TabType;
@@ -118,7 +119,15 @@ export const ManageIngestionPage = () => {
                 history.replace(tabUrlMap[defaultTabType]);
             }
         }
-    }, [loadedAppConfig, loadedPlatformPrivileges, showIngestionTab, showSecretsTab, selectedTab, history]);
+    }, [
+        loadedAppConfig,
+        loadedPlatformPrivileges,
+        showIngestionTab,
+        showSecretsTab,
+        selectedTab,
+        history,
+        location.pathname,
+    ]);
 
     const tabs: Tab[] = [
         showIngestionTab && {
@@ -169,7 +178,7 @@ export const ManageIngestionPage = () => {
         [history],
     );
 
-    const getCurrentUrl = useCallback(() => window.location.pathname, []);
+    const getCurrentUrl = useCallback(() => location.pathname, [location.pathname]);
 
     const handleCreateSource = () => {
         setShowCreateSourceModal(true);

@@ -41,7 +41,7 @@ if [[ ! -z ${HTTP_NON_PROXY_HOSTS:-} ]]; then
   NO_PROXY="-Dhttp.nonProxyHosts='$HTTP_NON_PROXY_HOSTS'"
 fi
 
-# make sure there is no whitespace at the beginning and the end of 
+# make sure there is no whitespace at the beginning and the end of
 # this string
 export JAVA_OPTS="${JAVA_MEMORY_OPTS:-"-Xms512m -Xmx1024m"} \
    -Dhttp.port=$SERVER_PORT \

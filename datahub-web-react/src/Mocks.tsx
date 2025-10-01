@@ -233,7 +233,7 @@ export const dataPlatformInstance = {
         urn: 'urn:li:dataPlatform:clickhouse',
         properties: {
             displayName: 'ClickHouse',
-            logoUrl: '/assets/platforms/clickhouselogo.png',
+            logoUrl: 'assets/platforms/clickhouselogo.png',
         },
     },
 };
@@ -2031,7 +2031,7 @@ export const recommendationModules = [
 ];
 
 /*
-    Define mock data to be returned by Apollo MockProvider. 
+    Define mock data to be returned by Apollo MockProvider.
 */
 export const mocks = [
     {

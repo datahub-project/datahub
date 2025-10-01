@@ -16,7 +16,7 @@ x-datahub-actions-service: &datahub-actions-service
     ACTIONS_EXTRA_PACKAGES: ${ACTIONS_EXTRA_PACKAGES:-}
     ACTIONS_CONFIG: ${ACTIONS_CONFIG:-}
     KAFKA_BOOTSTRAP_SERVER: broker:29092
-    SCHEMA_REGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
+    SCHEMA_REGISTRY_URL: http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH:-}/schema-registry/api/
 
 x-datahub-actions-service-dev: &datahub-actions-service-dev
   <<: *datahub-actions-service
@@ -55,6 +55,20 @@ services:
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
+  datahub-actions-quickstart-consumers-cdc:
+    <<: *datahub-actions-service
+    profiles:
+      - quickstart-consumers-cdc
+    depends_on:
+      datahub-gms-quickstart-consumers-cdc:
+        condition: service_healthy
+  datahub-actions-quickstart-postgres-cdc:
+    <<: *datahub-actions-service
+    profiles:
+      - quickstart-postgres-cdc
+    depends_on:
+      datahub-gms-quickstart-postgres-cdc:
+        condition: service_healthy
   datahub-actions-debug:
     <<: *datahub-actions-service-dev
     profiles:
@@ -77,6 +91,13 @@ services:
     depends_on:
       datahub-gms-debug-postgres:
         condition: service_healthy
+  datahub-actions-debug-postgres-cdc:
+    <<: *datahub-actions-service-dev
+    profiles:
+      - debug-postgres-cdc
+    depends_on:
+      datahub-gms-debug-postgres-cdc:
+        condition: service_healthy
   datahub-actions-debug-cassandra:
     <<: *datahub-actions-service-dev
     profiles:
@@ -90,6 +111,13 @@ services:
       - debug-consumers
     depends_on:
       datahub-gms-debug-consumers:
+        condition: service_healthy
+  datahub-actions-debug-consumers-cdc:
+    <<: *datahub-actions-service-dev
+    profiles:
+      - debug-consumers-cdc
+    depends_on:
+      datahub-gms-debug-consumers-cdc:
         condition: service_healthy
   datahub-actions-debug-neo4j:
     <<: *datahub-actions-service-dev
