@@ -12,6 +12,7 @@ In order to execute this source the user credentials needs the following privile
 For AWS RDS MySQL instances, you can use IAM authentication instead of traditional username/password authentication.
 
 **Prerequisites:**
+
 1. **Enable IAM Database Authentication** on your RDS instance
 2. **Create an IAM database user** in MySQL:
    ```sql
