@@ -104,7 +104,6 @@ import org.opensearch.index.reindex.UpdateByQueryRequest;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.signer.Aws4Signer;
 
-
 /**
  * Implementation of SearchClientShim using the OpenSearch 2.x REST High Level Client. This
  * implementation supports: - OpenSearch 2.x clusters
