@@ -16,6 +16,35 @@ vi.mock('antd', () => ({
         success: vi.fn(),
         loading: vi.fn(() => vi.fn()),
     },
+    Dropdown: ({ children, overlay, menu }: any) => (
+        <div data-testid="antd-dropdown">
+            {children}
+            <div data-testid="antd-dropdown-overlay">
+                {overlay}
+                {menu && menu.items && (
+                    <div data-testid="antd-dropdown-menu">
+                        {menu.items.map((item: any) => (
+                            <div
+                                key={item.key}
+                                data-testid={
+                                    item.key === 'resend-invitation'
+                                        ? 'resend-invitation-menu-item'
+                                        : `menu-item-${item.key}`
+                                }
+                                style={{ opacity: item.disabled ? '0.5' : '1' }}
+                                onClick={item.disabled ? undefined : item.onClick}
+                                onKeyDown={item.disabled ? undefined : item.onClick}
+                                role="button"
+                                tabIndex={0}
+                            >
+                                {item.label || item.title}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    ),
 }));
 
 vi.mock('@app/identity/user/EmailInvitationService');

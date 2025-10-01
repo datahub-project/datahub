@@ -1,5 +1,7 @@
+import { MockedProvider } from '@apollo/client/testing';
 import { act, renderHook } from '@testing-library/react-hooks';
 import { message } from 'antd';
+import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import analytics, { EventType } from '@app/analytics';
@@ -8,7 +10,6 @@ import { useInviteUsersModal } from '@app/identity/user/InviteUsersModal.hooks';
 import { useCreateInviteTokenMutation, useSendUserInvitationsMutation } from '@graphql/mutations.generated';
 import { useGetInviteTokenQuery, useListRolesQuery } from '@graphql/role.generated';
 import { useGetSsoSettingsQuery } from '@graphql/settings.generated';
-import { useGetUserRecommendationsQuery } from '@graphql/user.generated';
 
 // Mock GraphQL hooks
 vi.mock('@graphql/mutations.generated', () => ({
@@ -21,13 +22,13 @@ vi.mock('@graphql/role.generated', () => ({
     useListRolesQuery: vi.fn(),
 }));
 
-vi.mock('@graphql/settings.generated', () => ({
-    useGetSsoSettingsQuery: vi.fn(),
-}));
-
-vi.mock('@graphql/user.generated', () => ({
-    useGetUserRecommendationsQuery: vi.fn(),
-}));
+vi.mock('@graphql/settings.generated', async (importOriginal) => {
+    const actual = (await importOriginal()) as any;
+    return {
+        ...actual,
+        useGetSsoSettingsQuery: vi.fn(),
+    };
+});
 
 // Mock analytics
 vi.mock('@app/analytics', () => ({
@@ -53,7 +54,6 @@ const mockUseGetInviteTokenQuery = vi.mocked(useGetInviteTokenQuery);
 const mockUseCreateInviteTokenMutation = vi.mocked(useCreateInviteTokenMutation);
 const mockUseSendUserInvitationsMutation = vi.mocked(useSendUserInvitationsMutation);
 const mockUseGetSsoSettingsQuery = vi.mocked(useGetSsoSettingsQuery);
-const mockUseGetUserRecommendationsQuery = vi.mocked(useGetUserRecommendationsQuery);
 const mockMessage = vi.mocked(message);
 const mockAnalytics = vi.mocked(analytics);
 
@@ -130,6 +130,15 @@ describe('useInviteUsersModal', () => {
         error: undefined,
     };
 
+    // Apollo provider wrapper for tests
+    const createWrapper = (mocks: any[] = []) => {
+        return ({ children }: { children: React.ReactNode }) => (
+            <MockedProvider mocks={mocks} addTypename={false}>
+                {children}
+            </MockedProvider>
+        );
+    };
+
     beforeEach(() => {
         vi.clearAllMocks();
 
@@ -152,17 +161,13 @@ describe('useInviteUsersModal', () => {
             { loading: false, error: undefined, called: false, client: {} as any, reset: vi.fn() },
         ]);
         mockUseGetSsoSettingsQuery.mockReturnValue(mockSsoSettingsQueryResponseEnabled as any);
-        mockUseGetUserRecommendationsQuery.mockReturnValue({
-            data: { getUserRecommendations: { recommended: [] } },
-            loading: false,
-            error: undefined,
-            refetch: vi.fn(),
-        } as any);
     });
 
     describe('initial state and role loading', () => {
         it('should load roles and set Reader as default', () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), {
+                wrapper: createWrapper(),
+            });
 
             expect(result.current.roles).toEqual(mockRoles);
             expect(result.current.selectedRole?.name).toBe('Reader');
@@ -170,7 +175,7 @@ describe('useInviteUsersModal', () => {
         });
 
         it('should generate invite link with current token when SSO is enabled', () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             expect(result.current.inviteLink).toBe(
                 'https://test.datahub.com/signup?invite_token=test-invite-token-123&redirect_on_sso=true',
@@ -180,7 +185,7 @@ describe('useInviteUsersModal', () => {
         it('should generate invite link without redirect_on_sso when SSO is disabled', () => {
             mockUseGetSsoSettingsQuery.mockReturnValue(mockSsoSettingsQueryResponseDisabled as any);
 
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             expect(result.current.inviteLink).toBe(
                 'https://test.datahub.com/signup?invite_token=test-invite-token-123',
@@ -188,7 +193,7 @@ describe('useInviteUsersModal', () => {
         });
 
         it('should provide role select options for Select component with No Role at the end', () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             expect(result.current.roleSelectOptions).toEqual([
                 { value: 'urn:li:role:reader', label: 'Reader' },
@@ -201,7 +206,7 @@ describe('useInviteUsersModal', () => {
 
     describe('role selection', () => {
         it('should update selected role for invite link', () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             act(() => {
                 result.current.onSelectRole('urn:li:role:admin');
@@ -211,7 +216,7 @@ describe('useInviteUsersModal', () => {
         });
 
         it('should clear selected role when empty string is passed', () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             act(() => {
                 result.current.onSelectRole('');
@@ -221,7 +226,7 @@ describe('useInviteUsersModal', () => {
         });
 
         it('should update email invite role', () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             act(() => {
                 result.current.onSelectEmailInviteRole('urn:li:role:editor');
@@ -231,7 +236,7 @@ describe('useInviteUsersModal', () => {
         });
 
         it('should update email invite role and preserve invited users', () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             act(() => {
                 result.current.onSelectEmailInviteRole('urn:li:role:editor');
@@ -244,7 +249,7 @@ describe('useInviteUsersModal', () => {
 
     describe('email validation', () => {
         it('should show validation error for empty input when trying to send', async () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             await act(async () => {
                 await result.current.handleSendInvitations();
@@ -254,7 +259,7 @@ describe('useInviteUsersModal', () => {
         });
 
         it('should show validation error for invalid email format', async () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             act(() => {
                 result.current.handleEmailInputChange('invalid-email');
@@ -268,7 +273,7 @@ describe('useInviteUsersModal', () => {
         });
 
         it('should show validation error for mixed valid/invalid emails', async () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             act(() => {
                 result.current.handleEmailInputChange('valid@example.com, invalid-email');
@@ -282,7 +287,7 @@ describe('useInviteUsersModal', () => {
         });
 
         it('should clear validation error when user starts typing', () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             // Set an error first
             act(() => {
@@ -304,7 +309,7 @@ describe('useInviteUsersModal', () => {
         });
 
         it('should not send invitations when validation fails', async () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             act(() => {
                 result.current.handleEmailInputChange('invalid-email');
@@ -320,7 +325,7 @@ describe('useInviteUsersModal', () => {
 
     describe('email input and parsing', () => {
         it('should handle comma-separated emails', () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             act(() => {
                 result.current.setEmailInput('user1@example.com, user2@example.com, user3@example.com');
@@ -330,7 +335,7 @@ describe('useInviteUsersModal', () => {
         });
 
         it('should handle whitespace-separated emails', () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             act(() => {
                 result.current.setEmailInput('user1@example.com user2@example.com user3@example.com');
@@ -350,7 +355,7 @@ describe('useInviteUsersModal', () => {
                 },
             });
 
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             await act(async () => {
                 result.current.createInviteToken('urn:li:role:admin');
@@ -380,7 +385,7 @@ describe('useInviteUsersModal', () => {
                 message: errorMessage,
             });
 
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             await act(async () => {
                 result.current.createInviteToken('urn:li:role:admin');
@@ -404,7 +409,7 @@ describe('useInviteUsersModal', () => {
                 },
             });
 
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             act(() => {
                 result.current.setEmailInput('user1@example.com, user2@example.com');
@@ -434,7 +439,7 @@ describe('useInviteUsersModal', () => {
         });
 
         it('should handle empty email input', async () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             await act(async () => {
                 await result.current.handleSendInvitations();
@@ -445,7 +450,7 @@ describe('useInviteUsersModal', () => {
         });
 
         it('should handle invalid email format', async () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             act(() => {
                 result.current.handleEmailInputChange('invalid-email, another-invalid');
@@ -460,7 +465,7 @@ describe('useInviteUsersModal', () => {
         });
 
         it('should show validation error for mixed valid/invalid emails', async () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             act(() => {
                 result.current.handleEmailInputChange('valid@example.com, invalid-email, another@example.com');
@@ -485,7 +490,7 @@ describe('useInviteUsersModal', () => {
                 },
             });
 
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             act(() => {
                 result.current.setEmailInput('user@example.com');
@@ -503,7 +508,7 @@ describe('useInviteUsersModal', () => {
         it('should handle network errors during invitation send', async () => {
             mockSendUserInvitationsMutation.mockRejectedValue(new Error('Network error'));
 
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             act(() => {
                 result.current.setEmailInput('user@example.com');
@@ -527,7 +532,7 @@ describe('useInviteUsersModal', () => {
                 },
             });
 
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             // Set email invite role to undefined (No Role) and set valid email
             act(() => {
@@ -561,7 +566,7 @@ describe('useInviteUsersModal', () => {
                 },
             });
 
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             act(() => {
                 result.current.setEmailInput('user@example.com');
@@ -581,7 +586,7 @@ describe('useInviteUsersModal', () => {
         });
 
         it('should not send invitations on other key presses', () => {
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             const mockEvent = {
                 key: 'Tab',
@@ -605,7 +610,7 @@ describe('useInviteUsersModal', () => {
                 error: undefined,
             } as any);
 
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             expect(result.current.roles).toEqual([]);
             expect(result.current.selectedRole).toBeUndefined();
@@ -618,7 +623,7 @@ describe('useInviteUsersModal', () => {
                 error: new Error('Failed to load roles'),
             } as any);
 
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             expect(result.current.roles).toEqual([]);
         });
@@ -630,7 +635,7 @@ describe('useInviteUsersModal', () => {
                 error: undefined,
             } as any);
 
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             expect(result.current.inviteLink).toBe(
                 'https://test.datahub.com/signup?invite_token=&redirect_on_sso=true',
@@ -645,7 +650,7 @@ describe('useInviteUsersModal', () => {
             } as any);
             mockUseGetSsoSettingsQuery.mockReturnValue(mockSsoSettingsQueryResponseDisabled as any);
 
-            const { result } = renderHook(() => useInviteUsersModal());
+            const { result } = renderHook(() => useInviteUsersModal(), { wrapper: createWrapper() });
 
             expect(result.current.inviteLink).toBe('https://test.datahub.com/signup?invite_token=');
         });

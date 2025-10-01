@@ -1,0 +1,19 @@
+query getAvailablePlatformsForUserRecommendations {
+    searchAcrossEntities(input: { types: [DATASET], query: "*", start: 0, count: 0 }) {
+        facets {
+            field
+            aggregations {
+                value
+                count
+                entity {
+                    urn
+                    ... on DataPlatform {
+                        properties {
+                            displayName
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,6 +1,9 @@
+import * as QueryString from 'query-string';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
 import { useDebounce } from 'react-use';
 
+import { PlatformFilter } from '@app/identity/user/PlatformFilter';
 import {
     EmptyStateContainer,
     EmptyStateWrapper,
@@ -17,15 +20,16 @@ import {
 } from '@app/identity/user/RecommendedUsersTable.components';
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import { BulkActionsWidget } from '@app/identity/user/UserAndGroupList.components';
+import { shouldShowTopUserPill } from '@app/identity/user/UserUtils';
 import { useBulkUserActions } from '@app/identity/user/hooks/useBulkUserActions';
 import { useDismissUserSuggestionMutation } from '@app/identity/user/hooks/useDismissUserSuggestion';
+import { useAvailablePlatforms } from '@app/identity/user/useAvailablePlatforms';
 import { useUserRecommendations } from '@app/identity/user/useUserRecommendations';
 import { PLATFORM_URN_TO_LOGO } from '@app/ingest/source/builder/constants';
 import { Avatar, Button, Heading, Pagination, Pill, SearchBar, Table, Text, Tooltip } from '@src/alchemy-components';
-import { SortingState } from '@src/alchemy-components/components/Table/types';
 import EmptyUsersImage from '@src/images/empty-users.svg?react';
 
-import { CorpUser, DataHubRole, UserUsageSortField } from '@types';
+import { CorpUser, DataHubRole, SearchSortInput, SortOrder } from '@types';
 
 type Props = {
     onInviteUser: (user: CorpUser, role?: DataHubRole, recommendedUsers?: CorpUser[]) => Promise<boolean>;
@@ -121,9 +125,29 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
     );
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
-    const defaultSortField = UserUsageSortField.UsagePercentilePast_30Days;
-    const [sortField, setSortField] = useState<UserUsageSortField>(defaultSortField);
+    const defaultSortInput: SearchSortInput = {
+        sortCriterion: {
+            field: 'userUsageTotalPast30DaysFeature',
+            sortOrder: SortOrder.Descending,
+        },
+    };
     const [userRoles, setUserRoles] = useState<Record<string, DataHubRole>>({});
+
+    const history = useHistory();
+    const location = useLocation();
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+
+    // Platform filter state with URL persistence
+    const getInitialPlatforms = () => {
+        if (Array.isArray(params.platforms)) {
+            return params.platforms as string[];
+        }
+        if (params.platforms) {
+            return [params.platforms as string];
+        }
+        return [];
+    };
+    const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(getInitialPlatforms());
 
     const [dismissUserSuggestion] = useDismissUserSuggestionMutation();
 
@@ -135,25 +159,22 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
     // Default to Reader role, fallback to first role if Reader doesn't exist
     const defaultRole = defaultReaderRole || selectRoleOptions[0];
 
-    // Use server-side filtering, sorting, search, and pagination
+    // Use server-side filtering, sorting, search, and pagination with standard filter structure
     const { recommendedUsers, totalRecommendedUsers, loading, error } = useUserRecommendations({
         limit: pageSize,
         start: (page - 1) * pageSize,
         query: debouncedSearchQuery || undefined,
-        sortBy: sortField,
+        sortInput: defaultSortInput,
+        selectedPlatforms,
     });
+
+    // Get available platforms from all datasets in the system
+    const { platforms: availablePlatforms } = useAvailablePlatforms();
 
     // Reset to page 1 when debounced search query changes
     useEffect(() => {
         setPage(1);
     }, [debouncedSearchQuery]);
-
-    const handleSortColumnChange = ({ sortColumn }: { sortColumn: string; sortOrder: SortingState }) => {
-        if (sortColumn === 'usage') {
-            setSortField(UserUsageSortField.UsagePercentilePast_30Days); // Sort by percentile for top users
-        }
-        setPage(1); // Reset to first page when sorting changes
-    };
 
     const handleChangePage = (newPage: number, newPageSize: number) => {
         if (newPageSize !== pageSize) {
@@ -166,14 +187,23 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
 
     const handleSearchChange = (value: string) => {
         setSearchQuery(value);
-        // Page reset is handled by useEffect when debouncedSearchQuery changes
     };
 
-    // Show "Top User" pill if usage percentile >= 90
-    const shouldShowTopUserPill = (user: CorpUser) => {
-        return Boolean(
-            user.usageFeatures?.userUsagePercentilePast30Days && user.usageFeatures.userUsagePercentilePast30Days >= 90,
-        );
+    const handlePlatformFilterChange = (platforms: string[]) => {
+        setSelectedPlatforms(platforms);
+        setPage(1); // Reset to first page when filter changes
+
+        // Update URL to persist filter state
+        const newParams = { ...params };
+        if (platforms.length === 0) {
+            delete newParams.platforms;
+        } else {
+            newParams.platforms = platforms;
+        }
+
+        const newSearch = QueryString.stringify(newParams, { arrayFormat: 'comma' });
+        const newUrl = `${location.pathname}${newSearch ? `?${newSearch}` : ''}`;
+        history.replace(newUrl);
     };
 
     const handleRoleChange = (userUrn: string, role: DataHubRole | undefined) => {
@@ -244,7 +274,9 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
                         placement="bottom"
                         overlayStyle={{ minWidth: '320px' }}
                     >
-                        <Pill variant="filled" color="blue" label="Top User" />
+                        <span>
+                            <Pill variant="filled" color="gray" label="Top User" />
+                        </span>
                     </Tooltip>
                 ) : null,
         },
@@ -385,6 +417,12 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
                         )}
                     </SearchContainer>
                 </div>
+                <PlatformFilter
+                    selectedPlatforms={selectedPlatforms}
+                    onPlatformChange={handlePlatformFilterChange}
+                    platforms={availablePlatforms}
+                    getPlatformIconUrl={getPlatformIconUrl}
+                />
             </FiltersHeader>
             <RecommendedTableContainer $hasSsoBanner={hasSsoBanner}>
                 {recommendedUsers.length === 0 && !loading ? (
@@ -402,7 +440,6 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
                             isScrollable
                             columns={columns}
                             data={recommendedUsers}
-                            handleSortColumnChange={handleSortColumnChange}
                             rowSelection={{
                                 selectedRowKeys,
                                 onChange: handleRowSelectionChange,

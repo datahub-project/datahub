@@ -16,7 +16,6 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import {
     Avatar,
     Button,
-    Menu,
     Pagination,
     Pill,
     SearchBar,
@@ -26,8 +25,8 @@ import {
     Tooltip,
     colors,
 } from '@src/alchemy-components';
+import { Menu } from '@src/alchemy-components/components/Menu';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
-import { SortingState } from '@src/alchemy-components/components/Table/types';
 
 import { useSendUserInvitationsMutation } from '@graphql/mutations.generated';
 import { CorpUser, CorpUserStatus, DataHubRole, EntityType } from '@types';
@@ -459,7 +458,6 @@ type AllUsersTabProps = {
     sortedFilteredUsers: UserListItem[];
     loading: boolean;
     columns: any[];
-    handleSortColumnChange: ({ sortColumn, sortOrder }: { sortColumn: string; sortOrder: SortingState }) => void;
     page: number;
     pageSize: number;
     totalUsers: number;
@@ -476,7 +474,6 @@ export const AllUsersTab = ({
     sortedFilteredUsers,
     loading,
     columns,
-    handleSortColumnChange,
     page,
     pageSize,
     totalUsers,
@@ -525,13 +522,7 @@ export const AllUsersTab = ({
         <TableContainer $hasSsoBanner={hasSsoBanner}>
             {sortedFilteredUsers.length > 0 ? (
                 <>
-                    <Table
-                        columns={columns}
-                        data={sortedFilteredUsers}
-                        isLoading={loading}
-                        isScrollable
-                        handleSortColumnChange={handleSortColumnChange}
-                    />
+                    <Table columns={columns} data={sortedFilteredUsers} isLoading={loading} isScrollable />
                     <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
                         <Pagination
                             currentPage={page}

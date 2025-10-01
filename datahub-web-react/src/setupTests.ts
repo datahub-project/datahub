@@ -55,3 +55,70 @@ vi.stubGlobal(
         thresholds: [],
     })),
 );
+
+// Global mock for GraphQL settings to provide missing fragments
+vi.mock('@graphql/settings.generated', () => ({
+    // Fragment exports that other generated files need
+    AssetSettingsFieldsFragment: {},
+    AssetSettingsFieldsFragmentDoc: `fragment AssetSettingsFields on AssetSettings {
+        assetSummary {
+            templates {
+                template {
+                    urn
+                    type
+                }
+            }
+        }
+    }`,
+
+    // Mock hooks with default implementations
+    useGetGlobalSettingsQuery: vi.fn(() => ({ data: undefined, loading: false, error: undefined })),
+    useGetUserNotificationSettingsQuery: vi.fn(() => ({ data: undefined, loading: false, error: undefined })),
+    useGetGroupNotificationSettingsQuery: vi.fn(() => ({ data: undefined, loading: false, error: undefined })),
+    useGetSsoSettingsQuery: vi.fn(() => ({ data: undefined, loading: false, error: undefined })),
+    useUpdateUserNotificationSettingsMutation: vi.fn(() => [
+        vi.fn().mockResolvedValue({ data: {} }),
+        { data: undefined, loading: false, error: undefined },
+    ]),
+    useUpdateGroupNotificationSettingsMutation: vi.fn(() => [
+        vi.fn(),
+        { data: undefined, loading: false, error: undefined },
+    ]),
+    useUpdateGlobalIntegrationSettingsMutation: vi.fn(() => [
+        vi.fn(),
+        { data: undefined, loading: false, error: undefined },
+    ]),
+    useUpdateGlobalNotificationSettingsMutation: vi.fn(() => [
+        vi.fn(),
+        { data: undefined, loading: false, error: undefined },
+    ]),
+    useUpdateSsoSettingsMutation: vi.fn(() => [vi.fn(), { data: undefined, loading: false, error: undefined }]),
+    useUpdateAssetSettingsMutation: vi.fn(() => [vi.fn(), { data: undefined, loading: false, error: undefined }]),
+    useUpdateHelpLinkMutation: vi.fn(() => [vi.fn(), { data: undefined, loading: false, error: undefined }]),
+    useUpdateOrganizationDisplayPreferencesMutation: vi.fn(() => [
+        vi.fn(),
+        { data: undefined, loading: false, error: undefined },
+    ]),
+
+    // Document exports - provide valid GraphQL document structures
+    UpdateUserNotificationSettingsDocument: {
+        kind: 'Document',
+        definitions: [
+            {
+                kind: 'OperationDefinition',
+                operation: 'mutation',
+                name: { kind: 'Name', value: 'updateUserNotificationSettings' },
+            },
+        ],
+    },
+    GetGlobalSettingsDocument: {
+        kind: 'Document',
+        definitions: [
+            {
+                kind: 'OperationDefinition',
+                operation: 'query',
+                name: { kind: 'Name', value: 'getGlobalSettings' },
+            },
+        ],
+    },
+}));

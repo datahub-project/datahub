@@ -8,8 +8,7 @@ import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { DataProduct, EntityType } from '@types';
+import { DataProduct, EntityType } from '@src/types.generated';
 
 const DomainLinkContainer = styled(Link)`
     display: inline-block;

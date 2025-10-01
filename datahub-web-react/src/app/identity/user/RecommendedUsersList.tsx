@@ -16,9 +16,11 @@ import {
     UserInfo,
     UserTag,
 } from '@app/identity/user/RecommendedUsersList.components';
+import { TopUserTooltip } from '@app/identity/user/RecommendedUsersTable.components';
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
+import { shouldShowTopUserPill } from '@app/identity/user/UserUtils';
 import { PLATFORM_URN_TO_LOGO } from '@app/ingest/source/builder/constants';
-import { Pill } from '@src/alchemy-components';
+import { Pill, Tooltip } from '@src/alchemy-components';
 
 import { CorpUser, DataHubRole } from '@types';
 
@@ -202,13 +204,6 @@ export default function RecommendedUsersList({
         );
     }
 
-    // Show Top User pill next to email if usage percentile >= 90
-    const shouldShowTopUserPill = (user: CorpUser) => {
-        return Boolean(
-            user.usageFeatures?.userUsagePercentilePast30Days && user.usageFeatures.userUsagePercentilePast30Days >= 90,
-        );
-    };
-
     return (
         <RecommendedUsersContainer>
             {displayUsers.map((user) => {
@@ -220,7 +215,22 @@ export default function RecommendedUsersList({
                                 <UserEmailRow>
                                     <UserEmail size="md">{user.username || user.urn}</UserEmail>
                                     {shouldShowTopUserPill(user) && (
-                                        <Pill size="xs" variant="filled" color="gray" label="Top User" />
+                                        <Tooltip
+                                            title={
+                                                <TopUserTooltip
+                                                    platformCount={
+                                                        user.usageFeatures?.userPlatformUsageTotalsPast30Days?.length ||
+                                                        0
+                                                    }
+                                                />
+                                            }
+                                            placement="bottom"
+                                            overlayStyle={{ minWidth: '320px' }}
+                                        >
+                                            <span>
+                                                <Pill size="xs" variant="filled" color="gray" label="Top User" />
+                                            </span>
+                                        </Tooltip>
                                     )}
                                 </UserEmailRow>
                                 <UserTag>
