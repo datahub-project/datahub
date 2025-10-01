@@ -44,7 +44,7 @@ def wait_for_writes_to_sync(
         time.sleep(1)  # micro-sleep
 
         cmd = (
-            f"docker exec {KAFKA_BROKER_CONTAINER} /bin/kafka-consumer-groups --bootstrap-server {KAFKA_BOOTSTRAP_SERVER} --group '{consumer_group}' --describe | grep -v LAG "
+            f"docker exec {KAFKA_BROKER_CONTAINER} /bin/kafka-consumer-groups --bootstrap-server {KAFKA_BOOTSTRAP_SERVER} --all-groups --describe | grep -E '({consumer_group}|cdc-consumer-job-client)'  "
             + "| awk '{print $6}'"
         )
         try:
