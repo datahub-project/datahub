@@ -1452,6 +1452,140 @@ def test_internal_table_strategy2_fallback_with_old_data():
     print("🎯 SUCCESS: Direct table query fallback works for very old latest data!")
 
 
+def test_internal_table_uses_same_process_as_external_tables():
+    """
+    Test that internal tables with date/timestamp columns now use the same process as external tables.
+
+    This means they should use direct table query to find actual max dates instead of
+    just checking today/yesterday strategic dates.
+    """
+    from datetime import date
+
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    # Create internal table with date partition column
+    internal_table = create_test_table(
+        name="internal_events", partitioned=True, external=False
+    )
+
+    # Table has actual latest data from 2 weeks ago
+    actual_latest_date = date(2024, 11, 1)  # 2 weeks ago
+
+    def mock_execute_query_internal_table(query, job_config, context):
+        """Mock that simulates internal table with old latest data."""
+
+        if "INFORMATION_SCHEMA.PARTITIONS" in query:
+            # INFORMATION_SCHEMA returns no results (common for older partitions)
+            return []
+
+        elif "GROUP BY" in query and "ORDER BY" in query:
+            # Direct table query finds the actual max date from 2 weeks ago
+            from types import SimpleNamespace
+
+            return [
+                SimpleNamespace(
+                    val=actual_latest_date, record_count=12000
+                ),  # Nov 1, 2024
+                SimpleNamespace(
+                    val=date(2024, 10, 31), record_count=11500
+                ),  # Oct 31, 2024
+            ]
+
+        elif "SELECT 1" in query and "LIMIT 1" in query:
+            # Strategic dates (today/yesterday) have NO data - this forces direct table query
+            return []
+
+        return []
+
+    # Test that internal table now uses direct table query for date columns
+    partition_filters = discovery.get_required_partition_filters(
+        internal_table, "test-project", "dataset", mock_execute_query_internal_table
+    )
+
+    # Should successfully find the actual latest data via direct table query
+    assert partition_filters is not None
+    assert len(partition_filters) > 0
+
+    # Should contain the actual latest date from 2 weeks ago (not today/yesterday)
+    filter_str = " ".join(partition_filters)
+    assert "2024-11-01" in filter_str or "20241101" in filter_str
+
+    print(f"✅ Internal table found actual latest data: {partition_filters}")
+    print(
+        "🎯 SUCCESS: Internal tables with date/timestamp columns now use same process as external tables!"
+    )
+
+
+def test_external_vs_internal_table_consistency():
+    """
+    Test that external and internal tables with date columns produce consistent results.
+
+    Both should find the actual latest dates using direct table query.
+    """
+    from datetime import date
+
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    # Same table data, different table types
+    actual_latest_date = date(2024, 10, 15)
+
+    def mock_execute_query_consistent(query, job_config, context):
+        """Mock that returns consistent data for both table types."""
+
+        if "INFORMATION_SCHEMA.PARTITIONS" in query:
+            # Internal tables try INFORMATION_SCHEMA first, but it fails
+            return []
+
+        elif "GROUP BY" in query and "ORDER BY" in query:
+            # Both should use direct table query and find the same data
+            from types import SimpleNamespace
+
+            return [
+                SimpleNamespace(val=actual_latest_date, record_count=8000),
+            ]
+
+        elif "SELECT 1" in query and "LIMIT 1" in query:
+            # Strategic dates fail for both
+            return []
+
+        return []
+
+    # Test external table
+    external_table = create_test_table(
+        name="external_events", partitioned=True, external=True
+    )
+    external_filters = discovery.get_required_partition_filters(
+        external_table, "test-project", "dataset", mock_execute_query_consistent
+    )
+
+    # Test internal table
+    internal_table = create_test_table(
+        name="internal_events", partitioned=True, external=False
+    )
+    internal_filters = discovery.get_required_partition_filters(
+        internal_table, "test-project", "dataset", mock_execute_query_consistent
+    )
+
+    # Both should find the same actual latest date
+    assert external_filters is not None
+    assert internal_filters is not None
+    assert len(external_filters) > 0
+    assert len(internal_filters) > 0
+
+    # Both should contain the same actual latest date
+    external_filter_str = " ".join(external_filters)
+    internal_filter_str = " ".join(internal_filters)
+
+    assert "2024-10-15" in external_filter_str or "20241015" in external_filter_str
+    assert "2024-10-15" in internal_filter_str or "20241015" in internal_filter_str
+
+    print(f"✅ External table filters: {external_filters}")
+    print(f"✅ Internal table filters: {internal_filters}")
+    print("🎯 SUCCESS: External and internal tables now produce consistent results!")
+
+
 # =============================================================================
 # QUERY EXECUTOR COMPREHENSIVE TESTS
 # =============================================================================

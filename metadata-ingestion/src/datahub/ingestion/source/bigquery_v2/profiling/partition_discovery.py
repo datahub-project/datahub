@@ -1316,7 +1316,8 @@ LIMIT 1"""
             table, project, schema, required_columns, execute_query_func
         )
 
-        # Strategy 1: For tables with date-like columns, date types, or date component columns, try strategic dates first
+        # Strategy 1: For tables with date-like columns, date types, or date component columns,
+        # use the same approach as external tables - query directly for actual max dates
         has_date_columns = any(
             self._is_date_like_column(col) for col in required_columns
         )
@@ -1329,94 +1330,124 @@ LIMIT 1"""
         )
 
         if has_date_columns or has_date_types or has_date_components:
-            logger.debug(
-                "Found date-like columns, date types, or date component columns, trying strategic date candidates"
+            # For date/timestamp partitioned tables, use direct table query like external tables
+            # This finds the actual latest dates instead of just checking today/yesterday
+            logger.info(
+                f"Table {table.name} has date/timestamp partition columns. Using direct table query to find actual latest dates (same as external tables)"
             )
-            candidate_dates = self._get_strategic_candidate_dates()
+            actual_partition_values = self._get_partition_info_from_table_query(
+                table, project, schema, required_columns, execute_query_func
+            )
 
-            for test_date, description in candidate_dates:
-                filters = []
-                for col in required_columns:
+            if actual_partition_values:
+                # Convert the result values to filter strings using safe filter creation
+                actual_filters = []
+                for col, val in actual_partition_values.items():
                     try:
-                        col_data_type = column_types.get(col, "")
-
-                        if self._is_date_like_column(col) or self._is_date_type_column(
-                            col_data_type
-                        ):
-                            date_str = test_date.strftime("%Y-%m-%d")
-                            filters.append(self._create_safe_filter(col, date_str))
-                        elif col.lower() == "year":
-                            filters.append(
-                                self._create_safe_filter(col, str(test_date.year))
-                            )
-                        elif col.lower() == "month":
-                            filters.append(
-                                self._create_safe_filter(col, f"{test_date.month:02d}")
-                            )
-                        elif col.lower() == "day":
-                            filters.append(
-                                self._create_safe_filter(col, f"{test_date.day:02d}")
-                            )
-                        else:
-                            # For other non-date columns, use fallback values from config
-                            if col in self.config.profiling.fallback_partition_values:
-                                fallback_val = (
-                                    self.config.profiling.fallback_partition_values[col]
-                                )
-                                filters.append(
-                                    self._create_safe_filter(col, fallback_val)
-                                )
-                            else:
-                                # IS NOT NULL is safe and doesn't need the helper
-                                filters.append(f"`{col}` IS NOT NULL")
+                        filter_expr = self._create_safe_filter(col, val)
+                        actual_filters.append(filter_expr)
                     except ValueError as e:
-                        logger.warning(f"Skipping invalid filter for column {col}: {e}")
-                        # Use IS NOT NULL as fallback for problematic columns
-                        filters.append(f"`{col}` IS NOT NULL")
+                        logger.warning(f"Skipping invalid filter for {col}={val}: {e}")
+                        continue
 
-                # Verify these filters work
-                if self._verify_partition_has_data(
-                    table, project, schema, filters, execute_query_func
-                ):
-                    logger.debug(
-                        f"Found valid date partition for {description}: {test_date.strftime('%Y-%m-%d')}"
-                    )
+                logger.info(
+                    f"Successfully found actual partition values for table {table.name}: {dict(actual_partition_values)}"
+                )
+                logger.info(
+                    f"Generated partition filters from direct table analysis: {actual_filters}"
+                )
+                return actual_filters
+            else:
+                logger.debug(
+                    f"Direct table query failed for {table.name}, falling back to strategic dates"
+                )
 
-                    # Now discover actual values for other partition columns using the valid date
-                    enhanced_filters = (
-                        self._enhance_partition_filters_with_actual_values(
-                            table,
-                            project,
-                            schema,
-                            required_columns,
-                            filters,
-                            execute_query_func,
+        # Fallback: Try strategic dates for non-date columns or when direct query fails
+        # This is mainly for backward compatibility with tables that don't have date/timestamp columns
+        logger.debug(
+            "Falling back to strategic date candidates for non-date columns or when direct query failed"
+        )
+        candidate_dates = self._get_strategic_candidate_dates()
+
+        for test_date, description in candidate_dates:
+            filters = []
+            for col in required_columns:
+                try:
+                    col_data_type = column_types.get(col, "")
+
+                    if self._is_date_like_column(col) or self._is_date_type_column(
+                        col_data_type
+                    ):
+                        date_str = test_date.strftime("%Y-%m-%d")
+                        filters.append(self._create_safe_filter(col, date_str))
+                    elif col.lower() == "year":
+                        filters.append(
+                            self._create_safe_filter(col, str(test_date.year))
                         )
-                    )
-
-                    if enhanced_filters:
-                        logger.info(
-                            f"Enhanced partition filters with actual values for table {table.name}: {len(enhanced_filters)} filters"
+                    elif col.lower() == "month":
+                        filters.append(
+                            self._create_safe_filter(col, f"{test_date.month:02d}")
                         )
-                        return enhanced_filters
+                    elif col.lower() == "day":
+                        filters.append(
+                            self._create_safe_filter(col, f"{test_date.day:02d}")
+                        )
                     else:
-                        logger.debug(
-                            "Failed to enhance filters, using original date-based filters"
-                        )
-                        return filters
+                        # For other non-date columns, use fallback values from config
+                        if col in self.config.profiling.fallback_partition_values:
+                            fallback_val = (
+                                self.config.profiling.fallback_partition_values[col]
+                            )
+                            filters.append(self._create_safe_filter(col, fallback_val))
+                        else:
+                            # IS NOT NULL is safe and doesn't need the helper
+                            filters.append(f"`{col}` IS NOT NULL")
+                except ValueError as e:
+                    logger.warning(f"Skipping invalid filter for column {col}: {e}")
+                    # Use IS NOT NULL as fallback for problematic columns
+                    filters.append(f"`{col}` IS NOT NULL")
+
+            # Verify these filters work
+            if self._verify_partition_has_data(
+                table, project, schema, filters, execute_query_func
+            ):
+                logger.debug(
+                    f"Found valid date partition for {description}: {test_date.strftime('%Y-%m-%d')}"
+                )
+
+                # Now discover actual values for other partition columns using the valid date
+                enhanced_filters = self._enhance_partition_filters_with_actual_values(
+                    table,
+                    project,
+                    schema,
+                    required_columns,
+                    filters,
+                    execute_query_func,
+                )
+
+                if enhanced_filters:
+                    logger.info(
+                        f"Enhanced partition filters with actual values for table {table.name}: {len(enhanced_filters)} filters"
+                    )
+                    return enhanced_filters
                 else:
                     logger.debug(
-                        f"No data found for {description} ({test_date.strftime('%Y-%m-%d')}), trying next candidate..."
+                        "Failed to enhance filters, using original date-based filters"
                     )
+                    return filters
+            else:
+                logger.debug(
+                    f"No data found for {description} ({test_date.strftime('%Y-%m-%d')}), trying next candidate..."
+                )
 
-            logger.debug(
-                f"No data found in any strategic date candidates for table {table.name}"
-            )
+        logger.debug(
+            f"No data found in any strategic date candidates for table {table.name}"
+        )
 
-        # Fallback: Query the table directly to find actual partition values
-        # This finds the real maximum dates and most populated partitions by scanning the table data
+        # Final fallback: Query the table directly to find actual partition values
+        # This is for tables that don't have date/timestamp columns or when all other methods failed
         logger.info(
-            f"Strategic date candidates failed for table {table.name}. Querying table directly to find actual maximum dates and most populated partitions"
+            f"All strategic approaches failed for table {table.name}. Querying table directly as final fallback"
         )
         actual_partition_values = self._get_partition_info_from_table_query(
             table, project, schema, required_columns, execute_query_func
