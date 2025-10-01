@@ -134,11 +134,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
 
         self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
         if config.auth_mode == MySQLAuthMode.IAM:
-            # Enable cleartext plugin required for AWS RDS IAM authentication
-            # Must be set before any pymysql connections are made
-            os.environ["LIBMYSQL_ENABLE_CLEARTEXT_PLUGIN"] = "1"
-
-            # Extract and store hostname/port for reuse
+            #wh Extract and store hostname/port for reuse
             self._rds_iam_hostname, parsed_port = parse_host_port(
                 config.host_port, default_port=3306
             )
