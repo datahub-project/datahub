@@ -1,6 +1,5 @@
 # This import verifies that the dependencies are available.
 import logging
-import os
 from enum import Enum
 from typing import TYPE_CHECKING, Any, List, Optional
 
@@ -134,7 +133,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
 
         self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
         if config.auth_mode == MySQLAuthMode.IAM:
-            #wh Extract and store hostname/port for reuse
+            # wh Extract and store hostname/port for reuse
             self._rds_iam_hostname, parsed_port = parse_host_port(
                 config.host_port, default_port=3306
             )
