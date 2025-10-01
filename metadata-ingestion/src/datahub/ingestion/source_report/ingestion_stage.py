@@ -90,4 +90,3 @@ class IngestionStageContext(AbstractContextManager):
                 stacklevel=2,
             )
         self._report.ingestion_high_stage_seconds[self._high_stage.value] += elapsed
-        return None
