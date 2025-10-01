@@ -349,6 +349,10 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         )
 
     def close(self):
+        # Execute pre-shutdown callbacks first (handled by parent class)
+        super().close()
+
+        # Then perform sink-specific shutdown
         with self.report.main_thread_blocking_timer:
             self.executor.shutdown()
 

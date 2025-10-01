@@ -10,6 +10,7 @@ dependencies {
     implementation 'software.amazon.awssdk:regions'
     implementation 'software.amazon.awssdk:sqs'
     implementation 'software.amazon.awssdk:sts'
+    implementation 'software.amazon.awssdk:s3'
 
     implementation project(':metadata-service:restli-client-api')
     implementation project(':metadata-service:auth-impl')

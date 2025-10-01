@@ -8,7 +8,7 @@ import {
     SectionHeading,
     SectionSecondaryText,
 } from '@app/ingestV2/executions/components/BaseTab';
-import { downloadFile } from '@app/search/utils/csvUtils';
+import { useExecutionLogsDownload } from '@app/ingestV2/executions/utils';
 import { Button, Text, Tooltip } from '@src/alchemy-components';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
@@ -22,9 +22,10 @@ const SectionSubHeader = styled.div`
 
 export const LogsTab = ({ urn, data }: { urn: string; data: GetIngestionExecutionRequestQuery | undefined }) => {
     const output = data?.executionRequest?.result?.report || 'No output found.';
+    const downloadExecutionLogs = useExecutionLogsDownload();
 
     const downloadLogs = () => {
-        downloadFile(output, `exec-${urn}.log`);
+        downloadExecutionLogs(urn, `exec-${urn}.log`, output);
     };
 
     return (

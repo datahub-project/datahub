@@ -1962,10 +1962,14 @@ public class FormServiceTest {
   }
 
   @Test
-  private void testRefreshFormAssignmentSimple() throws Exception {
-    SystemEntityClient mockClient = mockEntityClient(null, null);
+  public void testRefreshFormAssignmentSimple() throws Exception {
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
-    // Verify that a test of the expected format is created.
+    // Setup basic exists mocks
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_ENTITY_URN))).thenReturn(true);
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_FORM_URN))).thenReturn(true);
+
+    // Setup form assignment mock
     DynamicFormAssignment formAssignment =
         new DynamicFormAssignment()
             .setFilter(
@@ -1987,22 +1991,21 @@ public class FormServiceTest {
                                                                 "urn:li:dataPlatform:hive")))
                                                     .setNegated(false))))))));
 
-    EntityResponse entityResponse =
-        new EntityResponse()
-            .setUrn(TEST_FORM_URN)
-            .setEntityName(FORM_ENTITY_NAME)
-            .setAspects(
-                new EnvelopedAspectMap(
-                    ImmutableMap.of(
-                        DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME,
-                        new EnvelopedAspect().setValue(new Aspect(formAssignment.data())))));
-
+    // Mock form assignment response
     when(mockClient.getV2(
             any(OperationContext.class),
             eq(FORM_ENTITY_NAME),
             eq(TEST_FORM_URN),
             eq(ImmutableSet.of(DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME))))
-        .thenReturn(entityResponse);
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(TEST_FORM_URN)
+                .setEntityName(FORM_ENTITY_NAME)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(formAssignment.data()))))));
 
     SearchEntityArray searchEntities = new SearchEntityArray();
     SearchEntity searchEntity = new SearchEntity();
@@ -2010,22 +2013,85 @@ public class FormServiceTest {
     searchEntities.add(searchEntity);
     when(mockClient.scrollAcrossEntities(
             any(OperationContext.class),
-            anyList(),
-            anyString(),
+            eq(
+                ImmutableList.of(
+                    "dataset",
+                    "dataJob",
+                    "dataFlow",
+                    "chart",
+                    "dashboard",
+                    "domain",
+                    "container",
+                    "glossaryTerm",
+                    "glossaryNode",
+                    "mlModel",
+                    "mlModelGroup",
+                    "mlFeatureTable",
+                    "mlFeature",
+                    "mlPrimaryKey",
+                    "dataProduct")),
+            eq("*"),
             nullable(Filter.class),
             nullable(String.class),
-            nullable(String.class),
-            anyList(),
-            anyInt(),
-            anyList(),
+            eq("5m"),
+            eq(List.of()),
+            eq(500),
+            eq(List.of()),
             eq(
                 "{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"NOT\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:hive\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"incompleteForms\",\"queryParts\":[\"incompleteForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":1,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"completedForms\",\"queryParts\":[\"completedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"verifiedForms\",\"queryParts\":[\"verifiedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}")))
         .thenReturn(new ScrollResult().setNumEntities(1).setEntities(searchEntities));
 
+    // Mock the second scrollAcrossEntities call with the OR predicate
+    when(mockClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(
+                ImmutableList.of(
+                    "dataset",
+                    "dataJob",
+                    "dataFlow",
+                    "chart",
+                    "dashboard",
+                    "domain",
+                    "container",
+                    "glossaryTerm",
+                    "glossaryNode",
+                    "mlModel",
+                    "mlModelGroup",
+                    "mlFeatureTable",
+                    "mlFeature",
+                    "mlPrimaryKey",
+                    "dataProduct")),
+            eq("*"),
+            nullable(Filter.class),
+            nullable(String.class),
+            eq("5m"),
+            eq(List.of()),
+            eq(500),
+            eq(List.of()),
+            eq(
+                "{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"AND\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"platform\",\"queryParts\":[\"platform\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:dataPlatform:hive\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}},{\"index\":1,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"NOT\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"incompleteForms\",\"queryParts\":[\"incompleteForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}},{\"index\":2,\"expression\":{\"operatorType\":\"OR\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"NOT\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"operatorType\":\"ANY_EQUALS\",\"operands\":{\"operands\":[{\"index\":0,\"expression\":{\"query\":{\"query\":\"completedForms\",\"queryParts\":[\"completedForms\"]}}},{\"index\":1,\"expression\":{\"values\":[\"urn:li:form:test\"]}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}],\"nameToOperand\":{}}}}")))
+        .thenReturn(new ScrollResult().setNumEntities(0));
+
+    // Mock entity forms response to return empty Forms aspect (no forms currently assigned)
+    // This ensures buildAssignFormChange doesn't return null due to form already being assigned
+    // Be specific to avoid overriding the form mock above
+    when(mockClient.getV2(
+            any(OperationContext.class),
+            eq("dataset"), // Only for dataset entities
+            eq(TEST_ENTITY_URN), // Only for our test entity
+            eq(ImmutableSet.of(FORMS_ASPECT_NAME)))) // Only for Forms aspect
+        .thenReturn(null); // Return null to indicate no Forms aspect exists
+
     FormService formService =
         new FormService(mockClient, Mockito.mock(OpenApiClient.class), new ObjectMapper());
     Thread assignThread = formService.refreshFormAssignment(opContext, TEST_FORM_URN);
-    assignThread.join();
+    if (assignThread != null) {
+      assignThread.join();
+    }
+
+    // Give the background assignment thread time to complete
+    Thread.sleep(1000);
+
     // Verify that we call ingest for assigning this form to the 1 entity
     Mockito.verify(mockClient, Mockito.times(1))
         .batchIngestProposals(any(OperationContext.class), notNull(), eq(true));

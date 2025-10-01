@@ -73,7 +73,8 @@ import org.testng.annotations.Test;
     properties = {
       "platformAnalytics.enabled=false",
       "graphQL.concurrency.separateThreadPool=true",
-      "LINEAGE_DEFAULT_LAST_DAYS_FILTER=30"
+      "LINEAGE_DEFAULT_LAST_DAYS_FILTER=30",
+      "executors.executorRoleArn=",
     })
 public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
 

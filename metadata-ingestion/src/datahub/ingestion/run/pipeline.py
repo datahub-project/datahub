@@ -265,6 +265,11 @@ class Pipeline:
                 with _add_init_error_context("configure transformers"):
                     self._configure_transforms()
 
+                # Register completion callback with sink to handle final reporting
+                self.sink.register_pre_shutdown_callback(
+                    self._notify_reporters_on_ingestion_completion
+                )
+
             # If all of the initialization succeeds, we can preserve the exit stack until the pipeline run.
             # We need to use an exit stack so that if we have an exception during initialization,
             # things that were already initialized are still cleaned up.
@@ -344,8 +349,8 @@ class Pipeline:
         for reporter in self.reporters:
             try:
                 reporter.on_start(ctx=self.ctx)
-            except Exception as e:
-                logger.warning("Reporting failed on start", exc_info=e)
+            except Exception:
+                logger.warning("Reporting failed on start", exc_info=True)
 
     def _warn_old_cli_version(self) -> None:
         """
@@ -407,8 +412,8 @@ class Pipeline:
                     report=self._get_structured_report(),
                     ctx=self.ctx,
                 )
-            except Exception as e:
-                logger.warning("Reporting failed on completion", exc_info=e)
+            except Exception:
+                logger.warning("Reporting failed on completion", exc_info=True)
 
     @classmethod
     def create(
@@ -521,10 +526,10 @@ class Pipeline:
 
                     except (RuntimeError, SystemExit):
                         raise
-                    except Exception as e:
+                    except Exception:
                         logger.error(
                             "Failed to process some records. Continuing.",
-                            exc_info=e,
+                            exc_info=True,
                         )
                         # TODO: Transformer errors should be reported more loudly / as part of the pipeline report.
 
@@ -553,18 +558,15 @@ class Pipeline:
 
                 self.process_commits()
                 self.final_status = PipelineStatus.COMPLETED
-            except (SystemExit, KeyboardInterrupt) as e:
+            except (SystemExit, KeyboardInterrupt):
                 self.final_status = PipelineStatus.CANCELLED
-                logger.error("Caught error", exc_info=e)
+                logger.error("Caught error", exc_info=True)
                 raise
             except Exception as exc:
                 self.final_status = PipelineStatus.ERROR
                 self._handle_uncaught_pipeline_exception(exc)
             finally:
                 clear_global_warnings()
-
-        # This can't be in the finally part because this should happen after context manager exists
-        self._notify_reporters_on_ingestion_completion()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """

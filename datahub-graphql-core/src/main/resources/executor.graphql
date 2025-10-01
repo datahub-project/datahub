@@ -12,6 +12,22 @@ extend type Query {
   ): ListExecutorConfigsResult
 
   cloudLoggingConfigsResolver: CloudLoggingConfigsResolverResult
+
+  """
+  Get a pre-signed URL for downloading execution request artifacts
+  """
+  getExecutionRequestDownloadUrl(
+    input: GetExecutionRequestDownloadUrlInput!
+  ): GetExecutionRequestDownloadUrlResult!
+}
+
+extend type Mutation {
+  """
+  Store an upload location for an execution request
+  """
+  storeExecutionRequestUploadLocation(
+    input: StoreExecutionRequestUploadLocationInput!
+  ): StoreExecutionRequestUploadLocationResult!
 }
 
 """
@@ -139,4 +155,59 @@ type ExecutorConfigs {
   The expiration for this set of credentials
   """
   expiration: String!
+}
+
+"""
+Input arguments for storing execution request upload location
+"""
+input StoreExecutionRequestUploadLocationInput {
+  """
+  The URN of the execution request
+  """
+  executionRequestUrn: String!
+
+  """
+  The upload location where artifacts have been uploaded
+  """
+  location: String!
+}
+
+"""
+Result of storing execution request upload location
+"""
+type StoreExecutionRequestUploadLocationResult {
+  """
+  Whether the operation was successful
+  """
+  success: Boolean!
+}
+
+"""
+Input arguments for getting execution request download URL
+"""
+input GetExecutionRequestDownloadUrlInput {
+  """
+  The URN of the execution request
+  """
+  executionRequestUrn: String!
+
+  """
+  Optional expiration time in seconds (default: 3600 seconds / 1 hour)
+  """
+  expirationSeconds: Int
+}
+
+"""
+Result of getting execution request download URL
+"""
+type GetExecutionRequestDownloadUrlResult {
+  """
+  The pre-signed URL for downloading the artifacts
+  """
+  downloadUrl: String!
+
+  """
+  The expiration time of the URL in seconds from now
+  """
+  expiresIn: Int!
 }

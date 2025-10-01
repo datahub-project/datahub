@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ExecutorConfigs;
 import com.linkedin.datahub.graphql.generated.ListExecutorConfigsInput;
 import com.linkedin.datahub.graphql.generated.ListExecutorConfigsResult;
+import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.executorpool.*;
@@ -35,8 +36,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.services.sts.StsClient;
-import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
-import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
 import software.amazon.awssdk.services.sts.model.Credentials;
 
 @Slf4j
@@ -175,13 +174,11 @@ public class ListExecutorConfigsResolver
               throw new IllegalArgumentException(
                   "STS client is null. Make sure AWS_REGION is configured correctly.");
             }
-            AssumeRoleRequest roleRequest =
-                AssumeRoleRequest.builder()
-                    .roleArn(this._executorConfiguration.executorRoleArn)
-                    .roleSessionName("remote-executor-session")
-                    .build();
-            AssumeRoleResponse roleResponse = _stsClient.assumeRole(roleRequest);
-            Credentials myCreds = roleResponse.credentials();
+            Credentials myCreds =
+                S3Util.assumeRole(
+                    _stsClient,
+                    this._executorConfiguration.executorRoleArn,
+                    "remote-executor-session");
 
             listExecutorConfigs(context, executorIds, myCreds, executorConfigList);
           } catch (Exception e) {

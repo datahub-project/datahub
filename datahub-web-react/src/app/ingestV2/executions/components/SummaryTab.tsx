@@ -8,7 +8,7 @@ import { ScrollableDetailsContainer, SectionBase, SectionHeader } from '@app/ing
 import { StructuredReport, hasSomethingToShow } from '@app/ingestV2/executions/components/reporting/StructuredReport';
 import { EXECUTION_REQUEST_STATUS_SUCCESS } from '@app/ingestV2/executions/constants';
 import { TabType } from '@app/ingestV2/executions/types';
-import { getExecutionRequestSummaryText } from '@app/ingestV2/executions/utils';
+import { getExecutionRequestSummaryText, useExecutionLogsDownload } from '@app/ingestV2/executions/utils';
 import IngestedAssets from '@app/ingestV2/source/IngestedAssets';
 import { getStructuredReport } from '@app/ingestV2/source/utils';
 import { downloadFile } from '@app/search/utils/csvUtils';
@@ -53,9 +53,10 @@ export const SummaryTab = ({
     onTabChange: (tab: TabType) => void;
 }) => {
     const logs = data?.executionRequest?.result?.report || 'No output found.';
+    const downloadExecutionLogs = useExecutionLogsDownload();
 
     const downloadLogs = () => {
-        downloadFile(logs, `exec-${urn}.log`);
+        downloadExecutionLogs(urn, `exec-${urn}.log`, logs);
     };
 
     const structuredReport = result && getStructuredReport(result);

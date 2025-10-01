@@ -884,6 +884,13 @@ type Mutation {
   dismissUserSuggestion(userUrn: String!): Boolean!
 
   """
+  Batch dismiss user suggestions to prevent them from being recommended again
+  """
+  batchDismissUserSuggestions(
+    input: BatchDismissUserSuggestionsInput!
+  ): Boolean!
+
+  """
   Create a post
   """
   createPost(input: CreatePostInput!): Boolean
@@ -13034,6 +13041,16 @@ input BatchAssignRoleInput {
   The urns of the actors to assign the role to
   """
   actors: [String!]!
+}
+
+"""
+Input for batch dismissing user suggestions
+"""
+input BatchDismissUserSuggestionsInput {
+  """
+  List of user URNs to dismiss as suggestions
+  """
+  userUrns: [String!]!
 }
 
 """
