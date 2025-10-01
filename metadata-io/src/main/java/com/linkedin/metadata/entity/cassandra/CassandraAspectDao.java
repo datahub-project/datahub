@@ -427,16 +427,35 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
     Urn urnObj = UrnUtils.getUrn(urn);
     String keyAspectName = opContext.getKeyAspectName(urnObj);
+    String entityType = urnObj.getEntityType();
 
-    // First, delete all non-key aspects
-    SimpleStatement deleteNonKeyAspects =
-        deleteFrom(CassandraAspect.TABLE_NAME)
-            .whereColumn(CassandraAspect.URN_COLUMN)
-            .isEqualTo(literal(urn))
-            .whereColumn(CassandraAspect.ASPECT_COLUMN)
-            .isNotEqualTo(literal(keyAspectName))
-            .build();
-    ResultSet nonKeyResult = _cqlSession.execute(deleteNonKeyAspects);
+    // Get all aspect names for this entity type
+    Set<String> allAspectNames =
+        opContext.getEntityRegistryContext().getEntityAspectNames(entityType);
+
+    // Create list of non-key aspect names
+    List<String> nonKeyAspectNames =
+        allAspectNames.stream()
+            .filter(aspectName -> !aspectName.equals(keyAspectName))
+            .collect(Collectors.toList());
+
+    ResultSet nonKeyResult = null;
+    ResultSet keyResult = null;
+
+    // First, delete all non-key aspects (if any exist)
+    if (!nonKeyAspectNames.isEmpty()) {
+      SimpleStatement deleteNonKeyAspects =
+          deleteFrom(CassandraAspect.TABLE_NAME)
+              .whereColumn(CassandraAspect.URN_COLUMN)
+              .isEqualTo(literal(urn))
+              .whereColumn(CassandraAspect.ASPECT_COLUMN)
+              .in(
+                  nonKeyAspectNames.stream()
+                      .map(QueryBuilder::literal)
+                      .collect(Collectors.toList()))
+              .build();
+      nonKeyResult = _cqlSession.execute(deleteNonKeyAspects);
+    }
 
     // Then, delete the key aspect
     SimpleStatement deleteKeyAspect =
@@ -446,12 +465,12 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             .whereColumn(CassandraAspect.ASPECT_COLUMN)
             .isEqualTo(literal(keyAspectName))
             .build();
-    ResultSet keyResult = _cqlSession.execute(deleteKeyAspect);
+    keyResult = _cqlSession.execute(deleteKeyAspect);
 
     // TODO: look into how to get around this for counts in Cassandra
     // https://stackoverflow.com/questions/28611459/how-to-know-affected-rows-in-cassandracql
     // Check for errors in both operations
-    if (nonKeyResult.getExecutionInfo().getErrors().size() > 0
+    if ((nonKeyResult != null && nonKeyResult.getExecutionInfo().getErrors().size() > 0)
         || keyResult.getExecutionInfo().getErrors().size() > 0) {
       log.error("Failed to delete URN {} - errors in execution", urn);
       return 0;
