@@ -61,6 +61,6 @@ ENV OTEL_EXPORTER_OTLP_MAX_PAYLOAD_SIZE=4194304 \
 
 EXPOSE 8080
 
-HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:8080/health || exit 1
+HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:8080/${DATAHUB_GMS_BASE_PATH}health || exit 1
 
 CMD /datahub/datahub-gms/scripts/start.sh

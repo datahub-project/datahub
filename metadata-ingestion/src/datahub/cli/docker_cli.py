@@ -363,7 +363,7 @@ EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
 ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
 GRAPH_SERVICE_IMPL=elasticsearch
 KAFKA_BOOTSTRAP_SERVER=broker:29092
-KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
+KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH}/schema-registry/api/
 SCHEMA_REGISTRY_TYPE=INTERNAL
 
 ELASTICSEARCH_HOST=search
