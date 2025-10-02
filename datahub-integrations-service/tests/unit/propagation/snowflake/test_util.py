@@ -26,7 +26,7 @@ from datahub_integrations.propagation.snowflake.util import (
 class TestIsSnowflakeUrn:
     """Test the is_snowflake_urn utility function."""
 
-    def test_is_snowflake_urn_dataset_true(self):
+    def test_is_snowflake_urn_dataset_true(self) -> None:
         """Test that Snowflake dataset URN returns True."""
         # Split URN string to comply with line length limits
         urn = (
@@ -38,7 +38,7 @@ class TestIsSnowflakeUrn:
 
         assert result is True
 
-    def test_is_snowflake_urn_schema_field_true(self):
+    def test_is_snowflake_urn_schema_field_true(self) -> None:
         """Test that Snowflake schema field URN returns True."""
         # Split URN string to comply with line length limits
         urn = (
@@ -50,7 +50,7 @@ class TestIsSnowflakeUrn:
 
         assert result is True
 
-    def test_is_snowflake_urn_non_snowflake_false(self):
+    def test_is_snowflake_urn_non_snowflake_false(self) -> None:
         """Test that non-Snowflake URN returns False."""
         urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,PROD)"
 
@@ -58,7 +58,7 @@ class TestIsSnowflakeUrn:
 
         assert result is False
 
-    def test_is_snowflake_urn_invalid_urn_false(self):
+    def test_is_snowflake_urn_invalid_urn_false(self) -> None:
         """Test that invalid URN returns False."""
         urn = "urn:li:corpuser:test_user"
 
@@ -70,7 +70,7 @@ class TestIsSnowflakeUrn:
 class TestSnowflakeTagHelper:
     """Test the SnowflakeTagHelper class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         # Create a mock config
         self.mock_config = Mock(spec=SnowflakeConnectionConfigPermissive)
@@ -86,7 +86,7 @@ class TestSnowflakeTagHelper:
         # Create helper instance
         self.helper = SnowflakeTagHelper(self.mock_config)
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test SnowflakeTagHelper initialization."""
         assert self.helper.config == self.mock_config
         assert self.helper._connection is None
@@ -97,7 +97,7 @@ class TestSnowflakeTagHelper:
     @patch(
         "datahub_integrations.propagation.snowflake.util.snowflake.connector.connect"
     )
-    def test_connection_property_lazy_loading(self, mock_connect):
+    def test_connection_property_lazy_loading(self, mock_connect: Mock) -> None:
         """Test that connection is created lazily."""
         mock_connection = Mock()
         mock_connect.return_value = mock_connection
@@ -114,7 +114,9 @@ class TestSnowflakeTagHelper:
         assert mock_connect.call_count == 1  # Should not be called again
 
     @patch("datahub_integrations.propagation.snowflake.util.SnowflakeCommentManager")
-    def test_comment_manager_property_lazy_loading(self, mock_manager_class):
+    def test_comment_manager_property_lazy_loading(
+        self, mock_manager_class: Mock
+    ) -> None:
         """Test that comment manager is created lazily."""
         mock_manager = Mock()
         mock_manager_class.return_value = mock_manager
@@ -136,7 +138,7 @@ class TestSnowflakeTagHelper:
     @patch(
         "datahub_integrations.propagation.snowflake.util.snowflake.connector.connect"
     )
-    def test_get_native_connection_default_auth(self, mock_connect):
+    def test_get_native_connection_default_auth(self, mock_connect: Mock) -> None:
         """Test getting native connection with default authentication."""
         mock_connection = Mock()
         mock_connect.return_value = mock_connection
@@ -156,7 +158,7 @@ class TestSnowflakeTagHelper:
     @patch(
         "datahub_integrations.propagation.snowflake.util.snowflake.connector.connect"
     )
-    def test_get_native_connection_key_pair_auth(self, mock_connect):
+    def test_get_native_connection_key_pair_auth(self, mock_connect: Mock) -> None:
         """Test getting native connection with key pair authentication."""
         self.mock_config.authentication_type = "KEY_PAIR_AUTHENTICATOR"
         mock_connection = Mock()
@@ -170,7 +172,7 @@ class TestSnowflakeTagHelper:
         assert call_args["authenticator"] == "KEY_PAIR_AUTHENTICATOR"
         assert "password" not in call_args
 
-    def test_get_term_name_from_id_with_name(self):
+    def test_get_term_name_from_id_with_name(self) -> None:
         """Test getting term name when term info has name."""
         mock_graph = Mock(spec=AcrylDataHubGraph)
         mock_term_info = Mock(spec=GlossaryTermInfoClass)
@@ -183,7 +185,7 @@ class TestSnowflakeTagHelper:
 
         assert result == "Test Term Name"
 
-    def test_get_term_name_from_id_without_name(self):
+    def test_get_term_name_from_id_without_name(self) -> None:
         """Test getting term name when term info has no name."""
         mock_graph = Mock(spec=AcrylDataHubGraph)
         mock_graph.graph.get_aspect.return_value = None
@@ -194,7 +196,7 @@ class TestSnowflakeTagHelper:
 
         assert result == "test_term_id"
 
-    def test_get_label_urn_to_tag_with_tag_urn(self):
+    def test_get_label_urn_to_tag_with_tag_urn(self) -> None:
         """Test getting label from tag URN."""
         mock_graph = Mock(spec=AcrylDataHubGraph)
         tag_urn = "urn:li:tag:TestTag"
@@ -203,7 +205,7 @@ class TestSnowflakeTagHelper:
 
         assert result == "TestTag"
 
-    def test_get_label_urn_to_tag_with_term_urn(self):
+    def test_get_label_urn_to_tag_with_term_urn(self) -> None:
         """Test getting label from glossary term URN."""
         mock_graph = Mock(spec=AcrylDataHubGraph)
         term_urn = "urn:li:glossaryTerm:test_term_id"
@@ -215,7 +217,7 @@ class TestSnowflakeTagHelper:
 
             assert result == "Test Term"
 
-    def test_get_label_urn_to_tag_invalid_urn(self):
+    def test_get_label_urn_to_tag_invalid_urn(self) -> None:
         """Test getting label from invalid URN type."""
         mock_graph = Mock(spec=AcrylDataHubGraph)
         invalid_urn = "urn:li:corpuser:test_user"
@@ -223,43 +225,43 @@ class TestSnowflakeTagHelper:
         with pytest.raises(Exception, match="Unexpected label type"):
             SnowflakeTagHelper.get_label_urn_to_tag(invalid_urn, mock_graph)
 
-    def test_has_special_chars_true(self):
+    def test_has_special_chars_true(self) -> None:
         """Test has_special_chars returns True for strings with special characters."""
         assert self.helper.has_special_chars("test-table") is True
         assert self.helper.has_special_chars("test.table") is True
         assert self.helper.has_special_chars("test table") is True
         assert self.helper.has_special_chars("test@table") is True
 
-    def test_has_special_chars_false(self):
+    def test_has_special_chars_false(self) -> None:
         """Test has_special_chars returns False for alphanumeric strings."""
         assert self.helper.has_special_chars("test_table") is False
         assert self.helper.has_special_chars("TestTable123") is False
         assert self.helper.has_special_chars("test123") is False
 
-    def test_should_quote_identifier_special_chars(self):
+    def test_should_quote_identifier_special_chars(self) -> None:
         """Test identifier quoting for special characters."""
         assert self.helper._should_quote_identifier("test-table") is True
         assert self.helper._should_quote_identifier("test.table") is True
         assert self.helper._should_quote_identifier("test table") is True
 
-    def test_should_quote_identifier_reserved_words(self):
+    def test_should_quote_identifier_reserved_words(self) -> None:
         """Test identifier quoting for reserved words."""
         assert self.helper._should_quote_identifier("SELECT") is True
         assert self.helper._should_quote_identifier("table") is True
         assert self.helper._should_quote_identifier("FROM") is True
 
-    def test_should_quote_identifier_starts_with_number(self):
+    def test_should_quote_identifier_starts_with_number(self) -> None:
         """Test identifier quoting for identifiers starting with numbers."""
         assert self.helper._should_quote_identifier("123table") is True
         assert self.helper._should_quote_identifier("9test") is True
 
-    def test_should_quote_identifier_normal_identifier(self):
+    def test_should_quote_identifier_normal_identifier(self) -> None:
         """Test identifier quoting for normal identifiers."""
         assert self.helper._should_quote_identifier("test_table") is False
         assert self.helper._should_quote_identifier("TestTable") is False
         assert self.helper._should_quote_identifier("my_column") is False
 
-    def test_format_identifier_needs_quoting(self):
+    def test_format_identifier_needs_quoting(self) -> None:
         """Test identifier formatting when quoting is needed."""
         result = self.helper._format_identifier("test-table")
         assert result == '"test-table"'
@@ -267,7 +269,7 @@ class TestSnowflakeTagHelper:
         result = self.helper._format_identifier("SELECT")
         assert result == '"SELECT"'
 
-    def test_format_identifier_no_quoting_needed(self):
+    def test_format_identifier_no_quoting_needed(self) -> None:
         """Test identifier formatting when no quoting is needed."""
         result = self.helper._format_identifier("test_table")
         assert result == "test_table"
@@ -275,13 +277,13 @@ class TestSnowflakeTagHelper:
         result = self.helper._format_identifier("MyTable")
         assert result == "MyTable"
 
-    def test_format_identifier_already_quoted(self):
+    def test_format_identifier_already_quoted(self) -> None:
         """Test identifier formatting when already quoted."""
         result = self.helper._format_identifier('"test-table"')
         assert result == '"test-table"'
 
     @patch.object(SnowflakeTagHelper, "get_label_urn_to_tag", return_value="TestTag")
-    def test_apply_tag_or_term_non_snowflake_urn(self, mock_get_label):
+    def test_apply_tag_or_term_non_snowflake_urn(self, mock_get_label: Mock) -> None:
         """Test applying tag to non-Snowflake URN (should return early)."""
         mock_graph = Mock(spec=AcrylDataHubGraph)
         entity_urn = (
@@ -298,8 +300,8 @@ class TestSnowflakeTagHelper:
     @patch.object(SnowflakeTagHelper, "_create_tag")
     @patch.object(SnowflakeTagHelper, "_run_query")
     def test_apply_tag_or_term_dataset_urn(
-        self, mock_run_query, mock_create_tag, mock_get_label
-    ):
+        self, mock_run_query: Mock, mock_create_tag: Mock, mock_get_label: Mock
+    ) -> None:
         """Test applying tag to dataset URN."""
         mock_graph = Mock(spec=AcrylDataHubGraph)
         # Split URN string to comply with line length limits
@@ -324,12 +326,12 @@ class TestSnowflakeTagHelper:
     @patch.object(SnowflakeTagHelper, "_run_query")
     def test_apply_tag_or_term_schema_field_urn(
         self,
-        mock_run_query,
-        mock_find_column,
-        mock_find_table,
-        mock_create_tag,
-        mock_get_label,
-    ):
+        mock_run_query: Mock,
+        mock_find_column: Mock,
+        mock_find_table: Mock,
+        mock_create_tag: Mock,
+        mock_get_label: Mock,
+    ) -> None:
         """Test applying tag to schema field URN."""
         mock_graph = Mock(spec=AcrylDataHubGraph)
         # Split URN string to comply with line length limits
@@ -348,7 +350,7 @@ class TestSnowflakeTagHelper:
         mock_run_query.assert_called_once()
 
     @patch.object(SnowflakeTagHelper, "get_label_urn_to_tag", return_value="TestTag")
-    def test_apply_tag_or_term_invalid_urn(self, mock_get_label):
+    def test_apply_tag_or_term_invalid_urn(self, mock_get_label: Mock) -> None:
         """Test applying tag to invalid URN type."""
         mock_graph = Mock(spec=AcrylDataHubGraph)
         entity_urn = "urn:li:corpuser:test_user"
@@ -357,7 +359,7 @@ class TestSnowflakeTagHelper:
         with pytest.raises(ValueError, match="Invalid entity urn"):
             self.helper.apply_tag_or_term(entity_urn, tag_urn, mock_graph)
 
-    def test_find_table_name_found(self):
+    def test_find_table_name_found(self) -> None:
         """Test finding table name when it exists."""
         mock_columns = {"TEST_TABLE": ["col1", "col2"], "OTHER_TABLE": ["col3"]}
 
@@ -366,7 +368,7 @@ class TestSnowflakeTagHelper:
 
             assert result == "TEST_TABLE"
 
-    def test_find_table_name_not_found(self):
+    def test_find_table_name_not_found(self) -> None:
         """Test finding table name when it doesn't exist."""
         mock_columns = {"OTHER_TABLE": ["col1", "col2"]}
 
@@ -377,7 +379,7 @@ class TestSnowflakeTagHelper:
 
             assert result == "nonexistent_table"
 
-    def test_find_column_name_found(self):
+    def test_find_column_name_found(self) -> None:
         """Test finding column name when it exists."""
         mock_columns = {"test_table": ["TEST_COLUMN", "other_column"]}
 
@@ -388,7 +390,7 @@ class TestSnowflakeTagHelper:
 
             assert result == "TEST_COLUMN"
 
-    def test_find_column_name_not_found(self):
+    def test_find_column_name_not_found(self) -> None:
         """Test finding column name when it doesn't exist."""
         mock_columns = {"test_table": ["other_column"]}
 
@@ -403,8 +405,8 @@ class TestSnowflakeTagHelper:
     @patch.object(SnowflakeTagHelper, "find_table_name", return_value="test_table")
     @patch.object(SnowflakeTagHelper, "_run_query")
     def test_remove_tag_or_term_dataset_urn(
-        self, mock_run_query, mock_find_table, mock_get_label
-    ):
+        self, mock_run_query: Mock, mock_find_table: Mock, mock_get_label: Mock
+    ) -> None:
         """Test removing tag from dataset URN."""
         mock_graph = Mock(spec=AcrylDataHubGraph)
         # Split URN string to comply with line length limits
@@ -422,7 +424,7 @@ class TestSnowflakeTagHelper:
         call_args = mock_run_query.call_args[0]
         assert 'UNSET TAG "TestTag"' in call_args[2]
 
-    def test_create_tag(self):
+    def test_create_tag(self) -> None:
         """Test creating a tag in Snowflake."""
         with patch.object(self.helper, "_run_query") as mock_run_query:
             self.helper._create_tag(
@@ -434,7 +436,7 @@ class TestSnowflakeTagHelper:
             assert 'CREATE TAG IF NOT EXISTS "TestTag"' in call_args[2]
             assert "Replicated Tag urn:li:tag:TestTag from DataHub" in call_args[2]
 
-    def test_get_columns_success(self):
+    def test_get_columns_success(self) -> None:
         """Test successful column retrieval."""
         mock_cursor = Mock()
         mock_cursor.description = [("table_name",), ("column_name",)]
@@ -455,14 +457,14 @@ class TestSnowflakeTagHelper:
             expected = {"test_table": ["col1", "col2"]}
             assert result == expected
 
-    def test_get_columns_too_many_errors(self):
+    def test_get_columns_too_many_errors(self) -> None:
         """Test column retrieval when too many errors occurred."""
         with patch.object(self.helper, "_too_many_errors", return_value=True):
             result = self.helper._get_columns("test_db", "test_schema", "SHOW COLUMNS;")
 
             assert result == {}
 
-    def test_get_columns_exception_handling(self):
+    def test_get_columns_exception_handling(self) -> None:
         """Test column retrieval exception handling."""
         mock_cursor = Mock()
         mock_cursor.execute.side_effect = Exception("Database error")
@@ -480,7 +482,7 @@ class TestSnowflakeTagHelper:
             assert result == {}
             mock_log_error.assert_called_once()
 
-    def test_run_query_success(self):
+    def test_run_query_success(self) -> None:
         """Test successful query execution."""
         mock_cursor = Mock()
         mock_connection = Mock()
@@ -498,14 +500,14 @@ class TestSnowflakeTagHelper:
             assert "USE" in calls[0][0][0]
             assert "SELECT 1;" in calls[1][0][0]
 
-    def test_run_query_too_many_errors(self):
+    def test_run_query_too_many_errors(self) -> None:
         """Test query execution when too many errors occurred."""
         with patch.object(self.helper, "_too_many_errors", return_value=True):
             # Should return early without executing query
             self.helper._run_query("test_db", "test_schema", "SELECT 1;")
             # No assertions needed - just verify no exception is raised
 
-    def test_run_query_programming_error(self):
+    def test_run_query_programming_error(self) -> None:
         """Test query execution with ProgrammingError."""
         mock_cursor = Mock()
         mock_cursor.execute.side_effect = [
@@ -526,7 +528,7 @@ class TestSnowflakeTagHelper:
 
             mock_log_error.assert_called_once()
 
-    def test_run_query_direct_success(self):
+    def test_run_query_direct_success(self) -> None:
         """Test successful direct query execution."""
         mock_cursor = Mock()
         mock_connection = Mock()
@@ -541,7 +543,7 @@ class TestSnowflakeTagHelper:
             # Verify only the query is executed (no USE statement)
             mock_cursor.execute.assert_called_once_with("SELECT 1;")
 
-    def test_cleanup_old_errors(self):
+    def test_cleanup_old_errors(self) -> None:
         """Test cleanup of old error timestamps."""
         now = datetime.now()
         old_error = now - timedelta(hours=2)
@@ -555,7 +557,7 @@ class TestSnowflakeTagHelper:
         assert len(self.helper.error_timestamps) == 1
         assert self.helper.error_timestamps[0] == recent_error
 
-    def test_log_error(self):
+    def test_log_error(self) -> None:
         """Test error logging."""
         initial_count = len(self.helper.error_timestamps)
 
@@ -565,7 +567,7 @@ class TestSnowflakeTagHelper:
             assert len(self.helper.error_timestamps) == initial_count + 1
             mock_cleanup.assert_called_once()
 
-    def test_too_many_errors_false(self):
+    def test_too_many_errors_false(self) -> None:
         """Test too_many_errors returns False when under threshold."""
         # Add fewer errors than threshold
         for _ in range(self.helper.error_threshold - 1):
@@ -576,7 +578,7 @@ class TestSnowflakeTagHelper:
 
             assert result is False
 
-    def test_too_many_errors_true(self):
+    def test_too_many_errors_true(self) -> None:
         """Test too_many_errors returns True when at threshold."""
         # Add errors equal to threshold
         for _ in range(self.helper.error_threshold):
@@ -587,7 +589,7 @@ class TestSnowflakeTagHelper:
 
             assert result is True
 
-    def test_apply_description_delegation(self):
+    def test_apply_description_delegation(self) -> None:
         """Test that apply_description delegates to comment manager."""
         # Split URN string to comply with line length limits
         entity_urn = (
@@ -602,7 +604,7 @@ class TestSnowflakeTagHelper:
                 entity_urn, "Test description", "TABLE"
             )
 
-    def test_close_with_open_connection(self):
+    def test_close_with_open_connection(self) -> None:
         """Test closing helper with open connection."""
         mock_connection = Mock()
         mock_connection.is_closed.return_value = False
@@ -612,7 +614,7 @@ class TestSnowflakeTagHelper:
 
         mock_connection.close.assert_called_once()
 
-    def test_close_with_closed_connection(self):
+    def test_close_with_closed_connection(self) -> None:
         """Test closing helper with already closed connection."""
         mock_connection = Mock()
         mock_connection.is_closed.return_value = True
@@ -622,7 +624,7 @@ class TestSnowflakeTagHelper:
 
         mock_connection.close.assert_not_called()
 
-    def test_close_with_no_connection(self):
+    def test_close_with_no_connection(self) -> None:
         """Test closing helper with no connection."""
         # Should not raise any exception
         self.helper.close()
@@ -631,7 +633,7 @@ class TestSnowflakeTagHelper:
 class TestSnowflakeTagHelperIntegration:
     """Integration tests for SnowflakeTagHelper."""
 
-    def test_end_to_end_tag_application(self):
+    def test_end_to_end_tag_application(self) -> None:
         """Test end-to-end tag application flow."""
         mock_config = Mock(spec=SnowflakeConnectionConfigPermissive)
         helper = SnowflakeTagHelper(mock_config)
@@ -658,7 +660,7 @@ class TestSnowflakeTagHelperIntegration:
             helper._create_tag.assert_called_once()
             helper._run_query.assert_called_once()
 
-    def test_error_rate_limiting_integration(self):
+    def test_error_rate_limiting_integration(self) -> None:
         """Test that error rate limiting works correctly."""
         mock_config = Mock(spec=SnowflakeConnectionConfigPermissive)
         helper = SnowflakeTagHelper(mock_config)

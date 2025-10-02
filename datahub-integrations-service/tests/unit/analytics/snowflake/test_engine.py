@@ -20,7 +20,7 @@ from datahub_integrations.propagation.snowflake.config import (
 class TestSnowflakeAnalyticsEngine:
     """Test the SnowflakeAnalyticsEngine class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.mock_graph = Mock(spec=DataHubGraph)
         self.account = "test_account"
@@ -41,7 +41,7 @@ class TestSnowflakeAnalyticsEngine:
         ):
             self.engine = SnowflakeAnalyticsEngine(self.account, self.mock_graph)
 
-    def test_initialization(self):
+    def test_initialization(self) -> None:
         """Test SnowflakeAnalyticsEngine initialization."""
         assert self.engine.account == self.account
         assert self.engine.graph == self.mock_graph
@@ -49,7 +49,7 @@ class TestSnowflakeAnalyticsEngine:
         assert self.engine._engine is None
 
     @patch("datahub_integrations.analytics.snowflake.engine.create_engine")
-    def test_get_sqlalchemy_engine_lazy_loading(self, mock_create_engine):
+    def test_get_sqlalchemy_engine_lazy_loading(self, mock_create_engine: Mock) -> None:
         """Test that SQLAlchemy engine is created lazily."""
         mock_engine = Mock(spec=Engine)
         mock_create_engine.return_value = mock_engine
@@ -85,7 +85,9 @@ class TestSnowflakeAnalyticsEngine:
             assert mock_create_engine.call_count == 1  # Should not be called again
 
     @patch("datahub_integrations.analytics.snowflake.engine.create_engine")
-    def test_get_sqlalchemy_engine_config_conversion(self, mock_create_engine):
+    def test_get_sqlalchemy_engine_config_conversion(
+        self, mock_create_engine: Mock
+    ) -> None:
         """Test that connection is properly converted to config format."""
         mock_engine = Mock(spec=Engine)
         mock_create_engine.return_value = mock_engine
@@ -115,7 +117,9 @@ class TestSnowflakeAnalyticsEngine:
             assert call_args == expected_config
 
     @patch("datahub_integrations.analytics.snowflake.engine.create_engine")
-    def test_get_sqlalchemy_engine_with_private_key_auth(self, mock_create_engine):
+    def test_get_sqlalchemy_engine_with_private_key_auth(
+        self, mock_create_engine: Mock
+    ) -> None:
         """Test SQLAlchemy engine creation with private key authentication."""
         # Update connection to use private key auth
         self.mock_connection.authentication_type = "KEY_PAIR_AUTHENTICATOR"
@@ -141,7 +145,7 @@ class TestSnowflakeAnalyticsEngine:
             assert call_args["private_key"] == "test_private_key"
             assert call_args["private_key_password"] == "test_key_password"
 
-    def test_execute_query_success(self):
+    def test_execute_query_success(self) -> None:
         """Test successful query execution."""
         mock_engine = Mock(spec=Engine)
         mock_connection = Mock()
@@ -158,7 +162,7 @@ class TestSnowflakeAnalyticsEngine:
             assert result == [("result1",), ("result2",)]
             mock_connection.execute.assert_called_once_with("SELECT * FROM test_table")
 
-    def test_execute_query_exception_handling(self):
+    def test_execute_query_exception_handling(self) -> None:
         """Test query execution exception handling."""
         mock_engine = Mock(spec=Engine)
         mock_connection = Mock()
@@ -171,7 +175,7 @@ class TestSnowflakeAnalyticsEngine:
             with pytest.raises(Exception, match="Database error"):
                 self.engine.execute_query("SELECT * FROM test_table")
 
-    def test_get_tables_success(self):
+    def test_get_tables_success(self) -> None:
         """Test successful table listing."""
         mock_tables = [("table1",), ("table2",), ("table3",)]
 
@@ -186,14 +190,14 @@ class TestSnowflakeAnalyticsEngine:
             assert "test_database" in call_args
             assert "test_schema" in call_args
 
-    def test_get_tables_empty_result(self):
+    def test_get_tables_empty_result(self) -> None:
         """Test table listing with empty result."""
         with patch.object(self.engine, "execute_query", return_value=[]):
             result = self.engine.get_tables("test_database", "test_schema")
 
             assert result == []
 
-    def test_get_columns_success(self):
+    def test_get_columns_success(self) -> None:
         """Test successful column listing."""
         mock_columns = [("col1", "VARCHAR"), ("col2", "INTEGER"), ("col3", "TIMESTAMP")]
 
@@ -217,7 +221,7 @@ class TestSnowflakeAnalyticsEngine:
             assert "test_schema" in call_args
             assert "test_table" in call_args
 
-    def test_get_columns_empty_result(self):
+    def test_get_columns_empty_result(self) -> None:
         """Test column listing with empty result."""
         with patch.object(self.engine, "execute_query", return_value=[]):
             result = self.engine.get_columns(
@@ -226,7 +230,7 @@ class TestSnowflakeAnalyticsEngine:
 
             assert result == []
 
-    def test_test_connection_success(self):
+    def test_test_connection_success(self) -> None:
         """Test successful connection testing."""
         with patch.object(self.engine, "execute_query", return_value=[("1",)]):
             result = self.engine.test_connection()
@@ -234,7 +238,7 @@ class TestSnowflakeAnalyticsEngine:
             assert result is True
             self.engine.execute_query.assert_called_once_with("SELECT 1")
 
-    def test_test_connection_failure(self):
+    def test_test_connection_failure(self) -> None:
         """Test connection testing failure."""
         with patch.object(
             self.engine, "execute_query", side_effect=Exception("Connection failed")
@@ -243,7 +247,7 @@ class TestSnowflakeAnalyticsEngine:
 
             assert result is False
 
-    def test_get_database_names_success(self):
+    def test_get_database_names_success(self) -> None:
         """Test successful database name retrieval."""
         mock_databases = [("db1",), ("db2",), ("db3",)]
 
@@ -253,7 +257,7 @@ class TestSnowflakeAnalyticsEngine:
             assert result == ["db1", "db2", "db3"]
             self.engine.execute_query.assert_called_once_with("SHOW DATABASES")
 
-    def test_get_schema_names_success(self):
+    def test_get_schema_names_success(self) -> None:
         """Test successful schema name retrieval."""
         mock_schemas = [("schema1",), ("schema2",), ("schema3",)]
 
@@ -266,7 +270,7 @@ class TestSnowflakeAnalyticsEngine:
             assert "SHOW SCHEMAS" in call_args
             assert "test_database" in call_args
 
-    def test_execute_ddl_success(self):
+    def test_execute_ddl_success(self) -> None:
         """Test successful DDL execution."""
         ddl_statement = "CREATE TABLE test_table (id INTEGER, name VARCHAR(50))"
 
@@ -276,7 +280,7 @@ class TestSnowflakeAnalyticsEngine:
             assert result is True
             self.engine.execute_query.assert_called_once_with(ddl_statement)
 
-    def test_execute_ddl_failure(self):
+    def test_execute_ddl_failure(self) -> None:
         """Test DDL execution failure."""
         ddl_statement = "CREATE TABLE invalid_syntax"
 
@@ -287,7 +291,7 @@ class TestSnowflakeAnalyticsEngine:
 
             assert result is False
 
-    def test_get_table_row_count_success(self):
+    def test_get_table_row_count_success(self) -> None:
         """Test successful table row count retrieval."""
         with patch.object(self.engine, "execute_query", return_value=[(42,)]):
             result = self.engine.get_table_row_count(
@@ -302,7 +306,7 @@ class TestSnowflakeAnalyticsEngine:
             assert "test_schema" in call_args
             assert "test_table" in call_args
 
-    def test_get_table_row_count_failure(self):
+    def test_get_table_row_count_failure(self) -> None:
         """Test table row count retrieval failure."""
         with patch.object(
             self.engine, "execute_query", side_effect=Exception("Table not found")
@@ -313,7 +317,7 @@ class TestSnowflakeAnalyticsEngine:
 
             assert result is None
 
-    def test_close_engine(self):
+    def test_close_engine(self) -> None:
         """Test engine cleanup."""
         mock_engine = Mock(spec=Engine)
         self.engine._engine = mock_engine
@@ -322,12 +326,12 @@ class TestSnowflakeAnalyticsEngine:
 
         mock_engine.dispose.assert_called_once()
 
-    def test_close_engine_no_engine(self):
+    def test_close_engine_no_engine(self) -> None:
         """Test engine cleanup when no engine exists."""
         # Should not raise any exception
         self.engine.close()
 
-    def test_context_manager_usage(self):
+    def test_context_manager_usage(self) -> None:
         """Test using the engine as a context manager."""
         with patch.object(self.engine, "close") as mock_close:
             with self.engine as engine:
@@ -335,14 +339,14 @@ class TestSnowflakeAnalyticsEngine:
 
             mock_close.assert_called_once()
 
-    def test_repr(self):
+    def test_repr(self) -> None:
         """Test string representation of the engine."""
         result = repr(self.engine)
 
         assert "SnowflakeAnalyticsEngine" in result
         assert "test_account" in result
 
-    def test_str(self):
+    def test_str(self) -> None:
         """Test string conversion of the engine."""
         result = str(self.engine)
 
@@ -353,7 +357,7 @@ class TestSnowflakeAnalyticsEngine:
 class TestSnowflakeAnalyticsEngineIntegration:
     """Integration tests for SnowflakeAnalyticsEngine."""
 
-    def test_end_to_end_query_execution(self):
+    def test_end_to_end_query_execution(self) -> None:
         """Test end-to-end query execution flow."""
         mock_graph = Mock(spec=DataHubGraph)
 
@@ -404,7 +408,7 @@ class TestSnowflakeAnalyticsEngineIntegration:
                 assert result == [("test_result",)]
                 mock_sqlalchemy_connection.execute.assert_called_once_with("SELECT 1")
 
-    def test_connection_failure_handling(self):
+    def test_connection_failure_handling(self) -> None:
         """Test handling of connection failures."""
         mock_graph = Mock(spec=DataHubGraph)
 
@@ -417,7 +421,7 @@ class TestSnowflakeAnalyticsEngineIntegration:
             with pytest.raises(Exception, match="Connection failed"):
                 SnowflakeAnalyticsEngine("test_account", mock_graph)
 
-    def test_multiple_query_execution(self):
+    def test_multiple_query_execution(self) -> None:
         """Test executing multiple queries with the same engine."""
         mock_graph = Mock(spec=DataHubGraph)
 
@@ -456,7 +460,7 @@ class TestSnowflakeAnalyticsEngineIntegration:
                     engine._get_sqlalchemy_engine() is engine._get_sqlalchemy_engine()
                 )
 
-    def test_resource_cleanup_on_exception(self):
+    def test_resource_cleanup_on_exception(self) -> None:
         """Test that resources are properly cleaned up on exceptions."""
         mock_graph = Mock(spec=DataHubGraph)
 

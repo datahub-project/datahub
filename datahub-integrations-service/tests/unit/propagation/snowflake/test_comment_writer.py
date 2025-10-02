@@ -21,7 +21,7 @@ from datahub_integrations.propagation.snowflake.comment_writer import (
 class TestURNParser:
     """Test URN parsing functionality."""
 
-    def test_parse_dataset_urn_success(self):
+    def test_parse_dataset_urn_success(self) -> None:
         """Test successful parsing of dataset URN."""
         dataset_urn = DatasetUrn.create_from_string(
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
@@ -31,7 +31,7 @@ class TestURNParser:
 
         assert result == ("test_db", "test_schema", "test_table")
 
-    def test_parse_dataset_urn_insufficient_parts(self):
+    def test_parse_dataset_urn_insufficient_parts(self) -> None:
         """Test parsing dataset URN with insufficient parts."""
         dataset_urn = DatasetUrn.create_from_string(
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema,PROD)"
@@ -41,7 +41,7 @@ class TestURNParser:
 
         assert result is None
 
-    def test_parse_field_urn_success(self):
+    def test_parse_field_urn_success(self) -> None:
         """Test successful parsing of schema field URN."""
         field_urn = SchemaFieldUrn.create_from_string(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD),test_column)"
@@ -51,7 +51,7 @@ class TestURNParser:
 
         assert result == ("test_db", "test_schema", "test_table", "test_column")
 
-    def test_parse_field_urn_invalid_parent(self):
+    def test_parse_field_urn_invalid_parent(self) -> None:
         """Test parsing field URN with invalid parent."""
         # Create a mock field URN with invalid parent
         field_urn = Mock(spec=SchemaFieldUrn)
@@ -67,7 +67,7 @@ class TestURNParser:
 
             assert result is None
 
-    def test_parse_field_urn_dataset_parsing_fails(self):
+    def test_parse_field_urn_dataset_parsing_fails(self) -> None:
         """Test parsing field URN when dataset parsing fails."""
         field_urn = SchemaFieldUrn.create_from_string(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,invalid,PROD),test_column)"
@@ -81,12 +81,12 @@ class TestURNParser:
 class TestObjectTypeDetector:
     """Test object type detection functionality."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.mock_connection = Mock()
         self.detector = ObjectTypeDetector(self.mock_connection)
 
-    def test_detect_object_type_table(self):
+    def test_detect_object_type_table(self) -> None:
         """Test detecting table object type."""
         # Mock cursor and results for table detection
         mock_cursor = Mock()
@@ -100,7 +100,7 @@ class TestObjectTypeDetector:
         assert result == "TABLE"
         mock_cursor.execute.assert_called_once()
 
-    def test_detect_object_type_view(self):
+    def test_detect_object_type_view(self) -> None:
         """Test detecting view object type."""
         # Mock cursor and results for view detection
         mock_cursor = Mock()
@@ -113,7 +113,7 @@ class TestObjectTypeDetector:
         assert result == "VIEW"
         assert mock_cursor.execute.call_count == 2
 
-    def test_detect_object_type_not_found(self):
+    def test_detect_object_type_not_found(self) -> None:
         """Test detecting object type when object not found."""
         # Mock cursor that returns None for both queries
         mock_cursor = Mock()
@@ -127,7 +127,7 @@ class TestObjectTypeDetector:
         assert result is None
         assert mock_cursor.execute.call_count == 2
 
-    def test_detect_object_type_exception_handling(self):
+    def test_detect_object_type_exception_handling(self) -> None:
         """Test exception handling in object type detection."""
         # Mock cursor that raises an exception
         mock_cursor = Mock()
@@ -144,32 +144,32 @@ class TestObjectTypeDetector:
 class TestCommentUpdater:
     """Test comment update functionality."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.mock_connection = Mock()
         self.mock_query_executor = Mock()
         self.updater = CommentUpdater(self.mock_connection, self.mock_query_executor)
 
-    def test_update_table_comment_success(self):
+    def test_update_table_comment_success(self) -> None:
         """Test successful table comment update."""
         self.updater.update_table_comment(
-            "test_db", "test_schema", "test_table", "Test description"
+            "test_db", "test_schema", "test_table", "Test description", "TABLE"
         )
 
         # Split SQL query to comply with line length limits
         # Use triple quotes for descriptions to handle multi-line content and quotes
         expected_query = (
-            'COMMENT ON TABLE "test_db"."test_schema"."test_table" '
-            "IS '''Test description''';"
+            "ALTER TABLE test_db.test_schema.test_table "
+            "SET COMMENT = '''Test description'''"
         )
         self.mock_query_executor.assert_called_once_with(expected_query)
 
-    def test_update_table_comment_with_quotes_in_description(self):
+    def test_update_table_comment_with_quotes_in_description(self) -> None:
         """Test table comment update with quotes in description."""
         description_with_quotes = "Test 'description' with \"quotes\""
 
         self.updater.update_table_comment(
-            "test_db", "test_schema", "test_table", description_with_quotes
+            "test_db", "test_schema", "test_table", description_with_quotes, "TABLE"
         )
 
         # With triple quotes, no escaping needed for single/double quotes
@@ -177,40 +177,45 @@ class TestCommentUpdater:
         # Split SQL query to comply with line length limits
         # Use triple quotes for descriptions to handle multi-line content and quotes
         expected_query = (
-            f'COMMENT ON TABLE "test_db"."test_schema"."test_table" '
-            f"IS '''{expected_description}''';"
+            f"ALTER TABLE test_db.test_schema.test_table "
+            f"SET COMMENT = '''{expected_description}'''"
         )
         self.mock_query_executor.assert_called_once_with(expected_query)
 
-    def test_update_view_comment_success(self):
+    def test_update_view_comment_success(self) -> None:
         """Test successful view comment update."""
-        self.updater.update_view_comment(
-            "test_db", "test_schema", "test_view", "Test view description"
+        self.updater.update_table_comment(
+            "test_db", "test_schema", "test_view", "Test view description", "VIEW"
         )
 
         # Split SQL query to comply with line length limits
         # Use triple quotes for descriptions to handle multi-line content and quotes
         expected_query = (
-            'COMMENT ON VIEW "test_db"."test_schema"."test_view" '
-            "IS '''Test view description''';"
+            "ALTER VIEW test_db.test_schema.test_view "
+            "SET COMMENT = '''Test view description'''"
         )
         self.mock_query_executor.assert_called_once_with(expected_query)
 
-    def test_update_column_comment_success(self):
+    def test_update_column_comment_success(self) -> None:
         """Test successful column comment update."""
         self.updater.update_column_comment(
-            "test_db", "test_schema", "test_table", "test_column", "Column description"
+            "test_db",
+            "test_schema",
+            "test_table",
+            "test_column",
+            "Column description",
+            "TABLE",
         )
 
         # Split SQL query to comply with line length limits
         # Use triple quotes for descriptions to handle multi-line content and quotes
         expected_query = (
-            'COMMENT ON COLUMN "test_db"."test_schema"."test_table"."test_column" '
-            "IS '''Column description''';"
+            "ALTER TABLE test_db.test_schema.test_table "
+            "MODIFY COLUMN test_column COMMENT '''Column description'''"
         )
         self.mock_query_executor.assert_called_once_with(expected_query)
 
-    def test_try_table_then_view_comment_table_success(self):
+    def test_try_table_then_view_comment_table_success(self) -> None:
         """Test trying table comment first (success case)."""
         # Mock successful table comment update
         self.mock_query_executor.side_effect = [None]  # First call succeeds
@@ -224,12 +229,12 @@ class TestCommentUpdater:
         # Split SQL query to comply with line length limits
         # Use triple quotes for descriptions to handle multi-line content and quotes
         expected_query = (
-            'COMMENT ON TABLE "test_db"."test_schema"."test_object" '
-            "IS '''Test description''';"
+            "ALTER TABLE test_db.test_schema.test_object "
+            "SET COMMENT = '''Test description'''"
         )
         self.mock_query_executor.assert_called_with(expected_query)
 
-    def test_try_table_then_view_comment_table_fails_view_succeeds(self):
+    def test_try_table_then_view_comment_table_fails_view_succeeds(self) -> None:
         """Test trying table comment first (fails), then view comment (succeeds)."""
         # Mock table comment failure, view comment success
         table_error = Exception("Table not found")
@@ -245,7 +250,7 @@ class TestCommentUpdater:
         # Should call both table and view comment updates
         assert self.mock_query_executor.call_count == 2
 
-    def test_try_table_then_view_comment_both_fail(self):
+    def test_try_table_then_view_comment_both_fail(self) -> None:
         """Test trying table comment first (fails), then view comment (also fails)."""
         # Mock both table and view comment failures
         table_error = Exception("Table not found")
@@ -261,7 +266,7 @@ class TestCommentUpdater:
 class TestSnowflakeCommentManager:
     """Test the high-level comment manager."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.mock_connection = Mock()
         self.mock_query_executor = Mock()
@@ -284,7 +289,7 @@ class TestSnowflakeCommentManager:
                 self.mock_connection, self.mock_query_executor
             )
 
-    def test_apply_description_dataset_urn_with_subtype(self):
+    def test_apply_description_dataset_urn_with_subtype(self) -> None:
         """Test applying description to dataset URN with known subtype."""
         # Split URN string to comply with line length limits
         dataset_urn = (
@@ -296,11 +301,11 @@ class TestSnowflakeCommentManager:
 
         # Should call table comment update directly (no detection needed)
         self.mock_updater.update_table_comment.assert_called_once_with(
-            "test_db", "test_schema", "test_table", "Test description"
+            "test_db", "test_schema", "test_table", "Test description", "TABLE"
         )
         self.mock_detector.detect_object_type.assert_not_called()
 
-    def test_apply_description_dataset_urn_without_subtype(self):
+    def test_apply_description_dataset_urn_without_subtype(self) -> None:
         """Test applying description to dataset URN without subtype (auto-detect)."""
         # Split URN string to comply with line length limits
         dataset_urn = (
@@ -311,15 +316,15 @@ class TestSnowflakeCommentManager:
 
         self.manager.apply_description(dataset_urn, "Test description")
 
-        # Should detect object type and call view comment update
+        # Should detect object type and call table comment update with VIEW type
         self.mock_detector.detect_object_type.assert_called_once_with(
             "test_db", "test_schema", "test_table"
         )
-        self.mock_updater.update_view_comment.assert_called_once_with(
-            "test_db", "test_schema", "test_table", "Test description"
+        self.mock_updater.update_table_comment.assert_called_once_with(
+            "test_db", "test_schema", "test_table", "Test description", "VIEW"
         )
 
-    def test_apply_description_dataset_urn_unknown_type(self):
+    def test_apply_description_dataset_urn_unknown_type(self) -> None:
         """Test applying description to dataset URN with unknown type (fallback)."""
         # Split URN string to comply with line length limits
         dataset_urn = (
@@ -338,7 +343,7 @@ class TestSnowflakeCommentManager:
             "test_db", "test_schema", "test_table", "Test description"
         )
 
-    def test_apply_description_schema_field_urn(self):
+    def test_apply_description_schema_field_urn(self) -> None:
         """Test applying description to schema field URN."""
         # Split URN string to comply with line length limits
         field_urn = (
@@ -350,17 +355,22 @@ class TestSnowflakeCommentManager:
 
         # Should call column comment update
         self.mock_updater.update_column_comment.assert_called_once_with(
-            "test_db", "test_schema", "test_table", "test_column", "Column description"
+            "test_db",
+            "test_schema",
+            "test_table",
+            "test_column",
+            "Column description",
+            "TABLE",
         )
 
-    def test_apply_description_invalid_urn(self):
+    def test_apply_description_invalid_urn(self) -> None:
         """Test applying description to invalid URN type."""
         invalid_urn = "urn:li:corpuser:test_user"
 
         with pytest.raises(ValueError, match="Invalid entity urn"):
             self.manager.apply_description(invalid_urn, "Test description")
 
-    def test_apply_description_exception_handling(self):
+    def test_apply_description_exception_handling(self) -> None:
         """Test exception handling in apply_description."""
         # Split URN string to comply with line length limits
         dataset_urn = (
@@ -377,7 +387,7 @@ class TestSnowflakeCommentManager:
             with pytest.raises(Exception, match="Failed to apply description"):
                 self.manager.apply_description(dataset_urn, "Test description")
 
-    def test_update_table_comment_private_method(self):
+    def test_update_table_comment_private_method(self) -> None:
         """Test the private _update_table_comment method."""
         dataset_urn = DatasetUrn.create_from_string(
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
@@ -387,10 +397,10 @@ class TestSnowflakeCommentManager:
         self.manager._update_table_comment(dataset_urn, "Test description", "TABLE")
 
         self.mock_updater.update_table_comment.assert_called_once_with(
-            "test_db", "test_schema", "test_table", "Test description"
+            "test_db", "test_schema", "test_table", "Test description", "TABLE"
         )
 
-    def test_update_column_comment_private_method(self):
+    def test_update_column_comment_private_method(self) -> None:
         """Test the private _update_column_comment method."""
         field_urn = SchemaFieldUrn.create_from_string(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD),test_column)"
@@ -399,14 +409,19 @@ class TestSnowflakeCommentManager:
         self.manager._update_column_comment(field_urn, "Column description")
 
         self.mock_updater.update_column_comment.assert_called_once_with(
-            "test_db", "test_schema", "test_table", "test_column", "Column description"
+            "test_db",
+            "test_schema",
+            "test_table",
+            "test_column",
+            "Column description",
+            "TABLE",
         )
 
 
 class TestCommentWriterIntegration:
     """Integration tests for the comment writer components."""
 
-    def test_end_to_end_dataset_comment_update(self):
+    def test_end_to_end_dataset_comment_update(self) -> None:
         """Test end-to-end dataset comment update flow."""
         mock_connection = Mock()
         mock_query_executor = Mock()
@@ -432,7 +447,7 @@ class TestCommentWriterIntegration:
         assert "COMMENT ON TABLE" in call_args
         assert "Integration test description" in call_args
 
-    def test_end_to_end_column_comment_update(self):
+    def test_end_to_end_column_comment_update(self) -> None:
         """Test end-to-end column comment update flow."""
         mock_connection = Mock()
         mock_query_executor = Mock()
