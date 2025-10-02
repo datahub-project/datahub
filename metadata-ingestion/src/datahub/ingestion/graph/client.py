@@ -207,7 +207,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         Note: Only supported with DataHub Cloud.
         """
 
-        if not self.server_config:
+        if not hasattr(self, "server_config") or not self.server_config:
             self.test_connection()
 
         base_url = self.server_config.raw_config.get("baseUrl")
@@ -838,11 +838,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def _bulk_fetch_schema_info_by_filter(
         self,
         *,
-        platform: Optional[str] = None,
+        platform: Union[None, str, List[str]] = None,
         platform_instance: Optional[str] = None,
         env: Optional[str] = None,
         query: Optional[str] = None,
-        container: Optional[str] = None,
+        container: Union[None, str, List[str]] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 100,
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
@@ -914,11 +914,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         self,
         *,
         entity_types: Optional[Sequence[str]] = None,
-        platform: Optional[str] = None,
+        platform: Union[None, str, List[str]] = None,
         platform_instance: Optional[str] = None,
         env: Optional[str] = None,
         query: Optional[str] = None,
-        container: Optional[str] = None,
+        container: Union[None, str, List[str]] = None,
         status: Optional[RemovedStatusFilter] = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 5000,
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
@@ -1018,11 +1018,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         self,
         *,
         entity_types: Optional[List[str]] = None,
-        platform: Optional[str] = None,
+        platform: Union[None, str, List[str]] = None,
         platform_instance: Optional[str] = None,
         env: Optional[str] = None,
         query: Optional[str] = None,
-        container: Optional[str] = None,
+        container: Union[None, str, List[str]] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 5000,
         extra_and_filters: Optional[List[RawSearchFilterRule]] = None,
