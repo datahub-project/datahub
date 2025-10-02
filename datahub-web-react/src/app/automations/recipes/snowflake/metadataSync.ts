@@ -13,6 +13,8 @@ import SnowflakeLogo from '@images/snowflakelogo.png';
 
 // Common unique ID for the action
 // Used to identify the action in the backend & provide common key between template <> recipe
+// Changed from 'datahub_integrations.propagation.snowflake.tag_propagator.SnowflakeTagPropagatorAction' 
+// to use entry point name for cleaner configuration
 const automationType = 'snowflake_metadata_sync';
 
 const automationName = 'Snowflake Metadata Sync';
