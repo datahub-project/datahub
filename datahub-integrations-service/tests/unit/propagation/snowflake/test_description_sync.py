@@ -1,18 +1,17 @@
 from unittest.mock import Mock, patch
 
-from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub_actions.event.event_envelope import EventEnvelope
 
-from datahub_integrations.propagation.snowflake.description_sync_action import (
-    DescriptionSyncAction,
-    DescriptionSyncConfig,
+from datahub_integrations.propagation.snowflake.description_propagation_action import (
+    DescriptionPropagationAction,
+    DescriptionPropagationConfig,
 )
 
 
-class TestDescriptionSyncAction:
-    def test_config_creation(self):
-        """Test creation of description sync configuration."""
-        config = DescriptionSyncConfig(
+class TestDescriptionPropagationAction:
+    def test_config_creation(self) -> None:
+        """Test creation of description propagation configuration."""
+        config = DescriptionPropagationConfig(
             enabled=True,
             table_description_sync_enabled=True,
             column_description_sync_enabled=True,
@@ -22,16 +21,15 @@ class TestDescriptionSyncAction:
         assert config.table_description_sync_enabled is True
         assert config.column_description_sync_enabled is True
 
-    def test_should_propagate_table_description(self):
+    def test_should_propagate_table_description(self) -> None:
         """Test that table description changes are detected for propagation."""
-        config = DescriptionSyncConfig(
+        config = DescriptionPropagationConfig(
             enabled=True, table_description_sync_enabled=True
         )
         ctx = Mock()
         ctx.graph = Mock()
-        snowflake_helper = Mock()
 
-        action = DescriptionSyncAction(config, ctx, snowflake_helper)
+        action = DescriptionPropagationAction(config, ctx)
 
         # Create a mock event for table description change
         event = Mock()
@@ -50,7 +48,7 @@ class TestDescriptionSyncAction:
         envelope = EventEnvelope(event=event, meta={})
 
         with patch(
-            "datahub_integrations.propagation.snowflake.description_sync_action.is_snowflake_urn",
+            "datahub_integrations.propagation.snowflake.description_propagation_action.is_snowflake_urn",
             return_value=True,
         ):
             directive = action.should_propagate(envelope)
@@ -60,16 +58,15 @@ class TestDescriptionSyncAction:
         assert directive.docs == "Test table description"
         assert directive.operation == "ADD"
 
-    def test_should_propagate_column_description(self):
+    def test_should_propagate_column_description(self) -> None:
         """Test that column description changes are detected for propagation."""
-        config = DescriptionSyncConfig(
+        config = DescriptionPropagationConfig(
             enabled=True, column_description_sync_enabled=True
         )
         ctx = Mock()
         ctx.graph = Mock()
-        snowflake_helper = Mock()
 
-        action = DescriptionSyncAction(config, ctx, snowflake_helper)
+        action = DescriptionPropagationAction(config, ctx)
 
         # Create a mock event for column description change
         event = Mock()
@@ -88,7 +85,7 @@ class TestDescriptionSyncAction:
         envelope = EventEnvelope(event=event, meta={})
 
         with patch(
-            "datahub_integrations.propagation.snowflake.description_sync_action.is_snowflake_urn",
+            "datahub_integrations.propagation.snowflake.description_propagation_action.is_snowflake_urn",
             return_value=True,
         ):
             directive = action.should_propagate(envelope)
@@ -98,14 +95,13 @@ class TestDescriptionSyncAction:
         assert directive.docs == "Test column description"
         assert directive.operation == "MODIFY"
 
-    def test_should_not_propagate_non_snowflake_urn(self):
+    def test_should_not_propagate_non_snowflake_urn(self) -> None:
         """Test that non-Snowflake URNs are ignored."""
-        config = DescriptionSyncConfig(enabled=True)
+        config = DescriptionPropagationConfig(enabled=True)
         ctx = Mock()
         ctx.graph = Mock()
-        snowflake_helper = Mock()
 
-        action = DescriptionSyncAction(config, ctx, snowflake_helper)
+        action = DescriptionPropagationAction(config, ctx)
 
         event = Mock()
         event.event_type = "EntityChangeEvent_v1"
@@ -121,21 +117,20 @@ class TestDescriptionSyncAction:
         envelope = EventEnvelope(event=event, meta={})
 
         with patch(
-            "datahub_integrations.propagation.snowflake.description_sync_action.is_snowflake_urn",
+            "datahub_integrations.propagation.snowflake.description_propagation_action.is_snowflake_urn",
             return_value=False,
         ):
             directive = action.should_propagate(envelope)
 
         assert directive is None
 
-    def test_should_not_propagate_when_disabled(self):
-        """Test that description sync is ignored when disabled."""
-        config = DescriptionSyncConfig(enabled=False)
+    def test_should_not_propagate_when_disabled(self) -> None:
+        """Test that description propagation is ignored when disabled."""
+        config = DescriptionPropagationConfig(enabled=False)
         ctx = Mock()
         ctx.graph = Mock()
-        snowflake_helper = Mock()
 
-        action = DescriptionSyncAction(config, ctx, snowflake_helper)
+        action = DescriptionPropagationAction(config, ctx)
 
         event = Mock()
         event.event_type = "EntityChangeEvent_v1"
@@ -146,18 +141,17 @@ class TestDescriptionSyncAction:
 
         assert directive is None
 
-    def test_should_not_propagate_table_when_table_sync_disabled(self):
-        """Test that table description sync is ignored when table sync is disabled."""
-        config = DescriptionSyncConfig(
+    def test_should_not_propagate_table_when_table_sync_disabled(self) -> None:
+        """Test that table description propagation is ignored when table sync is disabled."""
+        config = DescriptionPropagationConfig(
             enabled=True,
             table_description_sync_enabled=False,
             column_description_sync_enabled=True,
         )
         ctx = Mock()
         ctx.graph = Mock()
-        snowflake_helper = Mock()
 
-        action = DescriptionSyncAction(config, ctx, snowflake_helper)
+        action = DescriptionPropagationAction(config, ctx)
 
         event = Mock()
         event.event_type = "EntityChangeEvent_v1"
@@ -175,61 +169,45 @@ class TestDescriptionSyncAction:
         envelope = EventEnvelope(event=event, meta={})
 
         with patch(
-            "datahub_integrations.propagation.snowflake.description_sync_action.is_snowflake_urn",
+            "datahub_integrations.propagation.snowflake.description_propagation_action.is_snowflake_urn",
             return_value=True,
         ):
             directive = action.should_propagate(envelope)
 
         assert directive is None
 
-    def test_update_table_comment(self):
-        """Test updating table comment SQL generation."""
-        config = DescriptionSyncConfig(enabled=True)
+    def test_extract_description_from_mcl_event(self) -> None:
+        """Test extracting description from MetadataChangeLogEvent."""
+        config = DescriptionPropagationConfig(enabled=True)
         ctx = Mock()
         ctx.graph = Mock()
-        snowflake_helper = Mock()
 
-        action = DescriptionSyncAction(config, ctx, snowflake_helper)
+        action = DescriptionPropagationAction(config, ctx)
 
-        dataset_urn = DatasetUrn.create_from_string(
-            "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
-        )
+        # Mock MCL event with table description
+        mcl_event = Mock()
+        mcl_event.aspectName = "editableDatasetProperties"
+        mcl_event.aspect = Mock()
+        mcl_event.aspect.value = b'{"description": "Test table description"}'
 
-        action._update_table_comment(dataset_urn, "Test description with 'quotes'")
+        description = action._extract_description_from_aspect(mcl_event)
 
-        # Verify the SQL was executed with proper escaping
-        snowflake_helper._run_query.assert_called_once()
-        args = snowflake_helper._run_query.call_args[0]
+        assert description == "Test table description"
 
-        assert args[0] == "test_db"  # database
-        assert args[1] == "test_schema"  # schema
-        assert (
-            "ALTER TABLE test_db.test_schema.test_table SET COMMENT = 'Test description with ''quotes'''"
-            in args[2]
-        )  # SQL with escaped quotes
-
-    def test_update_column_comment(self):
-        """Test updating column comment SQL generation."""
-        config = DescriptionSyncConfig(enabled=True)
+    def test_extract_description_from_mcl_event_column(self) -> None:
+        """Test extracting column description from MetadataChangeLogEvent."""
+        config = DescriptionPropagationConfig(enabled=True)
         ctx = Mock()
         ctx.graph = Mock()
-        snowflake_helper = Mock()
 
-        action = DescriptionSyncAction(config, ctx, snowflake_helper)
+        action = DescriptionPropagationAction(config, ctx)
 
-        field_urn = SchemaFieldUrn.create_from_string(
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD),test_column)"
-        )
+        # Mock MCL event with column description
+        mcl_event = Mock()
+        mcl_event.aspectName = "editableSchemaMetadata"
+        mcl_event.aspect = Mock()
+        mcl_event.aspect.value = b'{"editableSchemaFieldInfo": [{"fieldPath": "test_column", "description": "Test column description"}]}'
 
-        action._update_column_comment(field_urn, "Test column description")
+        description = action._extract_description_from_aspect(mcl_event)
 
-        # Verify the SQL was executed
-        snowflake_helper._run_query.assert_called_once()
-        args = snowflake_helper._run_query.call_args[0]
-
-        assert args[0] == "test_db"  # database
-        assert args[1] == "test_schema"  # schema
-        assert (
-            "ALTER TABLE test_db.test_schema.test_table ALTER COLUMN test_column COMMENT 'Test column description'"
-            in args[2]
-        )
+        assert description == "Test column description"

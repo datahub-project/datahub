@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import Mock, patch
 
 from datahub_actions.event.event_envelope import EventEnvelope
@@ -5,18 +6,18 @@ from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_integrations.propagation.snowflake.config import (
     SnowflakeConnectionConfigPermissive,
 )
-from datahub_integrations.propagation.snowflake.description_sync_action import (
-    DescriptionSyncConfig,
+from datahub_integrations.propagation.snowflake.description_propagation_action import (
+    DescriptionPropagationConfig,
 )
-from datahub_integrations.propagation.snowflake.tag_propagator import (
-    SnowflakeTagPropagatorAction,
-    SnowflakeTagPropagatorConfig,
+from datahub_integrations.propagation.snowflake.metadata_sync_action import (
+    SnowflakeMetadataSyncAction,
+    SnowflakeMetadataSyncConfig,
 )
 
 
 class TestSnowflakeIntegration:
-    def test_config_with_description_sync(self):
-        """Test that the main config properly includes description sync configuration."""
+    def test_config_with_description_propagation(self) -> None:
+        """Test that the main config properly includes description propagation configuration."""
         snowflake_config = SnowflakeConnectionConfigPermissive(
             account_id="test_account",
             warehouse="test_warehouse",
@@ -25,26 +26,29 @@ class TestSnowflakeIntegration:
             role="test_role",
         )
 
-        description_sync_config = DescriptionSyncConfig(
+        description_propagation_config = DescriptionPropagationConfig(
             enabled=True,
             table_description_sync_enabled=True,
             column_description_sync_enabled=True,
         )
 
-        config = SnowflakeTagPropagatorConfig(
-            snowflake=snowflake_config, description_sync=description_sync_config
+        config = SnowflakeMetadataSyncConfig(
+            snowflake=snowflake_config,
+            description_propagation=description_propagation_config,
         )
 
-        assert config.description_sync is not None
-        assert config.description_sync.enabled is True
-        assert config.description_sync.table_description_sync_enabled is True
-        assert config.description_sync.column_description_sync_enabled is True
+        assert config.description_propagation is not None
+        assert config.description_propagation.enabled is True
+        assert config.description_propagation.table_description_sync_enabled is True
+        assert config.description_propagation.column_description_sync_enabled is True
 
     @patch(
-        "datahub_integrations.propagation.snowflake.tag_propagator.SnowflakeTagHelper"
+        "datahub_integrations.propagation.snowflake.metadata_sync_action.SnowflakeTagHelper"
     )
-    def test_action_initialization_with_description_sync(self, mock_tag_helper):
-        """Test that the action properly initializes description sync when enabled."""
+    def test_action_initialization_with_description_propagation(
+        self, mock_tag_helper: Any
+    ) -> None:
+        """Test that the action properly initializes description propagation when enabled."""
         snowflake_config = SnowflakeConnectionConfigPermissive(
             account_id="test_account",
             warehouse="test_warehouse",
@@ -53,37 +57,41 @@ class TestSnowflakeIntegration:
             role="test_role",
         )
 
-        description_sync_config = DescriptionSyncConfig(
+        description_propagation_config = DescriptionPropagationConfig(
             enabled=True,
             table_description_sync_enabled=True,
             column_description_sync_enabled=False,
         )
 
-        config = SnowflakeTagPropagatorConfig(
-            snowflake=snowflake_config, description_sync=description_sync_config
+        config = SnowflakeMetadataSyncConfig(
+            snowflake=snowflake_config,
+            description_propagation=description_propagation_config,
         )
 
         ctx = Mock()
         ctx.graph = Mock()
 
-        action = SnowflakeTagPropagatorAction(config, ctx)
+        action = SnowflakeMetadataSyncAction(config, ctx)
 
-        # Verify description sync action was initialized
-        assert action.description_sync_action is not None
-        assert action.description_sync_action.config.enabled is True
+        # Verify description propagation action was initialized
+        assert action.description_propagation_action is not None
+        assert action.description_propagation_action.config.enabled is True
         assert (
-            action.description_sync_action.config.table_description_sync_enabled is True
+            action.description_propagation_action.config.table_description_sync_enabled
+            is True
         )
         assert (
-            action.description_sync_action.config.column_description_sync_enabled
+            action.description_propagation_action.config.column_description_sync_enabled
             is False
         )
 
     @patch(
-        "datahub_integrations.propagation.snowflake.tag_propagator.SnowflakeTagHelper"
+        "datahub_integrations.propagation.snowflake.metadata_sync_action.SnowflakeTagHelper"
     )
-    def test_action_initialization_without_description_sync(self, mock_tag_helper):
-        """Test that the action works without description sync configuration."""
+    def test_action_initialization_without_description_propagation(
+        self, mock_tag_helper: Any
+    ) -> None:
+        """Test that the action works without description propagation configuration."""
         snowflake_config = SnowflakeConnectionConfigPermissive(
             account_id="test_account",
             warehouse="test_warehouse",
@@ -92,27 +100,29 @@ class TestSnowflakeIntegration:
             role="test_role",
         )
 
-        config = SnowflakeTagPropagatorConfig(
+        config = SnowflakeMetadataSyncConfig(
             snowflake=snowflake_config
-            # No description_sync config
+            # No description_propagation config
         )
 
         ctx = Mock()
         ctx.graph = Mock()
 
-        action = SnowflakeTagPropagatorAction(config, ctx)
+        action = SnowflakeMetadataSyncAction(config, ctx)
 
-        # Verify description sync action was not initialized
-        assert action.description_sync_action is None
+        # Verify description propagation action was not initialized
+        assert action.description_propagation_action is None
 
     @patch(
-        "datahub_integrations.propagation.snowflake.tag_propagator.SnowflakeTagHelper"
+        "datahub_integrations.propagation.snowflake.metadata_sync_action.SnowflakeTagHelper"
     )
-    @patch("datahub_integrations.propagation.snowflake.tag_propagator.is_snowflake_urn")
-    def test_description_sync_event_processing(
-        self, mock_is_snowflake_urn, mock_tag_helper
-    ):
-        """Test that description sync events are properly processed."""
+    @patch(
+        "datahub_integrations.propagation.snowflake.metadata_sync_action.is_snowflake_urn"
+    )
+    def test_description_propagation_event_processing(
+        self, mock_is_snowflake_urn: Any, mock_tag_helper: Any
+    ) -> None:
+        """Test that description propagation events are properly processed."""
         mock_is_snowflake_urn.return_value = True
 
         snowflake_config = SnowflakeConnectionConfigPermissive(
@@ -123,28 +133,29 @@ class TestSnowflakeIntegration:
             role="test_role",
         )
 
-        description_sync_config = DescriptionSyncConfig(
+        description_propagation_config = DescriptionPropagationConfig(
             enabled=True,
             table_description_sync_enabled=True,
             column_description_sync_enabled=True,
         )
 
-        config = SnowflakeTagPropagatorConfig(
-            snowflake=snowflake_config, description_sync=description_sync_config
+        config = SnowflakeMetadataSyncConfig(
+            snowflake=snowflake_config,
+            description_propagation=description_propagation_config,
         )
 
         ctx = Mock()
         ctx.graph = Mock()
 
-        action = SnowflakeTagPropagatorAction(config, ctx)
+        action = SnowflakeMetadataSyncAction(config, ctx)
 
-        # Mock the description sync action's should_propagate method
+        # Mock the description propagation action's should_propagate method
         mock_directive = Mock()
         mock_directive.propagate = True
-        action.description_sync_action.should_propagate = Mock(
+        action.description_propagation_action.should_propagate = Mock(
             return_value=mock_directive
         )
-        action.description_sync_action.process_directive = Mock()
+        action.description_propagation_action.process_directive = Mock()
 
         # Create a mock event
         event = Mock()
@@ -162,10 +173,62 @@ class TestSnowflakeIntegration:
         # Process the event
         action.act(envelope)
 
-        # Verify that description sync was called
-        action.description_sync_action.should_propagate.assert_called_once_with(
+        # Verify that description propagation was called
+        action.description_propagation_action.should_propagate.assert_called_once_with(
             envelope
         )
-        action.description_sync_action.process_directive.assert_called_once_with(
+        action.description_propagation_action.process_directive.assert_called_once_with(
             mock_directive
+        )
+
+    def test_mcl_event_processing(self) -> None:
+        """Test that MetadataChangeLogEvent events are properly handled."""
+        snowflake_config = SnowflakeConnectionConfigPermissive(
+            account_id="test_account",
+            warehouse="test_warehouse",
+            username="test_user",
+            password="test_password",
+            role="test_role",
+        )
+
+        description_propagation_config = DescriptionPropagationConfig(
+            enabled=True,
+            table_description_sync_enabled=True,
+            column_description_sync_enabled=True,
+        )
+
+        config = SnowflakeMetadataSyncConfig(
+            snowflake=snowflake_config,
+            description_propagation=description_propagation_config,
+        )
+
+        ctx = Mock()
+        ctx.graph = Mock()
+
+        with patch(
+            "datahub_integrations.propagation.snowflake.metadata_sync_action.SnowflakeTagHelper"
+        ):
+            action = SnowflakeMetadataSyncAction(config, ctx)
+
+        # Create a mock MCL event
+        event = Mock()
+        event.event_type = "MetadataChangeLogEvent_v1"
+
+        mcl_event = Mock()
+        mcl_event.entityUrn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
+        mcl_event.aspectName = "editableDatasetProperties"
+
+        event.event = mcl_event
+
+        envelope = EventEnvelope(event=event, meta={})
+
+        # Mock the description propagation action
+        action.description_propagation_action.should_propagate = Mock(return_value=None)
+
+        # Process the event - should not raise an exception
+        action.act(envelope)
+
+        # Verify that description propagation was called
+        action.description_propagation_action.should_propagate.assert_called_once_with(
+            envelope
         )
