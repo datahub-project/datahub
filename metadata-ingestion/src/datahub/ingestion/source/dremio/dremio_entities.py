@@ -1,12 +1,10 @@
-import itertools
 import logging
 import re
 import uuid
-from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 from sqlglot import parse_one
 
@@ -220,16 +218,25 @@ class DremioDataset:
         self.path = dataset_details.get("TABLE_SCHEMA", "")[1:-1].split(", ")[:-1]
         self.location_id = dataset_details.get("LOCATION_ID", "")
         # self.columns = dataset_details.get("COLUMNS", [])
-        # Initialize DremioDatasetColumn instances for each column
+        # Initialize DremioDatasetColumn instances for each column, sorted by ordinal_position
+        columns_data = dataset_details.get("COLUMNS", [])
+        # Ensure columns are sorted by ordinal_position for consistent field path ordering
+        sorted_columns = sorted(
+            columns_data, key=lambda col: col.get("ordinal_position", 0)
+        )
         self.columns = [
             DremioDatasetColumn(
                 name=col.get("name"),
-                ordinal_position=col.get("ordinal_position"),
+                ordinal_position=col.get(
+                    "ordinal_position", 0
+                ),  # Ensure we have a default integer
                 is_nullable=col.get("is_nullable", False),
                 data_type=col.get("data_type"),
-                column_size=col.get("column_size"),
+                column_size=col.get(
+                    "column_size", 0
+                ),  # Ensure we have a default integer
             )
-            for col in dataset_details.get("COLUMNS", [])
+            for col in sorted_columns
         ]
 
         self.sql_definition = dataset_details.get("VIEW_DEFINITION")
@@ -336,105 +343,93 @@ class DremioCatalog:
     def __init__(self, dremio_api: DremioAPIOperations):
         self.dremio_api = dremio_api
         self.edition = dremio_api.edition
-        self.datasets: Deque[DremioDataset] = deque()
-        self.sources: Deque[DremioSourceContainer] = deque()
-        self.spaces: Deque[DremioSpace] = deque()
-        self.folders: Deque[DremioFolder] = deque()
-        self.glossary_terms: Deque[DremioGlossaryTerm] = deque()
-        self.queries: Deque[DremioQuery] = deque()
 
-        self.datasets_populated = False
-        self.containers_populated = False
-        self.queries_populated = False
+    def get_datasets(self) -> List[DremioDataset]:
+        """
+        Get all datasets as a list.
+        """
+        return list(self.get_datasets_iter())
 
-    def set_datasets(self) -> None:
-        if not self.datasets_populated:
-            self.set_containers()
+    def get_datasets_iter(self) -> Iterator["DremioDataset"]:
+        """
+        Get datasets as an iterator.
+        """
+        containers_stream = self.get_containers_iter()
 
-            containers: Deque[DremioContainer] = deque()
-            containers.extend(self.spaces)  # Add DremioSpace elements
-            containers.extend(self.sources)  # Add DremioSource elements
+        for dataset_details in self.dremio_api.get_all_tables_and_columns(
+            containers_stream
+        ):
+            dremio_dataset = DremioDataset(
+                dataset_details=dataset_details,
+                api_operations=self.dremio_api,
+            )
 
-            for dataset_details in self.dremio_api.get_all_tables_and_columns(
-                containers=containers
-            ):
-                dremio_dataset = DremioDataset(
-                    dataset_details=dataset_details,
+            yield dremio_dataset
+
+    def get_containers_iter(self) -> Iterator["DremioContainer"]:
+        """
+        Get containers as an iterator.
+        """
+        for container in self.dremio_api.get_all_containers():
+            container_type = container.get("container_type")
+            if container_type == DremioEntityContainerType.SOURCE:
+                yield DremioSourceContainer(
+                    container_name=container.get("name"),
+                    location_id=container.get("id"),
+                    path=[],
+                    api_operations=self.dremio_api,
+                    dremio_source_type=container.get("source_type") or "",
+                    root_path=container.get("root_path"),
+                    database_name=container.get("database_name"),
+                )
+            elif container_type == DremioEntityContainerType.SPACE:
+                yield DremioSpace(
+                    container_name=container.get("name"),
+                    location_id=container.get("id"),
+                    path=[],
                     api_operations=self.dremio_api,
                 )
-                self.datasets.append(dremio_dataset)
+            elif container_type == DremioEntityContainerType.FOLDER:
+                yield DremioFolder(
+                    container_name=container.get("name"),
+                    location_id=container.get("id"),
+                    path=container.get("path"),
+                    api_operations=self.dremio_api,
+                )
 
-                for glossary_term in dremio_dataset.glossary_terms:
-                    if glossary_term not in self.glossary_terms:
-                        self.glossary_terms.append(glossary_term)
+    def get_containers(self) -> List[DremioContainer]:
+        """
+        Get all containers as a list.
+        """
+        return list(self.get_containers_iter())
 
-            self.datasets_populated = True
+    def get_sources(self) -> List[DremioSourceContainer]:
+        """
+        Get only source containers as a list.
+        """
+        sources = []
+        for container in self.get_containers_iter():
+            if isinstance(container, DremioSourceContainer):
+                sources.append(container)
+        return sources
 
-    def get_datasets(self) -> Deque[DremioDataset]:
-        self.set_datasets()
-        return self.datasets
+    def get_glossary_terms(self) -> List[DremioGlossaryTerm]:
+        """
+        Get all glossary terms as a list.
+        """
+        return list(self.get_glossary_terms_iter())
 
-    def set_containers(self) -> None:
-        if not self.containers_populated:
-            for container in self.dremio_api.get_all_containers():
-                container_type = container.get("container_type")
-                if container_type == DremioEntityContainerType.SOURCE:
-                    self.sources.append(
-                        DremioSourceContainer(
-                            container_name=container.get("name"),
-                            location_id=container.get("id"),
-                            path=[],
-                            api_operations=self.dremio_api,
-                            dremio_source_type=container.get("source_type")
-                            or "unknown",
-                            root_path=container.get("root_path"),
-                            database_name=container.get("database_name"),
-                        )
-                    )
-                elif container_type == DremioEntityContainerType.SPACE:
-                    self.spaces.append(
-                        DremioSpace(
-                            container_name=container.get("name"),
-                            location_id=container.get("id"),
-                            path=[],
-                            api_operations=self.dremio_api,
-                        )
-                    )
-                elif container_type == DremioEntityContainerType.FOLDER:
-                    self.folders.append(
-                        DremioFolder(
-                            container_name=container.get("name"),
-                            location_id=container.get("id"),
-                            path=container.get("path"),
-                            api_operations=self.dremio_api,
-                        )
-                    )
-                else:
-                    self.spaces.append(
-                        DremioSpace(
-                            container_name=container.get("name"),
-                            location_id=container.get("id"),
-                            path=[],
-                            api_operations=self.dremio_api,
-                        )
-                    )
+    def get_glossary_terms_iter(self) -> Iterator[DremioGlossaryTerm]:
+        """
+        Get glossary terms as an iterator.
+        """
+        glossary_terms_seen = set()
 
-        logging.info("Containers retrieved from source")
-
-        self.containers_populated = True
-
-    def get_containers(self) -> Deque:
-        self.set_containers()
-        return deque(itertools.chain(self.sources, self.spaces, self.folders))
-
-    def get_sources(self) -> Deque[DremioSourceContainer]:
-        self.set_containers()
-        return self.sources
-
-    def get_glossary_terms(self) -> Deque[DremioGlossaryTerm]:
-        self.set_datasets()
-        self.set_containers()
-        return self.glossary_terms
+        for dataset in self.get_datasets_iter():
+            for glossary_term in dataset.glossary_terms:
+                if glossary_term not in glossary_terms_seen:
+                    glossary_terms_seen.add(glossary_term)
+                    yield glossary_term
 
     def is_valid_query(self, query: Dict[str, Any]) -> bool:
         required_fields = [
@@ -446,18 +441,17 @@ class DremioCatalog:
         ]
         return all(query.get(field) for field in required_fields)
 
-    def get_queries(self) -> Deque[DremioQuery]:
-        for query in self.dremio_api.extract_all_queries():
+    def get_queries(self) -> Iterator[DremioQuery]:
+        """
+        Get queries as an iterator.
+        """
+        for query in self.dremio_api.extract_all_queries_iter():
             if not self.is_valid_query(query):
                 continue
-            self.queries.append(
-                DremioQuery(
-                    job_id=query["job_id"],
-                    username=query["user_name"],
-                    submitted_ts=query["submitted_ts"],
-                    query=query["query"],
-                    queried_datasets=query["queried_datasets"],
-                )
+            yield DremioQuery(
+                job_id=query["job_id"],
+                username=query["user_name"],
+                submitted_ts=query["submitted_ts"],
+                query=query["query"],
+                queried_datasets=query["queried_datasets"],
             )
-        self.queries_populated = True
-        return self.queries
