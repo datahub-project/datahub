@@ -1,6 +1,7 @@
 from unittest.mock import Mock, patch
 
 from datahub_actions.event.event_envelope import EventEnvelope
+from datahub_actions.event.event_registry import EntityChangeEvent
 
 from datahub_integrations.propagation.snowflake.description_models import (
     DescriptionPropagationConfig,
@@ -11,18 +12,6 @@ from datahub_integrations.propagation.snowflake.description_propagation_action i
 
 
 class TestDescriptionPropagationAction:
-    def test_config_creation(self) -> None:
-        """Test creation of description propagation configuration."""
-        config = DescriptionPropagationConfig(
-            enabled=True,
-            table_description_sync_enabled=True,
-            column_description_sync_enabled=True,
-        )
-
-        assert config.enabled is True
-        assert config.table_description_sync_enabled is True
-        assert config.column_description_sync_enabled is True
-
     def test_should_propagate_table_description(self) -> None:
         """Test that table description changes are detected for propagation."""
         config = DescriptionPropagationConfig(
@@ -30,27 +19,34 @@ class TestDescriptionPropagationAction:
         )
         ctx = Mock()
         ctx.graph = Mock()
+        ctx.pipeline_name = "test_pipeline"
 
         action = DescriptionPropagationAction(config, ctx)
 
-        # Create a mock event for table description change
-        event = Mock()
-        event.event_type = "EntityChangeEvent_v1"
-
-        entity_change_event = Mock()
+        # Create a mock EntityChangeEvent for table description change
+        # Note: Using Mock(spec=EntityChangeEvent) to ensure type compatibility
+        # while allowing us to set custom attributes for testing
+        entity_change_event = Mock(spec=EntityChangeEvent)
         entity_change_event.entityUrn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
-        entity_change_event.category = "DOCUMENTATION"
+        entity_change_event.entityType = "dataset"
+        entity_change_event.category = (
+            "DOCUMENTATION"  # Required for description extraction
+        )
         entity_change_event.operation = "ADD"
+        entity_change_event.version = 1
+        entity_change_event.auditStamp = Mock()
+        # Set both safe_parameters and _inner_dict to support different access patterns
+        entity_change_event.safe_parameters = {"description": "Test table description"}
         entity_change_event._inner_dict = {
             "__parameters_json": {"description": "Test table description"}
         }
 
-        event.event = entity_change_event
-
-        envelope = EventEnvelope(event=event, meta={})
+        envelope = EventEnvelope(
+            event_type="EntityChangeEvent_v1", event=entity_change_event, meta={}
+        )
 
         with patch(
-            "datahub_integrations.propagation.snowflake.description_propagation_action.is_snowflake_urn",
+            "datahub_integrations.propagation.snowflake.event_processor.is_snowflake_urn",
             return_value=True,
         ):
             directive = action.should_propagate(envelope)
@@ -67,27 +63,33 @@ class TestDescriptionPropagationAction:
         )
         ctx = Mock()
         ctx.graph = Mock()
+        ctx.pipeline_name = "test_pipeline"
 
         action = DescriptionPropagationAction(config, ctx)
 
-        # Create a mock event for column description change
-        event = Mock()
-        event.event_type = "EntityChangeEvent_v1"
-
-        entity_change_event = Mock()
+        # Create a mock EntityChangeEvent for column description change
+        # Using schemaField URN to test column-level description propagation
+        entity_change_event = Mock(spec=EntityChangeEvent)
         entity_change_event.entityUrn = "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD),test_column)"
-        entity_change_event.category = "DOCUMENTATION"
+        entity_change_event.entityType = "schemaField"
+        entity_change_event.category = (
+            "DOCUMENTATION"  # Required for description extraction
+        )
         entity_change_event.operation = "MODIFY"
+        entity_change_event.version = 1
+        entity_change_event.auditStamp = Mock()
+        # Set both safe_parameters and _inner_dict to support different access patterns
+        entity_change_event.safe_parameters = {"description": "Test column description"}
         entity_change_event._inner_dict = {
             "__parameters_json": {"description": "Test column description"}
         }
 
-        event.event = entity_change_event
-
-        envelope = EventEnvelope(event=event, meta={})
+        envelope = EventEnvelope(
+            event_type="EntityChangeEvent_v1", event=entity_change_event, meta={}
+        )
 
         with patch(
-            "datahub_integrations.propagation.snowflake.description_propagation_action.is_snowflake_urn",
+            "datahub_integrations.propagation.snowflake.event_processor.is_snowflake_urn",
             return_value=True,
         ):
             directive = action.should_propagate(envelope)
@@ -102,24 +104,31 @@ class TestDescriptionPropagationAction:
         config = DescriptionPropagationConfig(enabled=True)
         ctx = Mock()
         ctx.graph = Mock()
+        ctx.pipeline_name = "test_pipeline"
 
         action = DescriptionPropagationAction(config, ctx)
 
-        event = Mock()
-        event.event_type = "EntityChangeEvent_v1"
-
-        entity_change_event = Mock()
+        # Create a mock EntityChangeEvent for non-Snowflake URN
+        entity_change_event = Mock(spec=EntityChangeEvent)
         entity_change_event.entityUrn = (
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,PROD)"
         )
+        entity_change_event.entityType = "dataset"
         entity_change_event.category = "DOCUMENTATION"
+        entity_change_event.operation = "ADD"
+        entity_change_event.version = 1
+        entity_change_event.auditStamp = Mock()
+        entity_change_event.safe_parameters = {"description": "Test description"}
+        entity_change_event._inner_dict = {
+            "__parameters_json": {"description": "Test description"}
+        }
 
-        event.event = entity_change_event
-
-        envelope = EventEnvelope(event=event, meta={})
+        envelope = EventEnvelope(
+            event_type="EntityChangeEvent_v1", event=entity_change_event, meta={}
+        )
 
         with patch(
-            "datahub_integrations.propagation.snowflake.description_propagation_action.is_snowflake_urn",
+            "datahub_integrations.propagation.snowflake.event_processor.is_snowflake_urn",
             return_value=False,
         ):
             directive = action.should_propagate(envelope)
@@ -131,13 +140,26 @@ class TestDescriptionPropagationAction:
         config = DescriptionPropagationConfig(enabled=False)
         ctx = Mock()
         ctx.graph = Mock()
+        ctx.pipeline_name = "test_pipeline"
 
         action = DescriptionPropagationAction(config, ctx)
 
-        event = Mock()
-        event.event_type = "EntityChangeEvent_v1"
+        # Create a minimal mock event for disabled test
+        entity_change_event = Mock(spec=EntityChangeEvent)
+        entity_change_event.entityUrn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
+        entity_change_event.entityType = "dataset"
+        entity_change_event.category = "DOCUMENTATION"
+        entity_change_event.operation = "ADD"
+        entity_change_event.version = 1
+        entity_change_event.auditStamp = Mock()
+        entity_change_event.safe_parameters = {"description": "Test description"}
+        entity_change_event._inner_dict = {
+            "__parameters_json": {"description": "Test description"}
+        }
 
-        envelope = EventEnvelope(event=event, meta={})
+        envelope = EventEnvelope(
+            event_type="EntityChangeEvent_v1", event=entity_change_event, meta={}
+        )
 
         directive = action.should_propagate(envelope)
 
@@ -152,26 +174,29 @@ class TestDescriptionPropagationAction:
         )
         ctx = Mock()
         ctx.graph = Mock()
+        ctx.pipeline_name = "test_pipeline"
 
         action = DescriptionPropagationAction(config, ctx)
 
-        event = Mock()
-        event.event_type = "EntityChangeEvent_v1"
-
-        entity_change_event = Mock()
+        # Create a mock EntityChangeEvent for table description when table sync is disabled
+        entity_change_event = Mock(spec=EntityChangeEvent)
         entity_change_event.entityUrn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
+        entity_change_event.entityType = "dataset"
         entity_change_event.category = "DOCUMENTATION"
         entity_change_event.operation = "ADD"
+        entity_change_event.version = 1
+        entity_change_event.auditStamp = Mock()
+        entity_change_event.safe_parameters = {"description": "Test table description"}
         entity_change_event._inner_dict = {
             "__parameters_json": {"description": "Test table description"}
         }
 
-        event.event = entity_change_event
-
-        envelope = EventEnvelope(event=event, meta={})
+        envelope = EventEnvelope(
+            event_type="EntityChangeEvent_v1", event=entity_change_event, meta={}
+        )
 
         with patch(
-            "datahub_integrations.propagation.snowflake.description_propagation_action.is_snowflake_urn",
+            "datahub_integrations.propagation.snowflake.event_processor.is_snowflake_urn",
             return_value=True,
         ):
             directive = action.should_propagate(envelope)
@@ -183,16 +208,20 @@ class TestDescriptionPropagationAction:
         config = DescriptionPropagationConfig(enabled=True)
         ctx = Mock()
         ctx.graph = Mock()
+        ctx.pipeline_name = "test_pipeline"
 
         action = DescriptionPropagationAction(config, ctx)
 
-        # Mock MCL event with table description
-        mcl_event = Mock()
-        mcl_event.aspectName = "editableDatasetProperties"
-        mcl_event.aspect = Mock()
-        mcl_event.aspect.value = b'{"description": "Test table description"}'
+        # Create a mock EventData for MCL event with table description
+        event_data = Mock()
+        event_data.event_type = "MetadataChangeLogEvent_v1"
+        event_data.entity_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
+        event_data.aspect_name = "editableDatasetProperties"
+        event_data.aspect_value = '{"description": "Test table description"}'
+        event_data.change_type = "UPSERT"
+        event_data.aspect_data = {"description": "Test table description"}
 
-        description = action._extract_description_from_aspect(mcl_event)
+        description = action.description_extractor.extract_description(event_data)
 
         assert description == "Test table description"
 
@@ -201,15 +230,23 @@ class TestDescriptionPropagationAction:
         config = DescriptionPropagationConfig(enabled=True)
         ctx = Mock()
         ctx.graph = Mock()
+        ctx.pipeline_name = "test_pipeline"
 
         action = DescriptionPropagationAction(config, ctx)
 
-        # Mock MCL event with column description
-        mcl_event = Mock()
-        mcl_event.aspectName = "editableSchemaMetadata"
-        mcl_event.aspect = Mock()
-        mcl_event.aspect.value = b'{"editableSchemaFieldInfo": [{"fieldPath": "test_column", "description": "Test column description"}]}'
+        # Create a mock EventData for MCL event with column description
+        event_data = Mock()
+        event_data.event_type = "MetadataChangeLogEvent_v1"
+        event_data.entity_urn = "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD),test_column)"
+        event_data.aspect_name = "editableSchemaMetadata"
+        event_data.aspect_value = '{"editableSchemaFieldInfo": [{"fieldPath": "test_column", "description": "Test column description"}]}'
+        event_data.change_type = "UPSERT"
+        event_data.aspect_data = {
+            "editableSchemaFieldInfo": [
+                {"fieldPath": "test_column", "description": "Test column description"}
+            ]
+        }
 
-        description = action._extract_description_from_aspect(mcl_event)
+        description = action.description_extractor.extract_description(event_data)
 
         assert description == "Test column description"

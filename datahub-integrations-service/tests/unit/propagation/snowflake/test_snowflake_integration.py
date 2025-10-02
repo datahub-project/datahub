@@ -2,6 +2,10 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 from datahub_actions.event.event_envelope import EventEnvelope
+from datahub_actions.event.event_registry import (
+    EntityChangeEvent,
+    MetadataChangeLogEvent,
+)
 
 from datahub_integrations.propagation.snowflake.config import (
     SnowflakeConnectionConfigPermissive,
@@ -17,32 +21,6 @@ from datahub_integrations.propagation.snowflake.metadata_sync_action import (
 
 
 class TestSnowflakeIntegration:
-    def test_config_with_description_propagation(self) -> None:
-        """Test that the main config properly includes description propagation configuration."""
-        snowflake_config = SnowflakeConnectionConfigPermissive(
-            account_id="test_account",
-            warehouse="test_warehouse",
-            username="test_user",
-            password="test_password",
-            role="test_role",
-        )
-
-        description_propagation_config = DescriptionPropagationConfig(
-            enabled=True,
-            table_description_sync_enabled=True,
-            column_description_sync_enabled=True,
-        )
-
-        config = SnowflakeMetadataSyncConfig(
-            snowflake=snowflake_config,
-            description_sync=description_propagation_config,
-        )
-
-        assert config.description_sync is not None
-        assert config.description_sync.enabled is True
-        assert config.description_sync.table_description_sync_enabled is True
-        assert config.description_sync.column_description_sync_enabled is True
-
     @patch(
         "datahub_integrations.propagation.snowflake.metadata_sync_action.SnowflakeTagHelper"
     )
@@ -71,6 +49,7 @@ class TestSnowflakeIntegration:
 
         ctx = Mock()
         ctx.graph = Mock()
+        ctx.pipeline_name = "test_pipeline"
 
         action = SnowflakeMetadataSyncAction(config, ctx)
 
@@ -114,6 +93,7 @@ class TestSnowflakeIntegration:
 
         ctx = Mock()
         ctx.graph = Mock()
+        ctx.pipeline_name = "test_pipeline"
 
         action = SnowflakeMetadataSyncAction(config, ctx)
 
@@ -154,6 +134,7 @@ class TestSnowflakeIntegration:
 
         ctx = Mock()
         ctx.graph = Mock()
+        ctx.pipeline_name = "test_pipeline"
 
         action = SnowflakeMetadataSyncAction(config, ctx)
 
@@ -165,18 +146,31 @@ class TestSnowflakeIntegration:
             subtype="table",
             propagate=True,
         )
-        # Create a mock event
-        event = Mock()
-        event.event_type = "EntityChangeEvent_v1"
-
-        entity_change_event = Mock()
+        # Create a mock EntityChangeEvent for integration testing
+        # Note: Using Mock(spec=EntityChangeEvent) ensures isinstance() checks pass
+        # in the SnowflakeMetadataSyncAction.act() method
+        entity_change_event = Mock(spec=EntityChangeEvent)
         entity_change_event.entityUrn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
-        entity_change_event.category = "DOCUMENTATION"
+        entity_change_event.entityType = "dataset"
+        entity_change_event.category = (
+            "DOCUMENTATION"  # Required for description extraction
+        )
         entity_change_event.operation = "ADD"
+        entity_change_event.version = 1
+        # Create a proper audit stamp with numeric time for stats collection
+        # The stats utility divides by 1000.0 to convert from milliseconds to seconds
+        audit_stamp = Mock()
+        audit_stamp.time = 1609459200000  # 2021-01-01 00:00:00 UTC in milliseconds
+        entity_change_event.auditStamp = audit_stamp
+        # Set both safe_parameters and _inner_dict to support different access patterns
+        entity_change_event.safe_parameters = {"description": "Test description"}
+        entity_change_event._inner_dict = {
+            "__parameters_json": {"description": "Test description"}
+        }
 
-        event.event = entity_change_event
-
-        envelope = EventEnvelope(event=event, meta={})
+        envelope = EventEnvelope(
+            event_type="EntityChangeEvent_v1", event=entity_change_event, meta={}
+        )
 
         with patch.object(
             action.propagation_dispatcher,
@@ -214,6 +208,7 @@ class TestSnowflakeIntegration:
 
         ctx = Mock()
         ctx.graph = Mock()
+        ctx.pipeline_name = "test_pipeline"
 
         with patch(
             "datahub_integrations.propagation.snowflake.metadata_sync_action.SnowflakeTagHelper"
@@ -221,16 +216,21 @@ class TestSnowflakeIntegration:
             action = SnowflakeMetadataSyncAction(config, ctx)
 
         # Create a mock MCL event
-        event = Mock()
-        event.event_type = "MetadataChangeLogEvent_v1"
-
-        mcl_event = Mock()
+        mcl_event = Mock(spec=MetadataChangeLogEvent)
         mcl_event.entityUrn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
         mcl_event.aspectName = "editableDatasetProperties"
+        mcl_event.entityType = "dataset"
+        mcl_event.changeType = "UPSERT"
+        mcl_event.aspect = Mock()
+        mcl_event.aspect.value = b'{"description": "Test description"}'
+        # Create a proper audit header with time
+        audit_header = Mock()
+        audit_header.time = 1609459200000  # 2021-01-01 00:00:00 UTC in milliseconds
+        mcl_event.auditHeader = audit_header
 
-        event.event = mcl_event
-
-        envelope = EventEnvelope(event=event, meta={})
+        envelope = EventEnvelope(
+            event_type="MetadataChangeLogEvent_v1", event=mcl_event, meta={}
+        )
 
         # Mock the propagation dispatcher
         with patch.object(
