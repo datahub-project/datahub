@@ -10,6 +10,7 @@ import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/componen
 import StructuredPropertyValue from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
+import { useReloadableQuery } from '@app/sharedV2/reloadableContext/ReloadableContext';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
 import {
@@ -22,7 +23,7 @@ import {
     SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
     SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME,
 } from '@src/app/searchV2/utils/constants';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import {
     EntityType,
@@ -47,7 +48,7 @@ const MAX_STRUCTURED_PROPERTIES_TO_FETCH = 100;
 
 const SidebarStructuredProperties = ({ properties }: Props) => {
     const { entityData, entityType } = useEntityData();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const canEditProps = entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
     const [isPropModalVisible, setIsPropModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();
@@ -76,12 +77,17 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
     };
 
     // Execute search
-    const { data } = useGetSearchResultsForMultipleQuery({
-        variables: {
-            input: inputs,
+
+    const { data } = useReloadableQuery(
+        useGetSearchResultsForMultipleQuery,
+        { type: 'structuredPropertiesOnEntitySummaryTabSidebar', id: entityType },
+        {
+            variables: {
+                input: inputs,
+            },
+            fetchPolicy: 'cache-first',
         },
-        fetchPolicy: 'cache-first',
-    });
+    );
 
     const entityTypeProperties = data?.searchAcrossEntities?.searchResults;
 

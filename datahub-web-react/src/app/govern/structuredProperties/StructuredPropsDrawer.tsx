@@ -44,6 +44,7 @@ import {
     StructuredPropertyEntity,
     UpdateStructuredPropertyInput,
 } from '@src/types.generated';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/ReloadableContext';
 
 interface Props {
     isDrawerOpen: boolean;
@@ -118,6 +119,8 @@ const StructuredPropsDrawer = ({
         showToastMessage(ToastType.SUCCESS, `Structured property ${isEditMode ? 'updated' : 'created'}!`, 3);
     };
 
+    const {reloadByKeyType} = useReloadableContext();
+
     const handleSubmit = () => {
         if (isEditMode) {
             form.validateFields().then(() => {
@@ -183,6 +186,7 @@ const StructuredPropsDrawer = ({
                         });
                         refetch();
                         showSuccessMessage();
+                        reloadByKeyType(['structuredPropertiesOnEntitySummaryTabSidebar']);
                     })
                     .catch(() => {
                         showErrorMessage();
@@ -242,6 +246,7 @@ const StructuredPropsDrawer = ({
 
                         showSuccessMessage();
                         updatePropertiesList(client, inputs, res.data?.createStructuredProperty, searchAcrossEntities);
+                        reloadByKeyType(['structuredPropertiesOnEntitySummaryTabSidebar']);
                     })
                     .catch(() => {
                         showErrorMessage();
