@@ -397,25 +397,25 @@ services:
   opensearch:
     profiles: *opensearch-profiles
     hostname: search
-    image: ${DATAHUB_SEARCH_IMAGE:-opensearchproject/opensearch}:${DATAHUB_SEARCH_TAG:-2.11.0}
+    image: ${DATAHUB_SEARCH_IMAGE:-opensearchproject/opensearch}:${DATAHUB_SEARCH_TAG:-2.17.0}
     ports:
       - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
     env_file: elasticsearch/env/docker.env
     environment:
       - discovery.type=single-node
-      - ${XPACK_SECURITY_ENABLED:-plugins.security.disabled=true}
+      - DISABLE_SECURITY_PLUGIN=true
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 2G
     healthcheck:
       test: curl -sS --fail http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
-      start_period: 30s
-      interval: 1s
-      retries: 3
-      timeout: 5s
+      start_period: 60s
+      interval: 5s
+      retries: 10
+      timeout: 15s
     volumes:
-      - osdata:/usr/share/elasticsearch/data
+      - osdata:/usr/share/opensearch/data
   opensearch-setup: &opensearch-setup
     <<: *elasticsearch-setup-dev
     profiles: *opensearch-profiles-quickstart
@@ -427,6 +427,7 @@ services:
     depends_on:
       opensearch:
         condition: service_healthy
+    command: /bin/sh -c "sleep 10 && /create-indices.sh"
     labels:
       datahub_setup_job: true
   opensearch-setup-dev:
@@ -440,6 +441,7 @@ services:
     depends_on:
       opensearch:
         condition: service_healthy
+    command: /bin/sh -c "sleep 10 && /create-indices.sh"
   aws-localstack:
     profiles: *aws-profiles
     hostname: localstack
