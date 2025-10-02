@@ -45,6 +45,8 @@ dependencies = [
 	"cryptography==42.0.5",
 	"pyOpenSSL==24.1.0",
 	"litellm>=1.0.0",
+	# Classification - Used by core Snowflake code in ingestion.
+	"acryl-datahub-classify==0.0.11",
 	# Email notifications.
 	"sendgrid",
 	# Reporting.
