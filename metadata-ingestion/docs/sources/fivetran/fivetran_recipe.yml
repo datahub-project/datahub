@@ -35,7 +35,7 @@ source:
           warehouse_id: "warehouse_id"
 
            # Coordinates
-          catalog: "my_fivetran_catalog"
+          catalog: "fivetran_catalog"
           log_schema: "fivetran_log"
      
     # Optional - filter for certain connector names instead of ingesting everything.

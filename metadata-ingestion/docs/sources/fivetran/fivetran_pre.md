@@ -12,6 +12,7 @@ This source extracts the following:
 1. Fivetran supports the [fivetran platform connector](https://fivetran.com/docs/logs/fivetran-platform) to dump the log events and connectors, destinations, users and roles metadata in your destination.
 2. You need to setup and start the initial sync of the fivetran platform connector before using this source. Refer [link](https://fivetran.com/docs/logs/fivetran-platform/setup-guide).
 3. Once initial sync up of your fivetran platform connector is done, you need to provide the fivetran platform connector's destination platform and its configuration in the recipe.
+4. We expect our users to enable automatic schema updates (default) in fivetran platform connector configured for DataHub, this ensures latest schema changes are applied and avoids inconsistency data syncs.
 
 ## Concept mapping
 
@@ -61,21 +62,21 @@ grant role fivetran_datahub to user snowflake_user;
 
 ## Databricks destination Configuration Guide
 
-1. - Get your Databricks instance's [workspace url](https://docs.databricks.com/workspace/workspace-details.html#workspace-instance-names-urls-and-ids)
-- Create a [Databricks Service Principal](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#what-is-a-service-principal)
+1. Get your Databricks instance's [workspace url](https://docs.databricks.com/workspace/workspace-details.html#workspace-instance-names-urls-and-ids)
+2. Create a [Databricks Service Principal](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#what-is-a-service-principal)
   - You can skip this step and use your own account to get things running quickly,
     but we strongly recommend creating a dedicated service principal for production use.
-- Generate a Databricks Personal Access token following the following guides:
+3. Generate a Databricks Personal Access token following the following guides:
   - [Service Principals](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#personal-access-tokens)
   - [Personal Access Tokens](https://docs.databricks.com/dev-tools/auth.html#databricks-personal-access-tokens)
-- Provision your service account:
+4. Provision your service account:
   - To ingest your workspace's metadata and lineage, your service principal must have all of the following:
     - One of: metastore admin role, ownership of, or `USE CATALOG` privilege on any catalogs you want to ingest
     - One of: metastore admin role, ownership of, or `USE SCHEMA` privilege on any schemas you want to ingest
     - Ownership of or `SELECT` privilege on any tables and views you want to ingest
     - [Ownership documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/ownership.html)
     - [Privileges documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/privileges.html)
-- Check the starter recipe below and replace `workspace_url` and `token` with your information from the previous steps.
+5. Check the starter recipe below and replace `workspace_url` and `token` with your information from the previous steps.
 
 ## Advanced Configurations
 
