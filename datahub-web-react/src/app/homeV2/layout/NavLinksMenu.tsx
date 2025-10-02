@@ -11,6 +11,7 @@ import { useHandleOnboardingTour } from '@app/onboarding/useHandleOnboardingTour
 import { useUpdateEducationStepsAllowList } from '@app/onboarding/useUpdateEducationStepsAllowList';
 import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
 import { HelpLinkRoutes, PageRoutes } from '@conf/Global';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import AnalyticsMenuIcon from '@images/analyticsMenuIcon.svg?react';
 import GovernMenuIcon from '@images/governMenuIcon.svg?react';
@@ -222,7 +223,7 @@ export function NavLinksMenu(props: Props) {
                     {
                         title: 'GraphiQL',
                         description: 'Explore the GraphQL API',
-                        link: HelpLinkRoutes.GRAPHIQL || null,
+                        link: HelpLinkRoutes.GRAPHIQL ? resolveRuntimePath(HelpLinkRoutes.GRAPHIQL) : null,
                         isHidden: false,
                         target: '_blank',
                         rel: 'noopener noreferrer',
@@ -230,7 +231,7 @@ export function NavLinksMenu(props: Props) {
                     {
                         title: 'OpenAPI',
                         description: 'Explore the OpenAPI endpoints',
-                        link: HelpLinkRoutes.OPENAPI,
+                        link: resolveRuntimePath(HelpLinkRoutes.OPENAPI),
                         isHidden: false,
                         target: '_blank',
                         rel: 'noopener noreferrer',

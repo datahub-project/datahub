@@ -40,6 +40,8 @@ services:
         required: true
     environment:
       ALTERNATE_MCP_VALIDATION: 'true'
+      DATAHUB_BASE_PATH: /
+      DATAHUB_GMS_BASE_PATH: /
       DATAHUB_SERVER_TYPE: quickstart
       DATAHUB_TELEMETRY_ENABLED: 'false'
       DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID: generic-duhe-consumer-job-client-gms
@@ -117,7 +119,9 @@ services:
         condition: service_completed_successfully
         required: true
     environment:
-      DATAHUB_APP_VERSION: '1.0'
+      DATAHUB_APP_VERSION: ${DATAHUB_VERSION}
+      DATAHUB_BASE_PATH: /
+      DATAHUB_GMS_BASE_PATH: /
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: '8080'
       DATAHUB_PLAY_MEM_BUFFER_SIZE: 10MB
@@ -128,6 +132,7 @@ services:
       JAVA_OPTS: -Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf
         -Dlogback.configurationFile=datahub-frontend/conf/logback.xml -Dlogback.debug=false -Dpidfile.path=/dev/null
       KAFKA_BOOTSTRAP_SERVER: broker:29092
+      PLAY_HTTP_CONTEXT: /
       THEME_V2_DEFAULT: 'true'
     hostname: datahub-frontend-react
     image: acryldata/datahub-frontend-react:${DATAHUB_VERSION}
@@ -210,12 +215,14 @@ services:
     - quickstart-frontend
     - quickstart-storage
     - quickstart-consumers
+    - quickstart-consumers-cdc
     - debug
     - debug-min
     - debug-datahub-actions
     - debug-frontend
     - debug-backend
     - debug-consumers
+    - debug-consumers-cdc
     - debug-neo4j
     - debug-elasticsearch
     - debug-backend-aws
@@ -265,10 +272,14 @@ services:
         condition: service_healthy
         required: true
     environment:
+      CDC_MCL_PROCESSING_ENABLED: 'false'
+      CDC_PASSWORD: datahub_cdc
+      CDC_USER: datahub_cdc
       DATAHUB_DB_NAME: datahub
       MYSQL_HOST: mysql
       MYSQL_PASSWORD: datahub
       MYSQL_PORT: '3306'
+      MYSQL_ROOT_PASSWORD: datahub
       MYSQL_USERNAME: datahub
     hostname: mysql-setup
     image: acryldata/datahub-mysql-setup:${DATAHUB_VERSION}
@@ -285,15 +296,19 @@ services:
     - quickstart-storage
     - quickstart-cassandra
     - quickstart-postgres
+    - quickstart-postgres-cdc
     - quickstart-consumers
+    - quickstart-consumers-cdc
     - debug
     - debug-min
     - debug-datahub-actions
     - debug-frontend
     - debug-backend
     - debug-postgres
+    - debug-postgres-cdc
     - debug-cassandra
     - debug-consumers
+    - debug-consumers-cdc
     - debug-neo4j
     - debug-backend-aws
     - debug-aws
@@ -337,7 +352,9 @@ services:
     - quickstart-storage
     - quickstart-cassandra
     - quickstart-postgres
+    - quickstart-postgres-cdc
     - quickstart-consumers
+    - quickstart-consumers-cdc
     command:
     - /bin/sh
     - -c
@@ -383,9 +400,11 @@ services:
         required: true
     environment:
       BACKFILL_BROWSE_PATHS_V2: 'true'
+      DATAHUB_BASE_PATH: /
+      DATAHUB_GMS_BASE_PATH: /
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: '8080'
-      DATAHUB_PRECREATE_TOPICS: 'false'
+      DATAHUB_PRECREATE_TOPICS: 'true'
       EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
       EBEAN_DATASOURCE_HOST: mysql:3306
       EBEAN_DATASOURCE_PASSWORD: datahub
