@@ -30,8 +30,8 @@ both columns and tables back to Snowflake. This automation is available in DataH
 - `CREATE TAG`: Required to create new tags in Snowflake.
   Ensure the user or role has this privilege on the specific schema or database where tags will be created.
 - `APPLY TAG`: Required to assign tags to Snowflake objects such as tables, columns, or other database objects.
-  This permission must be granted at the database, schema, or object level depending on the scope.
-- `OWNERSHIP` on objects: Required to update comments/descriptions on tables and columns. Alternatively, `INSERT` privilege may be sufficient for some operations.
+  **This permission must be granted at the ACCOUNT level** - it cannot be granted on individual schemas, tables, or views.
+- `OWNERSHIP` on objects: Required to apply tags to tables and columns, as well as to update comments/descriptions. This is the most comprehensive permission and is necessary for tag operations.
 
 ### Permissions Required for Object Access
 
@@ -49,26 +49,23 @@ GRANT USAGE ON SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
 
 -- Tag management permissions
 GRANT CREATE TAG ON SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
-GRANT APPLY TAG ON SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+-- APPLY TAG must be granted at ACCOUNT level
+GRANT APPLY TAG ON ACCOUNT TO ROLE DATAHUB_AUTOMATION_ROLE;
 
 -- Object access and modification permissions
 GRANT SELECT ON ALL TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
 GRANT SELECT ON ALL VIEWS IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
 
--- For updating table/column comments, you need ownership or insert privileges
--- Option 1: Grant ownership (most comprehensive, but may be too broad)
--- GRANT OWNERSHIP ON ALL TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
--- GRANT OWNERSHIP ON ALL VIEWS IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
-
--- Option 2: Grant insert privileges (more restrictive, may be sufficient for comments)
-GRANT INSERT ON ALL TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+-- OWNERSHIP is required for applying tags and updating comments/descriptions
+GRANT OWNERSHIP ON ALL TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT OWNERSHIP ON ALL VIEWS IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
 
 -- Future privileges for new objects
 GRANT SELECT ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
 GRANT SELECT ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
-GRANT INSERT ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
-GRANT APPLY TAG ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
-GRANT APPLY TAG ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT OWNERSHIP ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT OWNERSHIP ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+-- Note: APPLY TAG is granted at ACCOUNT level above and applies to all objects
 ```
 
 ## Enabling Snowflake Metadata Sync
@@ -88,12 +85,10 @@ GRANT APPLY TAG ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATA
 3. **Configure Automation**: Fill in the required fields to connect to Snowflake, along with the name, description, and category.
 
    **Authentication Options:**
-
    - **Username/Password**: Traditional authentication using Snowflake username and password
    - **Private Key**: Key pair authentication using RSA private key (more secure for automated processes)
 
    **Sync Options:**
-
    - **Tags & Terms**: You can limit propagation based on specific Tags and Glossary Terms. If none are selected, then ALL Tags or Glossary Terms will be automatically propagated to Snowflake tables and columns.
    - **Descriptions**: Enable description sync to automatically update Snowflake table and column comments with DataHub descriptions.
 

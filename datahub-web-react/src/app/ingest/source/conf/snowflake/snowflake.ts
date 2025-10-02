@@ -8,7 +8,12 @@ source:
     config:
         account_id: abcde
         username: "\${SNOWFLAKE_DATAHUB_USER}"
+        # For password authentication:
         password: "\${SNOWFLAKE_DATAHUB_PASSWORD}"
+        # For private key authentication:
+        # authentication_type: KEY_PAIR_AUTHENTICATOR
+        # private_key: "\${SNOWFLAKE_PRIVATE_KEY}"
+        # private_key_password: "\${SNOWFLAKE_PRIVATE_KEY_PASSWORD}"  # Optional if key is encrypted
         warehouse: "\${DATAHUB_WAREHOUSE}"
         role: datahub_role
         profiling:

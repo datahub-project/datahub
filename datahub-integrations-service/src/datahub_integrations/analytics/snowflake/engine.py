@@ -58,7 +58,6 @@ class SnowflakeAnalyticsEngine(AnalyticsEngine):
                 account=self.connection.account,
                 warehouse=self.connection.warehouse,
                 role=self.connection.role,
-                authenticator="snowflake",
                 **connect_args,
             )
         else:

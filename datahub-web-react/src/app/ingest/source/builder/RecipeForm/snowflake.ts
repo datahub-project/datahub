@@ -42,7 +42,7 @@ export const SNOWFLAKE_PASSWORD: RecipeField = {
     fieldPath: 'source.config.password',
     placeholder: 'password',
     rules: null,
-    required: true,
+    required: false,
 };
 
 export const SNOWFLAKE_ROLE: RecipeField = {
@@ -54,4 +54,41 @@ export const SNOWFLAKE_ROLE: RecipeField = {
     placeholder: 'datahub_role',
     rules: null,
     required: true,
+};
+
+export const SNOWFLAKE_AUTHENTICATION_TYPE: RecipeField = {
+    name: 'authentication_type',
+    label: 'Authentication Type',
+    tooltip: 'Choose the authentication method for connecting to Snowflake.',
+    type: FieldType.SELECT,
+    fieldPath: 'source.config.authentication_type',
+    options: [
+        { label: 'Username & Password', value: 'DEFAULT_AUTHENTICATOR' },
+        { label: 'Private Key', value: 'KEY_PAIR_AUTHENTICATOR' },
+    ],
+    placeholder: 'DEFAULT_AUTHENTICATOR',
+    rules: null,
+    required: true,
+};
+
+export const SNOWFLAKE_PRIVATE_KEY: RecipeField = {
+    name: 'private_key',
+    label: 'Private Key',
+    tooltip: 'RSA private key for key pair authentication. Can be provided as a string or path to key file.',
+    type: FieldType.SECRET,
+    fieldPath: 'source.config.private_key',
+    placeholder: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
+    rules: null,
+    required: false,
+};
+
+export const SNOWFLAKE_PRIVATE_KEY_PASSWORD: RecipeField = {
+    name: 'private_key_password',
+    label: 'Private Key Password',
+    tooltip: 'Password for the private key if it is encrypted.',
+    type: FieldType.SECRET,
+    fieldPath: 'source.config.private_key_password',
+    placeholder: 'private_key_password',
+    rules: null,
+    required: false,
 };
