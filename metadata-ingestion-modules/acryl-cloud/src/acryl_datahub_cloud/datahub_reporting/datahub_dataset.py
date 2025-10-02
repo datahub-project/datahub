@@ -271,7 +271,7 @@ class DataHubBasedS3Dataset:
             )
 
     def _generate_schema_metadata(
-        self, duckdb_columns: List[Tuple[str, str]]
+        self, duckdb_columns: List[Tuple[str, Any]]
     ) -> SchemaMetadataClass:
         def get_type_from_dtype(dtype: str) -> SchemaFieldDataTypeClass:
             if "int" in dtype or "float" in dtype or "number" in dtype:
@@ -302,7 +302,7 @@ class DataHubBasedS3Dataset:
         )
         for column in duckdb_columns:
             # generate data type
-            data_type = column[1].lower()
+            data_type = str(column[1]).lower()
             schema_metadata.fields.append(
                 SchemaFieldClass(
                     fieldPath=column[0],
@@ -341,7 +341,7 @@ class DataHubBasedS3Dataset:
                 # generate min, max, avg, distinct count, null count
                 column_name = column[0]
                 logger.info(f"Generating field profile for {column_name}")
-                data_type = column[1].lower()
+                data_type = str(column[1]).lower()
                 if "int" in data_type or "float" in data_type:
                     query = (
                         f"SELECT COUNT(DISTINCT {column_name}), COUNT(*) - COUNT({column_name}), MIN({column_name}), MAX({column_name}), AVG({column_name})"

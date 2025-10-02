@@ -1,4 +1,4 @@
-import { Icon, SimpleSelect } from '@components';
+import { Icon, SimpleSelect, Tooltip } from '@components';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -89,15 +89,19 @@ export default function SimpleSelectRole({
     };
 
     return (
-        <SimpleSelect
-            onUpdate={(values) => handleRoleSelect(values[0] || '')}
-            options={roleSelectOptions}
-            placeholder={placeholderWithIcon}
-            values={selectedRole?.urn ? [selectedRole.urn] : []}
-            size={size}
-            width={width}
-            isDisabled={disabled}
-            showClear={false}
-        />
+        <Tooltip title="Set user role" placement="top">
+            <span>
+                <SimpleSelect
+                    onUpdate={(values) => handleRoleSelect(values[0] || '')}
+                    options={roleSelectOptions}
+                    placeholder={placeholderWithIcon}
+                    values={selectedRole?.urn ? [selectedRole.urn] : []}
+                    size={size}
+                    width={width}
+                    isDisabled={disabled}
+                    showClear={false}
+                />
+            </span>
+        </Tooltip>
     );
 }

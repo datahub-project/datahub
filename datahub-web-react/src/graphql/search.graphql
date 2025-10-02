@@ -560,6 +560,18 @@ fragment searchResultsWithoutSchemaField on Entity {
             title
             pictureLink
         }
+        usageFeatures {
+            userUsageTotalPast30Days
+            userUsagePercentilePast30Days
+            userPlatformUsageTotalsPast30Days {
+                key
+                value
+            }
+            userPlatformUsagePercentilePast30Days {
+                key
+                value
+            }
+        }
     }
     ... on CorpGroup {
         name
@@ -1358,6 +1370,14 @@ fragment facetFields on FacetMetadata {
                 editableProperties {
                     displayName
                     pictureLink
+                }
+                usageFeatures {
+                    userUsagePercentilePast30Days
+                    userUsageTotalPast30Days
+                    userPlatformUsageTotalsPast30Days {
+                        key
+                        value
+                    }
                 }
             }
             ... on CorpGroup {

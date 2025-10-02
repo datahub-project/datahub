@@ -33,10 +33,9 @@ import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';
 import { CORP_USER_STATUS_FIELD, ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { Message } from '@app/shared/Message';
 import { Button, Modal, Tabs } from '@src/alchemy-components';
-import { SortingState } from '@src/alchemy-components/components/Table/types';
 
 import { useBatchAssignRoleMutation, useSendUserInvitationsMutation } from '@graphql/mutations.generated';
-import { CorpUser, DataHubRole, SortOrder } from '@types';
+import { CorpUser, DataHubRole } from '@types';
 
 const NO_ROLE_TEXT = 'No Role';
 const NO_ROLE_URN = 'urn:li:dataHubRole:NoRole';
@@ -99,9 +98,6 @@ export const UserAndGroupList = ({ hasSsoBanner }: Props) => {
         setPage(1);
     }, [debouncedQuery, statusFilter, setPage]);
 
-    const [sortField, setSortField] = useState<string | null>(null);
-    const [sortOrder, setSortOrder] = useState<SortOrder>(SortOrder.Ascending);
-
     // Initialize activeSubTab based on query parameter
     const getInitialSubTab = () => {
         if (tabParam === SubTabType.Recommended) return SubTabType.Recommended;
@@ -119,8 +115,6 @@ export const UserAndGroupList = ({ hasSsoBanner }: Props) => {
         }
     }, [tabParam, activeSubTab]);
 
-    const sortInput = sortField ? { field: sortField, sortOrder } : undefined;
-
     // Handler for manual tab changes - updates both state and URL
     const handleTabChange = (key: string) => {
         const newTab = key as SubTabType;
@@ -137,7 +131,7 @@ export const UserAndGroupList = ({ hasSsoBanner }: Props) => {
     };
 
     const { usersData, loading, error, totalUsers, selectRoleOptions, usersRefetch, onChangePage, handleDelete } =
-        useUserListData(page, pageSize, debouncedQuery, setPage, setPageSize, sortInput, statusFilter);
+        useUserListData(page, pageSize, debouncedQuery, setPage, setPageSize, undefined, statusFilter);
 
     const { onResetPassword, onCloseResetModal, onDelete } = useUserListActions(
         setIsViewingResetToken,
@@ -257,45 +251,6 @@ export const UserAndGroupList = ({ hasSsoBanner }: Props) => {
         setUsersList(users);
     }, [usersData, setUsersList]);
 
-    // Sort invited users first for ascending, last for descending
-    const sortedFilteredUsers = React.useMemo(() => {
-        if (!sortField || sortField !== ENTITY_NAME_FIELD) {
-            return usersList;
-        }
-
-        const invitedUsers = usersList.filter((user) => user.invitationStatus?.status === 'SENT');
-        const otherUsers = usersList.filter((user) => user.invitationStatus?.status !== 'SENT');
-
-        if (sortOrder === SortOrder.Ascending) {
-            return [...invitedUsers, ...otherUsers];
-        }
-        return [...otherUsers, ...invitedUsers];
-    }, [usersList, sortField, sortOrder]);
-
-    const handleSortColumnChange = ({
-        sortColumn,
-        sortOrder: tableSortOrder,
-    }: {
-        sortColumn: string;
-        sortOrder: SortingState;
-    }) => {
-        setSortField(sortColumn);
-
-        switch (tableSortOrder) {
-            case SortingState.ASCENDING:
-                setSortOrder(SortOrder.Ascending);
-                break;
-            case SortingState.DESCENDING:
-                setSortOrder(SortOrder.Descending);
-                break;
-            default:
-                setSortField(null);
-                break;
-        }
-
-        setPage(1);
-    };
-
     // Helper functions for recommended users
     const handleInviteRecommendedUser = async (user: CorpUser, role?: DataHubRole, recommendedUsers?: CorpUser[]) => {
         if (!role) {
@@ -382,7 +337,6 @@ export const UserAndGroupList = ({ hasSsoBanner }: Props) => {
             title: 'Role',
             key: 'roles',
             minWidth: '10%',
-            sorter: false,
             render: (user: UserListItem) => {
                 const userRelationships = user?.roles?.relationships;
                 const userRole =
@@ -443,10 +397,9 @@ export const UserAndGroupList = ({ hasSsoBanner }: Props) => {
             setPage={setPage}
             statusFilter={statusFilter}
             setStatusFilter={setStatusFilter}
-            sortedFilteredUsers={sortedFilteredUsers}
+            sortedFilteredUsers={usersList}
             loading={loading}
             columns={columns}
-            handleSortColumnChange={handleSortColumnChange}
             page={page}
             pageSize={pageSize}
             totalUsers={totalUsers}
