@@ -13,6 +13,8 @@ import { EducationStepsProvider } from '@providers/EducationStepsProvider';
 import QuickFiltersProvider from '@providers/QuickFiltersProvider';
 import AppConfigProvider from '@src/AppConfigProvider';
 
+import { ReloadableProvider } from '@app/sharedV2/reloadableContext/ReloadableContext';
+
 interface Props {
     children: React.ReactNode;
 }
@@ -28,11 +30,13 @@ export default function AppProviders({ children }: Props) {
                                 <OnboardingTourProvider>
                                     <QuickFiltersProvider>
                                         <SearchContextProvider>
-                                            <ModulesProvider>
-                                                <HomePageProvider>
-                                                    <NavBarProvider>{children}</NavBarProvider>
-                                                </HomePageProvider>
-                                            </ModulesProvider>
+                                            <ReloadableProvider>
+                                                <ModulesProvider>
+                                                    <HomePageProvider>
+                                                        <NavBarProvider>{children}</NavBarProvider>
+                                                    </HomePageProvider>
+                                                </ModulesProvider>
+                                            </ReloadableProvider>
                                         </SearchContextProvider>
                                     </QuickFiltersProvider>
                                 </OnboardingTourProvider>
