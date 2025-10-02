@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
@@ -6,7 +7,7 @@ from datahub_integrations.analytics.snowflake.connection import SnowflakeConnect
 
 
 class TestSnowflakeConnection:
-    def test_connection_with_password_auth(self):
+    def test_connection_with_password_auth(self) -> None:
         """Test connection creation with password authentication."""
         connection = SnowflakeConnection(
             account="test_account",
@@ -26,7 +27,7 @@ class TestSnowflakeConnection:
         assert connection.private_key is None
         assert connection.private_key_password is None
 
-    def test_connection_with_private_key_auth(self):
+    def test_connection_with_private_key_auth(self) -> None:
         """Test connection creation with private key authentication."""
         test_private_key = "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC...\n-----END PRIVATE KEY-----"
 
@@ -50,7 +51,7 @@ class TestSnowflakeConnection:
         assert connection.private_key_password == "key_password"
 
     @patch("datahub_integrations.graphql.connection.get_connection_json")
-    def test_from_datahub_password_auth(self, mock_get_connection):
+    def test_from_datahub_password_auth(self, mock_get_connection: Any) -> None:
         """Test loading connection from DataHub with password auth."""
         mock_graph = Mock()
         mock_get_connection.return_value = {
@@ -69,7 +70,7 @@ class TestSnowflakeConnection:
         assert connection.private_key is None
 
     @patch("datahub_integrations.graphql.connection.get_connection_json")
-    def test_from_datahub_private_key_auth(self, mock_get_connection):
+    def test_from_datahub_private_key_auth(self, mock_get_connection: Any) -> None:
         """Test loading connection from DataHub with private key auth."""
         mock_graph = Mock()
         test_private_key = (
@@ -94,7 +95,7 @@ class TestSnowflakeConnection:
         assert connection.password is None
 
     @patch("datahub_integrations.graphql.connection.get_connection_json")
-    def test_from_datahub_missing_config(self, mock_get_connection):
+    def test_from_datahub_missing_config(self, mock_get_connection: Any) -> None:
         """Test error handling when no config is found."""
         mock_graph = Mock()
         mock_get_connection.return_value = None
