@@ -611,6 +611,45 @@ class RDSIAMTokenManager:
         assert self._current_token is not None
         return self._current_token
 
+    def create_connect_event_listener(
+        self,
+        database: Optional[str] = None,
+        extra_params_callback: Optional[Any] = None,
+    ) -> Any:
+        """
+        Create SQLAlchemy do_connect event listener for RDS IAM authentication.
+
+        Args:
+            database: Database name to connect to (optional)
+            extra_params_callback: Optional callback for database-specific connection params
+                                   (e.g., SSL config for MySQL, driver-specific settings)
+
+        Returns:
+            Event listener function ready to be registered with SQLAlchemy engine
+        """
+
+        def provide_token(
+            dialect: Any, conn_rec: Any, cargs: Any, cparams: Any
+        ) -> None:
+            """Inject fresh RDS IAM token before each connection."""
+            token = self.get_token()
+            cparams["host"] = self.generator.endpoint
+            cparams["port"] = self.generator.port
+            cparams["user"] = self.generator.username
+            cparams["password"] = token
+            if database is not None:
+                cparams["database"] = database
+
+            if extra_params_callback:
+                extra_params_callback(cparams)
+
+            logger.debug(
+                f"Injected RDS IAM token for connection to {self.generator.endpoint}:{self.generator.port}"
+                + (f" (database: {database})" if database else "")
+            )
+
+        return provide_token
+
 
 class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):
     """

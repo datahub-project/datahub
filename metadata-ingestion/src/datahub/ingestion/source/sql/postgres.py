@@ -235,27 +235,22 @@ class PostgresSource(SQLAlchemySource):
         # Type narrowing: assert token manager is not None after the guard check
         assert self._rds_iam_token_manager is not None
 
-        @event.listens_for(engine, "do_connect")  # type: ignore[misc]
-        def provide_token(
-            dialect: Any, conn_rec: Any, cargs: Any, cparams: Any
-        ) -> None:
-            """Inject fresh RDS IAM token before each connection."""
-            assert self._rds_iam_token_manager is not None
-            token = self._rds_iam_token_manager.get_token()
-            cparams["host"] = self._rds_iam_hostname
-            cparams["port"] = self._rds_iam_port
-            cparams["user"] = self.config.username
-            cparams["password"] = token
-            cparams["database"] = (
-                database_name or self.config.database or self.config.initial_database
-            )
+        def _postgres_extra_params(cparams: Any) -> None:
+            """Configure PostgreSQL-specific SSL settings for RDS IAM."""
+            # RDS IAM authentication requires SSL/TLS
+            # Set sslmode to 'require' if not already configured with a stricter mode
+            current_sslmode = cparams.get("sslmode", "")
+            if current_sslmode not in ("require", "verify-ca", "verify-full"):
+                cparams["sslmode"] = "require"
 
-            # Merge user-provided password in connect_args
-            # (RDS IAM token takes precedence)
-            logger.debug(
-                f"Injected RDS IAM token for connection to {self._rds_iam_hostname}:{self._rds_iam_port}"
-                + (f" (database: {database_name})" if database_name else "")
-            )
+        provide_token = self._rds_iam_token_manager.create_connect_event_listener(
+            database=database_name
+            or self.config.database
+            or self.config.initial_database,
+            extra_params_callback=_postgres_extra_params,
+        )
+
+        event.listen(engine, "do_connect", provide_token)  # type: ignore[misc]
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # Note: get_sql_alchemy_url will choose `sqlalchemy_uri` over the passed in database
