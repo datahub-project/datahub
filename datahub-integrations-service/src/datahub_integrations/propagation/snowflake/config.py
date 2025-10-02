@@ -2,7 +2,7 @@ from typing import Any, Dict
 
 import pydantic
 from datahub.configuration.common import PermissiveConfigModel
-from datahub.ingestion.source.snowflake.snowflake_config import (
+from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
 
