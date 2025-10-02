@@ -14,7 +14,7 @@ source_files = os.listdir(SOURCE_FILES_PATH)
 
 
 @pytest.mark.parametrize("source_file", source_files)
-def test_delta_lake(pytestconfig, source_file, tmp_path, mock_time):
+def test_delta_lake(pytestconfig, source_file, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/delta_lake"
 
     f = open(os.path.join(SOURCE_FILES_PATH, source_file))
@@ -48,7 +48,7 @@ def test_delta_lake(pytestconfig, source_file, tmp_path, mock_time):
     )
 
 
-def test_delta_lake_incorrect_config_raises_error(tmp_path, mock_time):
+def test_delta_lake_incorrect_config_raises_error(tmp_path):
     config_dict = {}
     config_dict["sink"] = {
         "type": "file",

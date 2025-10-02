@@ -2,7 +2,7 @@ import subprocess
 
 import pytest
 import requests
-from freezegun import freeze_time
+import time_machine
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.glossary.classifier import (
@@ -20,7 +20,7 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 pytestmark = pytest.mark.integration_batch_1
 
-FROZEN_TIME = "2021-09-23 12:00:00"
+FROZEN_TIME = "2021-09-23 12:00:00+00:00"
 
 data_platform = "trino"
 
@@ -57,10 +57,8 @@ def loaded_trino(trino_runner):
     subprocess.run(command, shell=True, check=True)
 
 
-@freeze_time(FROZEN_TIME)
-def test_trino_ingest(
-    loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
-):
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_trino_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_path):
     # Run the metadata ingestion pipeline.
     with fs_helpers.isolated_filesystem(tmp_path):
         # Run the metadata ingestion pipeline for trino catalog referring to postgres database
@@ -132,10 +130,8 @@ def test_trino_ingest(
         )
 
 
-@freeze_time(FROZEN_TIME)
-def test_trino_hive_ingest(
-    loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
-):
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_trino_hive_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_path):
     # Run the metadata ingestion pipeline for trino catalog referring to postgres database
     mce_out_file = "trino_hive_mces.json"
     events_file = tmp_path / mce_out_file
@@ -199,9 +195,9 @@ def test_trino_hive_ingest(
     # Limitation 3 - Limited DatasetProperties available in Trino than in direct hive source - https://trino.io/docs/current/connector/hive.html#table-properties.
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_trino_instance_ingest(
-    loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
+    loaded_trino, test_resources_dir, pytestconfig, tmp_path
 ):
     mce_out_file = "trino_instance_mces.json"
     events_file = tmp_path / mce_out_file

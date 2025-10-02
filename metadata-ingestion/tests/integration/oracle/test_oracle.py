@@ -3,7 +3,7 @@ from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from sqlalchemy import exc
 
 from datahub.ingestion.api.source import StructuredLogLevel
@@ -146,7 +146,7 @@ class TestOracleSourceErrorHandling(OracleIntegrationTestCase):
         assert "CAST(:schema_name AS VARCHAR(128))" in sql_text
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_oracle_source_integration_with_out_database(pytestconfig, tmp_path):
     oracle_source_integration_test = OracleIntegrationTestCase(
@@ -159,7 +159,7 @@ def test_oracle_source_integration_with_out_database(pytestconfig, tmp_path):
     oracle_source_integration_test.apply()
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_oracle_source_integration_with_database(pytestconfig, tmp_path):
     oracle_source_integration_test = OracleIntegrationTestCase(
@@ -172,7 +172,7 @@ def test_oracle_source_integration_with_database(pytestconfig, tmp_path):
     oracle_source_integration_test.apply()
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_oracle_source_error_handling(pytestconfig, tmp_path):
     test_case = TestOracleSourceErrorHandling(

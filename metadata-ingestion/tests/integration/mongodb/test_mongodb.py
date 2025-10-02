@@ -7,7 +7,7 @@ from tests.test_helpers.docker_helpers import wait_for_port
 pytestmark = pytest.mark.integration_batch_2
 
 
-def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/mongodb"
 
     with docker_compose_runner(

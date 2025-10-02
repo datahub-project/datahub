@@ -4,7 +4,7 @@ from os import PathLike
 from typing import Any, Dict, List, Union
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline
@@ -326,13 +326,12 @@ class DbtTestConfig:
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )
 @pytest.mark.integration
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dbt_ingest(
     dbt_test_config,
     test_resources_dir,
     pytestconfig,
     tmp_path,
-    mock_time,
     requests_mock,
 ):
     config: DbtTestConfig = dbt_test_config
@@ -394,7 +393,7 @@ def test_dbt_ingest(
     ],
 )
 @pytest.mark.integration
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dbt_test_connection(test_resources_dir, config_dict, is_success):
     config_dict["manifest_path"] = str(
         (test_resources_dir / config_dict["manifest_path"]).resolve()
@@ -412,8 +411,8 @@ def test_dbt_test_connection(test_resources_dir, config_dict, is_success):
 
 
 @pytest.mark.integration
-@freeze_time(FROZEN_TIME)
-def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs):
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, **kwargs):
     # Run the metadata ingestion pipeline.
     output_file = tmp_path / "dbt_test_events.json"
     golden_path = test_resources_dir / "dbt_test_events_golden.json"
@@ -455,9 +454,9 @@ def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwar
 
 
 @pytest.mark.integration
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dbt_tests_only_assertions(
-    test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs
+    test_resources_dir, pytestconfig, tmp_path, **kwargs
 ):
     # Run the metadata ingestion pipeline.
     output_file = tmp_path / "test_only_assertions.json"
@@ -535,9 +534,9 @@ def test_dbt_tests_only_assertions(
 
 
 @pytest.mark.integration
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dbt_only_test_definitions_and_results(
-    test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs
+    test_resources_dir, pytestconfig, tmp_path, **kwargs
 ):
     # Run the metadata ingestion pipeline.
     output_file = tmp_path / "test_only_definitions_and_assertions.json"

@@ -1,7 +1,7 @@
 from typing import List
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -11,9 +11,9 @@ pytestmark = pytest.mark.integration_batch_2
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
-def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/clickhouse"
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "clickhouse"
@@ -40,11 +40,9 @@ def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_t
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
-def test_clickhouse_ingest_uri_form(
-    docker_compose_runner, pytestconfig, tmp_path, mock_time
-):
+def test_clickhouse_ingest_uri_form(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/clickhouse"
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "clickhouse"

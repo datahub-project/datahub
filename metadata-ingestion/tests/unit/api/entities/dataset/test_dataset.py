@@ -2,7 +2,7 @@ import pathlib
 from pathlib import Path
 from typing import Iterable, List, Union
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.api.entities.dataset.dataset import Dataset, Ownership
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -10,11 +10,11 @@ from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.testing.mce_helpers import check_goldens_stream
 from tests.test_helpers.graph_helpers import MockDataHubGraph
 
-FROZEN_TIME = "2023-04-14 07:00:00"
+FROZEN_TIME = "2023-04-14 07:00:00+00:00"
 RESOURCE_DIR = pathlib.Path(__file__).parent
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dataset_from_yaml() -> None:
     example_dataset_file = RESOURCE_DIR / "dataset.yml"
 
@@ -31,7 +31,7 @@ def test_dataset_from_yaml() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dataset_from_datahub() -> None:
     mock_graph = MockDataHubGraph()
     golden_file = Path(RESOURCE_DIR / "golden_dataset_out.json")

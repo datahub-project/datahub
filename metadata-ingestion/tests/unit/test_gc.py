@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List
 from unittest.mock import MagicMock, call, patch
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
@@ -23,7 +23,7 @@ from datahub.ingestion.source.gc.soft_deleted_entity_cleanup import (
 )
 from datahub.utilities.urns._urn_base import Urn
 
-FROZEN_TIME = "2021-12-07 07:00:00"
+FROZEN_TIME = "2021-12-07 07:00:00+00:00"
 
 
 class TestSoftDeletedEntitiesCleanup(unittest.TestCase):
@@ -359,7 +359,7 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
             self.report.num_soft_deleted_retained_due_to_age_by_type.get("dataset"), 1
         )
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_get_urns(self):
         """Test that _get_urns calls get_urns_by_filter with correct parameters."""
         # Setup mock for get_urns_by_filter
@@ -381,7 +381,7 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
         # Check the returned urns
         self.assertEqual(urns, ["urn1", "urn2", "urn3"])
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_get_urns_with_dpi(self):
         """Test that _get_urns calls get_urns_by_filter with correct parameters."""
         # Setup mock for get_urns_by_filter

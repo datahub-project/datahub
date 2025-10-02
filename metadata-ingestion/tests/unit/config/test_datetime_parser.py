@@ -1,15 +1,13 @@
 from datetime import datetime, timezone
 
-import freezegun
 import pytest
+import time_machine
 
 from datahub.configuration.datetimes import parse_user_datetime
 
 
-# FIXME: Ideally we'd use tz_offset here to test this code in a non-UTC timezone.
-# However, freezegun has a long-standing bug that prevents this from working:
-# https://github.com/spulec/freezegun/issues/348.
-@freezegun.freeze_time("2021-09-01 10:02:03")
+# FIXME: Ideally we'd specify a non-UTC timezone here to test this code in different timezones.
+@time_machine.travel(datetime(2021, 9, 1, 10, 2, 3, tzinfo=timezone.utc), tick=False)
 def test_user_time_parser():
     # Absolute times.
     assert parse_user_datetime("2022-01-01 01:02:03 UTC") == datetime(

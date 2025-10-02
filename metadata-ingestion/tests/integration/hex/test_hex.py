@@ -1,6 +1,6 @@
 import pytest
 import requests
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -51,7 +51,7 @@ def hex_mock_api_runner(docker_compose_runner, test_resources_dir):
         yield docker_services
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_hex_ingestion(pytestconfig, hex_mock_api_runner, test_resources_dir, tmp_path):
     # Path for the golden file
@@ -94,7 +94,7 @@ def test_hex_ingestion(pytestconfig, hex_mock_api_runner, test_resources_dir, tm
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_hex_ingestion_with_lineage(
     pytestconfig, hex_mock_api_runner, test_resources_dir, tmp_path

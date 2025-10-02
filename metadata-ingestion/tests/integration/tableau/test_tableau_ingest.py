@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Union
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from pydantic import ValidationError
 from requests.adapters import ConnectionError
 from tableauserverclient import PermissionsRule
@@ -358,7 +358,7 @@ def tableau_ingest_common(
             return pipeline
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_mces.json"
@@ -416,7 +416,7 @@ def mock_data() -> List[dict]:
     ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_mces_cll.json"
@@ -442,7 +442,7 @@ def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_project_pattern_mces.json"
@@ -465,7 +465,7 @@ def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_project_path_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_project_path_mces.json"
@@ -488,7 +488,7 @@ def test_project_path_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_nested_project_mces.json"
@@ -511,7 +511,7 @@ def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_extract_all_project(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_extract_all_project_mces.json"
@@ -571,7 +571,7 @@ def test_project_path_pattern_deny(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_tableau_ingest_with_platform_instance(
     pytestconfig, tmp_path, mock_datahub_graph
@@ -621,8 +621,8 @@ def test_tableau_ingest_with_platform_instance(
     )
 
 
-@freeze_time(FROZEN_TIME)
-def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_tableau_stateful(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_mces.json"
     golden_file_name: str = "tableau_mces_golden.json"
     output_file_deleted_name: str = "tableau_mces_deleted_stateful.json"
@@ -758,7 +758,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
     assert sorted(deleted_dashboard_urns) == sorted(difference_dashboard_urns)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration_batch_2
 def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_signout_timeout_mces.json"
@@ -775,7 +775,7 @@ def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_get_all_datasources_failure(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_mces.json"
@@ -792,7 +792,7 @@ def test_get_all_datasources_failure(pytestconfig, tmp_path, mock_datahub_graph)
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_tableau_ingest_multiple_sites(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_mces_multiple_sites.json"
@@ -853,7 +853,7 @@ def test_tableau_ingest_multiple_sites(pytestconfig, tmp_path, mock_datahub_grap
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_tableau_ingest_sites_as_container(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_mces_ingest_sites_as_container.json"
@@ -876,7 +876,7 @@ def test_tableau_ingest_sites_as_container(pytestconfig, tmp_path, mock_datahub_
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_site_name_pattern_mces.json"
@@ -899,7 +899,7 @@ def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_permission_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_permission_ingestion_mces.json"
@@ -924,7 +924,7 @@ def test_permission_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_no_hidden_assets(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_no_hidden_assets_mces.json"
@@ -946,7 +946,7 @@ def test_no_hidden_assets(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_ingest_hidden_worksheets(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_ingest_hidden_worksheets_mces.json"
@@ -968,7 +968,7 @@ def test_ingest_hidden_worksheets(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_ingest_tags_disabled(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_ingest_tags_disabled_mces.json"
@@ -989,7 +989,7 @@ def test_ingest_tags_disabled(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_hidden_asset_tags(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_hidden_asset_tags_mces.json"
@@ -1011,7 +1011,7 @@ def test_hidden_asset_tags(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_hidden_assets_without_ingest_tags(pytestconfig, tmp_path, mock_datahub_graph):
     new_config = config_source_default.copy()
@@ -1025,7 +1025,7 @@ def test_hidden_assets_without_ingest_tags(pytestconfig, tmp_path, mock_datahub_
         TableauConfig.parse_obj(new_config)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_filter_upstream_assets(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_filtered_upstream_asset.json"
@@ -1068,7 +1068,7 @@ def test_filter_upstream_assets(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_permission_warning(pytestconfig, tmp_path, mock_datahub_graph):
     with mock.patch(
@@ -1119,7 +1119,7 @@ def test_permission_warning(pytestconfig, tmp_path, mock_datahub_graph):
             )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_retry_on_error(pytestconfig, tmp_path, mock_datahub_graph):
     with mock.patch(

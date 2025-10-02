@@ -1,4 +1,3 @@
-import datetime
 import json
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
@@ -6,7 +5,7 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -82,14 +81,13 @@ def register_mock_api(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_mysql_ingest(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -139,14 +137,13 @@ def test_mysql_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_mysql_odbc_datasource_ingest(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -196,14 +193,13 @@ def test_mysql_odbc_datasource_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_mysql_odbc_query_ingest(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"

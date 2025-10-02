@@ -1,7 +1,7 @@
 import subprocess
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -42,10 +42,10 @@ def postgres_runner(docker_compose_runner, pytestconfig, test_resources_dir):
         yield docker_services
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_postgres_ingest_with_db(
-    postgres_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
+    postgres_runner, pytestconfig, test_resources_dir, tmp_path
 ):
     # Run the metadata ingestion pipeline.
     config_file = (
@@ -63,10 +63,10 @@ def test_postgres_ingest_with_db(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_postgres_ingest_with_all_db(
-    postgres_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
+    postgres_runner, pytestconfig, test_resources_dir, tmp_path
 ):
     # Run the metadata ingestion pipeline.
     config_file = (

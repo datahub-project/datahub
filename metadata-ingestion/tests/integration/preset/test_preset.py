@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional
 from unittest.mock import patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -269,9 +269,9 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
-def test_preset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
+def test_preset_ingest(pytestconfig, tmp_path, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/preset"
 
     register_mock_api(request_mock=requests_mock)
@@ -309,10 +309,10 @@ def test_preset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_preset_stateful_ingest(
-    pytestconfig, tmp_path, mock_time, requests_mock, mock_datahub_graph
+    pytestconfig, tmp_path, requests_mock, mock_datahub_graph
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/preset"
 

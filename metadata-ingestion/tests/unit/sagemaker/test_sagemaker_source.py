@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
+import time_machine
 from botocore.stub import Stubber
-from freezegun import freeze_time
 
 import datahub.ingestion.source.aws.sagemaker_processors.models
 from datahub.ingestion.api.common import PipelineContext
@@ -52,7 +52,7 @@ def sagemaker_source() -> SagemakerSource:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_sagemaker_ingest(tmp_path, pytestconfig):
     sagemaker_source_instance = sagemaker_source()
 

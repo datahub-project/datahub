@@ -2,7 +2,7 @@ import pathlib
 
 import boto3
 import pytest
-from freezegun import freeze_time
+import time_machine
 from moto import mock_dynamodb
 
 from datahub.ingestion.glossary.classification_mixin import ClassificationConfig
@@ -19,7 +19,7 @@ test_resources_dir = pathlib.Path(__file__).parent
 FROZEN_TIME = "2023-08-30 12:00:00"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock_dynamodb
 @pytest.mark.integration
 def test_dynamodb(pytestconfig, tmp_path):

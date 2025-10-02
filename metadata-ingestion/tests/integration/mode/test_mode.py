@@ -4,7 +4,7 @@ from typing import Sequence
 from unittest.mock import patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from requests.models import HTTPError
 
 from datahub.configuration.common import PipelineExecutionError
@@ -134,7 +134,7 @@ def mocked_requests_failure(*args, **kwargs):
     return MockResponse([ERROR_URL], 200)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_mode_ingest_success(pytestconfig, tmp_path):
     with patch(
         "datahub.ingestion.source.mode.requests.Session",
@@ -171,7 +171,7 @@ def test_mode_ingest_success(pytestconfig, tmp_path):
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_mode_ingest_failure(pytestconfig, tmp_path):
     with patch(
         "datahub.ingestion.source.mode.requests.Session",
@@ -212,7 +212,7 @@ def test_mode_ingest_failure(pytestconfig, tmp_path):
         assert ERROR_URL in error
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_mode_ingest_json_empty(pytestconfig, tmp_path):
     with patch(
         "datahub.ingestion.source.mode.requests.Session",
@@ -247,7 +247,7 @@ def test_mode_ingest_json_empty(pytestconfig, tmp_path):
         pipeline.raise_from_status(raise_warnings=True)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_mode_ingest_json_failure(pytestconfig, tmp_path):
     with patch(
         "datahub.ingestion.source.mode.requests.Session",

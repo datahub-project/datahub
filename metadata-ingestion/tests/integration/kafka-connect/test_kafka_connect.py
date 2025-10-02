@@ -7,7 +7,7 @@ import jpype
 import jpype.imports
 import pytest
 import requests
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.kafka_connect.kafka_connect import SinkTopicFilter
@@ -516,7 +516,7 @@ def loaded_kafka_connect(kafka_connect_runner):
     print("Kafka Connect connectors are ready!")
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -533,7 +533,7 @@ def test_kafka_connect_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_mongosourceconnect_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -550,7 +550,7 @@ def test_kafka_connect_mongosourceconnect_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_s3sink_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -567,7 +567,7 @@ def test_kafka_connect_s3sink_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_ingest_stateful(
     loaded_kafka_connect, pytestconfig, tmp_path, mock_datahub_graph, test_resources_dir
 ):
@@ -740,10 +740,8 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         )
 
 
-@freeze_time(FROZEN_TIME)
-def test_kafka_connect_snowflake_sink_ingest(
-    pytestconfig, tmp_path, mock_time, requests_mock
-):
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_kafka_connect_snowflake_sink_ingest(pytestconfig, tmp_path, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
     override_data = {
         "http://localhost:28083/connectors": {
@@ -818,7 +816,7 @@ def test_kafka_connect_snowflake_sink_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_bigquery_sink_ingest(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -837,7 +835,7 @@ def test_kafka_connect_bigquery_sink_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_debezium_postgres(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -857,7 +855,7 @@ def test_kafka_connect_debezium_postgres(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_kafka_connect_debezium_sqlserver(
     loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
 ):

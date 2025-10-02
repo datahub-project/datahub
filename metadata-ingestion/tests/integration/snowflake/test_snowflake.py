@@ -5,7 +5,7 @@ from typing import cast
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
 from datahub.ingestion.glossary.classifier import (
@@ -59,7 +59,7 @@ def random_cloud_region():
     )
 
 
-def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+def test_snowflake_basic(pytestconfig, tmp_path, mock_datahub_graph):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
     output_file = tmp_path / "snowflake_test_events.json"
@@ -189,10 +189,8 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         assert cache_info["get_fk_constraints_for_schema"]["misses"] == 1
 
 
-@freeze_time(FROZEN_TIME)
-def test_snowflake_basic_disable_queries(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
-):
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_snowflake_basic_disable_queries(pytestconfig, tmp_path, mock_datahub_graph):
     """
     Test that include_queries=False properly disables query entity generation.
 
@@ -263,7 +261,7 @@ def test_snowflake_basic_disable_queries(
 
 
 def test_snowflake_tags_as_structured_properties(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+    pytestconfig, tmp_path, mock_datahub_graph
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
@@ -326,9 +324,9 @@ def test_snowflake_tags_as_structured_properties(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_private_link_and_incremental_mcps(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+    pytestconfig, tmp_path, mock_datahub_graph
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
@@ -388,7 +386,7 @@ def test_snowflake_private_link_and_incremental_mcps(
 
 
 def test_snowflake_schema_extraction_one_table_multiple_views(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+    pytestconfig, tmp_path, mock_datahub_graph
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 

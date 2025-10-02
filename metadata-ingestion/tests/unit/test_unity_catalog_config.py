@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.source import UnityCatalogSource
@@ -9,7 +9,7 @@ from datahub.ingestion.source.unity.source import UnityCatalogSource
 FROZEN_TIME = datetime.fromisoformat("2023-01-01 00:00:00+00:00")
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_within_thirty_days():
     config = UnityCatalogSourceConfig.parse_obj(
         {
@@ -73,7 +73,7 @@ def test_profiling_requires_warehouses_id():
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_workspace_url_should_start_with_https():
     with pytest.raises(ValueError, match="Workspace URL must start with http scheme"):
         UnityCatalogSourceConfig.parse_obj(

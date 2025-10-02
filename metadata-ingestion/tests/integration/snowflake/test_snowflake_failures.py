@@ -3,7 +3,7 @@ from typing import cast
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from pytest import fixture
 
 from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
@@ -72,7 +72,7 @@ def snowflake_pipeline_config(tmp_path):
     return config
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_missing_role_access_causes_pipeline_failure(
     pytestconfig,
     snowflake_pipeline_config,
@@ -89,7 +89,7 @@ def test_snowflake_missing_role_access_causes_pipeline_failure(
             pipeline.raise_from_status()
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_missing_warehouse_access_causes_pipeline_failure(
     pytestconfig,
     snowflake_pipeline_config,
@@ -113,7 +113,7 @@ def test_snowflake_missing_warehouse_access_causes_pipeline_failure(
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_no_databases_with_access_causes_pipeline_failure(
     pytestconfig,
     snowflake_pipeline_config,
@@ -137,7 +137,7 @@ def test_snowflake_no_databases_with_access_causes_pipeline_failure(
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_no_tables_causes_pipeline_failure(
     pytestconfig, snowflake_pipeline_config
 ):
@@ -177,7 +177,7 @@ def test_snowflake_no_tables_causes_pipeline_failure(
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_no_tables_warns_on_no_datasets(
     pytestconfig, snowflake_pipeline_config
 ):
@@ -219,7 +219,7 @@ def test_snowflake_no_tables_warns_on_no_datasets(
         assert len(pipeline.source.get_report().failures) == 0
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_list_columns_error_causes_pipeline_warning(
     pytestconfig,
     snowflake_pipeline_config,
@@ -246,7 +246,7 @@ def test_snowflake_list_columns_error_causes_pipeline_warning(
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_list_primary_keys_error_causes_pipeline_warning(
     pytestconfig,
     snowflake_pipeline_config,
@@ -271,7 +271,7 @@ def test_snowflake_list_primary_keys_error_causes_pipeline_warning(
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
     pytestconfig,
     snowflake_pipeline_config,
@@ -301,7 +301,7 @@ def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_missing_snowflake_operations_permission_causes_pipeline_failure(
     pytestconfig,
     snowflake_pipeline_config,
@@ -325,7 +325,7 @@ def test_snowflake_missing_snowflake_operations_permission_causes_pipeline_failu
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_missing_snowflake_secure_view_definitions_raises_pipeline_info(
     pytestconfig,
     snowflake_pipeline_config,
@@ -355,7 +355,7 @@ def test_snowflake_missing_snowflake_secure_view_definitions_raises_pipeline_inf
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_snowflake_failed_secure_view_definitions_query_raises_pipeline_warning(
     pytestconfig,
     snowflake_pipeline_config,
@@ -386,7 +386,7 @@ def test_snowflake_failed_secure_view_definitions_query_raises_pipeline_warning(
 
 
 # Tests for known_snowflake_edition config option
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.parametrize(
     "known_edition, expected_is_standard",
     [
