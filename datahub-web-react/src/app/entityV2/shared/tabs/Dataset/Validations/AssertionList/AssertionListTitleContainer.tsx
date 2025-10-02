@@ -6,7 +6,6 @@ const AssertionTitleContainer = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin: 20px;
     div {
         border-bottom: 0px;
     }
