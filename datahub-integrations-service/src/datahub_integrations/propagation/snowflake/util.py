@@ -21,6 +21,9 @@ from datahub.metadata.urns import (
 from datahub_actions.api.action_graph import AcrylDataHubGraph
 from sqlalchemy.exc import ProgrammingError
 
+from datahub_integrations.propagation.snowflake.comment_writer import (
+    SnowflakeCommentManager,
+)
 from datahub_integrations.propagation.snowflake.config import (
     SnowflakeConnectionConfigPermissive,
 )
@@ -56,6 +59,7 @@ class SnowflakeTagHelper(Closeable):
 
         # Use lazy connection - don't connect during initialization to avoid bootstrap failures
         self._connection: Optional["snowflake.connector.SnowflakeConnection"] = None
+        self._comment_manager: Optional[SnowflakeCommentManager] = None
         self.error_timestamps: Deque[datetime] = (
             deque()
         )  # To store timestamps of errors
@@ -68,6 +72,15 @@ class SnowflakeTagHelper(Closeable):
             logger.debug("Creating new Snowflake connection")
             self._connection = self._get_native_connection()
         return self._connection
+
+    @property
+    def comment_manager(self) -> SnowflakeCommentManager:
+        """Lazy comment manager property - creates only when needed."""
+        if self._comment_manager is None:
+            self._comment_manager = SnowflakeCommentManager(
+                self.connection, self._run_query_direct
+            )
+        return self._comment_manager
 
     def _get_native_connection(self) -> "snowflake.connector.SnowflakeConnection":
         """Get native Snowflake connection using the same approach as ingestion service."""
@@ -593,341 +606,10 @@ class SnowflakeTagHelper(Closeable):
         Args:
             entity_urn: The URN of the entity (dataset or schema field)
             docs: The description to apply
-            subtype: The object subtype (TABLE, VIEW, etc.) - if None, will default to TABLE
+            subtype: The object subtype (TABLE, VIEW, etc.) - if None, will auto-detect
         """
-        logger.debug(f"Applying description to {entity_urn}")
-
-        try:
-            parsed_entity_urn = Urn.create_from_string(entity_urn)
-
-            if isinstance(parsed_entity_urn, DatasetUrn):
-                self._update_table_comment(parsed_entity_urn, docs, subtype)
-            elif isinstance(parsed_entity_urn, SchemaFieldUrn):
-                self._update_column_comment(parsed_entity_urn, docs)
-            else:
-                raise ValueError(
-                    f"Invalid entity urn {entity_urn}, can only handle Dataset and SchemaField urns. Got: {type(parsed_entity_urn)}"
-                )
-
-        except Exception as e:
-            logger.error(f"Failed to apply description to {entity_urn}: {str(e)}")
-            raise
-
-    def _update_table_comment(
-        self, dataset_urn: DatasetUrn, description: str, subtype: Optional[str] = None
-    ) -> None:
-        """Update a Snowflake table or view comment."""
-        logger.debug(f"Updating table comment for: {dataset_urn}")
-
-        try:
-            # Parse the dataset URN to get database, schema, and table info
-            db_info = self._parse_dataset_urn(dataset_urn)
-            if not db_info:
-                return
-
-            database, schema, table = db_info
-            escaped_description = self._escape_description(description)
-
-            if subtype is None:
-                # Auto-detect object type by trying TABLE first, then VIEW
-                self._try_table_then_view_comment(
-                    database, schema, table, escaped_description
-                )
-            else:
-                # Use the provided subtype
-                object_type = self._map_subtype_to_object_type(subtype)
-                self._execute_table_comment_update(
-                    database, schema, table, escaped_description, object_type
-                )
-
-        except Exception as e:
-            logger.error(f"Failed to update table comment: {str(e)}")
-            raise
-
-    def _update_column_comment(
-        self, field_urn: SchemaFieldUrn, description: str
-    ) -> None:
-        """Update a Snowflake column comment."""
-        logger.debug(f"Updating column comment for: {field_urn}")
-
-        try:
-            # Parse the field URN to get database, schema, table, and column info
-            db_info = self._parse_field_urn(field_urn)
-            if not db_info:
-                return
-
-            database, schema, table, column = db_info
-            escaped_description = self._escape_description(description)
-
-            # Detect object type and validate
-            object_type = self._detect_object_type(database, schema, table)
-            if object_type not in ["TABLE", "VIEW"]:
-                logger.warning(
-                    f"Unknown object type '{object_type}' for {database}.{schema}.{table}. Skipping column comment update."
-                )
-                return
-
-            # Get the actual column name and format identifiers
-            actual_column_name = self._get_actual_column_name(
-                database, schema, table, column
-            )
-            if not actual_column_name:
-                logger.warning(
-                    f"Column '{column}' not found in {database}.{schema}.{table}. Skipping column comment update."
-                )
-                return
-
-            # Execute the column comment update
-            self._execute_column_comment_update(
-                database,
-                schema,
-                table,
-                actual_column_name,
-                escaped_description,
-                object_type,
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to update column comment: {str(e)}")
-            raise
-
-    def _parse_field_urn(
-        self, field_urn: SchemaFieldUrn
-    ) -> Optional[tuple[str, str, str, str]]:
-        """Extract database, schema, table, and column from a SchemaFieldUrn."""
-        parent_urn = Urn.create_from_string(field_urn.parent)
-
-        if not isinstance(parent_urn, DatasetUrn):
-            logger.warning(
-                f"Parent of schema field is not a dataset: {field_urn.parent}"
-            )
-            return None
-
-        dataset_name = parent_urn.get_dataset_name()
-        parts = dataset_name.split(".")
-
-        if len(parts) < 3:
-            logger.warning(f"Could not parse dataset URN: {dataset_name}")
-            return None
-
-        return parts[0], parts[1], parts[2], field_urn.field_path
-
-    def _parse_dataset_urn(
-        self, dataset_urn: DatasetUrn
-    ) -> Optional[tuple[str, str, str]]:
-        """Extract database, schema, and table from a DatasetUrn."""
-        dataset_name = dataset_urn.get_dataset_name()
-        parts = dataset_name.split(".")
-
-        if len(parts) < 3:
-            logger.warning(f"Could not parse dataset URN: {dataset_name}")
-            return None
-
-        return parts[0], parts[1], parts[2]
-
-    def _escape_description(self, description: str) -> str:
-        """Escape special characters in description for SQL."""
-        return description.replace("'", "''").replace("\\", "\\\\")
-
-    def _map_subtype_to_object_type(self, subtype: str) -> str:
-        """Map DataHub subtypes to Snowflake object types."""
-        subtype_upper = subtype.upper()
-        if subtype_upper in ["VIEW", "MATERIALIZED_VIEW"]:
-            return "VIEW"
-        elif subtype_upper == "TABLE":
-            return "TABLE"
-        else:
-            logger.warning(f"Unknown subtype '{subtype}', defaulting to TABLE")
-            return "TABLE"
-
-    def _try_table_then_view_comment(
-        self, database: str, schema: str, table: str, escaped_description: str
-    ) -> None:
-        """Try to update comment as TABLE first, then as VIEW if that fails."""
-        try:
-            self._execute_table_comment_update(
-                database, schema, table, escaped_description, "TABLE"
-            )
-            logger.info(
-                f"Successfully updated TABLE comment for {database}.{schema}.{table}"
-            )
-        except Exception as table_error:
-            try:
-                self._execute_table_comment_update(
-                    database, schema, table, escaped_description, "VIEW"
-                )
-                logger.info(
-                    f"Successfully updated VIEW comment for {database}.{schema}.{table}"
-                )
-            except Exception as view_error:
-                logger.error(
-                    f"Both TABLE and VIEW attempts failed for {database}.{schema}.{table}"
-                )
-                logger.debug(f"TABLE error: {table_error}, VIEW error: {view_error}")
-                raise view_error
-
-    def _execute_table_comment_update(
-        self,
-        database: str,
-        schema: str,
-        table: str,
-        escaped_description: str,
-        object_type: str,
-    ) -> None:
-        """Execute the SQL to update a table or view comment."""
-        formatted_database = self._format_identifier(database)
-        formatted_schema = self._format_identifier(schema)
-        formatted_table = self._format_identifier(table)
-
-        sql = f"ALTER {object_type} {formatted_database}.{formatted_schema}.{formatted_table} SET COMMENT = '{escaped_description}'"
-        self._run_query_direct(sql)
-        logger.info(
-            f"Successfully updated {object_type.lower()} comment for {database}.{schema}.{table}"
-        )
-
-    def _execute_column_comment_update(
-        self,
-        database: str,
-        schema: str,
-        table: str,
-        column_name: str,
-        escaped_description: str,
-        object_type: str,
-    ) -> None:
-        """Execute the SQL to update a column comment."""
-        # Format identifiers with smart quoting
-        formatted_database = self._format_identifier(database)
-        formatted_schema = self._format_identifier(schema)
-        formatted_table = self._format_identifier(table)
-        formatted_column_name = self._format_identifier(column_name)
-
-        # Try to update column comment - different syntax for TABLE vs VIEW
-        if object_type == "TABLE":
-            sql = f"ALTER TABLE {formatted_database}.{formatted_schema}.{formatted_table} MODIFY COLUMN {formatted_column_name} COMMENT '{escaped_description}'"
-        else:  # VIEW
-            sql = f"ALTER VIEW {formatted_database}.{formatted_schema}.{formatted_table} MODIFY COLUMN {formatted_column_name} COMMENT '{escaped_description}'"
-
-        try:
-            self._run_query_direct(sql)
-            logger.info(
-                f"Successfully updated {object_type.lower()} column comment for {database}.{schema}.{table}.{column_name}"
-            )
-        except Exception as e:
-            if object_type == "VIEW":
-                # Try alternative syntax for views
-                self._try_alternative_view_column_comment(
-                    formatted_database,
-                    formatted_schema,
-                    formatted_table,
-                    formatted_column_name,
-                    escaped_description,
-                    database,
-                    schema,
-                    table,
-                    column_name,
-                    e,
-                )
-            else:
-                raise e
-
-    def _try_alternative_view_column_comment(
-        self,
-        formatted_database: str,
-        formatted_schema: str,
-        formatted_table: str,
-        formatted_column_name: str,
-        escaped_description: str,
-        database: str,
-        schema: str,
-        table: str,
-        column_name: str,
-        original_error: Exception,
-    ) -> None:
-        """Try alternative COMMENT ON COLUMN syntax for view column comments."""
-        try:
-            alt_sql = f"COMMENT ON COLUMN {formatted_database}.{formatted_schema}.{formatted_table}.{formatted_column_name} IS '{escaped_description}'"
-            self._run_query_direct(alt_sql)
-            logger.info(
-                f"Successfully updated view column comment using COMMENT ON COLUMN for {database}.{schema}.{table}.{column_name}"
-            )
-        except Exception as alt_e:
-            logger.warning(
-                f"Failed to update view column comment with both syntaxes. ALTER VIEW error: {original_error}, COMMENT ON COLUMN error: {alt_e}"
-            )
-            raise alt_e
-
-    def _detect_object_type(self, database: str, schema: str, table: str) -> str:
-        """Detect if an object is a TABLE or VIEW by querying Snowflake's information schema."""
-        try:
-            formatted_database = self._format_identifier(database)
-
-            # Snowflake stores object names in uppercase in information schema
-            check_sql = f"""
-            SELECT 
-                CASE 
-                    WHEN table_type = 'BASE TABLE' THEN 'TABLE'
-                    WHEN table_type = 'VIEW' THEN 'VIEW'
-                    ELSE table_type
-                END as object_type
-            FROM {formatted_database}.INFORMATION_SCHEMA.TABLES 
-            WHERE table_schema = '{schema.upper()}' 
-            AND table_name = '{table.upper()}'
-            """
-
-            cursor = self.connection.cursor()
-            cursor.execute(check_sql)
-            result = cursor.fetchone()
-            cursor.close()
-
-            if result:
-                return result[0]
-            else:
-                logger.warning(
-                    f"Object not found in information schema: {database}.{schema}.{table}"
-                )
-                return "UNKNOWN"
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to detect object type for {database}.{schema}.{table}: {str(e)}"
-            )
-            return "UNKNOWN"
-
-    def _get_actual_column_name(
-        self, database: str, schema: str, table: str, column_name: str
-    ) -> Optional[str]:
-        """Get the actual column name from Snowflake to handle case sensitivity."""
-        try:
-            formatted_database = self._format_identifier(database)
-
-            # Case-insensitive matching since DataHub might have different case
-            check_sql = f"""
-            SELECT column_name
-            FROM {formatted_database}.INFORMATION_SCHEMA.COLUMNS 
-            WHERE table_schema = '{schema.upper()}' 
-            AND table_name = '{table.upper()}'
-            AND UPPER(column_name) = '{column_name.upper()}'
-            """
-
-            cursor = self.connection.cursor()
-            cursor.execute(check_sql)
-            result = cursor.fetchone()
-            cursor.close()
-
-            if result:
-                return result[0]
-            else:
-                logger.warning(
-                    f"Column '{column_name}' not found in {database}.{schema}.{table}"
-                )
-                return None
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to get actual column name for {database}.{schema}.{table}.{column_name}: {str(e)}"
-            )
-            # Fallback to uppercase if query fails
-            return column_name.upper()
+        # Delegate to the focused comment manager
+        self.comment_manager.apply_description(entity_urn, docs, subtype)
 
     def close(self) -> None:
         if self._connection and not self._connection.is_closed():

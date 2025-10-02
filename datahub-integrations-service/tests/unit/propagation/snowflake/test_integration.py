@@ -6,7 +6,7 @@ from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_integrations.propagation.snowflake.config import (
     SnowflakeConnectionConfigPermissive,
 )
-from datahub_integrations.propagation.snowflake.description_propagation_action import (
+from datahub_integrations.propagation.snowflake.description_models import (
     DescriptionPropagationConfig,
 )
 from datahub_integrations.propagation.snowflake.metadata_sync_action import (

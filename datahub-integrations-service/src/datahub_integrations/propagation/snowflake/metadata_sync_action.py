@@ -18,22 +18,22 @@ from datahub_integrations.propagation.propagation_utils import SelectedAsset
 from datahub_integrations.propagation.snowflake.config import (
     SnowflakeConnectionConfigPermissive,
 )
-from datahub_integrations.propagation.snowflake.description_propagation_action import (
-    DescriptionPropagationAction,
+from datahub_integrations.propagation.snowflake.description_models import (
     DescriptionPropagationConfig,
     DescriptionPropagationDirective,
+)
+from datahub_integrations.propagation.snowflake.propagation_dispatcher import (
+    PropagationDispatcher,
 )
 from datahub_integrations.propagation.snowflake.util import (
     SnowflakeTagHelper,
     is_snowflake_urn,
 )
 from datahub_integrations.propagation.tag.tag_propagation_action import (
-    TagPropagationAction,
     TagPropagationConfig,
     TagPropagationDirective,
 )
 from datahub_integrations.propagation.term.term_propagation_action import (
-    TermPropagationAction,
     TermPropagationConfig,
     TermPropagationDirective,
 )
@@ -47,15 +47,15 @@ class SnowflakeMetadataSyncConfig(AutomationActionConfig):
     snowflake: SnowflakeConnectionConfigPermissive
     tag_propagation: Optional[TagPropagationConfig] = None
     term_propagation: Optional[TermPropagationConfig] = None
-    description_propagation: Optional[DescriptionPropagationConfig] = None
+    description_sync: Optional[DescriptionPropagationConfig] = None
 
 
 class SnowflakeMetadataSyncAction(ExtendedAction[SelectedAsset]):
     """
     Action to synchronize DataHub metadata (tags, terms, descriptions) to Snowflake.
 
-    This action orchestrates multiple sub-actions to handle different types of metadata
-    propagation based on the configured settings.
+    Uses a PropagationDispatcher to orchestrate different types of metadata propagation
+    without tightly coupling to specific propagation implementations.
     """
 
     def __init__(self, config: SnowflakeMetadataSyncConfig, ctx: PipelineContext):
@@ -66,56 +66,32 @@ class SnowflakeMetadataSyncAction(ExtendedAction[SelectedAsset]):
 
         self.snowflake_helper = SnowflakeTagHelper(self.config.snowflake)
 
-        # Initialize sub-actions based on configuration
-        self.tag_propagator = None
-        self.term_propagator = None
-        self.description_propagator = None
+        # Initialize propagation dispatcher and register strategies
+        self.propagation_dispatcher = PropagationDispatcher(ctx)
 
-        if (
-            self.config.tag_propagation is not None
-            and self.config.tag_propagation.enabled
-        ):
-            self.tag_propagator = TagPropagationAction(self.config.tag_propagation, ctx)
+        if self.config.tag_propagation is not None:
+            self.propagation_dispatcher.add_tag_propagation(self.config.tag_propagation)
 
-        if (
-            self.config.term_propagation is not None
-            and self.config.term_propagation.enabled
-        ):
-            self.term_propagator = TermPropagationAction(
-                self.config.term_propagation, ctx
+        if self.config.term_propagation is not None:
+            self.propagation_dispatcher.add_term_propagation(
+                self.config.term_propagation
             )
 
-        if (
-            self.config.description_propagation is not None
-            and self.config.description_propagation.enabled
-        ):
-            self.description_propagator = DescriptionPropagationAction(
-                config=self.config.description_propagation,
-                ctx=ctx,
+        if self.config.description_sync is not None:
+            self.propagation_dispatcher.add_description_propagation(
+                self.config.description_sync
             )
 
     def _process_propagation_event(self, event: EventEnvelope) -> None:
-        """Process tag, term, and description propagation for an event."""
-        # Process each type of propagation independently
-        if self.tag_propagator is not None:
-            tag_directive = self.tag_propagator.should_propagate(event=event)
-            if tag_directive is not None and tag_directive.propagate:
-                self.process_directive(tag_directive)
+        """Process tag, term, and description propagation for an event using the dispatcher."""
+        directives = self.propagation_dispatcher.process_event(event)
 
-        if self.term_propagator is not None:
-            term_directive = self.term_propagator.should_propagate(event=event)
-            if term_directive is not None and term_directive.propagate:
-                self.process_directive(term_directive)
-
-        if self.description_propagator is not None:
-            description_directive = self.description_propagator.should_propagate(
-                event=event
-            )
-            if description_directive is not None and description_directive.propagate:
+        for directive in directives:
+            if isinstance(directive, DescriptionPropagationDirective):
                 logger.info(
-                    f"Processing description propagation for {description_directive.entity}"
+                    f"Processing description propagation for {directive.entity}"
                 )
-                self.process_directive(description_directive)
+            self.process_directive(directive)
 
     def close(self) -> None:
         self.snowflake_helper.close()
@@ -142,7 +118,7 @@ class SnowflakeMetadataSyncAction(ExtendedAction[SelectedAsset]):
                 f"Will {directive.operation.lower()} description on Snowflake {directive.entity} (subtype: {directive.subtype})"
             )
             self.snowflake_helper.apply_description(
-                directive.entity, directive.docs, directive.subtype
+                directive.entity, directive.description, directive.subtype
             )
         else:
             # Handle tag/term propagation directives
@@ -204,22 +180,15 @@ class SnowflakeMetadataSyncAction(ExtendedAction[SelectedAsset]):
         yield from self.bootstrappable_assets()
 
     def rollback_asset(self, asset: SelectedAsset) -> None:
-        if self.term_propagator is not None:
-            for term_propagation_directive in self.term_propagator.process_one_asset(
-                asset, "REMOVE"
-            ):
-                self.process_directive(term_propagation_directive)
+        directives = self.propagation_dispatcher.process_bootstrap_asset(
+            asset, "REMOVE"
+        )
 
-        # Tag propagation rollback not yet implemented
-        return None
+        for directive in directives:
+            self.process_directive(directive)
 
     def bootstrappable_assets(self) -> Iterable[SelectedAsset]:
-        asset_filters = {}
-        if self.term_propagator is not None:
-            asset_filters = self.term_propagator.asset_filters()
-
-        if self.tag_propagator is not None:
-            raise NotImplementedError("Tag propagation bootstrap not yet supported")
+        asset_filters = self.propagation_dispatcher.get_bootstrappable_assets()
 
         for target_entity_type, index_filters in asset_filters.items():
             for index_name, filters in index_filters.items():
@@ -232,10 +201,7 @@ class SnowflakeMetadataSyncAction(ExtendedAction[SelectedAsset]):
                     yield SelectedAsset(urn=urn, target_entity_type=target_entity_type)
 
     def bootstrap_asset(self, asset: SelectedAsset) -> None:
-        if self.term_propagator is not None:
-            for term_propagation_directive in self.term_propagator.process_one_asset(
-                asset, "ADD"
-            ):
-                self.process_directive(term_propagation_directive)
+        directives = self.propagation_dispatcher.process_bootstrap_asset(asset, "ADD")
 
-        # Tag propagation bootstrap not yet implemented
+        for directive in directives:
+            self.process_directive(directive)
