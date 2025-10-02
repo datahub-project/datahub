@@ -85,10 +85,12 @@ GRANT OWNERSHIP ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATA
 3. **Configure Automation**: Fill in the required fields to connect to Snowflake, along with the name, description, and category.
 
    **Authentication Options:**
+
    - **Username/Password**: Traditional authentication using Snowflake username and password
    - **Private Key**: Key pair authentication using RSA private key (more secure for automated processes)
 
    **Sync Options:**
+
    - **Tags & Terms**: You can limit propagation based on specific Tags and Glossary Terms. If none are selected, then ALL Tags or Glossary Terms will be automatically propagated to Snowflake tables and columns.
    - **Descriptions**: Enable description sync to automatically update Snowflake table and column comments with DataHub descriptions.
 
