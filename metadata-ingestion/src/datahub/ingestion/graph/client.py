@@ -992,10 +992,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                         entity {
                             urn
                         }
-                        extraProperties {
-                            name
-                            value
-                        }
                     }
                 }
             }
