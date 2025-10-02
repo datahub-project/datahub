@@ -89,7 +89,7 @@ function create_if_not_exists {
 
   else
     # when `USE_AWS_ELASTICSEARCH` was forgotten to be set to `true` when running against AWS ES OSS,
-    # this script will use wrong paths (e.g. `_ilm/policy/` instead of AWS-compatible `_opendistro/_ism/policies/`)
+    # this script will use wrong paths (e.g. `_ilm/policy/` instead of AWS-compatible `_plugins/_ism/policies/`)
     # and the ES endpoint will return `401 Unauthorized` or `405 Method Not Allowed`
     # let's use this as chance to point that wrong config might be used!
     if [ $RESOURCE_STATUS -eq 401 ] || [ $RESOURCE_STATUS -eq 405 ]; then
@@ -148,11 +148,11 @@ function create_datahub_usage_event_datastream() {
 function create_datahub_usage_event_aws_elasticsearch() {
   # AWS env requires creation of three resources for Datahub usage events:
   #   1. ISM policy
-  create_if_not_exists "_opendistro/_ism/policies/${PREFIX}datahub_usage_event_policy" aws_es_ism_policy.json
+  create_if_not_exists "_plugins/_ism/policies/${PREFIX}datahub_usage_event_policy" aws_es_ism_policy.json
 
   #   1.1 ISM policy update if it already existed
   if [ $RESOURCE_STATUS -eq 200 ]; then
-    update_ism_policy "_opendistro/_ism/policies/${PREFIX}datahub_usage_event_policy" aws_es_ism_policy.json
+    update_ism_policy "_plugins/_ism/policies/${PREFIX}datahub_usage_event_policy" aws_es_ism_policy.json
   fi
 
   #   2. index template

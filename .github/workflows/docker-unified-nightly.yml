@@ -165,55 +165,21 @@ jobs:
           ./gradlew :smoke-test:pythonLint
           ./gradlew :smoke-test:cypressLint
 
-  smoke_test_matrix:
-    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
-    needs: setup
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-      cypress_batch_count: ${{ steps.set-batch-count.outputs.cypress_batch_count }}
-      python_batch_count: ${{ steps.set-batch-count.outputs.python_batch_count }}
-    steps:
-      - id: set-batch-count
-        run: |
-          if [[ "${{ needs.setup.outputs.test_runner_type }}" == "ubuntu-latest" ]]; then
-            echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
-            echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
-          else
-            echo "cypress_batch_count=11" >> "$GITHUB_OUTPUT"
-            echo "python_batch_count=6" >> "$GITHUB_OUTPUT"
-          fi
-
-      - id: set-matrix
-        run: |
-          python_batch_count=${{ steps.set-batch-count.outputs.python_batch_count }}
-          python_matrix='{"test_strategy":"pytests","batch":"0","batch_count":"'"$python_batch_count"'"}'
-          for ((i=1;i<python_batch_count;i++)); do
-            python_matrix="$python_matrix"',{"test_strategy":"pytests","batch_count":"'"$python_batch_count"'","batch":"'"$i"'"}'
-          done
-
-          cypress_batch_count=${{ steps.set-batch-count.outputs.cypress_batch_count }}
-          cypress_matrix='{"test_strategy":"cypress","batch":"0","batch_count":"'"$cypress_batch_count"'"}'
-          for ((i=1;i<cypress_batch_count;i++)); do
-            cypress_matrix="$cypress_matrix"',{"test_strategy":"cypress","batch_count":"'"$cypress_batch_count"'","batch":"'"$i"'"}'
-          done
-
-          includes="$python_matrix,$cypress_matrix"
-          echo "matrix={\"include\":[$includes] }" >> "$GITHUB_OUTPUT"
-
-          # Validate matrix output
-          if [ -z "$includes" ]; then
-            echo "Error: Matrix is empty"
-            exit 1
-          fi
-
   smoke_test:
-    name: Run Smoke Tests (${{ matrix.test_strategy }}, Batch ${{ matrix.batch }}/${{ matrix.batch_count }})
+    name: Run Smoke Tests (${{ matrix.profile }}, ${{ matrix.test_strategy }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
-    needs: [setup, smoke_test_matrix]
+    needs: [setup]
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
-    if: ${{ needs.smoke_test_matrix.outputs.matrix != '[]' }}
+      matrix:
+        profile:
+          [
+            quickstart-consumers,
+            quickstart-postgres,
+            quickstart-consumers-cdc,
+            quickstart-postgres-cdc,
+          ]
+        test_strategy: [pytests, cypress]
     env:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
@@ -321,6 +287,7 @@ jobs:
           DATAHUB_ACTIONS_IMAGE: ${{ env.DOCKER_REPOSITORY }}/datahub-actions:head
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
+          PROFILE_NAME: ${{ matrix.profile }}
         run: |
           ./smoke-test/run-quickstart.sh
 
@@ -354,8 +321,8 @@ jobs:
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
           CLEANUP_DATA: "false"
           TEST_STRATEGY: ${{ matrix.test_strategy }}
-          BATCH_COUNT: ${{ matrix.batch_count }}
-          BATCH_NUMBER: ${{ matrix.batch }}
+          BATCH_COUNT: "1" # since this workflow runs only on schedule trigger, batching isn't really needed.
+          BATCH_NUMBER: "0"
         run: |
           echo "$DATAHUB_VERSION"
           ./gradlew --stop
@@ -368,25 +335,25 @@ jobs:
         if: failure()
         run: |
           docker ps -a
-          TEST_STRATEGY="-${{ matrix.test_strategy }}-${{ matrix.batch }}"
+          TEST_STRATEGY="-${{ matrix.test_strategy }}"
           source .github/scripts/docker_logs.sh
       - name: Upload logs
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: docker-logs-${{ matrix.test_strategy }}-${{ matrix.batch }}
+          name: docker-logs-${{ matrix.profile }}-${{ matrix.test_strategy }}
           path: "docker_logs/*.log"
           retention-days: 5
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: cypress-snapshots-${{ matrix.test_strategy }}-${{ matrix.batch }}
+          name: cypress-snapshots-${{ matrix.profile }}-${{ matrix.test_strategy }}
           path: smoke-test/tests/cypress/cypress/screenshots/
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Test Results (smoke tests) ${{ matrix.test_strategy }} ${{ matrix.batch }}
+          name: Test Results (smoke tests) ${{ matrix.profile }} ${{ matrix.test_strategy }}
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
@@ -401,14 +368,14 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/cache/save@v4
-        if: ${{ matrix.batch == '0' }}
+        if: ${{ matrix.profile == 'quickstart-consumers' && matrix.test_strategy == 'pytests' }}
         with:
           path: |
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
       - uses: actions/cache/save@v4
-        if: ${{ matrix.batch == '0' }}
+        if: ${{ matrix.profile == 'quickstart-consumers' && matrix.test_strategy == 'pytests' }}
         with:
           path: |
             ~/.cache/yarn
