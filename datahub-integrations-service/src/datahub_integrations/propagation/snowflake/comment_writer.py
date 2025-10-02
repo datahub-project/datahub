@@ -136,8 +136,20 @@ class SQLIdentifierFormatter:
 
     @staticmethod
     def escape_description(description: str) -> str:
-        """Escape special characters in description for SQL."""
-        return description.replace("'", "''").replace("\\", "\\\\")
+        """
+        Prepare description for SQL using triple quotes.
+
+        Triple quotes handle multi-line descriptions and embedded quotes
+        without needing complex escaping logic.
+
+        Args:
+            description: The description text to prepare
+
+        Returns:
+            Description ready for use with triple quotes in SQL
+        """
+        # With triple quotes, we only need to escape triple quotes themselves
+        return description.replace("'''", "''''''")  # Replace ''' with ''''''
 
 
 class ObjectTypeDetector:
@@ -267,7 +279,7 @@ class CommentUpdater:
         formatted_schema = SQLIdentifierFormatter.format_identifier(schema)
         formatted_table = SQLIdentifierFormatter.format_identifier(table)
 
-        sql = f"ALTER {object_type} {formatted_database}.{formatted_schema}.{formatted_table} SET COMMENT = '{escaped_description}'"
+        sql = f"ALTER {object_type} {formatted_database}.{formatted_schema}.{formatted_table} SET COMMENT = '''{escaped_description}'''"
 
         self.query_executor(sql)
         logger.info(
@@ -292,9 +304,9 @@ class CommentUpdater:
 
         # Try to update column comment - different syntax for TABLE vs VIEW
         if object_type == "TABLE":
-            sql = f"ALTER TABLE {formatted_database}.{formatted_schema}.{formatted_table} MODIFY COLUMN {formatted_column_name} COMMENT '{escaped_description}'"
+            sql = f"ALTER TABLE {formatted_database}.{formatted_schema}.{formatted_table} MODIFY COLUMN {formatted_column_name} COMMENT '''{escaped_description}'''"
         else:  # VIEW
-            sql = f"ALTER VIEW {formatted_database}.{formatted_schema}.{formatted_table} MODIFY COLUMN {formatted_column_name} COMMENT '{escaped_description}'"
+            sql = f"ALTER VIEW {formatted_database}.{formatted_schema}.{formatted_table} MODIFY COLUMN {formatted_column_name} COMMENT '''{escaped_description}'''"
 
         try:
             self.query_executor(sql)
@@ -334,7 +346,7 @@ class CommentUpdater:
     ) -> None:
         """Try alternative COMMENT ON COLUMN syntax for view column comments."""
         try:
-            alt_sql = f"COMMENT ON COLUMN {formatted_database}.{formatted_schema}.{formatted_table}.{formatted_column_name} IS '{escaped_description}'"
+            alt_sql = f"COMMENT ON COLUMN {formatted_database}.{formatted_schema}.{formatted_table}.{formatted_column_name} IS '''{escaped_description}'''"
             self.query_executor(alt_sql)
             logger.info(
                 f"Successfully updated view column comment using COMMENT ON COLUMN for {database}.{schema}.{table}.{column_name}"
