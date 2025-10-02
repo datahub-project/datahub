@@ -80,7 +80,10 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
 
     const { data } = useReloadableQuery(
         useGetSearchResultsForMultipleQuery,
-        { type: 'structuredPropertiesOnEntitySummaryTabSidebar', id: entityType },
+        {
+            type: 'structuredPropertiesOnEntitySummaryTabSidebar',
+            id: `${entityType}-${isSchemaSidebar ? 'schema' : 'entity'}-sidebar`,
+        },
         {
             variables: {
                 input: inputs,
