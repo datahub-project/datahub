@@ -1,6 +1,8 @@
 from typing import Any, Dict
 
 import pydantic
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
 from datahub.configuration.common import PermissiveConfigModel
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
@@ -56,9 +58,6 @@ class SnowflakeConnectionConfigPermissive(
                 else:
                     # Handle regular string (from automation config)
                     password_bytes = str(self.private_key_password).encode()
-
-            from cryptography.hazmat.backends import default_backend
-            from cryptography.hazmat.primitives import serialization
 
             p_key = serialization.load_pem_private_key(
                 pkey_bytes,
