@@ -64,16 +64,16 @@ grant role fivetran_datahub to user snowflake_user;
 
 1. Get your Databricks instance's [workspace url](https://docs.databricks.com/workspace/workspace-details.html#workspace-instance-names-urls-and-ids)
 2. Create a [Databricks Service Principal](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#what-is-a-service-principal)
-   a. You can skip this step and use your own account to get things running quickly, but we strongly recommend creating a dedicated service principal for production use.
+   1. You can skip this step and use your own account to get things running quickly, but we strongly recommend creating a dedicated service principal for production use.
 3. Generate a Databricks Personal Access token following the following guides:
-   a. [Service Principals](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#personal-access-tokens)
-   b. [Personal Access Tokens](https://docs.databricks.com/dev-tools/auth.html#databricks-personal-access-tokens)
+   1. [Service Principals](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#personal-access-tokens)
+   2. [Personal Access Tokens](https://docs.databricks.com/dev-tools/auth.html#databricks-personal-access-tokens)
 4. Provision your service account, to ingest your workspace's metadata and lineage, your service principal must have all of the following:
-   a. One of: metastore admin role, ownership of, or `USE CATALOG` privilege on any catalogs you want to ingest
-   b. One of: metastore admin role, ownership of, or `USE SCHEMA` privilege on any schemas you want to ingest
-   c. Ownership of or `SELECT` privilege on any tables and views you want to ingest
-   d. [Ownership documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/ownership.html)
-   e. [Privileges documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/privileges.html)
+   1. One of: metastore admin role, ownership of, or `USE CATALOG` privilege on any catalogs you want to ingest
+   2. One of: metastore admin role, ownership of, or `USE SCHEMA` privilege on any schemas you want to ingest
+   3. Ownership of or `SELECT` privilege on any tables and views you want to ingest
+   4. [Ownership documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/ownership.html)
+   5. [Privileges documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/privileges.html)
 5. Check the starter recipe below and replace `workspace_url` and `token` with your information from the previous steps.
 
 ## Advanced Configurations
