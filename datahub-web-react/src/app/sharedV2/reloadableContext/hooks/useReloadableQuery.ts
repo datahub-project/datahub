@@ -1,5 +1,6 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
 import { useEffect } from 'react';
+
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 
 export function useReloadableQuery<T, K>(

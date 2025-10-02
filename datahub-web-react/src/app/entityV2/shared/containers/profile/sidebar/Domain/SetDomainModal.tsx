@@ -6,10 +6,10 @@ import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainN
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { handleBatchError } from '@app/entityV2/shared/utils';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import ClickOutside from '@app/shared/ClickOutside';
 import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
@@ -36,7 +36,7 @@ type SelectedDomain = {
 };
 
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityContext();
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
@@ -155,10 +155,10 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                     setSelectedDomain(undefined);
                     // Reload modules
                     // Assets - as assets module in domain summary tab could be updated
-                    reloadModules([DataHubPageModuleType.Assets], 3000);
+                    reloadByKeyType([DataHubPageModuleType.Assets], 3000);
                     // DataProduct - as data products module in domain summary tab could be updated
                     if (entityType === EntityType.DataProduct) {
-                        reloadModules([DataHubPageModuleType.DataProducts], 3000);
+                        reloadByKeyType([DataHubPageModuleType.DataProducts], 3000);
                     }
                 }
             })

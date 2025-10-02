@@ -8,9 +8,9 @@ import styled from 'styled-components';
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { handleBatchError } from '@app/entityV2/shared/utils';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import ContextPath from '@app/previewV2/ContextPath';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Text } from '@src/alchemy-components';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
@@ -48,7 +48,7 @@ export default function SetDataProductModal({
     refetch,
 }: Props) {
     const entityRegistry = useEntityRegistry();
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [selectedDataProduct, setSelectedDataProduct] = useState<DataProduct | null>(currentDataProduct);
     const inputEl = useRef(null);
@@ -128,7 +128,7 @@ export default function SetDataProductModal({
                     refetch?.();
                     // Reload modules
                     // Assets - as assets module on data product summary tab could be updated
-                    reloadModules([DataHubPageModuleType.Assets]);
+                    reloadByKeyType([DataHubPageModuleType.Assets]);
                 }, 2000);
             })
             .catch((e) => {

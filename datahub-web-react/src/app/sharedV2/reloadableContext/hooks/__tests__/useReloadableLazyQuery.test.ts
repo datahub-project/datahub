@@ -1,7 +1,8 @@
-import { renderHook, act } from '@testing-library/react-hooks';
+import { act, renderHook } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
-import { useReloadableLazyQuery } from '@app/sharedV2/reloadableContext/hooks/useReloadableLazyQuery';
+
 import * as ReloadableContext from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { useReloadableLazyQuery } from '@app/sharedV2/reloadableContext/hooks/useReloadableLazyQuery';
 
 describe('useReloadableLazyQuery', () => {
     const useReloadableContextSpy = vi.spyOn(ReloadableContext, 'useReloadableContext');
@@ -80,7 +81,9 @@ describe('useReloadableLazyQuery', () => {
 
     it('should not call the reloaded function when the query has an error', () => {
         const reloadedMock = vi.fn();
-        const mockLazyQueryHook = vi.fn().mockReturnValue([vi.fn(), { loading: false, error: new Error('test error') }]);
+        const mockLazyQueryHook = vi
+            .fn()
+            .mockReturnValue([vi.fn(), { loading: false, error: new Error('test error') }]);
         useReloadableContextSpy.mockReturnValue({
             shouldBeReloaded: () => true,
             reloaded: reloadedMock,
