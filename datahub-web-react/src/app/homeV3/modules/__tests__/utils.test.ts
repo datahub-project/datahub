@@ -5,6 +5,7 @@ import {
     getModuleIcon,
     getModuleName,
     getModuleType,
+    getReloadableModuleKey,
 } from '@app/homeV3/modules/utils';
 
 import { DataHubPageModule, DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
@@ -84,5 +85,12 @@ describe('convertModuleToModuleInfo', () => {
             name: getModuleName(module),
             icon: getModuleIcon(module),
         });
+    });
+});
+
+describe('getReloadableModuleKey', () => {
+    it('should return the module key with the correct prefix', () => {
+        const moduleType = 'test-module';
+        expect(getReloadableModuleKey(moduleType)).toBe(`module-${moduleType}`);
     });
 });

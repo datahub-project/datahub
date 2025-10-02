@@ -10,6 +10,7 @@ import SetDataProductModal from '@app/entityV2/shared/containers/profile/sidebar
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { DataProductLink } from '@app/sharedV2/tags/DataProductLink';
 
@@ -53,7 +54,13 @@ export default function DataProductSection({ readOnly }: Props) {
                 // Reload modules
                 // DataProducts - as data products could be shown in domain summary tab
                 // Assets - as assets module could be changed in data product summary tab
-                reloadByKeyType([DataHubPageModuleType.DataProducts, DataHubPageModuleType.Assets], 3000);
+                reloadByKeyType(
+                    [
+                        getReloadableModuleKey(DataHubPageModuleType.DataProducts),
+                        getReloadableModuleKey(DataHubPageModuleType.Assets),
+                    ],
+                    3000,
+                );
             })
             .catch((e: unknown) => {
                 message.destroy();

@@ -8,6 +8,7 @@ import styled from 'styled-components';
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import ContextPath from '@app/previewV2/ContextPath';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
@@ -128,7 +129,7 @@ export default function SetDataProductModal({
                     refetch?.();
                     // Reload modules
                     // Assets - as assets module on data product summary tab could be updated
-                    reloadByKeyType([DataHubPageModuleType.Assets]);
+                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.Assets)]);
                 }, 2000);
             })
             .catch((e) => {

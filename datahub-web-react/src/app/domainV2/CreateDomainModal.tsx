@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { UpdatedDomain, useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import DomainParentSelect from '@app/entityV2/shared/EntityDropdown/DomainParentSelect';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
@@ -119,7 +120,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     form.resetFields();
                     // Reload modules
                     // ChildHierarchy - to reload shown child domains on asset summary tab
-                    reloadByKeyType([DataHubPageModuleType.ChildHierarchy], 3000);
+                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.ChildHierarchy)], 3000);
                 }
             })
             .catch((e) => {
