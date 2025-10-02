@@ -187,7 +187,7 @@ class BigqueryProfiler(GenericProfiler):
                     context=table_ref,
                 )
 
-        safe_table_ref = f"`{safe_project}`.`{safe_schema}`.`{safe_table}`"
+        safe_table_ref = f"{safe_project}.{safe_schema}.{safe_table}"
 
         # STEP 5: Cost-optimized query construction with intelligent sampling
         # We build custom SQL to bypass GE's default sampling and maintain full control
