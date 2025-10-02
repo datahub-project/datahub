@@ -530,17 +530,17 @@ class SnowflakeTagHelper(Closeable):
             return
 
         try:
-            # Use native Snowflake connection instead of SQLAlchemy
             cursor = self.connection.cursor()
+            try:
+                # Use smart quoting for database and schema names
+                formatted_database = self._format_identifier(database)
+                formatted_schema = self._format_identifier(schema)
+                use_statement = f"USE {formatted_database}.{formatted_schema}"
 
-            # Use smart quoting for database and schema names
-            formatted_database = self._format_identifier(database)
-            formatted_schema = self._format_identifier(schema)
-            use_statement = f"USE {formatted_database}.{formatted_schema}"
-
-            cursor.execute(use_statement)
-            cursor.execute(query)
-            cursor.close()
+                cursor.execute(use_statement)
+                cursor.execute(query)
+            finally:
+                cursor.close()
         except ProgrammingError as e:
             self._log_error()
             logger.error(f"ProgrammingError executing query: {query}. Error: {e}")
@@ -564,11 +564,11 @@ class SnowflakeTagHelper(Closeable):
             return
 
         try:
-            # Use native Snowflake connection instead of SQLAlchemy
             cursor = self.connection.cursor()
-
-            cursor.execute(query)
-            cursor.close()
+            try:
+                cursor.execute(query)
+            finally:
+                cursor.close()
         except ProgrammingError as e:
             self._log_error()
             logger.error(

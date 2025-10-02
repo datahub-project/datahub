@@ -170,16 +170,19 @@ class ObjectTypeDetector:
             """
 
             cursor = self.connection.cursor()
-            cursor.execute(check_sql)
-            result = cursor.fetchone()
+            try:
+                cursor.execute(check_sql)
+                result = cursor.fetchone()
 
-            if result:
-                return result[0]
-            else:
-                logger.warning(
-                    f"Object not found in information schema: {database}.{schema}.{table}"
-                )
-                return "UNKNOWN"
+                if result:
+                    return result[0]
+                else:
+                    logger.warning(
+                        f"Object not found in information schema: {database}.{schema}.{table}"
+                    )
+                    return "UNKNOWN"
+            finally:
+                cursor.close()
 
         except Exception as e:
             logger.error(
@@ -210,16 +213,19 @@ class ObjectTypeDetector:
             """
 
             cursor = self.connection.cursor()
-            cursor.execute(check_sql)
-            result = cursor.fetchone()
+            try:
+                cursor.execute(check_sql)
+                result = cursor.fetchone()
 
-            if result:
-                return result[0]
-            else:
-                logger.warning(
-                    f"Column '{column_name}' not found in {database}.{schema}.{table}"
-                )
-                return None
+                if result:
+                    return result[0]
+                else:
+                    logger.warning(
+                        f"Column '{column_name}' not found in {database}.{schema}.{table}"
+                    )
+                    return None
+            finally:
+                cursor.close()
 
         except Exception as e:
             logger.error(

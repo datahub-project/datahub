@@ -57,7 +57,7 @@ class TestDescriptionPropagationAction:
 
         assert directive is not None
         assert directive.propagate is True
-        assert directive.docs == "Test table description"
+        assert directive.description == "Test table description"
         assert directive.operation == "ADD"
 
     def test_should_propagate_column_description(self) -> None:
@@ -94,7 +94,7 @@ class TestDescriptionPropagationAction:
 
         assert directive is not None
         assert directive.propagate is True
-        assert directive.docs == "Test column description"
+        assert directive.description == "Test column description"
         assert directive.operation == "MODIFY"
 
     def test_should_not_propagate_non_snowflake_urn(self) -> None:
