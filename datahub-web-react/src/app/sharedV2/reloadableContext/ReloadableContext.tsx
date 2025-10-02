@@ -1,11 +1,6 @@
-import { LazyQueryHookOptions, QueryHookOptions, QueryResult, QueryTuple } from '@apollo/client';
-import React, { useCallback, useEffect, useState } from 'react';
-
-interface ReloadableContextType {
-    reloadByKeyType: (keysTypes: string[], delayMs?: number) => void;
-    reloaded: (keyType: string, keyId?: string, delayMs?: number) => void;
-    shouldBeReloaded: (keyType: string, keyId?: string) => boolean;
-}
+import React, { useCallback, useState } from 'react';
+import { ReloadableContextType } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKey, KEY_SEPARATOR } from '@app/sharedV2/reloadableContext/utils';
 
 const DEFAULT_CONTEXT: ReloadableContextType = {
     reloadByKeyType: () => {},
@@ -13,19 +8,11 @@ const DEFAULT_CONTEXT: ReloadableContextType = {
     shouldBeReloaded: () => false,
 };
 
-const ReloadableContext = React.createContext<ReloadableContextType>(DEFAULT_CONTEXT);
+export const ReloadableContext = React.createContext<ReloadableContextType>(DEFAULT_CONTEXT);
 
 interface Props {
     children: React.ReactNode;
 }
-
-export function useReloadableContext() {
-    return React.useContext<ReloadableContextType>(ReloadableContext);
-}
-
-const KEY_SEPARATOR = '|';
-
-export const getReloadableKey = (keyType: string, entryId?: string) => `${keyType}${KEY_SEPARATOR}${entryId ?? ''}`;
 
 export function ReloadableProvider({ children }: Props) {
     const [reloadedKeys, setReloadedKeys] = useState<Set<string>>(new Set());
@@ -65,54 +52,4 @@ export function ReloadableProvider({ children }: Props) {
             {children}
         </ReloadableContext.Provider>
     );
-}
-
-export function useReloadableQuery<T, K>(
-    queryHook: (options: QueryHookOptions<T, K>) => QueryResult<T, K>,
-    key: { type: string; id?: string },
-    options: QueryHookOptions<T, K>,
-): QueryResult<T, K> {
-    const { shouldBeReloaded, reloaded } = useReloadableContext();
-    const needsReload = shouldBeReloaded(key.type, key.id);
-    const result = queryHook({
-        ...options,
-        fetchPolicy: needsReload ? 'cache-and-network' : options.fetchPolicy,
-    });
-
-    useEffect(() => {
-        if (!result.loading && !result.error) {
-            reloaded(key.type, key.id);
-        }
-    }, [result.loading, result.error, reloaded, key.type, key.id]);
-
-    return result;
-}
-
-export function useReloadableLazyQuery<T, K>(
-    lazyQueryHook: (options: LazyQueryHookOptions<T, K>) => QueryTuple<T, K>,
-    key: { type: string; id?: string },
-    options: LazyQueryHookOptions<T, K>,
-): QueryTuple<T, K> {
-    const { shouldBeReloaded, reloaded } = useReloadableContext();
-    const [execute, result] = lazyQueryHook(options);
-
-    const wrappedExecute = useCallback(
-        (overrideOptions?: LazyQueryHookOptions<T, K>) => {
-            const needsReload = shouldBeReloaded(key.type, key.id);
-            const finalOptions = {
-                ...overrideOptions,
-                fetchPolicy: needsReload ? 'cache-and-network' : overrideOptions?.fetchPolicy || options.fetchPolicy,
-            };
-            return execute(finalOptions);
-        },
-        [execute, shouldBeReloaded, key, options],
-    );
-
-    useEffect(() => {
-        if (!result.loading && !result.error) {
-            reloaded(key.type, key.id);
-        }
-    }, [result.loading, result.error, reloaded, key.type, key.id]);
-
-    return [wrappedExecute, result];
 }

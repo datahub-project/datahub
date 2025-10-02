@@ -44,7 +44,7 @@ import {
     StructuredPropertyEntity,
     UpdateStructuredPropertyInput,
 } from '@src/types.generated';
-import { useReloadableContext } from '@app/sharedV2/reloadableContext/ReloadableContext';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 
 interface Props {
     isDrawerOpen: boolean;
