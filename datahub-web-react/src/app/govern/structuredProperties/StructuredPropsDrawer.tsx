@@ -27,6 +27,7 @@ import {
     getValueType,
     valueTypes,
 } from '@app/govern/structuredProperties/utils';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { Button, Text } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
@@ -44,7 +45,6 @@ import {
     StructuredPropertyEntity,
     UpdateStructuredPropertyInput,
 } from '@src/types.generated';
-import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 
 interface Props {
     isDrawerOpen: boolean;
@@ -119,7 +119,7 @@ const StructuredPropsDrawer = ({
         showToastMessage(ToastType.SUCCESS, `Structured property ${isEditMode ? 'updated' : 'created'}!`, 3);
     };
 
-    const {reloadByKeyType} = useReloadableContext();
+    const { reloadByKeyType } = useReloadableContext();
 
     const handleSubmit = () => {
         if (isEditMode) {

@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
+
 import { ReloadableContextType } from '@app/sharedV2/reloadableContext/types';
-import { getReloadableKey, KEY_SEPARATOR } from '@app/sharedV2/reloadableContext/utils';
+import { KEY_SEPARATOR, getReloadableKey } from '@app/sharedV2/reloadableContext/utils';
 
 const DEFAULT_CONTEXT: ReloadableContextType = {
     reloadByKeyType: () => {},

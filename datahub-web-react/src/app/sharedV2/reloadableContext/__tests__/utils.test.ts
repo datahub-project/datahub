@@ -1,4 +1,4 @@
-import { getReloadableKey, KEY_SEPARATOR } from '@app/sharedV2/reloadableContext/utils';
+import { KEY_SEPARATOR, getReloadableKey } from '@app/sharedV2/reloadableContext/utils';
 
 describe('utils', () => {
     describe('getReloadableKey', () => {

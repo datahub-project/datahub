@@ -1,7 +1,8 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
-import { useReloadableQuery } from '@app/sharedV2/reloadableContext/hooks/useReloadableQuery';
+
 import * as ReloadableContext from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { useReloadableQuery } from '@app/sharedV2/reloadableContext/hooks/useReloadableQuery';
 
 describe('useReloadableQuery', () => {
     const useReloadableContextSpy = vi.spyOn(ReloadableContext, 'useReloadableContext');
@@ -18,9 +19,7 @@ describe('useReloadableQuery', () => {
             reloadByKeyType: () => {},
         });
 
-        renderHook(() =>
-            useReloadableQuery(mockQueryHook, { type: 'test', id: '1' }, { fetchPolicy: 'cache-first' }),
-        );
+        renderHook(() => useReloadableQuery(mockQueryHook, { type: 'test', id: '1' }, { fetchPolicy: 'cache-first' }));
 
         expect(mockQueryHook).toHaveBeenCalledWith({ fetchPolicy: 'cache-and-network' });
     });
@@ -33,9 +32,7 @@ describe('useReloadableQuery', () => {
             reloadByKeyType: () => {},
         });
 
-        renderHook(() =>
-            useReloadableQuery(mockQueryHook, { type: 'test', id: '1' }, { fetchPolicy: 'cache-first' }),
-        );
+        renderHook(() => useReloadableQuery(mockQueryHook, { type: 'test', id: '1' }, { fetchPolicy: 'cache-first' }));
 
         expect(mockQueryHook).toHaveBeenCalledWith({ fetchPolicy: 'cache-first' });
     });

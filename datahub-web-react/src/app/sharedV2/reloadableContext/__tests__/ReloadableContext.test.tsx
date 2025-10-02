@@ -1,6 +1,7 @@
+import { act, renderHook } from '@testing-library/react-hooks';
 import React from 'react';
-import { renderHook, act } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
+
 import { ReloadableProvider } from '@app/sharedV2/reloadableContext/ReloadableContext';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 

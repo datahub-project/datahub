@@ -10,7 +10,7 @@ import SetDataProductModal from '@app/entityV2/shared/containers/profile/sidebar
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { DataProductLink } from '@app/sharedV2/tags/DataProductLink';
 
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
@@ -28,7 +28,7 @@ interface Props {
 }
 
 export default function DataProductSection({ readOnly }: Props) {
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const { entityData, urn } = useEntityData();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
@@ -53,7 +53,7 @@ export default function DataProductSection({ readOnly }: Props) {
                 // Reload modules
                 // DataProducts - as data products could be shown in domain summary tab
                 // Assets - as assets module could be changed in data product summary tab
-                reloadModules([DataHubPageModuleType.DataProducts, DataHubPageModuleType.Assets], 3000);
+                reloadByKeyType([DataHubPageModuleType.DataProducts, DataHubPageModuleType.Assets], 3000);
             })
             .catch((e: unknown) => {
                 message.destroy();

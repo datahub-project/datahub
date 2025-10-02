@@ -6,8 +6,8 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { getNameFromType } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveOwnerMutation } from '@graphql/mutations.generated';
@@ -26,7 +26,7 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
     const { user } = useUserContext();
 
     let name = '';
@@ -67,7 +67,7 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
             const isCurrentUserRemoved = user?.urn === owner.owner.urn;
             // Reload modules
             // OwnedAssets - update Your assets module on home page
-            if (isCurrentUserRemoved) reloadModules([DataHubPageModuleType.OwnedAssets], 3000);
+            if (isCurrentUserRemoved) reloadByKeyType([DataHubPageModuleType.OwnedAssets], 3000);
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
