@@ -201,7 +201,6 @@ describe("Manage Ingestion and Secret Privileges", () => {
   // it("Verify new user can see ingestion and access Manage Secret tab", () => {
   //   cy.clearCookies();
   //   cy.clearLocalStorage();
-  //   cy.setIsThemeV2Enabled(false);
   //   cy.loginWithCredentials();
   //   cy.visit("/settings/permissions/policies");
   //   cy.waitTextVisible("Manage Permissions");
