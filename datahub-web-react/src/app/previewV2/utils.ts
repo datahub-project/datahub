@@ -2,6 +2,7 @@ import { Modal, message } from 'antd';
 
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { useBatchSetDataProductMutation } from '@src/graphql/dataProduct.generated';
 
@@ -47,10 +48,10 @@ export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
                     message.success({ content: 'Domain Removed!', duration: 2 });
                     // Reload modules
                     // Assets - to update assets in domain summary tab
-                    reloadByKeyType([DataHubPageModuleType.Assets]);
+                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.Assets)]);
                     // DataProduct - to update data products module in domain summary tab
                     if (entityType === EntityType.DataProduct) {
-                        reloadByKeyType([DataHubPageModuleType.DataProducts]);
+                        reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.DataProducts)]);
                     }
                 }, 2000);
             })
@@ -99,7 +100,7 @@ export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) 
                         setTimeout(() => {
                             setShouldRefetchEmbeddedListSearch(true);
                             message.success({ content: 'Term Removed!', duration: 2 });
-                            reloadByKeyType([DataHubPageModuleType.Assets]);
+                            reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.Assets)]);
                         }, 2000);
                     }
                 })
@@ -137,7 +138,7 @@ export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
                 setTimeout(() => {
                     setShouldRefetchEmbeddedListSearch(true);
                     message.success({ content: 'Removed Data Product.', duration: 2 });
-                    reloadByKeyType([DataHubPageModuleType.Assets]);
+                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.Assets)]);
                 }, 2000);
             })
             .catch((e: unknown) => {

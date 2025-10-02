@@ -6,6 +6,7 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { getNameFromType } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -67,7 +68,8 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
             const isCurrentUserRemoved = user?.urn === owner.owner.urn;
             // Reload modules
             // OwnedAssets - update Your assets module on home page
-            if (isCurrentUserRemoved) reloadByKeyType([DataHubPageModuleType.OwnedAssets], 3000);
+            if (isCurrentUserRemoved)
+                reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.OwnedAssets)], 3000);
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {

@@ -7,6 +7,7 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '@app/entity/shared/utils';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import ParentEntities from '@app/search/filters/ParentEntities';
 import { getParentEntities } from '@app/search/filters/utils';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -363,7 +364,7 @@ export default function EditTagTermsModal({
                     sendAnalytics();
                     // Reload modules
                     // Assets - to updated assets on terms summary tab
-                    reloadByKeyType([DataHubPageModuleType.Assets], 3000);
+                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.Assets)], 3000);
                 }
             })
             .catch((e) => {
@@ -426,7 +427,7 @@ export default function EditTagTermsModal({
                     });
                     // Reload modules
                     // Assets - to updated assets on terms summary tab
-                    reloadByKeyType([DataHubPageModuleType.Assets], 3000);
+                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.Assets)], 3000);
                 }
             })
             .catch((e) => {

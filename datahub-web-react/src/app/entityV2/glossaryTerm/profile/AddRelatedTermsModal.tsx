@@ -4,6 +4,7 @@ import styled from 'styled-components/macro';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
 import { getParentEntities } from '@app/searchV2/filters/utils';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -70,7 +71,7 @@ function AddRelatedTermsModal(props: Props) {
                     refetch();
                     // Reload modules
                     // RelatedTerms - update related terms module on term summary tab
-                    reloadByKeyType([DataHubPageModuleType.RelatedTerms]);
+                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.RelatedTerms)]);
                 }, 2000);
             });
         onClose();

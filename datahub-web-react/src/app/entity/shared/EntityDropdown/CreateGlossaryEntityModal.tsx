@@ -12,6 +12,7 @@ import DescriptionModal from '@app/entity/shared/components/legacy/DescriptionMo
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -133,7 +134,7 @@ function CreateGlossaryEntityModal(props: Props) {
                     }
                     // Reload modules
                     // ChildHierarchy - to update contents module as new term/node could change it
-                    reloadByKeyType([DataHubPageModuleType.ChildHierarchy]);
+                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.ChildHierarchy)]);
                 }, 2000);
             })
             .catch((e) => {

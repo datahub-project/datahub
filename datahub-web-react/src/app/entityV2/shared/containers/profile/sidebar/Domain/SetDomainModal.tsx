@@ -6,6 +6,7 @@ import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainN
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import ClickOutside from '@app/shared/ClickOutside';
 import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
@@ -155,10 +156,10 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                     setSelectedDomain(undefined);
                     // Reload modules
                     // Assets - as assets module in domain summary tab could be updated
-                    reloadByKeyType([DataHubPageModuleType.Assets], 3000);
+                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.Assets)], 3000);
                     // DataProduct - as data products module in domain summary tab could be updated
                     if (entityType === EntityType.DataProduct) {
-                        reloadByKeyType([DataHubPageModuleType.DataProducts], 3000);
+                        reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.DataProducts)], 3000);
                     }
                 }
             })

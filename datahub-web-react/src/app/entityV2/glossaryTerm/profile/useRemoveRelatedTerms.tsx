@@ -1,6 +1,7 @@
 import { Modal, message } from 'antd';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -42,7 +43,7 @@ function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationsh
                     });
                     // Reload modules
                     // RelatedTerms - update related terms module on term summary tab
-                    reloadByKeyType([DataHubPageModuleType.RelatedTerms]);
+                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.RelatedTerms)]);
                 }, 2000);
             });
     }

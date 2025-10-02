@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 
 import { ModuleContextType, ModuleProps } from '@app/homeV3/module/types';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 
 const ModuleContext = React.createContext<ModuleContextType>({
@@ -15,12 +16,12 @@ export function ModuleProvider({ children, module }: React.PropsWithChildren<Mod
     const moduleType = module.properties.type;
 
     const isReloading = useMemo(
-        () => shouldBeReloaded(moduleType, moduleUrn),
+        () => shouldBeReloaded(getReloadableModuleKey(moduleType), moduleUrn),
         [shouldBeReloaded, moduleUrn, moduleType],
     );
 
     const onReloadingFinished = useCallback(() => {
-        if (isReloading) reloaded(moduleType, moduleUrn);
+        if (isReloading) reloaded(getReloadableModuleKey(moduleType), moduleUrn);
     }, [reloaded, moduleUrn, moduleType, isReloading]);
 
     return <ModuleContext.Provider value={{ isReloading, onReloadingFinished }}>{children}</ModuleContext.Provider>;

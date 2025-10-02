@@ -10,6 +10,7 @@ import { SetDomainModal } from '@app/entityV2/shared/containers/profile/sidebar/
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import { ENTITY_PROFILE_DOMAINS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
@@ -60,10 +61,10 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                 refetch?.();
                 // Reload modules
                 // Assets - as assets module in domain summary tab could be updated
-                reloadByKeyType([DataHubPageModuleType.Assets], 3000);
+                reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.Assets)], 3000);
                 // DataProduct - as data products module in domain summary tab could be updated
                 if (entityType === EntityType.DataProduct) {
-                    reloadByKeyType([DataHubPageModuleType.DataProducts], 3000);
+                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.DataProducts)], 3000);
                 }
             })
             .catch((e: unknown) => {

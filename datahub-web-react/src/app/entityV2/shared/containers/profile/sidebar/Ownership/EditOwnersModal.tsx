@@ -7,6 +7,7 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import OwnershipTypesSelect from '@app/entityV2/shared/containers/profile/sidebar/Ownership/OwnershipTypesSelect';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { addUserFiltersToAutoCompleteInput } from '@app/shared/userSearchUtils';
@@ -348,7 +349,7 @@ export const EditOwnersModal = ({
         const isCurrentUserUpdated = user?.urn && inputs.map((input) => input.ownerUrn).includes(user?.urn);
         // Reload modules
         // OwnedAssets - as your assets module could be updated
-        if (isCurrentUserUpdated) reloadByKeyType([DataHubPageModuleType.OwnedAssets], 3000);
+        if (isCurrentUserUpdated) reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.OwnedAssets)], 3000);
     };
 
     function handleBlur() {

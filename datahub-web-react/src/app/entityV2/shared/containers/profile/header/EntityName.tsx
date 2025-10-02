@@ -9,6 +9,7 @@ import { useDomainsContext } from '@app/domainV2/DomainsContext';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import CompactContext from '@app/shared/CompactContext';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -105,19 +106,19 @@ function EntityName(props: Props) {
                 // Reload modules as name of some asset could be changed in them
                 reloadByKeyType(
                     [
-                        DataHubPageModuleType.AssetCollection,
-                        DataHubPageModuleType.OwnedAssets,
-                        DataHubPageModuleType.Assets,
-                        DataHubPageModuleType.ChildHierarchy,
-                        DataHubPageModuleType.Domains,
+                        getReloadableModuleKey(DataHubPageModuleType.AssetCollection),
+                        getReloadableModuleKey(DataHubPageModuleType.OwnedAssets),
+                        getReloadableModuleKey(DataHubPageModuleType.Assets),
+                        getReloadableModuleKey(DataHubPageModuleType.ChildHierarchy),
+                        getReloadableModuleKey(DataHubPageModuleType.Domains),
                     ],
                     3000,
                 );
                 if (entityType === EntityType.GlossaryTerm) {
-                    reloadByKeyType([DataHubPageModuleType.RelatedTerms], 3000);
+                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.RelatedTerms)], 3000);
                 }
                 if (entityType === EntityType.DataProduct) {
-                    reloadByKeyType([DataHubPageModuleType.DataProducts], 3000);
+                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.DataProducts)], 3000);
                 }
             })
             .catch((e: unknown) => {
