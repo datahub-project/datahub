@@ -243,3 +243,21 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **e479ca59b7** - docs(Ask DataHub) Update naming conventions for Ask DataHub (#14746)
   *by Maggie Hays on 2025-09-15*
 
+
+## Upstream Merge Session - 2025-10-01 16:22:32
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-backfill-09-17-2025`
+- **Merge Base**: `e479ca59b77e8e9698374bba64c8d4de25beeb7d`
+- **End Commit**: `d090c1da4a4540c814bbe4f448d440ddfcc63f2e`
+- **Total Commits**: 1
+- **Strategy**: stacked
+- **Started**: Wed Oct  1 16:22:32 UTC 2025
+
+### Commits Included in This Merge
+- **4fd60c698c** - fix(ui): Render the values instead of urns in Policies Modal (#14613)
+  *by Saketh Varma on 2025-09-16*
+
