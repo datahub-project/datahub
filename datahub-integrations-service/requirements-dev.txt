@@ -115,8 +115,12 @@ azure-identity==1.21.0
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
-beautifulsoup4==4.13.5
-    # via nbconvert
+beautifulsoup4==4.14.2
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
+    #   nbconvert
 bleach==6.2.0
     # via nbconvert
 blinker==1.9.0
@@ -1300,7 +1304,9 @@ sortedcontainers==2.4.0
     #   -r requirements.txt
     #   snowflake-connector-python
 soupsieve==2.8
-    # via beautifulsoup4
+    # via
+    #   -r requirements.txt
+    #   beautifulsoup4
 sqlalchemy==1.4.52
     # via
     #   -r requirements.txt

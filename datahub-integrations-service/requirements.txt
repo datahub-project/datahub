@@ -69,6 +69,8 @@ azure-identity==1.21.0
     # via
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
+beautifulsoup4==4.14.2
+    # via acryl-datahub-integrations
 blinker==1.9.0
     # via flask
 botbuilder-core==4.17.0
@@ -731,6 +733,8 @@ snowflake-sqlalchemy==1.5.3
     # via acryl-datahub
 sortedcontainers==2.4.0
     # via snowflake-connector-python
+soupsieve==2.8
+    # via beautifulsoup4
 sqlalchemy==1.4.52
     # via
     #   alembic
@@ -790,6 +794,7 @@ typing-extensions==4.13.2
     #   anyio
     #   azure-core
     #   azure-identity
+    #   beautifulsoup4
     #   exceptiongroup
     #   fastapi
     #   graphene

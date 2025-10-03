@@ -45,6 +45,7 @@ dependencies = [
 	"cryptography==42.0.5",
 	"pyOpenSSL==24.1.0",
 	"litellm>=1.0.0",
+	"beautifulsoup4>=4.13.5",
 	# Email notifications.
 	"sendgrid",
 	# Reporting.
