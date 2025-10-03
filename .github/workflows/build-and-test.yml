@@ -65,7 +65,7 @@ jobs:
         run: |
           sudo apt-get remove 'dotnet-*' azure-cli || true
           sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
+          sudo docker system prune -a -f || true
       - uses: szenius/set-timezone@v2.0
         with:
           timezoneLinux: ${{ matrix.timezone }}

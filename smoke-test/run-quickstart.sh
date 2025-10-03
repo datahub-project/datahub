@@ -15,7 +15,7 @@ echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
 
 echo "DATAHUB_VERSION = $DATAHUB_VERSION"
 DATAHUB_SEARCH_IMAGE="${DATAHUB_SEARCH_IMAGE:=opensearchproject/opensearch}"
-DATAHUB_SEARCH_TAG="${DATAHUB_SEARCH_TAG:=2.17.0}"
+DATAHUB_SEARCH_TAG="${DATAHUB_SEARCH_TAG:=2.9.0}"
 XPACK_SECURITY_ENABLED="${XPACK_SECURITY_ENABLED:=plugins.security.disabled=true}"
 ELASTICSEARCH_USE_SSL="${ELASTICSEARCH_USE_SSL:=false}"
 USE_AWS_ELASTICSEARCH="${USE_AWS_ELASTICSEARCH:=true}"
