@@ -91,10 +91,13 @@ class Dashboard(_GrafanaBaseModel):
     def parse_obj(cls, data: Dict[str, Any]) -> "Dashboard":
         """Custom parsing to handle nested panel extraction."""
         dashboard_data = data.get("dashboard", {})
+        _panel_data = dashboard_data.get("panels", [])
         try:
-            panels = cls.extract_panels(dashboard_data.get("panels", []))
+            panels = cls.extract_panels(_panel_data)
         except Exception as e:
-            logger.warning(f"Error parsing dashboard: {e}")
+            logger.warning(
+                f"Error extracting panels from dashboard for dashboard panels {_panel_data} : {e}"
+            )
 
         # Extract meta.folderId from nested structure
         meta = dashboard_data.get("meta", {})
