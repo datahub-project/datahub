@@ -5,9 +5,9 @@ import Highlight from 'react-highlighter';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
+import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
 import { getTagColor } from '@app/tags/utils';
-import { ExpandedOwner } from '@src/app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { UnionType } from '@src/app/search/utils/constants';
 import { generateOrFilters } from '@src/app/search/utils/generateOrFilters';
 import { navigateToSearchUrl } from '@src/app/search/utils/navigateToSearchUrl';

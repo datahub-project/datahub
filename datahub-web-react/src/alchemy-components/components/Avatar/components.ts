@@ -1,16 +1,22 @@
 import styled from 'styled-components';
 
-import { getAvatarColorStyles, getAvatarNameSizes, getAvatarSizes } from '@components/components/Avatar/utils';
+import { BorderType } from '@components/components/Avatar/types';
+import {
+    getAvatarColorStyles,
+    getAvatarNameSizes,
+    getAvatarPillBorderStyle,
+    getAvatarSizes,
+} from '@components/components/Avatar/utils';
 
 import { colors } from '@src/alchemy-components/theme';
 import { AvatarSizeOptions } from '@src/alchemy-components/theme/config';
 
-export const Container = styled.div<{ $hasOnClick: boolean; $showInPill?: boolean }>`
+export const Container = styled.div<{ $hasOnClick: boolean; $showInPill?: boolean; $borderType?: BorderType }>`
     display: inline-flex;
     align-items: center;
     gap: 4px;
     border-radius: 20px;
-    border: ${(props) => props.$showInPill && `1px solid ${colors.gray[100]}`};
+    border: ${(props) => props.$showInPill && getAvatarPillBorderStyle(props.$borderType)};
     padding: ${(props) => props.$showInPill && '3px 6px 3px 4px'};
 
     ${(props) =>
