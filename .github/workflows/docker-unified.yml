@@ -422,11 +422,17 @@ jobs:
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
       - name: Free up disk space
-        if: ${{ !contains(needs.setup.outputs.test_runner_type, 'depot') }}
         run: |
           sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/.ghcup || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/share/swift || true
+          sudo rm -rf /usr/local/julia* || true
+          sudo rm -rf /usr/local/share/powershell || true
+          sudo rm -rf /usr/share/miniconda || true
           sudo rm -rf /usr/local/lib/android/ || true
           sudo docker system prune -a -f || true
+          df -h
 
       - uses: actions/cache/restore@v4
         with:
