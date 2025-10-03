@@ -922,3 +922,381 @@ class TestVirtualConnectionProcessor:
             assert (
                 self.vc_processor.vc_table_column_types["vc-table-1.col2"] == "STRING"
             )
+
+    def test_emit_virtual_connection_tables_success(self):
+        """Test emitting virtual connection tables using new API."""
+        # Set up test data
+        self.vc_processor.virtual_connection_ids_being_used = ["vc-123"]
+        self.vc_processor.vc_table_id_to_vc_id = {"vc-table-1": "vc-123"}
+
+        # Mock virtual connection tables data
+        mock_vc_tables = [
+            {
+                c.ID: "vc-table-1",
+                c.NAME: "test_table",
+                c.DESCRIPTION: "Test table description",
+                c.IS_EXTRACTED: True,
+                c.EXTRACT_LAST_REFRESHED_AT: "2021-12-07T07:00:00Z",
+                c.EXTRACT_LAST_REFRESH_TYPE: "FULL",
+                c.IS_CERTIFIED: False,
+                "columnsConnection": {
+                    "nodes": [
+                        {
+                            c.ID: "col-1",
+                            c.NAME: "id",
+                            c.DISPLAY_NAME: "ID",
+                            c.REMOTE_TYPE: "INTEGER",
+                            c.DESCRIPTION: "Primary key",
+                            c.IS_NULLABLE: False,
+                        },
+                        {
+                            c.ID: "col-2",
+                            c.NAME: "name",
+                            c.DISPLAY_NAME: "Name",
+                            c.REMOTE_TYPE: "STRING",
+                            c.DESCRIPTION: "User name",
+                            c.IS_NULLABLE: True,
+                        },
+                    ]
+                },
+            }
+        ]
+
+        with mock.patch.object(
+            self.vc_processor.tableau_source,
+            "get_connection_objects",
+            return_value=mock_vc_tables,
+        ) as mock_get_connection_objects:
+            workunits = list(self.vc_processor.emit_virtual_connection_tables())
+
+            # Should have called get_connection_objects with the new query
+            mock_get_connection_objects.assert_called_once()
+            call_args = mock_get_connection_objects.call_args
+            assert call_args[1]["connection_type"] == c.VIRTUAL_CONNECTION_TABLES
+
+            # Should return work units
+            assert len(workunits) > 0
+
+    def test_emit_virtual_connection_tables_fallback(self):
+        """Test fallback to original method when new API fails."""
+        # Set up test data
+        self.vc_processor.virtual_connection_ids_being_used = ["vc-123"]
+
+        # Mock get_connection_objects to raise an exception
+        with (
+            mock.patch.object(
+                self.vc_processor.tableau_source,
+                "get_connection_objects",
+                side_effect=Exception("API not available"),
+            ) as mock_get_connection_objects,
+            mock.patch.object(
+                self.vc_processor,
+                "emit_virtual_connections",
+                return_value=[],
+            ) as mock_emit_virtual_connections,
+        ):
+            workunits = list(self.vc_processor.emit_virtual_connection_tables())
+
+            # Should have called get_connection_objects
+            mock_get_connection_objects.assert_called_once()
+            # Should have fallen back to original method
+            mock_emit_virtual_connections.assert_called_once()
+            # Should return empty list
+            assert workunits == []
+
+    def test_get_vc_id_for_table(self):
+        """Test getting VC ID for a table."""
+        # Set up test data
+        self.vc_processor.vc_table_id_to_vc_id = {
+            "vc-table-1": "vc-123",
+            "vc-table-2": "vc-456",
+        }
+
+        # Test existing table
+        vc_id = self.vc_processor._get_vc_id_for_table("vc-table-1")
+        assert vc_id == "vc-123"
+
+        # Test non-existing table
+        vc_id = self.vc_processor._get_vc_id_for_table("vc-table-nonexistent")
+        assert vc_id is None
+
+    def test_get_enhanced_custom_properties(self):
+        """Test getting enhanced custom properties from VC table data."""
+        vc_table = {
+            c.ID: "vc-table-1",
+            c.NAME: "test_table",
+            c.IS_EXTRACTED: True,
+            c.EXTRACT_LAST_REFRESHED_AT: "2021-12-07T07:00:00Z",
+            c.EXTRACT_LAST_REFRESH_TYPE: "FULL",
+            c.IS_CERTIFIED: False,
+        }
+
+        custom_props = self.vc_processor._get_enhanced_custom_properties(vc_table)
+
+        # Should have all enhanced properties
+        assert custom_props["isExtracted"] == "True"
+        assert custom_props["extractLastRefreshedAt"] == "2021-12-07T07:00:00Z"
+        assert custom_props["extractLastRefreshType"] == "FULL"
+        assert custom_props["isCertified"] == "False"
+
+    def test_get_enhanced_custom_properties_missing_fields(self):
+        """Test getting enhanced custom properties with missing fields."""
+        vc_table = {
+            c.ID: "vc-table-1",
+            c.NAME: "test_table",
+            # Missing enhanced fields
+        }
+
+        custom_props = self.vc_processor._get_enhanced_custom_properties(vc_table)
+
+        # Should return empty dict when fields are missing
+        assert custom_props == {}
+
+    def test_create_schema_metadata_from_columns_connection(self):
+        """Test creating schema metadata from columnsConnection structure."""
+        vc_table = {
+            c.ID: "vc-table-1",
+            c.NAME: "test_table",
+            "columnsConnection": {
+                "nodes": [
+                    {
+                        c.ID: "col-1",
+                        c.NAME: "id",
+                        c.DISPLAY_NAME: "ID",
+                        c.REMOTE_TYPE: "INTEGER",
+                        c.DESCRIPTION: "Primary key",
+                        c.IS_NULLABLE: False,
+                    },
+                    {
+                        c.ID: "col-2",
+                        c.NAME: "name",
+                        c.DISPLAY_NAME: "Name",
+                        c.REMOTE_TYPE: "STRING",
+                        c.DESCRIPTION: "User name",
+                        c.IS_NULLABLE: True,
+                    },
+                ]
+            },
+        }
+
+        schema_metadata = (
+            self.vc_processor._create_schema_metadata_from_columns_connection(
+                vc_table, "test_table"
+            )
+        )
+
+        # Should return schema metadata
+        assert schema_metadata is not None
+        assert schema_metadata.schemaName == "VirtualConnection_test_table"
+        assert len(schema_metadata.fields) == 2
+
+        # Check field paths
+        field_paths = [field.fieldPath for field in schema_metadata.fields]
+        assert "[type=integer].id" in field_paths
+        assert "[type=string].name" in field_paths
+
+    def test_create_schema_metadata_from_columns_connection_empty(self):
+        """Test creating schema metadata with empty columnsConnection."""
+        vc_table = {
+            c.ID: "vc-table-1",
+            c.NAME: "test_table",
+            "columnsConnection": {"nodes": []},
+        }
+
+        schema_metadata = (
+            self.vc_processor._create_schema_metadata_from_columns_connection(
+                vc_table, "test_table"
+            )
+        )
+
+        # Should return None for empty columns
+        assert schema_metadata is None
+
+    def test_create_table_upstream_lineage_from_vc_table(self):
+        """Test creating table upstream lineage from VC table data."""
+        vc_table = {
+            c.ID: "vc-table-1",
+            c.NAME: "test_table",
+            "columnsConnection": {
+                "nodes": [
+                    {
+                        c.ID: "col-1",
+                        c.NAME: "id",
+                        c.REMOTE_TYPE: "INTEGER",
+                    },
+                    {
+                        c.ID: "col-2",
+                        c.NAME: "name",
+                        c.REMOTE_TYPE: "STRING",
+                    },
+                ]
+            },
+        }
+
+        table_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,vc-table-1,PROD)"
+
+        # Mock database table matching
+        mock_db_table = {
+            "name": "test_table",
+            "id": "db-table-123",
+            c.COLUMNS: [
+                {c.NAME: "id", c.REMOTE_TYPE: "INTEGER"},
+                {c.NAME: "name", c.REMOTE_TYPE: "STRING"},
+            ],
+        }
+
+        with (
+            mock.patch.object(
+                self.vc_processor.tableau_source,
+                "_find_matching_database_table",
+                return_value=mock_db_table,
+            ),
+            mock.patch.object(
+                self.vc_processor.tableau_source,
+                "_create_database_table_urn",
+                return_value="urn:li:dataset:(urn:li:dataPlatform:tableau,db-table-123,PROD)",
+            ),
+        ):
+            upstream_tables, fine_grained_lineages = (
+                self.vc_processor._create_table_upstream_lineage_from_vc_table(
+                    vc_table, table_urn
+                )
+            )
+
+            # Should create upstream entries and fine-grained lineage
+            assert len(upstream_tables) == 1
+            assert len(fine_grained_lineages) == 2  # Two columns
+
+    def test_emit_single_virtual_connection_table(self):
+        """Test emitting a single virtual connection table."""
+        vc_table = {
+            c.ID: "vc-table-1",
+            c.NAME: "test_table",
+            c.DESCRIPTION: "Test table description",
+            c.IS_EXTRACTED: True,
+            c.IS_CERTIFIED: False,
+            "columnsConnection": {
+                "nodes": [
+                    {
+                        c.ID: "col-1",
+                        c.NAME: "id",
+                        c.REMOTE_TYPE: "INTEGER",
+                        c.DESCRIPTION: "Primary key",
+                    }
+                ]
+            },
+        }
+
+        vc_id = "vc-123"
+
+        # Mock dependencies
+        with (
+            mock.patch.object(
+                self.vc_processor,
+                "_create_schema_metadata_from_columns_connection",
+                return_value=mock.MagicMock(),
+            ),
+            mock.patch.object(
+                self.vc_processor,
+                "_create_table_upstream_lineage_from_vc_table",
+                return_value=([], []),
+            ),
+            mock.patch.object(
+                self.vc_processor,
+                "_get_vc_project_luid",
+                return_value=None,
+            ),
+        ):
+            workunits = list(
+                self.vc_processor._emit_single_virtual_connection_table(vc_table, vc_id)
+            )
+
+            # Should return work units
+            assert len(workunits) > 0
+
+    def test_enhanced_virtual_connection_queries(self):
+        """Test that enhanced virtual connection queries include new fields."""
+        from datahub.ingestion.source.tableau.tableau_common import (
+            virtual_connection_detailed_graphql_query,
+            virtual_connection_graphql_query,
+            virtual_connection_tables_graphql_query,
+        )
+
+        # Test that enhanced queries include new fields
+        assert "isExtracted" in virtual_connection_graphql_query
+        assert "extractLastRefreshedAt" in virtual_connection_graphql_query
+        assert "extractLastRefreshType" in virtual_connection_graphql_query
+        assert "isCertified" in virtual_connection_graphql_query
+        assert "displayName" in virtual_connection_graphql_query
+        assert "isNullable" in virtual_connection_graphql_query
+
+        assert "isExtracted" in virtual_connection_detailed_graphql_query
+        assert "extractLastRefreshedAt" in virtual_connection_detailed_graphql_query
+        assert "extractLastRefreshType" in virtual_connection_detailed_graphql_query
+        assert "isCertified" in virtual_connection_detailed_graphql_query
+        assert "displayName" in virtual_connection_detailed_graphql_query
+        assert "isNullable" in virtual_connection_detailed_graphql_query
+
+        # Test that new query has the correct structure
+        assert "columnsConnection" in virtual_connection_tables_graphql_query
+        assert "nodes" in virtual_connection_tables_graphql_query
+        assert "isExtracted" in virtual_connection_tables_graphql_query
+        assert "extractLastRefreshedAt" in virtual_connection_tables_graphql_query
+        assert "extractLastRefreshType" in virtual_connection_tables_graphql_query
+        assert "isCertified" in virtual_connection_tables_graphql_query
+
+    def test_create_vc_schema_field_v2_enhanced(self):
+        """Test create_vc_schema_field_v2 with enhanced parameters."""
+        from datahub.ingestion.source.tableau.tableau_common import (
+            create_vc_schema_field_v2,
+        )
+
+        # Test with enhanced parameters
+        schema_field = create_vc_schema_field_v2(
+            table_name="test_table",
+            column_name="id",
+            column_type="INTEGER",
+            description="Primary key",
+            ingest_tags=True,
+            display_name="ID",
+            is_nullable=False,
+        )
+
+        # Should create schema field with correct field path
+        assert schema_field.fieldPath == "[type=integer].id"
+        assert schema_field.description == "Primary key"
+        assert schema_field.nativeDataType == "INTEGER"
+
+    def test_backward_compatibility(self):
+        """Test that existing functionality still works with enhanced queries."""
+        # Test that existing methods still work
+        datasource = {
+            c.ID: "ds-123",
+            c.FIELDS: [
+                {
+                    c.NAME: "field1",
+                    c.UPSTREAM_COLUMNS: [
+                        {
+                            c.NAME: "column1",
+                            c.TABLE: {
+                                c.ID: "vc-table-1",
+                                c.NAME: "test_table",
+                                c.TYPE_NAME: c.VIRTUAL_CONNECTION_TABLE,
+                                "virtualConnection": {
+                                    c.ID: "vc-123",
+                                    c.NAME: "Test VC",
+                                },
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+
+        # Should still process VC references correctly
+        self.vc_processor.process_datasource_for_vc_refs(datasource, "published")
+
+        # Check that VC references were captured
+        assert "ds-123" in self.vc_processor.datasource_vc_relationships
+        assert len(self.vc_processor.datasource_vc_relationships["ds-123"]) == 1
+        assert "vc-table-1" in self.vc_processor.vc_table_ids_for_lookup

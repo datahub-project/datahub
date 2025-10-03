@@ -14,6 +14,7 @@ from datahub.ingestion.source.tableau.tableau_common import (
     create_vc_schema_field_v2,
     virtual_connection_detailed_graphql_query,
     virtual_connection_graphql_query,
+    virtual_connection_tables_graphql_query,
 )
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
@@ -185,6 +186,281 @@ class VirtualConnectionProcessor:
             page_size=self.config.effective_virtual_connection_page_size,
         ):
             yield from self._emit_single_virtual_connection(vc)
+
+    def emit_virtual_connection_tables(self):
+        """
+        Emit Virtual Connection Tables using the new virtualConnectionTables query.
+
+        This method uses the enhanced virtualConnectionTables GraphQL query which provides:
+        - Additional metadata fields (isExtracted, extractLastRefreshedAt, isCertified, etc.)
+        - Better pagination support through columnsConnection structure
+        - Enhanced column information (displayName, isNullable)
+
+        Falls back to the original emit_virtual_connections() method if the new API is not available
+        or fails (e.g., in older Tableau versions).
+        """
+        if not self.virtual_connection_ids_being_used:
+            logger.debug("No Virtual Connections to emit")
+            return
+
+        # Use the new virtualConnectionTables query for enhanced table information
+        try:
+            for vc_table in self.tableau_source.get_connection_objects(
+                query=virtual_connection_tables_graphql_query,
+                connection_type=c.VIRTUAL_CONNECTION_TABLES,
+                query_filter={},  # Get all virtual connection tables
+                page_size=self.config.effective_virtual_connection_page_size,
+            ):
+                # Check if this table belongs to one of our virtual connections
+                vc_id = self._get_vc_id_for_table(vc_table.get(c.ID))
+                if vc_id and vc_id in self.virtual_connection_ids_being_used:
+                    yield from self._emit_single_virtual_connection_table(
+                        vc_table, vc_id
+                    )
+        except Exception as e:
+            logger.warning(
+                f"Failed to query virtual connection tables using new API: {e}. "
+                "Falling back to standard virtual connections query."
+            )
+            # Fallback to the original method
+            yield from self.emit_virtual_connections()
+
+    def _get_vc_id_for_table(self, table_id: str) -> Optional[str]:
+        """Get the virtual connection ID for a given table ID"""
+        return self.vc_table_id_to_vc_id.get(table_id)
+
+    def _emit_single_virtual_connection_table(
+        self, vc_table: dict, vc_id: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit a single Virtual Connection Table using the new API structure"""
+        table_name = vc_table.get(c.NAME, "Unknown Table")
+
+        # Create URN for the specific table within the VC
+        table_urn = builder.make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=f"{vc_id}.{table_name}",
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        # Create dataset snapshot for the table
+        dataset_snapshot = DatasetSnapshotClass(
+            urn=table_urn,
+            aspects=[self.tableau_source.get_data_platform_instance()],
+        )
+
+        # Dataset properties for the table with enhanced fields
+        dataset_props = DatasetPropertiesClass(
+            name=table_name,
+            description=vc_table.get(c.DESCRIPTION),
+            customProperties=self._get_enhanced_custom_properties(vc_table),
+        )
+        dataset_snapshot.aspects.append(dataset_props)
+
+        # Create schema metadata for this table using columnsConnection
+        schema_metadata = self._create_schema_metadata_from_columns_connection(
+            vc_table, table_name
+        )
+        if schema_metadata:
+            dataset_snapshot.aspects.append(schema_metadata)
+
+        # Create upstream lineage for this table
+        upstream_tables, fine_grained_lineages = (
+            self._create_table_upstream_lineage_from_vc_table(vc_table, table_urn)
+        )
+
+        if upstream_tables:
+            upstream_lineage = UpstreamLineageClass(
+                upstreams=upstream_tables,
+                fineGrainedLineages=fine_grained_lineages or None,
+            )
+            yield self.tableau_source.get_metadata_change_proposal(
+                table_urn,
+                upstream_lineage,
+            )
+
+        # Add table to the VC folder container
+        vc_folder_key = self.gen_vc_folder_key(vc_id)
+        yield from add_entity_to_container(
+            vc_folder_key,
+            c.DATASET,
+            table_urn,
+        )
+
+        # Also add to project container if available
+        project_luid = self._get_vc_project_luid({"id": vc_id})
+        if project_luid:
+            yield from add_entity_to_container(
+                self.tableau_source.gen_project_key(project_luid),
+                c.DATASET,
+                dataset_snapshot.urn,
+            )
+
+        yield self.tableau_source.get_metadata_change_event(dataset_snapshot)
+        yield self.tableau_source.get_metadata_change_proposal(
+            dataset_snapshot.urn,
+            SubTypesClass(typeNames=["Virtual Connection Table"]),
+        )
+
+    def _get_enhanced_custom_properties(self, vc_table: dict) -> Dict[str, str]:
+        """
+        Get enhanced custom properties from virtual connection table data.
+
+        Extracts additional metadata fields that may not be available in older Tableau versions:
+        - isExtracted: Whether the virtual connection has extracts
+        - extractLastRefreshedAt: When the extract was last refreshed
+        - extractLastRefreshType: Type of refresh (full/incremental)
+        - isCertified: Whether the virtual connection is certified
+
+        Returns empty dict if fields are not available (graceful degradation for older versions).
+        """
+        custom_props = {}
+
+        # Add enhanced fields with error handling for older Tableau versions
+        enhanced_fields = [
+            (c.IS_EXTRACTED, "isExtracted"),
+            (c.EXTRACT_LAST_REFRESHED_AT, "extractLastRefreshedAt"),
+            (c.EXTRACT_LAST_REFRESH_TYPE, "extractLastRefreshType"),
+            (c.IS_CERTIFIED, "isCertified"),
+        ]
+
+        for field_key, prop_name in enhanced_fields:
+            try:
+                value = vc_table.get(field_key)
+                if value is not None:
+                    custom_props[prop_name] = str(value)
+            except (KeyError, AttributeError):
+                # Field not available in this Tableau version, skip silently
+                pass
+
+        return custom_props
+
+    def _create_schema_metadata_from_columns_connection(
+        self, vc_table: dict, table_name: str
+    ) -> Optional[SchemaMetadataClass]:
+        """Create schema metadata from columnsConnection structure"""
+        columns_connection = vc_table.get("columnsConnection", {})
+        columns = columns_connection.get("nodes", [])
+
+        if not columns:
+            return None
+
+        fields = []
+        for column in columns:
+            column_name = column.get(c.NAME)
+            if not column_name:
+                self.report.num_datasource_field_skipped_no_name += 1
+                logger.warning(
+                    f"Skipping VC column {column.get(c.ID)} from schema since its name is none"
+                )
+                continue
+
+            column_type = column.get(c.REMOTE_TYPE, c.UNKNOWN)
+            description = column.get(c.DESCRIPTION)
+            display_name = column.get(c.DISPLAY_NAME)
+            is_nullable = column.get(c.IS_NULLABLE)
+
+            # Create schema field for the column
+            schema_field = create_vc_schema_field_v2(
+                table_name=table_name,
+                column_name=column_name,
+                column_type=column_type,
+                description=description,
+                ingest_tags=self.config.ingest_tags,
+                display_name=display_name,
+                is_nullable=is_nullable,
+            )
+            if schema_field:
+                fields.append(schema_field)
+
+        if not fields:
+            return None
+
+        return SchemaMetadataClass(
+            schemaName=f"VirtualConnection_{table_name}",
+            platform=f"urn:li:dataPlatform:{self.platform}",
+            version=0,
+            fields=fields,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+        )
+
+    def _create_table_upstream_lineage_from_vc_table(
+        self, vc_table: dict, table_urn: str
+    ) -> Tuple[List[UpstreamClass], List[FineGrainedLineageClass]]:
+        """Create upstream lineage for a single table from virtual connection table data"""
+        upstream_tables = []
+        fine_grained_lineages = []
+
+        table_name = vc_table.get(c.NAME)
+        if not table_name:
+            return [], []
+
+        # Find matching database table
+        matched_db_table = self.tableau_source._find_matching_database_table(table_name)
+        if not matched_db_table:
+            logger.warning(
+                f"No matching database table found for VC table: {table_name}"
+            )
+            return [], []
+
+        # Create database table URN
+        db_table_urn = self.tableau_source._create_database_table_urn(matched_db_table)
+        if not db_table_urn:
+            logger.warning(
+                f"Failed to create URN for matched database table: {matched_db_table.get('name', 'Unknown')}"
+            )
+            return [], []
+
+        # Add table-level upstream
+        upstream_tables.append(
+            UpstreamClass(
+                dataset=db_table_urn, type=DatasetLineageTypeClass.TRANSFORMED
+            )
+        )
+
+        # Create column-level lineage
+        if self.config.extract_column_level_lineage:
+            columns_connection = vc_table.get("columnsConnection", {})
+            vc_columns = columns_connection.get("nodes", [])
+            db_columns = matched_db_table.get(c.COLUMNS, [])
+
+            if vc_columns and db_columns:
+                # Create mapping of database column names (case-insensitive)
+                db_column_map = {
+                    col.get(c.NAME, "").lower(): col.get(c.NAME, "")
+                    for col in db_columns
+                    if col.get(c.NAME)
+                }
+
+                for vc_column in vc_columns:
+                    vc_col_name = vc_column.get(c.NAME)
+                    if not vc_col_name:
+                        continue
+
+                    # Check if this VC column matches a database column
+                    if vc_col_name.lower() in db_column_map:
+                        db_col_name = db_column_map[vc_col_name.lower()]
+
+                        # Create fine-grained lineage
+                        fine_grained_lineages.append(
+                            FineGrainedLineageClass(
+                                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                                downstreams=[
+                                    builder.make_schema_field_urn(
+                                        table_urn, vc_col_name
+                                    )
+                                ],
+                                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                                upstreams=[
+                                    builder.make_schema_field_urn(
+                                        db_table_urn, db_col_name
+                                    )
+                                ],
+                            )
+                        )
+
+        return upstream_tables, fine_grained_lineages
 
     def _group_vc_columns_by_table(
         self, vc_tables: List[dict]

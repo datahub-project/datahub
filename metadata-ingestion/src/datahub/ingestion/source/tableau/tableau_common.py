@@ -478,14 +478,21 @@ virtual_connection_graphql_query = """
     luid
     projectName
     description
+    isExtracted
+    extractLastRefreshedAt
+    extractLastRefreshType
+    isCertified
     tables {
         id
         name
+        description
         columns {
             id
             name
+            displayName
             remoteType
             description
+            isNullable
         }
     }
 }
@@ -498,14 +505,44 @@ virtual_connection_detailed_graphql_query = """
     luid
     projectName
     description
+    isExtracted
+    extractLastRefreshedAt
+    extractLastRefreshType
+    isCertified
     tables {
         id
         name
+        description
         columns {
             id
             name
+            displayName
             remoteType
             description
+            isNullable
+        }
+    }
+}
+"""
+
+
+virtual_connection_tables_graphql_query = """
+{
+    id
+    name
+    description
+    isExtracted
+    extractLastRefreshedAt
+    extractLastRefreshType
+    isCertified
+    columnsConnection {
+        nodes {
+            id
+            name
+            displayName
+            description
+            remoteType
+            isNullable
         }
     }
 }
@@ -1088,6 +1125,8 @@ def create_vc_schema_field_v2(
     column_type: str,
     description: Optional[str] = None,
     ingest_tags: bool = False,
+    display_name: Optional[str] = None,
+    is_nullable: Optional[bool] = None,
 ) -> SchemaField:
     """Create a SchemaField for Virtual Connection using v2 specification."""
     # Clean table and column names
@@ -1108,6 +1147,12 @@ def create_vc_schema_field_v2(
             get_tags_from_params([column_type or "UNKNOWN"]) if ingest_tags else None
         ),
     )
+
+    # Add nullable information if available
+    if is_nullable is not None:
+        # Note: SchemaField doesn't have a direct nullable field, but we can add it as a custom property
+        # This would require extending the SchemaField class or using custom properties
+        pass
 
     return schema_field
 

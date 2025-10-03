@@ -4106,8 +4106,17 @@ class TableauSiteSource:
                         logger.debug(
                             f"Emitting {len(self.vc_processor.virtual_connection_ids_being_used)} Virtual Connections"
                         )
-                        yield from self.vc_processor.emit_virtual_connections()
-                        logger.debug("Virtual Connection emission complete")
+                        # Try the new virtual connection tables query first, fallback to original
+                        try:
+                            yield from self.vc_processor.emit_virtual_connection_tables()
+                            logger.debug("Virtual Connection Tables emission complete")
+                        except Exception as e:
+                            logger.warning(
+                                f"Failed to emit virtual connection tables using new API: {e}. "
+                                "Falling back to standard virtual connections query."
+                            )
+                            yield from self.vc_processor.emit_virtual_connections()
+                            logger.debug("Virtual Connection emission complete")
 
                     # STEP 3: NOW emit datasource → VC lineage (mappings are built now!)
                     logger.debug("Creating datasource → VC lineage with built mappings")
