@@ -12,6 +12,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau_common import (
     create_vc_schema_field_v2,
+    custom_sql_graphql_query,
     make_fine_grained_lineage_class,
     make_upstream_class,
     virtual_connection_detailed_graphql_query,
@@ -463,8 +464,8 @@ class VirtualConnectionProcessor:
         """
         Extract lineage from SQL queries in virtual connection upstream datasources.
 
-        This method looks for CustomSQL datasources in the virtual connection's
-        upstreamDatasources and parses their SQL queries to extract upstream table information.
+        This method looks for CustomSQLTable datasources in the virtual connection's
+        upstreamDatasources and queries them separately to get their SQL queries.
         """
         upstream_tables = []
         fine_grained_lineages = []
@@ -475,58 +476,85 @@ class VirtualConnectionProcessor:
         for datasource in upstream_datasources:
             datasource_type = datasource.get("__typename", "")
 
-            # Only process CustomSQLTable datasources that have SQL queries
+            # Only process CustomSQLTable datasources
             if datasource_type == "CustomSQLTable":
-                sql_query = datasource.get("query", "")
-                if sql_query:
-                    logger.debug(
-                        f"Found CustomSQLTable in VC: {datasource.get('name', 'Unknown')}"
+                datasource_id = datasource.get("id")
+                if not datasource_id:
+                    continue
+
+                logger.debug(
+                    f"Found CustomSQLTable in VC: {datasource.get('name', 'Unknown')}"
+                )
+
+                # Query the CustomSQLTable separately to get its SQL query
+                try:
+                    custom_sql_data = self.tableau_source.get_connection_objects(
+                        query=custom_sql_graphql_query,
+                        connection_type=c.CUSTOM_SQL_TABLE_CONNECTION,
+                        query_filter={c.ID_WITH_IN: [datasource_id]},
+                        page_size=1,
                     )
 
-                    # Use the existing SQL parsing infrastructure
-                    try:
-                        parsed_result = self.tableau_source.parse_custom_sql(
-                            datasource=datasource,
-                            datasource_urn=f"urn:li:dataset:(urn:li:dataPlatform:tableau,{datasource.get('id', 'unknown')},PROD)",
-                            platform=self.platform,
-                            env=self.config.env,
-                            platform_instance=self.config.platform_instance,
-                            func_overridden_info=None,  # We don't need overrides for VC SQL parsing
-                        )
-
-                        if parsed_result:
-                            # Extract upstream tables from the parsed SQL
-                            sql_upstream_tables = make_upstream_class(parsed_result)
-                            upstream_tables.extend(sql_upstream_tables)
-
-                            # Extract fine-grained lineage if enabled
-                            if self.config.extract_column_level_lineage:
-                                table_columns = vc_table.get("columns", [])
-                                out_columns = [
-                                    {
-                                        "name": col.get("name", ""),
-                                        "remoteType": col.get("remoteType", ""),
-                                        "description": col.get("description", ""),
-                                    }
-                                    for col in table_columns
-                                ]
-
-                                sql_fine_grained_lineages = make_fine_grained_lineage_class(
-                                    parsed_result,
-                                    f"urn:li:dataset:(urn:li:dataPlatform:tableau,{vc_table.get('id', 'unknown')},PROD)",
-                                    out_columns,
-                                )
-                                fine_grained_lineages.extend(sql_fine_grained_lineages)
-
-                            logger.debug(
-                                f"Extracted {len(sql_upstream_tables)} upstream tables from VC SQL"
-                            )
-
-                    except Exception as e:
+                    # Get the first (and should be only) result
+                    custom_sql_list = list(custom_sql_data)
+                    if not custom_sql_list:
                         logger.warning(
-                            f"Failed to parse SQL from VC upstream datasource: {e}"
+                            f"Could not retrieve CustomSQLTable data for {datasource_id}"
                         )
                         continue
+
+                    custom_sql = custom_sql_list[0]
+                    sql_query = custom_sql.get("query", "")
+
+                    if not sql_query:
+                        logger.warning(
+                            f"No SQL query found in CustomSQLTable {datasource_id}"
+                        )
+                        continue
+
+                    # Use the existing SQL parsing infrastructure
+                    parsed_result = self.tableau_source.parse_custom_sql(
+                        datasource=custom_sql,
+                        datasource_urn=f"urn:li:dataset:(urn:li:dataPlatform:tableau,{datasource_id},PROD)",
+                        platform=self.platform,
+                        env=self.config.env,
+                        platform_instance=self.config.platform_instance,
+                        func_overridden_info=None,  # We don't need overrides for VC SQL parsing
+                    )
+
+                    if parsed_result:
+                        # Extract upstream tables from the parsed SQL
+                        sql_upstream_tables = make_upstream_class(parsed_result)
+                        upstream_tables.extend(sql_upstream_tables)
+
+                        # Extract fine-grained lineage if enabled
+                        if self.config.extract_column_level_lineage:
+                            table_columns = vc_table.get("columns", [])
+                            out_columns = [
+                                {
+                                    "name": col.get("name", ""),
+                                    "remoteType": col.get("remoteType", ""),
+                                    "description": col.get("description", ""),
+                                }
+                                for col in table_columns
+                            ]
+
+                            sql_fine_grained_lineages = make_fine_grained_lineage_class(
+                                parsed_result,
+                                f"urn:li:dataset:(urn:li:dataPlatform:tableau,{vc_table.get('id', 'unknown')},PROD)",
+                                out_columns,
+                            )
+                            fine_grained_lineages.extend(sql_fine_grained_lineages)
+
+                        logger.debug(
+                            f"Extracted {len(sql_upstream_tables)} upstream tables from VC SQL"
+                        )
+
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to query or parse SQL from VC upstream datasource {datasource_id}: {e}"
+                    )
+                    continue
 
         return upstream_tables, fine_grained_lineages
 

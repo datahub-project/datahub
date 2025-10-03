@@ -487,9 +487,6 @@ virtual_connection_graphql_query = """
         id
         name
         __typename
-        ... on CustomSQLTable {
-            query
-        }
     }
     tables {
         id
@@ -529,9 +526,6 @@ virtual_connection_detailed_graphql_query = """
         id
         name
         __typename
-        ... on CustomSQLTable {
-            query
-        }
     }
     tables {
         id

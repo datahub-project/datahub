@@ -1342,10 +1342,25 @@ class TestVirtualConnectionProcessor:
             )
         ]
 
-        # Mock the parse_custom_sql method
-        with mock.patch.object(
-            self.tableau_source, "parse_custom_sql", return_value=mock_parsed_result
-        ) as mock_parse:
+        # Mock the get_connection_objects method for CustomSQLTable query
+        mock_custom_sql_data = [
+            {
+                "id": "csql-123",
+                "name": "Test Custom SQL",
+                "query": "SELECT * FROM snowflake_db.schema.users WHERE active = true",
+            }
+        ]
+
+        with (
+            mock.patch.object(
+                self.tableau_source,
+                "get_connection_objects",
+                return_value=iter(mock_custom_sql_data),
+            ) as mock_get_connection,
+            mock.patch.object(
+                self.tableau_source, "parse_custom_sql", return_value=mock_parsed_result
+            ) as mock_parse,
+        ):
             # Test the method
             upstream_tables, fine_grained_lineages = (
                 self.vc_processor._extract_lineage_from_vc_sql_queries(
@@ -1360,6 +1375,8 @@ class TestVirtualConnectionProcessor:
                 == "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_db.schema.users,PROD)"
             )
 
+            # Verify CustomSQLTable query was called
+            mock_get_connection.assert_called_once()
             # Verify SQL parsing was called
             mock_parse.assert_called_once()
 
@@ -1409,11 +1426,11 @@ class TestVirtualConnectionProcessor:
 
         vc_table = {"id": "vc-table-123", "name": "users_table", "columns": []}
 
-        # Mock the parse_custom_sql method to raise an exception
+        # Mock the get_connection_objects method to raise an exception
         with mock.patch.object(
             self.tableau_source,
-            "parse_custom_sql",
-            side_effect=Exception("SQL parsing failed"),
+            "get_connection_objects",
+            side_effect=Exception("Query failed"),
         ):
             # Test the method
             upstream_tables, fine_grained_lineages = (
@@ -1457,9 +1474,24 @@ class TestVirtualConnectionProcessor:
         ]
         mock_parsed_result.column_lineage = []
 
-        with mock.patch.object(
-            self.tableau_source, "parse_custom_sql", return_value=mock_parsed_result
-        ) as mock_parse:
+        mock_custom_sql_data = [
+            {
+                "id": "csql-123",
+                "name": "Test Custom SQL",
+                "query": "SELECT * FROM snowflake_db.schema.users",
+            }
+        ]
+
+        with (
+            mock.patch.object(
+                self.tableau_source,
+                "get_connection_objects",
+                return_value=iter(mock_custom_sql_data),
+            ) as mock_get_connection,
+            mock.patch.object(
+                self.tableau_source, "parse_custom_sql", return_value=mock_parsed_result
+            ) as mock_parse,
+        ):
             # Test the method
             workunits = list(
                 self.vc_processor._emit_single_virtual_connection_table(
@@ -1470,5 +1502,7 @@ class TestVirtualConnectionProcessor:
             # Should generate workunits
             assert len(workunits) > 0
 
+            # Verify CustomSQLTable query was called
+            mock_get_connection.assert_called_once()
             # Verify SQL parsing was called
             mock_parse.assert_called_once()
