@@ -38,7 +38,7 @@ interface Props {
 
 function Template({ className }: Props) {
     const { urn } = useEntityData();
-    const { template, isTemplateEditable, moduleContext, templateType } = usePageTemplateContext();
+    const { templateType, template, isTemplateEditable, moduleContext } = usePageTemplateContext();
     const rows = useMemo(
         () => (template?.properties?.rows ?? []) as DataHubPageTemplateRow[],
         [template?.properties?.rows],

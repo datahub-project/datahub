@@ -2,7 +2,7 @@ import React from 'react';
 
 import { Announcements } from '@app/homeV3/announcements/Announcements';
 import EditDefaultTemplateBar from '@app/homeV3/settings/EditDefaultTemplateBar';
-import EditHomePageSettingsButton from '@app/homeV3/settings/EditHomePageSettingsButton';
+// import EditHomePageSettingsButton from '@app/homeV3/settings/EditHomePageSettingsButton';
 import { CenteredContainer, ContentContainer, ContentDiv } from '@app/homeV3/styledComponents';
 import Template from '@app/homeV3/template/Template';
 
@@ -11,7 +11,7 @@ const HomePageContent = () => {
         <ContentContainer>
             <CenteredContainer>
                 <ContentDiv>
-                    <EditHomePageSettingsButton />
+                    {/* <EditHomePageSettingsButton /> */}
                     <Announcements />
                     <Template />
                     <EditDefaultTemplateBar />
