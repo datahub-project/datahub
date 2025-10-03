@@ -447,7 +447,7 @@ class RedashSource(StatefulIngestionSourceBase):
                 dataset_urns = sql_parser_in_tables.in_tables
                 if sql_parser_in_tables.debug_info.table_error:
                     self.report.queries_problem_parsing.add(str(query_id))
-                    self.error(
+                    self.warn(
                         logger,
                         "sql-parsing",
                         f"exception {sql_parser_in_tables.debug_info.table_error} in parsing query-{query_id}-datasource-{data_source_id}",

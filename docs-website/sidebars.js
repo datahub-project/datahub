@@ -213,6 +213,11 @@ module.exports = {
           ],
         },
         {
+          label: "Custom Asset Summaries",
+          type: "doc",
+          id: "docs/features/feature-guides/custom-asset-summaries",
+        },
+        {
           label: "Custom Home Page",
           type: "doc",
           id: "docs/features/feature-guides/custom-home-page",
