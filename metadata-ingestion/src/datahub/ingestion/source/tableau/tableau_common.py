@@ -228,19 +228,22 @@ embedded_datasource_graphql_query = """
         description
         isHidden
         folderName
-        # upstreamFields {
-        #     name
-        #     datasource {
-        #         id
-        #     }
-        # }
-        # upstreamColumns {
-        #     name
-        #     table {
-        #         __typename
-        #         id
-        #     }
-        # }
+        upstreamColumns {
+            name
+            table {
+                __typename
+                id
+                name
+                ... on VirtualConnectionTable {
+                    virtualConnection {
+                        id
+                        name
+                        luid
+                        projectName
+                    }
+                }
+            }
+        }
         ... on ColumnField {
             dataCategory
             role
@@ -394,19 +397,22 @@ published_datasource_graphql_query = """
         description
         isHidden
         folderName
-        # upstreamFields {
-        #     name
-        #     datasource {
-        #         id
-        #     }
-        # }
-        # upstreamColumns {
-        #     name
-        #     table {
-        #         __typename
-        #         id
-        #     }
-        # }
+        upstreamColumns {
+            name
+            table {
+                __typename
+                id
+                name
+                ... on VirtualConnectionTable {
+                    virtualConnection {
+                        id
+                        name
+                        luid
+                        projectName
+                    }
+                }
+            }
+        }
         ... on ColumnField {
             dataCategory
             role
@@ -437,15 +443,25 @@ published_datasource_graphql_query = """
         name
     }
 }
-        """
+"""
 
 database_tables_graphql_query = """
 {
     id
+    name
+    fullName
+    schema
     isEmbedded
+    database {
+        name
+        id
+        connectionType
+    }
     columns {
-      remoteType
-      name
+        id
+        name
+        remoteType
+        description
     }
 }
 """
@@ -457,6 +473,115 @@ database_servers_graphql_query = """
     connectionType
     extendedConnectionType
     hostName
+}
+"""
+
+virtual_connection_graphql_query = """
+{
+    id
+    name
+    luid
+    projectName
+    description
+    connectionType
+    database {
+        name
+        id
+        connectionType
+    }
+    upstreamDatasources {
+        id
+        name
+        __typename
+    }
+    tables {
+        id
+        name
+        description
+        upstreamTables {
+            id
+            name
+            database {
+                name
+                id
+                connectionType
+            }
+            schema
+            fullName
+            connectionType
+            description
+        }
+        columns {
+            id
+            name
+            remoteType
+            description
+        }
+    }
+}
+"""
+
+virtual_connection_detailed_graphql_query = """
+{
+    id
+    name
+    luid
+    projectName
+    description
+    connectionType
+    database {
+        name
+        id
+        connectionType
+    }
+    upstreamDatasources {
+        id
+        name
+        __typename
+    }
+    tables {
+        id
+        name
+        description
+        upstreamTables {
+            id
+            name
+            database {
+                name
+                id
+                connectionType
+            }
+            schema
+            fullName
+            connectionType
+            description
+        }
+        columns {
+            id
+            name
+            remoteType
+            description
+        }
+    }
+}
+"""
+
+
+virtual_connection_tables_graphql_query = """
+{
+    id
+    name
+    description
+    columnsConnection {
+        nodes {
+            id
+            name
+            displayName
+            description
+            remoteType
+            isNullable
+        }
+    }
 }
 """
 
@@ -1029,3 +1154,60 @@ def optimize_query_filter(query_filter: dict) -> dict:
             OrderedSet(query_filter[c.PROJECT_NAME_WITH_IN])
         )
     return optimized_query
+
+
+def create_vc_schema_field_v2(
+    table_name: str,
+    column_name: str,
+    column_type: str,
+    description: Optional[str] = None,
+    ingest_tags: bool = False,
+    display_name: Optional[str] = None,
+    is_nullable: Optional[bool] = None,
+) -> SchemaField:
+    """Create a SchemaField for Virtual Connection using v2 specification."""
+    # Clean table and column names
+
+    TypeClass = FIELD_TYPE_MAPPING.get(column_type, NullTypeClass)
+
+    # Create v2 field path with cleaned names
+    field_path = (
+        f"[type={column_type.lower() if column_type else 'unknown'}].{column_name}"
+    )
+
+    schema_field = SchemaField(
+        fieldPath=field_path,
+        type=SchemaFieldDataType(type=TypeClass()),
+        description=description or "",
+        nativeDataType=column_type or "UNKNOWN",
+        globalTags=(
+            get_tags_from_params([column_type or "UNKNOWN"]) if ingest_tags else None
+        ),
+    )
+
+    # Add nullable information if available
+    if is_nullable is not None:
+        # Note: SchemaField doesn't have a direct nullable field, but we can add it as a custom property
+        # This would require extending the SchemaField class or using custom properties
+        pass
+
+    return schema_field
+
+
+def clean_table_name(name: str) -> str:
+    """Clean table name by removing brackets, quotes, and other special characters"""
+    if not name:
+        return name
+
+    # Remove brackets, quotes, backticks, and escape characters
+    cleaned = (
+        name.replace("[", "")
+        .replace("]", "")
+        .replace('"', "")
+        .replace('\\"', "")
+        .replace("`", "")
+        .replace("'", "")
+        .replace("\\", "")
+    )
+
+    return cleaned.strip()
