@@ -5,7 +5,7 @@ import React from 'react';
 import { BarChart } from '@components/components/BarChart/BarChart';
 import { DEFAULT_LENGTH_OF_LEFT_AXIS_LABEL } from '@components/components/BarChart/constants';
 import { DEFAULT_MIN_VALUE } from '@components/components/BarChart/hooks/usePrepareAccessors';
-import { DEFAULT_MAX_DOMAIN_VALUE } from '@components/components/BarChart/hooks/usePrepareScales';
+import { DEFAULT_MAX_DOMAIN_VALUE } from '@components/components/BarChart/hooks/usePreparedScales';
 import { generateMockDataHorizontal, getMockedProps } from '@components/components/BarChart/utils';
 import { abbreviateNumber } from '@components/components/dataviz/utils';
 

@@ -7,7 +7,6 @@ import React, { useMemo, useRef, useState } from 'react';
 import DynamicMarginSetter from '@components/components/BarChart/components/DynamicMarginSetter';
 import useMergedProps from '@components/components/BarChart/hooks/useMergedProps';
 import useMinDataValue from '@components/components/BarChart/hooks/useMinDataValue';
-import usePrepareScales from '@components/components/BarChart/hooks/usePrepareScales';
 import { AxisProps, GridProps } from '@components/components/BarChart/types';
 import { getMockedProps } from '@components/components/BarChart/utils';
 import { ChartWrapper } from '@components/components/LineChart/components';
@@ -19,6 +18,7 @@ import { ChartWrapper } from '@components/components/LineChart/components';
 // https://github.com/styled-components/styled-components/issues/2620
 import '@components/components/LineChart/customTooltip.css';
 import { lineChartDefault } from '@components/components/LineChart/defaults';
+import usePreparedLineChartScales from '@components/components/LineChart/hooks/usePreparedScales';
 import { Datum, LineChartProps } from '@components/components/LineChart/types';
 import { Popover } from '@components/components/Popover';
 
@@ -29,6 +29,8 @@ export function LineChart({
     xScale = lineChartDefault.xScale,
     yScale = lineChartDefault.yScale,
     maxYDomainForZeroData,
+    shouldAdjustYZeroPoint = lineChartDefault.shouldAdjustYZeroPoint,
+    yZeroPointThreshold,
 
     lineColor = lineChartDefault.lineColor,
     areaColor = lineChartDefault.areaColor,
@@ -63,7 +65,21 @@ export function LineChart({
     const xAccessor = (datum: Datum) => datum?.x;
     const yAccessor = (datum: Datum) => datum.y;
     const accessors = { xAccessor, yAccessor };
-    const scales = usePrepareScales(data, false, xScale, xAccessor, yScale, yAccessor, maxYDomainForZeroData);
+
+    const minDataValue = useMinDataValue(data, yAccessor);
+
+    const scales = usePreparedLineChartScales(data, xScale, xAccessor, yScale, yAccessor, {
+        maxDomainValueForZeroData: maxYDomainForZeroData,
+        shouldAdjustYZeroPoint,
+        yZeroPointThreshold,
+    });
+
+    const y0Accessor = useMemo(() => {
+        if (scales.yScale && 'zero' in scales.yScale && !scales.yScale.zero) return undefined;
+
+        // adjust baseline to show area correctly with negative values in data
+        return () => Math.min(minDataValue, 0);
+    }, [scales.yScale, minDataValue]);
 
     const { computeNumTicks: computeLeftAxisNumTicks, ...mergedLeftAxisProps } = useMergedProps<AxisProps>(
         leftAxisProps,
@@ -80,7 +96,6 @@ export function LineChart({
         lineChartDefault.gridProps,
     );
 
-    const minDataValue = useMinDataValue(data, yAccessor);
     const wrapperRef = useRef<HTMLDivElement>(null);
 
     // In case of no data we should render empty graph with axises
@@ -160,8 +175,7 @@ export function LineChart({
                                     fill={!isEmpty ? areaColor : 'transparent'}
                                     curve={curveMonotoneX}
                                     lineProps={{ stroke: !isEmpty ? lineColor : 'transparent' }}
-                                    // adjust baseline to show area correctly with negative values in data
-                                    y0Accessor={() => Math.min(minDataValue, 0)}
+                                    y0Accessor={y0Accessor}
                                     {...accessors}
                                 />
 
