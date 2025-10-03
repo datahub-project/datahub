@@ -589,6 +589,7 @@ def test_ensure_size_of_proper_upstream_lineage(processor):
 def test_ensure_size_of_too_big_upstream_lineage(processor):
     upstream_lineage = too_big_upstream_lineage()
     assert len(upstream_lineage.upstreams) == 5  # 5 upstreams
+    assert upstream_lineage.fineGrainedLineages is not None
     assert (
         len(upstream_lineage.fineGrainedLineages) == 600
     )  # 200 DATASET + 200 FIELD_SET + 200 NONE

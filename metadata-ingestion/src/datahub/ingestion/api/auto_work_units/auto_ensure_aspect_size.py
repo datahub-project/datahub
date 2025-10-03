@@ -186,10 +186,10 @@ class EnsureAspectSizeProcessor:
                 )
 
         # Second, include DATASET fine-grained lineages
-        for item, item_size in dataset_fg_items_with_sizes:
-            if total_lineage_size + item_size < self.schema_size_constraint:
-                accepted_fine_grained_lineages.append(item)
-                total_lineage_size += item_size
+        for fg_lineage, fg_lineage_size in dataset_fg_items_with_sizes:
+            if total_lineage_size + fg_lineage_size < self.schema_size_constraint:
+                accepted_fine_grained_lineages.append(fg_lineage)
+                total_lineage_size += fg_lineage_size
             else:
                 self.report.warning(
                     title="Upstream lineage truncated due to size constraint",
@@ -198,10 +198,10 @@ class EnsureAspectSizeProcessor:
                 )
 
         # Third, include FIELD_SET fine-grained lineages
-        for item, item_size in field_set_fg_items_with_sizes:
-            if total_lineage_size + item_size < self.schema_size_constraint:
-                accepted_fine_grained_lineages.append(item)
-                total_lineage_size += item_size
+        for fg_lineage, fg_lineage_size in field_set_fg_items_with_sizes:
+            if total_lineage_size + fg_lineage_size < self.schema_size_constraint:
+                accepted_fine_grained_lineages.append(fg_lineage)
+                total_lineage_size += fg_lineage_size
             else:
                 self.report.warning(
                     title="Upstream lineage truncated due to size constraint",
@@ -210,10 +210,10 @@ class EnsureAspectSizeProcessor:
                 )
 
         # Finally, include NONE fine-grained lineages (lowest priority)
-        for item, item_size in none_fg_items_with_sizes:
-            if total_lineage_size + item_size < self.schema_size_constraint:
-                accepted_fine_grained_lineages.append(item)
-                total_lineage_size += item_size
+        for fg_lineage, fg_lineage_size in none_fg_items_with_sizes:
+            if total_lineage_size + fg_lineage_size < self.schema_size_constraint:
+                accepted_fine_grained_lineages.append(fg_lineage)
+                total_lineage_size += fg_lineage_size
             else:
                 self.report.warning(
                     title="Upstream lineage truncated due to size constraint",
