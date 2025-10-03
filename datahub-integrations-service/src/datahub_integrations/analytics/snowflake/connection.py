@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-from datahub.configuration.common import ConnectionModel
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.graph.client import DataHubGraph
 
 from datahub_integrations.app import graph
@@ -14,7 +14,7 @@ from datahub_integrations.graphql.connection import (
 logger = logging.getLogger(__name__)
 
 
-class _FrozenConnectionModel(ConnectionModel, frozen=True):
+class _FrozenConnectionModel(ConfigModel, frozen=True):
     pass
 
 
