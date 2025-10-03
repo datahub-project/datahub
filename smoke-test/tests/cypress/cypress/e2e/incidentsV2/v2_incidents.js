@@ -236,7 +236,7 @@ describe("incidents", () => {
     cy.get('[data-testid="incident-group-CRITICAL"]', { timeout: 15000 })
       .should("exist")
       .scrollIntoView();
-    cy.get('[data-testid="incident-group-HIGH"]')
+    cy.get('[data-testid="incident-group-CRITICAL"]')
       .find('[data-testid="group-header-collapsed-icon"]')
       .then(($icon) => {
         if ($icon.length > 0 && $icon.is(":visible")) {
@@ -308,7 +308,7 @@ describe("incidents", () => {
     cy.get('[data-testid="incident-group-CRITICAL"]', { timeout: 15000 })
       .should("exist")
       .scrollIntoView();
-    cy.get('[data-testid="incident-group-HIGH"]')
+    cy.get('[data-testid="incident-group-CRITICAL"]')
       .find('[data-testid="group-header-collapsed-icon"]')
       .then(($icon) => {
         if ($icon.length > 0 && $icon.is(":visible")) {
