@@ -935,10 +935,6 @@ class TestVirtualConnectionProcessor:
                 c.ID: "vc-table-1",
                 c.NAME: "test_table",
                 c.DESCRIPTION: "Test table description",
-                c.IS_EXTRACTED: True,
-                c.EXTRACT_LAST_REFRESHED_AT: "2021-12-07T07:00:00Z",
-                c.EXTRACT_LAST_REFRESH_TYPE: "FULL",
-                c.IS_CERTIFIED: False,
                 "columnsConnection": {
                     "nodes": [
                         {
@@ -1025,19 +1021,13 @@ class TestVirtualConnectionProcessor:
         vc_table = {
             c.ID: "vc-table-1",
             c.NAME: "test_table",
-            c.IS_EXTRACTED: True,
-            c.EXTRACT_LAST_REFRESHED_AT: "2021-12-07T07:00:00Z",
-            c.EXTRACT_LAST_REFRESH_TYPE: "FULL",
-            c.IS_CERTIFIED: False,
         }
 
         custom_props = self.vc_processor._get_enhanced_custom_properties(vc_table)
 
-        # Should have all enhanced properties
-        assert custom_props["isExtracted"] == "True"
-        assert custom_props["extractLastRefreshedAt"] == "2021-12-07T07:00:00Z"
-        assert custom_props["extractLastRefreshType"] == "FULL"
-        assert custom_props["isCertified"] == "False"
+        # Enhanced fields are not available in current Tableau API schema
+        # Method should return empty dict for now
+        assert custom_props == {}
 
     def test_get_enhanced_custom_properties_missing_fields(self):
         """Test getting enhanced custom properties with missing fields."""
@@ -1173,8 +1163,6 @@ class TestVirtualConnectionProcessor:
             c.ID: "vc-table-1",
             c.NAME: "test_table",
             c.DESCRIPTION: "Test table description",
-            c.IS_EXTRACTED: True,
-            c.IS_CERTIFIED: False,
             "columnsConnection": {
                 "nodes": [
                     {
@@ -1222,28 +1210,28 @@ class TestVirtualConnectionProcessor:
             virtual_connection_tables_graphql_query,
         )
 
-        # Test that enhanced queries include new fields
-        assert "isExtracted" in virtual_connection_graphql_query
-        assert "extractLastRefreshedAt" in virtual_connection_graphql_query
-        assert "extractLastRefreshType" in virtual_connection_graphql_query
-        assert "isCertified" in virtual_connection_graphql_query
+        # Test that queries include basic required fields
+        assert "id" in virtual_connection_graphql_query
+        assert "name" in virtual_connection_graphql_query
+        assert "description" in virtual_connection_graphql_query
+        assert "tables" in virtual_connection_graphql_query
         assert "displayName" in virtual_connection_graphql_query
         assert "isNullable" in virtual_connection_graphql_query
 
-        assert "isExtracted" in virtual_connection_detailed_graphql_query
-        assert "extractLastRefreshedAt" in virtual_connection_detailed_graphql_query
-        assert "extractLastRefreshType" in virtual_connection_detailed_graphql_query
-        assert "isCertified" in virtual_connection_detailed_graphql_query
+        # Test that detailed query includes basic fields
+        assert "id" in virtual_connection_detailed_graphql_query
+        assert "name" in virtual_connection_detailed_graphql_query
+        assert "description" in virtual_connection_detailed_graphql_query
+        assert "tables" in virtual_connection_detailed_graphql_query
         assert "displayName" in virtual_connection_detailed_graphql_query
         assert "isNullable" in virtual_connection_detailed_graphql_query
 
         # Test that new query has the correct structure
         assert "columnsConnection" in virtual_connection_tables_graphql_query
         assert "nodes" in virtual_connection_tables_graphql_query
-        assert "isExtracted" in virtual_connection_tables_graphql_query
-        assert "extractLastRefreshedAt" in virtual_connection_tables_graphql_query
-        assert "extractLastRefreshType" in virtual_connection_tables_graphql_query
-        assert "isCertified" in virtual_connection_tables_graphql_query
+        assert "id" in virtual_connection_tables_graphql_query
+        assert "name" in virtual_connection_tables_graphql_query
+        assert "description" in virtual_connection_tables_graphql_query
 
     def test_create_vc_schema_field_v2_enhanced(self):
         """Test create_vc_schema_field_v2 with enhanced parameters."""

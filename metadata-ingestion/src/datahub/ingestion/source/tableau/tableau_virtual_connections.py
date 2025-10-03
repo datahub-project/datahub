@@ -306,32 +306,17 @@ class VirtualConnectionProcessor:
         """
         Get enhanced custom properties from virtual connection table data.
 
-        Extracts additional metadata fields that may not be available in older Tableau versions:
-        - isExtracted: Whether the virtual connection has extracts
-        - extractLastRefreshedAt: When the extract was last refreshed
-        - extractLastRefreshType: Type of refresh (full/incremental)
-        - isCertified: Whether the virtual connection is certified
+        Note: Enhanced fields like isExtracted, extractLastRefreshedAt, etc. are not available
+        in the current Tableau Metadata API schema for VirtualConnection type.
+        This method is kept for future compatibility when these fields become available.
 
-        Returns empty dict if fields are not available (graceful degradation for older versions).
+        Returns empty dict for now (graceful degradation for current Tableau versions).
         """
-        custom_props = {}
+        custom_props: Dict[str, str] = {}
 
-        # Add enhanced fields with error handling for older Tableau versions
-        enhanced_fields = [
-            (c.IS_EXTRACTED, "isExtracted"),
-            (c.EXTRACT_LAST_REFRESHED_AT, "extractLastRefreshedAt"),
-            (c.EXTRACT_LAST_REFRESH_TYPE, "extractLastRefreshType"),
-            (c.IS_CERTIFIED, "isCertified"),
-        ]
-
-        for field_key, prop_name in enhanced_fields:
-            try:
-                value = vc_table.get(field_key)
-                if value is not None:
-                    custom_props[prop_name] = str(value)
-            except (KeyError, AttributeError):
-                # Field not available in this Tableau version, skip silently
-                pass
+        # Enhanced fields are not available in current Tableau API schema
+        # Keeping this method for future compatibility
+        # TODO: Re-enable when Tableau adds these fields to VirtualConnection schema
 
         return custom_props
 

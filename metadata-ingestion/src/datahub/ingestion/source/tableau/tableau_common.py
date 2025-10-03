@@ -483,10 +483,6 @@ virtual_connection_graphql_query = """
     luid
     projectName
     description
-    isExtracted
-    extractLastRefreshedAt
-    extractLastRefreshType
-    isCertified
     tables {
         id
         name
@@ -510,10 +506,6 @@ virtual_connection_detailed_graphql_query = """
     luid
     projectName
     description
-    isExtracted
-    extractLastRefreshedAt
-    extractLastRefreshType
-    isCertified
     tables {
         id
         name
@@ -536,10 +528,6 @@ virtual_connection_tables_graphql_query = """
     id
     name
     description
-    isExtracted
-    extractLastRefreshedAt
-    extractLastRefreshType
-    isCertified
     columnsConnection {
         nodes {
             id
