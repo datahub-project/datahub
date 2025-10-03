@@ -7,7 +7,7 @@ import { PageRoutes } from '@conf/Global';
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { FilterOperator } from '@types';
 
-const URL_FIELDS = ['externalUrl', 'chartUrl', 'dashboardUrl'] as const;
+const URL_FIELDS = ['externalUrl', 'chartUrl', 'dashboardUrl', 'baseExternalUrl'] as const;
 
 const useGetEntityByUrl = (externalUrl: string) => {
     const registry = useEntityRegistry();
