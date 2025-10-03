@@ -15,6 +15,7 @@ function changeFavicon(src) {
         link.rel = 'icon';
         document.getElementsByTagName('head')[0].appendChild(link);
     }
+
     links.forEach((link) => {
         // eslint-disable-next-line no-param-reassign
         link.href = src;

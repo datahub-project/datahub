@@ -21,8 +21,19 @@ import { useGetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.
 import { useUpsertDataContractMutation } from '@graphql/contract.generated';
 import { Assertion, AssertionType, DataContract } from '@types';
 
+const BuilderContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    max-height: 70vh;
+    height: 70vh;
+    overflow: hidden;
+`;
+
 const AssertionsSection = styled.div`
     border: 0.5px solid ${ANTD_GRAY[4]};
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
 `;
 
 const HeaderText = styled.div`
@@ -34,7 +45,10 @@ const HeaderText = styled.div`
 const ActionContainer = styled.div`
     display: flex;
     justify-content: space-between;
-    margin-top: 16px;
+    flex-shrink: 0;
+    padding: 16px 20px;
+    border-top: 1px solid ${ANTD_GRAY[4]};
+    margin-top: 0;
 `;
 
 const CancelButton = styled(Button)`
@@ -42,7 +56,7 @@ const CancelButton = styled(Button)`
 `;
 
 const SaveButton = styled(Button)`
-    margin-right: 20px;
+    margin-right: 0;
 `;
 
 type Props = {
@@ -150,7 +164,7 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
     const hasAssertions = freshnessAssertions.length || schemaAssertions.length || dataQualityAssertions.length;
 
     return (
-        <>
+        <BuilderContainer>
             {(hasAssertions && <HeaderText>Select the assertions that will make up your contract.</HeaderText>) || (
                 <HeaderText>Add a few assertions on this entity to create a data contract out of them.</HeaderText>
             )}
@@ -195,6 +209,6 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
                     </SaveButton>
                 </div>
             </ActionContainer>
-        </>
+        </BuilderContainer>
     );
 };

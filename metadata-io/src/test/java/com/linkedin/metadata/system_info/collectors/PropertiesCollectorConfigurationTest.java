@@ -76,8 +76,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
           // Environment variables that may contain sensitive paths/credentials
           "GIT_ASKPASS", // Can contain path to credential helper
-          "PWD" // Current directory may contain sensitive info
-          );
+          "PWD", // Current directory may contain sensitive info
+
+          // CDC db password
+          "mclProcessing.cdcSource.debeziumConfig.config.database.password");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -457,6 +459,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.alternateMCPValidation",
           "featureFlags.assetSummaryPageV1",
           "featureFlags.businessAttributeEntityEnabled",
+          "featureFlags.cdcModeChangeLog",
           "featureFlags.dataContractsEnabled",
           "featureFlags.editableDatasetNameEnabled",
           "featureFlags.entityVersioning",
@@ -668,6 +671,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ingestionScheduler.consumerGroupSuffix",
           "ingestionScheduler.enabled",
           "ingestion.scheduler.refreshIntervalSeconds",
+          "path-mappings./",
 
           // Management and monitoring
           "management.defaults.metrics.export.enabled",
@@ -689,6 +693,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemMetadataService.limit.results.strict",
           "systemUpdate.backOffFactor",
           "systemUpdate.bootstrap.mcpConfig",
+          "systemUpdate.cdcMode",
           "systemUpdate.browsePathsV2.batchSize",
           "systemUpdate.browsePathsV2.enabled",
           "systemUpdate.browsePathsV2.reprocess.enabled",
@@ -796,6 +801,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "springdoc.api-docs.version",
           "springdoc.cache.disabled",
           "springdoc.groups.enabled",
+          "springdoc.swagger-ui.disable-swagger-default-url",
           "springdoc.swagger-ui.path",
           "springdoc.swagger-ui.urls-primary-name",
           "structuredProperties.enabled",
@@ -831,7 +837,55 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Gradle and test-specific properties
           "org.gradle.internal.worker.tmpdir",
           "org.springframework.boot.test.context.SpringBootTestContextBootstrapper",
-          "datahub.policies.systemPolicyUrnList"
+          "datahub.policies.systemPolicyUrnList",
+
+          // Base Path
+          "datahub.basePath",
+          "server.servlet.context-path",
+          "datahub.gms.basePath",
+          "datahub.gms.basePathEnabled",
+
+          // CDC (Change Data Capture) configuration properties
+          "kafka.serde.cdc.key.serializer",
+          "kafka.serde.cdc.key.deserializer",
+          "kafka.serde.cdc.key.delegateDeserializer",
+          "kafka.serde.cdc.value.serializer",
+          "kafka.serde.cdc.value.deserializer",
+          "kafka.serde.cdc.value.delegateDeserializer",
+          "mclProcessing.cdcSource.enabled",
+          "mclProcessing.cdcSource.configureSource",
+          "mclProcessing.cdcSource.type",
+          "mclProcessing.cdcSource.debeziumConfig.type",
+          "mclProcessing.cdcSource.debeziumConfig.name",
+          "mclProcessing.cdcSource.debeziumConfig.url",
+          "mclProcessing.cdcSource.debeziumConfig.requestTimeoutMillis",
+          "mclProcessing.cdcSource.debeziumConfig.config.tasks.max",
+          "mclProcessing.cdcSource.debeziumConfig.config.topic.prefix",
+          "mclProcessing.cdcSource.debeziumConfig.config.database.user",
+          "mclProcessing.cdcSource.debeziumConfig.config.database.dbname",
+          "mclProcessing.cdcSource.debeziumConfig.config.schema.history.internal.kafka.topic",
+          "mclProcessing.cdcSource.debeziumConfig.config.value.converter.schemas.enable",
+          "mclProcessing.cdcSource.debeziumConfig.config.key.converter",
+          "mclProcessing.cdcSource.debeziumConfig.config.value.converter",
+          "mclProcessing.cdcSource.debeziumConfig.config.message.key.columns",
+          "mclProcessing.cdcSource.debeziumConfig.config.transforms",
+          "mclProcessing.cdcSource.debeziumConfig.config.transforms.route.type",
+          "mclProcessing.cdcSource.debeziumConfig.config.transforms.route.regex",
+          "mclProcessing.cdcSource.debeziumConfig.config.transforms.route.replacement",
+          "mclProcessing.cdcSource.debeziumConfig.postgresConfig.connector.class",
+          "mclProcessing.cdcSource.debeziumConfig.postgresConfig.plugin.name",
+          "mclProcessing.cdcSource.debeziumConfig.postgresConfig.table.include.list",
+          "mclProcessing.cdcSource.debeziumConfig.postgresConfig.schema.include.list",
+          "mclProcessing.cdcSource.debeziumConfig.postgresConfig.publication.autocreate.mode",
+          "mclProcessing.cdcSource.debeziumConfig.postgresConfig.publication.name",
+          "mclProcessing.cdcSource.debeziumConfig.postgresConfig.message.key.columns",
+          "mclProcessing.cdcSource.debeziumConfig.postgresConfig.slot.name",
+          "mclProcessing.cdcSource.debeziumConfig.postgresConfig.database.server.name",
+          "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.connector.class",
+          "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.plugin.name",
+          "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.table.include.list",
+          "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.database.server.id",
+          "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.database.include.list"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to

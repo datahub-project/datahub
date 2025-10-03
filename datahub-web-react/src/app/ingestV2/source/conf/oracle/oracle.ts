@@ -3,7 +3,7 @@ import { SourceConfig } from '@app/ingestV2/source/conf/types';
 import oracleLogo from '@images/oraclelogo.png';
 
 const placeholderRecipe = `\
-source: 
+source:
     type: oracle
     config:
         # Coordinates
