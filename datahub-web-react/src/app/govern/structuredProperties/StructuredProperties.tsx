@@ -39,7 +39,7 @@ const StructuredProperties = () => {
     };
 
     // Execute search
-    const { data, loading, refetch } = useGetSearchResultsForMultipleQuery({
+    const { data, loading } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: inputs,
         },
@@ -107,7 +107,6 @@ const StructuredProperties = () => {
             <StructuredPropsDrawer
                 isDrawerOpen={isDrawerOpen}
                 setIsDrawerOpen={setIsDrawerOpen}
-                refetch={refetch}
                 selectedProperty={selectedProperty}
                 setSelectedProperty={setSelectedProperty}
                 inputs={inputs}

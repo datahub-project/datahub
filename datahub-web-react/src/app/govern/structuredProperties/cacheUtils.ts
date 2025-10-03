@@ -101,3 +101,21 @@ export const removeFromPropertiesList = (client, inputs, deleteUrn, searchAcross
         },
     });
 };
+
+export const updateCachedProperty = (client, updatedProperty) => {
+    const { urn, definition, settings } = updatedProperty;
+
+    client.cache.modify({
+        id: `StructuredPropertyEntity:${JSON.stringify({urn})}`,
+        fields: {
+            definition: (existingDefinition) => ({
+                ...existingDefinition,
+                ...definition,
+            }),
+            settings: (existingSettings) => ({
+                ...existingSettings,
+                ...settings,
+            }),
+        },
+    });
+};

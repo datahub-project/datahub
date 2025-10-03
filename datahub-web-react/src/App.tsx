@@ -66,6 +66,9 @@ const client = new ApolloClient({
                     },
                 },
             },
+            StructuredPropertyEntity: {
+                keyFields: ['urn'],
+            },
         },
         // need to define possibleTypes to allow us to use Apollo cache with union types
         possibleTypes: possibleTypesResult.possibleTypes,
