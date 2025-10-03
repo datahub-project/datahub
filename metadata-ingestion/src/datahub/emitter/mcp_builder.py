@@ -20,6 +20,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     TimeStamp,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
+from datahub.metadata.com.linkedin.pegasus2avro.dataproduct import DataProductProperties
 from datahub.metadata.schema_classes import (
     KEY_ASPECTS,
     ContainerClass,
@@ -182,6 +183,19 @@ class NotebookKey(DatahubKey):
         return make_dataset_urn_with_platform_instance(
             platform=self.platform, platform_instance=self.instance, name=self.guid()
         )
+
+
+class DataProductKey(DatahubKey):
+    platform: str
+    name: str
+    env: Optional[str] = None
+    instance: Optional[str] = None
+
+    def property_dict(self) -> Dict[str, str]:
+        return self.dict(by_alias=True, exclude_none=True)
+
+    def as_urn(self) -> str:
+        return f"urn:li:dataProduct:{self.guid()}"
 
 
 KeyType = TypeVar("KeyType", bound=ContainerKey)
@@ -368,6 +382,76 @@ def add_entity_to_container(
         entityUrn=entity_urn,
         aspect=ContainerClass(container=f"{container_urn}"),
     ).as_workunit()
+
+
+def gen_data_product(
+    data_product_key: DataProductKey,
+    name: str,
+    description: Optional[str] = None,
+    external_url: Optional[str] = None,
+    custom_properties: Optional[Dict[str, str]] = None,
+    domain_urn: Optional[str] = None,
+    owner_urn: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+    structured_properties: Optional[Dict[StructuredPropertyUrn, str]] = None,
+) -> Iterable[MetadataWorkUnit]:
+    data_product_urn = data_product_key.as_urn()
+
+    yield MetadataChangeProposalWrapper(
+        entityUrn=data_product_urn,
+        aspect=DataProductProperties(
+            name=name,
+            description=description,
+            customProperties={
+                **data_product_key.property_dict(),
+                **(custom_properties or {}),
+            },
+            externalUrl=external_url,
+        ),
+    ).as_workunit()
+
+    yield MetadataChangeProposalWrapper(
+        entityUrn=data_product_urn,
+        aspect=StatusClass(removed=False),
+    ).as_workunit()
+
+    if data_product_key.platform:
+        yield MetadataChangeProposalWrapper(
+            entityUrn=data_product_urn,
+            aspect=DataPlatformInstance(
+                platform=f"{make_data_platform_urn(data_product_key.platform)}",
+                instance=(
+                    f"{make_dataplatform_instance_urn(data_product_key.platform, data_product_key.instance)}"
+                    if data_product_key.instance
+                    else None
+                ),
+            ),
+        ).as_workunit()
+
+    if domain_urn:
+        yield from add_domain_to_entity_wu(
+            entity_urn=data_product_urn,
+            domain_urn=domain_urn,
+        )
+
+    if owner_urn:
+        yield from add_owner_to_entity_wu(
+            entity_type="dataProduct",
+            entity_urn=data_product_urn,
+            owner_urn=owner_urn,
+        )
+
+    if tags:
+        yield from add_tags_to_entity_wu(
+            entity_type="dataProduct",
+            entity_urn=data_product_urn,
+            tags=sorted(tags),
+        )
+
+    if structured_properties:
+        yield from add_structured_properties_to_entity_wu(
+            entity_urn=data_product_urn, structured_properties=structured_properties
+        )
 
 
 def mcps_from_mce(
