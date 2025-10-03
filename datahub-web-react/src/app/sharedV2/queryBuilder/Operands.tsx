@@ -26,6 +26,10 @@ const Operands = ({ operands, onChangeOperands, onDeletePredicate, properties, d
         onChangeOperands(newOperands);
     };
 
+    const getOperandKey = (operand: LogicalPredicate | PropertyPredicate, index: number, depthLevel: number) => {
+        return `${JSON.stringify(operand)}-${index}-${depthLevel}`;
+    };
+
     return (
         <>
             {/* Display all the conditions first, then all the groups in a group preserving the index */}
@@ -40,6 +44,7 @@ const Operands = ({ operands, onChangeOperands, onDeletePredicate, properties, d
                             properties={properties}
                             index={index}
                             depth={depth + 1}
+                            key={getOperandKey(operand, index, depth + 1)}
                         />
                     )}
                 </>
@@ -53,6 +58,7 @@ const Operands = ({ operands, onChangeOperands, onDeletePredicate, properties, d
                             properties={properties}
                             depth={depth + 1}
                             index={index}
+                            key={getOperandKey(operand, index, depth + 1)}
                         />
                     )}
                 </>

@@ -1247,11 +1247,9 @@ public class GmsGraphQLEngine {
                   "revokeAccessToken",
                   new RevokeAccessTokenResolver(this.entityClient, this.statefulTokenService))
               .dataFetcher(
-                  "createIngestionSource",
-                  new UpsertIngestionSourceResolver(this.entityClient, this.entityService))
+                  "createIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
               .dataFetcher(
-                  "updateIngestionSource",
-                  new UpsertIngestionSourceResolver(this.entityClient, this.entityService))
+                  "updateIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
               .dataFetcher(
                   "deleteIngestionSource", new DeleteIngestionSourceResolver(this.entityClient))
               .dataFetcher(

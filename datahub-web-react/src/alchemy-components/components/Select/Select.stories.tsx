@@ -4,6 +4,7 @@ import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
 import { AVAILABLE_ICONS } from '@components/components/Icon';
+import { selectDefaults as baseSelectDefaults } from '@components/components/Select/BasicSelect';
 import { Select, selectDefaults } from '@components/components/Select/Select';
 import { SimpleSelect } from '@components/components/Select/SimpleSelect';
 import { SelectSizeOptions } from '@components/components/Select/types';
@@ -187,11 +188,42 @@ const meta: Meta = {
                 defaultValue: { summary: 'undefined' },
             },
         },
+        renderCustomSelectedValue: {
+            description: "A function to render the custom value if selectedLabelProps' variant is `custom`",
+        },
+        renderCustomOptionText: {
+            description: 'An optional function to customize an options rendering',
+        },
         emptyState: {
             description: 'Custom empty state component to render when no options are available',
             table: {
                 defaultValue: { summary: 'undefined' },
             },
+        },
+        hideSelectedOptions: {
+            description: 'Whether to hide selected options from options in the dropdown',
+            table: {
+                defaultValue: { summary: `${baseSelectDefaults.hideSelectedOptions}` },
+            },
+        },
+        filterResultsByQuery: {
+            description: 'Whether to filter options by a query in the search bar',
+            table: {
+                defaultValue: { summary: `${baseSelectDefaults.filterResultsByQuery}` },
+            },
+        },
+        autoUpdate: {
+            description: 'Set to `true` to update value on option click',
+            type: 'boolean',
+            table: {
+                defaultValue: { summary: 'undefined' },
+            },
+            control: {
+                type: 'boolean',
+            },
+        },
+        selectMinHeight: {
+            description: 'Set to customize min-height of the select',
         },
     },
 
@@ -369,6 +401,33 @@ export const simpleSelectWithIcon = () => (
     />
 );
 
+export const withMultiSelectAndAutoUpdate = () => (
+    <Select
+        options={[
+            { label: 'Option 1', value: '1' },
+            { label: 'Option 2', value: '2' },
+            { label: 'Option 3', value: '3' },
+        ]}
+        label="Select with multi-select and auto update"
+        values={['2', '3']}
+        isMultiSelect
+        autoUpdate
+    />
+);
+
+export const withAutoUpdate = () => (
+    <Select
+        options={[
+            { label: 'Option 1', value: '1' },
+            { label: 'Option 2', value: '2' },
+            { label: 'Option 3', value: '3' },
+        ]}
+        label="Select with auto update"
+        values={['2']}
+        autoUpdate
+    />
+);
+
 // Basic story is what is displayed 1st in storybook & is used as the code sandbox
 // Pass props to this so that it can be customized via the UI props panel
 export const BasicSelectSandbox: Story = {
@@ -390,6 +449,7 @@ export const BasicSelectSandbox: Story = {
             isMultiSelect={props.isMultiSelect}
             placeholder={props.placeholder}
             icon={props.icon}
+            autoUpdate={props.autoUpdate}
         />
     ),
 };

@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
-import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
 import static com.linkedin.datahub.graphql.TestUtils.verifyIngestProposal;
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 import static com.linkedin.metadata.Constants.*;
@@ -18,7 +17,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
@@ -43,9 +41,7 @@ public class UpsertIngestionSourceResolverTest {
   public void testGetSuccess() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService<?> mockService = getMockEntityService();
-    UpsertIngestionSourceResolver resolver =
-        new UpsertIngestionSourceResolver(mockClient, mockService);
+    UpsertIngestionSourceResolver resolver = new UpsertIngestionSourceResolver(mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -83,9 +79,7 @@ public class UpsertIngestionSourceResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService<?> mockService = getMockEntityService();
-    UpsertIngestionSourceResolver resolver =
-        new UpsertIngestionSourceResolver(mockClient, mockService);
+    UpsertIngestionSourceResolver resolver = new UpsertIngestionSourceResolver(mockClient);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -101,12 +95,10 @@ public class UpsertIngestionSourceResolverTest {
   public void testGetEntityClientException() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService<?> mockService = getMockEntityService();
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .ingestProposal(any(), any(), Mockito.eq(false));
-    UpsertIngestionSourceResolver resolver =
-        new UpsertIngestionSourceResolver(mockClient, mockService);
+    UpsertIngestionSourceResolver resolver = new UpsertIngestionSourceResolver(mockClient);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -124,9 +116,7 @@ public class UpsertIngestionSourceResolverTest {
 
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService<?> mockService = getMockEntityService();
-    UpsertIngestionSourceResolver resolver =
-        new UpsertIngestionSourceResolver(mockClient, mockService);
+    UpsertIngestionSourceResolver resolver = new UpsertIngestionSourceResolver(mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -151,9 +141,7 @@ public class UpsertIngestionSourceResolverTest {
 
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService<?> mockService = getMockEntityService();
-    UpsertIngestionSourceResolver resolver =
-        new UpsertIngestionSourceResolver(mockClient, mockService);
+    UpsertIngestionSourceResolver resolver = new UpsertIngestionSourceResolver(mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();

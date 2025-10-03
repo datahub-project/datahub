@@ -24,7 +24,7 @@ export const selectDefaults: SelectProps = {
 export const Select = <OptionType extends SelectOption = SelectOption>({
     options = [],
     label = selectDefaults.label,
-    values = [],
+    values,
     initialValues,
     onCancel,
     onUpdate,
