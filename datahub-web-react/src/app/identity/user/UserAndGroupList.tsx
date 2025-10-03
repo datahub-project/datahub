@@ -27,8 +27,7 @@ import {
 } from '@app/identity/user/UserAndGroupList.hooks';
 import { getUserStatusColor, getUserStatusText } from '@app/identity/user/UserList.utils';
 import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
-import { OnboardingTour } from '@app/onboarding/OnboardingTour';
-import { USERS_ASSIGN_ROLE_ID, USERS_INTRO_ID, USERS_SSO_ID } from '@app/onboarding/config/UsersOnboardingConfig';
+import { USERS_ASSIGN_ROLE_ID } from '@app/onboarding/config/UsersOnboardingConfig';
 import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';
 import { CORP_USER_STATUS_FIELD, ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { Message } from '@app/shared/Message';
@@ -418,7 +417,6 @@ export const UserAndGroupList = ({ hasSsoBanner }: Props) => {
 
     return (
         <>
-            <OnboardingTour stepIds={[USERS_INTRO_ID, USERS_SSO_ID, USERS_ASSIGN_ROLE_ID]} />
             {!usersData && loading && <Message type="loading" content="Loading users..." />}
             {error && <Message type="error" content="Failed to load users! An unexpected error occurred." />}
 
