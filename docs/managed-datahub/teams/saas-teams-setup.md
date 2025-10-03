@@ -18,7 +18,7 @@ The following steps should be performed by a Teams Administrator and Azure Admin
 
 ## Azure AD App Registration
 
-**Time Required: 15-20 minutes**  
+**Time Required: 15-20 minutes**
 **Who: Azure AD Administrator**
 
 1. **Create Azure AD App Registration**
@@ -62,7 +62,7 @@ The following steps should be performed by a Teams Administrator and Azure Admin
 
 ## Create Azure Bot Service
 
-**Time Required: 10-15 minutes**  
+**Time Required: 10-15 minutes**
 **Who: Azure Administrator**
 
 1. **Create Bot Resource**
@@ -100,7 +100,7 @@ The following steps should be performed by a Teams Administrator and Azure Admin
 
 ## Install Teams App
 
-**Time Required: 10 minutes**  
+**Time Required: 10 minutes**
 **Who: Microsoft Teams Administrator**
 
 1. **Upload Custom App**
