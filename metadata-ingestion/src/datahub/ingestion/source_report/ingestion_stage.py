@@ -35,10 +35,10 @@ class IngestionHighStage(Enum):
 
 @dataclass
 class IngestionStageReport:
-    ingestion_high_stage_seconds: dict[str, float] = field(
+    ingestion_high_stage_seconds: dict[IngestionHighStage, float] = field(
         default_factory=lambda: defaultdict(float)
     )
-    ingestion_stage_durations: TopKDict[Tuple[str, str], float] = field(
+    ingestion_stage_durations: TopKDict[Tuple[IngestionHighStage, str], float] = field(
         default_factory=TopKDict
     )
 
@@ -82,11 +82,11 @@ class IngestionStageContext(AbstractContextManager):
                 stacklevel=2,
             )
             self._report.ingestion_stage_durations[
-                (self._high_stage.value, self._ingestion_stage)
+                (self._high_stage, self._ingestion_stage)
             ] = elapsed
         else:
             logger.info(
                 f"Time spent in stage <{self._high_stage.value}>: {elapsed} seconds",
                 stacklevel=2,
             )
-        self._report.ingestion_high_stage_seconds[self._high_stage.value] += elapsed
+        self._report.ingestion_high_stage_seconds[self._high_stage] += elapsed

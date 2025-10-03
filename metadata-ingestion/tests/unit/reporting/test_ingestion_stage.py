@@ -14,7 +14,7 @@ def test_ingestion_stage_context_records_duration():
         pass
     assert len(report.ingestion_stage_durations) == 1
     key = next(iter(report.ingestion_stage_durations.keys()))
-    assert key[0] == IngestionHighStage._UNDEFINED.value
+    assert key[0] == IngestionHighStage._UNDEFINED
     assert "Test Stage" in key[1]
 
 
@@ -87,8 +87,8 @@ def test_ingestion_high_stage_context_records_duration():
     with report.new_high_stage(stage=IngestionHighStage.PROFILING):
         time.sleep(0.1)
     assert len(report.ingestion_high_stage_seconds) == 1
-    assert IngestionHighStage.PROFILING.value in report.ingestion_high_stage_seconds
-    assert report.ingestion_high_stage_seconds[IngestionHighStage.PROFILING.value] > 0
+    assert IngestionHighStage.PROFILING in report.ingestion_high_stage_seconds
+    assert report.ingestion_high_stage_seconds[IngestionHighStage.PROFILING] > 0
 
 
 def test_ingestion_stage_with_high_stage():
@@ -97,6 +97,6 @@ def test_ingestion_stage_with_high_stage():
         time.sleep(0.1)
     assert len(report.ingestion_stage_durations) == 1
     key = next(iter(report.ingestion_stage_durations.keys()))
-    assert key[0] == IngestionHighStage.PROFILING.value
+    assert key[0] == IngestionHighStage.PROFILING
     assert "Test Stage" in key[1]
-    assert report.ingestion_high_stage_seconds[IngestionHighStage.PROFILING.value] > 0
+    assert report.ingestion_high_stage_seconds[IngestionHighStage.PROFILING] > 0
