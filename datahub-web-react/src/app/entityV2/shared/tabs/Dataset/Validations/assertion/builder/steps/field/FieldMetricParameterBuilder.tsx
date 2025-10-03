@@ -7,7 +7,7 @@ import {
     AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_TIMEZONE,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/constants';
 import { RangeInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/RangeInput';
-import { SetInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/SetInput';
+import { TabbedInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/TabbedInput';
 import { ValueInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/ValueInput';
 import {
     getFieldMetricOperatorOptions,
@@ -65,7 +65,14 @@ export const FieldMetricParameterBuilder = ({ value, onChange, disabled, isEditM
 
         if (IN_OPERATORS.includes(operator)) {
             return (
-                <SetInput value={value} onChange={onChange} inputType={selectedOption?.inputType} disabled={disabled} />
+                <TabbedInput
+                    value={value}
+                    onChange={onChange}
+                    inputType={selectedOption?.inputType}
+                    disabled={disabled}
+                    isEditMode={isEditMode}
+                    isSetOperation
+                />
             );
         }
         if (BETWEEN_OPERATORS.includes(operator)) {

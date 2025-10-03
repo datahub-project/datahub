@@ -90,7 +90,7 @@ export const FieldColumnBuilder = ({ value, onChange, disabled, isEditMode, onCl
             <AssertionDatasetFieldBuilder
                 selectedPath={fieldColumn || undefined}
                 name="fieldColumn"
-                width="240px"
+                width="100%"
                 fields={columnOptions}
                 onChange={updateColumnSpec}
                 disabled={disabled}

@@ -16,9 +16,10 @@ type Props = {
     onChange: (newState: AssertionMonitorBuilderState) => void;
     inputType?: string;
     disabled?: boolean;
+    isEditMode?: boolean;
 };
 
-export const ValueInput = ({ value, onChange, inputType, disabled }: Props) => {
+export const ValueInput = ({ value, onChange, inputType, disabled, isEditMode: _isEditMode }: Props) => {
     const form = Form.useFormInstance();
     const fieldAssertionType = value.assertion?.fieldAssertion?.type;
     const fieldAssertionKey = getFieldAssertionTypeKey(fieldAssertionType);
