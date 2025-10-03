@@ -145,14 +145,15 @@ describe("incidents", () => {
     cy.get('[data-testid="child-option-RESOLVED"]').click();
     cy.get('[data-testid="nested-options-dropdown-container"]').click();
     cy.get('[data-testid="incident-group-HIGH"]').scrollIntoView();
-    cy.get('[data-testid="incident-group-HIGH"]').then(($group) => {
-      const $icon = $group.find('[data-testid="group-header-collapsed-icon"]');
-      if ($icon.length > 0 && $icon.is(":visible")) {
-        cy.wrap($icon).should("be.visible").click();
-      } else {
-        cy.log("Collapsed icon not found or not visible, skipping click");
-      }
-    });
+    cy.get('[data-testid="incident-group-HIGH"]')
+      .find('[data-testid="group-header-collapsed-icon"]')
+      .then(($icon) => {
+        if ($icon.length > 0 && $icon.is(":visible")) {
+          cy.wrap($icon).should("be.visible").click();
+        } else {
+          cy.log("Collapsed icon not found or not visible, skipping click");
+        }
+      });
     cy.get(`[data-testid="incident-row-${editedIncidentNameWithTimeStamp}"]`)
       .scrollIntoView()
       .should("exist");
@@ -235,14 +236,15 @@ describe("incidents", () => {
     cy.get('[data-testid="incident-group-CRITICAL"]', { timeout: 15000 })
       .should("exist")
       .scrollIntoView();
-    cy.get('[data-testid="incident-group-CRITICAL"]').then(($group) => {
-      const $icon = $group.find('[data-testid="group-header-collapsed-icon"]');
-      if ($icon.length > 0 && $icon.is(":visible")) {
-        cy.wrap($icon).should("be.visible").click();
-      } else {
-        cy.log("Collapsed icon not found or not visible, skipping click");
-      }
-    });
+    cy.get('[data-testid="incident-group-HIGH"]')
+      .find('[data-testid="group-header-collapsed-icon"]')
+      .then(($icon) => {
+        if ($icon.length > 0 && $icon.is(":visible")) {
+          cy.wrap($icon).should("be.visible").click();
+        } else {
+          cy.log("Collapsed icon not found or not visible, skipping click");
+        }
+      });
     cy.get(
       `[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`,
     ).should("exist");
@@ -306,14 +308,15 @@ describe("incidents", () => {
     cy.get('[data-testid="incident-group-CRITICAL"]', { timeout: 15000 })
       .should("exist")
       .scrollIntoView();
-    cy.get('[data-testid="incident-group-CRITICAL"]').then(($group) => {
-      const $icon = $group.find('[data-testid="group-header-collapsed-icon"]');
-      if ($icon.length > 0 && $icon.is(":visible")) {
-        cy.wrap($icon).should("be.visible").click();
-      } else {
-        cy.log("Collapsed icon not found or not visible, skipping click");
-      }
-    });
+    cy.get('[data-testid="incident-group-HIGH"]')
+      .find('[data-testid="group-header-collapsed-icon"]')
+      .then(($icon) => {
+        if ($icon.length > 0 && $icon.is(":visible")) {
+          cy.wrap($icon).should("be.visible").click();
+        } else {
+          cy.log("Collapsed icon not found or not visible, skipping click");
+        }
+      });
     cy.get(
       `[data-testid="incident-row-${newIncidentNameWithTimeStamp}-New"]`,
     ).should("exist");
