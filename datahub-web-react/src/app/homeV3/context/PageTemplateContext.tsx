@@ -18,7 +18,7 @@ interface Props {
 }
 
 export const PageTemplateProvider = ({ children, templateType }: Props) => {
-    const isTemplateEditable = useIsTemplateEditable();
+    const isTemplateEditable = useIsTemplateEditable(templateType);
     // Template state management
     const {
         personalTemplate,
