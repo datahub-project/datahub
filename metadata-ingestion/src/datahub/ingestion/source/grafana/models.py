@@ -8,12 +8,14 @@ References:
 - Dashboard JSON structure: https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/view-dashboard-json-model/
 """
 
+import logging
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from datahub.emitter.mcp_builder import ContainerKey
 
+logger = logging.getLogger(__name__)
 # Grafana-specific type definitions for better type safety
 GrafanaQueryTarget = Dict[
     str, Any
@@ -89,7 +91,10 @@ class Dashboard(_GrafanaBaseModel):
     def parse_obj(cls, data: Dict[str, Any]) -> "Dashboard":
         """Custom parsing to handle nested panel extraction."""
         dashboard_data = data.get("dashboard", {})
-        panels = cls.extract_panels(dashboard_data.get("panels", []))
+        try:
+            panels = cls.extract_panels(dashboard_data.get("panels", []))
+        except Exception as e:
+            logger.warning(f"Error parsing dashboard: {e}")
 
         # Extract meta.folderId from nested structure
         meta = dashboard_data.get("meta", {})
