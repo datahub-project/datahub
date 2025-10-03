@@ -87,13 +87,13 @@ function create_if_not_exists {
   RESOURCE_ADDRESS="$1"
   RESOURCE_DEFINITION_NAME="$2"
 
-  # query ES to see if the resource already exists
-  RESOURCE_STATUS=$(curl "${CURL_ARGS[@]}" -o /dev/null -w "%{http_code}\n" "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS")
-  echo -e "\n>>> GET $RESOURCE_ADDRESS response code is $RESOURCE_STATUS"
+  # Retry the GET request to check if resource exists
+  echo -e "\n>>> Checking if $RESOURCE_ADDRESS exists..."
+  retry_with_backoff $MAX_RETRIES curl "${CURL_ARGS[@]}" -o /dev/null -w "%{http_code}" \
+    "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS" | grep -qE "^(200|404)$"
 
-  if [ $RESOURCE_STATUS -eq 200 ]; then
-    # resource already exists -> nothing to do
-    echo -e ">>> $RESOURCE_ADDRESS already exists ✓"
+  RESOURCE_STATUS=$(curl "${CURL_ARGS[@]}" -o /dev/null -w "%{http_code}\n" "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS")
+  echo -e ">>> GET $RESOURCE_ADDRESS response code is $RESOURCE_STATUS"
 
   elif [ $RESOURCE_STATUS -eq 404 ]; then
     # resource doesn't exist -> need to create it
