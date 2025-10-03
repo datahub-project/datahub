@@ -10,8 +10,10 @@ import auth.AuthUtils;
 import auth.sso.SsoManager;
 import auth.sso.SsoProvider;
 import client.AuthServiceClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -37,6 +39,8 @@ public class AuthenticationControllerTest {
   private PlayCookieSessionStore playCookieSessionStore;
   private SsoManager ssoManager;
   private AuthServiceClient authClient;
+  private SystemEntityClient mockSystemEntityClient;
+  private OperationContext mockOperationContext;
 
   private class MockSerializer implements org.pac4j.core.util.serializer.Serializer {
     @Override
@@ -98,8 +102,13 @@ public class AuthenticationControllerTest {
     authClient = mock(AuthServiceClient.class);
     when(authClient.generateSessionTokenForUser(anyString(), anyString())).thenReturn("mock-token");
 
+    // Mock SystemEntityClient and OperationContext
+    mockSystemEntityClient = mock(SystemEntityClient.class);
+    mockOperationContext = mock(OperationContext.class);
+
     // Create the controller
-    controller = new AuthenticationController(mockConfig);
+    controller =
+        new AuthenticationController(mockConfig, mockSystemEntityClient, mockOperationContext);
     controller.playCookieSessionStore = playCookieSessionStore;
     controller.ssoManager = ssoManager;
     controller.authClient = authClient;
@@ -224,7 +233,8 @@ public class AuthenticationControllerTest {
     configMap.put("auth.cookie.sameSite", "Lax");
 
     Config config = ConfigFactory.parseMap(configMap);
-    AuthenticationController testController = new AuthenticationController(config);
+    AuthenticationController testController =
+        new AuthenticationController(config, mockSystemEntityClient, mockOperationContext);
 
     try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock =
         mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
@@ -254,7 +264,8 @@ public class AuthenticationControllerTest {
     configMap.put("auth.cookie.sameSite", "Lax");
 
     Config config = ConfigFactory.parseMap(configMap);
-    AuthenticationController testController = new AuthenticationController(config);
+    AuthenticationController testController =
+        new AuthenticationController(config, mockSystemEntityClient, mockOperationContext);
 
     try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock =
         mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
@@ -284,7 +295,8 @@ public class AuthenticationControllerTest {
     configMap.put("auth.cookie.sameSite", "Lax");
 
     Config config = ConfigFactory.parseMap(configMap);
-    AuthenticationController testController = new AuthenticationController(config);
+    AuthenticationController testController =
+        new AuthenticationController(config, mockSystemEntityClient, mockOperationContext);
 
     try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock =
         mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
@@ -317,7 +329,8 @@ public class AuthenticationControllerTest {
     configMap.put("auth.cookie.sameSite", "Lax");
 
     Config config = ConfigFactory.parseMap(configMap);
-    AuthenticationController testController = new AuthenticationController(config);
+    AuthenticationController testController =
+        new AuthenticationController(config, mockSystemEntityClient, mockOperationContext);
 
     try (MockedStatic<com.linkedin.metadata.utils.BasePathUtils> basePathUtilsMock =
         mockStatic(com.linkedin.metadata.utils.BasePathUtils.class)) {
@@ -350,7 +363,8 @@ public class AuthenticationControllerTest {
     configMap.put("auth.cookie.sameSite", "Lax");
 
     Config config = ConfigFactory.parseMap(configMap);
-    AuthenticationController testController = new AuthenticationController(config);
+    AuthenticationController testController =
+        new AuthenticationController(config, mockSystemEntityClient, mockOperationContext);
     testController.ssoManager = ssoManager;
     testController.authClient = authClient;
     testController.playCookieSessionStore = playCookieSessionStore;
@@ -405,7 +419,8 @@ public class AuthenticationControllerTest {
     configMap.put("auth.cookie.sameSite", "Lax");
 
     Config config = ConfigFactory.parseMap(configMap);
-    AuthenticationController testController = new AuthenticationController(config);
+    AuthenticationController testController =
+        new AuthenticationController(config, mockSystemEntityClient, mockOperationContext);
     testController.ssoManager = ssoManager;
     testController.authClient = authClient;
     testController.playCookieSessionStore = playCookieSessionStore;
@@ -463,7 +478,8 @@ public class AuthenticationControllerTest {
     configMap.put("auth.cookie.sameSite", "Lax");
 
     Config config = ConfigFactory.parseMap(configMap);
-    AuthenticationController testController = new AuthenticationController(config);
+    AuthenticationController testController =
+        new AuthenticationController(config, mockSystemEntityClient, mockOperationContext);
     testController.ssoManager = ssoManager;
     testController.playCookieSessionStore = playCookieSessionStore;
 
@@ -515,7 +531,8 @@ public class AuthenticationControllerTest {
     configMap.put("auth.cookie.sameSite", "Lax");
 
     Config config = ConfigFactory.parseMap(configMap);
-    AuthenticationController testController = new AuthenticationController(config);
+    AuthenticationController testController =
+        new AuthenticationController(config, mockSystemEntityClient, mockOperationContext);
     testController.ssoManager = ssoManager;
 
     // Configure SSO to be disabled
@@ -563,7 +580,8 @@ public class AuthenticationControllerTest {
     configMap.put("auth.cookie.sameSite", "Lax");
 
     Config config = ConfigFactory.parseMap(configMap);
-    AuthenticationController testController = new AuthenticationController(config);
+    AuthenticationController testController =
+        new AuthenticationController(config, mockSystemEntityClient, mockOperationContext);
 
     // Create mock HTTP context
     Http.RequestBuilder requestBuilder =
@@ -617,7 +635,8 @@ public class AuthenticationControllerTest {
     configMap.put("auth.cookie.sameSite", "Lax");
 
     Config config = ConfigFactory.parseMap(configMap);
-    AuthenticationController testController = new AuthenticationController(config);
+    AuthenticationController testController =
+        new AuthenticationController(config, mockSystemEntityClient, mockOperationContext);
     testController.ssoManager = ssoManager;
     testController.playCookieSessionStore = playCookieSessionStore;
 

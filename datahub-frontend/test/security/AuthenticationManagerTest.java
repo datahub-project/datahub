@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 import javax.naming.AuthenticationException;
+import javax.security.auth.Subject;
 import javax.security.auth.login.AppConfigurationEntry;
 import javax.security.auth.login.Configuration;
 import org.junit.jupiter.api.AfterEach;
@@ -81,7 +82,7 @@ public class AuthenticationManagerTest {
     IllegalArgumentException exception =
         assertThrows(
             IllegalArgumentException.class,
-            () -> AuthenticationManager.authenticateJaasUser("", "password"),
+            () -> AuthenticationManager.authenticateAndGetGroupsAndSubject("", "password"),
             "Should throw IllegalArgumentException for empty username");
 
     assertEquals("Username cannot be empty", exception.getMessage());
@@ -93,7 +94,7 @@ public class AuthenticationManagerTest {
     IllegalArgumentException exception =
         assertThrows(
             IllegalArgumentException.class,
-            () -> AuthenticationManager.authenticateJaasUser(null, "password"),
+            () -> AuthenticationManager.authenticateAndGetGroupsAndSubject(null, "password"),
             "Should throw IllegalArgumentException for null username");
 
     assertEquals("Username cannot be empty", exception.getMessage());
@@ -107,23 +108,84 @@ public class AuthenticationManagerTest {
   public void testRealAuthentication() {
     // Test successful authentication
     try {
-      AuthenticationManager.authenticateJaasUser("datahub", "datahub");
-      // If we get here, authentication was successful
+      AuthenticationManager.AuthResult authResult =
+          AuthenticationManager.authenticateAndGetGroupsAndSubject("datahub", "datahub");
+      Subject subject = authResult.subject;
+      // Verify the Subject is returned and contains expected data
+      assertNotNull(subject, "Subject should not be null for valid credentials");
+      assertFalse(subject.getPrincipals().isEmpty(), "Subject should contain principals");
+
+      // Verify principal contains the username
+      boolean foundUserPrincipal =
+          subject.getPrincipals().stream().anyMatch(p -> p.getName().contains("datahub"));
+      assertTrue(foundUserPrincipal, "Subject should contain a principal with the username");
+
     } catch (Exception e) {
       fail("Authentication should succeed with valid credentials: " + e.getMessage());
     }
+  }
 
+  @Test
+  public void testInvalidCredentials() {
     // Test failed authentication
     Exception exception =
         assertThrows(
             AuthenticationException.class,
-            () -> AuthenticationManager.authenticateJaasUser("datahub", "wrongpassword"),
+            () ->
+                AuthenticationManager.authenticateAndGetGroupsAndSubject(
+                    "datahub", "wrongpassword"),
             "Should throw AuthenticationException for invalid credentials");
 
     // Make sure we get a login failure message
     assertTrue(
         exception.getMessage() != null && !exception.getMessage().isEmpty(),
         "Exception message should not be empty");
+  }
+
+  @Test
+  public void testEmptyPassword() {
+    // Test authentication with empty password
+    IllegalArgumentException exception =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> AuthenticationManager.authenticateAndGetGroupsAndSubject("testuser", ""),
+            "Should throw IllegalArgumentException for empty username");
+
+    assertEquals("Password cannot be empty", exception.getMessage());
+  }
+
+  @Test
+  public void testNullPassword() {
+    // Test authentication with null password
+    IllegalArgumentException exception =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> AuthenticationManager.authenticateAndGetGroupsAndSubject("testuser", null),
+            "Should throw IllegalArgumentException for empty username");
+
+    assertEquals("Password cannot be empty", exception.getMessage());
+  }
+
+  @Test
+  public void testMultipleValidUsers() throws Exception {
+    // Test different users return different subjects
+    AuthenticationManager.AuthResult authResult1 =
+        AuthenticationManager.authenticateAndGetGroupsAndSubject("testuser", "testpassword");
+    Subject subject1 = authResult1.subject;
+    AuthenticationManager.AuthResult authResult2 =
+        AuthenticationManager.authenticateAndGetGroupsAndSubject("datahub", "datahub");
+    Subject subject2 = authResult2.subject;
+    AuthenticationManager.AuthResult authResult3 =
+        AuthenticationManager.authenticateAndGetGroupsAndSubject("admin", "admin123");
+    Subject subject3 = authResult3.subject;
+
+    assertNotNull(subject1, "Subject1 should not be null");
+    assertNotNull(subject2, "Subject2 should not be null");
+    assertNotNull(subject3, "Subject3 should not be null");
+
+    // Subjects should be different instances
+    assertNotSame(subject1, subject2, "Subjects should be different instances");
+    assertNotSame(subject2, subject3, "Subjects should be different instances");
   }
 
   /** Method used by the @EnabledIf annotation to conditionally enable the integration test. */
