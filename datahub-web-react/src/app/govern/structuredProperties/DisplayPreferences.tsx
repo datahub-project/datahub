@@ -105,6 +105,7 @@ const DisplayPreferences = ({
                                     onChange={(e) => handleDisplaySettingChange('showInAssetSummary', e.target.checked)}
                                     isDisabled={formValues?.settings?.isHidden}
                                     labelHoverText="If enabled, this property will appear in asset sidebar"
+                                    data-testid="structured-props-show-in-asset-summary-switch"
                                 />
                             </StyledFormItem>
                             {formValues?.settings?.showInAssetSummary && (
@@ -120,6 +121,7 @@ const DisplayPreferences = ({
                                                 handleDisplaySettingChange('hideInAssetSummaryWhenEmpty', isChecked)
                                             }
                                             justifyContent="flex-start"
+                                            dataTestId="structured-props-hide-in-asset-summary-when-empty-checkbox"
                                             shouldHandleLabelClicks
                                         />
                                     </CheckboxContainer>
