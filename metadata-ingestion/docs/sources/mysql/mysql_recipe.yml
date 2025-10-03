@@ -9,7 +9,7 @@ source:
     username: root
     password: example
 
-    # If you need to use SSL with MySQL:
+    # The MySQL source will enable SSL automatically if the database supports it. If you need to customize SSL options:
     # options:
     #   connect_args:
     #     ssl_ca: "path_to/server-ca.pem"
