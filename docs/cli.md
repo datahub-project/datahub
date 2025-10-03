@@ -67,6 +67,7 @@ Commands:
   exists        A group of commands to check existence of entities in DataHub.
   forms         A group of commands to interact with forms in DataHub.
   get           A group of commands to get metadata from DataHub.
+  graphql       Execute GraphQL queries and mutations against DataHub.
   group         A group of commands to interact with the Group entity in DataHub.
   ingest        Ingest metadata into DataHub.
   init          Configure which datahub instance to connect to
@@ -494,6 +495,44 @@ $ datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,
   }
 }
 ```
+
+### graphql
+
+The `graphql` command allows you to execute GraphQL queries and mutations against DataHub's GraphQL API. This provides full access to DataHub's metadata through its native GraphQL interface.
+
+```shell
+# Execute a GraphQL query
+datahub graphql --query "query { me { username } }"
+
+# Use named operations from DataHub's schema
+datahub graphql --operation searchAcrossEntities --variables '{"input": {"query": "users"}}'
+
+# List available operations
+datahub graphql --list-operations
+
+# Get help for a specific operation
+datahub graphql --describe searchAcrossEntities
+
+# Explore types recursively
+datahub graphql --describe SearchInput --recurse
+
+# Load queries and variables from files
+datahub graphql --query ./search-tags.graphql --variables ./search-params.json
+
+# Get JSON output for LLM integration
+datahub graphql --list-operations --format json
+```
+
+The GraphQL command supports both raw GraphQL queries/mutations and operation-based execution using DataHub's introspected schema. It automatically detects whether `--query` and `--variables` arguments are file paths or literal content, enabling seamless use of both inline GraphQL and file-based queries.
+
+Key features:
+
+- **Schema discovery**: List and describe all available operations and types
+- **File support**: Load queries and variables from `.graphql` and `.json` files
+- **LLM-friendly output**: JSON format with complete type information
+- **Recursive exploration**: Deep-dive into complex GraphQL types
+
+➡️ [Learn more about the GraphQL command](./cli-commands/graphql.md)
 
 ### put
 
