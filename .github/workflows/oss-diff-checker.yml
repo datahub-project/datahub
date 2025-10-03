@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
-      pull-requests: write
+      pull-requests: read
     steps:
       - name: Detect changes in contrib/oss-diff
         id: changed-files
@@ -67,17 +67,22 @@ jobs:
         if: ${{ steps.changed-files.outputs.any_changed == 'false' }}
         run: |
           cp "$RUNNER_TEMP/oss-diff/oss-diff-exceptions.json" contrib/oss-diff/oss-diff-exceptions.json
-      - name: Run oss-diff check and capture output
+      - name: Run oss-diff check
         shell: bash
-        continue-on-error: true
         run: |
-          set -o pipefail
-          uv run ./contrib/oss-diff/oss-diff.py check | tee oss-diff-check.md
+          set +e  # Don't exit on error
+          echo "::group::OSS Diff Check"
+          uv run ./contrib/oss-diff/oss-diff.py check
+          exit_code=$?
+          echo "::endgroup::"
+          
+          if [ $exit_code -eq 0 ]; then
+            echo "::notice title=OSS Diff Check::✅ Success: no new diff violations"
+            exit 0
+          else
+            echo "::warning title=OSS Diff Check::🚨 Found diff violations - see details above"
+            echo "::notice title=Resolution::To resolve: Send these changes to OSS and have them come into SaaS via an OSS merge"
+            exit 0  # Don't fail the CI check, just show as warning
+          fi
         env:
           OSS_BRANCH: oss/master
-      - name: Post/update PR comment with oss-diff results
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          header: oss-diff
-          path: oss-diff-check.md
