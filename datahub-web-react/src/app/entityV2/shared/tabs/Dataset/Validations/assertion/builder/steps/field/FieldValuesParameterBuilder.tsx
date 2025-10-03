@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import styled from 'styled-components';
 
 import { RangeInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/RangeInput';
-import { SetInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/SetInput';
+import { TabbedInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/TabbedInput';
 import { ValueInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/ValueInput';
 import {
     getFieldValuesOperatorOptions,
@@ -18,7 +18,7 @@ const Section = styled.div`
 `;
 
 const StyledFormItem = styled(Form.Item)`
-    width: 240px;
+    width: 100%;
     margin: 0;
 `;
 
@@ -27,13 +27,18 @@ const Row = styled.div`
     gap: 16px;
 `;
 
+const InputRow = styled.div`
+    margin-top: 16px;
+`;
+
 type Props = {
     value: AssertionMonitorBuilderState;
     onChange: (newState: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
+    isEditMode?: boolean;
 };
 
-export const FieldValuesParameterBuilder = ({ value, onChange, disabled }: Props) => {
+export const FieldValuesParameterBuilder = ({ value, onChange, disabled, isEditMode }: Props) => {
     const form = Form.useFormInstance();
     const operator = value.assertion?.fieldAssertion?.fieldValuesAssertion?.operator;
     const fieldType = value.assertion?.fieldAssertion?.fieldValuesAssertion?.field?.type;
@@ -44,12 +49,29 @@ export const FieldValuesParameterBuilder = ({ value, onChange, disabled }: Props
         if (!operator || selectedOption?.hideParameters || !selectedOption?.parameters) return null;
 
         if ([AssertionStdOperator.In, AssertionStdOperator.NotIn].includes(operator)) {
-            return <SetInput value={value} onChange={onChange} inputType={selectedOption?.inputType} />;
+            return (
+                <TabbedInput
+                    value={value}
+                    onChange={onChange}
+                    inputType={selectedOption?.inputType}
+                    disabled={disabled}
+                    isEditMode={isEditMode}
+                    isSetOperation
+                />
+            );
         }
         if ([AssertionStdOperator.Between].includes(operator)) {
-            return <RangeInput value={value} onChange={onChange} />;
+            return <RangeInput value={value} onChange={onChange} disabled={disabled} />;
         }
-        return <ValueInput value={value} onChange={onChange} inputType={selectedOption?.inputType} />;
+        return (
+            <ValueInput
+                value={value}
+                onChange={onChange}
+                inputType={selectedOption?.inputType}
+                disabled={disabled}
+                isEditMode={isEditMode}
+            />
+        );
     };
 
     const updateOperator = (newOperator: AssertionStdOperator) => {
@@ -78,6 +100,8 @@ export const FieldValuesParameterBuilder = ({ value, onChange, disabled }: Props
         form.setFieldValue('fieldValuesOperator', operator);
     }, [form, operator]);
 
+    const isSetOperation = operator && [AssertionStdOperator.In, AssertionStdOperator.NotIn].includes(operator);
+
     return (
         <Section>
             <Typography.Title level={5}>Pass if every value</Typography.Title>
@@ -98,8 +122,9 @@ export const FieldValuesParameterBuilder = ({ value, onChange, disabled }: Props
                         disabled={disabled}
                     />
                 </StyledFormItem>
-                {renderInput()}
+                {!isSetOperation && renderInput()}
             </Row>
+            {isSetOperation && <InputRow>{renderInput()}</InputRow>}
         </Section>
     );
 };

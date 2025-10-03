@@ -20,7 +20,7 @@ const Section = styled.div`
 `;
 
 const StyledSelect = styled(Select)`
-    width: 240px;
+    width: 100%;
 `;
 
 const SelectOptionContent = styled.div<{ disabled: boolean }>`

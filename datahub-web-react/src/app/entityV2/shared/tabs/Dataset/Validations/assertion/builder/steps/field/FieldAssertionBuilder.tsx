@@ -111,7 +111,12 @@ export const FieldAssertionBuilder = ({
 
             {isFieldValuesAssertion && fieldAssertion?.fieldValuesAssertion?.field?.path && (
                 <>
-                    <FieldValuesParameterBuilder value={state} onChange={updateState} disabled={disabled} />
+                    <FieldValuesParameterBuilder
+                        value={state}
+                        onChange={updateState}
+                        disabled={disabled}
+                        isEditMode={isEditMode}
+                    />
                     <FieldNullCheckBuilder value={state} onChange={updateState} disabled={disabled} />
                 </>
             )}
