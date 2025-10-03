@@ -38,13 +38,6 @@ const TabToolbar = styled.div`
     flex: 0 0 auto;
 `;
 
-const TabContentWrapper = styled.div`
-    @media screen and (max-height: 800px) {
-        display: contents;
-        overflow: auto;
-    }
-`;
-
 enum TabPaths {
     ASSERTIONS = 'List',
     DATA_CONTRACT = 'Data Contract',
@@ -148,9 +141,7 @@ export const AcrylValidationsTab = () => {
                     </Tooltip>
                 ))}
             </TabToolbar>
-            <TabContentWrapper>
-                {tabs.filter((tab) => tab.path === selectedTab).map((tab) => tab.content)}
-            </TabContentWrapper>
+            {tabs.filter((tab) => tab.path === selectedTab).map((tab) => tab.content)}
         </>
     );
 };

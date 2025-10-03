@@ -27,6 +27,8 @@ base_requirements = {
     # Actual dependencies.
     # Temporary pinning to 2.0.0 until we can upgrade to 3.0.0
     "prefect >= 2.0.0,<3.0.0",
+    # Pin asyncpg to a version compatible with Python 3.13
+    "asyncpg>=0.30.0",
     *rest_common,
     f"acryl-datahub[datahub-rest]{_self_pin}",
 }
@@ -55,7 +57,7 @@ dev_requirements = {
     *mypy_stubs,
     "coverage>=5.1",
     "ruff==0.11.7",
-    "mypy==1.14.1",
+    "mypy==1.17.1",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     "pydantic>=1.10",

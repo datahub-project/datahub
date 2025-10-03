@@ -11,6 +11,8 @@ import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { useRaiseIncidentMutation, useUpdateIncidentMutation } from '@src/graphql/mutations.generated';
 import { EntityType, IncidentSourceType, IncidentState } from '@src/types.generated';
 
+import { IncidentResultFieldsFragment } from '@graphql/incident.generated';
+
 export const getCacheIncident = ({
     values,
     responseData,
@@ -21,8 +23,9 @@ export const getCacheIncident = ({
     responseData?: any;
     user?: any;
     incidentUrn?: string;
-}) => {
-    const newIncident = {
+}): IncidentResultFieldsFragment['incidents'][number] => {
+    const firstLinkedAsset = values.linkedAssets?.[0] || {};
+    const newIncident: IncidentResultFieldsFragment['incidents'][number] = {
         __typename: 'Incident',
         urn: incidentUrn ?? responseData?.data?.raiseIncident,
         type: EntityType.Incident,
@@ -33,6 +36,17 @@ export const getCacheIncident = ({
         startedAt: null,
         tags: null,
         status: {
+            __typename: 'IncidentStatus',
+            state: values?.state,
+            stage: values?.stage,
+            message: values?.message || null,
+            lastUpdated: {
+                __typename: 'AuditStamp',
+                time: Date.now(),
+                actor: user?.urn,
+            },
+        },
+        incidentStatus: {
             __typename: 'IncidentStatus',
             state: values?.state,
             stage: values?.stage,
@@ -64,6 +78,10 @@ export const getCacheIncident = ({
             actor: user?.urn,
         },
         assignees: values.assignees,
+        entity: {
+            __typename: firstLinkedAsset.type,
+            ...firstLinkedAsset,
+        },
     };
     return newIncident;
 };

@@ -156,32 +156,6 @@ public class MicrometerMetricsRegistryTest {
   }
 
   @Test
-  public void testRegisterCacheWithNullNativeCache() {
-    // Given
-    String cacheName = "testCache";
-
-    // When
-    boolean result = MicrometerMetricsRegistry.registerCacheMetrics(cacheName, null, meterRegistry);
-
-    // Then
-    assertFalse(result);
-  }
-
-  @Test
-  public void testRegisterCacheWithNullCacheName() {
-    // Given
-    Cache<Object, Object> caffeineCache =
-        Caffeine.newBuilder().maximumSize(100).recordStats().build();
-
-    // When
-    boolean result =
-        MicrometerMetricsRegistry.registerCacheMetrics(null, caffeineCache, meterRegistry);
-
-    // Then
-    assertFalse(result); // Should return false for null cache name
-  }
-
-  @Test
   public void testRegisterCacheWithUnsupportedCacheType() {
     // Given
     String cacheName = "unsupportedCache";
@@ -350,30 +324,6 @@ public class MicrometerMetricsRegistryTest {
     assertEquals(registeredCaches.size(), 1);
     String registeredKey = registeredCaches.iterator().next();
     assertEquals(registeredKey, cacheName);
-  }
-
-  @Test
-  public void testAllNullParameters() {
-    // When
-    boolean result = MicrometerMetricsRegistry.registerCacheMetrics(null, null, null);
-
-    // Then
-    assertFalse(result);
-  }
-
-  @Test
-  public void testNullCheckOrder() {
-    // Test various combinations of null parameters
-
-    // Null cache name
-    Cache<Object, Object> caffeineCache = Caffeine.newBuilder().maximumSize(100).build();
-    assertFalse(MicrometerMetricsRegistry.registerCacheMetrics(null, caffeineCache, meterRegistry));
-
-    // Null native cache
-    assertFalse(MicrometerMetricsRegistry.registerCacheMetrics("test", null, meterRegistry));
-
-    // Null meter registry
-    assertFalse(MicrometerMetricsRegistry.registerCacheMetrics("test", caffeineCache, null));
   }
 
   @Test

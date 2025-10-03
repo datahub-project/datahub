@@ -1,14 +1,31 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
-import { mergeTrees, updateNodeInTree, updateTree } from '@app/homeV3/modules/hierarchyViewModule/treeView/utils';
+import {
+    mergeTrees,
+    sortTree,
+    updateNodeInTree,
+    updateTree,
+} from '@app/homeV3/modules/hierarchyViewModule/treeView/utils';
+import { useStableValue } from '@app/sharedV2/hooks/useStableValue';
 
-export default function useTree(tree?: TreeNode[]) {
-    const [nodes, setNodes] = useState<TreeNode[]>(tree ?? []);
+export default function useTree(tree: TreeNode[] | undefined, nodesSorter?: (nodes: TreeNode[]) => TreeNode[]) {
+    const stableTree = useStableValue(tree ?? []);
+    const [nodes, setNodes] = useState<TreeNode[]>(stableTree);
+    const isTreeUndefined = useMemo(() => tree === undefined, [tree]);
 
     useEffect(() => {
-        if (tree !== undefined) setNodes(tree);
-    }, [tree]);
+        if (!isTreeUndefined) setNodes(stableTree);
+    }, [stableTree, isTreeUndefined]);
+
+    const unstableSortedNodes = useMemo(() => {
+        if (!nodesSorter) {
+            return nodes;
+        }
+        return sortTree(nodes, nodesSorter);
+    }, [nodes, nodesSorter]);
+
+    const sortedNodes = useStableValue(unstableSortedNodes);
 
     const replace = useCallback((newNodes: TreeNode[]) => setNodes(newNodes), []);
 
@@ -25,7 +42,7 @@ export default function useTree(tree?: TreeNode[]) {
     }, []);
 
     return {
-        nodes,
+        nodes: sortedNodes,
         replace,
         merge,
         update,

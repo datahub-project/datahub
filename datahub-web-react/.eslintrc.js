@@ -16,6 +16,7 @@ module.exports = {
             jsx: true, // Allows for the parsing of JSX
         },
         project: './tsconfig.json',
+        tsconfigRootDir: __dirname,
     },
     rules: {
         '@typescript-eslint/no-explicit-any': 'off',

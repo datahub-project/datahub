@@ -1,13 +1,22 @@
 import { Text } from '@components';
 import { Form } from 'antd';
 import React, { useCallback } from 'react';
+import styled from 'styled-components';
 
 import DomainsSelectableTreeView from '@app/homeV3/modules/hierarchyViewModule/components/domains/DomainsSelectableTreeView';
 import { useHierarchyFormContext } from '@app/homeV3/modules/hierarchyViewModule/components/form/HierarchyFormContext';
 import { FORM_FIELD_ASSET_TYPE } from '@app/homeV3/modules/hierarchyViewModule/components/form/constants';
-import EntityTypeTabs from '@app/homeV3/modules/hierarchyViewModule/components/form/sections/selectAssets/assetTypeTabs/AssetTypeTabs';
 import GlossarySelectableTreeView from '@app/homeV3/modules/hierarchyViewModule/components/glossary/GlossarySelectableTreeView';
 import { ASSET_TYPE_DOMAINS, ASSET_TYPE_GLOSSARY } from '@app/homeV3/modules/hierarchyViewModule/constants';
+import ButtonTabs from '@app/homeV3/modules/shared/ButtonTabs/ButtonTabs';
+import FormItem from '@app/homeV3/modules/shared/Form/FormItem';
+
+const Wrapper = styled.div``;
+
+const ScrollWrapper = styled.div`
+    max-height: 40vh;
+    overflow: auto;
+`;
 
 export default function SelectAssetsSection() {
     const form = Form.useFormInstance();
@@ -30,28 +39,34 @@ export default function SelectAssetsSection() {
             key: ASSET_TYPE_DOMAINS,
             label: 'Domains',
             content: (
-                <Form.Item name="domainAssets">
-                    <DomainsSelectableTreeView />
-                </Form.Item>
+                <FormItem name="domainAssets">
+                    <ScrollWrapper>
+                        <DomainsSelectableTreeView />
+                    </ScrollWrapper>
+                </FormItem>
             ),
         },
         {
             key: ASSET_TYPE_GLOSSARY,
             label: 'Glossary',
             content: (
-                <Form.Item name="glossaryAssets">
-                    <GlossarySelectableTreeView />
-                </Form.Item>
+                <FormItem name="glossaryAssets">
+                    <ScrollWrapper>
+                        <GlossarySelectableTreeView />
+                    </ScrollWrapper>
+                </FormItem>
             ),
         },
     ];
 
     return (
-        <>
-            <Text weight="bold">Search and Select Assets</Text>
-            <Form.Item name={FORM_FIELD_ASSET_TYPE}>
-                <EntityTypeTabs tabs={tabs} onTabClick={onTabClick} defaultKey={assetType ?? defaultAssetsType} />
-            </Form.Item>
-        </>
+        <Wrapper>
+            <Text color="gray" colorLevel={600} weight="bold">
+                Search and Select Assets
+            </Text>
+            <FormItem name={FORM_FIELD_ASSET_TYPE}>
+                <ButtonTabs tabs={tabs} onTabClick={onTabClick} defaultKey={assetType ?? defaultAssetsType} />
+            </FormItem>
+        </Wrapper>
     );
 }

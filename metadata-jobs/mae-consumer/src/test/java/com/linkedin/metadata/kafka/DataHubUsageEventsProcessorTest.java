@@ -49,6 +49,8 @@ public class DataHubUsageEventsProcessorTest {
   public void setUp() {
     MockitoAnnotations.openMocks(this);
 
+    when(metricUtils.getRegistry()).thenReturn(new SimpleMeterRegistry());
+
     systemOperationContext =
         TestOperationContexts.Builder.builder()
             .systemTelemetryContextSupplier(
@@ -65,6 +67,8 @@ public class DataHubUsageEventsProcessorTest {
             dataHubUsageEventTransformer,
             systemOperationContext.getSearchContext().getIndexConvention(),
             systemOperationContext);
+    // Set the consumer group ID
+    setConsumerGroupId(processor, "datahub-usage-event-consumer-job-client");
   }
 
   @Test
@@ -346,10 +350,7 @@ public class DataHubUsageEventsProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
-
-    // Set the consumer group ID via reflection
-    setConsumerGroupId(processor, "datahub-usage-event-consumer-job-client");
+    when(metricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Setup test data
     String eventJson = "{\"type\":\"PageViewEvent\",\"timestamp\":1234567890}";
@@ -397,10 +398,7 @@ public class DataHubUsageEventsProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
-
-    // Set the consumer group ID
-    setConsumerGroupId(processor, "datahub-usage-event-consumer-job-client");
+    when(metricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Setup test data
     String eventJson = "{\"type\":\"SearchEvent\"}";
@@ -466,10 +464,7 @@ public class DataHubUsageEventsProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
-
-    // Set the consumer group ID
-    setConsumerGroupId(processor, "datahub-usage-event-consumer-job-client");
+    when(metricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Setup test data
     String eventJson = "{\"invalid\":\"event\"}";
@@ -505,88 +500,12 @@ public class DataHubUsageEventsProcessorTest {
   }
 
   @Test
-  public void testMicrometerMetricsAbsentWhenRegistryNotPresent() {
-    // Configure the mock metricUtils to return empty Optional (no registry)
-    when(metricUtils.getRegistry()).thenReturn(Optional.empty());
-
-    // Set the consumer group ID
-    setConsumerGroupId(processor, "datahub-usage-event-consumer-job-client");
-
-    // Setup test data
-    String eventJson = "{\"type\":\"ViewEvent\"}";
-    String transformedDocument = "{\"view\":\"data\"}";
-
-    when(mockRecord.timestamp()).thenReturn(System.currentTimeMillis() - 1000);
-    when(mockRecord.value()).thenReturn(eventJson);
-
-    DataHubUsageEventTransformer.TransformedDocument transformedDoc =
-        new DataHubUsageEventTransformer.TransformedDocument(TEST_EVENT_ID, transformedDocument);
-
-    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(eventJson))
-        .thenReturn(Optional.of(transformedDoc));
-
-    // Execute - should not throw exception
-    processor.consume(mockRecord);
-
-    // Verify the histogram method was still called (for dropwizard metrics)
-    verify(metricUtils).histogram(eq(DataHubUsageEventsProcessor.class), eq("kafkaLag"), anyLong());
-
-    // Verify processing completed successfully despite no registry
-    verify(elasticsearchConnector).feedElasticEvent(any());
-  }
-
-  @Test
-  public void testMicrometerKafkaQueueTimeWithCustomConsumerGroup() {
-    // Setup a real MeterRegistry
-    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
-
-    // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
-
-    // Set a custom consumer group ID
-    String customConsumerGroup = "custom-usage-event-consumer";
-    setConsumerGroupId(processor, customConsumerGroup);
-
-    // Setup test data
-    String eventJson = "{\"type\":\"Event\"}";
-    String transformedDocument = "{\"data\":\"value\"}";
-
-    when(mockRecord.timestamp()).thenReturn(System.currentTimeMillis() - 1500);
-    when(mockRecord.topic()).thenReturn("DataHubUsageEvent_v1");
-    when(mockRecord.value()).thenReturn(eventJson);
-
-    DataHubUsageEventTransformer.TransformedDocument transformedDoc =
-        new DataHubUsageEventTransformer.TransformedDocument(TEST_EVENT_ID, transformedDocument);
-
-    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(eventJson))
-        .thenReturn(Optional.of(transformedDoc));
-
-    // Execute
-    processor.consume(mockRecord);
-
-    // Verify timer was recorded with custom consumer group
-    Timer timer =
-        meterRegistry.timer(
-            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-            "topic",
-            "DataHubUsageEvent_v1",
-            "consumer.group",
-            customConsumerGroup);
-
-    assertNotNull(timer);
-    assertEquals(timer.count(), 1);
-  }
-
-  @Test
   public void testMicrometerKafkaQueueTimeAccuracy() {
     // Setup a real MeterRegistry
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
-
-    // Set the consumer group ID
-    setConsumerGroupId(processor, "datahub-usage-event-consumer-job-client");
+    when(metricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Setup test data
     String eventJson = "{\"type\":\"Event\"}";

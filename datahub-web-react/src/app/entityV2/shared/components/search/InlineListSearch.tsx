@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useDebounce } from 'react-use';
 
 import { MatchLabelText, SearchContainer, StyledInput } from '@app/entityV2/shared/components/search/styledComponents';
 import { pluralize } from '@src/app/shared/textUtil';
 
 interface InlineListSearchProps {
     searchText: string;
-    debouncedSetFilterText: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    debouncedSetFilterText: (value: string) => void;
     matchResultCount: number;
     numRows: number;
     options?: {
@@ -25,12 +26,22 @@ export const InlineListSearch: React.FC<InlineListSearchProps> = ({
     entityTypeName,
     options,
 }) => {
+    const [localSearchText, setLocalSearchText] = useState(searchText);
+
+    useDebounce(
+        () => {
+            debouncedSetFilterText(localSearchText);
+        },
+        500,
+        [localSearchText],
+    );
+
     return (
         <SearchContainer>
             <StyledInput
-                value={searchText}
+                value={localSearchText}
                 placeholder={options?.placeholder || 'Search...'}
-                onChange={debouncedSetFilterText}
+                onChange={(e) => setLocalSearchText(e.target.value)}
                 icon={options?.hidePrefix ? undefined : { icon: 'MagnifyingGlass', source: 'phosphor' }}
                 label=""
             />

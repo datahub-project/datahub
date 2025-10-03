@@ -48,8 +48,6 @@ public class ElasticSearchGraphServiceFactory {
             configurationProvider.getElasticSearch().getSearch().getGraph()),
         new ESGraphQueryDAO(
             components.getSearchClient(),
-            lineageRegistry,
-            components.getIndexConvention(),
             configurationProvider.getGraphService(),
             configurationProvider.getElasticSearch(),
             metricUtils),

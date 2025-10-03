@@ -1,17 +1,15 @@
 import base64
+import dataclasses
 import json
 import logging
 from collections import namedtuple
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
-from pydantic.dataclasses import dataclass
-from pydantic.fields import Field
-
-# This import verifies that the dependencies are available.
+from pydantic import Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -27,6 +25,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -72,7 +71,7 @@ class HiveMetastoreConfigMode(StrEnum):
     trino = "trino"
 
 
-@dataclass
+@dataclasses.dataclass
 class ViewDataset:
     dataset_name: str
     schema_name: str
@@ -98,7 +97,7 @@ class HiveMetastore(BasicSQLAlchemyConfig):
         default="localhost:3306",
         description="Host URL and port to connect to. Example: localhost:3306",
     )
-    scheme: str = Field(default="mysql+pymysql", description="", hidden_from_docs=True)
+    scheme: HiddenFromDocs[str] = Field(default="mysql+pymysql")
 
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -122,8 +121,8 @@ class HiveMetastore(BasicSQLAlchemyConfig):
         description="Dataset Subtype name to be 'Table' or 'View' Valid options: ['True', 'False']",
     )
 
-    include_view_lineage: bool = Field(
-        default=False, description="", hidden_from_docs=True
+    include_view_lineage: HiddenFromDocs[bool] = Field(
+        default=False,
     )
 
     include_catalog_name_in_ids: bool = Field(
@@ -167,6 +166,14 @@ class HiveMetastore(BasicSQLAlchemyConfig):
 @capability(SourceCapability.CLASSIFICATION, "Not Supported", False)
 @capability(
     SourceCapability.LINEAGE_COARSE, "View lineage is not supported", supported=False
+)
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.CATALOG,
+        SourceCapabilityModifier.SCHEMA,
+    ],
 )
 class HiveMetastoreSource(SQLAlchemySource):
     """

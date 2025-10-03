@@ -15,6 +15,7 @@ function changeFavicon(src) {
         link.rel = 'icon';
         document.getElementsByTagName('head')[0].appendChild(link);
     }
+
     links.forEach((link) => {
         // eslint-disable-next-line no-param-reassign
         link.href = src;
@@ -40,6 +41,17 @@ const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
                 localStorage.setItem(SERVER_VERSION_KEY, appConfigData.appConfig.appVersion);
             }
             changeFavicon(appConfigData.appConfig.visualConfig.faviconUrl);
+
+            // Expose feature flags to window object for debugging and external access
+            if (!window.datahub) {
+                window.datahub = { appConfig: appConfigData.appConfig };
+            }
+            window.datahub.features = {
+                ...appConfigData.appConfig.featureFlags,
+                // Add metadata about when flags were loaded
+                _loaded: new Date().toISOString(),
+                _version: appConfigData.appConfig.appVersion || undefined,
+            };
         }
     }, [appConfigData]);
 

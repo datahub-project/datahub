@@ -67,4 +67,8 @@ In addition, both the `By Tables` tab and the `Incidents` tab will apply your gl
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data-health/view-applied.png"/>
 </p>
 
-**Coming soon:** in the upcoming releases we will be including the filters in the url parameters. This will make it incredibly easy for you to bookmark your specifi c
+## Bulk Create Smart Assertions
+
+[Smart Assertions](./smart-assertions.md) are AI Anomaly Checks that can be used to quickly 'strap a seatbelt' across your data landscape. You can hit the 'Bulk Create' button in the top right corner of the data health dashboard to quickly set up anomaly detection across your most important assets:
+
+<div align="center"><iframe width="560" height="315" src="https://www.loom.com/embed/f6720541914645aab6b28cdff8695d9f?sid=58dff84d-bb88-4f02-b814-17fb4986ad1f" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>

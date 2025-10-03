@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { IconStyleType } from '@app/entity/Entity';
+import { IconStyleType, PreviewType } from '@app/entity/Entity';
 import { DashboardStatsSummary as DashboardStatsSummaryView } from '@app/entity/dashboard/shared/DashboardStatsSummary';
 import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
@@ -50,6 +50,7 @@ export const DashboardPreview = ({
     degree,
     paths,
     health,
+    previewType,
 }: {
     urn: string;
     platform?: string;
@@ -77,6 +78,7 @@ export const DashboardPreview = ({
     degree?: number;
     paths?: EntityPath[];
     health?: Health[] | null;
+    previewType?: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
@@ -116,6 +118,7 @@ export const DashboardPreview = ({
             degree={degree}
             paths={paths}
             health={health || undefined}
+            previewType={previewType}
         />
     );
 };

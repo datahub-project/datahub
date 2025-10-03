@@ -2,7 +2,17 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Collection, Iterable, List, Optional, Set, Tuple, Type
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Collection,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+)
 
 from pydantic import BaseModel, Field, validator
 
@@ -44,6 +54,9 @@ from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.time import ts_millis_to_datetime
 
+if TYPE_CHECKING:
+    from pydantic.deprecated.class_validators import V1Validator
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 EXTERNAL_LINEAGE = "external_lineage"
@@ -51,7 +64,7 @@ TABLE_LINEAGE = "table_lineage"
 VIEW_LINEAGE = "view_lineage"
 
 
-def pydantic_parse_json(field: str) -> classmethod:
+def pydantic_parse_json(field: str) -> "V1Validator":
     def _parse_from_json(cls: Type, v: Any) -> dict:
         if isinstance(v, str):
             return json.loads(v)
@@ -72,7 +85,7 @@ class ColumnUpstreamJob(BaseModel):
 
 
 class ColumnUpstreamLineage(BaseModel):
-    column_name: Optional[str]
+    column_name: Optional[str] = None
     upstreams: List[ColumnUpstreamJob] = Field(default_factory=list)
 
 
@@ -91,9 +104,9 @@ class Query(BaseModel):
 class UpstreamLineageEdge(BaseModel):
     DOWNSTREAM_TABLE_NAME: str
     DOWNSTREAM_TABLE_DOMAIN: str
-    UPSTREAM_TABLES: Optional[List[UpstreamTableNode]]
-    UPSTREAM_COLUMNS: Optional[List[ColumnUpstreamLineage]]
-    QUERIES: Optional[List[Query]]
+    UPSTREAM_TABLES: Optional[List[UpstreamTableNode]] = None
+    UPSTREAM_COLUMNS: Optional[List[ColumnUpstreamLineage]] = None
+    QUERIES: Optional[List[Query]] = None
 
     _json_upstream_tables = pydantic_parse_json("UPSTREAM_TABLES")
     _json_upstream_columns = pydantic_parse_json("UPSTREAM_COLUMNS")

@@ -3,9 +3,11 @@ import { Tag as CustomTag, Empty, Form, Modal, Select, Typography, message } fro
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '@app/entity/shared/utils';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
+import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import ParentEntities from '@app/search/filters/ParentEntities';
 import { getParentEntities } from '@app/search/filters/utils';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -26,7 +28,7 @@ import {
     useBatchRemoveTermsMutation,
 } from '@graphql/mutations.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
-import { Entity, EntityType, ResourceRefInput, Tag } from '@types';
+import { DataHubPageModuleType, Entity, EntityType, ResourceRefInput, Tag } from '@types';
 
 export enum OperationType {
     ADD,
@@ -126,6 +128,7 @@ export default function EditTagTermsModal({
     onOkOverride,
 }: EditTagsModalProps) {
     const entityRegistry = useEntityRegistry();
+    const { reloadModules } = useModulesContext();
     const [inputValue, setInputValue] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [disableAction, setDisableAction] = useState(false);
@@ -285,6 +288,32 @@ export default function EditTagTermsModal({
         setSelectedTags(selectedTags.filter((term) => term.urn !== urn));
     };
 
+    const sendAnalytics = () => {
+        const isSchemaField = resources[0].subResource;
+
+        let eventType;
+        if (isSchemaField) {
+            eventType =
+                type === EntityType.Tag ? EntityActionType.UpdateSchemaTags : EntityActionType.UpdateSchemaTerms;
+        } else {
+            eventType = type === EntityType.Tag ? EntityActionType.UpdateTags : EntityActionType.UpdateTerms;
+        }
+        const isBatchAdd = resources.length > 1;
+        if (isBatchAdd)
+            analytics.event({
+                type: EventType.BatchEntityActionEvent,
+                actionType: eventType,
+                entityUrns: resources.map((resource) => resource.resourceUrn),
+            });
+        else
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: eventType,
+                entityType: type,
+                entityUrn: resources[0].resourceUrn,
+            });
+    };
+
     const batchAddTags = () => {
         batchAddTagsMutation({
             variables: {
@@ -300,6 +329,7 @@ export default function EditTagTermsModal({
                         content: `Added ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
                         duration: 2,
                     });
+                    sendAnalytics();
                 }
             })
             .catch((e) => {
@@ -330,6 +360,10 @@ export default function EditTagTermsModal({
                         content: `Added ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
                         duration: 2,
                     });
+                    sendAnalytics();
+                    // Reload modules
+                    // Assets - to updated assets on terms summary tab
+                    reloadModules([DataHubPageModuleType.Assets], 3000);
                 }
             })
             .catch((e) => {
@@ -390,6 +424,9 @@ export default function EditTagTermsModal({
                         content: `Removed ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
                         duration: 2,
                     });
+                    // Reload modules
+                    // Assets - to updated assets on terms summary tab
+                    reloadModules([DataHubPageModuleType.Assets], 3000);
                 }
             })
             .catch((e) => {

@@ -3,7 +3,7 @@ package com.linkedin.metadata.graph;
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -380,7 +380,7 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
   protected GraphService getLineagePopulatedGraphService() throws Exception {
     return getLineagePopulatedGraphService(
-        TEST_ES_SEARCH_CONFIG.getSearch().getGraph().isEnableMultiPathSearch());
+        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().isEnableMultiPathSearch());
   }
 
   protected GraphService getLineagePopulatedGraphService(boolean multiPathSearch) throws Exception {

@@ -9,7 +9,9 @@ from datahub.configuration.validate_multiline_string import pydantic_multiline_s
 
 
 class GCPCredential(ConfigModel):
-    project_id: Optional[str] = Field(description="Project id to set the credentials")
+    project_id: Optional[str] = Field(
+        None, description="Project id to set the credentials"
+    )
     private_key_id: str = Field(description="Private key id")
     private_key: str = Field(
         description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'"

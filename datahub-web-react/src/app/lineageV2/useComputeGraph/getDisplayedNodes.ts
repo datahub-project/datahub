@@ -187,8 +187,10 @@ function getChildrenToFilter(
     for (let node = queue.pop(); node; node = queue.pop()) {
         const children = adjacencyList[direction].get(node.urn);
         // Include non-query transformational nodes if they have no children
+        // Have to also include non-query transformational nodes in cycles with their parent, because
+        // those are effectively leaves as well.
         if (
-            !children?.size &&
+            (!children?.size || (node.inCycle && children.has(parent.urn))) &&
             !isQuery(node) &&
             !(direction === LineageDirection.Downstream && isDbt(node) && node.entity?.subtype === SubType.DbtSource)
         ) {

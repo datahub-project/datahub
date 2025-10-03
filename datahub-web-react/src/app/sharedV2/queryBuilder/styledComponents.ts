@@ -12,6 +12,10 @@ export const ConditionContainer = styled.div<{ depth: number }>`
     padding-left: ${(props) => props.depth * 20 + 50 + 8}px;
 `;
 
+export const ConditionElementWithFixedWidth = styled.div`
+    width: 175px;
+`;
+
 export const SelectContainer = styled.div`
     display: flex;
     gap: 16px;

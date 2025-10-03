@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.plugins;
 
 import static org.testng.Assert.*;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes;
@@ -9,6 +10,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.validation.*;
+import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
@@ -25,11 +27,15 @@ import com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionV
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
 import java.util.List;
+import org.mockito.Answers;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 @SpringBootTest(classes = SpringStandardPluginConfiguration.class)
@@ -43,6 +49,14 @@ import org.testng.annotations.Test;
 public class StandardPluginConfigurationTest extends AbstractTestNGSpringContextTests {
 
   @Autowired private ApplicationContext context;
+
+  @MockitoBean(answers = Answers.RETURNS_MOCKS)
+  private ConfigurationProvider configurationProvider;
+
+  @BeforeClass
+  private void setup() {
+    Mockito.when(configurationProvider.getDatahub()).thenReturn(new DataHubConfiguration());
+  }
 
   @Test
   public void testIgnoreUnknownMutatorBeanCreation() {

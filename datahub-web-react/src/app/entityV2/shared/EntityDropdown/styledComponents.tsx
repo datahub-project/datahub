@@ -9,11 +9,11 @@ const MenuItem = styled.div`
     color: #262626;
 `;
 
-export const ActionMenuItem = styled(Button)<{ disabled?: boolean; fontSize?: number; excludeMargin?: boolean }>`
+export const ActionMenuItem = styled(Button)<{ disabled?: boolean; fontSize?: number }>`
+    flex-shrink: 0;
     border-radius: 20px;
     width: ${(props) => (props.fontSize ? `${props.fontSize}px` : '28px')};
     height: ${(props) => (props.fontSize ? `${props.fontSize}px` : '28px')};
-    margin: 0px ${(props) => (props.excludeMargin ? '0px' : '4px')};
     padding: 0px;
     display: flex;
     align-items: center;

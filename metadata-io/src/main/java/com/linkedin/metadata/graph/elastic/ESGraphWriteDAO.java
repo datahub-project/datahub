@@ -1,7 +1,7 @@
 package com.linkedin.metadata.graph.elastic;
 
-import static com.linkedin.metadata.graph.elastic.ESGraphQueryDAO.buildQuery;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
+import static com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils.buildQuery;
 
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;

@@ -129,7 +129,6 @@ export const EntitySearchValueInput = ({ selectedUrns, entityTypes, mode, label,
                     </StyledOptionWrapper>
                 );
             }
-            console.log('>>> no cache hit for ', option.value);
             return <span>{option.label}</span>;
         },
         [entityCache],

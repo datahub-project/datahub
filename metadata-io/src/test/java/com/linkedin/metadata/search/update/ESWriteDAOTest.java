@@ -1,6 +1,6 @@
 package com.linkedin.metadata.search.update;
 
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -87,7 +87,7 @@ public class ESWriteDAOTest {
 
     esWriteDAO =
         new ESWriteDAO(
-            TEST_ES_SEARCH_CONFIG.toBuilder()
+            TEST_OS_SEARCH_CONFIG.toBuilder()
                 .bulkProcessor(BulkProcessorConfiguration.builder().numRetries(NUM_RETRIES).build())
                 .build(),
             mockSearchClient,

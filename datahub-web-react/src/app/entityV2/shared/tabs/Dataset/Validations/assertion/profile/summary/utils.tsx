@@ -348,7 +348,7 @@ export const getFreshnessAssertionPlainTextDescription = (
  * @param monitorSchedule
  * @returns {JSX.Element}
  */
-const useBuildPrimaryLabel = (
+export const useBuildAssertionPrimaryLabel = (
     assertionInfo?: Maybe<AssertionInfo>,
     monitorSchedule?: Maybe<CronSchedule>,
     options?: { showColumnTag?: boolean },
@@ -511,7 +511,7 @@ export const useBuildAssertionDescriptionLabels = (
 } => {
     // ------- Primary label with assertion description ------ //
     // IMPORTANT: if you modify this, also modify {@link #getPlainTextDescriptionFromAssertion} below
-    const primaryLabel = useBuildPrimaryLabel(assertionInfo, monitorSchedule, options);
+    const primaryLabel = useBuildAssertionPrimaryLabel(assertionInfo, monitorSchedule, options);
 
     // ----------- Try displaying secondary label showing creator/updater context ------------ //
     const secondaryLabel = useBuildSecondaryLabel(assertionInfo);
@@ -523,16 +523,45 @@ export const useBuildAssertionDescriptionLabels = (
 };
 
 /**
- * Similar to {@link #useBuildPrimaryLabel}, but returns plaintext instead of jsx.
+ * Similar to {@link #useBuildAssertionPrimaryLabel}, but returns plaintext instead of jsx.
  * Primarily used for building the search index!
  */
-export const getPlainTextDescriptionFromAssertion = (assertionInfo?: AssertionInfo): string => {
+export const getPlainTextDescriptionFromAssertion = (
+    assertionInfo?: AssertionInfo,
+    monitorSchedule?: CronSchedule,
+): string => {
     // if description is present don't generate dynamic description
     if (assertionInfo?.description) {
         return assertionInfo.description;
     }
 
-    return assertionInfo
-        ? getDatasetAssertionPlainTextDescription(assertionInfo.datasetAssertion as DatasetAssertionInfo)
-        : '';
+    let primaryLabel = '';
+    switch (assertionInfo?.type) {
+        case AssertionType.Dataset:
+            primaryLabel = getDatasetAssertionPlainTextDescription(
+                assertionInfo.datasetAssertion as DatasetAssertionInfo,
+            );
+            break;
+        case AssertionType.Freshness:
+            primaryLabel = getFreshnessAssertionPlainTextDescription(
+                assertionInfo.freshnessAssertion as FreshnessAssertionInfo,
+                monitorSchedule as CronSchedule,
+            );
+            break;
+        case AssertionType.Volume:
+            primaryLabel = getVolumeAssertionPlainTextDescription(assertionInfo.volumeAssertion as VolumeAssertionInfo);
+            break;
+        case AssertionType.Sql:
+            primaryLabel = assertionInfo.description || '';
+            break;
+        case AssertionType.Field:
+            primaryLabel = getFieldAssertionPlainTextDescription(assertionInfo.fieldAssertion as FieldAssertionInfo);
+            break;
+        case AssertionType.DataSchema:
+            primaryLabel = getSchemaAssertionPlainTextDescription(assertionInfo.schemaAssertion as SchemaAssertionInfo);
+            break;
+        default:
+            break;
+    }
+    return primaryLabel;
 };

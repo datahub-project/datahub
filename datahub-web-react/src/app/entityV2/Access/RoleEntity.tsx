@@ -32,10 +32,7 @@ export class RoleEntity implements Entity<Role> {
         return (
             <TagOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };

@@ -18,6 +18,9 @@ query getDataProduct($urn: String!) {
             ...formsFields
         }
         ...notes
+        settings {
+            ...AssetSettingsFields
+        }
     }
 }
 
@@ -62,6 +65,9 @@ fragment dataProductSearchFields on DataProduct {
         name
         description
         externalUrl
+        createdOn {
+            time
+        }
     }
     ownership {
         ...ownershipFields

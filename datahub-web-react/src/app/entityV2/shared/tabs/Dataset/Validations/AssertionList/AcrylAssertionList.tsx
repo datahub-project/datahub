@@ -1,5 +1,6 @@
 import { Empty } from 'antd';
 import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
@@ -18,6 +19,15 @@ import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSib
 import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
 import { useGetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
 import { Assertion, DataContract } from '@src/types.generated';
+
+const AssertionListContainer = styled.div`
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    margin: 0px 20px;
+    flex: 1;
+    overflow: hidden;
+`;
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
@@ -81,7 +91,6 @@ export const AcrylAssertionList = () => {
                 <AcrylAssertionListTable
                     contract={contract}
                     assertionData={visibleAssertions}
-                    filter={selectedFilters}
                     refetch={() => {
                         refetch();
                         contractRefetch();
@@ -93,7 +102,7 @@ export const AcrylAssertionList = () => {
     };
 
     return (
-        <>
+        <AssertionListContainer>
             <AssertionListTitleContainer />
             {assertionMonitorData?.length > 0 && (
                 <AcrylAssertionListFilters
@@ -106,6 +115,6 @@ export const AcrylAssertionList = () => {
                 />
             )}
             {renderListTable()}
-        </>
+        </AssertionListContainer>
     );
 };

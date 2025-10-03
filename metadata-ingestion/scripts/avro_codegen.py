@@ -4,7 +4,7 @@ import json
 import re
 import textwrap
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple, Union, Set
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import avro.schema
 import click
@@ -468,6 +468,10 @@ def create_from_ids(cls, data_flow_urn: str, job_id: str) -> "DataJobUrn":
 
 def get_data_flow_urn(self) -> "DataFlowUrn":
     return DataFlowUrn.from_string(self.flow)
+
+@property
+def orchestrator(self) -> str:
+    return self.get_data_flow_urn().orchestrator
 
 @deprecated(reason="Use .job_id instead")
 def get_job_id(self) -> str:

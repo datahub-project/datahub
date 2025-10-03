@@ -48,6 +48,7 @@ dependencies {
   implementation project(":metadata-service:restli-client")
   implementation project(":metadata-service:auth-config")
   implementation project(":metadata-service:configuration")
+  implementation project(":metadata-utils")
 
   implementation externalDependency.springCore
   implementation externalDependency.springBeans
@@ -88,8 +89,9 @@ dependencies {
 
   testImplementation 'org.seleniumhq.selenium:htmlunit-driver:2.67.0'
   testImplementation externalDependency.mockito
+  testImplementation externalDependency.mockitoInline
   testImplementation externalDependency.playTest
-  testImplementation 'org.awaitility:awaitility:4.2.0'
+  testImplementation externalDependency.awaitility
   testImplementation 'no.nav.security:mock-oauth2-server:2.1.9'
   testImplementation 'org.junit-pioneer:junit-pioneer:1.9.1'
   testImplementation externalDependency.junitJupiterApi

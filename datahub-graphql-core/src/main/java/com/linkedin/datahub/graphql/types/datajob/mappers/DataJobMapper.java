@@ -113,8 +113,11 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
               } else if (DEPRECATION_ASPECT_NAME.equals(name)) {
                 result.setDeprecation(DeprecationMapper.map(context, new Deprecation(data)));
               } else if (DATA_PLATFORM_INSTANCE_ASPECT_NAME.equals(name)) {
-                result.setDataPlatformInstance(
-                    DataPlatformInstanceAspectMapper.map(context, new DataPlatformInstance(data)));
+                DataPlatformInstance dataPlatformInstance = new DataPlatformInstance(data);
+                com.linkedin.datahub.graphql.generated.DataPlatformInstance value =
+                    DataPlatformInstanceAspectMapper.map(context, dataPlatformInstance);
+                result.setPlatform(value.getPlatform());
+                result.setDataPlatformInstance(value);
               } else if (CONTAINER_ASPECT_NAME.equals(name)) {
                 final com.linkedin.container.Container gmsContainer =
                     new com.linkedin.container.Container(data);

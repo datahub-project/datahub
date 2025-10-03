@@ -37,9 +37,9 @@ from datahub.ingestion.api.source_helpers import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    FineGrainedLineageDownstreamType,
-    FineGrainedLineageUpstreamType,
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ class EntityConfig(EnvConfigMixin):
     name: str
     type: str
     platform: str
-    platform_instance: Optional[str]
+    platform_instance: Optional[str] = None
 
     @validator("type")
     def type_must_be_supported(cls, v: str) -> str:
@@ -80,9 +80,9 @@ class FineGrainedLineageConfig(ConfigModel):
     @validator("upstreamType")
     def upstream_type_must_be_supported(cls, v: str) -> str:
         allowed_types = [
-            FineGrainedLineageUpstreamType.FIELD_SET,
-            FineGrainedLineageUpstreamType.DATASET,
-            FineGrainedLineageUpstreamType.NONE,
+            FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+            FineGrainedLineageUpstreamTypeClass.DATASET,
+            FineGrainedLineageUpstreamTypeClass.NONE,
         ]
         if v not in allowed_types:
             raise ValueError(
@@ -93,8 +93,8 @@ class FineGrainedLineageConfig(ConfigModel):
     @validator("downstreamType")
     def downstream_type_must_be_supported(cls, v: str) -> str:
         allowed_types = [
-            FineGrainedLineageDownstreamType.FIELD_SET,
-            FineGrainedLineageDownstreamType.FIELD,
+            FineGrainedLineageDownstreamTypeClass.FIELD_SET,
+            FineGrainedLineageDownstreamTypeClass.FIELD,
         ]
         if v not in allowed_types:
             raise ValueError(

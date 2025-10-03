@@ -4,10 +4,13 @@ import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
 import OwnershipTypesSelect from '@app/entityV2/shared/containers/profile/sidebar/Ownership/OwnershipTypesSelect';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
+import { addUserFiltersToAutoCompleteInput } from '@app/shared/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
@@ -17,7 +20,7 @@ import { getModalDomContainer } from '@src/utils/focus';
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
-import { CorpUser, Entity, EntityType, OwnerEntityType } from '@types';
+import { CorpUser, DataHubPageModuleType, Entity, EntityType, OwnerEntityType } from '@types';
 
 const SelectInput = styled(Select)`
     width: 480px;
@@ -76,6 +79,8 @@ export const EditOwnersModal = ({
     defaultValues,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const { reloadModules } = useModulesContext();
+    const { user } = useUserContext();
 
     // Renders a search result in the select dropdown.
     const renderSearchResult = (entity: Entity) => {
@@ -148,13 +153,18 @@ export const EditOwnersModal = ({
     // Invokes the search API as the owner types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
         if (text) {
+            const input = addUserFiltersToAutoCompleteInput(
+                {
+                    type,
+                    query: text,
+                    limit: 10,
+                },
+                type,
+            );
+
             searchQuery({
                 variables: {
-                    input: {
-                        type,
-                        query: text,
-                        limit: 10,
-                    },
+                    input,
                 },
             });
         }
@@ -335,6 +345,10 @@ export const EditOwnersModal = ({
         } else {
             batchRemoveOwners(inputs);
         }
+        const isCurrentUserUpdated = user?.urn && inputs.map((input) => input.ownerUrn).includes(user?.urn);
+        // Reload modules
+        // OwnedAssets - as your assets module could be updated
+        if (isCurrentUserUpdated) reloadModules([DataHubPageModuleType.OwnedAssets], 3000);
     };
 
     function handleBlur() {

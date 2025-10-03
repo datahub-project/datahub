@@ -23,6 +23,7 @@ import org.springframework.context.annotation.FilterType;
     basePackages = {
       "com.linkedin.gms.factory",
       "com.linkedin.datahub.upgrade.config",
+      "com.linkedin.datahub.upgrade.system.cdc",
       "com.linkedin.metadata.dao.producer"
     },
     excludeFilters = {

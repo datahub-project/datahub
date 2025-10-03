@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics from '@app/analytics';
+import { EventType } from '@app/analytics/event';
 import { EmbeddedListSearchModal } from '@app/entity/shared/components/styled/search/EmbeddedListSearchModal';
 import {
     extractEntityTypeCountsFromFacets,
@@ -107,6 +109,7 @@ const IngestionRowCount = styled(Text)`
 type Props = {
     id: string;
     executionResult?: Maybe<Partial<ExecutionRequestResult>>;
+    urn: string;
 };
 
 const ENTITY_FACET_NAME = 'entity';
@@ -153,15 +156,31 @@ const IngestionContents: React.FC<RenderIngestionContentsProps> = ({ items, getK
     </IngestionBoxesContainer>
 );
 
-export default function IngestedAssets({ id, executionResult }: Props) {
+export default function IngestedAssets({ id, executionResult, urn }: Props) {
     const entityRegistry = useEntityRegistry();
 
     // First thing to do is to search for all assets with the id as the run id!
     const [showAssetSearch, setShowAssetSearch] = useState(false);
 
+    const handleViewAllClick = () => {
+        analytics.event({
+            type: EventType.IngestionViewAllClickEvent,
+            executionUrn: urn,
+        });
+        setShowAssetSearch(true);
+    };
+
+    const handleViewAllClickWarning = () => {
+        analytics.event({
+            type: EventType.IngestionViewAllClickWarningEvent,
+            executionUrn: urn,
+        });
+    };
+
     // Try getting the counts via the ingestion report.
-    const totalEntitiesIngested = executionResult && getTotalEntitiesIngested(executionResult);
-    const entitiesIngestedByTypeFromReport = executionResult && getEntitiesIngestedByTypeOrSubtype(executionResult);
+    const totalEntitiesIngested = executionResult && getTotalEntitiesIngested(executionResult, entityRegistry);
+    const entitiesIngestedByTypeFromReport =
+        executionResult && getEntitiesIngestedByTypeOrSubtype(executionResult, entityRegistry);
 
     // Fallback to the search across entities.
     // First thing to do is to search for all assets with the id as the run id!
@@ -205,22 +224,22 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     const ingestionContents = useMemo(() => {
         if (!executionResult) return undefined;
         try {
-            return getIngestionContents(executionResult);
+            return getIngestionContents(executionResult, entityRegistry);
         } catch (err) {
             console.error('Error getting ingestion contents:', err);
             return undefined;
         }
-    }, [executionResult]);
+    }, [executionResult, entityRegistry]);
 
     const otherIngestionContents = useMemo(() => {
         if (!executionResult) return undefined;
         try {
-            return getOtherIngestionContents(executionResult);
+            return getOtherIngestionContents(executionResult, entityRegistry);
         } catch (err) {
             console.error('Error getting other ingestion contents:', err);
             return undefined;
         }
-    }, [executionResult]);
+    }, [executionResult, entityRegistry]);
 
     return (
         <>
@@ -244,11 +263,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                             <Card
                                 title={formatNumber(total)}
                                 button={
-                                    <Button
-                                        style={{ width: '110px' }}
-                                        variant="text"
-                                        onClick={() => setShowAssetSearch(true)}
-                                    >
+                                    <Button style={{ width: '110px' }} variant="text" onClick={handleViewAllClick}>
                                         View All
                                     </Button>
                                 }
@@ -322,6 +337,8 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                         unionType: UnionType.AND,
                         filters: [{ field: 'runId', values: [id] }],
                     }}
+                    isViewAllMode
+                    handleViewAllClickWarning={handleViewAllClickWarning}
                     onClose={() => setShowAssetSearch(false)}
                 />
             )}

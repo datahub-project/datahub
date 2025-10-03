@@ -5,16 +5,18 @@ import styled from 'styled-components/macro';
 
 import colors from '@components/theme/foundations/colors';
 
+import { useDomainsContext } from '@app/domainV2/DomainsContext';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import CompactContext from '@app/shared/CompactContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 
 import { useUpdateNameMutation } from '@graphql/mutations.generated';
-import { EntityType } from '@types';
+import { DataHubPageModuleType, EntityType } from '@types';
 
 const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
     font-weight: 700;
@@ -54,10 +56,12 @@ function EntityName(props: Props) {
     const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { setUpdatedDomain } = useDomainsContext();
     const { urn, entityType, entityData } = useEntityData();
     const entityName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : '';
     const [updatedName, setUpdatedName] = useState(entityName);
     const [isEditing, setIsEditing] = useState(false);
+    const { reloadModules } = useModulesContext();
 
     const isCompact = React.useContext(CompactContext);
     const showEntityLink = isCompact && entityType !== EntityType.Query;
@@ -87,6 +91,34 @@ function EntityName(props: Props) {
                     const parentNodeToUpdate = getParentNodeToUpdate(entityData, entityType);
                     updateGlossarySidebar([parentNodeToUpdate], urnsToUpdate, setUrnsToUpdate);
                 }
+                if (setUpdatedDomain !== undefined) {
+                    const updatedDomain = {
+                        urn,
+                        type: EntityType.Domain,
+                        id: urn,
+                        properties: {
+                            name,
+                        },
+                    };
+                    setUpdatedDomain(updatedDomain);
+                }
+                // Reload modules as name of some asset could be changed in them
+                reloadModules(
+                    [
+                        DataHubPageModuleType.AssetCollection,
+                        DataHubPageModuleType.OwnedAssets,
+                        DataHubPageModuleType.Assets,
+                        DataHubPageModuleType.ChildHierarchy,
+                        DataHubPageModuleType.Domains,
+                    ],
+                    3000,
+                );
+                if (entityType === EntityType.GlossaryTerm) {
+                    reloadModules([DataHubPageModuleType.RelatedTerms], 3000);
+                }
+                if (entityType === EntityType.DataProduct) {
+                    reloadModules([DataHubPageModuleType.DataProducts], 3000);
+                }
             })
             .catch((e: unknown) => {
                 message.destroy();
@@ -110,6 +142,7 @@ function EntityName(props: Props) {
             ellipsis={{
                 tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: colors.gray[1700] } },
             }}
+            key={updatedName}
         >
             {updatedName}
         </EntityTitle>

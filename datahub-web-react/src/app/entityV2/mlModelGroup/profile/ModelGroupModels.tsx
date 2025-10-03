@@ -1,5 +1,6 @@
 import { Table, Typography } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
@@ -31,7 +32,7 @@ const NameContainer = styled.div`
     align-items: center;
 `;
 
-const NameLink = styled.a`
+const NameLink = styled(Link)`
     font-weight: 700;
     color: inherit;
     font-size: 0.9rem;
@@ -67,10 +68,18 @@ const VersionContainer = styled.div`
     align-items: center;
 `;
 
+const TruncatedDescription = styled.div<{ isExpanded: boolean }>`
+    display: -webkit-box;
+    -webkit-line-clamp: ${({ isExpanded }) => (isExpanded ? 'unset' : '3')};
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+`;
+
 export default function MLGroupModels() {
     const baseEntity = useBaseEntity<GetMlModelGroupQuery>();
     const entityRegistry = useEntityRegistry();
     const modelGroup = baseEntity?.mlModelGroup;
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
     const models =
         baseEntity?.mlModelGroup?.incoming?.relationships
@@ -87,7 +96,7 @@ export default function MLGroupModels() {
             width: 300,
             render: (_: any, record) => (
                 <NameContainer>
-                    <NameLink href={entityRegistry.getEntityUrl(EntityType.Mlmodel, record.urn)}>
+                    <NameLink to={entityRegistry.getEntityUrl(EntityType.Mlmodel, record.urn)}>
                         {record?.properties?.propertiesName || record?.name}
                     </NameLink>
                 </NameContainer>
@@ -149,8 +158,33 @@ export default function MLGroupModels() {
             render: (_: any, record: any) => {
                 const editableDesc = record.editableProperties?.description;
                 const originalDesc = record.description;
+                const description = editableDesc || originalDesc;
 
-                return <Typography.Text>{editableDesc || originalDesc || '-'}</Typography.Text>;
+                if (!description) return '-';
+
+                const isExpanded = expandedRows.has(record.urn);
+                const isLong = description.length > 150;
+
+                if (!isLong) return <Typography.Text>{description}</Typography.Text>;
+
+                return (
+                    <>
+                        <TruncatedDescription isExpanded={isExpanded}>{description}</TruncatedDescription>
+                        <Typography.Link
+                            onClick={() => {
+                                const newExpanded = new Set(expandedRows);
+                                if (isExpanded) {
+                                    newExpanded.delete(record.urn);
+                                } else {
+                                    newExpanded.add(record.urn);
+                                }
+                                setExpandedRows(newExpanded);
+                            }}
+                        >
+                            {isExpanded ? 'Show less' : 'Read more'}
+                        </Typography.Link>
+                    </>
+                );
             },
         },
     ];

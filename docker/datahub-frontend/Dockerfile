@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM alpine:3.21 AS base
+FROM alpine:3.22 AS base
 
 # Configurable repositories
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
@@ -51,5 +51,5 @@ ENV SERVER_PORT=$SERVER_PORT
 RUN echo $SERVER_PORT
 EXPOSE $SERVER_PORT
 
-HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:$SERVER_PORT/admin || exit 1
+HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:$SERVER_PORT${DATAHUB_BASE_PATH}/admin || exit 1
 CMD ./start.sh

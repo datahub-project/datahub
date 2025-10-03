@@ -3,6 +3,7 @@ import TextArea from 'antd/lib/input/TextArea';
 import dayjs from 'dayjs';
 import React from 'react';
 
+import analytics, { EventType } from '@app/analytics';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
@@ -70,6 +71,12 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                         replacement: replacementUrn,
                     },
                 },
+            });
+            analytics.event({
+                type: EventType.SetDeprecation,
+                entityUrns: urns,
+                deprecated: true,
+                resources: isDeprecatingFields ? resourceRefs : undefined,
             });
             message.destroy();
             message.success({ content: 'Deprecation Updated', duration: 2 });

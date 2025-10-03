@@ -10,7 +10,7 @@ References:
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from datahub.emitter.mcp_builder import ContainerKey
 
@@ -24,7 +24,11 @@ GrafanaFieldConfig = Dict[
 GrafanaTransformation = Dict[str, Any]  # Transformations: id, options
 
 
-class DatasourceRef(BaseModel):
+class _GrafanaBaseModel(BaseModel):
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
+
+class DatasourceRef(_GrafanaBaseModel):
     """Reference to a Grafana datasource."""
 
     type: Optional[str] = None  # Datasource type (prometheus, mysql, postgres, etc.)
@@ -32,13 +36,13 @@ class DatasourceRef(BaseModel):
     name: Optional[str] = None  # Datasource display name
 
 
-class Panel(BaseModel):
+class Panel(_GrafanaBaseModel):
     """Represents a Grafana dashboard panel."""
 
     id: str
     title: str
     description: str = ""
-    type: Optional[str]
+    type: Optional[str] = None
     # Query targets - each contains refId (A,B,C...), query/expr, datasource ref, etc.
     query_targets: List[GrafanaQueryTarget] = Field(
         default_factory=list, alias="targets"
@@ -51,16 +55,16 @@ class Panel(BaseModel):
     transformations: List[GrafanaTransformation] = Field(default_factory=list)
 
 
-class Dashboard(BaseModel):
+class Dashboard(_GrafanaBaseModel):
     """Represents a Grafana dashboard."""
 
     uid: str
     title: str
     description: str = ""
-    version: Optional[str]
+    version: Optional[str] = None
     panels: List[Panel]
     tags: List[str]
-    timezone: Optional[str]
+    timezone: Optional[str] = None
     refresh: Optional[str] = None
     schema_version: Optional[str] = Field(default=None, alias="schemaVersion")
     folder_id: Optional[str] = Field(default=None, alias="meta.folderId")
@@ -99,7 +103,7 @@ class Dashboard(BaseModel):
         return super().parse_obj(dashboard_dict)
 
 
-class Folder(BaseModel):
+class Folder(_GrafanaBaseModel):
     """Represents a Grafana folder."""
 
     id: str

@@ -275,3 +275,21 @@ CREATE TABLE IF NOT EXISTS `test_cases`.`myset` (col SET('a', 'b', 'c', 'd'));
 
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
+
+USE `northwind`;
+
+DELIMITER $$
+
+CREATE PROCEDURE `northwind`.`AddCustomer`(
+    IN id INT,
+    IN in_last_name VARCHAR(50),
+    IN in_first_name VARCHAR(50),
+    IN in_email_address VARCHAR(50),
+    IN in_priority FLOAT
+)
+BEGIN
+    INSERT INTO customers (id, last_name, first_name, email_address, priority)
+    VALUES (id, in_last_name, in_first_name, in_email_address, in_priority);
+END$$
+
+DELIMITER ;

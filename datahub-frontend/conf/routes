@@ -2,6 +2,9 @@
 # This file defines all application routes (Higher priority routes first)
 # ~~~~
 
+# Base path routes - these handle requests with the configured base path
+# The routes are defined to match both root and base path patterns
+
 # Home page
 # serveAsset action requires a path string
 GET           /                                                               controllers.Application.index(path="index.html")
@@ -39,11 +42,11 @@ PATCH         /openapi/*path                                                   c
 # Map static resources from the /public folder to the /assets URL path
 GET           /assets/icons/favicon.ico                                        controllers.RedirectController.favicon(request: Request)
 
-# Known React asset routes
+# Known React asset routes - handle both regular and versioned paths
 GET           /assets/*file                                                    controllers.Assets.at(path="/public/assets", file)
 GET           /node_modules/*file                                              controllers.Assets.at(path="/public/node_modules", file)
 GET           /manifest.json                                                   controllers.Assets.at(path="/public", file="manifest.json")
-GET           /robots.txt                                                      controllers.Assets.at(path="/public", file="robots.txt")
 
 # Wildcard route accepts any routes and delegates to serveAsset which in turn serves the React Bundle's index.html
 GET           /*path                                                           controllers.Application.index(path)
+GET           /*path/                                                          controllers.Application.redirectTrailingSlash(path)

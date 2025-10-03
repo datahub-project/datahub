@@ -1,8 +1,8 @@
 package com.linkedin.metadata.graph.elastic;
 
 import static com.linkedin.metadata.aspect.models.graph.Edge.*;
-import static com.linkedin.metadata.graph.elastic.GraphFilterUtils.getUrnStatusFieldName;
-import static com.linkedin.metadata.graph.elastic.GraphFilterUtils.getUrnStatusQuery;
+import static com.linkedin.metadata.graph.elastic.utils.GraphFilterUtils.getUrnStatusFieldName;
+import static com.linkedin.metadata.graph.elastic.utils.GraphFilterUtils.getUrnStatusQuery;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -151,7 +151,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   public ElasticSearchConfiguration getESSearchConfig() {
-    return graphReadDAO.getConfig();
+    return graphReadDAO.getESSearchConfig();
   }
 
   @Override
@@ -223,12 +223,29 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       @Nullable Integer count,
       int maxHops) {
     count = ConfigUtils.applyLimit(getGraphServiceConfig(), count);
-    ESGraphQueryDAO.LineageResponse lineageResponse =
+    LineageResponse lineageResponse =
         graphReadDAO.getLineage(opContext, entityUrn, lineageGraphFilters, offset, count, maxHops);
     return new EntityLineageResult()
         .setRelationships(new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
         .setStart(offset)
         .setCount(count)
+        .setTotal(lineageResponse.getTotal());
+  }
+
+  @Nonnull
+  @WithSpan
+  @Override
+  public EntityLineageResult getImpactLineage(
+      @Nonnull final OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull LineageGraphFilters lineageGraphFilters,
+      int maxHops) {
+    LineageResponse lineageResponse =
+        graphReadDAO.getImpactLineage(opContext, entityUrn, lineageGraphFilters, maxHops);
+    return new EntityLineageResult()
+        .setRelationships(new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
+        .setStart(0)
+        .setCount(lineageResponse.getLineageRelationships().size())
         .setTotal(lineageResponse.getTotal());
   }
 
@@ -325,13 +342,15 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       @Nonnull GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
 
     count = ConfigUtils.applyLimit(getGraphServiceConfig(), count);
     SearchResponse response =
-        graphReadDAO.getSearchResponse(opContext, graphFilters, sortCriteria, scrollId, count);
+        graphReadDAO.getSearchResponse(
+            opContext, graphFilters, sortCriteria, scrollId, keepAlive, count);
 
     if (response == null) {
       return new RelatedEntitiesScrollResult(0, 0, null, ImmutableList.of());

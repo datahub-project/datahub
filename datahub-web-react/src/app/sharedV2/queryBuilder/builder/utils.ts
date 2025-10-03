@@ -15,7 +15,7 @@ export const getOperatorDisplayName = (operator: LogicalOperatorType) => {
  * Returns true if the predicate is a logical predicate, as opposed
  * to a property predicate.
  */
-export const isLogicalPredicate = (predicate: LogicalPredicate | PropertyPredicate) => {
+export const isLogicalPredicate = (predicate: LogicalPredicate | PropertyPredicate): predicate is LogicalPredicate => {
     const logicalPredicate = predicate as LogicalPredicate;
     return (logicalPredicate.operator && LOGICAL_OPERATORS.has(logicalPredicate.operator)) || false;
 };
@@ -102,6 +102,7 @@ export const convertToLogicalPredicate = (predicate: LogicalPredicate | Property
     // If we have a property predicate, simply convert to a basic logical predicate.
     if (!isLogicalPredicate(predicate)) {
         return {
+            type: 'logical',
             operator: LogicalOperatorType.AND,
             operands: [predicate],
         };
@@ -109,3 +110,7 @@ export const convertToLogicalPredicate = (predicate: LogicalPredicate | Property
     // Already is a logical predicate.
     return predicate as LogicalPredicate;
 };
+
+export function isEmptyLogicalPredicate(predicate: LogicalPredicate | null | undefined) {
+    return !predicate?.operands?.length;
+}

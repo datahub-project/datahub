@@ -1,8 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
-import { Button, Tooltip } from '@src/alchemy-components';
+import { Button, Editor, Tooltip } from '@src/alchemy-components';
 
 const LINE_HEIGHT = 1.5;
 
@@ -16,6 +15,7 @@ const ShowMoreWrapper = styled.div`
 const MarkdownContainer = styled.div<{ lineLimit?: number | null }>`
     max-width: 100%;
     position: relative;
+    flex: 1;
     ${(props) =>
         props.lineLimit &&
         props.lineLimit <= 1 &&
@@ -36,9 +36,12 @@ const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`
     word-wrap: break-word;
     overflow-x: hidden;
     overflow-y: ${(props) => (props.scrollableY ? 'auto' : 'hidden')};
+    flex: 1;
 `;
 
 const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React.CSSProperties }>`
+    border: none;
+
     .remirror-theme {
         max-width: 100%;
     }

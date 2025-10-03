@@ -94,6 +94,7 @@ def glue_source(
             aws_region="us-west-2",
             extract_transforms=extract_transforms,
             platform_instance=platform_instance,
+            catalog_id=None,
             use_s3_bucket_tags=use_s3_bucket_tags,
             use_s3_object_tags=use_s3_object_tags,
             extract_delta_schema_from_parameters=extract_delta_schema_from_parameters,

@@ -1,7 +1,6 @@
 package com.linkedin.metadata.kafka;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -41,6 +40,7 @@ import com.linkedin.mxe.Topics;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.opentelemetry.api.trace.Span;
@@ -48,7 +48,6 @@ import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -100,18 +99,18 @@ public class MetadataChangeProposalsProcessorTest {
 
   @Mock private Span mockSpan;
 
-  @Mock private MetricUtils metricUtils;
+  private MetricUtils metricUtils;
 
   private AutoCloseable mocks;
 
   private MockedStatic<Span> spanMock;
-  private MockedStatic<MetricUtils> metricUtilsMock;
   private MockedStatic<EventUtils> eventUtilsMock;
 
   @BeforeMethod
   public void setup() {
     mocks = MockitoAnnotations.openMocks(this);
 
+    metricUtils = MetricUtils.builder().registry(new SimpleMeterRegistry()).build();
     opContext =
         opContext.toBuilder()
             .systemTelemetryContext(
@@ -160,11 +159,6 @@ public class MetadataChangeProposalsProcessorTest {
     spanMock = mockStatic(Span.class);
     spanMock.when(Span::current).thenReturn(mockSpan);
 
-    metricUtilsMock = mockStatic(MetricUtils.class);
-    metricUtilsMock
-        .when(() -> MetricUtils.name(eq(MetadataChangeProposalsProcessor.class), any()))
-        .thenReturn("metricName");
-
     eventUtilsMock = mockStatic(EventUtils.class);
 
     // Setup consumer record mock
@@ -183,11 +177,6 @@ public class MetadataChangeProposalsProcessorTest {
     if (spanMock != null) {
       spanMock.close();
       spanMock = null; // Set to null after closing
-    }
-
-    if (metricUtilsMock != null) {
-      metricUtilsMock.close();
-      metricUtilsMock = null; // Set to null after closing
     }
 
     if (eventUtilsMock != null) {
@@ -344,11 +333,7 @@ public class MetadataChangeProposalsProcessorTest {
 
   @Test
   public void testMicrometerKafkaQueueTimeMetric() throws Exception {
-    // Setup a real MeterRegistry
-    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
-
-    // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    MeterRegistry meterRegistry = metricUtils.getRegistry();
 
     // Set timestamp to simulate queue time
     long messageTimestamp = System.currentTimeMillis() - 3000; // 3 seconds ago
@@ -376,21 +361,13 @@ public class MetadataChangeProposalsProcessorTest {
     assertTrue(timer.totalTime(TimeUnit.MILLISECONDS) >= 2500); // At least 2.5 seconds
     assertTrue(timer.totalTime(TimeUnit.MILLISECONDS) <= 3500); // At most 3.5 seconds
 
-    // Verify the histogram method was called
-    verify(metricUtils)
-        .histogram(eq(MetadataChangeProposalsProcessor.class), eq("kafkaLag"), anyLong());
-
     // Verify successful processing
     verify(mockEntityService).ingestProposal(eq(opContext), any(), eq(false));
   }
 
   @Test
   public void testMicrometerKafkaQueueTimeWithDifferentTopics() throws Exception {
-    // Setup a real MeterRegistry
-    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
-
-    // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    MeterRegistry meterRegistry = metricUtils.getRegistry();
 
     // Create MCP
     MetadataChangeProposal mcp = createSimpleMCP();
@@ -448,11 +425,7 @@ public class MetadataChangeProposalsProcessorTest {
 
   @Test
   public void testMicrometerMetricsWithProcessingFailure() throws Exception {
-    // Setup a real MeterRegistry
-    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
-
-    // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    MeterRegistry meterRegistry = metricUtils.getRegistry();
 
     // Create MCP that will fail
     MetadataChangeProposal mcp = new MetadataChangeProposal();
@@ -492,9 +465,6 @@ public class MetadataChangeProposalsProcessorTest {
 
   @Test
   public void testMicrometerMetricsAbsentWhenRegistryNotPresent() throws Exception {
-    // Configure the mock metricUtils to return empty Optional (no registry)
-    when(metricUtils.getRegistry()).thenReturn(Optional.empty());
-
     // Create MCP
     MetadataChangeProposal mcp = createSimpleMCP();
     eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord)).thenReturn(mcp);
@@ -504,21 +474,13 @@ public class MetadataChangeProposalsProcessorTest {
     // Execute - should not throw exception
     processor.consume(mockConsumerRecord);
 
-    // Verify the histogram method was still called (for dropwizard metrics)
-    verify(metricUtils)
-        .histogram(eq(MetadataChangeProposalsProcessor.class), eq("kafkaLag"), anyLong());
-
     // Verify processing completed successfully despite no registry
     verify(mockEntityService).ingestProposal(eq(opContext), any(), eq(false));
   }
 
   @Test
   public void testMicrometerKafkaQueueTimeAccuracy() throws Exception {
-    // Setup a real MeterRegistry
-    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
-
-    // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    MeterRegistry meterRegistry = metricUtils.getRegistry();
 
     // Create MCP
     MetadataChangeProposal mcp = createSimpleMCP();
@@ -562,10 +524,6 @@ public class MetadataChangeProposalsProcessorTest {
     // Verify max recorded time
     assertTrue(timer.max(TimeUnit.MILLISECONDS) >= 4500);
     assertTrue(timer.max(TimeUnit.MILLISECONDS) <= 5500);
-
-    // Verify histogram was called for each record
-    verify(metricUtils, times(queueTimes.length))
-        .histogram(eq(MetadataChangeProposalsProcessor.class), eq("kafkaLag"), anyLong());
   }
 
   @Test
@@ -598,10 +556,6 @@ public class MetadataChangeProposalsProcessorTest {
 
     // Verify processing completed successfully
     verify(mockEntityService).ingestProposal(eq(opContextNoMetrics), any(), eq(false));
-
-    // Verify metricUtils methods were never called since it's not present in context
-    verify(metricUtils, never()).histogram(any(), any(), anyLong());
-    verify(metricUtils, never()).getRegistry();
   }
 
   // Helper method

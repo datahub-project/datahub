@@ -4,15 +4,17 @@ import time
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin
 
-from datahub.api.entities.external.external_entities import PlatformResourceRepository
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
+    UNKNOWN_USER,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_group_urn,
+    make_ml_model_group_urn,
     make_schema_field_urn,
+    make_ts_millis,
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -25,6 +27,7 @@ from datahub.emitter.mcp_builder import (
     UnitySchemaKey,
     UnitySchemaKeyWithMetastore,
     add_dataset_to_container,
+    add_entity_to_container,
     gen_containers,
 )
 from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
@@ -75,6 +78,9 @@ from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
 )
+from datahub.ingestion.source.unity.platform_resource_repository import (
+    UnityCatalogPlatformResourceRepository,
+)
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
     DATA_TYPE_REGISTRY,
@@ -83,6 +89,8 @@ from datahub.ingestion.source.unity.proxy_types import (
     CustomCatalogType,
     HiveTableType,
     Metastore,
+    Model,
+    ModelVersion,
     Notebook,
     NotebookId,
     Schema,
@@ -111,11 +119,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     ViewProperties,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     BrowsePathsClass,
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     DomainsClass,
+    MLModelPropertiesClass,
     MySqlDDLClass,
     NullTypeClass,
     OwnerClass,
@@ -129,7 +139,8 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.metadata.urns import TagUrn
+from datahub.metadata.urns import MlModelGroupUrn, MlModelUrn, TagUrn
+from datahub.sdk import MLModel, MLModelGroup
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
@@ -177,6 +188,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     - metastores
     - schemas
     - tables and column lineage
+    - model and model versions
     """
 
     config: UnityCatalogSourceConfig
@@ -184,7 +196,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     platform: str = "databricks"
     platform_instance_name: Optional[str]
     sql_parser_schema_resolver: Optional[SchemaResolver] = None
-    platform_resource_repository: Optional[PlatformResourceRepository] = None
+    platform_resource_repository: Optional[UnityCatalogPlatformResourceRepository] = (
+        None
+    )
 
     def get_report(self) -> UnityCatalogReport:
         return self.report
@@ -203,6 +217,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             config.warehouse_id,
             report=self.report,
             hive_metastore_proxy=self.hive_metastore_proxy,
+            lineage_data_source=config.lineage_data_source,
+            databricks_api_page_size=config.databricks_api_page_size,
         )
 
         self.external_url_base = urljoin(self.config.workspace_url, "/explore/data")
@@ -235,9 +251,27 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()
         if self.ctx.graph:
-            self.platform_resource_repository = PlatformResourceRepository(
-                self.ctx.graph
+            self.platform_resource_repository = UnityCatalogPlatformResourceRepository(
+                self.ctx.graph, platform_instance=self.platform_instance_name
             )
+        else:
+            self.platform_resource_repository = None
+
+        if self.config._forced_disable_tag_extraction:
+            self.report.report_warning(
+                "Some features disabled because of configuration conflicts",
+                "Tag Extraction is disabled due to missing warehouse_id in config",
+            )
+
+        if self.config._forced_disable_hive_metastore_extraction:
+            self.report.report_warning(
+                "Some features disabled because of configuration conflicts",
+                "Hive Metastore Extraction is disabled due to missing warehouse_id in config",
+            )
+
+        # Include platform resource repository in report for automatic cache statistics
+        if self.config.include_tags and self.platform_resource_repository:
+            self.report.tag_urn_resolver_cache = self.platform_resource_repository
 
     def init_hive_metastore_proxy(self):
         self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
@@ -410,12 +444,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         self.config.workspace_url, f"#notebook/{notebook.id}"
                     ),
                     created=(
-                        TimeStampClass(int(notebook.created_at.timestamp() * 1000))
+                        TimeStampClass(make_ts_millis(notebook.created_at))
                         if notebook.created_at
                         else None
                     ),
                     lastModified=(
-                        TimeStampClass(int(notebook.modified_at.timestamp() * 1000))
+                        TimeStampClass(make_ts_millis(notebook.modified_at))
                         if notebook.modified_at
                         else None
                     ),
@@ -434,17 +468,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if not notebook.upstreams:
             return None
 
+        upstreams = []
+        for upstream_ref in notebook.upstreams:
+            timestamp = make_ts_millis(upstream_ref.last_updated)
+            upstreams.append(
+                self._create_upstream_class(
+                    self.gen_dataset_urn(upstream_ref),
+                    DatasetLineageTypeClass.COPY,
+                    timestamp,
+                )
+            )
+
         return MetadataChangeProposalWrapper(
             entityUrn=self.gen_notebook_urn(notebook),
-            aspect=UpstreamLineageClass(
-                upstreams=[
-                    UpstreamClass(
-                        dataset=self.gen_dataset_urn(upstream_ref),
-                        type=DatasetLineageTypeClass.COPY,
-                    )
-                    for upstream_ref in notebook.upstreams
-                ]
-            ),
+            aspect=UpstreamLineageClass(upstreams=upstreams),
         ).as_workunit()
 
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
@@ -463,14 +500,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self, metastore: Optional[Metastore]
     ) -> Iterable[MetadataWorkUnit]:
         for catalog in self._get_catalogs(metastore):
-            if not self.config.catalog_pattern.allowed(catalog.id):
-                self.report.catalogs.dropped(catalog.id)
-                continue
+            with self.report.new_stage(f"Ingest catalog {catalog.id}"):
+                if not self.config.catalog_pattern.allowed(catalog.id):
+                    self.report.catalogs.dropped(catalog.id)
+                    continue
 
-            yield from self.gen_catalog_containers(catalog)
-            yield from self.process_schemas(catalog)
+                yield from self.gen_catalog_containers(catalog)
+                yield from self.process_schemas(catalog)
 
-            self.report.catalogs.processed(catalog.id)
+                self.report.catalogs.processed(catalog.id)
 
     def _get_catalogs(self, metastore: Optional[Metastore]) -> Iterable[Catalog]:
         if self.config.catalogs:
@@ -493,6 +531,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self.gen_schema_containers(schema)
                 try:
                     yield from self.process_tables(schema)
+                    yield from self.process_ml_models(schema)
                 except Exception as e:
                     logger.exception(f"Error parsing schema {schema}")
                     self.report.report_warning(
@@ -646,10 +685,85 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
         ]
 
+    def process_ml_models(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
+        for ml_model in self.unity_catalog_api_proxy.ml_models(
+            schema=schema, max_results=self.config.ml_model_max_results
+        ):
+            yield from self.process_ml_model(ml_model, schema)
+            ml_model_urn = self.gen_ml_model_urn(ml_model.id)
+            for ml_model_version in self.unity_catalog_api_proxy.ml_model_versions(
+                ml_model, include_aliases=self.config.include_ml_model_aliases
+            ):
+                yield from self.process_ml_model_version(
+                    ml_model_urn, ml_model_version, schema
+                )
+
+    def process_ml_model(
+        self, ml_model: Model, schema: Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        ml_model_group = MLModelGroup(
+            id=ml_model.id,
+            name=ml_model.name,
+            platform=self.platform,
+            platform_instance=schema.name,
+            env=self.config.env,
+            description=ml_model.description,
+            created=ml_model.created_at,
+            last_modified=ml_model.updated_at,
+        )
+        yield from ml_model_group.as_workunits()
+        yield from self.add_model_to_schema_container(str(ml_model_group.urn), schema)
+        self.report.ml_models.processed(ml_model.id)
+
+    def process_ml_model_version(
+        self, ml_model_urn: str, ml_model_version: ModelVersion, schema: Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        extra_aspects = []
+        if ml_model_version.created_at is not None:
+            created_time = int(ml_model_version.created_at.timestamp() * 1000)
+            created_actor = (
+                f"urn:li:platformResource:{ml_model_version.created_by}"
+                if ml_model_version.created_by
+                else None
+            )
+            extra_aspects.append(
+                MLModelPropertiesClass(
+                    created=TimeStampClass(time=created_time, actor=created_actor),
+                )
+            )
+
+        ml_model = MLModel(
+            id=ml_model_version.id,
+            name=ml_model_version.name,
+            version=str(ml_model_version.version),
+            aliases=ml_model_version.aliases,
+            description=ml_model_version.description,
+            model_group=ml_model_urn,
+            platform=self.platform,
+            last_modified=ml_model_version.updated_at,
+            extra_aspects=extra_aspects,
+        )
+
+        yield from ml_model.as_workunits()
+        yield from self.add_model_version_to_schema_container(str(ml_model.urn), schema)
+        self.report.ml_model_versions.processed(ml_model_version.id)
+
     def ingest_lineage(self, table: Table) -> Optional[UpstreamLineageClass]:
+        # Calculate datetime filters for lineage
+        lineage_start_time = None
+        lineage_end_time = self.config.end_time
+
+        if self.config.ignore_start_time_lineage:
+            lineage_start_time = None  # Ignore start time to get all lineage
+        else:
+            lineage_start_time = self.config.start_time
+
         if self.config.include_table_lineage:
             self.unity_catalog_api_proxy.table_lineage(
-                table, include_entity_lineage=self.config.include_notebooks
+                table,
+                include_entity_lineage=self.config.include_notebooks,
+                start_time=lineage_start_time,
+                end_time=lineage_end_time,
             )
 
         if self.config.include_column_lineage and table.upstreams:
@@ -661,7 +775,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 for column in table.columns[: self.config.column_lineage_column_limit]
             ]
             self.unity_catalog_api_proxy.get_column_lineage(
-                table, column_names, max_workers=self.config.lineage_max_workers
+                table,
+                column_names,
+                max_workers=self.config.lineage_max_workers,
+                start_time=lineage_start_time,
+                end_time=lineage_end_time,
             )
 
         return self._generate_lineage_aspect(self.gen_dataset_urn(table.ref), table)
@@ -690,18 +808,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 for d_col, u_cols in sorted(downstream_to_upstream_cols.items())
             )
 
+            timestamp = make_ts_millis(upstream_ref.last_updated)
             upstreams.append(
-                UpstreamClass(
-                    dataset=upstream_urn,
-                    type=DatasetLineageTypeClass.TRANSFORMED,
+                self._create_upstream_class(
+                    upstream_urn,
+                    DatasetLineageTypeClass.TRANSFORMED,
+                    timestamp,
                 )
             )
 
-        for notebook in table.upstream_notebooks:
+        for notebook in table.upstream_notebooks.values():
+            timestamp = make_ts_millis(notebook.last_updated)
             upstreams.append(
-                UpstreamClass(
-                    dataset=self.gen_notebook_urn(notebook),
-                    type=DatasetLineageTypeClass.TRANSFORMED,
+                self._create_upstream_class(
+                    self.gen_notebook_urn(notebook.id),
+                    DatasetLineageTypeClass.TRANSFORMED,
+                    timestamp,
                 )
             )
 
@@ -763,6 +885,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
         )
 
+    def gen_ml_model_urn(self, name: str) -> str:
+        return make_ml_model_group_urn(
+            platform=self.platform,
+            group_name=name,
+            env=self.config.env,
+        )
+
     def gen_notebook_urn(self, notebook: Union[Notebook, NotebookId]) -> str:
         notebook_id = notebook.id if isinstance(notebook, Notebook) else notebook
         return NotebookKey(
@@ -770,6 +899,31 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             instance=self.config.platform_instance,
         ).as_urn()
+
+    def _create_upstream_class(
+        self,
+        dataset_urn: str,
+        lineage_type: Union[str, DatasetLineageTypeClass],
+        timestamp: Optional[int],
+    ) -> UpstreamClass:
+        """
+        Helper method to create UpstreamClass with optional audit stamp.
+        If timestamp is None, audit stamp is omitted.
+        """
+        if timestamp is not None:
+            return UpstreamClass(
+                dataset=dataset_urn,
+                type=lineage_type,
+                auditStamp=AuditStampClass(
+                    time=timestamp,
+                    actor=UNKNOWN_USER,
+                ),
+            )
+        else:
+            return UpstreamClass(
+                dataset=dataset_urn,
+                type=lineage_type,
+            )
 
     def gen_schema_containers(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(f"{schema.catalog.name}.{schema.name}")
@@ -909,6 +1063,26 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             dataset_urn=dataset_urn,
         )
 
+    def add_model_to_schema_container(
+        self, model_urn: str, schema: Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_container_key = self.gen_schema_key(schema)
+        yield from add_entity_to_container(
+            container_key=schema_container_key,
+            entity_type=MlModelGroupUrn.ENTITY_TYPE,
+            entity_urn=model_urn,
+        )
+
+    def add_model_version_to_schema_container(
+        self, model_version_urn: str, schema: Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_container_key = self.gen_schema_key(schema)
+        yield from add_entity_to_container(
+            container_key=schema_container_key,
+            entity_type=MlModelUrn.ENTITY_TYPE,
+            entity_urn=model_version_urn,
+        )
+
     def _get_catalog_tags(
         self, catalog: str, schema: str, table: str
     ) -> List[UnityCatalogTag]:
@@ -961,16 +1135,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         created: Optional[TimeStampClass] = None
         if table.created_at:
             custom_properties["created_at"] = str(table.created_at)
-            created = TimeStampClass(
-                int(table.created_at.timestamp() * 1000),
-                make_user_urn(table.created_by) if table.created_by else None,
-            )
+            created_ts = make_ts_millis(table.created_at)
+            if created_ts is not None:
+                created = TimeStampClass(
+                    created_ts,
+                    make_user_urn(table.created_by) if table.created_by else None,
+                )
         last_modified = created
         if table.updated_at:
-            last_modified = TimeStampClass(
-                int(table.updated_at.timestamp() * 1000),
-                table.updated_by and make_user_urn(table.updated_by),
-            )
+            updated_ts = make_ts_millis(table.updated_at)
+            if updated_ts is not None:
+                last_modified = TimeStampClass(
+                    updated_ts,
+                    table.updated_by and make_user_urn(table.updated_by),
+                )
 
         return DatasetPropertiesClass(
             name=table.name,
@@ -1022,25 +1200,49 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             materialized=False, viewLanguage="SQL", viewLogic=table.view_definition
         )
 
+    def get_or_create_from_unity_tag(
+        self,
+        unity_tag: UnityCatalogTag,
+        platform_instance: Optional[str],
+        managed_by_datahub: bool = False,
+    ) -> UnityCatalogTagPlatformResource:
+        """
+        Optimized helper to get or create a Unity Catalog tag platform resource.
+        This eliminates the duplicate search by skipping the from_tag method which was
+        doing a redundant search before get_from_datahub.
+        """
+        # Create the platform resource ID directly without the from_tag search
+        platform_resource_id = UnityCatalogTagPlatformResourceId(
+            tag_key=unity_tag.key.raw_text,
+            tag_value=unity_tag.value.raw_text if unity_tag.value is not None else None,
+            platform_instance=platform_instance,
+            exists_in_unity_catalog=True,  # We got it from Unity Catalog
+            persisted=False,
+        )
+
+        # Use the repository's get_entity_from_datahub method which handles
+        # searching and caching internally - this is the ONLY search we need
+        if self.platform_resource_repository is None:
+            raise ValueError("Platform resource repository not initialized")
+        return self.platform_resource_repository.get_entity_from_datahub(
+            platform_resource_id,
+            managed_by_datahub,
+        )
+
     def gen_platform_resources(
         self, tags: List[UnityCatalogTag]
     ) -> Iterable[MetadataWorkUnit]:
         if self.ctx.graph and self.platform_resource_repository:
             for tag in tags:
                 try:
-                    platform_resource_id = UnityCatalogTagPlatformResourceId.from_tag(
-                        platform_instance=self.platform_instance_name,
-                        platform_resource_repository=self.platform_resource_repository,
-                        tag=tag,
+                    # Use optimized helper method that combines ID creation and entity retrieval
+                    unity_catalog_tag = self.get_or_create_from_unity_tag(
+                        tag,
+                        self.platform_instance_name,
+                        managed_by_datahub=False,
                     )
-                    logger.debug(f"Created platform resource {platform_resource_id}")
-
-                    unity_catalog_tag = (
-                        UnityCatalogTagPlatformResource.get_from_datahub(
-                            platform_resource_id,
-                            self.platform_resource_repository,
-                            False,
-                        )
+                    logger.debug(
+                        f"Retrieved/created platform resource for tag {tag.key.raw_text}"
                     )
                     if (
                         tag.to_datahub_tag_urn().urn()

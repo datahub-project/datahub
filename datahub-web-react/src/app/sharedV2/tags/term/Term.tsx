@@ -49,10 +49,11 @@ export default function Term(props: Props) {
     const { term, readOnly, showOneAndCount } = props;
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
+    const previewContext = { propagationDetails: { context: props.context, attribution: term.attribution } };
 
     if (readOnly) {
         return (
-            <HoverEntityTooltip entity={term.term}>
+            <HoverEntityTooltip entity={term.term} previewContext={previewContext}>
                 <TermWrapper $showOneAndCount={showOneAndCount}>
                     <TermContent {...props} />
                 </TermWrapper>
@@ -61,7 +62,7 @@ export default function Term(props: Props) {
     }
 
     return (
-        <HoverEntityTooltip entity={term.term} width={250}>
+        <HoverEntityTooltip entity={term.term} width={250} previewContext={previewContext}>
             <TermLink
                 to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                 key={term.term.urn}

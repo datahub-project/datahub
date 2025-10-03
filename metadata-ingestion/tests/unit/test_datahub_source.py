@@ -304,4 +304,5 @@ def test_get_rows_for_date_range_exclude_aspects(mock_reader):
     # Assert
     called_params = mock_reader.execute_server_cursor.call_args[0][1]
     assert "exclude_aspects" in called_params
+    assert isinstance(called_params["exclude_aspects"], tuple)
     assert called_params["exclude_aspects"] == ("aspect1", "aspect2")

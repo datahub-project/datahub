@@ -71,7 +71,7 @@ class CorpGroup(BaseModel):
     _rename_admins_to_owners = pydantic_renamed_field("admins", "owners")
 
     @pydantic.validator("owners", "members", each_item=True)
-    def make_urn_if_needed(v):
+    def make_urn_if_needed(cls, v):
         if isinstance(v, str):
             return builder.make_user_urn(v)
         return v

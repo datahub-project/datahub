@@ -9,6 +9,7 @@ import { RightSidebar } from '@app/homeV2/layout/RightSidebar';
 import { NavBarStateType, useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import PersonalizationLoadingModal from '@app/homeV2/persona/PersonalizationLoadingModal';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
+import { WelcomeToDataHubModal } from '@app/onboarding/WelcomeToDataHubModal';
 import { HOME_PAGE_DOMAINS_ID, HOME_PAGE_PLATFORMS_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
 import {
     GLOBAL_WELCOME_TO_ACRYL_ID,
@@ -69,6 +70,7 @@ export const HomePage = () => {
                 </Container>
             </SearchablePage>
             <PersonalizationLoadingModal />
+            <WelcomeToDataHubModal />
         </>
     );
 };

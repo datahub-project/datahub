@@ -12,6 +12,7 @@ export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement
     isRequired?: boolean;
     onCheckboxChange?: () => void;
     size?: SizeOptions;
+    dataTestId?: string;
 }
 
 export interface CheckboxGroupProps {

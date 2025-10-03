@@ -23,10 +23,14 @@ _self_pin = (
 
 
 base_requirements = {
-    f"acryl-datahub[datahub-rest]{_self_pin}",
+    f"acryl-datahub[sql-parser,datahub-rest]{_self_pin}",
     "pydantic>=2.4.0",
     # We require Airflow 2.7.x at minimum, to be compatible with the native Airflow Openlineage provider.
     "apache-airflow>=2.7.0,<3",
+    # We remain restrictive on the versions allowed here to prevent
+    # us from being broken by backwards-incompatible changes in the
+    # underlying package.
+    "openlineage-airflow>=1.2.0,<=1.30.1",
 }
 
 plugins: Dict[str, Set[str]] = {
@@ -39,18 +43,10 @@ plugins: Dict[str, Set[str]] = {
     "datahub-file": {
         f"acryl-datahub[sync-file-emitter]{_self_pin}",
     },
-    "plugin-v2": {
-        f"acryl-datahub[sql-parser]{_self_pin}",
-        # We remain restrictive on the versions allowed here to prevent
-        # us from being broken by backwards-incompatible changes in the
-        # underlying package.
-        "openlineage-airflow>=1.2.0,<=1.30.1",
-    },
 }
 
 # Require some plugins by default.
 base_requirements.update(plugins["datahub-rest"])
-base_requirements.update(plugins["plugin-v2"])
 
 
 mypy_stubs = {
@@ -72,7 +68,7 @@ dev_requirements = {
     *base_requirements,
     *mypy_stubs,
     "coverage>=5.1",
-    "mypy==1.14.1",
+    "mypy==1.17.1",
     "ruff==0.11.7",
     "pytest>=6.2.2",
     "pytest-cov>=2.8.1",

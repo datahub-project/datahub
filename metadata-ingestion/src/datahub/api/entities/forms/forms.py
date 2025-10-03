@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Optional, Union
 
 import yaml
-from pydantic import validator
+from pydantic import Field, validator
 from ruamel.yaml import YAML
 from typing_extensions import Literal
 
@@ -67,7 +67,7 @@ class Prompt(ConfigModel):
     description: Optional[str] = None
     type: str
     structured_property_id: Optional[str] = None
-    structured_property_urn: Optional[str] = None
+    structured_property_urn: Optional[str] = Field(default=None, validate_default=True)
     required: Optional[bool] = None
 
     @validator("structured_property_urn", pre=True, always=True)
@@ -111,7 +111,7 @@ class Actors(ConfigModel):
 
 class Forms(ConfigModel):
     id: Optional[str] = None
-    urn: Optional[str] = None
+    urn: Optional[str] = Field(default=None, validate_default=True)
     name: str
     description: Optional[str] = None
     prompts: List[Prompt] = []

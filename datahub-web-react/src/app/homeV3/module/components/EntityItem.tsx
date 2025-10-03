@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
+import { useGetModalLinkProps } from '@app/sharedV2/modals/useGetModalLinkProps';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { DataHubPageModuleType, Entity } from '@types';
@@ -34,6 +36,8 @@ export default function EntityItem({
     padding,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
+    const linkProps = useGetModalLinkProps();
+    const { templateType } = usePageTemplateContext();
 
     const sendAnalytics = useCallback(
         () =>
@@ -41,8 +45,9 @@ export default function EntityItem({
                 type: EventType.HomePageTemplateModuleAssetClick,
                 moduleType,
                 assetUrn: entity.urn,
+                location: templateType,
             }),
-        [entity.urn, moduleType],
+        [entity.urn, moduleType, templateType],
     );
 
     return (
@@ -60,7 +65,11 @@ export default function EntityItem({
                     onClick={sendAnalytics}
                 />
             ) : (
-                <StyledLink to={entityRegistry.getEntityUrl(entity.type, entity.urn)} onClick={sendAnalytics}>
+                <StyledLink
+                    to={entityRegistry.getEntityUrl(entity.type, entity.urn)}
+                    onClick={sendAnalytics}
+                    {...linkProps}
+                >
                     <AutoCompleteEntityItem
                         entity={entity}
                         key={entity.urn}

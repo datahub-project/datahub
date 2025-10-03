@@ -21,6 +21,11 @@ record DataHubPageTemplateProperties  {
   rows: array[DataHubPageTemplateRow]
 
   /**
+   * The optional info for asset summaries. Should be populated if surfaceType is ASSET_SUMMARY
+   */
+  assetSummary: optional DataHubPageTemplateAssetSummary
+
+  /**
    * Info about the surface area of the product that this template is deployed in
    */
   surface: DataHubPageTemplateSurface

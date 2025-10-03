@@ -62,6 +62,7 @@ public class PlatformEventProcessorTest {
 
     // Create mock MetricUtils
     mockMetricUtils = mock(MetricUtils.class);
+    when(mockMetricUtils.getRegistry()).thenReturn(new SimpleMeterRegistry());
     when(mockOperationContext.getMetricUtils()).thenReturn(Optional.of(mockMetricUtils));
 
     // Create mock hooks
@@ -133,6 +134,8 @@ public class PlatformEventProcessorTest {
     // Setup
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1, mockHook2);
     processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    // Set the consumer group ID
+    setConsumerGroupId(processor, "generic-platform-event-job-client");
 
     try (MockedStatic<EventUtils> mockedEventUtils = Mockito.mockStatic(EventUtils.class)) {
       mockedEventUtils
@@ -161,6 +164,8 @@ public class PlatformEventProcessorTest {
     // Setup
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1);
     processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    // Set the consumer group ID
+    setConsumerGroupId(processor, "generic-platform-event-job-client");
 
     try (MockedStatic<EventUtils> mockedEventUtils = Mockito.mockStatic(EventUtils.class)) {
       mockedEventUtils
@@ -189,6 +194,8 @@ public class PlatformEventProcessorTest {
     // Setup
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1, mockHook2);
     processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    // Set the consumer group ID
+    setConsumerGroupId(processor, "generic-platform-event-job-client");
 
     // Make first hook throw exception
     doThrow(new RuntimeException("Hook 1 failed"))
@@ -224,6 +231,8 @@ public class PlatformEventProcessorTest {
     // Setup
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1, mockHook2);
     processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    // Set the consumer group ID
+    setConsumerGroupId(processor, "generic-platform-event-job-client");
 
     // Make both hooks throw exceptions
     doThrow(new RuntimeException("Hook 1 failed"))
@@ -283,6 +292,8 @@ public class PlatformEventProcessorTest {
     // Setup
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1);
     processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    // Set the consumer group ID
+    setConsumerGroupId(processor, "generic-platform-event-job-client");
 
     // Set up specific consumer record values
     String expectedKey = "test-key-123";
@@ -321,7 +332,8 @@ public class PlatformEventProcessorTest {
       // Verify that the consumer record methods were called
       // Note: some methods may be called multiple times (e.g., for logging and metrics)
       verify(specificMockRecord, times(1)).key();
-      verify(specificMockRecord, times(1)).topic();
+      verify(specificMockRecord, times(2))
+          .topic(); // Called twice: once for metrics, once for logging
       verify(specificMockRecord, times(1)).partition();
       verify(specificMockRecord, times(1)).offset();
       verify(specificMockRecord, times(2))
@@ -336,6 +348,8 @@ public class PlatformEventProcessorTest {
     // Setup
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1);
     processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    // Set the consumer group ID
+    setConsumerGroupId(processor, "generic-platform-event-job-client");
 
     PlatformEvent event1 = mock(PlatformEvent.class);
     when(event1.getName()).thenReturn("Event1");
@@ -389,6 +403,8 @@ public class PlatformEventProcessorTest {
     // Setup
     List<PlatformEventHook> hooks = Arrays.asList(mockHook1);
     processor = new PlatformEventProcessor(mockOperationContext, hooks);
+    // Set the consumer group ID
+    setConsumerGroupId(processor, "generic-platform-event-job-client");
 
     ConsumerRecord<String, GenericRecord> nullValueRecord = mock(ConsumerRecord.class);
     when(nullValueRecord.value()).thenReturn(null);
@@ -422,7 +438,7 @@ public class PlatformEventProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(mockMetricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set the consumer group ID via reflection
     setConsumerGroupId(processor, "generic-platform-event-job-client");
@@ -469,7 +485,7 @@ public class PlatformEventProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(mockMetricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");
@@ -534,7 +550,7 @@ public class PlatformEventProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(mockMetricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");
@@ -578,7 +594,7 @@ public class PlatformEventProcessorTest {
   @Test
   public void testMicrometerMetricsAbsentWhenRegistryNotPresent() throws Exception {
     // Configure the mock metricUtils to return empty Optional (no registry)
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.empty());
+    when(mockMetricUtils.getRegistry()).thenReturn(new SimpleMeterRegistry());
 
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");
@@ -608,7 +624,7 @@ public class PlatformEventProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(mockMetricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set a custom consumer group ID
     String customConsumerGroup = "custom-platform-event-consumer";
@@ -645,7 +661,7 @@ public class PlatformEventProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(mockMetricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");
@@ -705,7 +721,7 @@ public class PlatformEventProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(mockMetricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");

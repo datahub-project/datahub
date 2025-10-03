@@ -2,20 +2,23 @@ import Icon from '@ant-design/icons/lib/components/Icon';
 import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import EntityIcon from '@app/entity/shared/components/styled/EntityIcon';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { ValueColumnData } from '@app/entityV2/shared/tabs/Properties/types';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Tooltip, colors } from '@src/alchemy-components';
 import { getSchemaFieldParentLink } from '@src/app/entityV2/schemaField/utils';
 import { CompactEntityNameComponent } from '@src/app/recommendations/renderer/component/CompactEntityNameComponent';
-import { Entity, EntityType } from '@src/types.generated';
+import { Entity, EntityType, MetadataAttribution } from '@src/types.generated';
 
 import ExternalLink from '@images/link-out.svg?react';
 
-const ValueText = styled(Typography.Text)<{ size: number }>`
+const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean }>`
     font-family: 'Manrope';
     font-weight: 400;
     font-size: ${(props) => props.size}px;
@@ -25,6 +28,14 @@ const ValueText = styled(Typography.Text)<{ size: number }>`
     .remirror-editor.ProseMirror {
         font-size: ${(props) => props.size}px;
     }
+
+    ${(props) =>
+        props.$isProposed &&
+        `
+            :hover {
+                cursor: pointer;
+        }
+        `}
 `;
 
 const StyledIcon = styled(Icon)`
@@ -36,9 +47,46 @@ const IconWrapper = styled.span`
     display: flex;
 `;
 
-const EntityWrapper = styled.div`
+const EntityWrapper = styled.div<{ $isProposed?: boolean }>`
     display: flex;
     align-items: center;
+    ${(props) =>
+        props.$isProposed &&
+        `
+    border: 1px dashed ${colors.gray[200]};
+    padding: 2px 4px;
+    margin: 2px 0;
+    border-radius: 200px;
+    background-color: ${colors.white};
+    `}
+`;
+
+const BorderedContainer = styled.div<{ $isProposed?: boolean; $isStraightBorder?: boolean }>`
+    span {
+        color: ${colors.gray[500]};
+    }
+
+    ${(props) =>
+        props.$isProposed &&
+        `
+        display: inline-flex;
+        border: 1px dashed ${colors.gray[200]};
+        padding: 2px 6px;
+        margin: 2px 0;
+        border-radius:  ${props.$isStraightBorder ? '8px' : '200px'};
+        background-color: ${colors.white};
+        max-width: 100%;
+        `}
+`;
+
+const Container = styled.div`
+    display: inline-flex;
+    max-width: 100%;
+    width: 100%;
+`;
+
+const ViewerContainer = styled.div`
+    max-width: calc(100% - 16px);
 `;
 
 const EntityName = styled(Typography.Text)`
@@ -70,6 +118,7 @@ interface Props {
     isFieldColumn?: boolean;
     size?: number;
     hydratedEntityMap?: Record<string, Entity>;
+    attribution?: MetadataAttribution | null;
 }
 
 export default function StructuredPropertyValue({
@@ -80,6 +129,7 @@ export default function StructuredPropertyValue({
     isFieldColumn,
     size = 12,
     hydratedEntityMap,
+    attribution,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
@@ -103,42 +153,50 @@ export default function StructuredPropertyValue({
                     <EntityName ellipsis={{ tooltip: true }}>
                         {entityRegistry.getDisplayName(value.entity.type, value.entity)}
                     </EntityName>
-                    <Typography.Link href={getEntityLink(value.entity)} target="_blank" rel="noopener noreferrer">
+                    <Link to={getEntityLink(value.entity)} target="_blank" rel="noopener noreferrer">
                         <StyledIcon component={ExternalLink} />
-                    </Typography.Link>
+                    </Link>
                 </EntityWrapper>
             );
         }
     }
 
     return (
-        <ValueText size={size}>
-            {value.entity ? (
-                valueEntityRender
-            ) : (
-                <>
-                    {isRichText ? (
-                        <CompactMarkdownViewer
-                            content={value.value?.toString() ?? ''}
-                            lineLimit={isFieldColumn ? 1 : undefined}
-                            hideShowMore={isFieldColumn}
-                            scrollableY={!isFieldColumn}
-                        />
-                    ) : (
-                        <>
-                            {truncateText ? (
-                                <Typography.Text ellipsis={{ tooltip: true }}>
-                                    {value.value?.toString() || <div style={{ minHeight: 22 }} />}
-                                </Typography.Text>
-                            ) : (
-                                <StyledHighlight search={filterText} truncateText={truncateText}>
-                                    {value.value?.toString() || <div style={{ minHeight: 22 }} />}
-                                </StyledHighlight>
-                            )}
-                        </>
-                    )}
-                </>
-            )}
-        </ValueText>
+        <Tooltip title={attribution && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}>
+            <ValueText size={size}>
+                {value.entity ? (
+                    valueEntityRender
+                ) : (
+                    <BorderedContainer $isStraightBorder={isRichText && !isFieldColumn}>
+                        {isRichText ? (
+                            <Container>
+                                <ViewerContainer>
+                                    <CompactMarkdownViewer
+                                        content={value.value?.toString() ?? ''}
+                                        lineLimit={isFieldColumn ? 1 : undefined}
+                                        hideShowMore={isFieldColumn}
+                                        scrollableY={!isFieldColumn}
+                                    />
+                                </ViewerContainer>
+                            </Container>
+                        ) : (
+                            <>
+                                {truncateText ? (
+                                    <Typography.Text
+                                        ellipsis={{ tooltip: attribution ? { placement: 'bottom' } : true }}
+                                    >
+                                        {value.value?.toString() || <div style={{ minHeight: 22 }} />}
+                                    </Typography.Text>
+                                ) : (
+                                    <StyledHighlight search={filterText} truncateText={truncateText}>
+                                        {value.value?.toString() || <div style={{ minHeight: 22 }} />}
+                                    </StyledHighlight>
+                                )}
+                            </>
+                        )}
+                    </BorderedContainer>
+                )}
+            </ValueText>
+        </Tooltip>
     );
 }

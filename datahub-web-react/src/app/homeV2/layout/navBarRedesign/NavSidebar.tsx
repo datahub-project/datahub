@@ -14,8 +14,10 @@ import {
     UserCircle,
 } from '@phosphor-icons/react';
 import React, { useContext, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarHeader from '@app/homeV2/layout/navBarRedesign/NavBarHeader';
@@ -27,7 +29,10 @@ import {
     NavBarMenuItems,
 } from '@app/homeV2/layout/navBarRedesign/types';
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
+import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
+import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
@@ -38,6 +43,7 @@ import { useUpdateEducationStepsAllowList } from '@src/app/onboarding/useUpdateE
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
 import { EntityType } from '@src/types.generated';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import AcrylIcon from '@images/acryl-light-mark.svg?react';
 
@@ -71,7 +77,7 @@ const Spacer = styled.div`
     flex: 1;
 `;
 
-const DEFAULT_LOGO = '/assets/logos/acryl-dark-mark.svg';
+const DEFAULT_LOGO = 'assets/logos/acryl-dark-mark.svg';
 
 const MenuWrapper = styled.div`
     margin-top: 14px;
@@ -82,12 +88,16 @@ export const NavSidebar = () => {
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
 
-    const { isCollapsed, selectedKey, setSelectedKey } = useNavBarContext();
+    const { toggle, isCollapsed, selectedKey, setSelectedKey } = useNavBarContext();
     const appConfig = useAppConfig();
     const userContext = useUserContext();
     const me = useUserContext();
+    const isHomePage = useIsHomePage();
+    const location = useLocation();
+    const showHomepageRedesign = useShowHomePageRedesign();
 
     const { isUserInitializing } = useContext(OnboardingContext);
+    const { triggerModalTour } = useOnboardingTour();
     const { showOnboardingTour } = useHandleOnboardingTour();
     const { config } = useAppConfig();
     const logout = useGetLogoutHandler();
@@ -123,6 +133,12 @@ export const NavSidebar = () => {
         key: `helpMenu${value.label}`,
     })) as NavBarMenuDropdownItemElement[];
 
+    function handleHomeclick() {
+        if (isHomePage && showHomepageRedesign) {
+            toggle();
+        }
+    }
+
     const mainMenu: NavBarMenuItems = {
         items: [
             {
@@ -133,6 +149,7 @@ export const NavSidebar = () => {
                 key: 'home',
                 link: PageRoutes.ROOT,
                 onlyExactPathMapping: true,
+                onClick: () => handleHomeclick(),
             },
             {
                 type: NavBarMenuItemTypes.Group,
@@ -255,13 +272,24 @@ export const NavSidebar = () => {
                         title: 'Product Tour',
                         description: 'Take a quick tour of this page',
                         key: 'helpProductTour',
-                        onClick: showOnboardingTour,
+                        onClick: () => {
+                            if (isHomePage) {
+                                triggerModalTour();
+                            } else {
+                                // Track Product Tour button click for non-home pages
+                                analytics.event({
+                                    type: EventType.ProductTourButtonClickEvent,
+                                    originPage: location.pathname,
+                                });
+                                showOnboardingTour();
+                            }
+                        },
                     },
                     {
                         type: NavBarMenuItemTypes.DropdownElement,
                         title: 'GraphQL',
                         description: 'Explore the GraphQL API',
-                        link: HelpLinkRoutes.GRAPHIQL || null,
+                        link: resolveRuntimePath(HelpLinkRoutes.GRAPHIQL),
                         isExternalLink: true,
                         key: 'helpGraphQL',
                     },
@@ -269,7 +297,7 @@ export const NavSidebar = () => {
                         type: NavBarMenuItemTypes.DropdownElement,
                         title: 'OpenAPI',
                         description: 'Explore the OpenAPI endpoints',
-                        link: HelpLinkRoutes.OPENAPI,
+                        link: resolveRuntimePath(HelpLinkRoutes.OPENAPI),
                         isExternalLink: true,
                         key: 'helpOpenAPI',
                     },
@@ -290,7 +318,7 @@ export const NavSidebar = () => {
                 icon: <SignOut data-testid="log-out-menu-item" />,
                 key: 'signOut',
                 onClick: logout,
-                href: '/logOut',
+                href: resolveRuntimePath('/logOut'),
                 dataTestId: 'nav-sidebar-sign-out',
             },
         ],

@@ -26,14 +26,14 @@ import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/Sid
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
+import { getDataProduct, getFirstSubType, isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { GetContainerQuery, useGetContainerQuery } from '@graphql/container.generated';
 import { Container, EntityType, SearchResult } from '@types';
 
-const headerDropdownItems = new Set([EntityMenuItems.EXTERNAL_URL, EntityMenuItems.SHARE, EntityMenuItems.ANNOUNCE]);
+const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.ANNOUNCE]);
 
 /**
  * Definition of the DataHub Container entity.
@@ -59,10 +59,7 @@ export class ContainerEntity implements Entity<Container> {
         return (
             <FolderOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
@@ -190,7 +187,7 @@ export class ContainerEntity implements Entity<Container> {
         },
     ];
 
-    renderPreview = (_: PreviewType, data: Container) => {
+    renderPreview = (previewType: PreviewType, data: Container) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
@@ -210,6 +207,7 @@ export class ContainerEntity implements Entity<Container> {
                 entityCount={data.entities?.total}
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
+                previewType={previewType}
             />
         );
     };
@@ -242,6 +240,7 @@ export class ContainerEntity implements Entity<Container> {
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
@@ -253,7 +252,7 @@ export class ContainerEntity implements Entity<Container> {
             type: this.type,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
-            subtype: entity?.subTypes?.typeNames?.[0] || undefined,
+            subtype: getFirstSubType(entity) || undefined,
         };
     }
 

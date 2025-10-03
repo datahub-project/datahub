@@ -13,6 +13,7 @@ import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { GlobalCfg } from '@src/conf';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { EntityType } from '@types';
 
@@ -91,7 +92,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
             label: (
                 <MenuItemStyle key="profile">
                     <a
-                        href={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${_urn}`}
+                        href={resolveRuntimePath(`/${entityRegistry.getPathName(EntityType.CorpUser)}/${_urn}`)}
                         rel="noopener noreferrer"
                         tabIndex={0}
                     >
@@ -105,7 +106,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
             key: 'graphiQLLink',
             label: (
                 <MenuItemStyle key="graphiQLLink">
-                    <a href="/api/graphiql">GraphiQL</a>
+                    <a href={resolveRuntimePath('/api/graphiql')}>GraphiQL</a>
                 </MenuItemStyle>
             ),
         },
@@ -113,7 +114,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
             key: 'openapiLink',
             label: (
                 <MenuItemStyle key="openapiLink">
-                    <a href="/openapi/swagger-ui/index.html">OpenAPI</a>
+                    <a href={resolveRuntimePath('/openapi/swagger-ui/index.html')}>OpenAPI</a>
                 </MenuItemStyle>
             ),
         },
@@ -122,7 +123,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
             key: 'logout',
             label: (
                 <MenuItemStyle danger key="logout" tabIndex={0}>
-                    <a href="/logOut" onClick={handleLogout} data-testid="log-out-menu-item">
+                    <a href={resolveRuntimePath('/logOut')} onClick={handleLogout} data-testid="log-out-menu-item">
                         Sign Out
                     </a>
                 </MenuItemStyle>

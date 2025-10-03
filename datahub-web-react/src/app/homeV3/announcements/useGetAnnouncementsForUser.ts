@@ -1,17 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useGetLastViewedAnnouncementTime } from '@app/homeV2/shared/useGetLastViewedAnnouncementTime';
 
-import { useListPostsQuery } from '@graphql/post.generated';
+import { ListPostsQuery, useListPostsQuery } from '@graphql/post.generated';
 import { useUpdateUserHomePageSettingsMutation } from '@graphql/user.generated';
 import { FilterOperator, Post, PostContentType, PostType } from '@types';
 
 export const useGetAnnouncementsForUser = () => {
-    const { user } = useUserContext();
+    const { user, refetchUser } = useUserContext();
     const { time: lastViewedAnnouncementsTime, loading: lastViewedTimeLoading } = useGetLastViewedAnnouncementTime();
     const [updateUserHomePageSettings] = useUpdateUserHomePageSettingsMutation();
     const [newDismissedUrns, setNewDismissedUrns] = useState<string[]>([]);
+    const [postsData, setPostsData] = useState<ListPostsQuery | null>(null);
 
     const dismissedUrns = (user?.settings?.homePage?.dismissedAnnouncementUrns || []).filter((urn): urn is string =>
         Boolean(urn),
@@ -46,17 +47,18 @@ export const useGetAnnouncementsForUser = () => {
         orFilters: getUserPostsFilters(),
     };
 
-    const {
-        data: postsData,
-        loading,
-        error,
-        refetch,
-    } = useListPostsQuery({
+    const { data, loading, error, refetch } = useListPostsQuery({
         variables: {
             input: inputs,
         },
         skip: !user || lastViewedTimeLoading,
     });
+
+    useEffect(() => {
+        if (data) {
+            setPostsData(data);
+        }
+    }, [data]);
 
     const announcementsData: Post[] =
         postsData?.listPosts?.posts
@@ -73,6 +75,8 @@ export const useGetAnnouncementsForUser = () => {
                     newDismissedAnnouncements: [urn],
                 },
             },
+        }).then(() => {
+            refetchUser();
         });
     };
 

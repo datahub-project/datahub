@@ -12,6 +12,8 @@ import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
 import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 
 import { useGetGlossaryNodeQuery } from '@graphql/glossaryNode.generated';
 import { EntityType, GlossaryNode, SearchResult } from '@types';
@@ -63,23 +65,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
                 isNameEditable
                 hideBrowseBar
-                tabs={[
-                    {
-                        name: 'Contents',
-                        component: ChildrenTab,
-                    },
-                    {
-                        name: 'Documentation',
-                        component: DocumentationTab,
-                        properties: {
-                            hideLinksButton: true,
-                        },
-                    },
-                    {
-                        name: 'Properties',
-                        component: PropertiesTab,
-                    },
-                ]}
+                tabs={this.getProfileTabs()}
                 sidebarSections={this.getSidebarSections()}
                 headerDropdownItems={
                     new Set([
@@ -107,6 +93,40 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             component: SidebarStructuredPropsSection,
         },
     ];
+
+    getProfileTabs = () => {
+        const showSummaryTab = useShowAssetSummaryPage();
+
+        return [
+            ...(showSummaryTab
+                ? [
+                      {
+                          name: 'Summary',
+                          component: SummaryTab,
+                      },
+                  ]
+                : []),
+            {
+                name: 'Contents',
+                component: ChildrenTab,
+            },
+            ...(!showSummaryTab
+                ? [
+                      {
+                          name: 'Documentation',
+                          component: DocumentationTab,
+                          properties: {
+                              hideLinksButton: true,
+                          },
+                      },
+                  ]
+                : []),
+            {
+                name: 'Properties',
+                component: PropertiesTab,
+            },
+        ];
+    };
 
     displayName = (data: GlossaryNode) => {
         return data.properties?.name || data.urn;

@@ -129,14 +129,12 @@ USER datahub
 FROM ingestion-base-${APP_ENV} AS add-code
 
 COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
-COPY --chown=datahub ./metadata-ingestion-modules/airflow-plugin /airflow-plugin
 
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
 RUN test -d /metadata-ingestion/src/datahub/metadata  # codegen must be run prior to building the image
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
-    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 \
-    && python /version_updater.py --directory /airflow-plugin/ --version "$RELEASE_VERSION" --expected-update-count 1
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1
 
 FROM add-code AS install-slim
 
@@ -148,9 +146,8 @@ FROM add-code AS install-full
 
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install \
-        -e "/metadata-ingestion/[base,all]" \
-        -e "/airflow-plugin/[plugin-v2]" && \
-    datahub --version
+        -e "/metadata-ingestion/[all]" \
+    && datahub --version
 
 FROM install-${APP_ENV} AS final
 

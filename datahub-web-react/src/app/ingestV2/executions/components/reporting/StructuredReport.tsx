@@ -52,8 +52,8 @@ const ERROR_COLOR = colors.red[0];
 const ERROR_TEXT_COLOR = colors.red[1000];
 const WARNING_COLOR = colors.yellow[0];
 const WARNING_TEXT_COLOR = colors.yellow[1000];
-const INFO_COLOR = colors.gray[1500];
-const INFO_TEXT_COLOR = colors.gray[1700];
+const INFO_COLOR = colors.gray[1000];
+const INFO_TEXT_COLOR = colors.violet[500];
 
 interface Props {
     report: StructuredReportType;

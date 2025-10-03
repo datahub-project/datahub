@@ -83,13 +83,14 @@ Reference Links:
 
 ### Plugin Configuration
 
-| Environment Variable                        | Default                          | Description                                  | Components |
-| ------------------------------------------- | -------------------------------- | -------------------------------------------- | ---------- |
-| `PLUGIN_SECURITY_MODE`                      | `RESTRICTED`                     | Plugin security mode (RESTRICTED or LENIENT) | GMS        |
-| `ENTITY_REGISTRY_PLUGIN_PATH`               | `/etc/datahub/plugins/models`    | Path for entity registry plugins             | GMS        |
-| `ENTITY_REGISTRY_PLUGIN_LOAD_DELAY_SECONDS` | `60`                             | Rate at which plugin runnable executes       | GMS        |
-| `RETENTION_PLUGIN_PATH`                     | `/etc/datahub/plugins/retention` | Path for retention plugins                   | GMS        |
-| `AUTH_PLUGIN_PATH`                          | `/etc/datahub/plugins/auth`      | Path for auth plugins                        | GMS        |
+| Environment Variable                                 | Default                          | Description                                            | Components |
+| ---------------------------------------------------- | -------------------------------- | ------------------------------------------------------ | ---------- |
+| `PLUGIN_SECURITY_MODE`                               | `RESTRICTED`                     | Plugin security mode (RESTRICTED or LENIENT)           | GMS        |
+| `ENTITY_REGISTRY_PLUGIN_PATH`                        | `/etc/datahub/plugins/models`    | Path for entity registry plugins                       | GMS        |
+| `ENTITY_REGISTRY_PLUGIN_LOAD_DELAY_SECONDS`          | `60`                             | Rate at which plugin runnable executes                 | GMS        |
+| `IGNORE_FAILURE_WHEN_LOADING_ENTITY_REGISTRY_PLUGIN` | `true`                           | Whether to ignore failure when loading entity registry | GMS        |
+| `RETENTION_PLUGIN_PATH`                              | `/etc/datahub/plugins/retention` | Path for retention plugins                             | GMS        |
+| `AUTH_PLUGIN_PATH`                                   | `/etc/datahub/plugins/auth`      | Path for auth plugins                                  | GMS        |
 
 ### Metrics Configuration
 
@@ -332,17 +333,21 @@ Reference Links:
 
 #### Graph Search Configuration
 
-| Environment Variable                            | Default | Description                                  | Components |
-| ----------------------------------------------- | ------- | -------------------------------------------- | ---------- |
-| `ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS`    | `50`    | Graph DAO timeout seconds                    | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE`         | `1000`  | Graph DAO batch size                         | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH`  | `false` | Allow path retraversal for all paths         | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_BOOST_VIA_NODES`    | `true`  | Boost graph edges with via nodes             | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_STATUS_ENABLED`     | `false` | Enable soft delete tracking of URNs on edges | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS`   | `20`    | Maximum hops to traverse lineage graph       | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS`    | `1000`  | Maximum hops to traverse for impact analysis | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS` | `32`    | Maximum parallel lineage graph queries       | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION` | `true`  | Reduce query nesting if possible             | GMS        |
+| Environment Variable                                        | Default | Description                                                                     | Components |
+| ----------------------------------------------------------- | ------- | ------------------------------------------------------------------------------- | ---------- |
+| `ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS`                | `50`    | Graph DAO timeout seconds                                                       | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE`                     | `1000`  | Graph DAO batch size                                                            | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH`              | `false` | Allow path retraversal for all paths                                            | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_BOOST_VIA_NODES`                | `true`  | Boost graph edges with via nodes                                                | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_STATUS_ENABLED`                 | `false` | Enable soft delete tracking of URNs on edges                                    | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS`               | `20`    | Maximum hops to traverse lineage graph                                          | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS`                | `1000`  | Maximum hops to traverse for impact analysis (impact.maxHops)                   | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_RELATIONS`           | `40000` | Maximum number of relationships for impact analysis (impact.maxRelations)       | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SLICES`                  | `2`     | Number of slices for parallel search operations (impact.slices)                 | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_KEEP_ALIVE`              | `5m`    | Point-in-Time keepAlive duration for impact analysis queries (impact.keepAlive) | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS`             | `32`    | Maximum parallel lineage graph queries                                          | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION`             | `true`  | Reduce query nesting if possible                                                | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_POINT_IN_TIME_CREATION_ENABLED` | `true`  | Enable creation of point in time snapshots for graph queries                    | GMS        |
 
 ### Neo4j Configuration
 
@@ -465,7 +470,7 @@ Reference Links:
 
 Reference Links:
 
-- **Access Management**: [Access Management Feature](../features/feature-guides/access-management.md)
+- **Access Management**: [Access Management Feature](../features/feature-guides/access-roles.md)
 - **Structured Properties**: [Structured Properties Overview](../features/feature-guides/properties/overview.md)
 - **Lineage Features**: [Data Lineage](../features/feature-guides/lineage.md), [UI Lineage Management](../features/feature-guides/ui-lineage.md)
 - **Compliance Forms**: [Compliance Forms Overview](../features/feature-guides/compliance-forms/overview.md)
@@ -862,6 +867,47 @@ The following environment variables are used in the codebase but may not be expl
 | ----------------------- | ------------------- | ----------------------------------------- | ---------- |
 | `ENABLE_PUBLIC_READ`    | `false`             | Enable public read for Iceberg catalog    | GMS        |
 | `PUBLICLY_READABLE_TAG` | `PUBLICLY_READABLE` | Publicly readable tag for Iceberg catalog | GMS        |
+
+## Change Data Capture (CDC) Configuration
+
+Reference Links:
+
+- **MCP/MCL Documentation**: [MCP & MCL Events](../advanced/mcp-mcl.md)
+- **CDC Configuration Guide**: [Configure CDC Mode](../how/configure-cdc.md)
+
+DataHub supports CDC mode for MetadataChangeLog generation, which guarantees ordered MCL events matching the order of database writes. CDC mode is optional and disabled by default.
+
+### CDC Processing (Common)
+
+| Environment Variable                | Default                          | Description                                                          | Components                       |
+| ----------------------------------- | -------------------------------- | -------------------------------------------------------------------- | -------------------------------- |
+| `CDC_MCL_PROCESSING_ENABLED`        | `false`                          | Enable CDC mode for MCL generation                                   | GMS, MCE Consumer, System Update |
+| `CDC_CONFIGURE_SOURCE`              | `false`                          | Auto-configure Debezium connector (recommended false for production) | System Update                    |
+| `CDC_DB_TYPE`                       | `mysql`                          | Database type for CDC (mysql or postgres)                            | System Update                    |
+| `DATAHUB_CDC_CONNECTOR_NAME`        | `datahub-cdc-connector`          | Name of the Debezium connector                                       | System Update                    |
+| `CDC_KAFKA_CONNECT_URL`             | `http://kafka-connect:8083`      | Kafka Connect REST API URL                                           | System Update                    |
+| `CDC_KAFKA_CONNECT_REQUEST_TIMEOUT` | `10000`                          | Request timeout for Kafka Connect API calls in milliseconds          | System Update                    |
+| `CDC_USER`                          | `datahub_cdc`                    | Database username for CDC connector                                  | System Update                    |
+| `CDC_PASSWORD`                      | `datahub_cdc`                    | Database password for CDC connector                                  | System Update                    |
+| `CDC_TOPIC_NAME`                    | `datahub.metadata_aspect_v2`     | Kafka topic name for CDC events                                      | GMS, MCE Consumer, System Update |
+| `CDC_URN_KEY_SPEC`                  | `datahub.metadata_aspect_v2:urn` | Partitioning key specification (table:column format)                 | System Update                    |
+
+### CDC MySQL Configuration
+
+| Environment Variable       | Default                                      | Description                              | Components    |
+| -------------------------- | -------------------------------------------- | ---------------------------------------- | ------------- |
+| `DEBEZIUM_CONNECTOR_CLASS` | `io.debezium.connector.mysql.MySqlConnector` | Debezium connector class for MySQL       | System Update |
+| `DEBEZIUM_PLUGIN_NAME`     | `decoderbufs`                                | Logical decoding plugin for MySQL        | System Update |
+| `CDC_SERVER_ID`            | `184001`                                     | Unique server ID for MySQL CDC connector | System Update |
+
+### CDC PostgreSQL Configuration
+
+| Environment Variable       | Default                                              | Description                             | Components    |
+| -------------------------- | ---------------------------------------------------- | --------------------------------------- | ------------- |
+| `DEBEZIUM_CONNECTOR_CLASS` | `io.debezium.connector.postgresql.PostgresConnector` | Debezium connector class for PostgreSQL | System Update |
+| `DEBEZIUM_PLUGIN_NAME`     | `pgoutput`                                           | PostgreSQL logical decoding plugin      | System Update |
+| `CDC_INCLUDE_TABLE`        | `public.metadata_aspect_v2`                          | Tables to include in CDC capture        | System Update |
+| `CDC_INCLUDE_SCHEMA`       | `public`                                             | Schemas to include in CDC capture       | System Update |
 
 ## Component Configuration
 

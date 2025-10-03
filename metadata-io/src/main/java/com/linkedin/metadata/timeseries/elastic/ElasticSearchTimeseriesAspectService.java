@@ -124,7 +124,7 @@ public class ElasticSearchTimeseriesAspectService
             new ThreadPoolExecutor.CallerRunsPolicy());
     if (metricUtils != null) {
       MicrometerMetricsRegistry.registerExecutorMetrics(
-          "timeseries", this.queryPool, metricUtils.getRegistry().orElse(null));
+          "timeseries", this.queryPool, metricUtils.getRegistry());
     }
 
     this.entityRegistry = entityRegistry;

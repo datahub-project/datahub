@@ -1381,3 +1381,5 @@ def test_native_user_endpoints(auth_session):
     )
     remove_user_response.raise_for_status()
     assert "errors" not in remove_user_response
+
+

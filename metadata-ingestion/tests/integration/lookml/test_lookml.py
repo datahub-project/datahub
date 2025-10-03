@@ -1,6 +1,6 @@
 import logging
 import pathlib
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Union
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
@@ -35,6 +35,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     UpstreamLineageClass,
 )
+from datahub.sdk.entity import Entity
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import get_current_checkpoint_from_pipeline
@@ -1009,6 +1010,46 @@ def test_special_liquid_variables():
     assert actual_text == expected_text
 
 
+@freeze_time(FROZEN_TIME)
+def test_incremental_liquid_expression():
+    text: str = """SELECT 
+        user_id,
+        DATE(event_timestamp) as event_date,
+        COUNT(*) as daily_events,
+        SUM(revenue) as daily_revenue,
+        MAX(event_timestamp) as last_event_time
+      FROM warehouse.events.user_events
+      WHERE {% incrementcondition %} event_timestamp {% endincrementcondition %}
+        AND event_type IN ('purchase', 'signup', 'login')
+        AND user_id IS NOT NULL
+      GROUP BY 1, 2
+    """
+    input_liquid_variable: dict = {}
+
+    # Match template after resolution of liquid variables
+    actual_text = resolve_liquid_variable(
+        text=text,
+        liquid_variable=input_liquid_variable,
+        report=LookMLSourceReport(),
+        view_name="test",
+    )
+
+    expected_text: str = """SELECT 
+        user_id,
+        DATE(event_timestamp) as event_date,
+        COUNT(*) as daily_events,
+        SUM(revenue) as daily_revenue,
+        MAX(event_timestamp) as last_event_time
+      FROM warehouse.events.user_events
+      WHERE event_timestamp > '2023-01-01'
+        AND event_type IN ('purchase', 'signup', 'login')
+        AND user_id IS NOT NULL
+      GROUP BY 1, 2
+    """
+
+    assert actual_text == expected_text
+
+
 @pytest.mark.parametrize(
     "view, expected_result, warning_expected",
     [
@@ -1225,10 +1266,200 @@ def test_unreachable_views(pytestconfig):
         LookMLSourceConfig.parse_obj(config),
         ctx=PipelineContext(run_id="lookml-source-test"),
     )
-    wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
-    assert len(wu) == 15
+    workunits: List[Union[MetadataWorkUnit, Entity]] = [
+        *source.get_workunits_internal()
+    ]
+    converted_workunits: List[MetadataWorkUnit] = []
+    # Convert entities to metadata work units,
+    for workunit in workunits:
+        if isinstance(workunit, Entity):
+            converted_workunits.extend(workunit.as_workunits())
+        else:
+            converted_workunits.append(workunit)
+    # TODO: Not sure if asserting on num of workunits is extendable in the future
+    assert (
+        len(converted_workunits) == 22
+    )  # this num was updated when we converted entities to metadata work units part of SDKv2 migration
     assert source.reporter.warnings.total_elements == 1
     assert (
         "The Looker view file was skipped because it may not be referenced by any models."
         in [failure.message for failure in source.get_report().warnings]
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_col_lineage_looker_api_based(pytestconfig, tmp_path):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    golden_path = test_resources_dir / "lkml_col_lineage_looker_api_based_golden.json"
+    mce_out_file = "lkml_col_lineage_looker_api_based.json"
+    recipe = {
+        "run_id": "lookml-test",
+        "source": {
+            "type": "lookml",
+            "config": {
+                "base_folder": f"{test_resources_dir}/lkml_col_lineage_sample",
+                "connection_to_platform_map": {"my_connection": "postgres"},
+                "parse_table_names_from_sql": True,
+                "tag_measures_and_dimensions": False,
+                "project_name": "lkml_col_lineage_sample",
+                "use_api_for_view_lineage": True,
+                "api": {
+                    "client_id": "fake_client_id",
+                    "client_secret": "fake_secret",
+                    "base_url": "fake_account.looker.com",
+                },
+            },
+        },
+        "sink": {
+            "type": "file",
+            "config": {
+                "filename": f"{tmp_path / mce_out_file}",
+            },
+        },
+    }
+
+    # Mock SQL responses based on the dump file
+    mock_sql_responses = {
+        # For user_metrics view (fields starting with user_metrics.)
+        "user_metrics": """WITH user_metrics AS (SELECT
+           user_fk as user_id,
+           COUNT(DISTINCT pk) as purchase_count,
+           SUM(total_amount) as total_spent
+         FROM "ECOMMERCE"."PURCHASES"
+         GROUP BY user_id )
+SELECT
+    user_metrics.user_id  AS "user_metrics.user_id",
+    user_metrics.purchase_count  AS "user_metrics.purchase_count",
+    user_metrics.total_spent  AS "user_metrics.total_spent",
+    CASE
+           WHEN user_metrics.total_spent > 1000 THEN 'High Value'
+           WHEN user_metrics.total_spent > 500 THEN 'Medium Value'
+           ELSE 'Low Value'
+         END  AS "user_metrics.customer_segment",
+    COUNT(DISTINCT CASE WHEN  user_metrics.total_spent   > 1000 THEN ( users."PK"  ) END ) AS "user_metrics.high_value_customer_count"
+FROM "ECOMMERCE"."USERS"  AS customer_analysis
+LEFT JOIN user_metrics ON user_metrics.user_id = (customer_analysis."PK")
+INNER JOIN "ECOMMERCE"."USERS"  AS users ON (customer_analysis."PK") = (users."PK")
+GROUP BY
+    1,
+    2,
+    3,
+    4
+ORDER BY
+    5 DESC
+FETCH NEXT 1 ROWS ONLY""",
+        # For users view (fields starting with users.)
+        "users": """WITH user_metrics AS (SELECT
+           user_fk as user_id,
+           COUNT(DISTINCT pk) as purchase_count,
+           SUM(total_amount) as total_spent
+         FROM "ECOMMERCE"."PURCHASES"
+         GROUP BY user_id )
+SELECT
+    users."EMAIL"  AS "users.email",
+    users."PK"  AS "users.pk",
+    CASE
+        WHEN user_metrics.purchase_count <= 1 THEN 'First Purchase'
+        WHEN user_metrics.purchase_count <= 3 THEN 'Early Customer'
+        WHEN user_metrics.purchase_count <= 10 THEN 'Regular Customer'
+        ELSE 'Loyal Customer'
+      END  AS "users.user_purchase_status",
+    users."CREATED_AT"  AS "users.created_raw",
+    users."UPDATED_AT"  AS "users.updated_raw",
+    (TIMESTAMPDIFF(DAY, CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(users."CREATED_AT"  AS TIMESTAMP_NTZ)), CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(CURRENT_TIMESTAMP  AS TIMESTAMP_NTZ))) + CASE WHEN TIMESTAMPDIFF(SECOND, TO_DATE(CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(CURRENT_TIMESTAMP  AS TIMESTAMP_NTZ))), CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(CURRENT_TIMESTAMP  AS TIMESTAMP_NTZ))) = TIMESTAMPDIFF(SECOND, TO_DATE(CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(users."CREATED_AT"  AS TIMESTAMP_NTZ))), CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(users."CREATED_AT"  AS TIMESTAMP_NTZ))) THEN 0 WHEN TIMESTAMPDIFF(SECOND, TO_DATE(CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(CURRENT_TIMESTAMP  AS TIMESTAMP_NTZ))), CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(CURRENT_TIMESTAMP  AS TIMESTAMP_NTZ))) < TIMESTAMPDIFF(SECOND, TO_DATE(CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(users."CREATED_AT"  AS TIMESTAMP_NTZ))), CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(users."CREATED_AT"  AS TIMESTAMP_NTZ))) THEN CASE WHEN CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(users."CREATED_AT"  AS TIMESTAMP_NTZ)) < CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(CURRENT_TIMESTAMP  AS TIMESTAMP_NTZ)) THEN -1 ELSE 0 END ELSE CASE WHEN CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(users."CREATED_AT"  AS TIMESTAMP_NTZ)) > CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(CURRENT_TIMESTAMP  AS TIMESTAMP_NTZ)) THEN 1 ELSE 0 END END) AS "users.days_user_age",
+    COUNT(DISTINCT ( purchases."PK"  ) ) AS "users.lifetime_purchase_count",
+    COALESCE(CAST( ( SUM(DISTINCT (CAST(FLOOR(COALESCE( ( purchases."TOTAL_AMOUNT" ) ,0)*(1000000*1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5( users."PK"  ), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0) ) - SUM(DISTINCT (TO_NUMBER(MD5( users."PK"  ), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) )  AS DOUBLE PRECISION) / CAST((1000000*1.0) AS DOUBLE PRECISION), 0) AS "users.lifetime_total_purchase_amount",
+    COUNT(DISTINCT users."PK" ) AS "users.count"
+FROM "ECOMMERCE"."USERS"  AS customer_analysis
+LEFT JOIN "ECOMMERCE"."PURCHASES"  AS purchases ON (customer_analysis."PK") = (purchases."USER_FK")
+LEFT JOIN user_metrics ON user_metrics.user_id = (customer_analysis."PK")
+INNER JOIN "ECOMMERCE"."USERS"  AS users ON (customer_analysis."PK") = (users."PK")
+GROUP BY
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+ORDER BY
+    7 DESC
+FETCH NEXT 1 ROWS ONLY""",
+        # For purchases view (fields starting with purchases.)
+        "purchases": """SELECT
+    purchases."PK"  AS "purchases.pk",
+    purchases."PURCHASE_AMOUNT"  AS "purchases.purchase_amount",
+    purchases."STATUS"  AS "purchases.status",
+    purchases."TAX_AMOUNT"  AS "purchases.tax_amount",
+    purchases."TOTAL_AMOUNT"  AS "purchases.total_amount",
+    purchases."USER_FK"  AS "purchases.user_fk",
+        (CASE WHEN (purchases."TOTAL_AMOUNT") > 100  THEN 'Yes' ELSE 'No' END) AS "purchases.is_expensive_purchase",
+    (users."EMAIL")  AS "purchases.user_email",
+    purchases."CREATED_AT"  AS "purchases.created_raw",
+    purchases."UPDATED_AT"  AS "purchases.updated_raw",
+    (TIMESTAMPDIFF(DAY, CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(purchases."CREATED_AT"  AS TIMESTAMP_NTZ)), CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(CURRENT_TIMESTAMP  AS TIMESTAMP_NTZ))) + CASE WHEN TIMESTAMPDIFF(SECOND, TO_DATE(CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(CURRENT_TIMESTAMP  AS TIMESTAMP_NTZ))), CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(CURRENT_TIMESTAMP  AS TIMESTAMP_NTZ))) = TIMESTAMPDIFF(SECOND, TO_DATE(CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(purchases."CREATED_AT"  AS TIMESTAMP_NTZ))), CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(purchases."CREATED_AT"  AS TIMESTAMP_NTZ))) THEN 0 WHEN TIMESTAMPDIFF(SECOND, TO_DATE(CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(CURRENT_TIMESTAMP  AS TIMESTAMP_NTZ))), CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(CURRENT_TIMESTAMP  AS TIMESTAMP_NTZ))) < TIMESTAMPDIFF(SECOND, TO_DATE(CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(purchases."CREATED_AT"  AS TIMESTAMP_NTZ))), CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(purchases."CREATED_AT"  AS TIMESTAMP_NTZ))) THEN CASE WHEN CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(purchases."CREATED_AT"  AS TIMESTAMP_NTZ)) < CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(CURRENT_TIMESTAMP  AS TIMESTAMP_NTZ)) THEN -1 ELSE 0 END ELSE CASE WHEN CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(purchases."CREATED_AT"  AS TIMESTAMP_NTZ)) > CONVERT_TIMEZONE('UTC', 'America/Los_Angeles', CAST(CURRENT_TIMESTAMP  AS TIMESTAMP_NTZ)) THEN 1 ELSE 0 END END) AS "purchases.days_purchase_age",
+    COUNT(purchases."PK" ) AS "purchases.num_of_expensive_purchases",
+    AVG(( purchases."TOTAL_AMOUNT"  ) ) AS "purchases.average_purchase_value",
+    COUNT(purchases."PK" ) AS "purchases.count"
+FROM "ECOMMERCE"."USERS"  AS customer_analysis
+LEFT JOIN "ECOMMERCE"."PURCHASES"  AS purchases ON (customer_analysis."PK") = (purchases."USER_FK")
+INNER JOIN "ECOMMERCE"."USERS"  AS users ON (customer_analysis."PK") = (users."PK")
+GROUP BY
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+ORDER BY
+    12 DESC
+FETCH NEXT 1 ROWS ONLY""",
+    }
+
+    def mock_run_inline_query(
+        body, result_format=None, transport_options=None, cache=None
+    ):
+        # Determine which view is being queried based on the fields
+        write_query = body
+        if write_query.fields and any(
+            field.startswith("user_metrics.") for field in write_query.fields
+        ):
+            return mock_sql_responses["user_metrics"]
+        elif write_query.fields and any(
+            field.startswith("users.") for field in write_query.fields
+        ):
+            return mock_sql_responses["users"]
+        elif write_query.fields and any(
+            field.startswith("purchases.") for field in write_query.fields
+        ):
+            return mock_sql_responses["purchases"]
+        else:
+            # Default fallback
+            return mock_sql_responses["user_metrics"]
+
+    mock_connection = DBConnection(
+        dialect_name="postgres",
+        database="my_database",
+    )
+    mock_model = mock.MagicMock(project_name="lkml_col_lineage_sample")
+
+    mocked_client = mock.MagicMock()
+    mocked_client.run_inline_query.side_effect = mock_run_inline_query
+    mocked_client.connection.return_value = mock_connection
+    mocked_client.lookml_model.return_value = mock_model
+
+    with mock.patch("looker_sdk.init40", return_value=mocked_client):
+        pipeline = Pipeline.create(recipe)
+        pipeline.run()
+        pipeline.pretty_print_summary()
+        pipeline.raise_from_status(raise_warnings=True)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
     )

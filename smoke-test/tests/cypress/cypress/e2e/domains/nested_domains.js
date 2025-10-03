@@ -51,9 +51,7 @@ const getDomainList = (domainName) => {
   cy.contains("span.ant-typography-ellipsis", domainName)
     .parent('[data-testid="domain-list-item"]')
     .find(
-      '[data-testid="open-domain-action-item-urn:li:domain:' +
-        domainName.toLowerCase() +
-        '"]',
+      `[data-testid="open-domain-action-item-urn:li:domain:${domainName.toLowerCase()}"]`,
     )
     .click();
 };
@@ -128,9 +126,9 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible("Test added");
     cy.clickFirstOptionWithTestId("add-link-button");
     cy.waitTextVisible("Add Link");
-    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
-    cy.enterTextInTestId("add-link-modal-label", "Test Label");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-label", "Test Label");
+    cy.clickOptionWithTestId("link-form-modal-submit-button");
     cy.waitTextVisible("Test Label");
     cy.goToDomainList();
     cy.waitTextVisible("Test added");
@@ -150,9 +148,9 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible("Test documentation");
     cy.clickFirstOptionWithSpecificTestId("add-link-button", 1);
     cy.waitTextVisible("URL");
-    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
-    cy.enterTextInTestId("add-link-modal-label", "Test Label");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-label", "Test Label");
+    cy.clickOptionWithTestId("link-form-modal-submit-button");
     cy.waitTextVisible("Test Label");
 
     // add owners
@@ -203,9 +201,9 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible("Test added");
     cy.clickFirstOptionWithTestId("add-link-button");
     cy.waitTextVisible("Add Link");
-    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
-    cy.enterTextInTestId("add-link-modal-label", "Test Label");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-label", "Test Label");
+    cy.clickOptionWithTestId("link-form-modal-submit-button");
     cy.waitTextVisible("Test Label");
     cy.goToDomainList();
     cy.waitTextVisible("Test added");

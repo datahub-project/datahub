@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.utils;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.aspect.patch.template.TemplateUtil.*;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.query.filter.Condition.ANCESTORS_INCL;
 import static com.linkedin.metadata.query.filter.Condition.DESCENDANTS_INCL;
@@ -10,6 +11,7 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFie
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
@@ -17,6 +19,7 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -25,8 +28,10 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,8 +43,15 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.opensearch.action.search.CreatePitRequest;
+import org.opensearch.action.search.CreatePitResponse;
+import org.opensearch.action.search.DeletePitRequest;
+import org.opensearch.action.search.DeletePitResponse;
+import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.client.Response;
+import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -47,6 +59,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.search.builder.PointInTimeBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.slice.SliceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.ScoreSortBuilder;
 import org.opensearch.search.sort.SortOrder;
@@ -545,6 +558,13 @@ public class ESUtils {
       PointInTimeBuilder pointInTimeBuilder = new PointInTimeBuilder(pitId);
       pointInTimeBuilder.setKeepAlive(TimeValue.parseTimeValue(keepAlive, "keepAlive"));
       searchSourceBuilder.pointInTimeBuilder(pointInTimeBuilder);
+    }
+  }
+
+  public static void setSliceOptions(
+      SearchSourceBuilder searchSourceBuilder, @Nullable SliceOptions sliceOptions) {
+    if (sliceOptions != null) {
+      searchSourceBuilder.slice(new SliceBuilder(sliceOptions.getId(), sliceOptions.getMax()));
     }
   }
 
@@ -1178,5 +1198,99 @@ public class ESUtils {
     }
 
     return boolQuery;
+  }
+
+  public static @Nonnull String computePointInTime(
+      String scrollId,
+      String keepAlive,
+      String elasticSearchImpl,
+      RestHighLevelClient client,
+      String... indexArray) {
+    if (scrollId != null) {
+      SearchAfterWrapper searchAfterWrapper = SearchAfterWrapper.fromScrollId(scrollId);
+      if (System.currentTimeMillis() + 10000 <= searchAfterWrapper.getExpirationTime()) {
+        return searchAfterWrapper.getPitId();
+      }
+    }
+    if (ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH.equalsIgnoreCase(elasticSearchImpl)) {
+      return createPointInTimeElasticSearch(client, indexArray, keepAlive);
+    } else if (ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH.equalsIgnoreCase(elasticSearchImpl)) {
+      return createPointInTimeOpenSearch(client, indexArray, keepAlive);
+    }
+    log.warn("Unsupported elasticsearch implementation: {}", elasticSearchImpl);
+    throw new IllegalStateException("Unsupported elasticsearch implementation.");
+  }
+
+  private static @Nonnull String createPointInTimeElasticSearch(
+      RestHighLevelClient client, String[] indexArray, String keepAlive) {
+    String endPoint = String.join(",", indexArray) + "/_pit";
+    Request request = new Request("POST", endPoint);
+    request.addParameter("keep_alive", keepAlive);
+    try {
+      Response response = client.getLowLevelClient().performRequest(request);
+      Map<String, Object> mappedResponse =
+          OBJECT_MAPPER.readValue(response.getEntity().getContent(), new TypeReference<>() {});
+      return (String) mappedResponse.get("id");
+    } catch (IOException e) {
+      log.warn("Failed to generate PointInTime Identifier:", e);
+      throw new IllegalStateException("Failed to generate PointInTime Identifier.", e);
+    }
+  }
+
+  private static @Nonnull String createPointInTimeOpenSearch(
+      RestHighLevelClient client, String[] indexArray, String keepAlive) {
+    try {
+      CreatePitRequest request =
+          new CreatePitRequest(TimeValue.parseTimeValue(keepAlive, "keepAlive"), false, indexArray);
+      CreatePitResponse response = client.createPit(request, RequestOptions.DEFAULT);
+      return response.getId();
+    } catch (IOException e) {
+      log.warn("Failed to generate PointInTime Identifier:", e);
+      throw new IllegalStateException("Failed to generate PointInTime Identifier.", e);
+    }
+  }
+
+  /**
+   * Clean up a Point-in-Time (PIT) to prevent hitting the PIT context limit. This method should be
+   * called in finally blocks after PIT usage.
+   *
+   * @param client The OpenSearch client
+   * @param pitId The PIT ID to clean up
+   * @param elasticSearchImpl The implementation type (elasticsearch or opensearch)
+   * @param context Optional context for logging (e.g., "slice 0", "search request")
+   */
+  public static void cleanupPointInTime(
+      RestHighLevelClient client, String pitId, String elasticSearchImpl, String context) {
+    if (pitId == null) {
+      return;
+    }
+
+    try {
+      if (ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH.equalsIgnoreCase(elasticSearchImpl)) {
+        DeletePitRequest deletePitRequest = new DeletePitRequest(pitId);
+        DeletePitResponse deletePitResponse =
+            client.deletePit(deletePitRequest, RequestOptions.DEFAULT);
+        // DeletePitResponse doesn't have isAcknowledged(), but if we get here without exception, it
+        // succeeded
+        log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
+      } else if (ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH.equalsIgnoreCase(elasticSearchImpl)) {
+        // For Elasticsearch, use the low-level client to delete PIT
+        String endPoint = "/_pit";
+        Request request = new Request("DELETE", endPoint);
+        request.setJsonEntity("{\"id\":\"" + pitId + "\"}");
+        Response response = client.getLowLevelClient().performRequest(request);
+        if (response.getStatusLine().getStatusCode() == 200) {
+          log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
+        } else {
+          log.warn(
+              "Failed to clean up PIT {} for {}: HTTP {}",
+              pitId,
+              context,
+              response.getStatusLine().getStatusCode());
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Error cleaning up PIT {} for {}: {}", pitId, context, e.getMessage());
+    }
   }
 }

@@ -393,6 +393,9 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
               elementSchema.getDoc() != null ? elementSchema.getDoc() : field.doc(),
               null // TODO: What is the default value for an array element?
               );
+      if (field.hasProps()) {
+        field.getObjectProps().forEach(elementField::addProp);
+      }
       processField(
           elementField,
           fieldPath,
@@ -445,6 +448,9 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
               valueSchema.getDoc() != null ? valueSchema.getDoc() : field.doc(),
               null // TODO: What is the default value for a map value?
               ); // Nullability for map values follows the nullability of the map itself
+      if (field.hasProps()) {
+        field.getObjectProps().forEach(valueField::addProp);
+      }
       FieldPath valueFieldPath =
           fieldPath
               .popLast()
@@ -494,13 +500,14 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
               .findFirst()
               .orElseThrow(NoSuchElementException::new);
 
+      Schema.Field nonNullField = new Schema.Field(field.name(), nonNullSchema, field.doc());
+      if (field.hasProps()) {
+        // retain any props in the source field when constructing the non-null field.
+        Map<String, Object> props = field.getObjectProps();
+        props.forEach(nonNullField::addProp);
+      }
       processField(
-          new Schema.Field(field.name(), nonNullSchema, field.doc()),
-          fieldPath.popLast(),
-          defaultNullable,
-          fields,
-          true,
-          visitedRecords);
+          nonNullField, fieldPath.popLast(), defaultNullable, fields, true, visitedRecords);
       return;
     }
 
@@ -549,6 +556,9 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
                 unionSchema,
                 unionSchema.getDoc() != null ? unionSchema.getDoc() : unionDescription,
                 null);
+        if (field.hasProps()) {
+          field.getObjectProps().forEach(unionFieldInner::addProp);
+        }
         log.debug(
             "TypeIndex: {}, Union Field path : {}, Doc: {}",
             typeIndex,

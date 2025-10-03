@@ -11,4 +11,5 @@ public class GenericEntityScrollResultV3
     implements GenericEntityScrollResult<GenericAspectV3, GenericEntityV3> {
   private String scrollId;
   private List<GenericEntityV3> entities;
+  private int totalCount;
 }

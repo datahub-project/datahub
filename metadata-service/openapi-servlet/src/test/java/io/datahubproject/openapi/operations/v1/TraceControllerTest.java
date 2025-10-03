@@ -17,7 +17,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.system_info.SystemInfoService;
 import com.linkedin.metadata.systemmetadata.TraceService;
+import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
@@ -256,6 +258,17 @@ public class TraceControllerTest extends AbstractTestNGSpringContextTests {
     public SystemTelemetryContext traceContext(
         @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
       return systemOperationContext.getSystemTelemetryContext();
+    }
+
+    @Bean
+    @Qualifier("gitVersion")
+    public GitVersion gitVersion() {
+      return mock(GitVersion.class);
+    }
+
+    @Bean
+    public SystemInfoService systemInfoService() {
+      return mock(SystemInfoService.class);
     }
 
     @Bean
