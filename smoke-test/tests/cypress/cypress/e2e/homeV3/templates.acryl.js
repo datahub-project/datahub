@@ -22,14 +22,14 @@ describe("home page templates", () => {
 
   Cypress.on("uncaught:exception", (err, runnable) => false);
 
-  it.skip("view default homepage template", () => {
+  it("view default homepage template", () => {
     cy.getWithTestId("page-title").should("exist");
     cy.getWithTestId("search-bar").should("exist");
     cy.getWithTestId("edit-home-page-settings").should("exist");
     shouldShowDefaultTemplate();
   });
 
-  it.skip("fork the homepage and create personal template", () => {
+  it("fork the homepage and create personal template", () => {
     addYourAssetsModule();
     cy.getWithTestId("edited-home-page-toast"); // wait for confirmation before continuing to prevent flakiness
     cy.getWithTestId("your-assets-module").should("have.length", 2);
@@ -37,7 +37,7 @@ describe("home page templates", () => {
     resetToOrgDefault();
   });
 
-  it.skip("create personal template, then log back in to check the updated template", () => {
+  it("create personal template, then log back in to check the updated template", () => {
     addYourAssetsModule();
     cy.getWithTestId("edited-home-page-toast");
     createAssetCollectionModule("Collection Module");
@@ -53,7 +53,7 @@ describe("home page templates", () => {
     resetToOrgDefault();
   });
 
-  it.skip("reset the homepage to organization default", () => {
+  it("reset the homepage to organization default", () => {
     addYourAssetsModule();
     cy.getWithTestId("edited-home-page-toast");
     cy.wait(1000);
@@ -61,7 +61,7 @@ describe("home page templates", () => {
     shouldShowDefaultTemplate();
   });
 
-  it.skip("edit the default homepage", () => {
+  it("edit the default homepage", () => {
     startEditingDefaultTemplate();
     addYourAssetsModule();
     finishEditingDefaultTemplate();
