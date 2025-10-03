@@ -87,7 +87,6 @@ def test_ingestion_high_stage_context_records_duration():
     with report.new_high_stage(stage=IngestionHighStage.PROFILING):
         time.sleep(0.1)
     assert len(report.ingestion_high_stage_seconds) == 1
-    assert IngestionHighStage.PROFILING in report.ingestion_high_stage_seconds
     assert report.ingestion_high_stage_seconds[IngestionHighStage.PROFILING] > 0
 
 
