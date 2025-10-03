@@ -78,7 +78,7 @@ export default function UpdateDescriptionModal({
                     </OriginalDocumentation>
                 )}
                 <Form.Item>
-                    <StyledEditor content={updatedDesc} onChange={setDesc} />
+                    <StyledEditor content={updatedDesc} onChange={setDesc} dataTestId="description-editor" />
                 </Form.Item>
             </Form>
         </Modal>

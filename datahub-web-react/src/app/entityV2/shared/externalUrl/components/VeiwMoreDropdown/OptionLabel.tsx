@@ -18,9 +18,10 @@ const PopoverWrapper = styled.div`
 
 interface Props {
     text: string;
+    dataTestId?: string;
 }
 
-export default function OptionLabel({ text }: Props) {
+export default function OptionLabel({ text, dataTestId }: Props) {
     const { measuredRef, isHorizontallyTruncated } = useMeasureIfTrancated();
 
     return (
@@ -28,7 +29,9 @@ export default function OptionLabel({ text }: Props) {
             zIndex={zIndices.popover}
             content={isHorizontallyTruncated ? <PopoverWrapper>{text}</PopoverWrapper> : undefined}
         >
-            <LabelWrapper ref={measuredRef}>{text}</LabelWrapper>
+            <LabelWrapper ref={measuredRef} data-testid={dataTestId}>
+                {text}
+            </LabelWrapper>
         </Popover>
     );
 }
