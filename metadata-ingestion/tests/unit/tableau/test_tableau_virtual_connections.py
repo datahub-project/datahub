@@ -1298,7 +1298,7 @@ class TestVirtualConnectionProcessor:
 
     def test_extract_lineage_from_vc_sql_queries_success(self):
         """Test successful extraction of lineage from VC SQL queries"""
-        # Mock VC data with CustomSQL upstream datasource
+        # Mock VC data with CustomSQLTable upstream datasource
         vc_data = {
             "id": "vc-123",
             "name": "Test VC",
@@ -1306,7 +1306,7 @@ class TestVirtualConnectionProcessor:
                 {
                     "id": "csql-123",
                     "name": "Test Custom SQL",
-                    "__typename": "CustomSQL",
+                    "__typename": "CustomSQLTable",
                     "query": "SELECT * FROM snowflake_db.schema.users WHERE active = true",
                 }
             ],
@@ -1368,7 +1368,7 @@ class TestVirtualConnectionProcessor:
                 assert len(fine_grained_lineages) == 1
 
     def test_extract_lineage_from_vc_sql_queries_no_custom_sql(self):
-        """Test extraction when no CustomSQL datasources are present"""
+        """Test extraction when no CustomSQLTable datasources are present"""
         vc_data = {
             "id": "vc-123",
             "name": "Test VC",
@@ -1401,7 +1401,7 @@ class TestVirtualConnectionProcessor:
                 {
                     "id": "csql-123",
                     "name": "Test Custom SQL",
-                    "__typename": "CustomSQL",
+                    "__typename": "CustomSQLTable",
                     "query": "INVALID SQL SYNTAX",
                 }
             ],
@@ -1435,7 +1435,7 @@ class TestVirtualConnectionProcessor:
                 {
                     "id": "csql-123",
                     "name": "Test Custom SQL",
-                    "__typename": "CustomSQL",
+                    "__typename": "CustomSQLTable",
                     "query": "SELECT * FROM snowflake_db.schema.users",
                 }
             ],

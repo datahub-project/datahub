@@ -475,12 +475,12 @@ class VirtualConnectionProcessor:
         for datasource in upstream_datasources:
             datasource_type = datasource.get("__typename", "")
 
-            # Only process CustomSQL datasources that have SQL queries
-            if datasource_type == "CustomSQL":
+            # Only process CustomSQLTable datasources that have SQL queries
+            if datasource_type == "CustomSQLTable":
                 sql_query = datasource.get("query", "")
                 if sql_query:
                     logger.debug(
-                        f"Found CustomSQL in VC: {datasource.get('name', 'Unknown')}"
+                        f"Found CustomSQLTable in VC: {datasource.get('name', 'Unknown')}"
                     )
 
                     # Use the existing SQL parsing infrastructure
