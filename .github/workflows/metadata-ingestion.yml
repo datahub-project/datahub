@@ -52,6 +52,10 @@ jobs:
           # Version compatibility tests.
           - python-version: "3.9"
             command: "testQuick"
+          - python-version: "3.10"
+            command: "testQuick"
+          - python-version: "3.12"
+            command: "testQuick"
       fail-fast: false
     steps:
       - name: Free up disk space
