@@ -10,7 +10,8 @@ import { EntityCapabilityType } from '@app/entityV2/Entity';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
 import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useBatchSetApplicationMutation } from '@graphql/application.generated';
@@ -84,7 +85,7 @@ function EntityActions(props: Props) {
     const [batchSetDomainMutation] = useBatchSetDomainMutation();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [batchSetApplicationMutation] = useBatchSetApplicationMutation();
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
 
     // eslint-disable-next-line
     const batchAddGlossaryTerms = (entityUrns: Array<string>) => {
@@ -111,7 +112,7 @@ function EntityActions(props: Props) {
                         setShouldRefetchEmbeddedListSearch?.(true);
                         // Reload modules
                         // Assets - to reload shown related assets on asset summary tab
-                        reloadModules([DataHubPageModuleType.Assets]);
+                        reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.Assets)]);
                     }, 3000);
                 }
             })
@@ -153,7 +154,10 @@ function EntityActions(props: Props) {
                         // Reload modules
                         // Assets - to reload shown related assets on asset summary tab
                         // Domains - to reload Domains module with top domains on home page as list of domains can be changed after adding assets
-                        reloadModules([DataHubPageModuleType.Assets, DataHubPageModuleType.Domains]);
+                        reloadByKeyType([
+                            getReloadableModuleKey(DataHubPageModuleType.Assets),
+                            getReloadableModuleKey(DataHubPageModuleType.Domains),
+                        ]);
                     }, 3000);
                     analytics.event({
                         type: EventType.BatchEntityActionEvent,
@@ -196,7 +200,7 @@ function EntityActions(props: Props) {
                         setShouldRefetchEmbeddedListSearch?.(true);
                         // Reload modules
                         // Assets - to reload shown related assets on asset summary tab
-                        reloadModules([DataHubPageModuleType.Assets]);
+                        reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.Assets)]);
                     }, 3000);
                     analytics.event({
                         type: EventType.BatchEntityActionEvent,
@@ -326,7 +330,7 @@ function EntityActions(props: Props) {
                     onContinue={batchAddGlossaryTerms}
                     onCancel={() => setIsBatchAddGlossaryTermModalVisible(false)}
                     fixedEntityTypes={Array.from(
-                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.GLOSSARY_TERMS),
+                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.GLOSSARY_TERMS as any),
                     )}
                 />
             )}
@@ -337,7 +341,7 @@ function EntityActions(props: Props) {
                     onContinue={batchSetDomain}
                     onCancel={() => setIsBatchSetDomainModalVisible(false)}
                     fixedEntityTypes={Array.from(
-                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.DOMAINS),
+                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.DOMAINS as any),
                     )}
                 />
             )}
@@ -348,7 +352,7 @@ function EntityActions(props: Props) {
                     onContinue={batchSetApplication}
                     onCancel={() => setIsBatchSetApplicationModalVisible(false)}
                     fixedEntityTypes={Array.from(
-                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.APPLICATIONS),
+                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.APPLICATIONS as any),
                     )}
                 />
             )}
@@ -359,7 +363,7 @@ function EntityActions(props: Props) {
                     onContinue={batchSetDataProduct}
                     onCancel={() => setIsBatchSetDataProductModalVisible(false)}
                     fixedEntityTypes={Array.from(
-                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.DATA_PRODUCTS),
+                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.DATA_PRODUCTS as any),
                     )}
                 />
             )}

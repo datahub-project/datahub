@@ -5,10 +5,11 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { UpdatedDomain, useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import DomainParentSelect from '@app/entityV2/shared/EntityDropdown/DomainParentSelect';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { Button } from '@src/alchemy-components';
 
@@ -75,7 +76,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [form] = Form.useForm();
 
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
 
     const onCreateDomain = () => {
         createDomainMutation({
@@ -119,7 +120,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     form.resetFields();
                     // Reload modules
                     // ChildHierarchy - to reload shown child domains on asset summary tab
-                    reloadModules([DataHubPageModuleType.ChildHierarchy], 3000);
+                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.ChildHierarchy)], 3000);
                 }
             })
             .catch((e) => {

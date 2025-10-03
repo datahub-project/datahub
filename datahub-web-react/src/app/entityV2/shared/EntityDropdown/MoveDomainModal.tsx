@@ -6,7 +6,8 @@ import { useDomainsContext } from '@app/domainV2/DomainsContext';
 import { useRefetch } from '@app/entity/shared/EntityContext';
 import DomainParentSelect from '@app/entityV2/shared/EntityDropdown/DomainParentSelect';
 import { useHandleMoveDomainComplete } from '@app/entityV2/shared/EntityDropdown/useHandleMoveDomainComplete';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
+import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
@@ -34,7 +35,7 @@ function MoveDomainModal(props: Props) {
     const entityRegistry = useEntityRegistry();
     const [selectedParentUrn, setSelectedParentUrn] = useState('');
     const refetch = useRefetch();
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
 
     const [moveDomainMutation] = useMoveDomainMutation();
 
@@ -63,7 +64,7 @@ function MoveDomainModal(props: Props) {
                     refetch();
                     // Reload modules
                     // ChildHierarchy - as module in domain summary tab could be updated
-                    reloadModules([DataHubPageModuleType.ChildHierarchy]);
+                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.ChildHierarchy)]);
                 }, 2000);
             })
             .catch((e) => {
