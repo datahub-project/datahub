@@ -106,7 +106,7 @@ type Incident implements Entity {
 
   """
   The status of an incident
-  @deprecated, use incidentStatus instead
+  @deprecated(reason: "use incidentStatus instead")
   """
   status: IncidentStatus!
 
@@ -627,15 +627,16 @@ extend type MLModel {
     """
     Optional incident state to filter by, defaults to any state.
     """
-    state: IncidentState,
+    state: IncidentState
     """
     Optional start offset, defaults to 0.
     """
-    start: Int,
+    start: Int
     """
     Optional start offset, defaults to 20.
     """
-    count: Int): EntityIncidentsResult
+    count: Int
+  ): EntityIncidentsResult
 }
 
 extend type MLFeature {
@@ -646,13 +647,14 @@ extend type MLFeature {
     """
     Optional incident state to filter by, defaults to any state.
     """
-    state: IncidentState,
+    state: IncidentState
     """
     Optional start offset, defaults to 0.
     """
-    start: Int,
+    start: Int
     """
     Optional start offset, defaults to 20.
     """
-    count: Int): EntityIncidentsResult
+    count: Int
+  ): EntityIncidentsResult
 }

@@ -880,18 +880,12 @@ public class PoliciesConfig {
           COMMON_ENTITY_PRIVILEGES);
 
   public static final ResourcePrivileges ML_FEATURE_PRIVILEGES =
-          ResourcePrivileges.of(
-                  "mlFeature",
-                  "ML Feature",
-                  "ML Features ingested to DataHub.",
-                  COMMON_ENTITY_PRIVILEGES);
+      ResourcePrivileges.of(
+          "mlFeature", "ML Feature", "ML Features ingested to DataHub.", COMMON_ENTITY_PRIVILEGES);
 
   public static final ResourcePrivileges ML_MODEL_PRIVILEGES =
-          ResourcePrivileges.of(
-                  "mlModel",
-                  "ML Model",
-                  "ML Models ingested to DataHub.",
-                  COMMON_ENTITY_PRIVILEGES);
+      ResourcePrivileges.of(
+          "mlModel", "ML Model", "ML Models ingested to DataHub.", COMMON_ENTITY_PRIVILEGES);
 
   public static final ResourcePrivileges BUSINESS_ATTRIBUTE_PRIVILEGES =
       ResourcePrivileges.of(
