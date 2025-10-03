@@ -13,6 +13,7 @@ from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau_common import (
     create_vc_schema_field_v2,
     custom_sql_graphql_query,
+    get_platform,
     make_fine_grained_lineage_class,
     make_upstream_class,
     virtual_connection_detailed_graphql_query,
@@ -631,10 +632,50 @@ class VirtualConnectionProcessor:
 
         return table_schemas
 
+    def _create_upstream_table_urn_from_info(self, table_info: dict) -> Optional[str]:
+        """Create a URN from upstream table information"""
+        try:
+            database = table_info.get("database", {})
+            schema = table_info.get("schema", "")
+            table_name = table_info.get("name", "")
+            full_name = table_info.get("fullName", "")
+
+            if not table_name:
+                return None
+
+            # Use fullName if available, otherwise construct from schema and name
+            if full_name:
+                dataset_name = full_name
+            elif schema:
+                dataset_name = f"{schema}.{table_name}"
+            else:
+                dataset_name = table_name
+
+            # Get database connection type to determine platform
+            connection_type = database.get("connectionType", "")
+            platform = get_platform(connection_type)
+
+            # Create the URN
+            urn = builder.make_dataset_urn_with_platform_instance(
+                platform=platform,
+                name=dataset_name,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            logger.debug(f"Created upstream URN: {urn} from table info: {table_info}")
+            return urn
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to create upstream URN from table info {table_info}: {e}"
+            )
+            return None
+
     def _create_vc_upstream_lineage_v2(
         self, vc: dict, vc_tables: List[dict], vc_urn: str
     ) -> Tuple[List[UpstreamClass], List[FineGrainedLineageClass]]:
-        """Create upstream lineage for VC using v2 field paths"""
+        """Create upstream lineage for VC using v2 field paths with enhanced fallback logic"""
         upstream_tables = []
         fine_grained_lineages = []
 
@@ -648,50 +689,92 @@ class VirtualConnectionProcessor:
 
             logger.debug(f"Processing VC table: {vc_table_name}")
 
-            # Find matching database table
-            matched_db_table = self.tableau_source._find_matching_database_table(
-                vc_table_name
-            )
-            if not matched_db_table:
+            # Try multiple approaches to find upstream table
+            upstream_urn = None
+            upstream_source = "none"
+
+            # Approach 1: Check if VC table has direct upstream tables
+            upstream_tables_from_vc = vc_table.get("upstreamTables", [])
+            if upstream_tables_from_vc:
+                logger.debug(
+                    f"Found {len(upstream_tables_from_vc)} direct upstream tables for {vc_table_name}"
+                )
+                # Use the first upstream table
+                upstream_table_info = upstream_tables_from_vc[0]
+                upstream_urn = self._create_upstream_table_urn_from_info(
+                    upstream_table_info
+                )
+                if upstream_urn:
+                    upstream_source = "direct_upstream"
+                    logger.debug(
+                        f"Created URN from direct upstream table: {upstream_urn}"
+                    )
+
+            # Approach 2: Use VC database context to create synthetic upstream
+            if not upstream_urn:
+                vc_database = vc.get("database", {})
+                vc_connection_type = vc.get("connectionType", "")
+
+                if vc_database and vc_connection_type:
+                    logger.debug(
+                        f"Creating synthetic upstream from VC database context for {vc_table_name}"
+                    )
+                    synthetic_table_info = {
+                        "name": vc_table_name,
+                        "schema": vc_database.get("name", ""),
+                        "fullName": f"{vc_database.get('name', '')}.{vc_table_name}",
+                        "database": {
+                            "name": vc_database.get("name", ""),
+                            "connectionType": vc_connection_type,
+                        },
+                    }
+                    upstream_urn = self._create_upstream_table_urn_from_info(
+                        synthetic_table_info
+                    )
+                    if upstream_urn:
+                        upstream_source = "vc_database_context"
+                        logger.debug(
+                            f"Created URN from VC database context: {upstream_urn}"
+                        )
+
+            # Approach 3: Fallback to name matching with discovered database tables
+            if not upstream_urn:
+                logger.debug(f"Trying name matching for {vc_table_name}")
+                matched_db_table = self.tableau_source._find_matching_database_table(
+                    vc_table_name
+                )
+                if matched_db_table:
+                    db_table_urn = self.tableau_source._create_database_table_urn(
+                        matched_db_table
+                    )
+                    if db_table_urn:
+                        upstream_urn = db_table_urn
+                        upstream_source = "name_matching"
+                        logger.debug(f"Created URN from name matching: {upstream_urn}")
+
+            # If we found an upstream table, add it
+            if upstream_urn:
+                upstream_tables.append(
+                    UpstreamClass(
+                        dataset=upstream_urn, type=DatasetLineageTypeClass.TRANSFORMED
+                    )
+                )
+                logger.debug(
+                    f"Added upstream table from {upstream_source}: {upstream_urn}"
+                )
+            else:
                 logger.warning(
-                    f"No matching database table found for VC table: {vc_table_name}"
+                    f"No upstream table found for VC table: {vc_table_name} (tried direct upstream, VC database context, and name matching)"
                 )
                 continue
-
-            logger.debug(f"Found matching database table for {vc_table_name}")
-
-            # Create database table URN
-            db_table_urn = self.tableau_source._create_database_table_urn(
-                matched_db_table
-            )
-            if not db_table_urn:
-                logger.warning(
-                    f"Failed to create URN for matched database table: {matched_db_table.get('name', 'Unknown')}"
-                )
-                continue
-
-            logger.debug(f"Created database table URN: {db_table_urn}")
-
-            # Add table-level upstream
-            upstream_tables.append(
-                UpstreamClass(
-                    dataset=db_table_urn, type=DatasetLineageTypeClass.TRANSFORMED
-                )
-            )
 
             # Create column-level lineage using v2 field paths
-            if self.config.extract_column_level_lineage:
+            if self.config.extract_column_level_lineage and upstream_urn:
                 vc_columns = vc_table.get(c.COLUMNS, [])
-                db_columns = matched_db_table.get(c.COLUMNS, [])
 
-                if vc_columns and db_columns:
-                    # Create mapping of database column names (case-insensitive)
-                    db_column_map = {
-                        col.get(c.NAME, "").lower(): col.get(c.NAME, "")
-                        for col in db_columns
-                        if col.get(c.NAME)
-                    }
-
+                if vc_columns:
+                    # For synthetic upstreams or when we don't have detailed column info,
+                    # create simple column-level lineage assuming column name matching
                     for vc_column in vc_columns:
                         vc_col_name = vc_column.get(c.NAME)
                         if not vc_col_name:
@@ -699,30 +782,24 @@ class VirtualConnectionProcessor:
 
                         vc_col_type = vc_column.get(c.REMOTE_TYPE, c.UNKNOWN)
 
-                        # Check if this VC column matches a database column
-                        if vc_col_name.lower() in db_column_map:
-                            db_col_name = db_column_map[vc_col_name.lower()]
+                        # Create v2 field path for VC column
+                        vc_field_path = f"{vc_table_name}.[type={vc_col_type.lower()}].{vc_col_name}"
 
-                            # Create v2 field path for VC column
-                            vc_field_path = f"{vc_table_name}.[type={vc_col_type.lower()}].{vc_col_name}"
-
-                            # Create fine-grained lineage
-                            fine_grained_lineages.append(
-                                FineGrainedLineageClass(
-                                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                                    downstreams=[
-                                        builder.make_schema_field_urn(
-                                            vc_urn, vc_field_path
-                                        )
-                                    ],
-                                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                                    upstreams=[
-                                        builder.make_schema_field_urn(
-                                            db_table_urn, db_col_name
-                                        )
-                                    ],
-                                )
+                        # Create fine-grained lineage (assume column name matches)
+                        fine_grained_lineages.append(
+                            FineGrainedLineageClass(
+                                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                                downstreams=[
+                                    builder.make_schema_field_urn(vc_urn, vc_field_path)
+                                ],
+                                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                                upstreams=[
+                                    builder.make_schema_field_urn(
+                                        upstream_urn, vc_col_name
+                                    )
+                                ],
                             )
+                        )
 
         logger.debug(
             f"Created {len(upstream_tables)} upstream table relationships for VC"

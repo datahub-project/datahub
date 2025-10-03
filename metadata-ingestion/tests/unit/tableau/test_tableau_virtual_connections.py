@@ -1506,3 +1506,175 @@ class TestVirtualConnectionProcessor:
             mock_get_connection.assert_called_once()
             # Verify SQL parsing was called
             mock_parse.assert_called_once()
+
+    def test_create_upstream_table_urn_from_info(self):
+        """Test creating upstream table URN from table information."""
+        processor = VirtualConnectionProcessor(self.tableau_source)
+
+        # Test with full information
+        table_info = {
+            "name": "users",
+            "schema": "public",
+            "fullName": "public.users",
+            "database": {"name": "test_db", "connectionType": "snowflake"},
+        }
+
+        urn = processor._create_upstream_table_urn_from_info(table_info)
+        assert urn is not None
+        assert "snowflake" in urn
+        assert "public.users" in urn
+
+        # Test with minimal information
+        table_info_minimal = {"name": "orders", "database": {"connectionType": "mysql"}}
+
+        urn_minimal = processor._create_upstream_table_urn_from_info(table_info_minimal)
+        assert urn_minimal is not None
+        assert "mysql" in urn_minimal
+        assert "orders" in urn_minimal
+
+        # Test with invalid information
+        table_info_invalid = {"database": {"connectionType": "unknown"}}
+
+        urn_invalid = processor._create_upstream_table_urn_from_info(table_info_invalid)
+        assert urn_invalid is None
+
+    def test_create_vc_upstream_lineage_with_database_context(self):
+        """Test VC upstream lineage creation using database context fallback."""
+        processor = VirtualConnectionProcessor(self.tableau_source)
+
+        # Mock VC data with database context but no direct upstream tables
+        vc_data = {
+            "id": "vc-123",
+            "name": "Test VC",
+            "connectionType": "snowflake",
+            "database": {"name": "test_db", "connectionType": "snowflake"},
+        }
+
+        vc_tables = [
+            {
+                "id": "table-1",
+                "name": "users",
+                "description": "User table",
+                "columns": [
+                    {"id": "col-1", "name": "id", "remoteType": "integer"},
+                    {"id": "col-2", "name": "name", "remoteType": "string"},
+                ],
+            }
+        ]
+
+        vc_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,Test_VC,PROD)"
+
+        # Mock the tableau source methods
+        with mock.patch.object(
+            self.tableau_source, "_find_matching_database_table", return_value=None
+        ):
+            upstream_tables, fine_grained_lineages = (
+                processor._create_vc_upstream_lineage_v2(vc_data, vc_tables, vc_urn)
+            )
+
+        # Should create upstream table using database context
+        assert len(upstream_tables) == 1
+        upstream_urn = upstream_tables[0].dataset
+        assert "snowflake" in upstream_urn
+        assert "test_db" in upstream_urn
+        assert "users" in upstream_urn
+
+        # Should create column-level lineage
+        assert len(fine_grained_lineages) == 2  # Two columns
+        for lineage in fine_grained_lineages:
+            assert len(lineage.downstreams) == 1
+            assert len(lineage.upstreams) == 1
+
+    def test_create_vc_upstream_lineage_with_direct_upstream(self):
+        """Test VC upstream lineage creation with direct upstream tables."""
+        processor = VirtualConnectionProcessor(self.tableau_source)
+
+        # Mock VC data with direct upstream tables
+        vc_data = {
+            "id": "vc-123",
+            "name": "Test VC",
+            "connectionType": "snowflake",
+            "database": {"name": "test_db", "connectionType": "snowflake"},
+        }
+
+        vc_tables = [
+            {
+                "id": "table-1",
+                "name": "users",
+                "description": "User table",
+                "upstreamTables": [
+                    {
+                        "id": "upstream-1",
+                        "name": "raw_users",
+                        "schema": "raw",
+                        "fullName": "raw.raw_users",
+                        "database": {"name": "raw_db", "connectionType": "snowflake"},
+                    }
+                ],
+                "columns": [{"id": "col-1", "name": "id", "remoteType": "integer"}],
+            }
+        ]
+
+        vc_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,Test_VC,PROD)"
+
+        upstream_tables, fine_grained_lineages = (
+            processor._create_vc_upstream_lineage_v2(vc_data, vc_tables, vc_urn)
+        )
+
+        # Should use direct upstream table
+        assert len(upstream_tables) == 1
+        upstream_urn = upstream_tables[0].dataset
+        assert "snowflake" in upstream_urn
+        assert "raw.raw_users" in upstream_urn
+
+        # Should create column-level lineage
+        assert len(fine_grained_lineages) == 1
+
+    def test_create_vc_upstream_lineage_fallback_to_name_matching(self):
+        """Test VC upstream lineage creation falling back to name matching."""
+        processor = VirtualConnectionProcessor(self.tableau_source)
+
+        # Mock VC data without database context or direct upstream
+        vc_data = {"id": "vc-123", "name": "Test VC"}
+
+        vc_tables = [
+            {
+                "id": "table-1",
+                "name": "users",
+                "description": "User table",
+                "columns": [{"id": "col-1", "name": "id", "remoteType": "integer"}],
+            }
+        ]
+
+        vc_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,Test_VC,PROD)"
+
+        # Mock a matching database table
+        mock_db_table = {
+            "id": "db-table-1",
+            "name": "users",
+            "database": {"name": "test_db", "connectionType": "mysql"},
+            "schema": "public",
+            "columns": [{"id": "col-1", "name": "id", "remoteType": "integer"}],
+        }
+
+        with (
+            mock.patch.object(
+                self.tableau_source,
+                "_find_matching_database_table",
+                return_value=mock_db_table,
+            ),
+            mock.patch.object(
+                self.tableau_source,
+                "_create_database_table_urn",
+                return_value="urn:li:dataset:(urn:li:dataPlatform:mysql,public.users,PROD)",
+            ),
+        ):
+            upstream_tables, fine_grained_lineages = (
+                processor._create_vc_upstream_lineage_v2(vc_data, vc_tables, vc_urn)
+            )
+
+        # Should use name matching fallback
+        assert len(upstream_tables) == 1
+        upstream_urn = upstream_tables[0].dataset
+        assert "mysql" in upstream_urn
+        assert "public.users" in upstream_urn
