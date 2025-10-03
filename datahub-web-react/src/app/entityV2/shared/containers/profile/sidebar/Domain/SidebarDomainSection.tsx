@@ -75,7 +75,6 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
         ActionRequestType.DomainAssociation,
     );
 
-
     const { reloadModules } = useModulesContext();
 
     const canEditDomains = !!entityData?.privileges?.canEditDomains;
