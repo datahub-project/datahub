@@ -145,36 +145,35 @@ class SnowflakeMetadataSyncAction(ExtendedAction[SelectedAsset]):
         if not self._stats.event_processing_stats:
             self._stats.event_processing_stats = EventProcessingStats()
         self._stats.event_processing_stats.start(event)
+
+        success = True
         try:
             if event.event_type == "EntityChangeEvent_v1":
                 assert isinstance(event.event, EntityChangeEvent)
                 assert self.ctx.graph is not None
                 semantic_event = event.event
 
-                if not is_snowflake_urn(semantic_event.entityUrn):
-                    return
-
-                self._process_propagation_event(event)
+                if is_snowflake_urn(semantic_event.entityUrn):
+                    self._process_propagation_event(event)
 
             elif event.event_type == "MetadataChangeLogEvent_v1":
                 assert isinstance(event.event, MetadataChangeLogEvent)
                 mcl_event = event.event
 
                 # Check if this is a Snowflake URN and a description-related aspect
-                if not is_snowflake_urn(mcl_event.entityUrn):
-                    return
+                if is_snowflake_urn(mcl_event.entityUrn):
+                    # Check if this is a description-related aspect change
+                    if mcl_event.aspectName in [
+                        "editableDatasetProperties",
+                        "editableSchemaMetadata",
+                    ]:
+                        self._process_propagation_event(event)
 
-                # Check if this is a description-related aspect change
-                if mcl_event.aspectName in [
-                    "editableDatasetProperties",
-                    "editableSchemaMetadata",
-                ]:
-                    self._process_propagation_event(event)
-
-            self._stats.event_processing_stats.end(event, success=True)
         except Exception as e:
             logger.exception("Error processing event", e)
-            self._stats.event_processing_stats.end(event, success=False)
+            success = False
+        finally:
+            self._stats.event_processing_stats.end(event, success=success)
 
     def rollbackable_assets(self) -> Iterable[SelectedAsset]:
         yield from self.bootstrappable_assets()
