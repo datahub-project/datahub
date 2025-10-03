@@ -484,11 +484,6 @@ virtual_connection_graphql_query = """
     projectName
     description
     connectionType
-    database {
-        name
-        id
-        connectionType
-    }
     upstreamDatasources {
         id
         name
@@ -529,11 +524,6 @@ virtual_connection_detailed_graphql_query = """
     projectName
     description
     connectionType
-    database {
-        name
-        id
-        connectionType
-    }
     upstreamDatasources {
         id
         name

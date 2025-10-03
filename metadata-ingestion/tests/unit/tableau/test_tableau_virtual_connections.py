@@ -1538,16 +1538,15 @@ class TestVirtualConnectionProcessor:
         urn_invalid = processor._create_upstream_table_urn_from_info(table_info_invalid)
         assert urn_invalid is None
 
-    def test_create_vc_upstream_lineage_with_database_context(self):
-        """Test VC upstream lineage creation using database context fallback."""
+    def test_create_vc_upstream_lineage_with_connection_type(self):
+        """Test VC upstream lineage creation using connection type fallback."""
         processor = VirtualConnectionProcessor(self.tableau_source)
 
-        # Mock VC data with database context but no direct upstream tables
+        # Mock VC data with connection type but no direct upstream tables
         vc_data = {
             "id": "vc-123",
             "name": "Test VC",
             "connectionType": "snowflake",
-            "database": {"name": "test_db", "connectionType": "snowflake"},
         }
 
         vc_tables = [
@@ -1572,12 +1571,11 @@ class TestVirtualConnectionProcessor:
                 processor._create_vc_upstream_lineage_v2(vc_data, vc_tables, vc_urn)
             )
 
-        # Should create upstream table using database context
+        # Should create upstream table using connection type
         assert len(upstream_tables) == 1
         upstream_urn = upstream_tables[0].dataset
         assert "snowflake" in upstream_urn
-        assert "test_db" in upstream_urn
-        assert "users" in upstream_urn
+        assert "public.users" in upstream_urn
 
         # Should create column-level lineage
         assert len(fine_grained_lineages) == 2  # Two columns
@@ -1594,7 +1592,6 @@ class TestVirtualConnectionProcessor:
             "id": "vc-123",
             "name": "Test VC",
             "connectionType": "snowflake",
-            "database": {"name": "test_db", "connectionType": "snowflake"},
         }
 
         vc_tables = [

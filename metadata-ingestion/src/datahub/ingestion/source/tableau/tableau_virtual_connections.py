@@ -710,21 +710,22 @@ class VirtualConnectionProcessor:
                         f"Created URN from direct upstream table: {upstream_urn}"
                     )
 
-            # Approach 2: Use VC database context to create synthetic upstream
+            # Approach 2: Use VC connection type to create synthetic upstream
             if not upstream_urn:
-                vc_database = vc.get("database", {})
                 vc_connection_type = vc.get("connectionType", "")
 
-                if vc_database and vc_connection_type:
+                if vc_connection_type:
                     logger.debug(
-                        f"Creating synthetic upstream from VC database context for {vc_table_name}"
+                        f"Creating synthetic upstream from VC connection type for {vc_table_name}"
                     )
+                    # Create a synthetic table info using just the connection type
+                    # We'll use a generic database name since we don't have the actual database info
                     synthetic_table_info = {
                         "name": vc_table_name,
-                        "schema": vc_database.get("name", ""),
-                        "fullName": f"{vc_database.get('name', '')}.{vc_table_name}",
+                        "schema": "public",  # Default schema
+                        "fullName": f"public.{vc_table_name}",
                         "database": {
-                            "name": vc_database.get("name", ""),
+                            "name": "unknown_db",  # We don't have the actual database name
                             "connectionType": vc_connection_type,
                         },
                     }
@@ -732,9 +733,9 @@ class VirtualConnectionProcessor:
                         synthetic_table_info
                     )
                     if upstream_urn:
-                        upstream_source = "vc_database_context"
+                        upstream_source = "vc_connection_type"
                         logger.debug(
-                            f"Created URN from VC database context: {upstream_urn}"
+                            f"Created URN from VC connection type: {upstream_urn}"
                         )
 
             # Approach 3: Fallback to name matching with discovered database tables
@@ -764,7 +765,7 @@ class VirtualConnectionProcessor:
                 )
             else:
                 logger.warning(
-                    f"No upstream table found for VC table: {vc_table_name} (tried direct upstream, VC database context, and name matching)"
+                    f"No upstream table found for VC table: {vc_table_name} (tried direct upstream, VC connection type, and name matching)"
                 )
                 continue
 
