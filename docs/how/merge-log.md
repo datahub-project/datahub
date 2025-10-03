@@ -306,3 +306,72 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **c075d1407c** - fix(): Fix bundled venv (#14660)
   *by John Joyce on 2025-09-17*
 
+
+## Upstream Merge Session - 2025-10-03 18:53:51
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-backfill-09-17-2025--remerge-da885c61963c9af37be85265ad103dd049f6b26d`
+- **Merge Base**: `c075d1407cd01226ee835794dceb1a534e754e5f`
+- **End Commit**: `da885c61963c9af37be85265ad103dd049f6b26d`
+- **Total Commits**: 18
+- **Strategy**: stacked
+- **Started**: Fri Oct  3 18:53:51 UTC 2025
+
+### Commits Included in This Merge
+- **eaa472ecf1** - feat(): Adding authenticator for OIDC OAuth  (#14707)
+  *by John Joyce on 2025-09-17*
+
+- **6073e20f92** - docs(): Add documentation for Microsoft Teams Application (#14783)
+  *by John Joyce on 2025-09-17*
+
+- **6fe831387b** - docs(): Updating datahub cloud actions source docs to include support for MCL events (#14786)
+  *by John Joyce on 2025-09-17*
+
+- **29982adc61** - fix(exception): surface exceptions to API response (#14795)
+  *by Aseem Bansal on 2025-09-18*
+
+- **3294e721e1** - feat(summary-tab): use manage summary permission to allow editing documentation and links (#14688)
+  *by purnimagarg1 on 2025-09-18*
+
+- **7341597835** - fix(ui/summary-tab): fix view more button when switching tabs (#14796)
+  *by purnimagarg1 on 2025-09-18*
+
+- **c3768afe3f** - improvement(ui/summary-tab): use editor from component library in CompactMarkdownViewer for consistent styles (#14797)
+  *by purnimagarg1 on 2025-09-18*
+
+- **a1c3af3360** - feat(summary-page): add analytics events for asset summary page (#14798)
+  *by purnimagarg1 on 2025-09-18*
+
+- **9ef4c3945e** - fix(ui): handle edit documentation button on sidebar with new summary page and update permissions (#14799)
+  *by purnimagarg1 on 2025-09-18*
+
+- **df5148a610** - fix(ui): fetch data product info for entity preview (#14800)
+  *by purnimagarg1 on 2025-09-18*
+
+- **a50bb30898** - fix(ui/summary-tab): fix functionality on add assets button in assets module (#14801)
+  *by purnimagarg1 on 2025-09-18*
+
+- **5c07dc6e5a** - feat(superset/preset): propagate chart & dashboard tags to DataHub (#14538)
+  *by Benjamin Maquet on 2025-09-17*
+
+- **d090c1da4a** - fix(summaryTab):  bring fixes from saas (#14764)
+  *by v-tarasevich-blitz-brain on 2025-09-18*
+
+- **6fdeb84785** - fix(summaryTab): fix empty state when assets were deleted (#14777)
+  *by v-tarasevich-blitz-brain on 2025-09-18*
+
+- **524d7994eb** - docs(logical): Add logical models feature guide (#14774)
+  *by Andrew Sikowitz on 2025-09-17*
+
+- **2ccd764ce1** - fix(impact-lineage): separate viz and impact query path (#14773)
+  *by david-leifker on 2025-09-17*
+
+- **ad69b3fd7e** - docs(teams): Update Teams App setup instructions (#14803)
+  *by Gabe Lyons on 2025-09-17*
+
+- **da885c6196** - refactor(ingestion): lookml source migration to use SDKv2 entities (#14710)
+  *by Anush Kumar on 2025-09-17*
+
