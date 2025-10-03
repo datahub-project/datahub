@@ -261,3 +261,48 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **4fd60c698c** - fix(ui): Render the values instead of urns in Policies Modal (#14613)
   *by Saketh Varma on 2025-09-16*
 
+
+## Upstream Merge Session - 2025-10-03 05:30:49
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-backfill-09-17-2025--remerge-c075d1407cd01226ee835794dceb1a534e754e5f-attempt2`
+- **Merge Base**: `4fd60c698c1db62cf5f2391ccf2bc48c8b65a396`
+- **End Commit**: `c075d1407cd01226ee835794dceb1a534e754e5f`
+- **Total Commits**: 10
+- **Strategy**: stacked
+- **Started**: Fri Oct  3 05:30:49 UTC 2025
+
+### Commits Included in This Merge
+- **e8e97beee6** - fix(ui) Add collection of minor fixes for summary pages and home page (#14771)
+  *by Chris Collins on 2025-09-16*
+
+- **8fafa22c68** - feat(ui) Update home page template editability (#14772)
+  *by Chris Collins on 2025-09-16*
+
+- **0c388dcfa1** - feat(docs) Add feature guide doc for the new Custom Asset Summaries (#14782)
+  *by Chris Collins on 2025-09-16*
+
+- **bd8f335110** - docs(release): Add release notes for version 0.3.14 (#14732)
+  *by Gabe Lyons on 2025-09-16*
+
+- **6d2501ba0a** - Revert "docs(release): Add release notes for version 0.3.14" (#14788)
+  *by Gabe Lyons on 2025-09-16*
+
+- **667b7cb12c** - fix(sdk_v2/lineage): Fix handling of null platform (#14784)
+  *by skrydal on 2025-09-17*
+
+- **002cc398d0** - fix(ingest): change redash sql parse error to warnining (#14785)
+  *by Kevin Karch on 2025-09-17*
+
+- **acffdce986** - feat(dbt): add filtering for materialized nodes based on their physical location (#14689)
+  *by Abdullah on 2025-09-17*
+
+- **e2c5767e39** - fix(ge_profiler): support nonnull_count for complex types (#14631)
+  *by Michael Maltese on 2025-09-17*
+
+- **c075d1407c** - fix(): Fix bundled venv (#14660)
+  *by John Joyce on 2025-09-17*
+
