@@ -58,10 +58,19 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       message = validationException.getMessage();
     }
 
+    RuntimeException runtimeException =
+        findFirstThrowableCauseOfClass(exception, RuntimeException.class);
+    if (message.equals(DEFAULT_ERROR_MESSAGE) && runtimeException != null) {
+      log.error("Failed to execute", runtimeException);
+      errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
+      message = runtimeException.getMessage();
+    }
+
     if (illException == null
         && illStateException == null
         && graphQLException == null
-        && validationException == null) {
+        && validationException == null
+        && runtimeException == null) {
       log.error("Failed to execute", exception);
     }
     DataHubGraphQLError error = new DataHubGraphQLError(message, path, sourceLocation, errorCode);
