@@ -101,20 +101,8 @@ jobs:
           echo "=== Disk Usage Overview ==="
           df -h
 
-          echo -e "\n=== Largest Directories in Root ==="
-          sudo du -h --max-depth=1 / 2>/dev/null | sort -rh | head -n 20
-
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
-
-          echo -e "\n=== Largest Directories in /usr ==="
-          sudo du -h --max-depth=2 /usr 2>/dev/null | sort -rh | head -n 15
-
-          echo -e "\n=== Largest Directories in /var ==="
-          sudo du -h --max-depth=2 /var 2>/dev/null | sort -rh | head -n 15
-
-          echo -e "\n=== Workspace Size ==="
-          du -h --max-depth=2 $GITHUB_WORKSPACE | sort -rh | head -n 20
       - name: Gradle build (and test) for NOT metadata ingestion
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         # datahub-schematron:cli excluded due to dependency on metadata-ingestion
@@ -143,20 +131,8 @@ jobs:
           echo "=== Disk Usage Overview ==="
           df -h
 
-          echo -e "\n=== Largest Directories in Root ==="
-          sudo du -h --max-depth=1 / 2>/dev/null | sort -rh | head -n 20
-
           echo -e "\n=== Docker Disk Usage ==="
           docker system df -v
-
-          echo -e "\n=== Largest Directories in /usr ==="
-          sudo du -h --max-depth=2 /usr 2>/dev/null | sort -rh | head -n 15
-
-          echo -e "\n=== Largest Directories in /var ==="
-          sudo du -h --max-depth=2 /var 2>/dev/null | sort -rh | head -n 15
-
-          echo -e "\n=== Workspace Size ==="
-          du -h --max-depth=2 $GITHUB_WORKSPACE | sort -rh | head -n 20
       - name: Gradle build (and test) for frontend
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |
