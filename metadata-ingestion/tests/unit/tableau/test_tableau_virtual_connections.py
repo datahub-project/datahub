@@ -1,6 +1,7 @@
 import pathlib
 from typing import Any, Dict, List, cast
 from unittest import mock
+from unittest.mock import Mock
 
 from freezegun import freeze_time
 
@@ -929,46 +930,58 @@ class TestVirtualConnectionProcessor:
         self.vc_processor.virtual_connection_ids_being_used = ["vc-123"]
         self.vc_processor.vc_table_id_to_vc_id = {"vc-table-1": "vc-123"}
 
-        # Mock virtual connection tables data
-        mock_vc_tables = [
+        # Mock virtual connection data with tables
+        mock_vc_data = [
             {
-                c.ID: "vc-table-1",
-                c.NAME: "test_table",
-                c.DESCRIPTION: "Test table description",
-                "columnsConnection": {
-                    "nodes": [
-                        {
-                            c.ID: "col-1",
-                            c.NAME: "id",
-                            c.DISPLAY_NAME: "ID",
-                            c.REMOTE_TYPE: "INTEGER",
-                            c.DESCRIPTION: "Primary key",
-                            c.IS_NULLABLE: False,
-                        },
-                        {
-                            c.ID: "col-2",
-                            c.NAME: "name",
-                            c.DISPLAY_NAME: "Name",
-                            c.REMOTE_TYPE: "STRING",
-                            c.DESCRIPTION: "User name",
-                            c.IS_NULLABLE: True,
-                        },
-                    ]
+                c.ID: "vc-123",
+                c.NAME: "test_vc",
+                c.DESCRIPTION: "Test virtual connection",
+                "database": {
+                    "name": "test_database",
+                    "id": "db-123",
+                    "connectionType": "snowflake",
                 },
+                "tables": [
+                    {
+                        c.ID: "vc-table-1",
+                        c.NAME: "test_table",
+                        c.DESCRIPTION: "Test table description",
+                        "columnsConnection": {
+                            "nodes": [
+                                {
+                                    c.ID: "col-1",
+                                    c.NAME: "id",
+                                    c.DISPLAY_NAME: "ID",
+                                    c.REMOTE_TYPE: "INTEGER",
+                                    c.DESCRIPTION: "Primary key",
+                                    c.IS_NULLABLE: False,
+                                },
+                                {
+                                    c.ID: "col-2",
+                                    c.NAME: "name",
+                                    c.DISPLAY_NAME: "Name",
+                                    c.REMOTE_TYPE: "STRING",
+                                    c.DESCRIPTION: "User name",
+                                    c.IS_NULLABLE: True,
+                                },
+                            ]
+                        },
+                    }
+                ],
             }
         ]
 
         with mock.patch.object(
             self.vc_processor.tableau_source,
             "get_connection_objects",
-            return_value=mock_vc_tables,
+            return_value=mock_vc_data,
         ) as mock_get_connection_objects:
             workunits = list(self.vc_processor.emit_virtual_connection_tables())
 
             # Should have called get_connection_objects with the new query
             mock_get_connection_objects.assert_called_once()
             call_args = mock_get_connection_objects.call_args
-            assert call_args[1]["connection_type"] == c.VIRTUAL_CONNECTION_TABLES
+            assert call_args[1]["connection_type"] == c.VIRTUAL_CONNECTIONS_CONNECTION
 
             # Should return work units
             assert len(workunits) > 0
@@ -1043,30 +1056,24 @@ class TestVirtualConnectionProcessor:
         assert custom_props == {}
 
     def test_create_schema_metadata_from_columns_connection(self):
-        """Test creating schema metadata from columnsConnection structure."""
+        """Test creating schema metadata from columns structure."""
         vc_table = {
             c.ID: "vc-table-1",
             c.NAME: "test_table",
-            "columnsConnection": {
-                "nodes": [
-                    {
-                        c.ID: "col-1",
-                        c.NAME: "id",
-                        c.DISPLAY_NAME: "ID",
-                        c.REMOTE_TYPE: "INTEGER",
-                        c.DESCRIPTION: "Primary key",
-                        c.IS_NULLABLE: False,
-                    },
-                    {
-                        c.ID: "col-2",
-                        c.NAME: "name",
-                        c.DISPLAY_NAME: "Name",
-                        c.REMOTE_TYPE: "STRING",
-                        c.DESCRIPTION: "User name",
-                        c.IS_NULLABLE: True,
-                    },
-                ]
-            },
+            "columns": [
+                {
+                    c.ID: "col-1",
+                    c.NAME: "id",
+                    c.REMOTE_TYPE: "INTEGER",
+                    c.DESCRIPTION: "Primary key",
+                },
+                {
+                    c.ID: "col-2",
+                    c.NAME: "name",
+                    c.REMOTE_TYPE: "STRING",
+                    c.DESCRIPTION: "User name",
+                },
+            ],
         }
 
         schema_metadata = (
@@ -1215,16 +1222,16 @@ class TestVirtualConnectionProcessor:
         assert "name" in virtual_connection_graphql_query
         assert "description" in virtual_connection_graphql_query
         assert "tables" in virtual_connection_graphql_query
-        assert "displayName" in virtual_connection_graphql_query
-        assert "isNullable" in virtual_connection_graphql_query
+        assert "columns" in virtual_connection_graphql_query
+        assert "remoteType" in virtual_connection_graphql_query
 
         # Test that detailed query includes basic fields
         assert "id" in virtual_connection_detailed_graphql_query
         assert "name" in virtual_connection_detailed_graphql_query
         assert "description" in virtual_connection_detailed_graphql_query
         assert "tables" in virtual_connection_detailed_graphql_query
-        assert "displayName" in virtual_connection_detailed_graphql_query
-        assert "isNullable" in virtual_connection_detailed_graphql_query
+        assert "columns" in virtual_connection_detailed_graphql_query
+        assert "remoteType" in virtual_connection_detailed_graphql_query
 
         # Test that new query has the correct structure
         assert "columnsConnection" in virtual_connection_tables_graphql_query
@@ -1288,3 +1295,180 @@ class TestVirtualConnectionProcessor:
         assert "ds-123" in self.vc_processor.datasource_vc_relationships
         assert len(self.vc_processor.datasource_vc_relationships["ds-123"]) == 1
         assert "vc-table-1" in self.vc_processor.vc_table_ids_for_lookup
+
+    def test_extract_lineage_from_vc_sql_queries_success(self):
+        """Test successful extraction of lineage from VC SQL queries"""
+        # Mock VC data with CustomSQL upstream datasource
+        vc_data = {
+            "id": "vc-123",
+            "name": "Test VC",
+            "upstreamDatasources": [
+                {
+                    "id": "csql-123",
+                    "name": "Test Custom SQL",
+                    "__typename": "CustomSQL",
+                    "query": "SELECT * FROM snowflake_db.schema.users WHERE active = true",
+                }
+            ],
+        }
+
+        vc_table = {
+            "id": "vc-table-123",
+            "name": "users_table",
+            "columns": [
+                {"name": "user_id", "remoteType": "INTEGER", "description": "User ID"},
+                {
+                    "name": "username",
+                    "remoteType": "VARCHAR",
+                    "description": "Username",
+                },
+            ],
+        }
+
+        # Mock the SQL parsing result
+        mock_parsed_result = Mock()
+        mock_parsed_result.in_tables = [
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_db.schema.users,PROD)"
+        ]
+        mock_parsed_result.column_lineage = [
+            Mock(
+                downstream=Mock(column="user_id"),
+                upstreams=[
+                    Mock(
+                        table="urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_db.schema.users,PROD)",
+                        column="id",
+                    )
+                ],
+            )
+        ]
+
+        # Mock the parse_custom_sql method
+        with mock.patch.object(
+            self.tableau_source, "parse_custom_sql", return_value=mock_parsed_result
+        ) as mock_parse:
+            # Test the method
+            upstream_tables, fine_grained_lineages = (
+                self.vc_processor._extract_lineage_from_vc_sql_queries(
+                    vc_data, vc_table
+                )
+            )
+
+            # Verify results
+            assert len(upstream_tables) == 1
+            assert (
+                upstream_tables[0].dataset
+                == "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_db.schema.users,PROD)"
+            )
+
+            # Verify SQL parsing was called
+            mock_parse.assert_called_once()
+
+            # Verify fine-grained lineage if enabled
+            if self.config.extract_column_level_lineage:
+                assert len(fine_grained_lineages) == 1
+
+    def test_extract_lineage_from_vc_sql_queries_no_custom_sql(self):
+        """Test extraction when no CustomSQL datasources are present"""
+        vc_data = {
+            "id": "vc-123",
+            "name": "Test VC",
+            "upstreamDatasources": [
+                {
+                    "id": "ds-123",
+                    "name": "Regular Datasource",
+                    "__typename": "PublishedDatasource",
+                }
+            ],
+        }
+
+        vc_table = {"id": "vc-table-123", "name": "users_table", "columns": []}
+
+        # Test the method
+        upstream_tables, fine_grained_lineages = (
+            self.vc_processor._extract_lineage_from_vc_sql_queries(vc_data, vc_table)
+        )
+
+        # Should return empty results
+        assert len(upstream_tables) == 0
+        assert len(fine_grained_lineages) == 0
+
+    def test_extract_lineage_from_vc_sql_queries_parsing_error(self):
+        """Test extraction when SQL parsing fails"""
+        vc_data = {
+            "id": "vc-123",
+            "name": "Test VC",
+            "upstreamDatasources": [
+                {
+                    "id": "csql-123",
+                    "name": "Test Custom SQL",
+                    "__typename": "CustomSQL",
+                    "query": "INVALID SQL SYNTAX",
+                }
+            ],
+        }
+
+        vc_table = {"id": "vc-table-123", "name": "users_table", "columns": []}
+
+        # Mock the parse_custom_sql method to raise an exception
+        with mock.patch.object(
+            self.tableau_source,
+            "parse_custom_sql",
+            side_effect=Exception("SQL parsing failed"),
+        ):
+            # Test the method
+            upstream_tables, fine_grained_lineages = (
+                self.vc_processor._extract_lineage_from_vc_sql_queries(
+                    vc_data, vc_table
+                )
+            )
+
+            # Should return empty results due to error
+            assert len(upstream_tables) == 0
+            assert len(fine_grained_lineages) == 0
+
+    def test_emit_single_virtual_connection_table_with_sql_lineage(self):
+        """Test emitting VC table with SQL-based lineage extraction"""
+        vc_data = {
+            "id": "vc-123",
+            "name": "Test VC",
+            "upstreamDatasources": [
+                {
+                    "id": "csql-123",
+                    "name": "Test Custom SQL",
+                    "__typename": "CustomSQL",
+                    "query": "SELECT * FROM snowflake_db.schema.users",
+                }
+            ],
+        }
+
+        vc_table = {
+            "id": "vc-table-123",
+            "name": "users_table",
+            "description": "Users table from VC",
+            "columns": [
+                {"name": "user_id", "remoteType": "INTEGER", "description": "User ID"}
+            ],
+        }
+
+        # Mock the SQL parsing result
+        mock_parsed_result = Mock()
+        mock_parsed_result.in_tables = [
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_db.schema.users,PROD)"
+        ]
+        mock_parsed_result.column_lineage = []
+
+        with mock.patch.object(
+            self.tableau_source, "parse_custom_sql", return_value=mock_parsed_result
+        ) as mock_parse:
+            # Test the method
+            workunits = list(
+                self.vc_processor._emit_single_virtual_connection_table(
+                    vc_table, "vc-123", vc_data
+                )
+            )
+
+            # Should generate workunits
+            assert len(workunits) > 0
+
+            # Verify SQL parsing was called
+            mock_parse.assert_called_once()

@@ -483,17 +483,36 @@ virtual_connection_graphql_query = """
     luid
     projectName
     description
+    upstreamDatasources {
+        id
+        name
+        __typename
+        ... on CustomSQL {
+            query
+        }
+    }
     tables {
         id
         name
         description
+        upstreamTables {
+            id
+            name
+            database {
+                name
+                id
+                connectionType
+            }
+            schema
+            fullName
+            connectionType
+            description
+        }
         columns {
             id
             name
-            displayName
             remoteType
             description
-            isNullable
         }
     }
 }
@@ -506,17 +525,36 @@ virtual_connection_detailed_graphql_query = """
     luid
     projectName
     description
+    upstreamDatasources {
+        id
+        name
+        __typename
+        ... on CustomSQL {
+            query
+        }
+    }
     tables {
         id
         name
         description
+        upstreamTables {
+            id
+            name
+            database {
+                name
+                id
+                connectionType
+            }
+            schema
+            fullName
+            connectionType
+            description
+        }
         columns {
             id
             name
-            displayName
             remoteType
             description
-            isNullable
         }
     }
 }

@@ -12,9 +12,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau_common import (
     create_vc_schema_field_v2,
+    make_fine_grained_lineage_class,
+    make_upstream_class,
     virtual_connection_detailed_graphql_query,
     virtual_connection_graphql_query,
-    virtual_connection_tables_graphql_query,
 )
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
@@ -189,37 +190,36 @@ class VirtualConnectionProcessor:
 
     def emit_virtual_connection_tables(self):
         """
-        Emit Virtual Connection Tables using the new virtualConnectionTables query.
+        Emit Virtual Connection Tables using enhanced virtual connection queries.
 
-        This method uses the enhanced virtualConnectionTables GraphQL query which provides:
-        - Additional metadata fields (isExtracted, extractLastRefreshedAt, isCertified, etc.)
-        - Better pagination support through columnsConnection structure
-        - Enhanced column information (displayName, isNullable)
+        This method queries virtual connections and processes their tables with enhanced
+        column information (displayName, isNullable) for better metadata extraction.
 
-        Falls back to the original emit_virtual_connections() method if the new API is not available
-        or fails (e.g., in older Tableau versions).
+        Falls back to the original emit_virtual_connections() method if the new API fails.
         """
         if not self.virtual_connection_ids_being_used:
             logger.debug("No Virtual Connections to emit")
             return
 
-        # Use the new virtualConnectionTables query for enhanced table information
+        # Query virtual connections with enhanced table information
         try:
-            for vc_table in self.tableau_source.get_connection_objects(
-                query=virtual_connection_tables_graphql_query,
-                connection_type=c.VIRTUAL_CONNECTION_TABLES,
-                query_filter={},  # Get all virtual connection tables
+            for vc in self.tableau_source.get_connection_objects(
+                query=virtual_connection_detailed_graphql_query,
+                connection_type=c.VIRTUAL_CONNECTIONS_CONNECTION,
+                query_filter={},  # Get all virtual connections
                 page_size=self.config.effective_virtual_connection_page_size,
             ):
-                # Check if this table belongs to one of our virtual connections
-                vc_id = self._get_vc_id_for_table(vc_table.get(c.ID))
+                vc_id = vc.get(c.ID)
                 if vc_id and vc_id in self.virtual_connection_ids_being_used:
-                    yield from self._emit_single_virtual_connection_table(
-                        vc_table, vc_id
-                    )
+                    # Process tables within this virtual connection
+                    tables = vc.get("tables", [])
+                    for table in tables:
+                        yield from self._emit_single_virtual_connection_table(
+                            table, vc_id, vc
+                        )
         except Exception as e:
             logger.warning(
-                f"Failed to query virtual connection tables using new API: {e}. "
+                f"Failed to query virtual connection tables using enhanced API: {e}. "
                 "Falling back to standard virtual connections query."
             )
             # Fallback to the original method
@@ -230,7 +230,7 @@ class VirtualConnectionProcessor:
         return self.vc_table_id_to_vc_id.get(table_id)
 
     def _emit_single_virtual_connection_table(
-        self, vc_table: dict, vc_id: str
+        self, vc_table: dict, vc_id: str, vc_data: Optional[dict] = None
     ) -> Iterable[MetadataWorkUnit]:
         """Emit a single Virtual Connection Table using the new API structure"""
         table_name = vc_table.get(c.NAME, "Unknown Table")
@@ -265,9 +265,24 @@ class VirtualConnectionProcessor:
             dataset_snapshot.aspects.append(schema_metadata)
 
         # Create upstream lineage for this table
-        upstream_tables, fine_grained_lineages = (
-            self._create_table_upstream_lineage_from_vc_table(vc_table, table_urn)
-        )
+        # First try SQL-based lineage extraction if VC data is available
+        upstream_tables = []
+        fine_grained_lineages = []
+
+        if vc_data:
+            sql_upstream_tables, sql_fine_grained_lineages = (
+                self._extract_lineage_from_vc_sql_queries(vc_data, vc_table)
+            )
+            upstream_tables.extend(sql_upstream_tables)
+            fine_grained_lineages.extend(sql_fine_grained_lineages)
+
+        # Fallback to table matching if no SQL-based lineage found
+        if not upstream_tables:
+            table_upstream_tables, table_fine_grained_lineages = (
+                self._create_table_upstream_lineage_from_vc_table(vc_table, table_urn)
+            )
+            upstream_tables.extend(table_upstream_tables)
+            fine_grained_lineages.extend(table_fine_grained_lineages)
 
         if upstream_tables:
             upstream_lineage = UpstreamLineageClass(
@@ -323,9 +338,8 @@ class VirtualConnectionProcessor:
     def _create_schema_metadata_from_columns_connection(
         self, vc_table: dict, table_name: str
     ) -> Optional[SchemaMetadataClass]:
-        """Create schema metadata from columnsConnection structure"""
-        columns_connection = vc_table.get("columnsConnection", {})
-        columns = columns_connection.get("nodes", [])
+        """Create schema metadata from columns structure"""
+        columns = vc_table.get("columns", [])
 
         if not columns:
             return None
@@ -342,8 +356,6 @@ class VirtualConnectionProcessor:
 
             column_type = column.get(c.REMOTE_TYPE, c.UNKNOWN)
             description = column.get(c.DESCRIPTION)
-            display_name = column.get(c.DISPLAY_NAME)
-            is_nullable = column.get(c.IS_NULLABLE)
 
             # Create schema field for the column
             schema_field = create_vc_schema_field_v2(
@@ -352,8 +364,6 @@ class VirtualConnectionProcessor:
                 column_type=column_type,
                 description=description,
                 ingest_tags=self.config.ingest_tags,
-                display_name=display_name,
-                is_nullable=is_nullable,
             )
             if schema_field:
                 fields.append(schema_field)
@@ -444,6 +454,79 @@ class VirtualConnectionProcessor:
                                 ],
                             )
                         )
+
+        return upstream_tables, fine_grained_lineages
+
+    def _extract_lineage_from_vc_sql_queries(
+        self, vc_data: dict, vc_table: dict
+    ) -> Tuple[List[UpstreamClass], List[FineGrainedLineageClass]]:
+        """
+        Extract lineage from SQL queries in virtual connection upstream datasources.
+
+        This method looks for CustomSQL datasources in the virtual connection's
+        upstreamDatasources and parses their SQL queries to extract upstream table information.
+        """
+        upstream_tables = []
+        fine_grained_lineages = []
+
+        # Get upstream datasources from the virtual connection
+        upstream_datasources = vc_data.get("upstreamDatasources", [])
+
+        for datasource in upstream_datasources:
+            datasource_type = datasource.get("__typename", "")
+
+            # Only process CustomSQL datasources that have SQL queries
+            if datasource_type == "CustomSQL":
+                sql_query = datasource.get("query", "")
+                if sql_query:
+                    logger.debug(
+                        f"Found CustomSQL in VC: {datasource.get('name', 'Unknown')}"
+                    )
+
+                    # Use the existing SQL parsing infrastructure
+                    try:
+                        parsed_result = self.tableau_source.parse_custom_sql(
+                            datasource=datasource,
+                            datasource_urn=f"urn:li:dataset:(urn:li:dataPlatform:tableau,{datasource.get('id', 'unknown')},PROD)",
+                            platform=self.platform,
+                            env=self.config.env,
+                            platform_instance=self.config.platform_instance,
+                            func_overridden_info=None,  # We don't need overrides for VC SQL parsing
+                        )
+
+                        if parsed_result:
+                            # Extract upstream tables from the parsed SQL
+                            sql_upstream_tables = make_upstream_class(parsed_result)
+                            upstream_tables.extend(sql_upstream_tables)
+
+                            # Extract fine-grained lineage if enabled
+                            if self.config.extract_column_level_lineage:
+                                table_columns = vc_table.get("columns", [])
+                                out_columns = [
+                                    {
+                                        "name": col.get("name", ""),
+                                        "remoteType": col.get("remoteType", ""),
+                                        "description": col.get("description", ""),
+                                    }
+                                    for col in table_columns
+                                ]
+
+                                sql_fine_grained_lineages = make_fine_grained_lineage_class(
+                                    parsed_result,
+                                    f"urn:li:dataset:(urn:li:dataPlatform:tableau,{vc_table.get('id', 'unknown')},PROD)",
+                                    out_columns,
+                                )
+                                fine_grained_lineages.extend(sql_fine_grained_lineages)
+
+                            logger.debug(
+                                f"Extracted {len(sql_upstream_tables)} upstream tables from VC SQL"
+                            )
+
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to parse SQL from VC upstream datasource: {e}"
+                        )
+                        continue
 
         return upstream_tables, fine_grained_lineages
 
@@ -800,6 +883,8 @@ class VirtualConnectionProcessor:
     ) -> Tuple[str, List[MetadataWorkUnit]]:
         """Create a folder container for a Virtual Connection"""
         vc_id = vc.get(c.ID)
+        if not vc_id:
+            raise ValueError("Virtual Connection ID is required")
         vc_name = vc.get(c.NAME, "Unknown Virtual Connection")
         vc_description = vc.get(c.DESCRIPTION, "")
 
