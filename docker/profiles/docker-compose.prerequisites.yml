@@ -427,7 +427,7 @@ services:
     depends_on:
       opensearch:
         condition: service_healthy
-    command: /bin/sh -c "sleep 10 && /create-indices.sh"
+    command: /bin/sh -c "sleep 60 && /create-indices.sh"
     labels:
       datahub_setup_job: true
   opensearch-setup-dev:
