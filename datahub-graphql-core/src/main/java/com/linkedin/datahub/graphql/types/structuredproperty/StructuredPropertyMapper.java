@@ -127,6 +127,7 @@ public class StructuredPropertyMapper
     settings.setIsHidden(gmsSettings.isIsHidden());
     settings.setShowInSearchFilters(gmsSettings.isShowInSearchFilters());
     settings.setShowInAssetSummary(gmsSettings.isShowInAssetSummary());
+    settings.setHideInAssetSummaryWhenEmpty(gmsSettings.isHideInAssetSummaryWhenEmpty());
     settings.setShowAsAssetBadge(gmsSettings.isShowAsAssetBadge());
     settings.setShowInColumnsTable(gmsSettings.isShowInColumnsTable());
 

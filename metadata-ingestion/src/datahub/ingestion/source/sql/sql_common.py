@@ -46,6 +46,7 @@ from datahub.ingestion.api.source import (
     TestableSource,
     TestConnectionReport,
 )
+from datahub.ingestion.api.source_protocols import MetadataWorkUnitIterable
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import (
     SAMPLE_SIZE_MULTIPLIER,
@@ -578,19 +579,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self._add_default_options(sql_config)
 
         for inspector in self.get_inspectors():
-            profiler = None
-            profile_requests: List["GEProfilerRequest"] = []
-            if sql_config.is_profiling_enabled():
-                profiler = self.get_profiler_instance(inspector)
-                try:
-                    self.add_profile_metadata(inspector)
-                except Exception as e:
-                    self.warn(
-                        logger,
-                        "profile_metadata",
-                        f"Failed to get enrichment data for profile {e}",
-                    )
-
             db_name = self.get_db_name(inspector)
             yield from self.get_database_level_workunits(
                 inspector=inspector,
@@ -606,18 +594,38 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     database=db_name,
                 )
 
+        # Generate workunit for aggregated SQL parsing results
+        yield from self._generate_aggregator_workunits()
+
+    def is_profiling_enabled_internal(self) -> bool:
+        return self.config.is_profiling_enabled()
+
+    def get_profiling_internal(
+        self,
+    ) -> MetadataWorkUnitIterable:
+        sql_config = self.config
+        for inspector in self.get_inspectors():
+            profiler = None
+            profile_requests: List["GEProfilerRequest"] = []
+            profiler = self.get_profiler_instance(inspector)
+            try:
+                self.add_profile_metadata(inspector)
+            except Exception as e:
+                self.warn(
+                    logger,
+                    "profile_metadata",
+                    f"Failed to get enrichment data for profile {e}",
+                )
+            db_name = self.get_db_name(inspector)
+            for schema in self.get_allowed_schemas(inspector, db_name):
                 if profiler:
                     profile_requests += list(
                         self.loop_profiler_requests(inspector, schema, sql_config)
                     )
-
             if profiler and profile_requests:
                 yield from self.loop_profiler(
                     profile_requests, profiler, platform=self.platform
                 )
-
-        # Generate workunit for aggregated SQL parsing results
-        yield from self._generate_aggregator_workunits()
 
     def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Generate work units from SQL parsing aggregator. Can be overridden by subclasses."""
