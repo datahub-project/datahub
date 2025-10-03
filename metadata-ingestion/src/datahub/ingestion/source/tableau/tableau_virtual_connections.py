@@ -672,6 +672,44 @@ class VirtualConnectionProcessor:
             )
             return None
 
+    def _find_matching_database_table_by_connection_type(
+        self, table_name: str, connection_type: str
+    ) -> Optional[dict]:
+        """Find a database table that matches the table name and connection type"""
+        try:
+            # Get all database tables from the tableau source
+            database_tables = getattr(self.tableau_source, "database_tables", {})
+
+            for _db_table_urn, db_table in database_tables.items():
+                # Check if the table name matches (case-insensitive)
+                if db_table.table.lower() == table_name.lower():
+                    # Check if the connection type matches
+                    if db_table.connection_type == connection_type:
+                        logger.debug(
+                            f"Found matching database table: {db_table.table} with connection type {connection_type}"
+                        )
+                        # Convert to the format expected by _create_upstream_table_urn_from_info
+                        return {
+                            "name": db_table.table,
+                            "schema": db_table.schema or "public",
+                            "fullName": f"{db_table.schema or 'public'}.{db_table.table}",
+                            "database": {
+                                "name": db_table.database or "unknown_db",
+                                "connectionType": connection_type,
+                            },
+                        }
+
+            logger.debug(
+                f"No matching database table found for {table_name} with connection type {connection_type}"
+            )
+            return None
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to find matching database table for {table_name} with connection type {connection_type}: {e}"
+            )
+            return None
+
     def _create_vc_upstream_lineage_v2(
         self, vc: dict, vc_tables: List[dict], vc_urn: str
     ) -> Tuple[List[UpstreamClass], List[FineGrainedLineageClass]]:
@@ -710,33 +748,53 @@ class VirtualConnectionProcessor:
                         f"Created URN from direct upstream table: {upstream_urn}"
                     )
 
-            # Approach 2: Use VC connection type to create synthetic upstream
+            # Approach 2: Use VC connection type to find matching database tables
             if not upstream_urn:
                 vc_connection_type = vc.get("connectionType", "")
 
                 if vc_connection_type:
                     logger.debug(
-                        f"Creating synthetic upstream from VC connection type for {vc_table_name}"
+                        f"Looking for matching database tables for {vc_table_name} with connection type {vc_connection_type}"
                     )
-                    # Create a synthetic table info using just the connection type
-                    # We'll use a generic database name since we don't have the actual database info
-                    synthetic_table_info = {
-                        "name": vc_table_name,
-                        "schema": "public",  # Default schema
-                        "fullName": f"public.{vc_table_name}",
-                        "database": {
-                            "name": "unknown_db",  # We don't have the actual database name
-                            "connectionType": vc_connection_type,
-                        },
-                    }
-                    upstream_urn = self._create_upstream_table_urn_from_info(
-                        synthetic_table_info
-                    )
-                    if upstream_urn:
-                        upstream_source = "vc_connection_type"
-                        logger.debug(
-                            f"Created URN from VC connection type: {upstream_urn}"
+
+                    # Try to find a matching database table with the same connection type
+                    matching_db_table = (
+                        self._find_matching_database_table_by_connection_type(
+                            vc_table_name, vc_connection_type
                         )
+                    )
+
+                    if matching_db_table:
+                        upstream_urn = self._create_upstream_table_urn_from_info(
+                            matching_db_table
+                        )
+                        if upstream_urn:
+                            upstream_source = "connection_type_matching"
+                            logger.debug(
+                                f"Created URN from connection type matching: {upstream_urn}"
+                            )
+                    else:
+                        # Fallback to synthetic table if no matching database table found
+                        logger.debug(
+                            f"Creating synthetic upstream from VC connection type for {vc_table_name}"
+                        )
+                        synthetic_table_info = {
+                            "name": vc_table_name,
+                            "schema": "public",  # Default schema
+                            "fullName": f"public.{vc_table_name}",
+                            "database": {
+                                "name": "unknown_db",  # We don't have the actual database name
+                                "connectionType": vc_connection_type,
+                            },
+                        }
+                        upstream_urn = self._create_upstream_table_urn_from_info(
+                            synthetic_table_info
+                        )
+                        if upstream_urn:
+                            upstream_source = "vc_connection_type"
+                            logger.debug(
+                                f"Created URN from VC connection type: {upstream_urn}"
+                            )
 
             # Approach 3: Fallback to name matching with discovered database tables
             if not upstream_urn:
@@ -765,7 +823,7 @@ class VirtualConnectionProcessor:
                 )
             else:
                 logger.warning(
-                    f"No upstream table found for VC table: {vc_table_name} (tried direct upstream, VC connection type, and name matching)"
+                    f"No upstream table found for VC table: {vc_table_name} (tried direct upstream, connection type matching, and name matching)"
                 )
                 continue
 

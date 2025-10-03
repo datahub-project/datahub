@@ -1675,3 +1675,47 @@ class TestVirtualConnectionProcessor:
         upstream_urn = upstream_tables[0].dataset
         assert "mysql" in upstream_urn
         assert "public.users" in upstream_urn
+
+    def test_find_matching_database_table_by_connection_type(self):
+        """Test finding database tables by connection type and table name."""
+        processor = VirtualConnectionProcessor(self.tableau_source)
+
+        # Mock database tables
+        from datahub.ingestion.source.tableau.tableau_common import (
+            TableauUpstreamReference,
+        )
+
+        mock_db_table = TableauUpstreamReference(
+            database="test_db",
+            database_id="db-123",
+            schema="public",
+            table="users",
+            connection_type="snowflake",
+        )
+
+        # Mock the tableau source database_tables attribute
+        processor.tableau_source.database_tables = {
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.users,PROD)": mock_db_table
+        }
+
+        # Test finding a matching table
+        result = processor._find_matching_database_table_by_connection_type(
+            "users", "snowflake"
+        )
+        assert result is not None
+        assert result["name"] == "users"
+        assert result["schema"] == "public"
+        assert result["database"]["name"] == "test_db"
+        assert result["database"]["connectionType"] == "snowflake"
+
+        # Test not finding a matching table (wrong connection type)
+        result = processor._find_matching_database_table_by_connection_type(
+            "users", "mysql"
+        )
+        assert result is None
+
+        # Test not finding a matching table (wrong table name)
+        result = processor._find_matching_database_table_by_connection_type(
+            "orders", "snowflake"
+        )
+        assert result is None
