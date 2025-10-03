@@ -109,17 +109,7 @@ function create_if_not_exists {
        | sed -e "s/DUE_SHARDS/$DUE_SHARDS/g" \
        | sed -e "s/DUE_REPLICAS/$DUE_REPLICAS/g" \
        | tee -a "$TMP_SOURCE_PATH"
-
-    # Retry the creation with exponential backoff
-    retry_with_backoff $MAX_RETRIES curl "${CURL_ARGS[@]}" -XPUT "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS" \
-      -H 'Content-Type: application/json' --data "@$TMP_SOURCE_PATH" -w "%{http_code}" -o /dev/null | grep -q "^200$"
-
-    if [ $? -eq 0 ]; then
-      echo -e ">>> Successfully created $RESOURCE_ADDRESS"
-    else
-      echo -e ">>> Failed to create $RESOURCE_ADDRESS after $MAX_RETRIES attempts"
-      exit 1
-    fi
+    curl "${CURL_ARGS[@]}" -XPUT "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS" -H 'Content-Type: application/json' --data "@$TMP_SOURCE_PATH"
 
   elif [ $RESOURCE_STATUS -eq 403 ]; then
     # probably authorization fail
