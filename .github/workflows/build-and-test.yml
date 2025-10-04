@@ -64,8 +64,15 @@ jobs:
       - name: Free up disk space
         run: |
           sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/.ghcup || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/share/swift || true
+          sudo rm -rf /usr/local/julia* || true
+          sudo rm -rf /usr/local/share/powershell || true
+          sudo rm -rf /usr/share/miniconda || true
           sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
+          sudo docker system prune -a -f || true
+          df -h
       - uses: szenius/set-timezone@v2.0
         with:
           timezoneLinux: ${{ matrix.timezone }}
@@ -89,6 +96,13 @@ jobs:
           distribution: "zulu"
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+      - name: Disk Space Analysis
+        run: |
+          echo "=== Disk Usage Overview ==="
+          df -h
+
+          echo -e "\n=== Docker Disk Usage ==="
+          docker system df -v
       - name: Gradle build (and test) for NOT metadata ingestion
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         # datahub-schematron:cli excluded due to dependency on metadata-ingestion
@@ -112,6 +126,13 @@ jobs:
             -x :metadata-integration:java:datahub-schematron:cli:test
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Disk Space Analysis
+        run: |
+          echo "=== Disk Usage Overview ==="
+          df -h
+
+          echo -e "\n=== Docker Disk Usage ==="
+          docker system df -v
       - name: Gradle build (and test) for frontend
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |

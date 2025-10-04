@@ -4,8 +4,8 @@ import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlyViewedSource;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import javax.annotation.Nonnull;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -14,8 +14,8 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RecentlyViewedCandidateSourceFactory {
   @Autowired
-  @Qualifier("elasticSearchRestHighLevelClient")
-  private RestHighLevelClient searchClient;
+  @Qualifier("searchClientShim")
+  private SearchClientShim<?> searchClient;
 
   @Autowired
   @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)

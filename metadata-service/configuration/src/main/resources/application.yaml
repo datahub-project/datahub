@@ -335,12 +335,19 @@ elasticsearch:
   connectionRequestTimeout: ${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:5000}
   username: ${ELASTICSEARCH_USERNAME:#{null}}
   password: ${ELASTICSEARCH_PASSWORD:#{null}}
-  pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:#{null}}
+  pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:}
   useSSL: ${ELASTICSEARCH_USE_SSL:false}
   opensearchUseAwsIamAuth: ${OPENSEARCH_USE_AWS_IAM_AUTH:false}
   region: ${AWS_REGION:#{null}}
-  implementation: ${ELASTICSEARCH_IMPLEMENTATION:elasticsearch} # elasticsearch or opensearch, for handling divergent cases
   idHashAlgo: ${ELASTIC_ID_HASH_ALGO:MD5}
+  # Multi-client shim configuration
+  shim:
+    # Enable the search client shim (false = use legacy RestHighLevelClient)
+    enabled: ${ELASTICSEARCH_SHIM_ENABLED:false}
+    # Engine type: AUTO_DETECT, ELASTICSEARCH_7, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2
+    engineType: ${ELASTICSEARCH_SHIM_ENGINE_TYPE:AUTO_DETECT}
+    # Whether to auto-detect the engine type by connecting to the cluster
+    autoDetectEngine: ${ELASTICSEARCH_SHIM_AUTO_DETECT:true}
   sslContext: # Required if useSSL is true
     protocol: ${ELASTICSEARCH_SSL_PROTOCOL:#{null}}
     secureRandomImplementation: ${ELASTICSEARCH_SSL_SECURE_RANDOM_IMPL:#{null}}
