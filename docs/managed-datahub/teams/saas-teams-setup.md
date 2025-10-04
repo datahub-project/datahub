@@ -14,6 +14,8 @@ You can see the permissions required by the DataHub Teams bot [below](#datahub-t
 
 ### Step-by-step guide
 
+1. Contact your DataHub Customer Success Rep for access to the Teams Private Beta.
+
 The following steps should be performed by a Teams Administrator and Azure Administrator.
 
 ## Azure AD App Registration
