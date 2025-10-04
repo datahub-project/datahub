@@ -158,9 +158,19 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             .setEntities(
                 new SearchEntityArray(
                     List.of(
-                        new SearchEntity().setEntity(TEST_URNS.get(0)),
-                        new SearchEntity().setEntity(TEST_URNS.get(1)),
-                        new SearchEntity().setEntity(TEST_URNS.get(2)))));
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(Collections.singletonMap("scrollId", "test-id-0"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(1))
+                            .setExtraFields(
+                                new StringMap(Collections.singletonMap("scrollId", "test-id-1"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(2))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-id-2"))))));
     when(mockSearchService.scrollAcrossEntities(
             any(OperationContext.class),
             eq(List.of("dataset")),
@@ -177,9 +187,19 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             .setEntities(
                 new SearchEntityArray(
                     List.of(
-                        new SearchEntity().setEntity(TEST_URNS.get(2)),
-                        new SearchEntity().setEntity(TEST_URNS.get(1)),
-                        new SearchEntity().setEntity(TEST_URNS.get(0)))));
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(2))
+                            .setExtraFields(
+                                new StringMap(Collections.singletonMap("scrollId", "test-id-2"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(1))
+                            .setExtraFields(
+                                new StringMap(Collections.singletonMap("scrollId", "test-id-1"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-id-0"))))));
     when(mockSearchService.scrollAcrossEntities(
             any(OperationContext.class),
             eq(List.of("dataset")),
@@ -609,8 +629,15 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             .setEntities(
                 new SearchEntityArray(
                     List.of(
-                        new SearchEntity().setEntity(TEST_URNS.get(0)),
-                        new SearchEntity().setEntity(TEST_URNS.get(1)))));
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(Collections.singletonMap("scrollId", "test-id-1"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(1))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-id-2"))))));
 
     when(mockSearchService.scrollAcrossEntities(
             any(OperationContext.class),
@@ -654,7 +681,13 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         new ScrollResult()
             .setNumEntities(1)
             .setEntities(
-                new SearchEntityArray(List.of(new SearchEntity().setEntity(TEST_URNS.get(0)))))
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-scroll-id"))))))
             .setScrollId("test-scroll-id");
 
     when(mockSearchService.scrollAcrossEntities(
@@ -702,8 +735,16 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             .setEntities(
                 new SearchEntityArray(
                     List.of(
-                        new SearchEntity().setEntity(TEST_URNS.get(0)),
-                        new SearchEntity().setEntity(TEST_URNS.get(1)))))
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-scroll-id-1"))),
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(1))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-scroll-id"))))))
             .setScrollId("test-scroll-id");
 
     // Use ArgumentCaptor to capture the OperationContext and verify slice options
@@ -775,7 +816,13 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         new ScrollResult()
             .setNumEntities(1)
             .setEntities(
-                new SearchEntityArray(List.of(new SearchEntity().setEntity(TEST_URNS.get(0)))));
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity()
+                            .setEntity(TEST_URNS.get(0))
+                            .setExtraFields(
+                                new StringMap(
+                                    Collections.singletonMap("scrollId", "test-id-1"))))));
 
     // Use ArgumentCaptor to capture the OperationContext and verify no slice options
     ArgumentCaptor<OperationContext> opContextCaptor =
