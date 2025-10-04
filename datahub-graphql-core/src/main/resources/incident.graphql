@@ -106,7 +106,7 @@ type Incident implements Entity {
 
   """
   The status of an incident
-  @deprecated, use incidentStatus instead
+  @deprecated(reason: "use incidentStatus instead")
   """
   status: IncidentStatus!
 
@@ -608,6 +608,46 @@ extend type Chart {
     Optional assignee urns for an incident.
     """
     assigneeUrns: [String!]
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int
+    """
+    Optional start offset, defaults to 20.
+    """
+    count: Int
+  ): EntityIncidentsResult
+}
+
+extend type MLModel {
+  """
+  Incidents associated with the ML Model
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int
+    """
+    Optional start offset, defaults to 20.
+    """
+    count: Int
+  ): EntityIncidentsResult
+}
+
+extend type MLFeature {
+  """
+  Incidents associated with the ML Feature
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState
     """
     Optional start offset, defaults to 0.
     """
