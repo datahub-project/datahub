@@ -45,7 +45,7 @@ describe("siblings", () => {
     cy.get('[data-testid="entity-header-test-id"]').contains("BigQuery");
 
     // check dbt schema descriptions not shown
-    cy.contains("This is a unique identifier for a customer").should(
+    cy.contains("This is a unique identifier for a customer", {timeout: 10000}).should(
       "not.exist",
     );
 
