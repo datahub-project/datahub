@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from typing import TYPE_CHECKING, Iterable, List
 
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
@@ -7,6 +8,7 @@ from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     DatasetProfileClass,
+    QueryPropertiesClass,
     QuerySubjectsClass,
     SchemaFieldClass,
     SchemaMetadataClass,
@@ -17,6 +19,16 @@ if TYPE_CHECKING:
     from datahub.ingestion.api.source import SourceReport
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES = 5 * 1024 * 1024  # 5MB
+QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES = int(
+    os.environ.get(
+        "QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES",
+        DEFAULT_QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES,
+    )
+)
+
+QUERY_STATEMENT_TRUNCATION_BUFFER = 100
 
 
 class EnsureAspectSizeProcessor:
@@ -109,7 +121,7 @@ class EnsureAspectSizeProcessor:
 
         # First, try to include all table-level subjects
         for subject, subject_size in table_level_subjects_with_sizes:
-            if total_subjects_size + subject_size < self.schema_size_constraint:
+            if total_subjects_size + subject_size < self.payload_constraint:
                 accepted_subjects.append(subject)
                 total_subjects_size += subject_size
             else:
@@ -121,7 +133,7 @@ class EnsureAspectSizeProcessor:
 
         # Then, add column-level subjects if there's remaining space
         for subject, subject_size in column_level_subjects_with_sizes:
-            if total_subjects_size + subject_size < self.schema_size_constraint:
+            if total_subjects_size + subject_size < self.payload_constraint:
                 accepted_subjects.append(subject)
                 total_subjects_size += subject_size
             else:
@@ -175,7 +187,7 @@ class EnsureAspectSizeProcessor:
 
         # First, include all upstreams
         for item, item_size in upstream_items_with_sizes:
-            if total_lineage_size + item_size < self.schema_size_constraint:
+            if total_lineage_size + item_size < self.payload_constraint:
                 accepted_upstreams.append(item)
                 total_lineage_size += item_size
             else:
@@ -187,7 +199,7 @@ class EnsureAspectSizeProcessor:
 
         # Second, include DATASET fine-grained lineages
         for fg_lineage, fg_lineage_size in dataset_fg_items_with_sizes:
-            if total_lineage_size + fg_lineage_size < self.schema_size_constraint:
+            if total_lineage_size + fg_lineage_size < self.payload_constraint:
                 accepted_fine_grained_lineages.append(fg_lineage)
                 total_lineage_size += fg_lineage_size
             else:
@@ -199,7 +211,7 @@ class EnsureAspectSizeProcessor:
 
         # Third, include FIELD_SET fine-grained lineages
         for fg_lineage, fg_lineage_size in field_set_fg_items_with_sizes:
-            if total_lineage_size + fg_lineage_size < self.schema_size_constraint:
+            if total_lineage_size + fg_lineage_size < self.payload_constraint:
                 accepted_fine_grained_lineages.append(fg_lineage)
                 total_lineage_size += fg_lineage_size
             else:
@@ -211,7 +223,7 @@ class EnsureAspectSizeProcessor:
 
         # Finally, include NONE fine-grained lineages (lowest priority)
         for fg_lineage, fg_lineage_size in none_fg_items_with_sizes:
-            if total_lineage_size + fg_lineage_size < self.schema_size_constraint:
+            if total_lineage_size + fg_lineage_size < self.payload_constraint:
                 accepted_fine_grained_lineages.append(fg_lineage)
                 total_lineage_size += fg_lineage_size
             else:
@@ -225,6 +237,52 @@ class EnsureAspectSizeProcessor:
         upstream_lineage.fineGrainedLineages = (
             accepted_fine_grained_lineages if accepted_fine_grained_lineages else None
         )
+
+    def ensure_query_properties_size(
+        self, entity_urn: str, query_properties: QueryPropertiesClass
+    ) -> None:
+        """
+        Ensure query properties aspect does not exceed allowed size by truncating the query statement value.
+        Uses a configurable max payload size that is the minimum between QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES
+        and INGEST_MAX_PAYLOAD_BYTES.
+
+        We have found surprisingly large query statements (e.g. 20MB+) that caused ingestion to fail;
+        that was INSERT INTO VALUES with huge list of values.
+        """
+        if not query_properties.statement or not query_properties.statement.value:
+            return
+
+        max_payload_size = min(
+            QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES, self.payload_constraint
+        )
+
+        current_size = len(json.dumps(pre_json_transform(query_properties.to_obj())))
+
+        if current_size < max_payload_size:
+            return
+
+        reduction_needed = (
+            current_size - max_payload_size + QUERY_STATEMENT_TRUNCATION_BUFFER
+        )
+
+        statement_value_size = len(query_properties.statement.value)
+        original_statement_size = statement_value_size
+
+        # Only truncate if reduction is actually needed and possible
+        if statement_value_size > reduction_needed > 0:
+            new_statement_length = statement_value_size - reduction_needed
+            truncated_statement = query_properties.statement.value[
+                :new_statement_length
+            ]
+
+            truncation_message = f"... [original value was {original_statement_size} bytes and truncated to {new_statement_length} bytes]"
+            query_properties.statement.value = truncated_statement + truncation_message
+
+            self.report.warning(
+                title="Query properties truncated due to size constraint",
+                message="Query properties contained too much data and would have caused ingestion to fail",
+                context=f"Query statement was truncated from {original_statement_size} to {new_statement_length} characters for {entity_urn} due to aspect size constraints",
+            )
 
     def ensure_aspect_size(
         self,
@@ -245,4 +303,6 @@ class EnsureAspectSizeProcessor:
                 self.ensure_query_subjects_size(wu.get_urn(), query_subjects)
             elif upstream_lineage := wu.get_aspect_of_type(UpstreamLineageClass):
                 self.ensure_upstream_lineage_size(wu.get_urn(), upstream_lineage)
+            elif query_properties := wu.get_aspect_of_type(QueryPropertiesClass):
+                self.ensure_query_properties_size(wu.get_urn(), query_properties)
             yield wu

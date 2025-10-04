@@ -15,6 +15,7 @@ from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     ChangeTypeClass,
     DatasetFieldProfileClass,
     DatasetLineageTypeClass,
@@ -27,6 +28,10 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
     NumberTypeClass,
     OtherSchemaClass,
+    QueryLanguageClass,
+    QueryPropertiesClass,
+    QuerySourceClass,
+    QueryStatementClass,
     QuerySubjectClass,
     QuerySubjectsClass,
     SchemaFieldClass,
@@ -261,6 +266,48 @@ def too_big_upstream_lineage() -> UpstreamLineageClass:
 
     return UpstreamLineageClass(
         upstreams=upstreams, fineGrainedLineages=fine_grained_lineages
+    )
+
+
+def proper_query_properties() -> QueryPropertiesClass:
+    # Create a query properties with a reasonably sized statement (~1KB)
+    query_statement = (
+        "SELECT * FROM table1 WHERE column1 = 'value' AND column2 > 100;" * 20
+    )
+
+    return QueryPropertiesClass(
+        statement=QueryStatementClass(
+            value=query_statement,
+            language=QueryLanguageClass.SQL,
+        ),
+        source=QuerySourceClass.SYSTEM,
+        created=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        lastModified=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+    )
+
+
+def too_big_query_properties() -> QueryPropertiesClass:
+    # Create a query properties with a very large statement (~6MB, exceeding the 5MB default limit)
+    # This is larger than the QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES default (5MB)
+    large_query_statement = (
+        "SELECT col1, col2, col3, col4, col5, col6, col7, col8, col9, col10, "
+        "col11, col12, col13, col14, col15, col16, col17, col18, col19, col20 "
+        "FROM very_long_table_name_with_lots_of_characters_to_make_it_big "
+        "WHERE condition1 = 'some_very_long_value_with_lots_of_text' "
+        "AND condition2 IN ('value1', 'value2', 'value3', 'value4') "
+        "ORDER BY col1, col2, col3, col4, col5 LIMIT 1000;"
+    ) * 15000  # ~6MB
+
+    return QueryPropertiesClass(
+        statement=QueryStatementClass(
+            value=large_query_statement,
+            language=QueryLanguageClass.SQL,
+        ),
+        source=QuerySourceClass.SYSTEM,
+        created=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        lastModified=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        name="Large Test Query",
+        description="A test query with a very large statement",
     )
 
 
@@ -674,3 +721,76 @@ def test_wu_processor_triggered_by_upstream_lineage_aspect(
         )
     ]
     ensure_upstream_lineage_size_mock.assert_called_once()
+
+
+@freeze_time("2023-01-02 00:00:00")
+def test_ensure_size_of_proper_query_properties(processor):
+    query_properties = proper_query_properties()
+    original_statement = query_properties.statement.value
+
+    # Verify initial size is reasonable (under 5MB)
+    initial_size = len(json.dumps(query_properties.to_obj()))
+    assert initial_size < 5 * 1024 * 1024, "Test query properties should be under 5MB"
+
+    processor.ensure_query_properties_size("urn:li:query:test", query_properties)
+
+    # Statement should remain unchanged for properly sized query properties
+    assert query_properties.statement.value == original_statement
+    assert len(processor.report.warnings) == 0
+
+
+@freeze_time("2023-01-02 00:00:00")
+def test_ensure_size_of_too_big_query_properties(processor):
+    query_properties = too_big_query_properties()
+    original_statement_size = len(query_properties.statement.value)
+
+    # Verify initial size exceeds it's about 5.5MB limit and definitely larger than 5MB
+    initial_size = len(json.dumps(query_properties.to_obj()))
+    expected_initial_size = 5.5 * 1024 * 1024  # ~5.5MB
+    assert initial_size == pytest.approx(expected_initial_size, rel=0.1), (
+        f"Expected initial size ~{expected_initial_size}, got {initial_size}"
+    )
+    assert initial_size > 5 * 1024 * 1024, "Test data should exceed 5MB limit"
+
+    processor.ensure_query_properties_size("urn:li:query:test", query_properties)
+
+    # Statement should be truncated
+    assert len(query_properties.statement.value) < original_statement_size
+
+    # Should contain truncation message
+    assert "... [original value was" in query_properties.statement.value
+    assert (
+        f"{original_statement_size} bytes and truncated to"
+        in query_properties.statement.value
+    )
+    assert query_properties.statement.value.endswith(" bytes]")
+
+    # Final size should be within constraints, ie <= 5MB + buffer
+    final_size = len(json.dumps(query_properties.to_obj()))
+    expected_final_size = 5 * 1024 * 1024 + 100  # 5MB + buffer
+    assert final_size <= expected_final_size, (
+        f"Final size {final_size} should be <= {expected_final_size}"
+    )
+
+    # Should have logged a warning
+    assert len(processor.report.warnings) == 1
+
+
+@freeze_time("2023-01-02 00:00:00")
+@patch(
+    "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_query_properties_size"
+)
+def test_wu_processor_triggered_by_query_properties_aspect(
+    ensure_query_properties_size_mock, processor
+):
+    list(
+        processor.ensure_aspect_size(
+            [
+                MetadataChangeProposalWrapper(
+                    entityUrn="urn:li:query:test",
+                    aspect=proper_query_properties(),
+                ).as_workunit()
+            ]
+        )
+    )
+    ensure_query_properties_size_mock.assert_called_once()
