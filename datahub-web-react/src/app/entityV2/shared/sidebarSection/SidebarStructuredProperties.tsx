@@ -43,6 +43,8 @@ interface Props {
     properties?: FieldProperties;
 }
 
+const MAX_STRUCTURED_PROPERTIES_TO_FETCH = 100;
+
 const SidebarStructuredProperties = ({ properties }: Props) => {
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
@@ -55,7 +57,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
         types: [EntityType.StructuredProperty],
         query: '',
         start: 0,
-        count: 50,
+        count: MAX_STRUCTURED_PROPERTIES_TO_FETCH,
         searchFlags: { skipCache: true },
         orFilters: [
             {
@@ -102,10 +104,16 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
     return (
         <>
             {entityTypeProperties?.map((property) => {
+                const structuredProperty = property.entity as StructuredPropertyEntity;
                 const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
                 const isRichText = propertyRow?.dataType?.info?.type === StdDataType.RichText;
                 const values = propertyRow?.values;
-                const propertyName = getDisplayName(property.entity as StructuredPropertyEntity);
+                const propertyName = getDisplayName(structuredProperty);
+                const shouldHideIfPropertyIsEmpty = structuredProperty.settings?.hideInAssetSummaryWhenEmpty;
+
+                if (!isSchemaSidebar && shouldHideIfPropertyIsEmpty && !values) {
+                    return null;
+                }
 
                 return (
                     <>
