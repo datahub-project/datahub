@@ -18,6 +18,11 @@ describe("home page templates", () => {
     cy.visit("/");
     cy.skipIntroducePage();
     waitUntilTemplateIsLoaded();
+    resetToOrgDefault();
+  });
+
+  afterEach(() => {
+    resetToOrgDefault();
   });
 
   Cypress.on("uncaught:exception", (err, runnable) => false);
@@ -34,7 +39,6 @@ describe("home page templates", () => {
     cy.getWithTestId("edited-home-page-toast"); // wait for confirmation before continuing to prevent flakiness
     cy.getWithTestId("your-assets-module").should("have.length", 2);
     shouldBeOnPersonalTemplate();
-    resetToOrgDefault();
   });
 
   it.skip("create personal template, then log back in to check the updated template", () => {
@@ -48,9 +52,6 @@ describe("home page templates", () => {
     cy.visit("/");
     cy.getWithTestId("your-assets-module").should("have.length", 2);
     cy.getWithTestId("asset-collection-module").should("be.visible");
-
-    // Clean-up
-    resetToOrgDefault();
   });
 
   it.skip("reset the homepage to organization default", () => {

@@ -24,6 +24,11 @@ describe("home page modules", () => {
     cy.visit("/");
     cy.skipIntroducePage();
     waitUntilTemplateIsLoaded();
+    resetToOrgDefault();
+  });
+
+  afterEach(() => {
+    resetToOrgDefault();
   });
 
   Cypress.on("uncaught:exception", (err, runnable) => false);
@@ -43,9 +48,6 @@ describe("home page modules", () => {
       .should("be.visible")
       .children()
       .should("have.length.gte", 1);
-
-    // Clean-up
-    resetToOrgDefault();
   });
 
   it.skip("create custom asset collection module", () => {
@@ -56,9 +58,6 @@ describe("home page modules", () => {
       .should("be.visible")
       .children()
       .should("have.length", 2);
-
-    // Clean-up
-    resetToOrgDefault();
   });
 
   it.skip("create custom hierarchy module", () => {
@@ -69,20 +68,17 @@ describe("home page modules", () => {
       .should("be.visible")
       .children()
       .should("have.length", 1);
-
-    // Clean-up
-    resetToOrgDefault();
   });
 
   it.skip("create custom link module", () => {
     const linkName = "Link 1";
     createLinkModule(linkName, "www.google.com");
     cy.getWithTestId("edited-home-page-toast");
-    cy.getWithTestId("link-module").should("be.visible");
+    cy.getWithTestId("link-module")
+      .last()
+      .scrollIntoView()
+      .should("be.visible");
     cy.waitTextVisible(linkName);
-
-    // Clean-up
-    resetToOrgDefault();
   });
 
   it.skip("create custom documentation module", () => {
@@ -93,9 +89,6 @@ describe("home page modules", () => {
     cy.getWithTestId("documentation-module").should("be.visible");
     cy.waitTextVisible(moduleName);
     cy.waitTextVisible(text);
-
-    // Clean-up
-    resetToOrgDefault();
   });
 
   it.skip("remove default module", () => {
@@ -105,9 +98,6 @@ describe("home page modules", () => {
     removeFirstModuleWithTestId("your-assets-module");
     cy.getWithTestId("your-assets-module").should("have.length.lessThan", 2);
     cy.getWithTestId("your-assets-module").should("have.length", 1);
-
-    // Clean-up
-    resetToOrgDefault();
   });
 
   it.skip("remove custom module", () => {
@@ -118,13 +108,11 @@ describe("home page modules", () => {
     removeFirstModuleWithTestId("documentation-module");
     cy.getWithTestId("documentation-module").should("not.exist");
     cy.contains(moduleName).should("not.exist");
-
-    // Clean-up
-    resetToOrgDefault();
   });
 
   it.skip("should not be able to edit default module", () => {
     cy.getWithTestId("your-assets-module")
+      .scrollIntoView()
       .should("be.visible")
       .within(() => {
         cy.getWithTestId("module-options").click();
@@ -147,9 +135,6 @@ describe("home page modules", () => {
     cy.getWithTestId("asset-collection-entities")
       .children()
       .should("have.length", 3);
-
-    // Clean-up
-    resetToOrgDefault();
   });
 
   it.skip("add home default module", () => {
@@ -172,7 +157,6 @@ describe("home page modules", () => {
     startEditingDefaultTemplate();
     removeFirstModuleWithTestId("asset-collection-module");
     finishEditingDefaultTemplate();
-    resetToOrgDefault();
   });
 
   it.skip("reorder module with drag-and-drop", () => {
@@ -180,8 +164,5 @@ describe("home page modules", () => {
     dragAndDropModuleToNewRow("your-assets-module");
     cy.getWithTestId("edited-home-page-toast");
     expectModulesOrder("domains-module", "your-assets-module");
-
-    // Clean-up
-    resetToOrgDefault();
   });
 });
