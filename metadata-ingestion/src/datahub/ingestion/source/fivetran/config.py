@@ -29,6 +29,9 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.ingestion.source.unity.config import (
+    UnityCatalogConnectionConfig,
+)
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 
@@ -56,8 +59,8 @@ class Constant:
     STATUS = "status"
     USER_ID = "user_id"
     EMAIL = "email"
-    CONNECTOR_ID = "connector_id"
-    CONNECTOR_NAME = "connector_name"
+    CONNECTOR_ID = "connection_id"
+    CONNECTOR_NAME = "connection_name"
     CONNECTOR_TYPE_ID = "connector_type_id"
     PAUSED = "paused"
     SYNC_FREQUENCY = "sync_frequency"
@@ -85,10 +88,23 @@ class BigQueryDestinationConfig(BigQueryConnectionConfig):
     dataset: str = Field(description="The fivetran connector log dataset.")
 
 
+class DatabricksDestinationConfig(UnityCatalogConnectionConfig):
+    catalog: str = Field(description="The fivetran connector log catalog.")
+    log_schema: str = Field(description="The fivetran connector log schema.")
+
+    @pydantic.validator("warehouse_id")
+    def warehouse_id_should_not_be_empty(cls, warehouse_id: Optional[str]) -> str:
+        if warehouse_id is None or (warehouse_id and warehouse_id.strip() == ""):
+            raise ValueError("Fivetran requires warehouse_id to be set")
+        return warehouse_id
+
+
 class FivetranLogConfig(ConfigModel):
-    destination_platform: Literal["snowflake", "bigquery"] = pydantic.Field(
-        default="snowflake",
-        description="The destination platform where fivetran connector log tables are dumped.",
+    destination_platform: Literal["snowflake", "bigquery", "databricks"] = (
+        pydantic.Field(
+            default="snowflake",
+            description="The destination platform where fivetran connector log tables are dumped.",
+        )
     )
     snowflake_destination_config: Optional[SnowflakeDestinationConfig] = pydantic.Field(
         default=None,
@@ -97,6 +113,12 @@ class FivetranLogConfig(ConfigModel):
     bigquery_destination_config: Optional[BigQueryDestinationConfig] = pydantic.Field(
         default=None,
         description="If destination platform is 'bigquery', provide bigquery configuration.",
+    )
+    databricks_destination_config: Optional[DatabricksDestinationConfig] = (
+        pydantic.Field(
+            default=None,
+            description="If destination platform is 'databricks', provide databricks configuration.",
+        )
     )
     _rename_destination_config = pydantic_renamed_field(
         "destination_config", "snowflake_destination_config"
@@ -114,6 +136,11 @@ class FivetranLogConfig(ConfigModel):
             if "bigquery_destination_config" not in values:
                 raise ValueError(
                     "If destination platform is 'bigquery', user must provide bigquery destination configuration in the recipe."
+                )
+        elif destination_platform == "databricks":
+            if "databricks_destination_config" not in values:
+                raise ValueError(
+                    "If destination platform is 'databricks', user must provide databricks destination configuration in the recipe."
                 )
         else:
             raise ValueError(
