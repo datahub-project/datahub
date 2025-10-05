@@ -15,8 +15,6 @@ export JAVA_OPTS="
 	-Dconfig.file=$CONF_DIR/application.conf
 	-Djava.security.auth.login.config=$CURRENT_DIR/jaas.conf
 	-Dlogback.configurationFile=$CURRENT_DIR/logback.xml
-	-Dlogback.debug=true
-	--add-opens=java.base/java.lang=ALL-UNNAMED
-  --add-opens=java.base/java.util=ALL-UNNAMED"
+	-Dlogback.debug=true"
 
 $BUILD_DIR/bin/datahub-frontend
