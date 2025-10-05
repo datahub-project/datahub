@@ -103,6 +103,7 @@ public class RestHighLevelClientFactory {
             throw new IllegalStateException(
                 "Unable to start ElasticSearch client. Please verify connection configuration.");
           }
+          log.info("Configuring Elasticsearch client with threadCount: {}", threadCount);
           httpAsyncClientBuilder.setDefaultIOReactorConfig(
               IOReactorConfig.custom().setIoThreadCount(threadCount).build());
 
@@ -143,6 +144,7 @@ public class RestHighLevelClientFactory {
     SchemeIOSessionStrategy sslStrategy =
         new SSLIOSessionStrategy(sslContext, null, null, hostnameVerifier);
 
+    log.info("Creating IOReactorConfig with threadCount: {}", threadCount);
     IOReactorConfig ioReactorConfig =
         IOReactorConfig.custom().setIoThreadCount(threadCount).build();
     DefaultConnectingIOReactor ioReactor = new DefaultConnectingIOReactor(ioReactorConfig);
@@ -162,12 +164,24 @@ public class RestHighLevelClientFactory {
         };
     ioReactor.setExceptionHandler(ioReactorExceptionHandler);
 
-    return new PoolingNHttpClientConnectionManager(
-        ioReactor,
-        RegistryBuilder.<SchemeIOSessionStrategy>create()
-            .register("http", NoopIOSessionStrategy.INSTANCE)
-            .register("https", sslStrategy)
-            .build());
+    PoolingNHttpClientConnectionManager connectionManager =
+        new PoolingNHttpClientConnectionManager(
+            ioReactor,
+            RegistryBuilder.<SchemeIOSessionStrategy>create()
+                .register("http", NoopIOSessionStrategy.INSTANCE)
+                .register("https", sslStrategy)
+                .build());
+
+    // Set maxConnectionsPerRoute to match threadCount (minimum 2)
+    int maxConnectionsPerRoute = Math.max(2, threadCount);
+    connectionManager.setDefaultMaxPerRoute(maxConnectionsPerRoute);
+
+    log.info(
+        "Configured connection pool: maxPerRoute={} (threadCount={})",
+        maxConnectionsPerRoute,
+        threadCount);
+
+    return connectionManager;
   }
 
   private void setCredentials(HttpAsyncClientBuilder httpAsyncClientBuilder) {

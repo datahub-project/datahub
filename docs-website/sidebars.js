@@ -1020,6 +1020,7 @@ module.exports = {
         },
         "docs/how/backup-datahub",
         "docs/how/restore-indices",
+        "docs/how/load-indices",
         "docs/advanced/db-retention",
         "docs/advanced/monitoring",
         "docs/deploy/telemetry",

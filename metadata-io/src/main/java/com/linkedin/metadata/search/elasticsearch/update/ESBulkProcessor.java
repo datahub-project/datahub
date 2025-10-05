@@ -4,11 +4,10 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Optional;
-import lombok.AccessLevel;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NonNull;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BackoffPolicy;
@@ -51,11 +50,14 @@ public class ESBulkProcessor implements Closeable {
   @Builder.Default private Integer numRetries = 3;
   @Builder.Default private Long retryInterval = 1L;
   @Builder.Default private TimeValue defaultTimeout = TimeValue.timeValueMinutes(1);
+  @Builder.Default private Integer threadCount = 1; // Default to single processor
   @Getter private final WriteRequest.RefreshPolicy writeRequestRefreshPolicy;
 
-  @Setter(AccessLevel.NONE)
-  @Getter(AccessLevel.NONE)
-  private final BulkProcessor bulkProcessor;
+  // Multiple processors for parallel execution - initialized in constructor, not included in
+  // builder
+  private BulkProcessor[] bulkProcessors;
+
+  private AtomicInteger roundRobinCounter;
 
   private final MetricUtils metricUtils;
 
@@ -68,8 +70,10 @@ public class ESBulkProcessor implements Closeable {
       Integer numRetries,
       Long retryInterval,
       TimeValue defaultTimeout,
+      Integer threadCount,
       WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
-      BulkProcessor ignored,
+      BulkProcessor[] bulkProcessors,
+      AtomicInteger roundRobinCounter,
       MetricUtils metricUtils) {
     this.searchClient = searchClient;
     this.async = async;
@@ -79,16 +83,59 @@ public class ESBulkProcessor implements Closeable {
     this.numRetries = numRetries;
     this.retryInterval = retryInterval;
     this.defaultTimeout = defaultTimeout;
+    this.threadCount = threadCount;
     this.writeRequestRefreshPolicy = writeRequestRefreshPolicy;
-    this.bulkProcessor = async ? toAsyncBulkProcessor() : toBulkProcessor();
     this.metricUtils = metricUtils;
+    // Set fields passed from builder
+    this.bulkProcessors = bulkProcessors != null ? bulkProcessors : new BulkProcessor[threadCount];
+    this.roundRobinCounter = roundRobinCounter != null ? roundRobinCounter : new AtomicInteger(0);
+
+    // Initialize BulkProcessors if they weren't passed from builder
+    if (this.bulkProcessors.length == 0 || this.bulkProcessors[0] == null) {
+      this.bulkProcessors = new BulkProcessor[threadCount];
+      for (int i = 0; i < threadCount; i++) {
+        this.bulkProcessors[i] = async ? toAsyncBulkProcessor(i) : toBulkProcessor(i);
+      }
+      log.info(
+          "Initialized ESBulkProcessor with {} BulkProcessor instances for parallel execution",
+          threadCount);
+    }
   }
 
   public ESBulkProcessor add(DocWriteRequest<?> request) {
     if (metricUtils != null) metricUtils.increment(this.getClass(), ES_WRITES_METRIC, 1);
-    bulkProcessor.add(request);
-    log.info(
+
+    // Round-robin distribution across processors
+    int index = roundRobinCounter.getAndIncrement() % threadCount;
+    bulkProcessors[index].add(request);
+
+    log.debug(
         "Added request id: {}, operation type: {}, index: {}",
+        request.id(),
+        request.opType(),
+        request.index());
+    return this;
+  }
+
+  /**
+   * Add a request with URN-based routing for entity document consistency. This method routes all
+   * operations for the same URN to the same BulkProcessor to ensure consistent ordering and avoid
+   * conflicts when updating the same entity.
+   *
+   * @param urn the URN of the entity being updated
+   * @param request the document write request
+   * @return this ESBulkProcessor instance
+   */
+  public ESBulkProcessor add(@NonNull String urn, @NonNull DocWriteRequest<?> request) {
+    if (metricUtils != null) metricUtils.increment(this.getClass(), ES_WRITES_METRIC, 1);
+
+    // URN-based consistent hashing for entity document consistency
+    int index = Math.abs(urn.hashCode()) % threadCount;
+    bulkProcessors[index].add(request);
+
+    log.debug(
+        "Added URN-aware request urn: {}, id: {}, operation type: {}, index: {}",
+        urn,
         request.id(),
         request.opType(),
         request.index());
@@ -142,7 +189,7 @@ public class ESBulkProcessor implements Closeable {
     try {
       if (!batchDelete) {
         // flush pending writes
-        bulkProcessor.flush();
+        flush();
       }
       // perform delete after local flush
       final BulkByScrollResponse deleteResponse =
@@ -180,7 +227,7 @@ public class ESBulkProcessor implements Closeable {
     deleteByQueryRequest.indices(indices);
     try {
       // flush pending writes
-      bulkProcessor.flush();
+      flush();
       TaskSubmissionResponse resp =
           searchClient.submitDeleteByQueryTask(deleteByQueryRequest, RequestOptions.DEFAULT);
       if (metricUtils != null) metricUtils.increment(this.getClass(), ES_BATCHES_METRIC, 1);
@@ -195,7 +242,7 @@ public class ESBulkProcessor implements Closeable {
     return Optional.empty();
   }
 
-  private BulkProcessor toBulkProcessor() {
+  private BulkProcessor toBulkProcessor(int processorIndex) {
     return BulkProcessor.builder(
             (request, bulkListener) -> {
               try {
@@ -206,7 +253,7 @@ public class ESBulkProcessor implements Closeable {
                 throw new RuntimeException(e);
               }
             },
-            BulkListener.getInstance(writeRequestRefreshPolicy, metricUtils))
+            BulkListener.getInstance(processorIndex, writeRequestRefreshPolicy, metricUtils))
         .setBulkActions(bulkRequestsLimit)
         .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
         // This retry is ONLY for "resource constraints", i.e. 429 errors (each request has other
@@ -216,12 +263,12 @@ public class ESBulkProcessor implements Closeable {
         .build();
   }
 
-  private BulkProcessor toAsyncBulkProcessor() {
+  private BulkProcessor toAsyncBulkProcessor(int processorIndex) {
     return BulkProcessor.builder(
             (request, bulkListener) -> {
               searchClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener);
             },
-            BulkListener.getInstance(writeRequestRefreshPolicy, metricUtils))
+            BulkListener.getInstance(processorIndex, writeRequestRefreshPolicy, metricUtils))
         .setBulkActions(bulkRequestsLimit)
         .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
         // This retry is ONLY for "resource constraints", i.e. 429 errors (each request has other
@@ -233,10 +280,18 @@ public class ESBulkProcessor implements Closeable {
 
   @Override
   public void close() throws IOException {
-    bulkProcessor.close();
+    flush(); // Make sure pending operations are flushed
+
+    // Close all processors
+    for (BulkProcessor processor : bulkProcessors) {
+      processor.close();
+    }
   }
 
   public void flush() {
-    bulkProcessor.flush();
+    // Flush all processors
+    for (BulkProcessor processor : bulkProcessors) {
+      processor.flush();
+    }
   }
 }

@@ -1224,7 +1224,7 @@ public class ESIndexBuilder {
     log.info("Created index {}", indexName);
   }
 
-  public static void cleanIndex(
+  public static void cleanOrphanedIndices(
       RestHighLevelClient searchClient,
       ElasticSearchConfiguration esConfig,
       ReindexConfig indexState) {

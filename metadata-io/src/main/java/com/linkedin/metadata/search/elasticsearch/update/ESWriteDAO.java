@@ -16,6 +16,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Data;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.delete.DeleteRequest;
@@ -43,7 +44,7 @@ import org.opensearch.script.ScriptType;
 public class ESWriteDAO {
   private final ElasticSearchConfiguration config;
   private final RestHighLevelClient searchClient;
-  private final ESBulkProcessor bulkProcessor;
+  @Getter private final ESBulkProcessor bulkProcessor;
 
   /** Result of a delete by query operation */
   @Data

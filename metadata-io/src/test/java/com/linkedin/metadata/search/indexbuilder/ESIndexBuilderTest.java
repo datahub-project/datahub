@@ -385,7 +385,7 @@ public class ESIndexBuilderTest {
 
     // This should not throw an exception
     try {
-      ESIndexBuilder.cleanIndex(searchClient, elasticSearchConfiguration, indexState);
+      ESIndexBuilder.cleanOrphanedIndices(searchClient, elasticSearchConfiguration, indexState);
       // If we get here without exception, test passes
       assertTrue(true);
     } catch (Exception e) {
@@ -646,7 +646,7 @@ public class ESIndexBuilderTest {
         .thenReturn(deleteResponse);
 
     // Execute
-    ESIndexBuilder.cleanIndex(searchClient, elasticSearchConfiguration, indexState);
+    ESIndexBuilder.cleanOrphanedIndices(searchClient, elasticSearchConfiguration, indexState);
 
     // Verify deletion was attempted
     verify(indicesClient, atLeastOnce())
