@@ -10,6 +10,8 @@ jobs:
   verify-quickstart-compose-updated:
     name: Verify quickstart compose file is up-to-date
     runs-on: ubuntu-latest
+    env:
+      THRESHOLD_GB: 4.3
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,7 +29,6 @@ jobs:
         run: |
           echo "Validating minimum memory requirements..."
           COMPOSE_FILE="docker/quickstart/docker-compose.quickstart-profile.yml"
-          THRESHOLD_GB=4.3
 
           total_mb=0
 
@@ -89,9 +90,9 @@ jobs:
 
           echo "---"
           echo "Total minimum memory: ${total_mb}MB (${total_gb}GB)"
-          echo "Threshold: ${THRESHOLD_GB}GB"
+          echo "Threshold: ${{ env.THRESHOLD_GB }}GB"
 
-          threshold_mb=$(echo "$THRESHOLD_GB * 1024" | bc | cut -d'.' -f1)
+          threshold_mb=$(echo "${{ env.THRESHOLD_GB }} * 1024" | bc | cut -d'.' -f1)
 
           if [ $total_mb -gt $threshold_mb ]; then
             echo "❌ FAILURE: Memory requirement (${total_mb}MB) exceeds threshold (${threshold_mb}MB)"
@@ -111,13 +112,11 @@ jobs:
           echo ""
           echo "Possible causes:"
           echo ""
-          echo "1. OUTDATED COMPOSE FILE:"
-          echo "   The committed docker-compose file differs from the generated version."
+          echo "1. The committed docker-compose file differs from the generated version."
           echo "   Solution: Run the following command and commit the changes:"
           echo "   ./gradlew :docker:generateQuickstartComposeConfig"
           echo ""
-          echo "2. MEMORY REQUIREMENTS EXCEEDED:"
-          echo "   The total minimum memory requirement exceeds the 4.3GB threshold."
+          echo "2. The total minimum memory requirement exceeds the  ${{ env.THRESHOLD_GB }}GB threshold."
           echo "   Solution: Adjust the threshold in this workflow. Also Update MIN_MEMORY_NEEDED in metadata-ingestion/src/datahub/cli/docker_check.py"
           echo ""
           echo "=========================================================="
