@@ -29,7 +29,8 @@ export function useEntityManagement(): UseEntityManagementReturn {
    * Convert CSV data to Entity objects
    */
   const normalizeCsvData = useCallback((data: EntityData[]): Entity[] => {
-    return data.map(entityData => {
+    // First pass: create entities without levels
+    const entities = data.map(entityData => {
       const parentNames = parseCommaSeparated(entityData.parent_nodes);
       const id = generateEntityId(entityData, parentNames);
       
@@ -40,12 +41,18 @@ export function useEntityManagement(): UseEntityManagementReturn {
         urn: entityData.urn || undefined,
         parentNames,
         parentUrns: [], // Will be resolved later
-        level: 0, // Will be calculated later
+        level: 0, // Will be calculated below
         data: entityData,
-        status: 'new',
+        status: 'new' as const,
         originalRow: entityData
       };
     });
+
+    // Second pass: calculate hierarchy levels
+    return entities.map(entity => ({
+      ...entity,
+      level: calculateHierarchyLevel(entity, entities)
+    }));
   }, []);
 
   /**

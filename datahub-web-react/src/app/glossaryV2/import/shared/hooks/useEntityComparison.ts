@@ -8,6 +8,7 @@ import {
   EntityData, 
   UseEntityComparisonReturn 
 } from '../../glossary.types';
+import { compareCustomProperties } from '../utils/customPropertiesUtils';
 
 export function useEntityComparison(): UseEntityComparisonReturn {
   /**
@@ -27,11 +28,15 @@ export function useEntityComparison(): UseEntityComparisonReturn {
       'related_inherits',
       'domain_urn',
       'domain_name',
-      'custom_properties',
-      'status'
+      'custom_properties'
     ];
 
     return fieldsToCompare.every(field => {
+      // Special handling for custom_properties
+      if (field === 'custom_properties') {
+        return compareCustomProperties(entity1[field], entity2[field]);
+      }
+      
       const value1 = normalizeValue(entity1[field]);
       const value2 = normalizeValue(entity2[field]);
       return value1 === value2;
@@ -56,15 +61,21 @@ export function useEntityComparison(): UseEntityComparisonReturn {
       'related_inherits',
       'domain_urn',
       'domain_name',
-      'custom_properties',
-      'status'
+      'custom_properties'
     ];
 
     fieldsToCompare.forEach(field => {
-      const value1 = normalizeValue(entity1[field]);
-      const value2 = normalizeValue(entity2[field]);
-      if (value1 !== value2) {
-        changedFields.push(field);
+      // Special handling for custom_properties
+      if (field === 'custom_properties') {
+        if (!compareCustomProperties(entity1[field], entity2[field])) {
+          changedFields.push(field);
+        }
+      } else {
+        const value1 = normalizeValue(entity1[field]);
+        const value2 = normalizeValue(entity2[field]);
+        if (value1 !== value2) {
+          changedFields.push(field);
+        }
       }
     });
 
@@ -108,7 +119,8 @@ export function useEntityComparison(): UseEntityComparisonReturn {
         if (detectConflicts(importedEntity, existingEntity)) {
           conflictedEntities.push({
             ...importedEntity,
-            status: 'conflict'
+            status: 'conflict',
+            existingEntity
           });
         } else {
           // Check if data has changed
@@ -116,12 +128,14 @@ export function useEntityComparison(): UseEntityComparisonReturn {
           if (hasChanges) {
             updatedEntities.push({
               ...importedEntity,
-              status: 'updated'
+              status: 'updated',
+              existingEntity
             });
           } else {
             unchangedEntities.push({
               ...importedEntity,
-              status: 'existing'
+              status: 'existing',
+              existingEntity
             });
           }
         }

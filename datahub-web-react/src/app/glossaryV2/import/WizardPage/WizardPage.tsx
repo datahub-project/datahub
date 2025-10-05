@@ -9,7 +9,18 @@ import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import usePagination from '@app/sharedV2/pagination/usePagination';
-import { Entity } from '../glossary.types';
+import { Entity, EntityData } from '../glossary.types';
+import { EntityDetailsModal } from './EntityDetailsModal/EntityDetailsModal';
+import { DiffModal } from './DiffModal/DiffModal';
+import { ImportProgressModal } from './ImportProgressModal/ImportProgressModal';
+import { useImportProcessing } from '../shared/hooks/useImportProcessing';
+import { useCsvProcessing } from '../shared/hooks/useCsvProcessing';
+import { useEntityManagement } from '../shared/hooks/useEntityManagement';
+import { useGraphQLOperations } from '../shared/hooks/useGraphQLOperations';
+import { useEntityComparison } from '../shared/hooks/useEntityComparison';
+import { useApolloClient } from '@apollo/client';
+import DropzoneTable from './DropzoneTable/DropzoneTable';
+import { useImportState } from './WizardPage.hooks';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -193,7 +204,51 @@ const EditableCell = styled.div`
     }
 `;
 
+
+const StepActions = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #e8e8e8;
+`;
+
+const StepButtons = styled.div`
+    display: flex;
+    gap: 12px;
+`;
+
 const DEFAULT_PAGE_SIZE = 25;
+
+// Wizard step definitions
+const wizardSteps = [
+    {
+        title: 'Upload CSV',
+        description: 'Select and upload your glossary CSV file',
+        key: 'upload',
+    },
+    {
+        title: 'Preview Data',
+        description: 'Review and edit imported data',
+        key: 'preview',
+    },
+    {
+        title: 'Compare & Validate',
+        description: 'Compare with existing entities',
+        key: 'compare',
+    },
+    {
+        title: 'Manage Hierarchy',
+        description: 'Set up parent-child relationships',
+        key: 'hierarchy',
+    },
+    {
+        title: 'Import',
+        description: 'Execute the import process',
+        key: 'import',
+    },
+];
 
 // Mock data for now - will be replaced with real data
 const mockEntities: Entity[] = [
@@ -988,8 +1043,33 @@ const RefreshButton = ({ onClick }: { onClick?: () => void }) => {
 };
 
 // This is the main content component that replaces IngestionSourceList
-const GlossaryImportList = () => {
-    const [entities, setEntities] = useState<Entity[]>(mockEntities);
+const GlossaryImportList = ({ 
+    entities, 
+    setEntities, 
+    onRestart, 
+    csvProcessing, 
+    entityManagement,
+    onStartImport,
+    isImportModalVisible,
+    setIsImportModalVisible,
+    progress,
+    isProcessing,
+    resetProgress,
+    retryFailed
+}: { 
+    entities: Entity[], 
+    setEntities: (entities: Entity[]) => void, 
+    onRestart: () => void,
+    csvProcessing: any,
+    entityManagement: any,
+    onStartImport: () => void,
+    isImportModalVisible: boolean,
+    setIsImportModalVisible: (visible: boolean) => void,
+    progress: any,
+    isProcessing: boolean,
+    resetProgress: () => void,
+    retryFailed: () => void
+}) => {
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [searchInput, setSearchInput] = useState('');
     const searchInputRef = useRef<any>(null);
@@ -999,6 +1079,11 @@ const GlossaryImportList = () => {
     const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
     const [selectionMode, setSelectionMode] = useState<'none' | 'currentPage' | 'allPages'>('none');
     const [editingCell, setEditingCell] = useState<{ rowId: string; field: string } | null>(null);
+    
+    // Entity Details Modal state
+    const [isModalVisible, setIsModalVisible] = useState(false);
+    const [isDiffModalVisible, setIsDiffModalVisible] = useState(false);
+    const [selectedEntity, setSelectedEntity] = useState<EntityData | null>(null);
 
     const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
 
@@ -1046,12 +1131,7 @@ const GlossaryImportList = () => {
     };
 
     const handleRefresh = () => {
-        setLoading(true);
-        // Simulate refresh
-        setTimeout(() => {
-            setLoading(false);
-            console.log('Data refreshed successfully');
-        }, 1000);
+        onRestart();
     };
 
     // Checkbox handlers - Progressive selection: none → current page → all pages → none
@@ -1091,11 +1171,12 @@ const GlossaryImportList = () => {
     };
 
     const handleCellSave = (rowId: string, field: string, value: string) => {
-        setEntities(prev => prev.map(entity => 
+        const updatedEntities = entities.map(entity => 
             entity.id === rowId 
                 ? { ...entity, data: { ...entity.data, [field]: value } }
                 : entity
-        ));
+        );
+        setEntities(updatedEntities);
         setEditingCell(null);
     };
 
@@ -1107,13 +1188,63 @@ const GlossaryImportList = () => {
         return editingCell?.rowId === rowId && editingCell?.field === field;
     };
 
+    // Modal handlers
+    const handleShowDetails = useCallback((entity: Entity) => {
+        setSelectedEntity(entity.data);
+        setIsModalVisible(true);
+    }, []);
+
+    const handleCloseModal = useCallback(() => {
+        setIsModalVisible(false);
+        setSelectedEntity(null);
+    }, []);
+
+    const handleShowDiff = useCallback((entity: Entity) => {
+        setSelectedEntity(entity.data);
+        setIsDiffModalVisible(true);
+    }, []);
+
+    const handleCloseDiffModal = useCallback(() => {
+        setIsDiffModalVisible(false);
+        setSelectedEntity(null);
+    }, []);
+
+    const handleSaveEntity = useCallback((updatedData: EntityData) => {
+        if (selectedEntity) {
+            const updatedEntities = entities.map(entity => 
+                entity.data === selectedEntity 
+                    ? { ...entity, data: updatedData }
+                    : entity
+            );
+            setEntities(updatedEntities);
+        }
+        handleCloseModal();
+    }, [selectedEntity, handleCloseModal, entities, setEntities]);
+
+
+    const handleCloseImportModal = useCallback(() => {
+        setIsImportModalVisible(false);
+        if (!isProcessing) {
+            resetProgress();
+        }
+    }, [isProcessing, resetProgress]);
+
+    const handleRetryFailed = useCallback(async () => {
+        try {
+            await retryFailed();
+        } catch (error) {
+            console.error('Retry failed:', error);
+        }
+    }, [retryFailed]);
+
     // Calculate paginated data
     const totalItems = entities.length;
     const paginatedData = entities.slice(start, start + pageSize);
 
     // Smart selection state logic for progressive selection
-    const isChecked = selectionMode === 'currentPage' || selectionMode === 'allPages';
-    const isIndeterminate = selectionMode === 'none' && selectedRowKeys.length > 0;
+    const isChecked = selectionMode === 'allPages';
+    const isIndeterminate = (selectionMode === 'none' && selectedRowKeys.length > 0) || 
+                           (selectionMode === 'currentPage' && selectedRowKeys.length < totalItems);
 
     const tableColumns: Column<Entity>[] = [
         {
@@ -1123,6 +1254,7 @@ const GlossaryImportList = () => {
                     isIntermediate={isIndeterminate}
                     setIsChecked={handleSelectAll}
                     label=""
+                    size="xs"
                 />
             ),
             key: 'select',
@@ -1134,6 +1266,7 @@ const GlossaryImportList = () => {
                         handleSelectRow(record.id, checked);
                     }}
                     label=""
+                    size="xs"
                 />
             ),
             width: '4%',
@@ -1161,15 +1294,30 @@ const GlossaryImportList = () => {
                 };
 
                 return (
-                    <Pill
-                        label={getStatusLabel(record.status)}
-                        color={getStatusColor(record.status)}
-                        size="sm"
-                        variant="filled"
-                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Pill
+                            label={getStatusLabel(record.status)}
+                            color={getStatusColor(record.status)}
+                            size="sm"
+                            variant="filled"
+                        />
+                        {(record.status === 'updated' || record.status === 'conflict') && (
+                            <Button
+                                variant="text"
+                                size="xs"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleShowDiff(record);
+                                }}
+                                style={{ padding: '2px 6px', minWidth: 'auto' }}
+                            >
+                                Diff
+                            </Button>
+                        )}
+                    </div>
                 );
             },
-            width: '8%',
+            width: '12%',
             alignment: 'left',
             sorter: (a, b) => a.status.localeCompare(b.status),
         },
@@ -1222,11 +1370,12 @@ const GlossaryImportList = () => {
                                 setValue={(value) => {
                                     const stringValue = typeof value === 'function' ? value('') : value;
                                     const newParentNames = stringValue.split(' > ').filter(name => name.trim());
-                                    setEntities(prev => prev.map(entity => 
+                                    const updatedEntities = entities.map(entity => 
                                         entity.id === record.id 
                                             ? { ...entity, parentNames: newParentNames }
                                             : entity
-                                    ));
+                                    );
+                                    setEntities(updatedEntities);
                                 }}
                                 placeholder="Enter parent path (e.g., Group > Subgroup)"
                                 label=""
@@ -1509,6 +1658,7 @@ const GlossaryImportList = () => {
         },
     ];
 
+
     return (
         <>
             {error && (
@@ -1571,11 +1721,16 @@ const GlossaryImportList = () => {
                             <Table
                                 columns={tableColumns}
                                 data={paginatedData}
+                                rowKey="id"
                                 isScrollable
                                 handleSortColumnChange={handleSortColumnChange}
                                 isLoading={loading && entities.length === 0}
                                 onRowClick={(record) => {
-                                    console.log('Diff for:', record.name);
+                                    if (record.status === 'updated' || record.status === 'conflict') {
+                                        handleShowDiff(record);
+                                    } else {
+                                        handleShowDetails(record);
+                                    }
                                 }}
                             />
                         </TableContainer>
@@ -1588,10 +1743,42 @@ const GlossaryImportList = () => {
                                 onPageChange={onChangePage}
                                 showSizeChanger={false}
                             />
+                            <Button
+                                variant="filled"
+                                color="primary"
+                                onClick={onStartImport}
+                                disabled={entities.length === 0 || isProcessing}
+                            >
+                                Import Selected ({entities.length})
+                            </Button>
                         </PaginationContainer>
                     </>
                 )}
             </SourceContainer>
+            
+            {/* Entity Details Modal */}
+            <EntityDetailsModal
+                visible={isModalVisible}
+                onClose={handleCloseModal}
+                entityData={selectedEntity}
+                onSave={handleSaveEntity}
+            />
+            
+            {/* Diff Modal */}
+            <DiffModal
+                visible={isDiffModalVisible}
+                onClose={handleCloseDiffModal}
+                entity={selectedEntity ? entities.find(e => e.data === selectedEntity) || null : null}
+                existingEntity={selectedEntity ? entities.find(e => e.data === selectedEntity)?.existingEntity || null : null}
+            />
+            
+            {/* Import Progress Modal */}
+            <ImportProgressModal
+                visible={isImportModalVisible}
+                onClose={handleCloseImportModal}
+                progress={progress}
+                isProcessing={isProcessing}
+            />
         </>
     );
 };
@@ -1599,6 +1786,271 @@ const GlossaryImportList = () => {
 export const WizardPage = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const history = useHistory();
+    const [currentStep, setCurrentStep] = useState(0);
+    
+    // Import Processing state
+    const [isImportModalVisible, setIsImportModalVisible] = useState(false);
+    const apolloClient = useApolloClient();
+    
+    const {
+        progress,
+        isProcessing,
+        startImport,
+        pauseImport,
+        resumeImport,
+        cancelImport,
+        retryFailed,
+        resetProgress,
+    } = useImportProcessing({
+        apolloClient,
+        onProgress: (progress) => {
+            // Progress updates are handled automatically
+        },
+    });
+    
+    // Import state management
+    const {
+        csvData,
+        parseResult,
+        isDataLoaded,
+        entities,
+        existingEntities,
+        comparisonResult,
+        isComparisonComplete,
+        setCsvDataAndResult,
+        setEntities,
+        setExistingEntities,
+        setComparisonResult,
+        clearData
+    } = useImportState();
+    
+    // Initialize CSV processing hooks at component level
+    const csvProcessing = useCsvProcessing();
+    const entityManagement = useEntityManagement();
+    const { executeUnifiedGlossaryQuery } = useGraphQLOperations();
+    const { categorizeEntities } = useEntityComparison();
+
+    // Import handlers
+    const handleStartImport = useCallback(async () => {
+        try {
+            setIsImportModalVisible(true);
+            await startImport(entities, existingEntities);
+        } catch (error) {
+            console.error('Import failed:', error);
+        }
+    }, [entities, existingEntities, startImport]);
+
+    const handleNext = () => {
+        if (currentStep < wizardSteps.length - 1) {
+            setCurrentStep(currentStep + 1);
+        }
+    };
+
+    const handlePrevious = () => {
+        if (currentStep > 0) {
+            setCurrentStep(currentStep - 1);
+        }
+    };
+
+    const [uploadFile, setUploadFile] = useState<File | null>(null);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadError, setUploadError] = useState<string | null>(null);
+
+    const handleFileSelect = async (file: File) => {
+        setUploadFile(file);
+        setUploadError(null);
+        setUploadProgress(0);
+        
+        try {
+            // Read file content
+            const csvText = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target?.result as string);
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsText(file);
+            });
+            
+            setUploadProgress(50);
+            
+            // Use proper CSV parsing with dynamic header mapping
+            const parseResult = csvProcessing.parseCsvText(csvText);
+            
+            setUploadProgress(75);
+            
+            // Validate parsed data
+            const validationResult = csvProcessing.validateCsvData(parseResult.data);
+            
+            if (!validationResult.isValid) {
+                setUploadError(`CSV validation failed: ${validationResult.errors.map(e => e.message).join(', ')}`);
+                return;
+            }
+            
+            // Normalize CSV data to entities
+            const normalizedEntities = entityManagement.normalizeCsvData(parseResult.data);
+            
+            setCsvDataAndResult(parseResult.data, parseResult);
+            setEntities(normalizedEntities);
+            
+            // Fetch existing entities from DataHub for comparison
+            setUploadProgress(90);
+            try {
+                const existingEntities = await executeUnifiedGlossaryQuery({
+                    input: {
+                        types: ['GLOSSARY_TERM', 'GLOSSARY_NODE'],
+                        query: '*',
+                        count: 1000
+                    }
+                });
+                
+                // Convert GraphQL entities to our Entity format
+                const convertedExistingEntities: Entity[] = existingEntities.map((entity: any) => {
+                    const isTerm = entity.__typename === 'GlossaryTerm';
+                    const properties = entity.properties || {};
+                    const parentNodes = entity.parentNodes?.nodes || [];
+                    
+                    return {
+                        id: entity.urn,
+                        name: properties.name || entity.name || '',
+                        type: (isTerm ? 'glossaryTerm' : 'glossaryNode') as 'glossaryTerm' | 'glossaryNode',
+                        urn: entity.urn,
+                        parentNames: parentNodes.map((node: any) => node.properties?.name || ''),
+                        parentUrns: parentNodes.map((node: any) => node.urn),
+                        level: parentNodes.length,
+                        data: {
+                            entity_type: (isTerm ? 'glossaryTerm' : 'glossaryNode') as 'glossaryTerm' | 'glossaryNode',
+                            urn: entity.urn,
+                            name: properties.name || entity.name || '',
+                            description: properties.description || '',
+                            term_source: properties.termSource || '',
+                            source_ref: properties.sourceRef || '',
+                            source_url: properties.sourceUrl || '',
+                            ownership: entity.ownership?.owners?.map((owner: any) => 
+                              `${owner.type}:${owner.owner.username || owner.owner.name || owner.owner.urn}`
+                            ).join(',') || '',
+                            parent_nodes: parentNodes.map((node: any) => node.properties?.name || '').join(','),
+                            related_contains: entity.contains?.relationships?.map((rel: any) => rel.entity.properties?.name || '').join(',') || '',
+                            related_inherits: entity.inherits?.relationships?.map((rel: any) => rel.entity.properties?.name || '').join(',') || '',
+                            domain_urn: '', // TODO: Extract from domain aspect
+                            domain_name: '', // TODO: Extract from domain aspect
+                            custom_properties: properties.customProperties?.map((cp: any) => `${cp.key}:${cp.value}`).join(',') || '',
+                            status: 'existing'
+                        },
+                        status: 'existing' as const,
+                        originalRow: undefined
+                    };
+                });
+                
+                setExistingEntities(convertedExistingEntities);
+                
+                // Perform entity comparison
+                const comparison = categorizeEntities(normalizedEntities, convertedExistingEntities);
+                
+                // Update entities with comparison results
+                const updatedEntities = [
+                    ...comparison.newEntities.map(entity => ({ ...entity, status: 'new' as const })),
+                    ...comparison.updatedEntities,
+                    ...comparison.unchangedEntities,
+                    ...comparison.conflictedEntities
+                ];
+                
+                setEntities(updatedEntities);
+                setComparisonResult({
+                    newEntities: comparison.newEntities.map(entity => ({ ...entity, status: 'new' as const })),
+                    existingEntities: convertedExistingEntities,
+                    updatedEntities: comparison.updatedEntities,
+                    conflicts: comparison.conflictedEntities
+                });
+                
+            } catch (error) {
+                console.error('Failed to fetch existing entities:', error);
+                setUploadError(`Failed to fetch existing entities: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                return;
+            }
+            
+            setUploadProgress(100);
+            handleNext(); // Auto-advance to next step after successful upload
+            
+        } catch (error) {
+            setUploadError(`Failed to parse CSV file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    };
+
+    const handleFileRemove = () => {
+        setUploadFile(null);
+        setUploadError(null);
+        setUploadProgress(0);
+    };
+
+    const handleRestart = () => {
+        // Reset to step 1
+        setCurrentStep(0);
+        
+        // Clear file upload state
+        setUploadFile(null);
+        setUploadError(null);
+        setUploadProgress(0);
+        
+        // Clear all import data
+        clearData();
+    };
+
+    const renderStepContent = () => {
+        switch (currentStep) {
+            case 0: // Upload CSV
+                return (
+                    <DropzoneTable
+                        onFileSelect={handleFileSelect}
+                        onFileRemove={handleFileRemove}
+                        file={uploadFile}
+                        isProcessing={isProcessing}
+                        progress={uploadProgress}
+                        error={uploadError}
+                        acceptedFileTypes={['.csv']}
+                        maxFileSize={10}
+                    />
+                );
+            case 1: // Preview Data
+                return <GlossaryImportList 
+                    entities={entities} 
+                    setEntities={setEntities} 
+                    onRestart={handleRestart} 
+                    csvProcessing={csvProcessing} 
+                    entityManagement={entityManagement} 
+                    onStartImport={handleStartImport}
+                    isImportModalVisible={isImportModalVisible}
+                    setIsImportModalVisible={setIsImportModalVisible}
+                    progress={progress}
+                    isProcessing={isProcessing}
+                    resetProgress={resetProgress}
+                    retryFailed={retryFailed}
+                />;
+            case 2: // Compare & Validate
+                return <div>Compare & Validate Step - Coming Soon</div>;
+            case 3: // Manage Hierarchy
+                return <div>Manage Hierarchy Step - Coming Soon</div>;
+            case 4: // Import
+                return <div>Import Step - Coming Soon</div>;
+            default:
+                return <div>Unknown step</div>;
+        }
+    };
+
+    const canProceed = () => {
+        switch (currentStep) {
+            case 0: // Upload CSV
+                return isDataLoaded && entities.length > 0;
+            case 1: // Preview Data
+                return true; // Always can proceed from preview
+            case 2: // Compare & Validate
+                return isComparisonComplete;
+            case 3: // Manage Hierarchy
+                return true; // Always can proceed from hierarchy
+            case 4: // Import
+                return true; // Always can proceed to import
+            default:
+                return false;
+        }
+    };
 
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
@@ -1616,7 +2068,43 @@ export const WizardPage = () => {
                 </HeaderActionsContainer>
             </PageHeaderContainer>
             <PageContentContainer>
-                <GlossaryImportList />
+                {/* Step Content - Full Width, No Container */}
+                {renderStepContent()}
+
+                {/* Step Actions - Only show if not on data preview step */}
+                {currentStep !== 1 && (
+                    <StepActions>
+                        <div>
+                            {currentStep > 0 && (
+                                <Button variant="outline" onClick={handlePrevious}>
+                                    Previous
+                                </Button>
+                            )}
+                        </div>
+                        <StepButtons>
+                            <Button variant="outline" onClick={() => history.back()}>
+                                Cancel
+                            </Button>
+                            {currentStep < wizardSteps.length - 1 ? (
+                                <Button 
+                                    variant="filled" 
+                                    onClick={handleNext}
+                                    disabled={!canProceed()}
+                                >
+                                    Next
+                                </Button>
+                            ) : (
+                                <Button 
+                                    variant="filled" 
+                                    color="green"
+                                    disabled={!canProceed()}
+                                >
+                                    Import
+                                </Button>
+                            )}
+                        </StepButtons>
+                    </StepActions>
+                )}
             </PageContentContainer>
         </PageContainer>
     );

@@ -340,20 +340,10 @@ export function convertGraphQLEntityToEntity(graphqlEntity: GraphQLEntity): Enti
 
 /**
  * Calculate hierarchy level for an entity
+ * Simple approach: level = number of parents
  */
 export function calculateHierarchyLevel(entity: Entity, allEntities: Entity[]): number {
-  if (entity.parentNames.length === 0) return 0;
-
-  let maxParentLevel = -1;
-  entity.parentNames.forEach(parentName => {
-    const parentEntity = allEntities.find(e => e.name === parentName);
-    if (parentEntity) {
-      const parentLevel = calculateHierarchyLevel(parentEntity, allEntities);
-      maxParentLevel = Math.max(maxParentLevel, parentLevel);
-    }
-  });
-
-  return maxParentLevel + 1;
+  return entity.parentNames.length;
 }
 
 /**

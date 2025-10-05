@@ -21,14 +21,16 @@ export function useHierarchyManagement(): UseHierarchyManagementReturn {
    * Create processing order respecting hierarchy levels
    */
   const createProcessingOrder = useCallback((entities: Entity[]): Entity[] => {
-    // First validate hierarchy to ensure no circular dependencies
-    const validation = validateHierarchy(entities);
+    // First sort entities by hierarchy level (this calculates the levels)
+    const sortedEntities = sortEntitiesByHierarchy(entities);
+    
+    // Then validate hierarchy with calculated levels
+    const validation = validateHierarchy(sortedEntities);
     if (!validation.isValid) {
       console.warn('Hierarchy validation failed:', validation.errors);
     }
 
-    // Sort entities by hierarchy level (parents first)
-    return sortEntitiesByHierarchy(entities);
+    return sortedEntities;
   }, []);
 
   /**

@@ -1,0 +1,110 @@
+import React from 'react';
+import styled from 'styled-components';
+import { Typography, Input } from 'antd';
+import { Card } from '@components';
+import { EntityData, ValidationError } from '../../../glossary.types';
+
+const { Text } = Typography;
+
+interface OwnershipSectionProps {
+  data: EntityData | null;
+  isEditing: boolean;
+  onFieldChange: (field: keyof EntityData, value: string) => void;
+  validationErrors: ValidationError[];
+}
+
+const SectionCard = styled(Card)`
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 16px;
+`;
+
+const FieldContainer = styled.div`
+  margin-bottom: 16px;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+`;
+
+const FieldLabel = styled(Text)`
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+  color: #374151;
+`;
+
+const FieldInput = styled(Input)`
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  
+  &:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+  
+  &.error {
+    border-color: #ef4444;
+  }
+`;
+
+const ErrorText = styled(Text)`
+  color: #ef4444;
+  font-size: 12px;
+  margin-top: 4px;
+`;
+
+const ReadOnlyValue = styled(Text)`
+  color: #6b7280;
+  font-style: italic;
+`;
+
+export const OwnershipSection: React.FC<OwnershipSectionProps> = ({
+  data,
+  isEditing,
+  onFieldChange,
+  validationErrors,
+}) => {
+  if (!data) return null;
+
+  const getFieldError = (field: string) => {
+    return validationErrors.find(error => error.field === field);
+  };
+
+  const renderField = (
+    field: keyof EntityData,
+    label: string
+  ) => {
+    const error = getFieldError(field);
+    const value = data[field] || '';
+
+    if (isEditing) {
+      return (
+        <FieldInput
+          value={value}
+          onChange={(e) => onFieldChange(field, e.target.value)}
+          className={error ? 'error' : ''}
+          placeholder={`Enter ${label.toLowerCase()}`}
+        />
+      );
+    }
+
+    return (
+      <ReadOnlyValue>
+        {value || 'Not specified'}
+      </ReadOnlyValue>
+    );
+  };
+
+  return (
+    <SectionCard title="Ownership">
+      <FieldContainer>
+        <FieldLabel>Ownership</FieldLabel>
+        {renderField('ownership', 'Ownership')}
+        {getFieldError('ownership') && (
+          <ErrorText>{getFieldError('ownership')?.message}</ErrorText>
+        )}
+      </FieldContainer>
+    </SectionCard>
+  );
+};

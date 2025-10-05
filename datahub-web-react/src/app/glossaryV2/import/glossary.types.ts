@@ -33,6 +33,7 @@ export interface Entity {
   data: EntityData;              // All other entity data
   status: 'existing' | 'new' | 'updated' | 'conflict';
   originalRow?: EntityData;      // Reference to original CSV row
+  existingEntity?: Entity;       // Reference to existing entity for comparison
 }
 
 // Hierarchy management maps
@@ -166,8 +167,17 @@ export interface PatchOperation {
 
 // Entity patch input for GraphQL mutations
 export interface EntityPatchInput {
-  urn: string;
-  patches: PatchOperation[];
+  urn?: string;
+  entityType: string;
+  aspectName: string;
+  patch: PatchOperation[];
+  arrayPrimaryKeys?: ArrayPrimaryKeyInput[];
+  forceGenericPatch?: boolean;
+}
+
+export interface ArrayPrimaryKeyInput {
+  keyPath: string;
+  primaryKeys: string[];
 }
 
 // File upload state
@@ -279,5 +289,8 @@ export interface UseImportProcessingReturn {
 export interface UseGraphQLOperationsReturn {
   executeUnifiedGlossaryQuery: (variables: any) => Promise<GraphQLEntity[]>;
   executePatchEntitiesMutation: (input: EntityPatchInput[]) => Promise<any>;
+  executeAddRelatedTermsMutation: (input: any) => Promise<any>;
+  executeSetDomainMutation: (entityUrn: string, domainUrn: string) => Promise<any>;
+  executeBatchSetDomainMutation: (domainUrn: string, entityUrns: string[]) => Promise<any>;
   handleGraphQLErrors: (error: any) => string;
 }
