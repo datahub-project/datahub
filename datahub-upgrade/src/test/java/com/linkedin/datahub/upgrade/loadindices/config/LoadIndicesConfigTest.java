@@ -12,6 +12,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.client.RestHighLevelClient;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -64,6 +65,7 @@ public class LoadIndicesConfigTest {
 
     // Verify that the operation context methods were called
     org.mockito.Mockito.verify(mockOperationContext).getSearchContext();
+    org.mockito.Mockito.verify(mockOperationContext).getEntityRegistry();
   }
 
   @Test
@@ -75,6 +77,7 @@ public class LoadIndicesConfigTest {
 
     // Verify that the operation context methods were called
     org.mockito.Mockito.verify(mockOperationContext).getSearchContext();
+    org.mockito.Mockito.verify(mockOperationContext).getEntityRegistry();
   }
 
   @Test
@@ -87,5 +90,6 @@ public class LoadIndicesConfigTest {
 
     // Verify that the operation context methods were called
     org.mockito.Mockito.verify(mockOperationContext).getSearchContext();
+    org.mockito.Mockito.verify(mockOperationContext).getEntityRegistry();
   }
 }
