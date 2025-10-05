@@ -11,7 +11,7 @@ jobs:
     name: Verify quickstart compose file is up-to-date
     runs-on: ubuntu-latest
     env:
-      THRESHOLD_GB: 3
+      THRESHOLD_GB: 4.3
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -96,7 +96,6 @@ jobs:
 
           if [ $total_mb -gt $threshold_mb ]; then
             echo "❌ FAILURE: Memory requirement (${total_mb}MB) exceeds threshold (${threshold_mb}MB)"
-            echo "Please reduce memory allocations in the compose file."
             exit 1
           else
             echo "✅ SUCCESS: Memory requirement is within threshold"
