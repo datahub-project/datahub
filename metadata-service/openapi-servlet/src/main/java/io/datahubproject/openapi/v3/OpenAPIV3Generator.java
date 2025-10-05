@@ -120,6 +120,7 @@ public class OpenAPIV3Generator {
         buildEntitySchema(filteredAspectSpec, aspectNames, true));
     components.addSchemas(
         "Scroll" + ENTITIES + ENTITY_RESPONSE_SUFFIX, buildEntitiesScrollSchema());
+    components.addSchemas("FacetMetadata", buildFacetMetadataSchema());
     components.addSchemas(ASPECT_PATCH_PROPERTY, buildAspectPatchPropertySchema());
 
     // --> Aspect components
@@ -1575,10 +1576,29 @@ public class OpenAPIV3Generator {
                             String.format(
                                 "#/components/schemas/%s%s", ENTITIES, ENTITY_RESPONSE_SUFFIX))))
         .addProperty(
+            "facets",
+            newSchema()
+                .type(TYPE_ARRAY)
+                .description("List of facet aggregations for the result set.")
+                .items(newSchema().$ref("#/components/schemas/FacetMetadata")))
+        .addProperty(
             "totalCount",
             newSchema()
                 .type(TYPE_INTEGER)
                 .description("Total number of entities satisfy the criteria."));
+  }
+
+  private static Schema buildFacetMetadataSchema() {
+    return newSchema()
+        .type(TYPE_OBJECT)
+        .description("Facet aggregation metadata.")
+        .addProperty("field", newSchema().type(TYPE_STRING).description("Facet field name."))
+        .addProperty(
+            "aggregations",
+            newSchema()
+                .type(TYPE_OBJECT)
+                .description("Counts per facet value.")
+                .additionalProperties(newSchema().type(TYPE_INTEGER).format("int64")));
   }
 
   private static Schema buildEntityScrollSchema(final EntitySpec entity) {
