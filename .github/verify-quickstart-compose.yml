@@ -23,8 +23,103 @@ jobs:
         run: |
           git diff --exit-code docker/quickstart/docker-compose.quickstart-profile.yml
 
-      - name: Validation
+      - name: Validate memory requirements
+        run: |
+          echo "Validating minimum memory requirements..."
+          COMPOSE_FILE="docker/quickstart/docker-compose.quickstart-profile.yml"
+          THRESHOLD_GB=4.3
+
+          total_mb=0
+
+          # Parse OpenSearch OPENSEARCH_JAVA_OPTS (-Xms)
+          if opensearch_xms=$(grep -A 50 'opensearch:' "$COMPOSE_FILE" | grep 'OPENSEARCH_JAVA_OPTS:' | grep -oP '\-Xms\K[0-9]+[mMgG]' | head -1); then
+            if [[ $opensearch_xms =~ ([0-9]+)[gG] ]]; then
+              mb=$((${BASH_REMATCH[1]} * 1024))
+            elif [[ $opensearch_xms =~ ([0-9]+)[mM] ]]; then
+              mb=${BASH_REMATCH[1]}
+            fi
+            echo "opensearch: ${mb}MB"
+            total_mb=$((total_mb + mb))
+          fi
+
+          # Parse datahub-gms JAVA_OPTS (-Xms)
+          if gms_xms=$(grep -A 100 'datahub-gms-quickstart:' "$COMPOSE_FILE" | grep 'JAVA_OPTS:' | grep -oP '\-Xms\K[0-9]+[mMgG]' | head -1); then
+            if [[ $gms_xms =~ ([0-9]+)[gG] ]]; then
+              mb=$((${BASH_REMATCH[1]} * 1024))
+            elif [[ $gms_xms =~ ([0-9]+)[mM] ]]; then
+              mb=${BASH_REMATCH[1]}
+            fi
+            echo "datahub-gms: ${mb}MB"
+            total_mb=$((total_mb + mb))
+          fi
+
+          # Parse frontend JAVA_OPTS (-Xms)
+          if frontend_xms=$(grep -A 50 'frontend-quickstart:' "$COMPOSE_FILE" | grep 'JAVA_OPTS:' | grep -oP '\-Xms\K[0-9]+[mMgG]' | head -1); then
+            if [[ $frontend_xms =~ ([0-9]+)[gG] ]]; then
+              mb=$((${BASH_REMATCH[1]} * 1024))
+            elif [[ $frontend_xms =~ ([0-9]+)[mM] ]]; then
+              mb=${BASH_REMATCH[1]}
+            fi
+            echo "frontend: ${mb}MB"
+            total_mb=$((total_mb + mb))
+          fi
+
+          # Parse Kafka KAFKA_HEAP_OPTS (-Xms)
+          if kafka_xms=$(grep -A 50 'kafka-broker:' "$COMPOSE_FILE" | grep 'KAFKA_HEAP_OPTS:' | grep -oP '\-Xms\K[0-9]+[mMgG]' | head -1); then
+            if [[ $kafka_xms =~ ([0-9]+)[gG] ]]; then
+              mb=$((${BASH_REMATCH[1]} * 1024))
+            elif [[ $kafka_xms =~ ([0-9]+)[mM] ]]; then
+              mb=${BASH_REMATCH[1]}
+            fi
+            echo "kafka-broker: ${mb}MB"
+            total_mb=$((total_mb + mb))
+          fi
+
+          # Add estimates for non-JVM services
+          mysql_mb=400
+          datahub_actions_mb=200
+          docker_overhead_mb=300
+
+          echo "mysql: ${mysql_mb}MB (estimated)"
+          echo "datahub-actions: ${datahub_actions_mb}MB (estimated)"
+          echo "docker-overhead: ${docker_overhead_mb}MB (estimated)"
+
+          total_mb=$((total_mb + mysql_mb + datahub_actions_mb + docker_overhead_mb))
+          total_gb=$(echo "scale=2; $total_mb / 1024" | bc)
+
+          echo "---"
+          echo "Total minimum memory: ${total_mb}MB (${total_gb}GB)"
+          echo "Threshold: ${THRESHOLD_GB}GB"
+
+          threshold_mb=$(echo "$THRESHOLD_GB * 1024" | bc | cut -d'.' -f1)
+
+          if [ $total_mb -gt $threshold_mb ]; then
+            echo "❌ FAILURE: Memory requirement (${total_mb}MB) exceeds threshold (${threshold_mb}MB)"
+            echo "Please reduce memory allocations in the compose file."
+            exit 1
+          else
+            echo "✅ SUCCESS: Memory requirement is within threshold"
+            margin=$((threshold_mb - total_mb))
+            margin_gb=$(echo "scale=2; $margin / 1024" | bc)
+            echo "Margin: ${margin}MB (${margin_gb}GB)"
+          fi
+
+      - name: Validation failure message
         if: failure()
         run: |
-          echo "Build file changes are detected. Run\n ./gradlew :docker:generateQuickstartComposeConfig \n and commit the generated docker/quickstart/docker-compose.quickstart-profile.yml file"
+          echo "==================== Validation Failed ===================="
+          echo ""
+          echo "Possible causes:"
+          echo ""
+          echo "1. OUTDATED COMPOSE FILE:"
+          echo "   The committed docker-compose file differs from the generated version."
+          echo "   Solution: Run the following command and commit the changes:"
+          echo "   ./gradlew :docker:generateQuickstartComposeConfig"
+          echo ""
+          echo "2. MEMORY REQUIREMENTS EXCEEDED:"
+          echo "   The total minimum memory requirement exceeds the 4.3GB threshold."
+          echo "   Solution: Reduce JVM heap allocations (-Xms values) in the compose"
+          echo "   file source templates or adjust the threshold in this workflow."
+          echo ""
+          echo "=========================================================="
           exit 1
