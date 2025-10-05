@@ -31,44 +31,44 @@ jobs:
 
           total_mb=0
 
-          # Parse OpenSearch OPENSEARCH_JAVA_OPTS (-Xms)
-          if opensearch_xms=$(grep -A 50 'opensearch:' "$COMPOSE_FILE" | grep 'OPENSEARCH_JAVA_OPTS:' | grep -oP '\-Xms\K[0-9]+[mMgG]' | head -1); then
-            if [[ $opensearch_xms =~ ([0-9]+)[gG] ]]; then
+          # Parse OpenSearch OPENSEARCH_JAVA_OPTS (-Xmx)
+          if opensearch_xmx=$(grep -A 50 'opensearch:' "$COMPOSE_FILE" | grep 'OPENSEARCH_JAVA_OPTS:' | grep -oP '\-Xmx\K[0-9]+[mMgG]' | head -1); then
+            if [[ $opensearch_xmx =~ ([0-9]+)[gG] ]]; then
               mb=$((${BASH_REMATCH[1]} * 1024))
-            elif [[ $opensearch_xms =~ ([0-9]+)[mM] ]]; then
+            elif [[ $opensearch_xmx =~ ([0-9]+)[mM] ]]; then
               mb=${BASH_REMATCH[1]}
             fi
             echo "opensearch: ${mb}MB"
             total_mb=$((total_mb + mb))
           fi
 
-          # Parse datahub-gms JAVA_OPTS (-Xms)
-          if gms_xms=$(grep -A 100 'datahub-gms-quickstart:' "$COMPOSE_FILE" | grep 'JAVA_OPTS:' | grep -oP '\-Xms\K[0-9]+[mMgG]' | head -1); then
-            if [[ $gms_xms =~ ([0-9]+)[gG] ]]; then
+          # Parse datahub-gms JAVA_OPTS (-Xmx)
+          if gms_xmx=$(grep -A 100 'datahub-gms-quickstart:' "$COMPOSE_FILE" | grep 'JAVA_OPTS:' | grep -oP '\-Xmx\K[0-9]+[mMgG]' | head -1); then
+            if [[ $gms_xmx =~ ([0-9]+)[gG] ]]; then
               mb=$((${BASH_REMATCH[1]} * 1024))
-            elif [[ $gms_xms =~ ([0-9]+)[mM] ]]; then
+            elif [[ $gms_xmx =~ ([0-9]+)[mM] ]]; then
               mb=${BASH_REMATCH[1]}
             fi
             echo "datahub-gms: ${mb}MB"
             total_mb=$((total_mb + mb))
           fi
 
-          # Parse frontend JAVA_OPTS (-Xms)
-          if frontend_xms=$(grep -A 50 'frontend-quickstart:' "$COMPOSE_FILE" | grep 'JAVA_OPTS:' | grep -oP '\-Xms\K[0-9]+[mMgG]' | head -1); then
-            if [[ $frontend_xms =~ ([0-9]+)[gG] ]]; then
+          # Parse frontend JAVA_OPTS (-Xmx)
+          if frontend_xmx=$(grep -A 50 'frontend-quickstart:' "$COMPOSE_FILE" | grep 'JAVA_OPTS:' | grep -oP '\-Xmx\K[0-9]+[mMgG]' | head -1); then
+            if [[ $frontend_xmx =~ ([0-9]+)[gG] ]]; then
               mb=$((${BASH_REMATCH[1]} * 1024))
-            elif [[ $frontend_xms =~ ([0-9]+)[mM] ]]; then
+            elif [[ $frontend_xmx =~ ([0-9]+)[mM] ]]; then
               mb=${BASH_REMATCH[1]}
             fi
             echo "frontend: ${mb}MB"
             total_mb=$((total_mb + mb))
           fi
 
-          # Parse Kafka KAFKA_HEAP_OPTS (-Xms)
-          if kafka_xms=$(grep -A 50 'kafka-broker:' "$COMPOSE_FILE" | grep 'KAFKA_HEAP_OPTS:' | grep -oP '\-Xms\K[0-9]+[mMgG]' | head -1); then
-            if [[ $kafka_xms =~ ([0-9]+)[gG] ]]; then
+          # Parse Kafka KAFKA_HEAP_OPTS (-Xmx)
+          if kafka_xmx=$(grep -A 50 'kafka-broker:' "$COMPOSE_FILE" | grep 'KAFKA_HEAP_OPTS:' | grep -oP '\-Xmx\K[0-9]+[mMgG]' | head -1); then
+            if [[ $kafka_xmx =~ ([0-9]+)[gG] ]]; then
               mb=$((${BASH_REMATCH[1]} * 1024))
-            elif [[ $kafka_xms =~ ([0-9]+)[mM] ]]; then
+            elif [[ $kafka_xmx =~ ([0-9]+)[mM] ]]; then
               mb=${BASH_REMATCH[1]}
             fi
             echo "kafka-broker: ${mb}MB"
@@ -118,8 +118,7 @@ jobs:
           echo ""
           echo "2. MEMORY REQUIREMENTS EXCEEDED:"
           echo "   The total minimum memory requirement exceeds the 4.3GB threshold."
-          echo "   Solution: Reduce JVM heap allocations (-Xms values) in the compose"
-          echo "   file source templates or adjust the threshold in this workflow."
+          echo "   Solution: Adjust the threshold in this workflow. Also Update MIN_MEMORY_NEEDED in metadata-ingestion/src/datahub/cli/docker_check.py"
           echo ""
           echo "=========================================================="
           exit 1
