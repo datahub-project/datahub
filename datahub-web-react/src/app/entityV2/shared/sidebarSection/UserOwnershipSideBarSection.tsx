@@ -1,5 +1,6 @@
 import { Col } from 'antd';
 import React, { useState } from 'react';
+import { CSSObject } from 'styled-components';
 
 import { OwnershipContainer, ShowMoreText } from '@app/entityV2/shared/SidebarStyledComponents';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
@@ -10,7 +11,7 @@ import { SearchResults } from '@types';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 4;
 
-const entityLinkTextStyle = {
+const entityLinkTextStyle: CSSObject = {
     overflow: 'hidden',
     whiteSpace: 'nowrap',
     textOverflow: 'ellipsis',
