@@ -9,7 +9,6 @@ The shim supports the following search engines:
 - **Elasticsearch 7.17** - Using REST High Level Client
 - **Elasticsearch 8.x** - Using new Elasticsearch Java Client, 8.17+ is supported
 - **OpenSearch 2.x** - Using OpenSearch REST High Level Client
-- **OpenSearch 3.x** - Using OpenSearch Java Client (stub implementation)
 
 ## Architecture
 
@@ -21,7 +20,6 @@ The shim supports the following search engines:
    - `Es7CompatibilitySearchClientShim` - ES 7.17
    - `Es8SearchClientShim` - ES 8.17
    - `OpenSearch2SearchClientShim` - OpenSearch 2.x
-   - `OpenSearch3SearchClientShim` - OpenSearch 3.x (stub)
 
 ### Key Features
 
@@ -118,7 +116,6 @@ try (SearchClientShim shim = SearchClientShimFactory.createShimWithAutoDetection
 | Elasticsearch 7.17 | ✅ Complete | `org.elasticsearch.client:elasticsearch-rest-high-level-client` |
 | Elasticsearch 8.x  | ✅ Complete | `co.elastic.clients:elasticsearch-java`                         |
 | OpenSearch 2.x     | ✅ Complete | `org.opensearch.client:opensearch-rest-high-level-client`       |
-| OpenSearch 3.x     | ⚠️ Stub     | `org.opensearch.client:opensearch-java`                         |
 
 ## Extending the Shim
 
