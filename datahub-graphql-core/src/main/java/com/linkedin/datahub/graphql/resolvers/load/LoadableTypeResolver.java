@@ -38,7 +38,7 @@ public class LoadableTypeResolver<T, K> implements DataFetcher<CompletableFuture
     if (context != null) {
       context.setDataFetchingEnvironment(environment);
     }
-    
+
     final K key = _keyProvider.apply(environment);
     if (key == null) {
       return null;

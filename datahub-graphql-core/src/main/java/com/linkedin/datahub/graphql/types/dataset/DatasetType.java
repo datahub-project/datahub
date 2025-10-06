@@ -49,7 +49,6 @@ import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -98,6 +97,7 @@ public class DatasetType
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
   private static final String ENTITY_NAME = "dataset";
+  private static final String KEY_ASPECT = "datasetKey";
 
   private final EntityClient entityClient;
 
@@ -135,22 +135,21 @@ public class DatasetType
       @Nonnull final List<String> urnStrs, @Nonnull final QueryContext context) {
     try {
       final List<Urn> urns = urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
-      
-      // Access DataFetchingEnvironment from QueryContext
+      Set<String> aspectsToResolve = ASPECTS_TO_RESOLVE;
+
       if (context.getDataFetchingEnvironment() != null) {
-        System.out.println("~~~~~~~~~~~~~~~~~~~~~~DataFetchingEnvironment Available~~~~~~~~~~~~~~~");
-        System.out.println("Requested fields: " + context.getDataFetchingEnvironment().getSelectionSet().getFields().keySet());
-        System.out.println("Field name: " + context.getDataFetchingEnvironment().getField().getName());
-        System.out.println("Arguments: " + context.getDataFetchingEnvironment().getArguments());
-        System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-        
-        // You can now optimize which aspects to fetch based on requested fields
-        Set<String> aspectsToResolve = determineAspectsFromRequestedFields(
-            context.getDataFetchingEnvironment().getSelectionSet().getFields().keySet()
-        );
-        System.out.println("Optimized aspects to resolve: " + aspectsToResolve);
-      } else {
-        System.out.println("DataFetchingEnvironment not available, using default aspects");
+        // I can move this out of DatasetType at least into GmsGraphQLEngine and populate it the
+        // first time we get a query instead of on every query
+        AspectMappingRegistry aspectMappingRegistry =
+            new AspectMappingRegistry(context.getDataFetchingEnvironment().getGraphQLSchema());
+        aspectsToResolve =
+            aspectMappingRegistry.getRequiredAspects(
+                "Dataset", context.getDataFetchingEnvironment().getSelectionSet().getFields());
+      }
+
+      if (aspectsToResolve != null) {
+        // always include the key aspect if we are selecting specific assets
+        aspectsToResolve.add(KEY_ASPECT);
       }
 
       final Map<Urn, EntityResponse> datasetMap =
@@ -158,7 +157,7 @@ public class DatasetType
               context.getOperationContext(),
               Constants.DATASET_ENTITY_NAME,
               new HashSet<>(urns),
-              ASPECTS_TO_RESOLVE);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());
       for (Urn urn : urns) {
@@ -342,126 +341,5 @@ public class DatasetType
     // authorized.
     return new DisjunctivePrivilegeGroup(
         ImmutableList.of(allPrivilegesGroup, specificPrivilegeGroup));
-  }
-
-  /**
-   * Maps GraphQL requested fields to the corresponding aspects that need to be fetched.
-   * This enables performance optimization by only fetching the aspects needed for the requested fields.
-   *
-   * @param requestedFields Set of field names requested in the GraphQL query
-   * @return Set of aspect names that should be fetched
-   */
-  private Set<String> determineAspectsFromRequestedFields(Set<String> requestedFields) {
-    Set<String> aspectsToResolve = new HashSet<>();
-
-    // Always include basic aspects
-    aspectsToResolve.add(DATASET_KEY_ASPECT_NAME);
-    aspectsToResolve.add(STATUS_ASPECT_NAME);
-
-    // Map specific fields to their corresponding aspects
-    for (String field : requestedFields) {
-      switch (field) {
-        case "properties":
-          aspectsToResolve.add(DATASET_PROPERTIES_ASPECT_NAME);
-          break;
-        case "editableProperties":
-          aspectsToResolve.add(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
-          break;
-        case "deprecation":
-          aspectsToResolve.add(DATASET_DEPRECATION_ASPECT_NAME);
-          aspectsToResolve.add(DEPRECATION_ASPECT_NAME);
-          break;
-        case "upstream":
-        case "lineage":
-          aspectsToResolve.add(DATASET_UPSTREAM_LINEAGE_ASPECT_NAME);
-          aspectsToResolve.add(UPSTREAM_LINEAGE_ASPECT_NAME);
-          break;
-        case "schemaMetadata":
-          aspectsToResolve.add(SCHEMA_METADATA_ASPECT_NAME);
-          break;
-        case "editableSchemaMetadata":
-          aspectsToResolve.add(EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
-          break;
-        case "viewProperties":
-          aspectsToResolve.add(VIEW_PROPERTIES_ASPECT_NAME);
-          break;
-        case "ownership":
-          aspectsToResolve.add(OWNERSHIP_ASPECT_NAME);
-          break;
-        case "institutionalMemory":
-          aspectsToResolve.add(INSTITUTIONAL_MEMORY_ASPECT_NAME);
-          break;
-        case "tags":
-          aspectsToResolve.add(GLOBAL_TAGS_ASPECT_NAME);
-          break;
-        case "glossaryTerms":
-          aspectsToResolve.add(GLOSSARY_TERMS_ASPECT_NAME);
-          break;
-        case "container":
-          aspectsToResolve.add(CONTAINER_ASPECT_NAME);
-          break;
-        case "domain":
-          aspectsToResolve.add(DOMAINS_ASPECT_NAME);
-          break;
-        case "dataPlatformInstance":
-          aspectsToResolve.add(DATA_PLATFORM_INSTANCE_ASPECT_NAME);
-          break;
-        case "siblings":
-          aspectsToResolve.add(SIBLINGS_ASPECT_NAME);
-          break;
-        case "embed":
-          aspectsToResolve.add(EMBED_ASPECT_NAME);
-          break;
-        case "dataProducts":
-          aspectsToResolve.add(DATA_PRODUCTS_ASPECT_NAME);
-          break;
-        case "browsePaths":
-          aspectsToResolve.add(BROWSE_PATHS_V2_ASPECT_NAME);
-          break;
-        case "access":
-          aspectsToResolve.add(ACCESS_ASPECT_NAME);
-          break;
-        case "structuredProperties":
-          aspectsToResolve.add(STRUCTURED_PROPERTIES_ASPECT_NAME);
-          break;
-        case "forms":
-          aspectsToResolve.add(FORMS_ASPECT_NAME);
-          break;
-        case "subTypes":
-          aspectsToResolve.add(SUB_TYPES_ASPECT_NAME);
-          break;
-        case "application":
-          aspectsToResolve.add(APPLICATION_MEMBERSHIP_ASPECT_NAME);
-          break;
-        case "versionProperties":
-          aspectsToResolve.add(VERSION_PROPERTIES_ASPECT_NAME);
-          break;
-        case "logicalParent":
-          aspectsToResolve.add(LOGICAL_PARENT_ASPECT_NAME);
-          break;
-        case "share":
-          aspectsToResolve.add(SHARE_ASPECT_NAME);
-          break;
-        case "origin":
-          aspectsToResolve.add(ORIGIN_ASPECT_NAME);
-          break;
-        case "documentation":
-          aspectsToResolve.add(DOCUMENTATION_ASPECT_NAME);
-          break;
-        case "lineageFeatures":
-          aspectsToResolve.add(LINEAGE_FEATURES_ASPECT_NAME);
-          break;
-        default:
-          // For unknown fields, don't add any specific aspects
-          break;
-      }
-    }
-
-    // If no specific aspects were determined, fall back to all aspects
-    if (aspectsToResolve.size() <= 2) { // Only basic aspects were added
-      return ASPECTS_TO_RESOLVE;
-    }
-
-    return aspectsToResolve;
   }
 }

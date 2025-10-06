@@ -296,6 +296,9 @@ public class GraphQLEngineFactory {
     args.setMetricUtils(metricUtils);
     args.setS3Util(s3Util);
 
+    // I need to run builder().build() to get the GraphQL schema
+    // Once it's built I can't add another argument. Could I build it, create AspectMappingRegistry
+    // with the schema, then set it in args and build again and return? Seems weird..
     return new GmsGraphQLEngine(args).builder().build();
   }
 

@@ -5,7 +5,7 @@ scalar Long
 directive @aspectMapping(aspects: [String!]!) on FIELD_DEFINITION
 
 # Optional: directive to explicitly mark fields that don't need aspects
-directive @noAspect on FIELD_DEFINITION
+directive @noAspects on FIELD_DEFINITION
 
 """
 Root GraphQL API Schema
@@ -1661,24 +1661,23 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   The primary key of the Dataset
   """
-  urn: String! @noAspect
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType! @noAspect
+  type: EntityType! @noAspects
 
   """
   The timestamp for the last time this entity was ingested
   In order to fetch this we need to fetch other aspects
   """
-  lastIngested: Long @noAspect
+  lastIngested: Long @noAspects
 
   """
   Standardized platform urn where the dataset is defined
   """
   platform: DataPlatform! @aspectMapping(aspects: ["datasetKey"]) # we also have custom graphql resolver for this
-
   """
   The parent container in which the entity resides
   """
@@ -1687,13 +1686,15 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   Recursively get the lineage of containers for this entity
   """
-  parentContainers: ParentContainersResult @noAspect # parentContainers has own resolver
-
+  parentContainers: ParentContainersResult @noAspects # parentContainers has own resolver
   """
   Unique guid for dataset
   No longer to be used as the Dataset display name. Use properties.name instead
   """
-  name: String! @aspectMapping(aspects: ["datasetProperties", "editableDatasetProperties", "datasetKey"])
+  name: String!
+    @aspectMapping(
+      aspects: ["datasetProperties", "editableDatasetProperties", "datasetKey"]
+    )
 
   """
   An additional set of read only properties
@@ -1703,7 +1704,8 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   An additional set of of read write properties
   """
-  editableProperties: DatasetEditableProperties @aspectMapping(aspects: ["editableDatasetProperties"])
+  editableProperties: DatasetEditableProperties
+    @aspectMapping(aspects: ["editableDatasetProperties"])
 
   """
   Ownership metadata of the dataset
@@ -1713,22 +1715,24 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   The deprecation status of the dataset
   """
-  deprecation: Deprecation @aspectMapping(aspects: ["datasetDeprecation", "deprecation"])
+  deprecation: Deprecation
+    @aspectMapping(aspects: ["datasetDeprecation", "deprecation"])
 
   """
   References to internal resources related to the dataset
   """
-  institutionalMemory: InstitutionalMemory @aspectMapping(aspects: ["institutionalMemory"])
+  institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Schema metadata of the dataset, available by version number
   """
-  schemaMetadata(version: Long): SchemaMetadata @noAspect # schemaMetadata uses separate AspectResolver
-
+  schemaMetadata(version: Long): SchemaMetadata @noAspects # schemaMetadata uses separate AspectResolver
   """
   Editable schema metadata of the dataset
   """
-  editableSchemaMetadata: EditableSchemaMetadata @aspectMapping(aspects: ["editableSchemaMetadata"])
+  editableSchemaMetadata: EditableSchemaMetadata
+    @aspectMapping(aspects: ["editableSchemaMetadata"])
 
   """
   Status of the Dataset
@@ -1753,7 +1757,8 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   The specific instance of the data platform that this entity belongs to
   """
-  dataPlatformInstance: DataPlatformInstance @aspectMapping(aspects: ["dataPlatformInstance"])
+  dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   The Domain associated with the Dataset
@@ -1785,13 +1790,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     range: TimeRange
     startTimeMillis: Long
     timeZone: String
-  ): UsageQueryResult @noAspect # has own custom resolver
-
+  ): UsageQueryResult @noAspects # has own custom resolver
   """
   Experimental - Summary operational & usage statistics about a Dataset
   """
-  statsSummary: DatasetStatsSummary @noAspect # has own custom resolver
-
+  statsSummary: DatasetStatsSummary @noAspects # has own custom resolver
   """
   Profile Stats resource that retrieves the events in a previous unit of time in descending order
   If no start or end time are provided, the most recent events will be returned
@@ -1801,8 +1804,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     endTimeMillis: Long
     filter: FilterInput
     limit: Int
-  ): [DatasetProfile!] @noAspect # has own custom resolver
-
+  ): [DatasetProfile!] @noAspects # has own custom resolver
   """
   Operational events for an entity.
   """
@@ -1811,8 +1813,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     endTimeMillis: Long
     filter: FilterInput
     limit: Int
-  ): [Operation!] @noAspect # has own custom resolver
-
+  ): [Operation!] @noAspects # has own custom resolver
   """
   Assertions associated with the Dataset
   """
@@ -1820,23 +1821,20 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     start: Int
     count: Int
     includeSoftDeleted: Boolean
-  ): EntityAssertionsResult @noAspect # has own custom resolver
-
+  ): EntityAssertionsResult @noAspects # has own custom resolver
   """
   Edges extending from this entity
   """
-  relationships(input: RelationshipsInput!): EntityRelationshipsResult @noAspect # has own custom resolver
-
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects # has own custom resolver
   """
   Edges extending from this entity grouped by direction in the lineage graph
   """
-  lineage(input: LineageInput!): EntityLineageResult @noAspect # has own custom resolver
-
+  lineage(input: LineageInput!): EntityLineageResult @noAspects # has own custom resolver
   """
   The browse paths corresponding to the dataset. If no Browse Paths have been generated before, this will be null.
   """
-  browsePaths: [BrowsePath!] @noAspect # has own custom resolver
-
+  browsePaths: [BrowsePath!] @noAspects # has own custom resolver
   """
   The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
   """
@@ -1845,12 +1843,13 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   Experimental! The resolved health statuses of the Dataset
   """
-  health: [Health!] @noAspect # has own custom resolver
-
+  health: [Health!] @noAspects # has own custom resolver
   """
   Schema metadata of the dataset
   """
-  schema: Schema @deprecated(reason: "Use `schemaMetadata`") @aspectMapping(aspects: ["schemaMetadata"])
+  schema: Schema
+    @deprecated(reason: "Use `schemaMetadata`")
+    @aspectMapping(aspects: ["schemaMetadata"])
 
   """
   Deprecated, use properties field instead
@@ -1863,7 +1862,9 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   Environment in which the dataset belongs to or where it was generated
   Note that this field will soon be deprecated in favor of a more standardized concept of Environment
   """
-  origin: FabricType! @deprecated @aspectMapping(aspects: ["origin", "datasetKey"])
+  origin: FabricType!
+    @deprecated
+    @aspectMapping(aspects: ["origin", "datasetKey"])
 
   """
   Deprecated, use the properties field instead
@@ -1875,7 +1876,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   Deprecated, do not use this field
   The logical type of the dataset ie table, stream, etc
   """
-  platformNativeType: PlatformNativeType @deprecated @noAspect
+  platformNativeType: PlatformNativeType @deprecated @noAspects
 
   """
   Deprecated, use properties instead
@@ -1904,8 +1905,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!] @noAspect # uses custom resolver
-
+  aspects(input: AspectParams): [RawAspect!] @noAspects # uses custom resolver
   """
   History of datajob runs that either produced or consumed this dataset
   """
@@ -1913,8 +1913,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     start: Int
     count: Int
     direction: RelationshipDirection!
-  ): DataProcessInstanceResult @noAspect # uses custom resolver
-
+  ): DataProcessInstanceResult @noAspects # uses custom resolver
   """
   Metadata about the datasets siblings
   """
@@ -1923,34 +1922,33 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   Executes a search on only the siblings of an entity
   """
-  siblingsSearch(input: ScrollAcrossEntitiesInput!): ScrollResults @noAspect # uses custom resolver
-
+  siblingsSearch(input: ScrollAcrossEntitiesInput!): ScrollResults @noAspects # uses custom resolver
   """
   Lineage information for the column-level. Includes a list of objects
   detailing which columns are upstream and which are downstream of each other.
   The upstream and downstream columns are from datasets.
   """
-  fineGrainedLineages: [FineGrainedLineage!] @aspectMapping(aspects: ["upstreamLineage"])
+  fineGrainedLineages: [FineGrainedLineage!]
+    @aspectMapping(aspects: ["upstreamLineage"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges @noAspect # uses custom resolver
-
+  privileges: EntityPrivileges @noAspects # uses custom resolver
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean @noAspect # uses custom resolver
-
+  exists: Boolean @noAspects # uses custom resolver
   """
   Structured properties about this Dataset
   """
-  structuredProperties: StructuredProperties @aspectMapping(aspects: ["structuredProperties"])
+  structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   Statistics about how this Dataset has been operated on
   """
-  operationsStats(input: OperationsStatsInput): OperationsQueryResult @noAspect # uses custom resolver
+  operationsStats(input: OperationsStatsInput): OperationsQueryResult @noAspects # uses custom resolver
 }
 
 type RoleAssociation {
