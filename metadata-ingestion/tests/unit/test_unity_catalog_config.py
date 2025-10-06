@@ -134,6 +134,9 @@ def test_warehouse_id_must_be_set_if_include_hive_metastore_is_true():
     assert config.warehouse_id is None
 
 
+@pytest.mark.skip(
+    reason="This test is making actual network calls with retries taking ~5 mins, needs to be mocked"
+)
 def test_warehouse_id_must_be_present_test_connection():
     """Test that connection succeeds when hive_metastore gets auto-disabled."""
     config_dict = {
