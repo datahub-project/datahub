@@ -1,4 +1,4 @@
-package com.linkedin.gms.factory.auth;
+package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
 import static org.apache.http.protocol.HttpCoreContext.HTTP_TARGET_HOST;
 

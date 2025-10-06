@@ -13,6 +13,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.mxe.SystemMetadata;
 import java.util.Arrays;
 import java.util.Collections;
@@ -22,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -31,7 +31,7 @@ import org.testng.annotations.Test;
 public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpringContextTests {
 
   @Nonnull
-  protected abstract RestHighLevelClient getSearchClient();
+  protected abstract SearchClientShim<?> getSearchClient();
 
   @Nonnull
   protected abstract ESBulkProcessor getBulkProcessor();

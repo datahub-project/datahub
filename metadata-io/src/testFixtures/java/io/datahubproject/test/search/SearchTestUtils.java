@@ -1,10 +1,8 @@
 package io.datahubproject.test.search;
 
-import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
-import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH;
-
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -35,7 +33,9 @@ import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.time.Duration;
@@ -44,15 +44,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.awaitility.Awaitility;
-import org.opensearch.client.RestClient;
-import org.opensearch.client.RestClientBuilder;
 
 public class SearchTestUtils {
   private SearchTestUtils() {}
@@ -68,7 +60,6 @@ public class SearchTestUtils {
   // Base configuration for tests
   private static final ElasticSearchConfiguration BASE_TEST_CONFIG =
       ElasticSearchConfiguration.builder()
-          .implementation(ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH)
           .search(
               SearchConfiguration.builder()
                   .pointInTimeCreationEnabled(false) // Disable PIT for search entities by default
@@ -134,9 +125,7 @@ public class SearchTestUtils {
           .build();
 
   public static ElasticSearchConfiguration TEST_ES_SEARCH_CONFIG =
-      TEST_OS_SEARCH_CONFIG.toBuilder()
-          .implementation(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH)
-          .build();
+      TEST_OS_SEARCH_CONFIG.toBuilder().build();
 
   public static SystemMetadataServiceConfig TEST_SYSTEM_METADATA_SERVICE_CONFIG =
       SystemMetadataServiceConfig.builder().limit(TEST_1K_LIMIT_CONFIG).build();
@@ -360,34 +349,19 @@ public class SearchTestUtils {
         });
   }
 
-  public static RestClientBuilder environmentRestClientBuilder() {
+  public static SearchClientShim<?> environmentRestClientBuilder() throws IOException {
     Integer port =
         Integer.parseInt(Optional.ofNullable(System.getenv("ELASTICSEARCH_PORT")).orElse("9200"));
-    return RestClient.builder(
-            new HttpHost(
-                Optional.ofNullable(System.getenv("ELASTICSEARCH_HOST")).orElse("localhost"),
-                port,
-                port.equals(443) ? "https" : "http"))
-        .setHttpClientConfigCallback(
-            new RestClientBuilder.HttpClientConfigCallback() {
-              @Override
-              public HttpAsyncClientBuilder customizeHttpClient(
-                  HttpAsyncClientBuilder httpClientBuilder) {
-                httpClientBuilder.disableAuthCaching();
+    SearchClientShim.ShimConfiguration shimConfiguration =
+        new SearchClientShimUtil.ShimConfigurationBuilder()
+            .withHost(Optional.ofNullable(System.getenv("ELASTICSEARCH_HOST")).orElse("localhost"))
+            .withPort(port)
+            .withSSL(port.equals(443))
+            .withCredentials(
+                System.getenv("ELASTICSEARCH_USERNAME"), System.getenv("ELASTICSEARCH_PASSWORD"))
+            .build();
 
-                if (System.getenv("ELASTICSEARCH_USERNAME") != null) {
-                  final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-                  credentialsProvider.setCredentials(
-                      AuthScope.ANY,
-                      new UsernamePasswordCredentials(
-                          System.getenv("ELASTICSEARCH_USERNAME"),
-                          System.getenv("ELASTICSEARCH_PASSWORD")));
-                  httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
-                }
-
-                return httpClientBuilder;
-              }
-            });
+    return SearchClientShimUtil.createShim(shimConfiguration, new ObjectMapper());
   }
 
   /**

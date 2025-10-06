@@ -363,7 +363,7 @@ services:
     command:
     - /bin/sh
     - -c
-    - sleep 10 && /create-indices.sh
+    - /create-indices.sh
     depends_on:
       opensearch:
         condition: service_healthy
