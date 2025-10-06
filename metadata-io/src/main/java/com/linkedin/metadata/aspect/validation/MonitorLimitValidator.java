@@ -77,27 +77,6 @@ public class MonitorLimitValidator extends AspectPayloadValidator {
       // Count existing monitor entities
       final int existingMonitorCount = countExistingMonitors(retrieverContext);
 
-      // Short-circuit if we're already over the limit
-      if (existingMonitorCount > maxMonitors) {
-        log.warn(
-            "Monitor limit already exceeded. Current monitors: {}, limit: {}, rejecting all new monitor creation attempts",
-            existingMonitorCount,
-            maxMonitors);
-
-        // Return exceptions for all monitor items since we're already over the limit
-        return monitorItems.stream()
-            .map(
-                item ->
-                    AspectValidationException.forItem(
-                        item,
-                        String.format(
-                            "%s Current monitors: %d, maximum allowed: %d. "
-                                + "Monitor limit already exceeded, cannot create new monitor entity.",
-                            AcrylConstants.MONITOR_LIMIT_EXCEEDED_ERROR_MESSAGE_PREFIX,
-                            existingMonitorCount,
-                            maxMonitors)));
-      }
-
       // Get items that would create new monitors
       final List<? extends BatchItem> newMonitorItems =
           getNewMonitorItems(monitorItems, retrieverContext);
