@@ -11,7 +11,7 @@ jobs:
     name: Verify quickstart compose file is up-to-date
     runs-on: ubuntu-latest
     env:
-      THRESHOLD_GB: 3
+      THRESHOLD_GB: 4.3
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

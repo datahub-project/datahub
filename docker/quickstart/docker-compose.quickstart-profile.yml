@@ -324,7 +324,7 @@ services:
     environment:
       DISABLE_SECURITY_PLUGIN: 'true'
       ES_JAVA_OPTS: -Xms256m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
-      OPENSEARCH_JAVA_OPTS: -Xms768m -Xmx1024m -Dlog4j2.formatMsgNoLookups=true
+      OPENSEARCH_JAVA_OPTS: -Xms769m -Xmx1024m -Dlog4j2.formatMsgNoLookups=true
       discovery.type: single-node
     hostname: search
     healthcheck:
