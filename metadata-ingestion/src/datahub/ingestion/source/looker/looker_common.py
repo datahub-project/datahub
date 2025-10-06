@@ -28,7 +28,7 @@ from looker_sdk.sdk.api40.models import (
     User,
     WriteQuery,
 )
-from pydantic.class_validators import validator
+from pydantic import validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.platformresource.platform_resource import (
@@ -305,6 +305,12 @@ class ViewFieldType(Enum):
     DIMENSION_GROUP = "Dimension Group"
     MEASURE = "Measure"
     UNKNOWN = "Unknown"
+
+
+class ViewFieldDimensionGroupType(Enum):
+    # Ref: https://cloud.google.com/looker/docs/reference/param-field-dimension-group
+    TIME = "time"
+    DURATION = "duration"
 
 
 class ViewFieldValue(Enum):

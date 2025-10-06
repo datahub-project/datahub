@@ -1,12 +1,22 @@
 import uuid
 from collections import defaultdict
 from decimal import Decimal
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+)
 from unittest import TestCase
 from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
+from pyiceberg.catalog import Catalog
 from pyiceberg.exceptions import (
     NoSuchIcebergTableError,
     NoSuchNamespaceError,
@@ -42,6 +52,7 @@ from pyiceberg.types import (
     TimeType,
     UUIDType,
 )
+from typing_extensions import Never
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -403,6 +414,7 @@ def test_iceberg_map_to_schema_field(
         assert_field(schema_fields[1], None, False, expected_map_type)
 
         # The third field will be the value type
+        assert isinstance(map_column.field_type, MapType)
         assert_field(
             schema_fields[2],
             None,
@@ -544,7 +556,13 @@ def test_avro_decimal_bytes_nullable() -> None:
 class MockCatalog:
     def __init__(
         self,
-        tables: Dict[str, Dict[str, Callable[[], Table]]],
+        tables: Mapping[
+            str,
+            Mapping[
+                str,
+                Callable[[Catalog], Table],
+            ],
+        ],
         namespace_properties: Optional[Dict[str, Dict[str, str]]] = None,
     ):
         """
@@ -564,7 +582,11 @@ class MockCatalog:
         return [(namespace[0], table) for table in self.tables[namespace[0]]]
 
     def load_table(self, dataset_path: Tuple[str, str]) -> Table:
-        return self.tables[dataset_path[0]][dataset_path[1]]()
+        table_callable = self.tables[dataset_path[0]][dataset_path[1]]
+
+        # Passing self as a mock catalog, despite it not being fully valid.
+        # This makes the mocking setup simpler.
+        return table_callable(self)  # type: ignore
 
     def load_namespace_properties(self, namespace: Tuple[str, ...]) -> Dict[str, str]:
         return self.namespace_properties[namespace[0]]
@@ -614,7 +636,7 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
     mock_catalog = MockCatalogExceptionRetrievingNamespaceProperties(
         {
             "namespaceA": {
-                "table1": lambda: Table(
+                "table1": lambda catalog: Table(
                     identifier=("namespaceA", "table1"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -624,13 +646,13 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
             "no_such_namespace": {},
             "rest_error": {},
             "namespaceB": {
-                "table2": lambda: Table(
+                "table2": lambda catalog: Table(
                     identifier=("namespaceB", "table2"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -640,9 +662,9 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table2",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "table3": lambda: Table(
+                "table3": lambda catalog: Table(
                     identifier=("namespaceB", "table3"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -652,11 +674,11 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table3",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
             },
             "namespaceC": {
-                "table4": lambda: Table(
+                "table4": lambda catalog: Table(
                     identifier=("namespaceC", "table4"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -666,11 +688,11 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceC/table4",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
             "namespaceD": {
-                "table5": lambda: Table(
+                "table5": lambda catalog: Table(
                     identifier=("namespaceD", "table5"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -680,7 +702,7 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table5",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
         }
@@ -722,7 +744,7 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
     mock_catalog = MockCatalogExceptionRetrievingNamespaceProperties(
         {
             "namespaceA": {
-                "table1": lambda: Table(
+                "table1": lambda catalog: Table(
                     identifier=("namespaceA", "table1"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -732,12 +754,12 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
             "generic_exception": {},
             "namespaceB": {
-                "table2": lambda: Table(
+                "table2": lambda catalog: Table(
                     identifier=("namespaceB", "table2"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -747,9 +769,9 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table2",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "table3": lambda: Table(
+                "table3": lambda catalog: Table(
                     identifier=("namespaceB", "table3"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -759,11 +781,11 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table3",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
             },
             "namespaceC": {
-                "table4": lambda: Table(
+                "table4": lambda catalog: Table(
                     identifier=("namespaceC", "table4"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -773,11 +795,11 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceC/table4",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
             "namespaceD": {
-                "table5": lambda: Table(
+                "table5": lambda catalog: Table(
                     identifier=("namespaceD", "table5"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -787,7 +809,7 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table5",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
         }
@@ -829,7 +851,7 @@ def test_known_exception_while_listing_tables() -> None:
     mock_catalog = MockCatalogExceptionListingTables(
         {
             "namespaceA": {
-                "table1": lambda: Table(
+                "table1": lambda catalog: Table(
                     identifier=("namespaceA", "table1"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -839,13 +861,13 @@ def test_known_exception_while_listing_tables() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
             "no_such_namespace": {},
             "rest_error": {},
             "namespaceB": {
-                "table2": lambda: Table(
+                "table2": lambda catalog: Table(
                     identifier=("namespaceB", "table2"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -855,9 +877,9 @@ def test_known_exception_while_listing_tables() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table2",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "table3": lambda: Table(
+                "table3": lambda catalog: Table(
                     identifier=("namespaceB", "table3"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -867,11 +889,11 @@ def test_known_exception_while_listing_tables() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table3",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
             },
             "namespaceC": {
-                "table4": lambda: Table(
+                "table4": lambda catalog: Table(
                     identifier=("namespaceC", "table4"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -881,11 +903,11 @@ def test_known_exception_while_listing_tables() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceC/table4",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
             "namespaceD": {
-                "table5": lambda: Table(
+                "table5": lambda catalog: Table(
                     identifier=("namespaceD", "table5"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -895,7 +917,7 @@ def test_known_exception_while_listing_tables() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table5",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
         }
@@ -939,7 +961,7 @@ def test_unknown_exception_while_listing_tables() -> None:
     mock_catalog = MockCatalogExceptionListingTables(
         {
             "namespaceA": {
-                "table1": lambda: Table(
+                "table1": lambda catalog: Table(
                     identifier=("namespaceA", "table1"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -949,12 +971,12 @@ def test_unknown_exception_while_listing_tables() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
             "generic_exception": {},
             "namespaceB": {
-                "table2": lambda: Table(
+                "table2": lambda catalog: Table(
                     identifier=("namespaceB", "table2"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -964,9 +986,9 @@ def test_unknown_exception_while_listing_tables() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table2",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "table3": lambda: Table(
+                "table3": lambda catalog: Table(
                     identifier=("namespaceB", "table3"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -976,11 +998,11 @@ def test_unknown_exception_while_listing_tables() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table3",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
             },
             "namespaceC": {
-                "table4": lambda: Table(
+                "table4": lambda catalog: Table(
                     identifier=("namespaceC", "table4"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -990,11 +1012,11 @@ def test_unknown_exception_while_listing_tables() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceC/table4",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
             "namespaceD": {
-                "table5": lambda: Table(
+                "table5": lambda catalog: Table(
                     identifier=("namespaceD", "table5"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1004,7 +1026,7 @@ def test_unknown_exception_while_listing_tables() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table5",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
         }
@@ -1047,7 +1069,7 @@ def test_proper_run_with_multiple_namespaces() -> None:
     mock_catalog = MockCatalog(
         {
             "namespaceA": {
-                "table1": lambda: Table(
+                "table1": lambda catalog: Table(
                     identifier=("namespaceA", "table1"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1057,7 +1079,7 @@ def test_proper_run_with_multiple_namespaces() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
             "namespaceB": {},
@@ -1095,7 +1117,7 @@ def test_filtering() -> None:
     mock_catalog = MockCatalog(
         {
             "namespace1": {
-                "table_xyz": lambda: Table(
+                "table_xyz": lambda catalog: Table(
                     identifier=("namespace1", "table_xyz"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1105,9 +1127,9 @@ def test_filtering() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespace1/table_xyz",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "JKLtable": lambda: Table(
+                "JKLtable": lambda catalog: Table(
                     identifier=("namespace1", "JKLtable"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1117,9 +1139,9 @@ def test_filtering() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespace1/JKLtable",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "table_abcd": lambda: Table(
+                "table_abcd": lambda catalog: Table(
                     identifier=("namespace1", "table_abcd"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1129,9 +1151,9 @@ def test_filtering() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespace1/table_abcd",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "aaabcd": lambda: Table(
+                "aaabcd": lambda catalog: Table(
                     identifier=("namespace1", "aaabcd"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1141,11 +1163,11 @@ def test_filtering() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespace1/aaabcd",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
             },
             "namespace2": {
-                "foo": lambda: Table(
+                "foo": lambda catalog: Table(
                     identifier=("namespace2", "foo"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1155,9 +1177,9 @@ def test_filtering() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespace2/foo",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "bar": lambda: Table(
+                "bar": lambda catalog: Table(
                     identifier=("namespace2", "bar"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1167,11 +1189,11 @@ def test_filtering() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespace2/bar",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
             },
             "namespace3": {
-                "sales": lambda: Table(
+                "sales": lambda catalog: Table(
                     identifier=("namespace3", "sales"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1181,9 +1203,9 @@ def test_filtering() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespace3/sales",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "products": lambda: Table(
+                "products": lambda catalog: Table(
                     identifier=("namespace2", "bar"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1193,7 +1215,7 @@ def test_filtering() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespace3/products",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
             },
         }
@@ -1225,31 +1247,31 @@ def test_filtering() -> None:
 def test_handle_expected_exceptions() -> None:
     source = with_iceberg_source(processing_threads=3)
 
-    def _raise_no_such_property_exception():
+    def _raise_no_such_property_exception(_: Catalog) -> Never:
         raise NoSuchPropertyException()
 
-    def _raise_no_such_iceberg_table_exception():
+    def _raise_no_such_iceberg_table_exception(_: Catalog) -> Never:
         raise NoSuchIcebergTableError()
 
-    def _raise_file_not_found_error():
+    def _raise_file_not_found_error(_: Catalog) -> Never:
         raise FileNotFoundError()
 
-    def _raise_no_such_table_exception():
+    def _raise_no_such_table_exception(_: Catalog) -> Never:
         raise NoSuchTableError()
 
-    def _raise_server_error():
+    def _raise_server_error(_: Catalog) -> Never:
         raise ServerError()
 
-    def _raise_rest_error():
+    def _raise_rest_error(_: Catalog) -> Never:
         raise RESTError()
 
-    def _raise_fileio_error():
+    def _raise_fileio_error(_: Catalog) -> Never:
         raise ValueError("Could not initialize FileIO: abc.dummy.fileio")
 
     mock_catalog = MockCatalog(
         {
             "namespaceA": {
-                "table1": lambda: Table(
+                "table1": lambda catalog: Table(
                     identifier=("namespaceA", "table1"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1259,9 +1281,9 @@ def test_handle_expected_exceptions() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "table2": lambda: Table(
+                "table2": lambda catalog: Table(
                     identifier=("namespaceA", "table2"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1271,9 +1293,9 @@ def test_handle_expected_exceptions() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table2",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "table3": lambda: Table(
+                "table3": lambda catalog: Table(
                     identifier=("namespaceA", "table3"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1283,9 +1305,9 @@ def test_handle_expected_exceptions() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table3",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "table4": lambda: Table(
+                "table4": lambda catalog: Table(
                     identifier=("namespaceA", "table4"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1295,7 +1317,7 @@ def test_handle_expected_exceptions() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table4",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
                 "table5": _raise_no_such_property_exception,
                 "table6": _raise_no_such_table_exception,
@@ -1340,16 +1362,16 @@ def test_handle_expected_exceptions() -> None:
 def test_handle_unexpected_exceptions() -> None:
     source = with_iceberg_source(processing_threads=3)
 
-    def _raise_exception():
+    def _raise_exception(_: Catalog) -> Never:
         raise Exception()
 
-    def _raise_other_value_error_exception():
+    def _raise_other_value_error_exception(_: Catalog) -> Never:
         raise ValueError("Other value exception")
 
     mock_catalog = MockCatalog(
         {
             "namespaceA": {
-                "table1": lambda: Table(
+                "table1": lambda catalog: Table(
                     identifier=("namespaceA", "table1"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1359,9 +1381,9 @@ def test_handle_unexpected_exceptions() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "table2": lambda: Table(
+                "table2": lambda catalog: Table(
                     identifier=("namespaceA", "table2"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1371,9 +1393,9 @@ def test_handle_unexpected_exceptions() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table2",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "table3": lambda: Table(
+                "table3": lambda catalog: Table(
                     identifier=("namespaceA", "table3"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1383,9 +1405,9 @@ def test_handle_unexpected_exceptions() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table3",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "table4": lambda: Table(
+                "table4": lambda catalog: Table(
                     identifier=("namespaceA", "table4"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -1395,11 +1417,11 @@ def test_handle_unexpected_exceptions() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table4",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
                 "table5": _raise_exception,
                 "table6": _raise_other_value_error_exception,
-            }
+            },
         }
     )
     with patch(

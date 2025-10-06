@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.utils.BasePathUtils;
 import com.typesafe.config.Config;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -68,6 +69,9 @@ public class AuthenticationController extends Controller {
   private final GuestAuthenticationConfigs guestAuthenticationConfigs;
 
   private final boolean verbose;
+  private final Config config;
+
+  private final String basePath;
 
   @Inject private org.pac4j.core.config.Config ssoConfig;
 
@@ -79,11 +83,33 @@ public class AuthenticationController extends Controller {
 
   @Inject
   public AuthenticationController(@Nonnull Config configs) {
+    this.config = configs;
     cookieConfigs = new CookieConfigs(configs);
     jaasConfigs = new JAASConfigs(configs);
     nativeAuthenticationConfigs = new NativeAuthenticationConfigs(configs);
     guestAuthenticationConfigs = new GuestAuthenticationConfigs(configs);
     verbose = configs.hasPath(AUTH_VERBOSE_LOGGING) && configs.getBoolean(AUTH_VERBOSE_LOGGING);
+    basePath = getBasePath();
+  }
+
+  /**
+   * Gets the configured base path for DataHub.
+   *
+   * @return the normalized base path
+   */
+  @Nonnull
+  private String getBasePath() {
+    return BasePathUtils.normalizeBasePath(config.getString("datahub.basePath"));
+  }
+
+  /**
+   * Gets the login URL with proper base path.
+   *
+   * @return the full login URL with base path
+   */
+  @Nonnull
+  private String getLoginUrl() {
+    return BasePathUtils.addBasePath(LOGIN_ROUTE, this.basePath);
   }
 
   /**
@@ -104,7 +130,7 @@ public class AuthenticationController extends Controller {
     String redirectPath = maybeRedirectPath.orElse("/");
     // If the redirect path is /logOut, we do not want to redirect to the logout page after login.
     if (redirectPath.equals("/logOut")) {
-      redirectPath = "/";
+      redirectPath = BasePathUtils.addBasePath("/logOut", this.basePath);
     }
     try {
       URI redirectUri = new URI(redirectPath);
@@ -116,7 +142,7 @@ public class AuthenticationController extends Controller {
       }
     } catch (URISyntaxException | RedirectException e) {
       logger.warn(e.getMessage());
-      redirectPath = "/";
+      redirectPath = BasePathUtils.addBasePath("/", this.basePath);
     }
 
     if (AuthUtils.hasValidSessionCookie(request)) {
@@ -128,8 +154,8 @@ public class AuthenticationController extends Controller {
       final String accessToken =
           authClient.generateSessionTokenForUser(
               guestAuthenticationConfigs.getGuestUser(), GUEST_LOGIN);
-      redirectPath =
-          "/"; // We requested guest login by accessing {guestPath} URL. It is not really a target.
+      // We requested guest login by accessing {guestPath} URL. It is not really a target.
+      redirectPath = BasePathUtils.addBasePath("/", this.basePath);
       CorpuserUrn guestUserUrn = new CorpuserUrn(guestAuthenticationConfigs.getGuestUser());
       return Results.redirect(redirectPath)
           .withSession(createSessionMap(guestUserUrn.toString(), accessToken))
@@ -146,7 +172,7 @@ public class AuthenticationController extends Controller {
       return redirectToIdentityProvider(request, redirectPath)
           .orElse(
               Results.redirect(
-                  LOGIN_ROUTE
+                  getLoginUrl() // will already have a basepath
                       + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_NO_REDIRECT_MESSAGE)));
     }
 
@@ -154,7 +180,7 @@ public class AuthenticationController extends Controller {
     if (jaasConfigs.isJAASEnabled()
         || nativeAuthenticationConfigs.isNativeAuthenticationEnabled()) {
       return Results.redirect(
-          LOGIN_ROUTE
+          getLoginUrl()
               + String.format("?%s=%s", AUTH_REDIRECT_URI_PARAM, encodeRedirectUri(redirectPath)));
     }
 
@@ -179,11 +205,12 @@ public class AuthenticationController extends Controller {
       return redirectToIdentityProvider(request, "/")
           .orElse(
               Results.redirect(
-                  LOGIN_ROUTE
+                  getLoginUrl()
                       + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_NO_REDIRECT_MESSAGE)));
     }
     return Results.redirect(
-        LOGIN_ROUTE + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_DISABLED_ERROR_MESSAGE));
+        getLoginUrl()
+            + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_DISABLED_ERROR_MESSAGE));
   }
 
   /**
@@ -342,13 +369,14 @@ public class AuthenticationController extends Controller {
     // Set the originally requested path for post-auth redirection. We split off into a separate
     // cookie from the session
     // to reduce size of the session cookie
-    FoundAction foundAction = new FoundAction(redirectPath);
+    FoundAction foundAction =
+        new FoundAction(BasePathUtils.addBasePath(redirectPath, this.basePath));
     byte[] javaSerBytes =
         ((PlayCookieSessionStore) ctx.sessionStore()).getSerializer().serializeToBytes(foundAction);
     String serialized = Base64.getEncoder().encodeToString(compressBytes(javaSerBytes));
     Http.CookieBuilder redirectCookieBuilder =
         Http.Cookie.builder(REDIRECT_URL_COOKIE_NAME, serialized);
-    redirectCookieBuilder.withPath("/");
+    redirectCookieBuilder.withPath(BasePathUtils.addBasePath("/", this.basePath));
     redirectCookieBuilder.withSecure(true);
     redirectCookieBuilder.withHttpOnly(true);
     redirectCookieBuilder.withMaxAge(Duration.ofSeconds(86400));
@@ -380,7 +408,8 @@ public class AuthenticationController extends Controller {
       return Optional.of(
           Results.redirect(
               String.format(
-                  "/login?error_msg=%s",
+                  "%s?error_msg=%s",
+                  getLoginUrl(),
                   URLEncoder.encode(
                       "Failed to redirect to Single Sign-On provider. Please contact your DataHub Administrator, "
                           + "or refer to server logs for more information.",

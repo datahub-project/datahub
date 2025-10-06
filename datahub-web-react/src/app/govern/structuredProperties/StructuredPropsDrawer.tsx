@@ -150,6 +150,7 @@ const StructuredPropsDrawer = ({
                         showInSearchFilters: updateValues.settings?.showInSearchFilters ?? false,
                         showAsAssetBadge: updateValues.settings?.showAsAssetBadge ?? false,
                         showInAssetSummary: updateValues.settings?.showInAssetSummary ?? false,
+                        hideInAssetSummaryWhenEmpty: updateValues.settings?.hideInAssetSummaryWhenEmpty ?? false,
                         showInColumnsTable: updateValues.settings?.showInColumnsTable ?? false,
                     },
                 };
@@ -176,6 +177,8 @@ const StructuredPropsDrawer = ({
                             showInSearchFilters: form.getFieldValue(['settings', 'showInSearchFilters']) ?? false,
                             showAsAssetBadge: form.getFieldValue(['settings', 'showAsAssetBadge']) ?? false,
                             showInAssetSummary: form.getFieldValue(['settings', 'showInAssetSummary']) ?? false,
+                            hideInAssetSummaryWhenEmpty:
+                                form.getFieldValue(['settings', 'hideInAssetSummaryWhenEmpty']) ?? false,
                             showInColumnsTable: form.getFieldValue(['settings', 'showInColumnsTable']) ?? false,
                         });
                         refetch();
@@ -205,6 +208,8 @@ const StructuredPropsDrawer = ({
                         showInSearchFilters: form.getFieldValue(['settings', 'showInSearchFilters']) ?? false,
                         showAsAssetBadge: form.getFieldValue(['settings', 'showAsAssetBadge']) ?? false,
                         showInAssetSummary: form.getFieldValue(['settings', 'showInAssetSummary']) ?? false,
+                        hideInAssetSummaryWhenEmpty:
+                            form.getFieldValue(['settings', 'hideInAssetSummaryWhenEmpty']) ?? false,
                         showInColumnsTable: form.getFieldValue(['settings', 'showInColumnsTable']) ?? false,
                     },
                 };
@@ -230,6 +235,8 @@ const StructuredPropsDrawer = ({
                             showInSearchFilters: form.getFieldValue(['settings', 'showInSearchFilters']) ?? false,
                             showAsAssetBadge: form.getFieldValue(['settings', 'showAsAssetBadge']) ?? false,
                             showInAssetSummary: form.getFieldValue(['settings', 'showInAssetSummary']) ?? false,
+                            hideInAssetSummaryWhenEmpty:
+                                form.getFieldValue(['settings', 'hideInAssetSummaryWhenEmpty']) ?? false,
                             showInColumnsTable: form.getFieldValue(['settings', 'showInColumnsTable']) ?? false,
                         });
 

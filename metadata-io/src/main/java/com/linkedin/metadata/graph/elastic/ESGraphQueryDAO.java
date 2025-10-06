@@ -1,14 +1,12 @@
 package com.linkedin.metadata.graph.elastic;
 
-import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
-import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH;
-
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -19,7 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.NotImplementedException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.client.RestHighLevelClient;
 
 /** A search DAO for Elasticsearch backend. */
 @Slf4j
@@ -30,7 +27,7 @@ public class ESGraphQueryDAO implements GraphQueryDAO {
   private final ElasticSearchConfiguration config;
 
   public ESGraphQueryDAO(
-      RestHighLevelClient client,
+      SearchClientShim<?> client,
       GraphServiceConfiguration graphServiceConfig,
       ElasticSearchConfiguration config,
       MetricUtils metricUtils) {
@@ -38,14 +35,15 @@ public class ESGraphQueryDAO implements GraphQueryDAO {
     this.graphServiceConfig = graphServiceConfig;
     this.config = config;
 
-    switch (config.getImplementation()) {
-      case ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH:
+    switch (client.getEngineType()) {
+      case ELASTICSEARCH_7:
         this.delegate =
             new GraphQueryElasticsearch7DAO(client, graphServiceConfig, config, metricUtils);
         break;
-      case ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH:
-        this.delegate =
-            new GraphQueryOpenSearchDAO(client, graphServiceConfig, config, metricUtils);
+      case ELASTICSEARCH_8:
+      case OPENSEARCH_2:
+      case ELASTICSEARCH_9:
+        this.delegate = new GraphQueryPITDAO(client, graphServiceConfig, config, metricUtils);
         break;
       default:
         throw new NotImplementedException("Unsupported Elasticsearch implementation");

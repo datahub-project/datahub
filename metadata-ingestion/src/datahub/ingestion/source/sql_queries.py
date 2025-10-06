@@ -8,6 +8,7 @@ from typing import ClassVar, Iterable, List, Optional, Union
 
 from pydantic import BaseModel, Field, validator
 
+from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -39,7 +40,6 @@ from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -66,27 +66,26 @@ class SqlQueriesSourceConfig(
         default=BaseUsageConfig(),
     )
 
-    use_schema_resolver: bool = Field(
+    use_schema_resolver: HiddenFromDocs[bool] = Field(
+        True,
         description="Read SchemaMetadata aspects from DataHub to aid in SQL parsing. Turn off only for testing.",
-        default=True,
-        hidden_from_docs=True,
     )
     default_db: Optional[str] = Field(
+        None,
         description="The default database to use for unqualified table names",
-        default=None,
     )
     default_schema: Optional[str] = Field(
+        None,
         description="The default schema to use for unqualified table names",
-        default=None,
     )
     override_dialect: Optional[str] = Field(
+        None,
         description="The SQL dialect to use when parsing queries. Overrides automatic dialect detection.",
-        default=None,
     )
 
 
 @dataclass
-class SqlQueriesSourceReport(SourceReport, IngestionStageReport):
+class SqlQueriesSourceReport(SourceReport):
     num_entries_processed: int = 0
     num_entries_failed: int = 0
     num_queries_aggregator_failures: int = 0

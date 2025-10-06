@@ -8,7 +8,7 @@ from typing import Collection, Dict, Iterable, List, Optional, TypedDict
 from google.cloud.bigquery import Client
 from pydantic import Field, PositiveInt
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     get_time_bucket,
@@ -86,12 +86,11 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
     # TODO: Support stateful ingestion for the time windows.
     window: BaseTimeWindowConfig = BaseTimeWindowConfig()
 
-    local_temp_path: Optional[pathlib.Path] = Field(
-        default=None,
-        description="Local path to store the audit log.",
+    local_temp_path: HiddenFromDocs[Optional[pathlib.Path]] = Field(
         # TODO: For now, this is simply an advanced config to make local testing easier.
         # Eventually, we will want to store date-specific files in the directory and use it as a cache.
-        hidden_from_docs=True,
+        default=None,
+        description="Local path to store the audit log.",
     )
 
     user_email_pattern: AllowDenyPattern = Field(
