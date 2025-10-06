@@ -789,7 +789,9 @@ entities:
   - name: dataHubAction
     category: internal
     keyAspect: dataHubActionKey
-    aspects: []
+    aspects:
+      - dataHubActionInfo
+      - dataHubActionStatus
   - name: entityType
     doc: A type of entity in the DataHub Metadata Model.
     category: core
@@ -920,23 +922,12 @@ entities:
     keyAspect: linkPreviewKey
     aspects:
       - linkPreviewInfo
-  - name: dataHubAction
-    category: internal
-    keyAspect: dataHubActionKey
-    aspects:
-      - dataHubActionInfo
-      - dataHubActionStatus
   - name: subscription
     category: core
     keyAspect: subscriptionKey
     aspects:
       - subscriptionInfo
       - status
-  - name: dataHubPersona
-    category: internal
-    keyAspect: dataHubPersonaKey
-    aspects:
-      - dataHubPersonaInfo
   - name: dataHubMetricCube
     category: internal
     keyAspect: dataHubMetricCubeKey
