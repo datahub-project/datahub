@@ -36,13 +36,7 @@ from organizations operating DataHub. Two themes have emerged to serve as guidep
 
 ### Quick Start
 
-Navigate to the `docker` directory and run the following to spin up the react app:
-
-```
-./quickstart.sh
-```
-
-at `http://localhost:9002`.
+Follow the instructions [here](https://docs.datahub.com/docs/developers#building-the-project) to build and deploy your project locally. The initial build might take a while. You will be able to navigate to the application at `http://localhost:9002`.
 
 If you want to make changes to the UI see them live without having to rebuild the `datahub-frontend-react` docker image, you
 can run the following in this directory:
