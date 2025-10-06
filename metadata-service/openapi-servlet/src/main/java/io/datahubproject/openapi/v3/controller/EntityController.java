@@ -599,7 +599,7 @@ public class EntityController
   public GenericEntityScrollResultV3 buildScrollResult(
       @Nonnull OperationContext opContext,
       SearchEntityArray searchEntities,
-      SearchResultMetadata searchResultMetadata,
+      @Nullable SearchResultMetadata searchResultMetadata,
       Set<String> aspectNames,
       boolean withSystemMetadata,
       @Nullable String scrollId,
@@ -609,13 +609,15 @@ public class EntityController
 
     List<FacetMetadata> facets = new ArrayList<>();
 
-    for (AggregationMetadata aggregationMetadata : searchResultMetadata.getAggregations()) {
-      FacetMetadata facetMetadata =
-          FacetMetadata.builder()
-              .field(aggregationMetadata.getName())
-              .aggregations(aggregationMetadata.getAggregations())
-              .build();
-      facets.add(facetMetadata);
+    if (searchResultMetadata != null && searchResultMetadata.hasAggregations()) {
+      for (AggregationMetadata aggregationMetadata : searchResultMetadata.getAggregations()) {
+        FacetMetadata facetMetadata =
+            FacetMetadata.builder()
+                .field(aggregationMetadata.getName())
+                .aggregations(aggregationMetadata.getAggregations())
+                .build();
+        facets.add(facetMetadata);
+      }
     }
 
     return GenericEntityScrollResultV3.builder()
