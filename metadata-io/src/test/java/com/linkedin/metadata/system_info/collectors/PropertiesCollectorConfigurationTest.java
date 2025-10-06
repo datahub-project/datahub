@@ -148,7 +148,13 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "*.*.*.*.*nabled",
           "*.consumerGroupSuffix",
           "*.*.consumerGroupSuffix",
-          "*.*.*.consumerGroupSuffix");
+          "*.*.*.consumerGroupSuffix",
+          "authentication.authenticators[*].configs.trustedIssuers",
+          "authentication.authenticators[*].configs.allowedAudiences",
+          "authentication.authenticators[*].configs.jwksUri",
+          "authentication.authenticators[*].configs.userIdClaim",
+          "authentication.authenticators[*].configs.algorithm",
+          "authentication.authenticators[*].configs.discoveryUri");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
