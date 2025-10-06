@@ -37,15 +37,18 @@ DataJob must be associated with a DataFlow. You can create a DataJob by providin
 
 <Tabs>
 <TabItem value="python" label="Create DataJob with a DataFlow Object" default>
+
 ```python
 {{ inline /metadata-ingestion/examples/library/create_datajob.py show_path_as_comment }}
 ```
 
 </TabItem>
 <TabItem value="python" label="Create DataJob with DataFlow URN">
+
 ```python
 {{ inline /metadata-ingestion/examples/library/create_datajob_with_flow_urn.py show_path_as_comment }}
 ```
+
 </TabItem>
 </Tabs>
 
