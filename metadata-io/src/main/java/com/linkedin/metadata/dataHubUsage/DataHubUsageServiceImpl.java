@@ -12,6 +12,7 @@ import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.datahubusage.event.UsageEventResult;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -26,7 +27,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -39,11 +39,11 @@ import org.opensearch.search.sort.SortOrder;
 @Slf4j
 public class DataHubUsageServiceImpl implements DataHubUsageService {
 
-  private final RestHighLevelClient elasticClient;
+  private final SearchClientShim<?> elasticClient;
   private final IndexConvention indexConvention;
 
   public DataHubUsageServiceImpl(
-      RestHighLevelClient elasticClient, IndexConvention indexConvention) {
+      SearchClientShim<?> elasticClient, IndexConvention indexConvention) {
     this.elasticClient = elasticClient;
     this.indexConvention = indexConvention;
   }
