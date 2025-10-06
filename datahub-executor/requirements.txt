@@ -12,7 +12,7 @@ acryl-datahub-actions==0.2.1
     # via acryl-datahub-executor
 acryl-datahub-classify==0.0.11
     # via acryl-datahub
-acryl-executor==0.2.9
+acryl-executor==0.2.10
     # via acryl-datahub-executor
 acryl-great-expectations==0.15.50.1
     # via acryl-datahub
