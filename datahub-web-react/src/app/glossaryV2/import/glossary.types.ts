@@ -292,5 +292,6 @@ export interface UseGraphQLOperationsReturn {
   executeAddRelatedTermsMutation: (input: any) => Promise<any>;
   executeSetDomainMutation: (entityUrn: string, domainUrn: string) => Promise<any>;
   executeBatchSetDomainMutation: (domainUrn: string, entityUrns: string[]) => Promise<any>;
+  executeGetOwnershipTypesQuery: (variables: { input: { start: number; count: number } }) => Promise<any[]>;
   handleGraphQLErrors: (error: any) => string;
 }

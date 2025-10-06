@@ -385,6 +385,31 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
   }, [apolloClient]);
 
   /**
+   * Execute get ownership types query
+   */
+  const executeGetOwnershipTypesQuery = useCallback(async (
+    variables: {
+      input: {
+        start: number;
+        count: number;
+      }
+    }
+  ): Promise<any[]> => {
+    try {
+      const { data } = await apolloClient.query({
+        query: GET_OWNERSHIP_TYPES,
+        variables,
+        fetchPolicy: 'network-only',
+      });
+
+      return data?.listOwnershipTypes?.ownershipTypes || [];
+    } catch (error) {
+      console.error('Failed to execute get ownership types query:', error);
+      throw error;
+    }
+  }, [apolloClient]);
+
+  /**
    * Handle GraphQL-specific errors
    */
   const handleGraphQLErrors = useCallback((error: any): string => {
@@ -409,6 +434,7 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
     executeAddRelatedTermsMutation,
     executeSetDomainMutation,
     executeBatchSetDomainMutation,
+    executeGetOwnershipTypesQuery,
     handleGraphQLErrors
   };
 }

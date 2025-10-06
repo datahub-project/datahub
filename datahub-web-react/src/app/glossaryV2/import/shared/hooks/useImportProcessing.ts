@@ -86,13 +86,17 @@ export const useImportProcessing = ({
   
   // Track generated URNs for relationship resolution
   const entityUrnMap = useRef<Map<string, string>>(new Map()); // entity name -> URN
+  
+  // Track ownership type name -> URN mapping
+  const ownershipTypeMapRef = useRef<Map<string, string>>(new Map()); // type name -> URN
 
   const { 
     executeUnifiedGlossaryQuery, 
     executePatchEntitiesMutation,
     executeAddRelatedTermsMutation,
     executeSetDomainMutation,
-    executeBatchSetDomainMutation
+    executeBatchSetDomainMutation,
+    executeGetOwnershipTypesQuery
   } = useGraphQLOperations();
   const { createProcessingOrder, validateHierarchy } = useHierarchyManagement();
   const { normalizeCsvData, compareEntities } = useEntityManagement();
@@ -122,6 +126,275 @@ export const useImportProcessing = ({
   }, []);
 
   /**
+   * Handle all related terms (HasA and IsA relationships) in a single batched patch
+   */
+  const handleAllRelatedTerms = useCallback(async (entity: Entity, entityUrn: string, existingEntities: Entity[] = []) => {
+    try {
+      // Process both HasA and IsA relationships
+      const hasARelatedNames = entity.data.related_contains?.split(',').map(name => name.trim()) || [];
+      const isARelatedNames = entity.data.related_inherits?.split(',').map(name => name.trim()) || [];
+      
+      if (hasARelatedNames.length === 0 && isARelatedNames.length === 0) return;
+
+      const hasARelatedUrns: string[] = [];
+      const isARelatedUrns: string[] = [];
+      
+      // Helper function to resolve entity names to URNs
+      const resolveEntityName = (relatedName: string): string | null => {
+        if (!relatedName) return null;
+        
+        // Look up related entity URN from our map (newly created) or existing entities
+        let relatedUrn = entityUrnMap.current.get(relatedName);
+        
+        // If not found with exact name, try hierarchical name matching for newly created entities
+        if (!relatedUrn) {
+          // Try to find by simple name if CSV has hierarchical name
+          const csvSimpleName = relatedName.split('.').pop() || relatedName;
+          if (csvSimpleName !== relatedName) {
+            relatedUrn = entityUrnMap.current.get(csvSimpleName);
+          }
+          
+          // Try to find by hierarchical name if CSV has simple name
+          if (!relatedUrn) {
+            for (const [entityName, urn] of entityUrnMap.current.entries()) {
+              const simpleName = entityName.split('.').pop() || entityName;
+              if (simpleName.toLowerCase() === relatedName.toLowerCase()) {
+                relatedUrn = urn;
+                break;
+              }
+            }
+          }
+        }
+        
+        // If not found in newly created entities, look in existing entities
+        if (!relatedUrn) {
+          const existingEntity = existingEntities.find(e => {
+            // Try exact match first
+            if (e.name.toLowerCase() === relatedName.toLowerCase()) {
+              return true;
+            }
+            
+            // Try hierarchical name match (extract simple name from hierarchical)
+            const simpleName = e.name.split('.').pop() || e.name;
+            if (simpleName.toLowerCase() === relatedName.toLowerCase()) {
+              return true;
+            }
+            
+            // Try reverse - if CSV has hierarchical name, match against simple name
+            const csvSimpleName = relatedName.split('.').pop() || relatedName;
+            if (e.name.toLowerCase() === csvSimpleName.toLowerCase()) {
+              return true;
+            }
+            
+            return false;
+          });
+          
+          if (existingEntity && existingEntity.urn) {
+            relatedUrn = existingEntity.urn;
+          }
+        }
+        
+        if (!relatedUrn) {
+          addWarning({
+            entityId: entity.id,
+            entityName: entity.name,
+            operation: 'relationship',
+            message: `Related entity "${relatedName}" not found`
+          });
+        }
+        
+        return relatedUrn || null;
+      };
+
+      // Resolve HasA relationships
+      for (const relatedName of hasARelatedNames) {
+        const relatedUrn = resolveEntityName(relatedName);
+        if (relatedUrn) {
+          hasARelatedUrns.push(relatedUrn);
+        }
+      }
+
+      // Resolve IsA relationships
+      for (const relatedName of isARelatedNames) {
+        const relatedUrn = resolveEntityName(relatedName);
+        if (relatedUrn) {
+          isARelatedUrns.push(relatedUrn);
+        }
+      }
+
+      // Create a single batched patch for all relationships
+      if (hasARelatedUrns.length > 0 || isARelatedUrns.length > 0) {
+        const relationshipPatch: EntityPatchInput = {
+          entityType: 'glossaryTerm',
+          urn: entityUrn,
+          aspectName: 'glossaryRelatedTerms',
+          patch: [
+            {
+              op: 'ADD',
+              path: '/hasRelatedTerms',
+              value: JSON.stringify(hasARelatedUrns)
+            },
+            {
+              op: 'ADD',
+              path: '/isRelatedTerms',
+              value: JSON.stringify(isARelatedUrns)
+            }
+          ]
+        };
+        
+        // Execute the single relationship patch
+        await executePatchEntitiesMutation([relationshipPatch]);
+      }
+    } catch (error) {
+      console.error(`Failed to set relationships for ${entity.name}:`, error);
+      throw error;
+    }
+  }, [executePatchEntitiesMutation, addWarning]);
+
+  /**
+   * Handle batch relationships for multiple entities in a single patchEntities call
+   */
+  const handleBatchRelationships = useCallback(async (entities: Entity[], existingEntities: Entity[] = []) => {
+    try {
+      const relationshipPatches: EntityPatchInput[] = [];
+      
+      for (const entity of entities) {
+        const entityUrn = entityUrnMap.current.get(entity.name);
+        if (!entityUrn) continue;
+
+        // Process both HasA and IsA relationships
+        const hasARelatedNames = entity.data.related_contains?.split(',').map(name => name.trim()) || [];
+        const isARelatedNames = entity.data.related_inherits?.split(',').map(name => name.trim()) || [];
+        
+        if (hasARelatedNames.length === 0 && isARelatedNames.length === 0) continue;
+
+        const hasARelatedUrns: string[] = [];
+        const isARelatedUrns: string[] = [];
+        
+        // Helper function to resolve entity names to URNs
+        const resolveEntityName = (relatedName: string): string | null => {
+          if (!relatedName) return null;
+          
+          // Look up related entity URN from our map (newly created) or existing entities
+          let relatedUrn = entityUrnMap.current.get(relatedName);
+          
+          // If not found with exact name, try hierarchical name matching for newly created entities
+          if (!relatedUrn) {
+            // Try to find by simple name if CSV has hierarchical name
+            const csvSimpleName = relatedName.split('.').pop() || relatedName;
+            if (csvSimpleName !== relatedName) {
+              relatedUrn = entityUrnMap.current.get(csvSimpleName);
+            }
+            
+            // Try to find by hierarchical name if CSV has simple name
+            if (!relatedUrn) {
+              for (const [entityName, urn] of entityUrnMap.current.entries()) {
+                const simpleName = entityName.split('.').pop() || entityName;
+                if (simpleName.toLowerCase() === relatedName.toLowerCase()) {
+                  relatedUrn = urn;
+                  break;
+                }
+              }
+            }
+          }
+          
+          // If not found in newly created entities, look in existing entities
+          if (!relatedUrn) {
+            const existingEntity = existingEntities.find(e => {
+              // Try exact match first
+              if (e.name.toLowerCase() === relatedName.toLowerCase()) {
+                return true;
+              }
+              
+              // Try hierarchical name match (extract simple name from hierarchical)
+              const simpleName = e.name.split('.').pop() || e.name;
+              if (simpleName.toLowerCase() === relatedName.toLowerCase()) {
+                return true;
+              }
+              
+              // Try reverse - if CSV has hierarchical name, match against simple name
+              const csvSimpleName = relatedName.split('.').pop() || relatedName;
+              if (e.name.toLowerCase() === csvSimpleName.toLowerCase()) {
+                return true;
+              }
+              
+              return false;
+            });
+            
+            if (existingEntity && existingEntity.urn) {
+              relatedUrn = existingEntity.urn;
+            }
+          }
+          
+          if (!relatedUrn) {
+            addWarning({
+              entityId: entity.id,
+              entityName: entity.name,
+              operation: 'relationship',
+              message: `Related entity "${relatedName}" not found`
+            });
+          }
+          
+          return relatedUrn || null;
+        };
+
+        // Resolve HasA relationships
+        for (const relatedName of hasARelatedNames) {
+          const relatedUrn = resolveEntityName(relatedName);
+          if (relatedUrn) {
+            hasARelatedUrns.push(relatedUrn);
+          }
+        }
+
+        // Resolve IsA relationships
+        for (const relatedName of isARelatedNames) {
+          const relatedUrn = resolveEntityName(relatedName);
+          if (relatedUrn) {
+            isARelatedUrns.push(relatedUrn);
+          }
+        }
+
+        // Create relationship patch for this entity
+        if (hasARelatedUrns.length > 0 || isARelatedUrns.length > 0) {
+          relationshipPatches.push({
+            entityType: 'glossaryTerm',
+            urn: entityUrn,
+            aspectName: 'glossaryRelatedTerms',
+            patch: [
+              {
+                op: 'ADD',
+                path: '/hasRelatedTerms',
+                value: JSON.stringify(hasARelatedUrns)
+              },
+              {
+                op: 'ADD',
+                path: '/isRelatedTerms',
+                value: JSON.stringify(isARelatedUrns)
+              }
+            ]
+          });
+        }
+      }
+
+      // Execute all relationship patches in a single batch
+      if (relationshipPatches.length > 0) {
+        updateProgress({
+          currentOperation: `Setting relationships for ${relationshipPatches.length} entities...`,
+        });
+        
+        await executePatchEntitiesMutation(relationshipPatches);
+      }
+    } catch (error) {
+      addWarning({
+        entityId: 'batch',
+        entityName: 'Batch',
+        operation: 'relationships',
+        message: `Failed to set relationships: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
+    }
+  }, [executePatchEntitiesMutation, addWarning, updateProgress]);
+
+  /**
    * Handle entity relationships after creation
    */
   const handleEntityRelationships = useCallback(async (entity: Entity, entityUrn: string, existingEntities: Entity[] = []) => {
@@ -130,15 +403,8 @@ export const useImportProcessing = ({
     try {
       // Parent relationships are handled in patchEntities mutation
 
-      // Handle related terms (HasA relationships)
-      if (entity.data.related_contains) {
-        await handleRelatedTerms(entity, entityUrn, 'HasA', existingEntities);
-      }
-
-      // Handle inheritance relationships (IsA relationships)
-      if (entity.data.related_inherits) {
-        await handleRelatedTerms(entity, entityUrn, 'IsA', existingEntities);
-      }
+      // Handle all relationships in a single batched patch
+      await handleAllRelatedTerms(entity, entityUrn, existingEntities);
 
       // Handle domain assignment
       if (entity.data.domain_urn) {
@@ -153,11 +419,10 @@ export const useImportProcessing = ({
         message: `Failed to create relationships: ${error instanceof Error ? error.message : 'Unknown error'}`
       });
     }
-  }, [executeAddRelatedTermsMutation, executeSetDomainMutation, addWarning]);
-
+  }, [executePatchEntitiesMutation, executeSetDomainMutation, addWarning, handleAllRelatedTerms]);
 
   /**
-   * Handle related terms (HasA or IsA relationships)
+   * Handle related terms (HasA or IsA relationships) using patchEntities
    */
   const handleRelatedTerms = useCallback(async (entity: Entity, entityUrn: string, relationshipType: 'HasA' | 'IsA', existingEntities: Entity[] = []) => {
     try {
@@ -175,9 +440,49 @@ export const useImportProcessing = ({
         // Look up related entity URN from our map (newly created) or existing entities
         let relatedUrn = entityUrnMap.current.get(relatedName);
         
+        // If not found with exact name, try hierarchical name matching for newly created entities
+        if (!relatedUrn) {
+          // Try to find by simple name if CSV has hierarchical name
+          const csvSimpleName = relatedName.split('.').pop() || relatedName;
+          if (csvSimpleName !== relatedName) {
+            relatedUrn = entityUrnMap.current.get(csvSimpleName);
+          }
+          
+          // Try to find by hierarchical name if CSV has simple name
+          if (!relatedUrn) {
+            for (const [entityName, urn] of entityUrnMap.current.entries()) {
+              const simpleName = entityName.split('.').pop() || entityName;
+              if (simpleName.toLowerCase() === relatedName.toLowerCase()) {
+                relatedUrn = urn;
+                break;
+              }
+            }
+          }
+        }
+        
         // If not found in newly created entities, look in existing entities
         if (!relatedUrn) {
-          const existingEntity = existingEntities.find(e => e.name.toLowerCase() === relatedName.toLowerCase());
+          const existingEntity = existingEntities.find(e => {
+            // Try exact match first
+            if (e.name.toLowerCase() === relatedName.toLowerCase()) {
+              return true;
+            }
+            
+            // Try hierarchical name match (extract simple name from hierarchical)
+            const simpleName = e.name.split('.').pop() || e.name;
+            if (simpleName.toLowerCase() === relatedName.toLowerCase()) {
+              return true;
+            }
+            
+            // Try reverse - if CSV has hierarchical name, match against simple name
+            const csvSimpleName = relatedName.split('.').pop() || relatedName;
+            if (e.name.toLowerCase() === csvSimpleName.toLowerCase()) {
+              return true;
+            }
+            
+            return false;
+          });
+          
           if (existingEntity && existingEntity.urn) {
             relatedUrn = existingEntity.urn;
           }
@@ -196,17 +501,35 @@ export const useImportProcessing = ({
       }
 
       if (relatedUrns.length > 0) {
-        await executeAddRelatedTermsMutation({
-          sourceUrn: entityUrn,
-          relationshipType,
-          destinationUrns: relatedUrns,
-        });
+        // Create the glossaryRelatedTerms aspect with relationships using JSON stringified values
+        const pathField = relationshipType === 'HasA' ? 'hasRelatedTerms' : 'isRelatedTerms';
+        
+        const relationshipPatch: EntityPatchInput = {
+          entityType: 'glossaryTerm',
+          urn: entityUrn,
+          aspectName: 'glossaryRelatedTerms',
+          patch: [
+            {
+              op: 'ADD',
+              path: `/${pathField}`,
+              value: JSON.stringify(relatedUrns)
+            },
+            {
+              op: 'ADD',
+              path: `/${pathField === 'hasRelatedTerms' ? 'isRelatedTerms' : 'hasRelatedTerms'}`,
+              value: '[]'
+            }
+          ]
+        };
+        
+        // Execute the relationship patch
+        await executePatchEntitiesMutation([relationshipPatch]);
       }
     } catch (error) {
       console.error(`Failed to set ${relationshipType} relationships for ${entity.name}:`, error);
       throw error;
     }
-  }, [executeAddRelatedTermsMutation]);
+  }, [executePatchEntitiesMutation, addWarning]);
 
   const createProcessingBatches = useCallback((entities: Entity[], hierarchyMaps: HierarchyMaps, existingEntities: Entity[] = []): ImportBatch[] => {
     const processingOrder = createProcessingOrder(entities);
@@ -245,6 +568,100 @@ export const useImportProcessing = ({
    * Process a batch of entities using a single patchEntities mutation
    */
   /**
+   * Create ownership type patches for missing types
+   */
+  const createOwnershipTypePatches = useCallback((missingTypes: string[]): EntityPatchInput[] => {
+    return missingTypes.map(typeName => ({
+      entityType: "ownershipType",
+      aspectName: "ownershipTypeInfo", 
+      patch: [
+        { op: "ADD", path: "/name", value: typeName },
+        { op: "ADD", path: "/description", value: `Custom ownership type: ${typeName}` }
+      ]
+    }));
+  }, []);
+
+  /**
+   * Ensure all required ownership types exist, creating missing ones
+   */
+  const ensureOwnershipTypesExist = useCallback(async (entities: Entity[]): Promise<void> => {
+    try {
+      // Extract all ownership types from entities
+      const csvOwnershipTypes = new Set<string>();
+      entities.forEach(entity => {
+        if (entity.data.ownership) {
+          const types = entity.data.ownership.split(',').map(owner => {
+            const parts = owner.split(':');
+            return parts[0]; // ownership type
+          });
+          types.forEach(type => csvOwnershipTypes.add(type));
+        }
+      });
+
+      if (csvOwnershipTypes.size === 0) return;
+
+      // Load existing ownership types
+      updateProgress({
+        currentOperation: `Loading existing ownership types...`,
+      });
+
+      const existingOwnershipTypes = await executeGetOwnershipTypesQuery({
+        input: { start: 0, count: 1000 }
+      });
+
+      const ownershipTypeMap = new Map<string, string>();
+      existingOwnershipTypes.forEach(type => {
+        ownershipTypeMap.set(type.info.name.toLowerCase(), type.urn);
+      });
+
+      // Find missing ownership types
+      const missingTypes = Array.from(csvOwnershipTypes).filter(
+        type => !ownershipTypeMap.has(type.toLowerCase())
+      );
+
+      if (missingTypes.length > 0) {
+        updateProgress({
+          currentOperation: `Creating ${missingTypes.length} missing ownership types...`,
+        });
+
+        // Create missing ownership types using batch patch
+        const ownershipTypePatches = createOwnershipTypePatches(missingTypes);
+        const results = await executePatchEntitiesMutation(ownershipTypePatches);
+
+        // Process results and update the map
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i];
+          const typeName = missingTypes[i];
+          
+          if (result.success && result.urn) {
+            ownershipTypeMap.set(typeName.toLowerCase(), result.urn);
+          } else {
+            addError({
+              entityId: 'ownership-type',
+              entityName: typeName,
+              operation: 'create-ownership-type',
+              error: result.error || 'Failed to create ownership type',
+              retryable: false
+            });
+          }
+        }
+      }
+
+      // Store the ownership type map for use in ownership patches
+      ownershipTypeMapRef.current = ownershipTypeMap;
+
+    } catch (error) {
+      addError({
+        entityId: 'ownership-types',
+        entityName: 'Batch',
+        operation: 'load-ownership-types',
+        error: `Failed to load/create ownership types: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        retryable: false
+      });
+    }
+  }, [executeGetOwnershipTypesQuery, executePatchEntitiesMutation, createOwnershipTypePatches, updateProgress, addError]);
+
+  /**
    * Create ownership patch for an entity
    */
   const createOwnershipPatch = useCallback((entity: Entity, urn: string): EntityPatchInput | null => {
@@ -265,15 +682,27 @@ export const useImportProcessing = ({
             ? owner 
             : `urn:li:corpuser:${owner}`;
           
-          // Use the correct ownership type
-          const ownershipType = type.toUpperCase();
+          // Get ownership type URN from the map
+          const ownershipTypeUrn = ownershipTypeMapRef.current.get(type.toLowerCase());
+          if (!ownershipTypeUrn) {
+            addError({
+              entityId: entity.id,
+              entityName: entity.name,
+              operation: 'ownership',
+              error: `Ownership type "${type}" not found. Please ensure it exists in DataHub.`,
+              retryable: false
+            });
+            return;
+          }
           
           patches.push({
             op: 'ADD',
-            path: `/owners/${ownerUrn}/${ownershipType}`,
+            path: `/owners/${ownerUrn}/${ownershipTypeUrn}`,
             value: JSON.stringify({
               owner: ownerUrn,
-              type: ownershipType
+              typeUrn: ownershipTypeUrn,
+              type: 'NONE',
+              source: { type: 'MANUAL' }
             })
           });
         } else {
@@ -313,6 +742,9 @@ export const useImportProcessing = ({
       updateProgress({
         currentOperation: `Creating ${entities.length} entities...`,
       });
+
+      // Load existing ownership types and create missing ones
+      await ensureOwnershipTypesExist(entities);
 
       // Build patch inputs for all entities in the batch
       const patchInputs: EntityPatchInput[] = [];
@@ -509,12 +941,7 @@ export const useImportProcessing = ({
 
       // Handle relationships after entity creation (for successful entities)
       if (allSuccessful) {
-        for (const entity of entities) {
-          const entityUrn = entityUrnMap.current.get(entity.name);
-          if (entityUrn) {
-            await handleEntityRelationships(entity, entityUrn, existingEntities);
-          }
-        }
+        await handleBatchRelationships(entities, existingEntities);
       }
 
       updateProgress({
@@ -538,7 +965,7 @@ export const useImportProcessing = ({
 
       return false;
     }
-  }, [executePatchEntitiesMutation, executeAddRelatedTermsMutation, executeSetDomainMutation, executeBatchSetDomainMutation, updateProgress, addError, addWarning, createOwnershipPatch]);
+  }, [executePatchEntitiesMutation, executeSetDomainMutation, executeBatchSetDomainMutation, executeGetOwnershipTypesQuery, updateProgress, addError, addWarning, createOwnershipPatch, ensureOwnershipTypesExist, handleBatchRelationships]);
 
   const processBatch = useCallback(async (batch: ImportBatch): Promise<void> => {
     currentBatchRef.current = batch;

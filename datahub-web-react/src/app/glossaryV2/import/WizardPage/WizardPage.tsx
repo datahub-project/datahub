@@ -1902,6 +1902,44 @@ export const WizardPage = () => {
                     }
                 });
                 
+                // Create URN to name mapping for relationship lookups
+                const urnToNameMap = new Map<string, string>();
+                existingEntities.forEach((entity: any) => {
+                    const name = entity.properties?.name || entity.name || '';
+                    if (name) {
+                        urnToNameMap.set(entity.urn, name);
+                    }
+                });
+
+                // Helper function to convert relationship URNs to names
+                const convertRelationshipUrnsToNames = (relationships: any[]): string => {
+                    if (!relationships || relationships.length === 0) return '';
+                    
+                    return relationships
+                        .map((rel: any) => {
+                            const entity = rel?.entity;
+                            if (!entity) return '';
+                            
+                            const name = entity.properties?.name || entity.name || '';
+                            const parentNodes = entity.parentNodes?.nodes || [];
+                            
+                            if (name) {
+                                if (parentNodes.length > 0) {
+                                    // Create hierarchical name: parent.child
+                                    const parentName = parentNodes[0].properties?.name || '';
+                                    return parentName ? `${parentName}.${name}` : name;
+                                } else {
+                                    // No parent, just return the name
+                                    return name;
+                                }
+                            }
+                            
+                            return '';
+                        })
+                        .filter(name => name)
+                        .join(',');
+                };
+
                 // Convert GraphQL entities to our Entity format
                 const convertedExistingEntities: Entity[] = existingEntities.map((entity: any) => {
                     const isTerm = entity.__typename === 'GlossaryTerm';
@@ -1928,8 +1966,8 @@ export const WizardPage = () => {
                               `${owner.type}:${owner.owner.username || owner.owner.name || owner.owner.urn}`
                             ).join(',') || '',
                             parent_nodes: parentNodes.map((node: any) => node.properties?.name || '').join(','),
-                            related_contains: entity.contains?.relationships?.map((rel: any) => rel.entity.properties?.name || '').join(',') || '',
-                            related_inherits: entity.inherits?.relationships?.map((rel: any) => rel.entity.properties?.name || '').join(',') || '',
+                            related_contains: convertRelationshipUrnsToNames(entity.contains?.relationships || []),
+                            related_inherits: convertRelationshipUrnsToNames(entity.inherits?.relationships || []),
                             domain_urn: '', // TODO: Extract from domain aspect
                             domain_name: '', // TODO: Extract from domain aspect
                             custom_properties: properties.customProperties?.map((cp: any) => `${cp.key}:${cp.value}`).join(',') || '',
