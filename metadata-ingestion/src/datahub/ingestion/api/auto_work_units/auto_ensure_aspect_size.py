@@ -18,6 +18,14 @@ from datahub.metadata.schema_classes import (
 if TYPE_CHECKING:
     from datahub.ingestion.api.source import SourceReport
 
+
+# TODO: ordering
+# In the cases where we trim collections of data (e.g. fields in schema, upstream lineage, query subjects), given
+# those collections are typically unordered, we should consider sorting them by some criteria (e.g. size, alphabetically)
+# so that the trimming is deterministic and predictable and more importantly consistent across executions.
+# In the case of schemaMetadata, that's more relevant as currently we may be trimming fields while adding nested ones,
+# which may lead to poorly schema rendering in the UI.
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES = 5 * 1024 * 1024  # 5MB
