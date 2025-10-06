@@ -34,7 +34,14 @@ public class PatchResolverUtils {
 
   // Entity types that support auto-generated URNs (simple string URNs)
   public static final Set<String> AUTO_GENERATE_ALLOWED_ENTITY_TYPES =
-      Set.of("glossaryTerm", "glossaryNode", "container", "notebook", "domain", "dataProduct");
+      Set.of(
+          "glossaryTerm",
+          "glossaryNode",
+          "container",
+          "notebook",
+          "domain",
+          "dataProduct",
+          "ownershipType");
 
   /**
    * Resolves entity URN from input - either provided URN or auto-generated for supported entity
