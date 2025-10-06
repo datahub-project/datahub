@@ -146,7 +146,6 @@ query appConfig {
             showStatsTabRedesign
             showHomePageRedesign
             showFormAnalytics
-            showStatsTabRedesign
             requestMinimalSlackPermissions
             showTaskCenterRedesign
             usePropagationsFramework

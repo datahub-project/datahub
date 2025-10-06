@@ -50,8 +50,8 @@ public class UpdateLinkResolverTest {
                 "Original label",
                 "https://updated-url.com",
                 "Updated label",
-                ASSET_URN,
-                new LinkSettingsInput(false)));
+                new LinkSettingsInput(false),
+                ASSET_URN));
     UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
     resolver.get(mockEnv).get();
 
@@ -72,8 +72,8 @@ public class UpdateLinkResolverTest {
                 "Original label",
                 "https://updated-url.com",
                 "Updated label",
-                ASSET_URN,
-                new LinkSettingsInput(false)));
+                new LinkSettingsInput(false),
+                ASSET_URN));
     UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
@@ -98,8 +98,8 @@ public class UpdateLinkResolverTest {
                 "Original label",
                 "https://duplicated-url.com",
                 "Duplicated label",
-                ASSET_URN,
-                new LinkSettingsInput(false)));
+                new LinkSettingsInput(false),
+                ASSET_URN));
     UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -117,8 +117,8 @@ public class UpdateLinkResolverTest {
                 "Original label",
                 "https://duplicated-url.com",
                 "Duplicated label",
-                ASSET_URN,
-                new LinkSettingsInput(false)));
+                new LinkSettingsInput(false),
+                ASSET_URN));
     UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
@@ -140,8 +140,8 @@ public class UpdateLinkResolverTest {
                 "Original label",
                 "https://duplicated-url.com",
                 "Duplicated label",
-                ASSET_URN,
-                new LinkSettingsInput(false)));
+                new LinkSettingsInput(false),
+                ASSET_URN));
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     UpdateLinkResolver resolver = new UpdateLinkResolver(mockService, mockClient);

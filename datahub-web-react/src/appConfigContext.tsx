@@ -129,6 +129,8 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         termPropagationV2Enabled: false,
         showCreatedAtFilter: false,
         showIngestionPageRedesign: false,
+        showStatsTabRedesign: false,
+        showHomePageRedesign: false,
         showProductUpdates: false,
         formsNotificationsEnabled: false,
         lineageGraphV3: false,
