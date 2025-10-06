@@ -1197,6 +1197,7 @@ public class GmsGraphQLEngine {
   }
 
   private static String getUrnField(DataFetchingEnvironment env) {
+//    env.getSelectionSet().getFields()
     return env.getArgument(URN_FIELD_NAME);
   }
 

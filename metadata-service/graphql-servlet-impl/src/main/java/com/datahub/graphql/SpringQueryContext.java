@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import graphql.language.OperationDefinition;
 import graphql.parser.Parser;
+import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +24,9 @@ public class SpringQueryContext implements QueryContext {
   @Getter private final String queryName;
   @Nonnull private final OperationContext operationContext;
   @Nonnull private final DataHubAppConfiguration dataHubAppConfig;
+  
+  // Mutable field for DataFetchingEnvironment
+  @Nullable private DataFetchingEnvironment dataFetchingEnvironment;
 
   public SpringQueryContext(
       final boolean isAuthenticated,
@@ -62,5 +66,16 @@ public class SpringQueryContext implements QueryContext {
             true);
 
     this.dataHubAppConfig = dataHubAppConfig;
+  }
+
+  @Override
+  @Nullable
+  public DataFetchingEnvironment getDataFetchingEnvironment() {
+    return dataFetchingEnvironment;
+  }
+
+  @Override
+  public void setDataFetchingEnvironment(@Nullable DataFetchingEnvironment environment) {
+    this.dataFetchingEnvironment = environment;
   }
 }
