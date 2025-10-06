@@ -171,8 +171,6 @@ class Dashboard(
                     )
                 ),
                 customProperties={},
-                chartEdges=[],
-                datasetEdges=[],
                 dashboards=[],
             )
         )

@@ -711,3 +711,86 @@ class TestTableauPageSizeConfig:
         config = TableauPageSizeConfig(database_table_page_size=any_page_size)
         assert config.page_size == DEFAULT_PAGE_SIZE
         assert config.effective_database_table_page_size == any_page_size
+
+
+def test_get_owner_identifier_username():
+    """Test owner identifier extraction using username."""
+    config_dict = default_config.copy()
+    config_dict["use_email_as_username"] = False
+    config = TableauConfig.parse_obj(config_dict)
+
+    context = PipelineContext(run_id="test", pipeline_name="test")
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        site=SiteIdContentUrl(site_id="site1", site_content_url="site1"),
+        report=TableauSourceReport(),
+        server=mock.MagicMock(spec=Server),
+        platform="tableau",
+    )
+
+    owner_dict = {"username": "testuser", "email": "test@example.com"}
+    result = site_source._get_owner_identifier(owner_dict)
+    assert result == "testuser"
+
+
+def test_get_owner_identifier_email():
+    """Test owner identifier extraction using email."""
+    config_dict = default_config.copy()
+    config_dict["use_email_as_username"] = True
+    config = TableauConfig.parse_obj(config_dict)
+
+    context = PipelineContext(run_id="test", pipeline_name="test")
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        site=SiteIdContentUrl(site_id="site1", site_content_url="site1"),
+        report=TableauSourceReport(),
+        server=mock.MagicMock(spec=Server),
+        platform="tableau",
+    )
+
+    owner_dict = {"username": "testuser", "email": "test@example.com"}
+    result = site_source._get_owner_identifier(owner_dict)
+    assert result == "test@example.com"
+
+
+def test_get_owner_identifier_email_fallback():
+    """Test owner identifier extraction falls back to username when email is not available."""
+    config_dict = default_config.copy()
+    config_dict["use_email_as_username"] = True
+    config = TableauConfig.parse_obj(config_dict)
+
+    context = PipelineContext(run_id="test", pipeline_name="test")
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        site=SiteIdContentUrl(site_id="site1", site_content_url="site1"),
+        report=TableauSourceReport(),
+        server=mock.MagicMock(spec=Server),
+        platform="tableau",
+    )
+
+    owner_dict = {"username": "testuser"}  # No email
+    result = site_source._get_owner_identifier(owner_dict)
+    assert result == "testuser"
+
+
+def test_get_owner_identifier_empty_dict():
+    """Test owner identifier extraction with empty owner dict."""
+    config_dict = default_config.copy()
+    config_dict["use_email_as_username"] = True
+    config = TableauConfig.parse_obj(config_dict)
+
+    context = PipelineContext(run_id="test", pipeline_name="test")
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        site=SiteIdContentUrl(site_id="site1", site_content_url="site1"),
+        report=TableauSourceReport(),
+        server=mock.MagicMock(spec=Server),
+        platform="tableau",
+    )
+
+    result = site_source._get_owner_identifier({})
+    assert result is None

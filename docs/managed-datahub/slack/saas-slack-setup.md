@@ -16,8 +16,8 @@ You can see the permissions required by the DataHub Slack bot [below](#datahub-s
 
 The following steps should be performed by a Slack Workspace Admin.
 
-1. Navigate to [https://api.slack.com/reference/manifests#config-tokens](https://api.slack.com/reference/manifests#config-tokens)
-2. Under **Managing configuration tokens**, select **'Generate Token'**
+1. Navigate to [https://api.slack.com/apps](https://api.slack.com/apps)
+2. Click **Create App**, then select **'Generate Token'**
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_1.png"/>
 </p>
