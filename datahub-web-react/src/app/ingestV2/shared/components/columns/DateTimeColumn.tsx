@@ -52,9 +52,10 @@ const DateTimeCellWrapper = styled(CellHoverWrapper)`
     }
 `;
 
-export function wrapDateTimeColumnWithHover(content: React.ReactNode, record: any): React.ReactNode {
-    const time = record.lastExecTime;
-
+export function wrapDateTimeColumnWithHover(
+    content: React.ReactNode,
+    time: number | null | undefined,
+): React.ReactNode {
     if (!isPresent(time) || time === 0) {
         return content;
     }
@@ -62,7 +63,7 @@ export function wrapDateTimeColumnWithHover(content: React.ReactNode, record: an
     const formattedDateTime = dayjs(time).format(DEFAULT_DATETIME_FORMAT);
 
     return (
-        <Tooltip title={formattedDateTime}>
+        <Tooltip placement="topLeft" title={formattedDateTime}>
             <DateTimeCellWrapper>{content}</DateTimeCellWrapper>
         </Tooltip>
     );
