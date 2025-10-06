@@ -14,6 +14,7 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -28,7 +29,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.aggregations.Aggregation;
@@ -47,7 +47,7 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
   private final OperationContext opContext;
   private final EntityService<?> entityService;
   private final ElasticSearchService elasticSearchService;
-  private final RestHighLevelClient restHighLevelClient;
+  private final SearchClientShim<?> restHighLevelClient;
 
   private final boolean reprocessEnabled;
   private final Integer batchSize;
@@ -60,7 +60,7 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
       OperationContext opContext,
       EntityService<?> entityService,
       ElasticSearchService elasticSearchService,
-      RestHighLevelClient restHighLevelClient,
+      SearchClientShim<?> restHighLevelClient,
       boolean reprocessEnabled,
       Integer batchSize,
       Integer batchDelayMs,
