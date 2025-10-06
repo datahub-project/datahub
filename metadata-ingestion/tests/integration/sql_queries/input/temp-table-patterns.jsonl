@@ -9,4 +9,6 @@
 {"query": "DROP TABLE user_activity_temp", "timestamp": 1609459680, "user": "analyst", "operation_type": "DROP"}
 {"query": "CREATE TEMPORARY TABLE staging_data AS SELECT * FROM snowflake.db.raw_events WHERE event_date >= '2021-01-01'", "timestamp": 1609459740, "user": "etl_job", "operation_type": "CREATE"}
 {"query": "SELECT * FROM temp_analytics_summary WHERE metric_value > 100", "timestamp": 1609459800, "user": "analyst", "operation_type": "SELECT"}
+{"query": "CREATE TEMPORARY TABLE staging_events AS SELECT user_id, event_type, event_timestamp, COUNT(*) as event_count FROM snowflake.db.raw_events WHERE event_date >= '2021-01-01' GROUP BY user_id, event_type, event_timestamp", "timestamp": 1609459860, "user": "etl_job", "operation_type": "CREATE"}
+{"query": "INSERT INTO snowflake.db.processed_events SELECT user_id, event_type, event_timestamp, event_count, NOW() as processed_at FROM staging_events WHERE event_count > 5", "timestamp": 1609459920, "user": "etl_job", "operation_type": "INSERT"}
 

@@ -4,7 +4,7 @@ source:
     query_file: ./input/large-file-streaming.jsonl
     platform: snowflake
     enable_streaming: true
-    streaming_batch_size: 100
+    streaming_batch_size: 15
     use_schema_resolver: false
 
 sink:
