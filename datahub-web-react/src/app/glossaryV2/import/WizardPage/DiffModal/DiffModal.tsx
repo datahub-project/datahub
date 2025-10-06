@@ -1,11 +1,8 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { Modal, Typography, Divider } from 'antd';
-import { Button, Card } from '@components';
+import { Modal, Button, Card } from '@components';
 import { EntityData, Entity } from '../../glossary.types';
 import { parseCustomProperties, formatCustomPropertiesForCsv, compareCustomProperties } from '../../shared/utils/customPropertiesUtils';
-
-const { Title, Text } = Typography;
 
 // Helper function to format custom properties for display
 const formatCustomPropertiesForDisplay = (value: string): string => {
@@ -62,11 +59,11 @@ const ModalHeader = styled.div`
   width: 100%;
 `;
 
-const ModalTitle = styled(Title)`
-  margin: 0 !important;
-  font-size: 14px !important;
-  font-weight: 600 !important;
-  color: #111827 !important;
+const ModalTitle = styled.div`
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
 `;
 
 const CloseButton = styled(Button)`
@@ -102,13 +99,13 @@ const TableHeaderRow = styled.tr`
   border-bottom: 1px solid #e5e7eb;
 `;
 
-const TableHeaderCell = styled.th<{ isExisting: boolean }>`
+const TableHeaderCell = styled.th`
   padding: 8px 12px;
   text-align: left;
   font-weight: 600;
   font-size: 12px;
-  color: ${props => props.isExisting ? '#0c4a6e' : '#14532d'};
-  background: ${props => props.isExisting ? '#f0f9ff' : '#f0fdf4'};
+  color: #374151;
+  background: #f9fafb;
   border-right: 1px solid #e5e7eb;
   
   &:last-child {
@@ -170,12 +167,16 @@ const FieldLabelCell = styled.td`
   border-right: 1px solid #e5e7eb;
 `;
 
-const FieldValueCell = styled.td<{ isExisting: boolean }>`
+const FieldValueCell = styled.td`
   padding: 8px 12px;
   vertical-align: top;
   width: 40%;
-  border-right: ${props => props.isExisting ? '1px solid #e5e7eb' : 'none'};
+  border-right: 1px solid #e5e7eb;
   font-size: 12px;
+  
+  &:last-child {
+    border-right: none;
+  }
 `;
 
 const FieldValue = styled.div<{ hasChanges?: boolean; isConflict?: boolean }>`
@@ -342,11 +343,12 @@ export const DiffModal: React.FC<DiffModalProps> = ({
       footer={null}
       closable={false}
       destroyOnClose
+      title=""
     >
       <ModalContainer>
         <ModalHeader>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <ModalTitle level={4}>
+            <ModalTitle>
               Entity Comparison: {entity.name}
             </ModalTitle>
             <StatusBadge status={status}>
@@ -367,9 +369,9 @@ export const DiffModal: React.FC<DiffModalProps> = ({
               style={{ marginBottom: '24px', border: '1px solid #fecaca', background: '#fef2f2' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Text style={{ color: '#dc2626', fontWeight: 500 }}>
+                <div style={{ color: '#dc2626', fontWeight: 500 }}>
                   ⚠️ Conflicts detected - values differ between existing and imported data
-                </Text>
+                </div>
               </div>
             </Card>
           )}
@@ -377,16 +379,16 @@ export const DiffModal: React.FC<DiffModalProps> = ({
           <ComparisonTable>
             <TableHeader>
               <TableHeaderRow>
-                <TableHeaderCell isExisting={false} style={{ width: '20%' }}>
+                <TableHeaderCell style={{ width: '20%' }}>
                   Field
                 </TableHeaderCell>
-                <TableHeaderCell isExisting={true}>
+                <TableHeaderCell>
                   <HeaderContent>
                     <span>Existing Data</span>
                     <StatusBadge status="existing">Current</StatusBadge>
                   </HeaderContent>
                 </TableHeaderCell>
-                <TableHeaderCell isExisting={false}>
+                <TableHeaderCell>
                   <HeaderContent>
                     <span>Imported Data</span>
                     <StatusBadge status="imported">New</StatusBadge>
@@ -400,7 +402,7 @@ export const DiffModal: React.FC<DiffModalProps> = ({
                   <FieldLabelCell>
                     {field.label}
                   </FieldLabelCell>
-                  <FieldValueCell isExisting={true}>
+                  <FieldValueCell>
                     {field.existingValue ? (
                       <FieldValue 
                         hasChanges={field.hasChanges} 
@@ -423,7 +425,7 @@ export const DiffModal: React.FC<DiffModalProps> = ({
                       </ConflictIndicator>
                     )}
                   </FieldValueCell>
-                  <FieldValueCell isExisting={false}>
+                  <FieldValueCell>
                     {field.importedValue ? (
                       <FieldValue 
                         hasChanges={field.hasChanges} 

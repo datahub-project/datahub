@@ -1189,10 +1189,6 @@ const GlossaryImportList = ({
     };
 
     // Modal handlers
-    const handleShowDetails = useCallback((entity: Entity) => {
-        setSelectedEntity(entity.data);
-        setIsModalVisible(true);
-    }, []);
 
     const handleCloseModal = useCallback(() => {
         setIsModalVisible(false);
@@ -1725,13 +1721,6 @@ const GlossaryImportList = ({
                                 isScrollable
                                 handleSortColumnChange={handleSortColumnChange}
                                 isLoading={loading && entities.length === 0}
-                                onRowClick={(record) => {
-                                    if (record.status === 'updated' || record.status === 'conflict') {
-                                        handleShowDiff(record);
-                                    } else {
-                                        handleShowDetails(record);
-                                    }
-                                }}
                             />
                         </TableContainer>
                         <PaginationContainer>
