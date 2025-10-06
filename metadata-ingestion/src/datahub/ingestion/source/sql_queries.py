@@ -42,10 +42,6 @@ from datahub.ingestion.api.source_helpers import auto_workunit, auto_workunit_re
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-from datahub.ingestion.source.aws.s3_util import (
-    get_bucket_name,
-    get_bucket_relative_path,
-)
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver, SchemaResolverReport
@@ -404,11 +400,9 @@ class SqlQueriesSource(Source):
             s3_client = self.config.aws_config.get_s3_client(
                 verify_ssl=self.config.s3_verify_ssl
             )
-            
+
             with smart_open.open(
-                self.config.query_file,
-                mode="r",
-                transport_params={"client": s3_client}
+                self.config.query_file, mode="r", transport_params={"client": s3_client}
             ) as file_stream:
                 for line in file_stream:
                     if line.strip():
