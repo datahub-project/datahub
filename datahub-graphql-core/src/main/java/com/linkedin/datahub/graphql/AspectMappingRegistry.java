@@ -80,6 +80,11 @@ public class AspectMappingRegistry {
     for (graphql.schema.SelectedField field : requestedFields) {
       // Skip introspection and nested fields (with level > 2 since top level fields are level 2 ie.
       // Dataset.urn)
+      // okay this doesn't actually work with nested fields we need for other resolvers.. will need
+      // to come back to this.
+      // for example a query with ownership on a dataset with user fields will look like this for
+      // the requestedFields:
+      // Dataset.ownership/Ownership.owners/Owner.owner/CorpUser.properties/CorpUserProperties.displayName
       String fieldName = field.getName();
       if (fieldName.startsWith("__") || field.getLevel() > 2) {
         continue;
