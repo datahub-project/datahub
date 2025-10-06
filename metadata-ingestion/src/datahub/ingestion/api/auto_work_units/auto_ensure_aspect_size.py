@@ -366,6 +366,10 @@ class EnsureAspectSizeProcessor:
                 message="Query properties contained too much data and would have caused ingestion to fail",
                 context=f"Query statement was truncated from {original_statement_size} to {new_statement_length} characters for {entity_urn} due to aspect size constraints",
             )
+        else:
+            logger.warning(
+                f"Cannot truncate query statement for {entity_urn} as it is smaller than or equal to the required reduction size {reduction_needed}. That means that 'ensure_query_properties_size' must be extended to trim other fields different than statement."
+            )
 
     def ensure_aspect_size(
         self,
