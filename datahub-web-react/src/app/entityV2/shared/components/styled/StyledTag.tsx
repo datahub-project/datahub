@@ -1,3 +1,4 @@
+import { colors } from '@components';
 import { Tag } from 'antd';
 import ColorHash from 'color-hash';
 import styled, { css } from 'styled-components';
@@ -23,6 +24,7 @@ export const StyledTag = styled(Tag)<{
     overflow: hidden;
     text-overflow: ellipsis;
     &&& {
+        border-color: ${colors.gray[100]};
         ${(props) =>
             props.$highlightTag &&
             `
