@@ -35,6 +35,7 @@ describe("siblings", () => {
   it("can view individual nodes", () => {
     cy.visitWithLogin(`/dataset/${DBT_URN}/?is_lineage_mode=false`);
     cy.get(".ant-table-row").should("be.visible");
+    cy.contains("This is a unique identifier for a customer");
     // navigate to the bq entity
     cy.get(`[data-testid="compact-entity-link-${BIGQUERY_URN}"`).click();
     cy.get(".ant-table-row").should("be.visible");
@@ -45,7 +46,7 @@ describe("siblings", () => {
     cy.get('[data-testid="entity-header-test-id"]').contains("BigQuery");
 
     // check dbt schema descriptions not shown
-    cy.contains("This is a unique identifier for a customer", {timeout: 10000}).should(
+    cy.contains("This is a unique identifier for a customer").should(
       "not.exist",
     );
 
