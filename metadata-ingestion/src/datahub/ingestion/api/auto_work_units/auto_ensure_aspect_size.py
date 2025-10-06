@@ -106,7 +106,8 @@ class EnsureAspectSizeProcessor:
             return
 
         total_subjects_size = 0
-        accepted_subjects = []
+        accepted_table_level_subjects = []
+        accepted_column_level_subjects = []
         column_level_subjects_with_sizes = []
         table_level_subjects_with_sizes = []
 
@@ -119,33 +120,72 @@ class EnsureAspectSizeProcessor:
             else:
                 table_level_subjects_with_sizes.append((subject, subject_size))
 
+        # Once we find one that doesn't fit, stop everything else to prevent inconsistencies
+        first_skip_done = False
+
         # First, try to include all table-level subjects
         for subject, subject_size in table_level_subjects_with_sizes:
             if total_subjects_size + subject_size < self.payload_constraint:
-                accepted_subjects.append(subject)
+                accepted_table_level_subjects.append(subject)
                 total_subjects_size += subject_size
             else:
-                self.report.warning(
-                    title="Query subjects truncated due to size constraint",
-                    message="Query subjects contained too much data and would have caused ingestion to fail",
-                    context=f"Table-level lineage subject {subject.entity} was removed from query subjects for {entity_urn} due to aspect size constraints",
-                )
+                first_skip_done = True
+                break
 
         # Then, add column-level subjects if there's remaining space
-        for subject, subject_size in column_level_subjects_with_sizes:
-            if total_subjects_size + subject_size < self.payload_constraint:
-                accepted_subjects.append(subject)
-                total_subjects_size += subject_size
-            else:
-                self.report.warning(
-                    title="Query subjects truncated due to size constraint",
-                    message="Query subjects contained too much data and would have caused ingestion to fail",
-                    context=f"Column-level lineage subject {subject.entity} was removed from query subjects for {entity_urn} due to aspect size constraints",
-                )
+        # Only process if we successfully included all table-level subjects
+        if not first_skip_done:
+            for subject, subject_size in column_level_subjects_with_sizes:
+                if total_subjects_size + subject_size < self.payload_constraint:
+                    accepted_column_level_subjects.append(subject)
+                    total_subjects_size += subject_size
+                else:
+                    first_skip_done = True
+                    break
 
-        query_subjects.subjects = accepted_subjects
+        if first_skip_done:
+            # Log aggregate warnings
+            table_level_skipped_count = len(table_level_subjects_with_sizes) - len(
+                accepted_table_level_subjects
+            )
+            column_level_skipped_count = len(column_level_subjects_with_sizes) - len(
+                accepted_column_level_subjects
+            )
 
-    def ensure_upstream_lineage_size(
+            self._maybe_warn_query_subjects(
+                entity_urn, table_level_skipped_count, "table-level lineage subjects"
+            )
+            self._maybe_warn_query_subjects(
+                entity_urn, column_level_skipped_count, "column-level lineage subjects"
+            )
+
+        query_subjects.subjects = (
+            accepted_table_level_subjects + accepted_column_level_subjects
+        )
+
+    def _maybe_warn_query_subjects(
+        self, entity_urn: str, skipped_count: int, item_type: str
+    ) -> None:
+        """Log warning for query subjects truncation if any items were skipped."""
+        if skipped_count > 0:
+            self.report.warning(
+                title="Query subjects truncated due to size constraint",
+                message="Query subjects contained too much data and would have caused ingestion to fail",
+                context=f"Skipped {skipped_count} {item_type} for {entity_urn} due to aspect size constraints",
+            )
+
+    def _maybe_warn_upstream_lineage(
+        self, entity_urn: str, skipped_count: int, item_type: str
+    ) -> None:
+        """Log warning for upstream lineage truncation if any items were skipped."""
+        if skipped_count > 0:
+            self.report.warning(
+                title="Upstream lineage truncated due to size constraint",
+                message="Upstream lineage contained too much data and would have caused ingestion to fail",
+                context=f"Skipped {skipped_count} {item_type} for {entity_urn} due to aspect size constraints",
+            )
+
+    def ensure_upstream_lineage_size(  # noqa: C901
         self, entity_urn: str, upstream_lineage: UpstreamLineageClass
     ) -> None:
         """
@@ -158,7 +198,9 @@ class EnsureAspectSizeProcessor:
 
         total_lineage_size = 0
         accepted_upstreams = []
-        accepted_fine_grained_lineages = []
+        accepted_dataset_fg_lineages = []
+        accepted_field_set_fg_lineages = []
+        accepted_none_fg_lineages = []
         upstream_items_with_sizes = []
         dataset_fg_items_with_sizes = []
         field_set_fg_items_with_sizes = []
@@ -185,53 +227,86 @@ class EnsureAspectSizeProcessor:
                 elif upstream_type_str == "NONE":
                     none_fg_items_with_sizes.append((fg_lineage, fg_lineage_size))
 
-        # First, include all upstreams
+        # Once we find one that doesn't fit, stop everything else to prevent inconsistencies
+        first_skip_done = False
+
+        # First, include all upstreams (highest priority)
         for item, item_size in upstream_items_with_sizes:
             if total_lineage_size + item_size < self.payload_constraint:
                 accepted_upstreams.append(item)
                 total_lineage_size += item_size
             else:
-                self.report.warning(
-                    title="Upstream lineage truncated due to size constraint",
-                    message="Upstream lineage contained too much data and would have caused ingestion to fail",
-                    context=f"Upstream dataset {item.dataset} was removed from upstream lineage for {entity_urn} due to aspect size constraints",
-                )
+                first_skip_done = True
+                break
 
-        # Second, include DATASET fine-grained lineages
-        for fg_lineage, fg_lineage_size in dataset_fg_items_with_sizes:
-            if total_lineage_size + fg_lineage_size < self.payload_constraint:
-                accepted_fine_grained_lineages.append(fg_lineage)
-                total_lineage_size += fg_lineage_size
-            else:
-                self.report.warning(
-                    title="Upstream lineage truncated due to size constraint",
-                    message="Upstream lineage contained too much data and would have caused ingestion to fail",
-                    context=f"Dataset-level fine-grained lineage was removed from upstream lineage for {entity_urn} due to aspect size constraints",
-                )
+        # Second, include DATASET fine-grained lineages if no upstreams were skipped
+        if not first_skip_done:
+            for fg_lineage, fg_lineage_size in dataset_fg_items_with_sizes:
+                if total_lineage_size + fg_lineage_size < self.payload_constraint:
+                    accepted_dataset_fg_lineages.append(fg_lineage)
+                    total_lineage_size += fg_lineage_size
+                else:
+                    first_skip_done = True
+                    break
 
-        # Third, include FIELD_SET fine-grained lineages
-        for fg_lineage, fg_lineage_size in field_set_fg_items_with_sizes:
-            if total_lineage_size + fg_lineage_size < self.payload_constraint:
-                accepted_fine_grained_lineages.append(fg_lineage)
-                total_lineage_size += fg_lineage_size
-            else:
-                self.report.warning(
-                    title="Upstream lineage truncated due to size constraint",
-                    message="Upstream lineage contained too much data and would have caused ingestion to fail",
-                    context=f"Field-level fine-grained lineage was removed from upstream lineage for {entity_urn} due to aspect size constraints",
-                )
+        # Third, include FIELD_SET fine-grained lineages if no higher priority items were skipped
+        if not first_skip_done:
+            for fg_lineage, fg_lineage_size in field_set_fg_items_with_sizes:
+                if total_lineage_size + fg_lineage_size < self.payload_constraint:
+                    accepted_field_set_fg_lineages.append(fg_lineage)
+                    total_lineage_size += fg_lineage_size
+                else:
+                    first_skip_done = True
+                    break
 
-        # Finally, include NONE fine-grained lineages (lowest priority)
-        for fg_lineage, fg_lineage_size in none_fg_items_with_sizes:
-            if total_lineage_size + fg_lineage_size < self.payload_constraint:
-                accepted_fine_grained_lineages.append(fg_lineage)
-                total_lineage_size += fg_lineage_size
-            else:
-                self.report.warning(
-                    title="Upstream lineage truncated due to size constraint",
-                    message="Upstream lineage contained too much data and would have caused ingestion to fail",
-                    context=f"No-upstream fine-grained lineage was removed from upstream lineage for {entity_urn} due to aspect size constraints",
-                )
+        # Finally, include NONE fine-grained lineages if no higher priority items were skipped
+        if not first_skip_done:
+            for fg_lineage, fg_lineage_size in none_fg_items_with_sizes:
+                if total_lineage_size + fg_lineage_size < self.payload_constraint:
+                    accepted_none_fg_lineages.append(fg_lineage)
+                    total_lineage_size += fg_lineage_size
+                else:
+                    first_skip_done = True
+                    break
+
+        # Log aggregate warnings instead of per-item warnings
+        if first_skip_done:
+            upstreams_skipped_count = len(upstream_items_with_sizes) - len(
+                accepted_upstreams
+            )
+            dataset_fg_skipped_count = len(dataset_fg_items_with_sizes) - len(
+                accepted_dataset_fg_lineages
+            )
+            field_set_fg_skipped_count = len(field_set_fg_items_with_sizes) - len(
+                accepted_field_set_fg_lineages
+            )
+            none_fg_skipped_count = len(none_fg_items_with_sizes) - len(
+                accepted_none_fg_lineages
+            )
+
+            self._maybe_warn_upstream_lineage(
+                entity_urn, upstreams_skipped_count, "upstream datasets"
+            )
+            self._maybe_warn_upstream_lineage(
+                entity_urn,
+                dataset_fg_skipped_count,
+                "dataset-level fine-grained lineages",
+            )
+            self._maybe_warn_upstream_lineage(
+                entity_urn,
+                field_set_fg_skipped_count,
+                "field-set-level fine-grained lineages",
+            )
+            self._maybe_warn_upstream_lineage(
+                entity_urn, none_fg_skipped_count, "none-level fine-grained lineages"
+            )
+
+        # Combine all accepted fine-grained lineages
+        accepted_fine_grained_lineages = (
+            accepted_dataset_fg_lineages
+            + accepted_field_set_fg_lineages
+            + accepted_none_fg_lineages
+        )
 
         upstream_lineage.upstreams = accepted_upstreams
         upstream_lineage.fineGrainedLineages = (
