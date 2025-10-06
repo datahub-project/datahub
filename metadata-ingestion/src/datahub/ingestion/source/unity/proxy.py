@@ -11,6 +11,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, cast
 from unittest.mock import patch
 
 import cachetools
+import requests
 from cachetools import cached
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import (
@@ -54,6 +55,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     Metastore,
     Model,
     ModelVersion,
+    ModelVersionSignature,
     Notebook,
     NotebookReference,
     Query,
@@ -61,6 +63,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    TrainingRun,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.utilities.file_backed_collections import FileBackedDict
@@ -301,11 +304,85 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     version = self._workspace_client.model_versions.get(
                         ml_model.id, version.version, include_aliases=True
                     )
-                optional_ml_model_version = self._create_ml_model_version(
-                    ml_model, version
-                )
-                if optional_ml_model_version:
-                    yield optional_ml_model_version
+                # get signature from artifacts
+                try:
+                    url = f"{self._workspace_client.config.host}/api/2.0/fs/files/Models/{ml_model.catalog_name}/{ml_model.schema_name}/{ml_model.name}/{version.version}/MLmodel"
+                    headers = {
+                        "Authorization": f"Bearer {self._workspace_client.config.token}",
+                        "Content-Type": "application/json",
+                    }
+
+                    raw_response = requests.get(url, headers=headers)
+
+                    if raw_response.status_code == 200:
+                        # Try to parse as YAML directly
+                        import yaml
+
+                        try:
+                            mlmodel_data = yaml.safe_load(raw_response.text)
+
+                            signature = None
+                            if mlmodel_data and "signature" in mlmodel_data:
+                                signature_data = mlmodel_data["signature"]
+                                signature = self._parse_signature_from_yaml(
+                                    signature_data
+                                )
+
+                            optional_ml_model_version = self._create_ml_model_version(
+                                ml_model, version, signature
+                            )
+                            if optional_ml_model_version:
+                                yield optional_ml_model_version
+                        except yaml.YAMLError as yaml_error:
+                            print(
+                                f"Error parsing YAML for model {ml_model.name} version {version.version}: {yaml_error}"
+                            )
+                            # Create model version without signature
+                            optional_ml_model_version = self._create_ml_model_version(
+                                ml_model, version, None
+                            )
+                            if optional_ml_model_version:
+                                yield optional_ml_model_version
+                    else:
+                        print(
+                            f"!!!! API returned error status {raw_response.status_code}: {raw_response.text}"
+                        )
+                        # Create model version without signature
+                        optional_ml_model_version = self._create_ml_model_version(
+                            ml_model, version, None
+                        )
+                        if optional_ml_model_version:
+                            yield optional_ml_model_version
+
+                except Exception as e:
+                    # Handle any errors gracefully
+                    print(
+                        f"Error getting signature for model {ml_model.name} version {version.version}: {e}"
+                    )
+                    # Create model version without signature
+                    optional_ml_model_version = self._create_ml_model_version(
+                        ml_model, version, None
+                    )
+                    if optional_ml_model_version:
+                        yield optional_ml_model_version
+
+    def ml_training_run(self, run_id: str) -> Optional[TrainingRun]:
+        try:
+            response = self._workspace_client.api_client.do(  # type: ignore
+                "GET",
+                f"/api/2.0/mlflow/runs/get?run_id={run_id}",
+                body={},
+                headers={
+                    "Authorization": f"Bearer {self._workspace_client.config.token}",
+                    "Content-Type": "application/json",
+                },
+            )
+            if not response or "run" not in response:
+                return None
+            return self._create_ml_training_run(response["run"])
+        except Exception as e:
+            print(f"Error getting training run for run_id {run_id}: {e}")
+            return None
 
     def service_principals(self) -> Iterable[ServicePrincipal]:
         for principal in self._workspace_client.service_principals.list():
@@ -936,7 +1013,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         )
 
     def _create_ml_model_version(
-        self, model: Model, obj: ModelVersionInfo
+        self,
+        model: Model,
+        obj: ModelVersionInfo,
+        signature: Optional[ModelVersionSignature],
     ) -> Optional[ModelVersion]:
         if obj.version is None:
             return None
@@ -956,7 +1036,87 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             created_at=parse_ts_millis(obj.created_at),
             updated_at=parse_ts_millis(obj.updated_at),
             created_by=obj.created_by,
+            run_id=obj.run_id,
+            signature=signature,
         )
+
+    def _create_ml_training_run(self, obj: Dict) -> Optional[TrainingRun]:
+        if not obj or len(obj) == 0:
+            return None
+
+        try:
+            # Extract run info from the response structure
+            run_id = (
+                obj.get("info", {}).get("run_id")
+                if "info" in obj
+                else obj.get("run_id")
+            )
+            run_name = (
+                obj.get("info", {}).get("run_name")
+                if "info" in obj
+                else obj.get("run_name")
+            )
+            params = {
+                k: v for k, v in obj.get("data", {}).get("params", {}).items() if v
+            }
+            metrics = {
+                k: v for k, v in obj.get("data", {}).get("metrics", {}).items() if v
+            }
+
+            if not run_id:
+                print(f"No run_id found in training run data: {obj}")
+                return None
+
+            return TrainingRun(
+                id=run_id,
+                name=run_name or f"run_{run_id}",
+                params=params,
+                metrics=metrics,
+            )
+        except Exception as e:
+            print(f"Error creating training run from data {obj}: {e}")
+            return None
+
+    def _parse_signature_from_yaml(
+        self, signature_data: Dict
+    ) -> Optional[ModelVersionSignature]:
+        """Parse signature data from MLmodel YAML content."""
+        try:
+            inputs = None
+            outputs = None
+            parameters = None
+
+            if "inputs" in signature_data:
+                inputs_str = signature_data["inputs"]
+                if isinstance(inputs_str, str):
+                    import json
+
+                    try:
+                        inputs = json.loads(inputs_str)
+                    except json.JSONDecodeError:
+                        print(f"!!!! Error parsing inputs JSON: {inputs_str}")
+                        inputs = None
+
+            if "outputs" in signature_data:
+                outputs_str = signature_data["outputs"]
+                if isinstance(outputs_str, str):
+                    import json
+
+                    try:
+                        outputs = json.loads(outputs_str)
+                    except json.JSONDecodeError:
+                        print(f"!!!! Error parsing outputs JSON: {outputs_str}")
+                        outputs = None
+
+            if "params" in signature_data and signature_data["params"]:
+                parameters = signature_data["params"]
+
+            return ModelVersionSignature(
+                inputs=inputs, outputs=outputs, parameters=parameters
+            )
+        except Exception as e:
+            print(f"!!!! Error parsing signature from YAML: {e}")
+            return None
 
     def _create_service_principal(
         self, obj: DatabricksServicePrincipal

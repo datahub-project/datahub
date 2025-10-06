@@ -97,6 +97,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    TrainingRun,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.tag_entities import (
@@ -694,8 +695,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             for ml_model_version in self.unity_catalog_api_proxy.ml_model_versions(
                 ml_model, include_aliases=self.config.include_ml_model_aliases
             ):
+                run_id = ml_model_version.run_id
+                ml_training_run = self.unity_catalog_api_proxy.ml_training_run(run_id)
                 yield from self.process_ml_model_version(
-                    ml_model_urn, ml_model_version, schema
+                    ml_model_urn, ml_model_version, schema, ml_training_run
                 )
 
     def process_ml_model(
@@ -716,7 +719,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.report.ml_models.processed(ml_model.id)
 
     def process_ml_model_version(
-        self, ml_model_urn: str, ml_model_version: ModelVersion, schema: Schema
+        self,
+        ml_model_urn: str,
+        ml_model_version: ModelVersion,
+        schema: Schema,
+        ml_training_run: Optional[TrainingRun],
     ) -> Iterable[MetadataWorkUnit]:
         extra_aspects = []
         if ml_model_version.created_at is not None:
@@ -732,6 +739,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
             )
 
+        training_metrics = None
+        hyper_params = None
+        if ml_training_run:
+            training_metrics = ml_training_run.metrics
+            hyper_params = ml_training_run.params
+
         ml_model = MLModel(
             id=ml_model_version.id,
             name=ml_model_version.name,
@@ -742,6 +755,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             last_modified=ml_model_version.updated_at,
             extra_aspects=extra_aspects,
+            training_metrics=training_metrics,
+            hyper_params=hyper_params,
+            custom_properties=ml_model_version.signature,
         )
 
         yield from ml_model.as_workunits()
