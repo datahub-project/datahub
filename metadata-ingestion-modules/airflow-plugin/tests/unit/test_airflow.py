@@ -362,7 +362,7 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
             # For Airflow 3.0, the lineage backend doesn't work, but we might get emissions
             # from the DataHub listener system instead. Let's check if we get any emissions.
             if actual_emit_count == 0:
-                print(f"Airflow 3.0: No lineage emissions from lineage backend (expected - backend removed)")
+                print("Airflow 3.0: No lineage emissions from lineage backend (expected - backend removed)")
                 print("Note: In Airflow 3.0, lineage should come from DataHub listener system instead")
                 # Skip the detailed assertions since no lineage is emitted from the old backend
                 return

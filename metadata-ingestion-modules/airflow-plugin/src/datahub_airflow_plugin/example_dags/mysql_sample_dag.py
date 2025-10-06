@@ -39,7 +39,8 @@ def ingest_from_mysql():
 
 
 # Create DAG arguments conditionally for Airflow version compatibility
-import airflow
+import airflow  # noqa: E402
+
 dag_kwargs = {
     "dag_id": "datahub_mysql_ingest",
     "default_args": {

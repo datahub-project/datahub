@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 import airflow
 from airflow.models import Variable
 from airflow.models.serialized_dag import SerializedDagModel
-from openlineage.airflow.listener import TaskHolder
-from openlineage.airflow.utils import redact_with_exclusions
+
+# Client serde is always from openlineage-python (base package)
 from openlineage.client.serde import Serde
 
 import datahub.emitter.mce_builder as builder
@@ -39,19 +39,36 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from datahub.telemetry import telemetry
+
+# Import OpenLineage compatibility shims
 from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_DAG_LISTENER_API,
     HAS_AIRFLOW_DATASET_LISTENER_API,
+    OpenLineagePlugin,
     Operator,
+    TaskHolder,
     get_task_inlets,
     get_task_outlets,
+    redact_with_exclusions,
 )
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
 from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_to_datahub_urn
-from datahub_airflow_plugin._extractors import SQL_PARSING_RESULT_KEY, ExtractorManager
 from datahub_airflow_plugin._version import __package_name__, __version__
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
-from datahub_airflow_plugin.entities import (
+
+# Only import extractors on Airflow < 3.0
+# On Airflow 3.0+, we use the SQLParser patch instead
+_AIRFLOW_VERSION = tuple(int(x) for x in airflow.__version__.split(".")[:2])
+if _AIRFLOW_VERSION < (3, 0):
+    from datahub_airflow_plugin._extractors import (
+        SQL_PARSING_RESULT_KEY,
+        ExtractorManager,
+    )
+else:
+    # On Airflow 3.0+, extractors are not used
+    SQL_PARSING_RESULT_KEY = None  # type: ignore
+    ExtractorManager = None  # type: ignore
+from datahub_airflow_plugin.entities import (  # noqa: E402
     _Entity,
     entities_to_datajob_urn_list,
     entities_to_dataset_urn_list,
@@ -61,7 +78,6 @@ _F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:
     from airflow.datasets import Dataset
     from airflow.models import DAG, DagRun, TaskInstance
-    from sqlalchemy.orm import Session
 
     # To placate mypy on Airflow versions that don't have the listener API,
     # we define a dummy hookimpl that's an identity function.
@@ -118,10 +134,8 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
                 },
             )
 
-        if plugin_config.disable_openlineage_plugin:
+        if plugin_config.disable_openlineage_plugin and OpenLineagePlugin:
             # Deactivate the OpenLineagePlugin listener to avoid conflicts/errors.
-            from openlineage.airflow.plugin import OpenLineagePlugin
-
             OpenLineagePlugin.listeners = []
 
     return _airflow_listener
@@ -200,7 +214,11 @@ class DataHubListener:
         # so that we can add to it when the task completes.
         self._datajob_holder: Dict[str, DataJob] = {}
 
-        self.extractor_manager = ExtractorManager()
+        # Only create extractor_manager on Airflow < 3.0
+        if ExtractorManager is not None:
+            self.extractor_manager = ExtractorManager()
+        else:
+            self.extractor_manager = None
 
         # This "inherits" from types.ModuleType to avoid issues with Airflow's listener plugin loader.
         # It previously (v2.4.x and likely other versions too) would throw errors if it was not a module.
@@ -268,7 +286,7 @@ class DataHubListener:
         fine_grained_lineages: List[FineGrainedLineageClass] = []
 
         task_metadata = None
-        if self.config.enable_extractors:
+        if self.config.enable_extractors and self.extractor_manager is not None:
             task_metadata = self.extractor_manager.extract_metadata(
                 dagrun,
                 task,
@@ -387,7 +405,7 @@ class DataHubListener:
     @hookimpl
     @run_in_thread
     def on_task_instance_running(
-        self, previous_state, task_instance: "TaskInstance", session=None
+        self, previous_state, task_instance: "TaskInstance", session=None, **kwargs
     ) -> None:
         if self.check_kill_switch():
             return
@@ -563,7 +581,7 @@ class DataHubListener:
     @hookimpl
     @run_in_thread
     def on_task_instance_success(
-        self, previous_state, task_instance: "TaskInstance", session=None
+        self, previous_state, task_instance: "TaskInstance", session=None, **kwargs
     ) -> None:
         if self.check_kill_switch():
             return
@@ -581,7 +599,7 @@ class DataHubListener:
     @hookimpl
     @run_in_thread
     def on_task_instance_failed(
-        self, previous_state, task_instance: "TaskInstance", session=None
+        self, previous_state, task_instance: "TaskInstance", session=None, error=None, **kwargs
     ) -> None:
         if self.check_kill_switch():
             return
@@ -593,6 +611,7 @@ class DataHubListener:
         )
 
         # TODO: Handle UP_FOR_RETRY state.
+        # TODO: Use the error parameter (available in Airflow 3.0+) for better error reporting
         self.on_task_instance_finish(task_instance, status=InstanceRunResult.FAILURE)
         logger.debug(
             f"DataHub listener finished processing task instance failure for {task_instance.task_id}"

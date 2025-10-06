@@ -32,7 +32,8 @@ default_args = {
 
 
 # Create DAG arguments conditionally for Airflow version compatibility
-import airflow
+import airflow  # noqa: E402
+
 dag_kwargs = {
     "dag_id": "datahub_lineage_emission_example",
     "default_args": default_args,

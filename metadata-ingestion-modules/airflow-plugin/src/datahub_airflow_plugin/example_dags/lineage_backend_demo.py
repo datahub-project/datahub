@@ -28,7 +28,8 @@ default_args = {
 
 
 # Create DAG arguments conditionally for Airflow version compatibility
-import airflow
+import airflow  # noqa: E402
+
 dag_kwargs = {
     "dag_id": "datahub_lineage_backend_demo",
     "default_args": default_args,

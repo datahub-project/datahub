@@ -71,8 +71,9 @@ class AirflowGenerator:
 
         # subdags are always named with 'parent.child' style or Airflow won't run them
         # add connection from subdag trigger(s) if subdag task has no upstreams
+        # Note: is_subdag was removed in Airflow 3.x (subdags deprecated in Airflow 2.0)
         if (
-            dag.is_subdag
+            getattr(dag, "is_subdag", False)
             and dag.parent_dag is not None
             and len(task.upstream_task_ids) == 0
         ):
@@ -199,7 +200,7 @@ class AirflowGenerator:
 
     @staticmethod
     def _get_description(task: "Operator") -> Optional[str]:
-        from airflow.models.baseoperator import BaseOperator
+        from datahub_airflow_plugin._airflow_shims import BaseOperator
 
         if not isinstance(task, BaseOperator):
             # TODO: Get docs for mapped operators.
@@ -464,24 +465,42 @@ class AirflowGenerator:
         )
         job_property_bag: Dict[str, str] = {}
         job_property_bag["run_id"] = str(dag_run.run_id)
-        job_property_bag["duration"] = str(ti.duration)
+        # duration attribute doesn't exist in Airflow 3.0 RuntimeTaskInstance
+        if hasattr(ti, "duration"):
+            job_property_bag["duration"] = str(ti.duration)
         job_property_bag["start_date"] = str(ti.start_date)
-        job_property_bag["end_date"] = str(ti.end_date)
-        job_property_bag["execution_date"] = str(ti.execution_date)
+        # end_date might not be set yet during task execution
+        if hasattr(ti, "end_date") and ti.end_date:
+            job_property_bag["end_date"] = str(ti.end_date)
+        # execution_date was removed in Airflow 3.0, replaced by logical_date
+        if hasattr(ti, "execution_date"):
+            job_property_bag["execution_date"] = str(ti.execution_date)
+        elif hasattr(ti, "logical_date"):
+            job_property_bag["logical_date"] = str(ti.logical_date)
         job_property_bag["try_number"] = str(ti.try_number - 1)
-        job_property_bag["max_tries"] = str(ti.max_tries)
+        # max_tries might not be available in RuntimeTaskInstance
+        if hasattr(ti, "max_tries"):
+            job_property_bag["max_tries"] = str(ti.max_tries)
         # Not compatible with Airflow 1
         if hasattr(ti, "external_executor_id"):
             job_property_bag["external_executor_id"] = str(ti.external_executor_id)
         job_property_bag["state"] = str(ti.state)
-        job_property_bag["operator"] = str(ti.operator)
-        job_property_bag["priority_weight"] = str(ti.priority_weight)
-        job_property_bag["log_url"] = ti.log_url
+        # operator attribute might not exist in RuntimeTaskInstance
+        if hasattr(ti, "operator"):
+            job_property_bag["operator"] = str(ti.operator)
+        # priority_weight might not be available
+        if hasattr(ti, "priority_weight"):
+            job_property_bag["priority_weight"] = str(ti.priority_weight)
+        # log_url might not be available in RuntimeTaskInstance
+        if hasattr(ti, "log_url"):
+            job_property_bag["log_url"] = ti.log_url
         job_property_bag["orchestrator"] = "airflow"
         job_property_bag["dag_id"] = str(dag.dag_id)
         job_property_bag["task_id"] = str(ti.task_id)
         dpi.properties.update(job_property_bag)
-        dpi.url = ti.log_url
+        # log_url might not be available in RuntimeTaskInstance
+        if hasattr(ti, "log_url"):
+            dpi.url = ti.log_url
 
         # This property only exists in Airflow2
         if hasattr(ti, "dag_run") and hasattr(ti.dag_run, "run_type"):

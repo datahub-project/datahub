@@ -27,7 +27,8 @@ default_args = {
 
 
 # Create DAG decorator arguments conditionally for Airflow version compatibility
-import airflow
+import airflow  # noqa: E402
+
 dag_decorator_kwargs = {
     "default_args": default_args,
     "description": "An example DAG demonstrating the usage of DataHub's Airflow lineage backend using the TaskFlow API.",

@@ -1,7 +1,12 @@
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from airflow.exceptions import AirflowException
-from airflow.hooks.base import BaseHook
+
+# BaseHook import - prefer new location in Airflow 3.x
+try:
+    from airflow.sdk.bases.hook import BaseHook
+except (ModuleNotFoundError, ImportError):
+    from airflow.hooks.base import BaseHook  # type: ignore
 
 from datahub.emitter.composite_emitter import CompositeEmitter
 from datahub.emitter.generic_emitter import Emitter

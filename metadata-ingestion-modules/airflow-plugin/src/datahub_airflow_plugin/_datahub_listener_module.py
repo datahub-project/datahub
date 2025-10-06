@@ -12,18 +12,20 @@ if _listener:
     # Note that pluggy 1.0.0 is in the constraints file for Airflow 2.4 and 2.5.
 
     @hookimpl
-    def on_task_instance_running(previous_state, task_instance, session):
+    def on_task_instance_running(previous_state, task_instance, session=None):
         assert _listener
         _listener.on_task_instance_running(previous_state, task_instance, session)
 
     @hookimpl
-    def on_task_instance_success(previous_state, task_instance, session):
+    def on_task_instance_success(previous_state, task_instance, session=None):
         assert _listener
         _listener.on_task_instance_success(previous_state, task_instance, session)
 
     @hookimpl
-    def on_task_instance_failed(previous_state, task_instance, session):
+    def on_task_instance_failed(previous_state, task_instance, error=None, session=None):
         assert _listener
+        # Airflow 3.x adds an 'error' parameter, Airflow 2.x has 'session' parameter
+        # Our listener doesn't use error yet, so we just pass session
         _listener.on_task_instance_failed(previous_state, task_instance, session)
 
     if hasattr(_listener, "on_dag_run_running"):

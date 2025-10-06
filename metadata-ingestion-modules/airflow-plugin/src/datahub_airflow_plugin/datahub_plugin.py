@@ -21,7 +21,10 @@ _USE_AIRFLOW_LISTENER_INTERFACE = HAS_AIRFLOW_LISTENER_API and os.getenv(
 
 if _USE_AIRFLOW_LISTENER_INTERFACE:
     try:
-        from openlineage.airflow.utils import try_import_from_string  # noqa: F401
+        from datahub_airflow_plugin._airflow_shims import try_import_from_string
+
+        if try_import_from_string is None:
+            raise ImportError("OpenLineage dependencies not available")
     except ImportError:
         # If v2 plugin dependencies are not installed, we fall back to v1.
         logger.warning(

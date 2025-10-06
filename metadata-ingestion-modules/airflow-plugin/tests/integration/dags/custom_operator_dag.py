@@ -62,7 +62,7 @@ with DAG(
     "custom_operator_dag",
     default_args=default_args,
     description="An example dag with custom operator",
-    schedule_interval=None,
+    schedule=None,
     tags=["example_tag"],
     catchup=False,
     default_view="tree",

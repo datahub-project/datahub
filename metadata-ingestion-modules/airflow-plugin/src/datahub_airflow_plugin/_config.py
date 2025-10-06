@@ -1,9 +1,16 @@
 from enum import Enum
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from airflow.configuration import conf
-from pydantic import root_validator
-from pydantic.fields import Field
+from pydantic import Field
+
+# Support both Pydantic v1 and v2
+try:
+    from pydantic import model_validator
+    PYDANTIC_VERSION = 2
+except ImportError:
+    from pydantic import root_validator  # type: ignore
+    PYDANTIC_VERSION = 1
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -92,13 +99,25 @@ class DatahubLineageConfig(ConfigModel):
         else:
             return DatahubCompositeHook(self._datahub_connection_ids)
 
-    @root_validator(skip_on_failure=True)
-    def split_conn_ids(cls, values: Dict) -> Dict:
-        if not values.get("datahub_conn_id"):
-            raise ValueError("datahub_conn_id is required")
-        conn_ids = values.get("datahub_conn_id", "").split(",")
-        cls._datahub_connection_ids = [conn_id.strip() for conn_id in conn_ids]
-        return values
+    # Support both Pydantic v1 and v2
+    if PYDANTIC_VERSION == 2:
+        @model_validator(mode='before')
+        @classmethod
+        def split_conn_ids(cls, data: Any) -> Any:
+            if isinstance(data, dict):
+                if not data.get("datahub_conn_id"):
+                    raise ValueError("datahub_conn_id is required")
+                conn_ids = data.get("datahub_conn_id", "").split(",")
+                cls._datahub_connection_ids = [conn_id.strip() for conn_id in conn_ids]
+            return data
+    else:
+        @root_validator(skip_on_failure=True)  # type: ignore
+        def split_conn_ids(cls, values: Dict) -> Dict:
+            if not values.get("datahub_conn_id"):
+                raise ValueError("datahub_conn_id is required")
+            conn_ids = values.get("datahub_conn_id", "").split(",")
+            cls._datahub_connection_ids = [conn_id.strip() for conn_id in conn_ids]
+            return values
 
 
 def get_lineage_config() -> DatahubLineageConfig:

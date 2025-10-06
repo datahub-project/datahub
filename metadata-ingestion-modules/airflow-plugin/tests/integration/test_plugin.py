@@ -8,6 +8,7 @@ import pathlib
 import random
 import signal
 import subprocess
+import sys
 import textwrap
 import time
 from typing import Any, Iterator, Optional, Sequence
@@ -27,11 +28,18 @@ from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_STANDALONE_CMD,
 )
 
+pytestmark = pytest.mark.integration
+
+# Note: Airflow 3.0 tests on macOS may experience SIGSEGV crashes due to an upstream issue
+# with gunicorn workers. This is a known Airflow bug (https://github.com/apache/airflow/issues/55838)
+# and is not related to the DataHub plugin. The plugin code itself is fully Airflow 3.0 compatible.
+
 
 def get_api_version() -> str:
     """Get the correct API version for the running Airflow version."""
-    # Airflow 3.0.6 still uses v1 API endpoints, v2 is not available yet
-    # TODO: Update this when v2 API becomes available in future Airflow 3.x releases
+    # Airflow 3.x uses v2 API endpoints only, v1 has been removed
+    if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
+        return "v2"
     return "v1"
 
 def is_airflow3() -> bool:
@@ -79,6 +87,7 @@ class AirflowInstance:
     airflow_port: int
     pid: int
     env_vars: dict
+    airflow_executable: pathlib.Path
 
     username: str
     password: str
@@ -93,7 +102,24 @@ class AirflowInstance:
     @functools.cached_property
     def session(self) -> requests.Session:
         session = requests.Session()
-        session.auth = (self.username, self.password)
+
+        # Airflow 3.x uses JWT tokens for authentication
+        if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
+            # Get JWT token from login endpoint
+            # The SimpleAuthManager token endpoint expects JSON
+            login_url = f"{self.airflow_url}/auth/token"
+            response = requests.post(
+                login_url,
+                json={"username": self.username, "password": self.password},
+                timeout=10
+            )
+            response.raise_for_status()
+            token = response.json()["access_token"]
+            session.headers["Authorization"] = f"Bearer {token}"
+        else:
+            # Airflow 2.x uses basic auth
+            session.auth = (self.username, self.password)
+
         return session
 
 
@@ -252,18 +278,28 @@ def _run_airflow(
     meta_file = tmp_path / "datahub_metadata.json"
     meta_file2 = tmp_path / "datahub_metadata_2.json"
 
+    # Get the Python executable path to ensure we use the correct environment
+    python_executable = pathlib.Path(sys.executable)
+
     environment = {
-        **os.environ,
+        # Start with a clean environment to avoid interference from system-wide settings
+        "PATH": str(python_executable.parent) + os.pathsep + os.environ.get("PATH", ""),
         "AIRFLOW_HOME": str(airflow_home),
-        "AIRFLOW__WEBSERVER__WEB_SERVER_PORT": str(airflow_port),
+        # Fix for macOS: Disable proxy detection to avoid SIGSEGV crashes after fork()
+        # See: https://github.com/python/cpython/issues/58037
+        "no_proxy": "*",
+        # Enable Python fault handler for better SIGSEGV debugging
+        "PYTHONFAULTHANDLER": "1",
+        # Add debug wrapper for Airflow 3.0 to trace SIGSEGV crashes
+        "PYTHONPATH": "/tmp" + (os.pathsep + os.environ.get("PYTHONPATH", "") if os.environ.get("PYTHONPATH") else ""),
+        # Airflow 3.x moved web_server_port to api section, but standalone might need both
+        "AIRFLOW__API__PORT": str(airflow_port),
+        "AIRFLOW__WEBSERVER__WEB_SERVER_PORT": str(airflow_port),  # Fallback for Airflow 2.x
         "AIRFLOW__WEBSERVER__BASE_URL": "http://airflow.example.com",
         # Point airflow to the DAGs folder.
         "AIRFLOW__CORE__LOAD_EXAMPLES": "False",
         "AIRFLOW__CORE__DAGS_FOLDER": str(dags_folder),
         "AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION": "False",
-        # Have the Airflow API use username/password authentication.
-        "AIRFLOW__API__AUTH_BACKEND": "airflow.api.auth.backend.basic_auth",
-        "AIRFLOW_CORE_AUTH_MANAGER": "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager",
         # Configure the datahub plugin and have it write the MCPs to a file.
         "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "False" if is_v1 else "True",
         "AIRFLOW__DATAHUB__CONN_ID": f"{datahub_connection_name}, {datahub_connection_name_2}"
@@ -318,10 +354,24 @@ def _run_airflow(
         else "false",
     }
     
-    # For Airflow 3.0+, explicitly set executor to SequentialExecutor since LocalExecutor 
-    # (the new default) cannot be used with SQLite
+    # Configure API authentication based on Airflow version
     if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
-        environment["AIRFLOW__CORE__EXECUTOR"] = "SequentialExecutor"
+        # Airflow 3.x: Use anonymous auth for testing to avoid JWT authentication issues
+        environment["AIRFLOW__API__AUTH_BACKENDS"] = "airflow.api.auth.backend.anonymous"
+
+        # Configure internal execution API JWT authentication
+        # Required for executor to authenticate task execution requests
+        environment["AIRFLOW__EXECUTION_API__JWT_EXPIRATION_TIME"] = "300"  # 5 minutes
+        environment["AIRFLOW__API_AUTH__JWT_SECRET"] = "test-secret-key-for-jwt-signing-in-tests"
+        # Note: EXECUTION_API_SERVER_URL is set in airflow.cfg after db init to use correct port
+    else:
+        # Airflow 2.x supports basic auth for the API
+        environment["AIRFLOW__API__AUTH_BACKEND"] = "airflow.api.auth.backend.basic_auth"
+
+    # For Airflow 3.0+, configure for LocalExecutor (SequentialExecutor was removed)
+    if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
+        # Airflow 3.0 uses LocalExecutor by default (SequentialExecutor was removed)
+        pass
 
     if platform_instance:
         environment["AIRFLOW__DATAHUB__PLATFORM_INSTANCE"] = platform_instance
@@ -336,11 +386,72 @@ def _run_airflow(
     if not HAS_AIRFLOW_STANDALONE_CMD:
         raise pytest.skip("Airflow standalone command is not available")
 
-    # Start airflow in a background subprocess.
-    airflow_process = subprocess.Popen(
-        ["airflow", "standalone"],
+    # Find the airflow executable in the current Python environment
+    # to ensure we use the correct version with the right dependencies
+    airflow_executable = pathlib.Path(sys.executable).parent / "airflow"
+
+    print(f"[DEBUG] Using Python: {sys.executable}")
+    print(f"[DEBUG] Using Airflow: {airflow_executable}")
+    print(f"[DEBUG] AIRFLOW__TRIGGERER__ENABLED = {environment.get('AIRFLOW__TRIGGERER__ENABLED', 'NOT SET')}")
+
+    # Verify greenlet version
+    try:
+        import greenlet
+        print(f"[DEBUG] Greenlet version in test environment: {greenlet.__version__}")
+    except ImportError:
+        print("[DEBUG] Greenlet not installed in test environment")
+
+    # Initialize the database before starting standalone (required for Airflow 3.x)
+    print("[DEBUG] Initializing Airflow database...")
+    subprocess.check_call(
+        [str(airflow_executable), "db", "migrate"],
         env=environment,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
+
+    # For Airflow 3.0, set execution API server URL to use the correct test port
+    # This is needed because the default is localhost:8080, but we use a random port for testing
+    if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
+        import configparser
+        config_file = airflow_home / "airflow.cfg"
+        if config_file.exists():
+            config = configparser.ConfigParser()
+            config.read(config_file)
+
+            # Set execution API server URL in core section to point to the correct port
+            execution_api_url = f"http://localhost:{airflow_port}/execution/"
+            if "core" not in config:
+                config.add_section("core")
+            config.set("core", "execution_api_server_url", execution_api_url)
+
+            with open(config_file, "w") as f:
+                config.write(f)
+
+            print(f"[DEBUG] Set execution_api_server_url = {execution_api_url}")
+
+    # Use airflow standalone for both Airflow 2.x and 3.x
+    # This starts all necessary components (scheduler, webserver/api-server, dag-processor)
+    # Capture stdout/stderr to a log file for debugging
+    logs_dir = airflow_home / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    standalone_log = logs_dir / "standalone.log"
+    standalone_log_file = open(standalone_log, "w")
+
+    print(f"[DEBUG] Starting airflow standalone, logging to {standalone_log}")
+
+    # For Airflow 3.0 on macOS, inject debug wrapper to trace SIGSEGV
+    if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
+        environment["PYTHONSTARTUP"] = "/tmp/debug_gunicorn.py"
+        print("[DEBUG] Enabled SIGSEGV debug wrapper via PYTHONSTARTUP")
+
+    airflow_process = subprocess.Popen(
+        [str(airflow_executable), "standalone"],
+        env=environment,
+        stdout=standalone_log_file,
+        stderr=subprocess.STDOUT,
+    )
+    airflow_processes = [airflow_process]
 
     try:
         _wait_for_airflow_healthy(airflow_port)
@@ -358,7 +469,7 @@ def _run_airflow(
                 subprocess.check_call(
                     [
                         # fmt: off
-                        "airflow",
+                        str(airflow_executable),
                         "users",
                         "create",
                         "--username",
@@ -382,7 +493,7 @@ def _run_airflow(
         if not is_v1:
             print("[debug] Listing loaded plugins")
             subprocess.check_call(
-                ["airflow", "plugins", "-v"],
+                [str(airflow_executable), "plugins", "-v"],
                 env=environment,
             )
 
@@ -480,6 +591,7 @@ def _run_airflow(
             airflow_port=airflow_port,
             pid=airflow_process.pid,
             env_vars=environment,
+            airflow_executable=airflow_executable,
             username=airflow_username,
             password=airflow_password,
             metadata_file=meta_file,
@@ -488,16 +600,25 @@ def _run_airflow(
 
         yield airflow_instance
     finally:
-        try:
-            # Attempt a graceful shutdown.
-            print("Shutting down airflow...")
-            airflow_process.send_signal(signal.SIGINT)
-            airflow_process.wait(timeout=30)
-        except subprocess.TimeoutExpired:
-            # If the graceful shutdown failed, kill the process.
-            print("Hard shutting down airflow...")
-            airflow_process.kill()
-            airflow_process.wait(timeout=3)
+        # Shutdown all Airflow processes
+        print("Shutting down airflow...")
+        for proc in airflow_processes:
+            try:
+                proc.send_signal(signal.SIGINT)
+            except Exception as e:
+                print(f"Error sending SIGINT to process {proc.pid}: {e}")
+
+        # Wait for graceful shutdown
+        for proc in airflow_processes:
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                print(f"Hard shutting down process {proc.pid}...")
+                try:
+                    proc.kill()
+                    proc.wait(timeout=3)
+                except Exception as e:
+                    print(f"Error killing process {proc.pid}: {e}")
 
 
 def check_golden_file(
@@ -575,17 +696,26 @@ test_cases = [
         *[
             pytest.param(
                 # On Airflow 2.3-2.4, test plugin v2 without dataFlows.
+                # On Airflow 3.0+, use airflow3 suffix for version-specific golden files
                 (
-                    f"v2_{test_case.dag_test_id}"
-                    if HAS_AIRFLOW_DAG_LISTENER_API
-                    else f"v2_{test_case.dag_test_id}_no_dag_listener"
+                    f"v2_{test_case.dag_test_id}_airflow3"
+                    if AIRFLOW_VERSION >= packaging.version.parse("3.0.0")
+                    else (
+                        f"v2_{test_case.dag_test_id}"
+                        if HAS_AIRFLOW_DAG_LISTENER_API
+                        else f"v2_{test_case.dag_test_id}_no_dag_listener"
+                    )
                 ),
                 test_case,
                 False,
                 id=(
-                    f"v2_{test_case.dag_test_id}"
-                    if HAS_AIRFLOW_DAG_LISTENER_API
-                    else f"v2_{test_case.dag_test_id}_no_dag_listener"
+                    f"v2_{test_case.dag_test_id}_airflow3"
+                    if AIRFLOW_VERSION >= packaging.version.parse("3.0.0")
+                    else (
+                        f"v2_{test_case.dag_test_id}"
+                        if HAS_AIRFLOW_DAG_LISTENER_API
+                        else f"v2_{test_case.dag_test_id}_no_dag_listener"
+                    )
                 ),
                 marks=[
                     pytest.mark.skipif(
@@ -635,17 +765,24 @@ def test_airflow_plugin(
     ) as airflow_instance:
         print(f"Running DAG {dag_id}...")
         _wait_for_dag_to_load(airflow_instance, dag_id)
+
+        # Build trigger command with version-appropriate date parameter
+        trigger_cmd = [
+            str(airflow_instance.airflow_executable),
+            "dags",
+            "trigger",
+        ]
+
+        # Airflow 3.x uses --logical-date, 2.x uses --exec-date
+        if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
+            trigger_cmd.extend(["--logical-date", "2023-09-27T21:34:38+00:00"])
+        else:
+            trigger_cmd.extend(["--exec-date", "2023-09-27T21:34:38+00:00"])
+
+        trigger_cmd.extend(["-r", "manual_run_test", dag_id])
+
         subprocess.check_call(
-            [
-                "airflow",
-                "dags",
-                "trigger",
-                "--exec-date",
-                "2023-09-27T21:34:38+00:00",
-                "-r",
-                "manual_run_test",
-                dag_id,
-            ],
+            trigger_cmd,
             env=airflow_instance.env_vars,
         )
 

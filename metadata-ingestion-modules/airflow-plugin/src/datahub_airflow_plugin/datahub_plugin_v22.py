@@ -4,9 +4,18 @@ import traceback
 from typing import Any, Callable, Iterable, List, Optional, Union
 
 import airflow
-from airflow.lineage import PIPELINE_OUTLETS
 from airflow.models.baseoperator import BaseOperator
 from airflow.utils.module_loading import import_string
+
+# Airflow 3.0 removed the airflow.lineage module, so define these constants locally
+# In Airflow 2.x these were: from airflow.lineage import PIPELINE_OUTLETS, AUTO
+# See: https://github.com/apache/airflow/blob/2.9.3/airflow/lineage/__init__.py#L32-L34
+try:
+    from airflow.lineage import AUTO, PIPELINE_OUTLETS
+except ImportError:
+    # Airflow 3.0+: Define constants locally (they're just strings)
+    PIPELINE_OUTLETS = "pipeline_outlets"
+    AUTO = "auto"
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.telemetry import telemetry
@@ -41,6 +50,20 @@ def get_task_inlets_advanced(task: BaseOperator, context: Any) -> Iterable[Any]:
 
     inlets: List[Any] = []
     task_inlets = get_task_inlets(task)
+
+    # Airflow 3.0 removed the lineage/inlets/outlets feature and XCom access from task workers
+    # Skip XCom-based inlet retrieval for Airflow 3.0+
+    import packaging.version
+    if airflow.__version__ and packaging.version.parse(airflow.__version__) >= packaging.version.parse("3.0.0"):
+        # For Airflow 3.0+, only return static inlets (not from XCom)
+        if isinstance(task_inlets, (str, BaseOperator)):
+            inlets = [task_inlets]
+        elif task_inlets and isinstance(task_inlets, list):
+            # Only include non-string inlets (actual objects, not task IDs)
+            inlets = [inlet for inlet in task_inlets if not isinstance(inlet, str)]
+        return inlets
+
+    # Airflow 2.x: Full inlet retrieval including XCom
     # From Airflow 2.3 this should be AbstractOperator but due to compatibility reason lets use BaseOperator
     if isinstance(task_inlets, (str, BaseOperator)):
         inlets = [
@@ -53,28 +76,34 @@ def get_task_inlets_advanced(task: BaseOperator, context: Any) -> Iterable[Any]:
             op.task_id for op in task_inlets if isinstance(op, BaseOperator)
         ).intersection(task.get_flat_relative_ids(upstream=True))
 
-        from airflow.lineage import AUTO
-        from cattr import structure
-
         # pick up unique direct upstream task_ids if AUTO is specified
+        # AUTO constant is defined at the top of this file for Airflow 2.x/3.x compatibility
         if AUTO.upper() in task_inlets or AUTO.lower() in task_inlets:
             print("Picking up unique direct upstream task_ids as AUTO is specified")
             task_ids = task_ids.union(
                 task_ids.symmetric_difference(task.upstream_task_ids)
             )
 
-        inlets = task.xcom_pull(
+        inlets_from_xcom = task.xcom_pull(
             context, task_ids=list(task_ids), dag_id=task.dag_id, key=PIPELINE_OUTLETS
         )
 
-        # re-instantiate the obtained inlets
-        inlets = [
-            structure(item["data"], import_string(item["type_name"]))
-            # _get_instance(structure(item, Metadata))
-            for sublist in inlets
-            if sublist
-            for item in sublist
-        ]
+        # re-instantiate the obtained inlets from XCom
+        # Only import cattr if we have XCom data to deserialize
+        if inlets_from_xcom:
+            try:
+                from cattr import structure
+                inlets = [
+                    structure(item["data"], import_string(item["type_name"]))
+                    # _get_instance(structure(item, Metadata))
+                    for sublist in inlets_from_xcom
+                    if sublist
+                    for item in sublist
+                ]
+            except ImportError:
+                # cattr not available - skip XCom inlet deserialization
+                print("Warning: cattr not available, skipping XCom inlet deserialization")
+                inlets = []
 
         for inlet in task_inlets:
             if not isinstance(inlet, str):
@@ -338,9 +367,24 @@ def task_policy(task: Union[BaseOperator, MappedOperator]) -> None:
             )
             return
 
-    task.on_failure_callback = _wrap_on_failure_callback(task.on_failure_callback)  # type: ignore
-    task.on_success_callback = _wrap_on_success_callback(task.on_success_callback)  # type: ignore
-    task.on_retry_callback = _wrap_on_retry_callback(task.on_retry_callback)  # type: ignore
+    # In Airflow 3.0+, callbacks are lists instead of single functions
+    # We need to append to the list rather than replacing it
+    if isinstance(task.on_failure_callback, list):
+        # Airflow 3.0+ style - callbacks are lists
+        task.on_failure_callback.append(_wrap_on_failure_callback(None))
+    else:
+        # Airflow 2.x style - callbacks are single functions
+        task.on_failure_callback = _wrap_on_failure_callback(task.on_failure_callback)  # type: ignore
+
+    if isinstance(task.on_success_callback, list):
+        task.on_success_callback.append(_wrap_on_success_callback(None))
+    else:
+        task.on_success_callback = _wrap_on_success_callback(task.on_success_callback)  # type: ignore
+
+    if isinstance(task.on_retry_callback, list):
+        task.on_retry_callback.append(_wrap_on_retry_callback(None))
+    else:
+        task.on_retry_callback = _wrap_on_retry_callback(task.on_retry_callback)  # type: ignore
     # task.pre_execute = _wrap_pre_execution(task.pre_execute)
 
 

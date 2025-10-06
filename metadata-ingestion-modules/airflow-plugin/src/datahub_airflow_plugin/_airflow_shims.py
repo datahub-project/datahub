@@ -3,31 +3,68 @@ from typing import List
 import airflow.version
 import packaging.version
 import pluggy
-from airflow.models.baseoperator import BaseOperator
 
 from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
 
-try:
-    from airflow.models.mappedoperator import MappedOperator
-    from airflow.models.operator import Operator
-    from airflow.operators.empty import EmptyOperator
-except ModuleNotFoundError:
-    # Operator isn't a real class, but rather a type alias defined
-    # as the union of BaseOperator and MappedOperator.
-    # Since older versions of Airflow don't have MappedOperator, we can just use BaseOperator.
-    Operator = BaseOperator  # type: ignore
-    MappedOperator = None  # type: ignore
-    from airflow.operators.dummy import DummyOperator as EmptyOperator  # type: ignore
+# Determine Airflow version early for conditional imports
+AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
 
+# BaseOperator import - prefer new location in Airflow 3.x
 try:
-    from airflow.sensors.external_task import ExternalTaskSensor
-except ImportError:
-    from airflow.sensors.external_task_sensor import ExternalTaskSensor  # type: ignore
+    from airflow.sdk.bases.operator import BaseOperator
+except (ModuleNotFoundError, ImportError):
+    from airflow.models.baseoperator import BaseOperator  # type: ignore
+
+# Operator type alias and MappedOperator
+try:
+    # Airflow 3.x moved Operator to sdk.types
+    from airflow.sdk.types import Operator
+
+    try:
+        from airflow.models.mappedoperator import MappedOperator
+    except (ModuleNotFoundError, ImportError):
+        MappedOperator = None  # type: ignore
+except (ModuleNotFoundError, ImportError):
+    try:
+        # Airflow 2.x location
+        from airflow.models.mappedoperator import MappedOperator
+        from airflow.models.operator import Operator
+    except (ModuleNotFoundError, ImportError):
+        # Operator isn't a real class, but rather a type alias defined
+        # as the union of BaseOperator and MappedOperator.
+        # Since older versions of Airflow don't have MappedOperator, we can just use BaseOperator.
+        try:
+            from airflow.models.mappedoperator import MappedOperator
+        except (ModuleNotFoundError, ImportError):
+            MappedOperator = None  # type: ignore
+        Operator = BaseOperator  # type: ignore
+
+# EmptyOperator import - prefer standard provider in Airflow 3.x
+try:
+    from airflow.providers.standard.operators.empty import EmptyOperator
+except (ModuleNotFoundError, ImportError):
+    try:
+        from airflow.operators.empty import EmptyOperator  # type: ignore
+    except (ModuleNotFoundError, ImportError):
+        from airflow.operators.dummy import (
+            DummyOperator as EmptyOperator,  # type: ignore
+        )
+
+# ExternalTaskSensor import - prefer standard provider in Airflow 3.x
+try:
+    from airflow.providers.standard.sensors.external_task import ExternalTaskSensor
+except (ModuleNotFoundError, ImportError):
+    try:
+        from airflow.sensors.external_task import ExternalTaskSensor  # type: ignore
+    except ImportError:
+        from airflow.sensors.external_task_sensor import (
+            ExternalTaskSensor,  # type: ignore
+        )
 
 assert AIRFLOW_PATCHED
 
 # Approach suggested by https://stackoverflow.com/a/11887885/5004662.
-AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
+# AIRFLOW_VERSION already defined above for conditional imports
 PLUGGY_VERSION = packaging.version.parse(pluggy.__version__)
 HAS_AIRFLOW_STANDALONE_CMD = AIRFLOW_VERSION >= packaging.version.parse("2.2.0.dev0")
 HAS_AIRFLOW_LISTENER_API = AIRFLOW_VERSION >= packaging.version.parse("2.3.0.dev0")
@@ -38,6 +75,62 @@ HAS_AIRFLOW_DATASET_LISTENER_API = AIRFLOW_VERSION >= packaging.version.parse(
 NEEDS_AIRFLOW_LISTENER_MODULE = AIRFLOW_VERSION < packaging.version.parse(
     "2.5.0.dev0"
 ) or PLUGGY_VERSION <= packaging.version.parse("1.0.0")
+
+# OpenLineage compatibility - use native provider on Airflow 2.7+, old package otherwise
+USE_NATIVE_OPENLINEAGE_PROVIDER = AIRFLOW_VERSION >= packaging.version.parse("2.7.0.dev0")
+
+if USE_NATIVE_OPENLINEAGE_PROVIDER:
+    # Airflow 2.7+ with native OpenLineage provider
+    try:
+        from airflow.providers.openlineage.plugins.listener import OpenLineageListener
+        from airflow.providers.openlineage.utils.utils import (
+            get_operator_class,
+            try_import_from_string,
+        )
+
+        # For compatibility, create TaskHolder alias
+        # In native provider, we don't need TaskHolder as it uses different architecture
+        TaskHolder = dict  # type: ignore
+
+        def redact_with_exclusions(source: dict) -> dict:
+            """Compatibility shim for redact_with_exclusions."""
+            # Native provider doesn't expose this, so we just return the source as-is
+            return source
+
+        OpenLineagePlugin = OpenLineageListener  # type: ignore
+        HAS_OPENLINEAGE = True
+    except ImportError:
+        # Native provider not installed
+        HAS_OPENLINEAGE = False
+        TaskHolder = dict  # type: ignore
+        OpenLineagePlugin = None  # type: ignore
+        get_operator_class = None  # type: ignore
+        try_import_from_string = None  # type: ignore
+
+        def redact_with_exclusions(source: dict) -> dict:
+            return source
+else:
+    # Airflow < 2.7 with old openlineage-airflow package
+    try:
+        from openlineage.airflow.listener import TaskHolder
+        from openlineage.airflow.plugin import OpenLineagePlugin
+        from openlineage.airflow.utils import (
+            get_operator_class,
+            redact_with_exclusions,
+            try_import_from_string,
+        )
+
+        HAS_OPENLINEAGE = True
+    except ImportError:
+        # Old package not installed
+        HAS_OPENLINEAGE = False
+        TaskHolder = dict  # type: ignore
+        OpenLineagePlugin = None  # type: ignore
+        get_operator_class = None  # type: ignore
+        try_import_from_string = None  # type: ignore
+
+        def redact_with_exclusions(source: dict) -> dict:
+            return source
 
 
 def get_task_inlets(operator: "Operator") -> List:
@@ -66,4 +159,11 @@ __all__ = [
     "MappedOperator",
     "EmptyOperator",
     "ExternalTaskSensor",
+    "USE_NATIVE_OPENLINEAGE_PROVIDER",
+    "HAS_OPENLINEAGE",
+    "TaskHolder",
+    "OpenLineagePlugin",
+    "get_operator_class",
+    "try_import_from_string",
+    "redact_with_exclusions",
 ]

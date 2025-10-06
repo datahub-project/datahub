@@ -26,7 +26,7 @@ with DAG(
     "datahub_emitter_operator_jinja_template_dag",
     default_args=default_args,
     description="An example dag with jinja template",
-    schedule_interval=None,
+    schedule=None,
     tags=["example_tag"],
     catchup=False,
     default_view="tree",
