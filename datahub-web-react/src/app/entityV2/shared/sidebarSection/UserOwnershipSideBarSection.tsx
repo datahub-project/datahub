@@ -12,8 +12,9 @@ const DEFAULT_MAX_ENTITIES_TO_SHOW = 4;
 
 const entityLinkTextStyle = {
     overflow: 'hidden',
-    'white-space': 'nowrap',
-    'text-overflow': 'ellipsis',
+    whiteSpace: 'nowrap',
+    textOverflow: 'ellipsis',
+    maxWidth: 150,
 };
 
 type Props = {
