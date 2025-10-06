@@ -88,7 +88,7 @@ function LargeModule({
             isSmall: false,
         },
     });
-    const { isTemplateEditable } = usePageTemplateContext();
+    const { isTemplateEditable, templateType } = usePageTemplateContext();
 
     const hasViewAll = useMemo(() => !!onClickViewAll, [onClickViewAll]);
 
@@ -97,8 +97,9 @@ function LargeModule({
         analytics.event({
             type: EventType.HomePageTemplateModuleViewAllClick,
             moduleType: module.properties.type,
+            location: templateType,
         });
-    }, [onClickViewAll, module.properties.type]);
+    }, [onClickViewAll, module.properties.type, templateType]);
 
     return (
         <ModuleContainer $height="316px" ref={setNodeRef} data-testId={dataTestId}>

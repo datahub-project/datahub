@@ -1,6 +1,7 @@
 import { InfiniteScrollList } from '@components';
 import React, { useCallback } from 'react';
 import { useHistory } from 'react-router';
+import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useGetAssetsYouOwn } from '@app/homeV2/reference/sections/assets/useGetAssetsYouOwn';
@@ -12,6 +13,10 @@ import useSearchYourAssets from '@app/homeV3/modules/useSearchYourAssets';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 
 import { DataHubPageModuleType, Entity } from '@types';
+
+const ContentWrapper = styled.div`
+    height: 100%;
+`;
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -28,7 +33,7 @@ export default function YourAssetsModule(props: ModuleProps) {
 
     return (
         <LargeModule {...props} loading={loading} onClickViewAll={searchForYourAssets} dataTestId="your-assets-module">
-            <div data-testid="user-owned-entities">
+            <ContentWrapper data-testid="user-owned-entities">
                 <InfiniteScrollList<Entity>
                     fetchData={fetchEntities}
                     renderItem={(entity) => (
@@ -46,7 +51,7 @@ export default function YourAssetsModule(props: ModuleProps) {
                     }
                     totalItemCount={total}
                 />
-            </div>
+            </ContentWrapper>
         </LargeModule>
     );
 }

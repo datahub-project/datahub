@@ -10,6 +10,7 @@ from typing import ClassVar, Iterable, List, Optional, Union, cast
 import smart_open
 from pydantic import BaseModel, Field, validator
 
+from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -46,7 +47,6 @@ from datahub.ingestion.source.aws.s3_util import (
     get_bucket_relative_path,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver, SchemaResolverReport
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -73,10 +73,9 @@ class SqlQueriesSourceConfig(
         default=BaseUsageConfig(),
     )
 
-    use_schema_resolver: bool = Field(
+    use_schema_resolver: HiddenFromDocs[bool] = Field(
+        True,
         description="Read SchemaMetadata aspects from DataHub to aid in SQL parsing. Turn off only for testing.",
-        default=True,
-        hidden_from_docs=True,
     )
     reporting_batch_size: int = Field(
         default=100,
@@ -87,16 +86,16 @@ class SqlQueriesSourceConfig(
         le=10000,
     )
     default_db: Optional[str] = Field(
+        None,
         description="The default database to use for unqualified table names",
-        default=None,
     )
     default_schema: Optional[str] = Field(
+        None,
         description="The default schema to use for unqualified table names",
-        default=None,
     )
     override_dialect: Optional[str] = Field(
+        None,
         description="The SQL dialect to use when parsing queries. Overrides automatic dialect detection.",
-        default=None,
     )
     temp_table_patterns: List[str] = Field(
         description="Regex patterns for temporary tables to filter in lineage ingestion. "
@@ -130,7 +129,7 @@ class SqlQueriesSourceConfig(
 
 
 @dataclass
-class SqlQueriesSourceReport(SourceReport, IngestionStageReport):
+class SqlQueriesSourceReport(SourceReport):
     num_entries_processed: int = 0
     num_entries_failed: int = 0
     num_queries_aggregator_failures: int = 0

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import {
     CheckboxBase,
@@ -10,6 +10,7 @@ import {
     StyledCheckbox,
 } from '@components/components/Checkbox/components';
 import { CheckboxGroupProps, CheckboxProps } from '@components/components/Checkbox/types';
+import { Tooltip } from '@components/components/Tooltip';
 
 export const checkboxDefaults: CheckboxProps = {
     error: '',
@@ -19,10 +20,12 @@ export const checkboxDefaults: CheckboxProps = {
     isRequired: false,
     setIsChecked: () => {},
     size: 'md',
+    justifyContent: 'center',
 };
 
 export const Checkbox = ({
     label = checkboxDefaults.label,
+    labelTooltip,
     error = checkboxDefaults.error,
     isChecked = checkboxDefaults.isChecked,
     isDisabled = checkboxDefaults.isDisabled,
@@ -32,6 +35,9 @@ export const Checkbox = ({
     size = checkboxDefaults.size,
     onCheckboxChange,
     dataTestId,
+    justifyContent = checkboxDefaults.justifyContent,
+    gap,
+    shouldHandleLabelClicks,
     ...props
 }: CheckboxProps) => {
     const [checked, setChecked] = useState(isChecked || false);
@@ -42,25 +48,33 @@ export const Checkbox = ({
 
     const id = props.id || `checkbox-${label}`;
 
+    const onClick = useCallback(
+        (e: React.MouseEvent) => {
+            e.stopPropagation();
+            e.preventDefault();
+            if (!isDisabled) {
+                setChecked(!checked);
+                setIsChecked?.(!checked);
+                onCheckboxChange?.(!checked);
+            }
+        },
+        [setIsChecked, onCheckboxChange, checked, isDisabled],
+    );
+
     return (
-        <CheckboxContainer>
+        <CheckboxContainer justifyContent={justifyContent} gap={gap}>
             {label ? (
-                <Label aria-label={label}>
-                    {label} {isRequired && <Required>*</Required>}
-                </Label>
+                <Tooltip title={labelTooltip}>
+                    <Label
+                        aria-label={label}
+                        clickable={shouldHandleLabelClicks}
+                        onClick={shouldHandleLabelClicks ? onClick : undefined}
+                    >
+                        {label} {isRequired && <Required>*</Required>}
+                    </Label>
+                </Tooltip>
             ) : null}
-            <CheckboxBase
-                onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    if (!isDisabled) {
-                        setChecked(!checked);
-                        setIsChecked?.(!checked);
-                        onCheckboxChange?.();
-                    }
-                }}
-                data-testid={dataTestId}
-            >
+            <CheckboxBase onClick={onClick} data-testid={dataTestId}>
                 <StyledCheckbox
                     type="checkbox"
                     id="checked-input"
