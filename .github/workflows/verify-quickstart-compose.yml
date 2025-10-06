@@ -21,6 +21,7 @@ jobs:
           ./gradlew :docker:generateQuickstartComposeConfig
 
       - name: Verify generated file
+        id: verify-file
         # If there are build changes, then the generated file will be different from the one in the PR
         run: |
           git diff --exit-code docker/quickstart/docker-compose.quickstart-profile.yml
@@ -31,6 +32,7 @@ jobs:
           sudo chmod +x /usr/bin/yq
 
       - name: Validate memory requirements
+        id: validate-memory
         run: |
           echo "Validating minimum memory requirements..."
           COMPOSE_FILE="docker/quickstart/docker-compose.quickstart-profile.yml"
@@ -97,19 +99,26 @@ jobs:
             echo "Margin: ${margin}MB (${margin_gb}GB)"
           fi
 
-      - name: Validation failure message
-        if: failure()
+      - name: Compose file validation failure message
+        if: failure() && steps.verify-file.outcome == 'failure'
         run: |
           echo "==================== Validation Failed ===================="
           echo ""
-          echo "Possible causes:"
+          echo "The committed docker-compose file differs from the generated version."
           echo ""
-          echo "1. The committed docker-compose file differs from the generated version."
-          echo "   Solution: Run the following command and commit the changes:"
-          echo "   ./gradlew :docker:generateQuickstartComposeConfig"
-          echo ""
-          echo "2. The total minimum memory requirement exceeds the  ${{ env.THRESHOLD_GB }}GB threshold."
-          echo "   Solution: Adjust the threshold in this workflow. Also Update MIN_MEMORY_NEEDED in metadata-ingestion/src/datahub/cli/docker_check.py"
+          echo "Solution: Run the following command and commit the changes:"
+          echo "  ./gradlew :docker:generateQuickstartComposeConfig"
           echo ""
           echo "=========================================================="
-          exit 1
+
+      - name: Memory validation failure message
+        if: failure() && steps.validate-memory.outcome == 'failure'
+        run: |
+          echo "==================== Validation Failed ===================="
+          echo ""
+          echo "The total memory requirement exceeds the ${{ env.THRESHOLD_GB }}GB threshold."
+          echo ""
+          echo "Solution: Adjust the threshold in this workflow. Also update MIN_MEMORY_NEEDED"
+          echo "in metadata-ingestion/src/datahub/cli/docker_check.py"
+          echo ""
+          echo "=========================================================="
