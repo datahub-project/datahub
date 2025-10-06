@@ -10,16 +10,11 @@ export interface ModuleProps {
     showViewAll?: boolean;
 }
 
-export interface LoadedModulesEntry {
-    urn: string;
-    type: DataHubPageModuleType;
-}
-
 export interface ModulesContextType {
     // Modules reloading
     reloadModules: (moduleTypes: DataHubPageModuleType[], interval?: number) => void;
-    shouldModuleBeReloaded: (moduleType: DataHubPageModuleType, moduleUrn?: string) => boolean;
-    markModulesAsReloaded: (moduleType: DataHubPageModuleType, moduleUrn?: string) => void;
+    shouldModuleBeReloaded: (moduleType: DataHubPageModuleType, moduleUrn: string) => boolean;
+    markModulesAsReloaded: (moduleType: DataHubPageModuleType, moduleUrn: string) => void;
 }
 
 export interface ModuleContextType {
