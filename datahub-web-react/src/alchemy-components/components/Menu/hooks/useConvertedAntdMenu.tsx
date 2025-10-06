@@ -16,6 +16,7 @@ function convertItemsToAntdMenu(items: ItemType[]): MenuProps | undefined {
                     label: item.render ? item.render(item) : <MenuItemRenderer item={item} />,
                     onClick: item.onClick,
                     disabled: item.disabled,
+                    ...((item as any)['data-testid'] && { 'data-testid': (item as any)['data-testid'] }), // Pass through data-testid
 
                     ...(item?.children
                         ? {
