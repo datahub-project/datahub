@@ -58,6 +58,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     isLoading?: boolean;
     emptyState?: React.ReactElement;
     descriptionMaxWidth?: number;
+    dataTestId?: string;
 }
 
 export interface SelectStyleProps {
