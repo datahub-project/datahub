@@ -38,6 +38,7 @@ import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
@@ -65,9 +66,12 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.AggregationMetadata;
+import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -626,6 +630,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     ScrollResult expectedResult =
         new ScrollResult()
             .setNumEntities(2)
+            .setMetadata(testSearchResultMetadata())
             .setEntities(
                 new SearchEntityArray(
                     List.of(
@@ -680,6 +685,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     ScrollResult expectedResult =
         new ScrollResult()
             .setNumEntities(1)
+            .setMetadata(testSearchResultMetadata())
             .setEntities(
                 new SearchEntityArray(
                     List.of(
@@ -732,6 +738,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     ScrollResult expectedResult =
         new ScrollResult()
             .setNumEntities(2)
+            .setMetadata(testSearchResultMetadata())
             .setEntities(
                 new SearchEntityArray(
                     List.of(
@@ -814,6 +821,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     ScrollResult expectedResult =
         new ScrollResult()
+            .setMetadata(testSearchResultMetadata())
             .setNumEntities(1)
             .setEntities(
                 new SearchEntityArray(
@@ -1632,5 +1640,13 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     assertNotNull(headers);
     assertEquals("test-value", headers.get("X-Custom-Header"));
     assertEquals("123", headers.get("X-Version-Match"));
+  }
+
+  private SearchResultMetadata testSearchResultMetadata() {
+    AggregationMetadata aggregationMetadata = new AggregationMetadata();
+    aggregationMetadata.setAggregations(new LongMap(Collections.singletonMap("testPlatform", 1L)));
+    aggregationMetadata.setName("platform");
+    return new SearchResultMetadata()
+        .setAggregations(new AggregationMetadataArray(aggregationMetadata));
   }
 }
