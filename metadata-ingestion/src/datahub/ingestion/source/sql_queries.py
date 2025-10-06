@@ -7,6 +7,7 @@ from datetime import datetime
 from functools import partial
 from typing import ClassVar, Iterable, List, Optional, Union, cast
 
+import smart_open
 from pydantic import BaseModel, Field, validator
 
 from datahub.configuration.datetimes import parse_user_datetime
@@ -347,10 +348,8 @@ class SqlQueriesSource(Source):
         self._process_queries_sequential(query_batch)
 
         # Generate and yield metadata work units for this batch
-        with self.report.new_stage(
-            f"Generating metadata for batch {self.report.num_streaming_batches_processed}"
-        ):
-            yield from auto_workunit(self.aggregator.gen_metadata())
+        # Note: No stage created here to avoid excessive stage creation for each batch
+        yield from auto_workunit(self.aggregator.gen_metadata())
 
     def _log_processing_statistics(self) -> None:
         """Log comprehensive processing statistics."""
@@ -395,42 +394,42 @@ class SqlQueriesSource(Source):
         return path.startswith("s3://")
 
     def _parse_s3_query_file_streaming(self) -> Iterable["QueryEntry"]:
-        """Parse query file from S3 in streaming fashion."""
+        """Parse query file from S3 in streaming fashion using smart_open."""
         if not self.config.aws_config:
             raise ValueError("AWS configuration required for S3 file access")
 
-        s3_client = self.config.aws_config.get_s3_client(
-            verify_ssl=self.config.s3_verify_ssl
-        )
-        bucket_name = get_bucket_name(self.config.query_file)
-        key = get_bucket_relative_path(self.config.query_file)
-
-        logger.info(f"Reading query file from S3: s3://{bucket_name}/{key}")
+        logger.info(f"Reading query file from S3: {self.config.query_file}")
 
         try:
-            # Stream the S3 object line by line
-            response = s3_client.get_object(Bucket=bucket_name, Key=key)
-            content_stream = response["Body"]
-
-            for line in content_stream.iter_lines():
-                if line.strip():
-                    try:
-                        query_dict = json.loads(line, strict=False)
-                        entry = QueryEntry.create(query_dict, config=self.config)
-                        self.report.num_entries_processed += 1
-                        if self.report.num_entries_processed % 1000 == 0:
-                            logger.info(
-                                f"Processed {self.report.num_entries_processed} query entries from S3"
+            # Use smart_open for efficient S3 streaming, similar to S3FileSystem
+            s3_client = self.config.aws_config.get_s3_client(
+                verify_ssl=self.config.s3_verify_ssl
+            )
+            
+            with smart_open.open(
+                self.config.query_file,
+                mode="r",
+                transport_params={"client": s3_client}
+            ) as file_stream:
+                for line in file_stream:
+                    if line.strip():
+                        try:
+                            query_dict = json.loads(line, strict=False)
+                            entry = QueryEntry.create(query_dict, config=self.config)
+                            self.report.num_entries_processed += 1
+                            if self.report.num_entries_processed % 1000 == 0:
+                                logger.info(
+                                    f"Processed {self.report.num_entries_processed} query entries from S3"
+                                )
+                            yield entry
+                        except Exception as e:
+                            self.report.num_entries_failed += 1
+                            self.report.warning(
+                                title="Error processing query from S3",
+                                message="Query skipped due to parsing error",
+                                context=line.strip(),
+                                exc=e,
                             )
-                        yield entry
-                    except Exception as e:
-                        self.report.num_entries_failed += 1
-                        self.report.warning(
-                            title="Error processing query from S3",
-                            message="Query skipped due to parsing error",
-                            context=line.strip().decode("utf-8"),
-                            exc=e,
-                        )
         except Exception as e:
             self.report.warning(
                 title="Error reading S3 file",
