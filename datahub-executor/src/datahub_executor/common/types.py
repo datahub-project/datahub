@@ -3,9 +3,9 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-import pydantic
+import pydantic.v1 as pydantic
 from acryl.executor.request.execution_request import ExecutionRequest
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic.v1 import BaseModel, Field, root_validator, validator
 
 from datahub_executor.common.metric.types import (
     Metric,

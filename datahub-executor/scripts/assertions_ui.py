@@ -10,14 +10,14 @@ from typing import List
 import datahub.metadata.schema_classes as models
 import pandas as pd
 import plotly.graph_objects as go
-import pydantic.class_validators
+import pydantic.v1.class_validators
 import streamlit as st
 import streamlit_ext as ste
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.metadata.urns import DatasetUrn
 from plotly.subplots import make_subplots
-from pydantic.json import pydantic_encoder
+from pydantic.v1.json import pydantic_encoder
 
 from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
     default_volume_assertion_urn,

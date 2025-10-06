@@ -1,6 +1,6 @@
 from typing import Dict, List, TypeAlias, Union
 
-import pydantic
+import pydantic.v1 as pydantic
 from datahub.configuration.common import ConfigModel
 
 # Tricky: we need these to be the strict variants to ensure that pydantic
