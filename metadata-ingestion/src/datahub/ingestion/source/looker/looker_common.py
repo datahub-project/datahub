@@ -28,7 +28,7 @@ from looker_sdk.sdk.api40.models import (
     User,
     WriteQuery,
 )
-from pydantic.class_validators import validator
+from pydantic import validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.platformresource.platform_resource import (

@@ -16,6 +16,7 @@ from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.types import TypeEngine
 from sqlalchemy_bigquery import STRUCT
 
+from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import ContainerKey, DatabaseKey
 from datahub.ingestion.api.decorators import (
@@ -251,7 +252,7 @@ class CustomAthenaRestDialect(AthenaRestDialect):
 
 
 class AthenaConfig(SQLCommonConfig):
-    scheme: str = "awsathena+rest"
+    scheme: HiddenFromDocs[str] = "awsathena+rest"
     username: Optional[str] = pydantic.Field(
         default=None,
         description="Username credential. If not specified, detected with boto3 rules. See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html",

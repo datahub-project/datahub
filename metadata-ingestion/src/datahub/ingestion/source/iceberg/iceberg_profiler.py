@@ -12,6 +12,7 @@ from pyiceberg.types import (
     IcebergType,
     IntegerType,
     LongType,
+    PrimitiveType,
     TimestampType,
     TimestamptzType,
     TimeType,
@@ -22,6 +23,7 @@ from pyiceberg.utils.datetime import (
     to_human_timestamp,
     to_human_timestamptz,
 )
+from typing_extensions import TypeGuard
 
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.source.iceberg.iceberg_common import (
@@ -65,7 +67,7 @@ class IcebergProfiler:
         aggregated_values: Dict[int, Any],
         manifest_values: Dict[int, bytes],
     ) -> None:
-        for field_id, value_encoded in manifest_values.items():  # type: int, Any
+        for field_id, value_encoded in manifest_values.items():
             try:
                 field = schema.find_field(field_id)
             except ValueError:
@@ -240,7 +242,7 @@ class IcebergProfiler:
             return None
 
     @staticmethod
-    def _is_numeric_type(type: IcebergType) -> bool:
+    def _is_numeric_type(type: IcebergType) -> TypeGuard[PrimitiveType]:
         return isinstance(
             type,
             (

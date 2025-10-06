@@ -9,8 +9,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 import dateutil.parser as dp
 import requests
 import sqlglot
-from pydantic import BaseModel
-from pydantic.class_validators import root_validator, validator
+from pydantic import BaseModel, root_validator, validator
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry

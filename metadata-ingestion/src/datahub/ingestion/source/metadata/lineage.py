@@ -49,7 +49,7 @@ class EntityConfig(EnvConfigMixin):
     name: str
     type: str
     platform: str
-    platform_instance: Optional[str]
+    platform_instance: Optional[str] = None
 
     @validator("type")
     def type_must_be_supported(cls, v: str) -> str:

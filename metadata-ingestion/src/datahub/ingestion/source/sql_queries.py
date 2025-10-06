@@ -8,6 +8,7 @@ from typing import ClassVar, Iterable, List, Optional, Union
 
 from pydantic import BaseModel, Field, validator
 
+from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -66,22 +67,21 @@ class SqlQueriesSourceConfig(
         default=BaseUsageConfig(),
     )
 
-    use_schema_resolver: bool = Field(
+    use_schema_resolver: HiddenFromDocs[bool] = Field(
+        True,
         description="Read SchemaMetadata aspects from DataHub to aid in SQL parsing. Turn off only for testing.",
-        default=True,
-        hidden_from_docs=True,
     )
     default_db: Optional[str] = Field(
+        None,
         description="The default database to use for unqualified table names",
-        default=None,
     )
     default_schema: Optional[str] = Field(
+        None,
         description="The default schema to use for unqualified table names",
-        default=None,
     )
     override_dialect: Optional[str] = Field(
+        None,
         description="The SQL dialect to use when parsing queries. Overrides automatic dialect detection.",
-        default=None,
     )
 
 

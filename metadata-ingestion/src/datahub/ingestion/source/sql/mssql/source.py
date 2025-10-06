@@ -13,7 +13,7 @@ from sqlalchemy.exc import ProgrammingError, ResourceClosedError
 from sqlalchemy.sql import quoted_name
 
 import datahub.metadata.schema_classes as models
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -75,7 +75,7 @@ DEFAULT_TEMP_TABLES_PATTERNS = [
 class SQLServerConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
-    scheme: str = Field(default="mssql+pytds", description="", hidden_from_docs=True)
+    scheme: HiddenFromDocs[str] = Field(default="mssql+pytds")
 
     # TODO: rename to include_procedures ?
     include_stored_procedures: bool = Field(

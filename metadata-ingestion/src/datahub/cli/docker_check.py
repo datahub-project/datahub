@@ -13,8 +13,8 @@ import yaml
 from datahub.configuration.common import ExceptionWithProps
 
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
-MIN_MEMORY_NEEDED = 3.8  # GB
-MIN_DISK_SPACE_NEEDED = 12  # GB
+MIN_MEMORY_NEEDED = 4  # GB
+MIN_DISK_SPACE_NEEDED = 13  # GB
 
 DOCKER_COMPOSE_PROJECT_NAME = os.getenv("DATAHUB_COMPOSE_PROJECT_NAME", "datahub")
 DATAHUB_COMPOSE_PROJECT_FILTER = {

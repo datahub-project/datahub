@@ -2,6 +2,7 @@ import re
 from typing import Dict, List, Optional, Union
 from urllib.parse import urlparse
 
+import pydantic
 from pydantic import Field, validator
 
 from datahub.configuration.common import AllowDenyPattern
@@ -121,7 +122,8 @@ class PulsarSourceConfig(
             )
         return client_secret
 
-    @validator("web_service_url")
+    @pydantic.field_validator("web_service_url", mode="after")
+    @classmethod
     def web_service_url_scheme_host_port(cls, val: str) -> str:
         # Tokenize the web url
         url = urlparse(val)

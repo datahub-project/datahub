@@ -8,6 +8,7 @@ from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
 from sqlalchemy.engine.base import Engine
 
+from datahub.configuration.common import HiddenFromDocs
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -87,7 +88,7 @@ PrestoDialect._get_full_table = _get_full_table
 
 class PrestoConfig(TrinoConfig):
     # defaults
-    scheme: str = Field(default="presto", description="", hidden_from_docs=True)
+    scheme: HiddenFromDocs[str] = Field(default="presto")
 
 
 @platform_name("Presto", doc_order=1)

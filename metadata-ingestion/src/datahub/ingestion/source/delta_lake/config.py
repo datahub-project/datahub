@@ -78,7 +78,7 @@ class DeltaLakeSourceConfig(
         "When set to `False`, number_of_files in delta table can not be reported.",
     )
 
-    s3: Optional[S3] = Field()
+    s3: Optional[S3] = Field(None)
 
     @cached_property
     def is_s3(self):
