@@ -25,69 +25,62 @@ jobs:
         run: |
           git diff --exit-code docker/quickstart/docker-compose.quickstart-profile.yml
 
+      - name: Install yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+
       - name: Validate memory requirements
         run: |
           echo "Validating minimum memory requirements..."
           COMPOSE_FILE="docker/quickstart/docker-compose.quickstart-profile.yml"
-
           total_mb=0
 
-          # Parse OpenSearch OPENSEARCH_JAVA_OPTS (-Xmx)
-          if opensearch_xmx=$(grep -A 50 'opensearch:' "$COMPOSE_FILE" | grep 'OPENSEARCH_JAVA_OPTS:' | grep -oP '\-Xmx\K[0-9]+[mMgG]' | head -1); then
-            if [[ $opensearch_xmx =~ ([0-9]+)[gG] ]]; then
-              mb=$((${BASH_REMATCH[1]} * 1024))
-            elif [[ $opensearch_xmx =~ ([0-9]+)[mM] ]]; then
-              mb=${BASH_REMATCH[1]}
-            fi
-            echo "opensearch: ${mb}MB"
-            total_mb=$((total_mb + mb))
-          fi
+          declare -A JVM_SERVICES=(
+            ["opensearch"]="OPENSEARCH_JAVA_OPTS"
+            ["datahub-gms-quickstart"]="JAVA_OPTS"
+            ["frontend-quickstart"]="JAVA_OPTS"
+            ["kafka-broker"]="KAFKA_HEAP_OPTS"
+          )
 
-          # Parse datahub-gms JAVA_OPTS (-Xmx)
-          if gms_xmx=$(grep -A 100 'datahub-gms-quickstart:' "$COMPOSE_FILE" | grep 'JAVA_OPTS:' | grep -oP '\-Xmx\K[0-9]+[mMgG]' | head -1); then
-            if [[ $gms_xmx =~ ([0-9]+)[gG] ]]; then
-              mb=$((${BASH_REMATCH[1]} * 1024))
-            elif [[ $gms_xmx =~ ([0-9]+)[mM] ]]; then
-              mb=${BASH_REMATCH[1]}
-            fi
-            echo "datahub-gms: ${mb}MB"
-            total_mb=$((total_mb + mb))
-          fi
+          # Define memory estimates for non-JVM services in MB
+          declare -A NON_JVM_ESTIMATES=(
+            ["mysql"]=400
+            ["datahub-actions"]=200
+            ["docker-overhead"]=300
+          )
 
-          # Parse frontend JAVA_OPTS (-Xmx)
-          if frontend_xmx=$(grep -A 50 'frontend-quickstart:' "$COMPOSE_FILE" | grep 'JAVA_OPTS:' | grep -oP '\-Xmx\K[0-9]+[mMgG]' | head -1); then
-            if [[ $frontend_xmx =~ ([0-9]+)[gG] ]]; then
-              mb=$((${BASH_REMATCH[1]} * 1024))
-            elif [[ $frontend_xmx =~ ([0-9]+)[mM] ]]; then
-              mb=${BASH_REMATCH[1]}
-            fi
-            echo "frontend: ${mb}MB"
-            total_mb=$((total_mb + mb))
-          fi
+          parse_mem_to_mb() {
+            local mem_str=$1
+            if [[ -z "$mem_str" ]]; then echo 0; return; fi
 
-          # Parse Kafka KAFKA_HEAP_OPTS (-Xmx)
-          if kafka_xmx=$(grep -A 50 'kafka-broker:' "$COMPOSE_FILE" | grep 'KAFKA_HEAP_OPTS:' | grep -oP '\-Xmx\K[0-9]+[mMgG]' | head -1); then
-            if [[ $kafka_xmx =~ ([0-9]+)[gG] ]]; then
-              mb=$((${BASH_REMATCH[1]} * 1024))
-            elif [[ $kafka_xmx =~ ([0-9]+)[mM] ]]; then
-              mb=${BASH_REMATCH[1]}
+            if [[ $mem_str =~ ([0-9]+)[gG] ]]; then
+              echo $((${BASH_REMATCH[1]} * 1024))
+            elif [[ $mem_str =~ ([0-9]+)[mM] ]]; then
+              echo ${BASH_REMATCH[1]}
+            else
+              echo 0
             fi
-            echo "kafka-broker: ${mb}MB"
+          }
+
+          for service in "${!JVM_SERVICES[@]}"; do
+            env_var_name=${JVM_SERVICES[$service]}
+            env_var_value=$(yq ".services.${service}.environment.${env_var_name} // \"\"" "$COMPOSE_FILE")
+            xmx_value=$(echo "$env_var_value" | grep -oP '\-Xmx\K[0-9]+[mMgG]' || echo "")
+
+            mb=$(parse_mem_to_mb "$xmx_value")
+            echo "${service}: ${mb}MB"
             total_mb=$((total_mb + mb))
-          fi
+          done
 
           # Add estimates for non-JVM services
-          mysql_mb=400
-          datahub_actions_mb=200
-          docker_overhead_mb=300
+          for service in "${!NON_JVM_ESTIMATES[@]}"; do
+            mb=${NON_JVM_ESTIMATES[$service]}
+            echo "${service}: ${mb}MB (estimated)"
+            total_mb=$((total_mb + mb))
+          done
 
-          echo "mysql: ${mysql_mb}MB (estimated)"
-          echo "datahub-actions: ${datahub_actions_mb}MB (estimated)"
-          echo "docker-overhead: ${docker_overhead_mb}MB (estimated)"
-
-          total_mb=$((total_mb + mysql_mb + datahub_actions_mb + docker_overhead_mb))
           total_gb=$(echo "scale=2; $total_mb / 1024" | bc)
-
           echo "---"
           echo "Total minimum memory: ${total_mb}MB (${total_gb}GB)"
           echo "Threshold: ${{ env.THRESHOLD_GB }}GB"
