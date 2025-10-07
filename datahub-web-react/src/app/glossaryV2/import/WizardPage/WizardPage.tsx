@@ -1297,19 +1297,17 @@ const GlossaryImportList = ({
                             size="sm"
                             variant="filled"
                         />
-                        {(record.status === 'updated' || record.status === 'conflict') && (
-                            <Button
-                                variant="text"
-                                size="xs"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleShowDiff(record);
-                                }}
-                                style={{ padding: '2px 6px', minWidth: 'auto' }}
-                            >
-                                Diff
-                            </Button>
-                        )}
+                        <Button
+                            variant="text"
+                            size="xs"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleShowDiff(record);
+                            }}
+                            style={{ padding: '2px 6px', minWidth: 'auto' }}
+                        >
+                            Diff
+                        </Button>
                     </div>
                 );
             },

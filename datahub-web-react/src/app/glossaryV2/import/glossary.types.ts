@@ -11,7 +11,8 @@ export interface EntityData {
   term_source: string;
   source_ref: string;
   source_url: string;
-  ownership: string;
+  ownership_users: string;
+  ownership_groups: string;
   parent_nodes: string;
   related_contains: string;
   related_inherits: string;

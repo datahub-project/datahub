@@ -17,7 +17,6 @@ import {
   validateEntityType,
   validateParentNodes,
   validateDomainUrn,
-  validateOwnership,
   validateCustomProperties,
   validateUrl,
   findDuplicateNames
@@ -66,7 +65,8 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
           term_source: row.term_source || '',
           source_ref: row.source_ref || '',
           source_url: row.source_url || '',
-          ownership: row.ownership || '',
+          ownership_users: row.ownership_users || '',
+          ownership_groups: row.ownership_groups || '',
           parent_nodes: row.parent_nodes || '',
           related_contains: row.related_contains || '',
           related_inherits: row.related_inherits || '',
@@ -132,15 +132,27 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
           });
         }
 
-        const ownershipValidation = validateOwnership(entityData.ownership);
-        ownershipValidation.warnings.forEach(warning => {
-          warnings.push({
-            row: index + 1,
-            field: warning.field,
-            message: warning.message,
-            type: 'suggestion'
+        // Validate ownership columns
+        const ownershipUsers = entityData.ownership_users || '';
+        const ownershipGroups = entityData.ownership_groups || '';
+        if (ownershipUsers || ownershipGroups) {
+          // Basic validation for ownership format
+          const userEntries = ownershipUsers.split('|').map(entry => entry.trim()).filter(entry => entry);
+          const groupEntries = ownershipGroups.split('|').map(entry => entry.trim()).filter(entry => entry);
+          
+          // Check for valid ownership format
+          [...userEntries, ...groupEntries].forEach(entry => {
+            const parts = entry.split(':');
+            if (parts.length < 2) {
+              warnings.push({
+                row: index + 1,
+                field: 'ownership',
+                message: `Invalid ownership format: "${entry}". Expected format: "owner:ownershipType"`,
+                type: 'suggestion'
+              });
+            }
           });
-        });
+        }
 
         const customPropsValidation = validateCustomProperties(entityData.custom_properties);
         customPropsValidation.warnings.forEach(warning => {
@@ -293,7 +305,8 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
       term_source: row.term_source || '',
       source_ref: row.source_ref || '',
       source_url: row.source_url || '',
-      ownership: row.ownership || '',
+      ownership_users: row.ownership_users || '',
+      ownership_groups: row.ownership_groups || '',
       parent_nodes: row.parent_nodes || '',
       related_contains: row.related_contains || '',
       related_inherits: row.related_inherits || '',
@@ -318,7 +331,8 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
       'term_source',
       'source_ref',
       'source_url',
-      'ownership',
+      'ownership_users',
+      'ownership_groups',
       'parent_nodes',
       'related_contains',
       'related_inherits',
@@ -336,7 +350,8 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
       entity.term_source,
       entity.source_ref,
       entity.source_url,
-      entity.ownership,
+      entity.ownership_users,
+      entity.ownership_groups,
       entity.parent_nodes,
       entity.related_contains,
       entity.related_inherits,
@@ -364,7 +379,8 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
       term_source: '',
       source_ref: '',
       source_url: '',
-      ownership: '',
+      ownership_users: '',
+      ownership_groups: '',
       parent_nodes: '',
       related_contains: '',
       related_inherits: '',

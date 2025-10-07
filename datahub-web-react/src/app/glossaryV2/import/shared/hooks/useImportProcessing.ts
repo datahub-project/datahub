@@ -1,10 +1,12 @@
 import { useState, useCallback, useRef } from 'react';
-import { ApolloClient } from '@apollo/client';
+import { ApolloClient, gql } from '@apollo/client';
 import { Entity, EntityData, HierarchyMaps, ValidationError, ValidationWarning, EntityPatchInput, PatchOperation } from '../../glossary.types';
 import { useGraphQLOperations } from './useGraphQLOperations';
 import { useHierarchyManagement } from './useHierarchyManagement';
 import { useEntityManagement } from './useEntityManagement';
 import { useEntityComparison } from './useEntityComparison';
+import { useUserContext } from '@app/context/useUserContext';
+import { parseOwnershipFromColumns, createOwnershipPatchOperations, validateOwnershipColumns } from '../utils/ownershipParsingUtils';
 
 export interface ImportProgress {
   total: number;
@@ -80,6 +82,9 @@ export const useImportProcessing = ({
   const [isPaused, setIsPaused] = useState(false);
   const [isCancelled, setIsCancelled] = useState(false);
 
+  // Get current user context
+  const user = useUserContext();
+
   const processingQueueRef = useRef<ImportBatch[]>([]);
   const currentBatchRef = useRef<ImportBatch | null>(null);
   const retryCountRef = useRef<Map<string, number>>(new Map());
@@ -123,6 +128,87 @@ export const useImportProcessing = ({
       ...prev,
       warnings: [...prev.warnings, warning],
     }));
+  }, []);
+
+  /**
+   * Load existing ownership types using direct query
+   */
+  const loadExistingOwnershipTypes = useCallback(async (): Promise<Map<string, string>> => {
+    try {
+      const result = await apolloClient.query({
+        query: gql`
+          query listOwnershipTypes($input: ListOwnershipTypesInput!) {
+            listOwnershipTypes(input: $input) {
+              ownershipTypes {
+                urn
+                info {
+                  name
+                }
+              }
+            }
+          }
+        `,
+        variables: {
+          input: {
+            start: 0,
+            count: 1000
+          }
+        }
+      });
+
+      const ownershipTypeMap = new Map<string, string>();
+      result.data.listOwnershipTypes.ownershipTypes.forEach((ot: any) => {
+        ownershipTypeMap.set(ot.info.name.toLowerCase(), ot.urn);
+      });
+
+      return ownershipTypeMap;
+    } catch (error) {
+      console.error('Failed to load existing ownership types:', error);
+      return new Map();
+    }
+  }, [apolloClient]);
+
+  /**
+   * Automatically discover parent relationships from existing entities
+   */
+  const discoverParentRelationships = useCallback((entity: Entity, existingEntities: Entity[]): string[] => {
+    const discoveredParents: string[] = [];
+    const entityName = entity.name.toLowerCase();
+    
+    // Look for potential parent relationships based on naming patterns
+    for (const existingEntity of existingEntities) {
+      const existingName = existingEntity.name.toLowerCase();
+      
+      // Check if this entity could be a child of the existing entity
+      // Pattern 1: Entity name starts with existing entity name + separator
+      if (entityName.startsWith(existingName + '.') || 
+          entityName.startsWith(existingName + '_') ||
+          entityName.startsWith(existingName + '-')) {
+        discoveredParents.push(existingEntity.urn || '');
+        continue;
+      }
+      
+      // Pattern 2: Entity name contains existing entity name as a prefix
+      // (but not as a complete word to avoid false positives)
+      const words = entityName.split(/[._-]/);
+      const existingWords = existingName.split(/[._-]/);
+      
+      if (words.length > existingWords.length) {
+        let isPrefix = true;
+        for (let i = 0; i < existingWords.length; i++) {
+          if (words[i] !== existingWords[i]) {
+            isPrefix = false;
+            break;
+          }
+        }
+        
+        if (isPrefix) {
+          discoveredParents.push(existingEntity.urn || '');
+        }
+      }
+    }
+    
+    return discoveredParents;
   }, []);
 
   /**
@@ -571,52 +657,66 @@ export const useImportProcessing = ({
    * Create ownership type patches for missing types
    */
   const createOwnershipTypePatches = useCallback((missingTypes: string[]): EntityPatchInput[] => {
+    const currentTime = Date.now();
+    const currentUserUrn = user?.urn || 'urn:li:corpuser:datahub'; // fallback to datahub user
+    
     return missingTypes.map(typeName => ({
       entityType: "ownershipType",
       aspectName: "ownershipTypeInfo", 
       patch: [
-        { op: "ADD", path: "/name", value: typeName },
-        { op: "ADD", path: "/description", value: `Custom ownership type: ${typeName}` }
+        { op: "ADD", path: "/name", value: `"${typeName}"` },
+        { op: "ADD", path: "/description", value: `"Custom ownership type: ${typeName}"` },
+        {
+          op: "ADD",
+          path: "/created",
+          value: JSON.stringify({
+            time: currentTime,
+            actor: currentUserUrn
+          })
+        },
+        {
+          op: "ADD",
+          path: "/lastModified", 
+          value: JSON.stringify({
+            time: currentTime,
+            actor: currentUserUrn
+          })
+        }
       ]
     }));
-  }, []);
+  }, [user?.urn]);
 
   /**
-   * Ensure all required ownership types exist, creating missing ones
+   * Ensure ownership types exist for the given entities
    */
   const ensureOwnershipTypesExist = useCallback(async (entities: Entity[]): Promise<void> => {
     try {
       // Extract all ownership types from entities
       const csvOwnershipTypes = new Set<string>();
       entities.forEach(entity => {
-        if (entity.data.ownership) {
-          const types = entity.data.ownership.split(',').map(owner => {
-            const parts = owner.split(':');
-            return parts[0]; // ownership type
-          });
-          types.forEach(type => csvOwnershipTypes.add(type));
-        }
+        // Parse ownership from both user and group columns
+        const parsedOwnership = parseOwnershipFromColumns(
+          entity.data.ownership_users || '',
+          entity.data.ownership_groups || ''
+        );
+        
+        parsedOwnership.forEach(ownership => {
+          csvOwnershipTypes.add(ownership.ownershipTypeName);
+        });
       });
 
       if (csvOwnershipTypes.size === 0) return;
 
-      // Load existing ownership types
       updateProgress({
         currentOperation: `Loading existing ownership types...`,
       });
 
-      const existingOwnershipTypes = await executeGetOwnershipTypesQuery({
-        input: { start: 0, count: 1000 }
-      });
-
-      const ownershipTypeMap = new Map<string, string>();
-      existingOwnershipTypes.forEach(type => {
-        ownershipTypeMap.set(type.info.name.toLowerCase(), type.urn);
-      });
-
+      // Load existing ownership types using direct query
+      const existingOwnershipTypes = await loadExistingOwnershipTypes();
+      
       // Find missing ownership types
       const missingTypes = Array.from(csvOwnershipTypes).filter(
-        type => !ownershipTypeMap.has(type.toLowerCase())
+        type => !existingOwnershipTypes.has(type.toLowerCase())
       );
 
       if (missingTypes.length > 0) {
@@ -624,97 +724,58 @@ export const useImportProcessing = ({
           currentOperation: `Creating ${missingTypes.length} missing ownership types...`,
         });
 
-        // Create missing ownership types using batch patch
+        // Create missing ownership types
         const ownershipTypePatches = createOwnershipTypePatches(missingTypes);
-        const results = await executePatchEntitiesMutation(ownershipTypePatches);
-
-        // Process results and update the map
-        for (let i = 0; i < results.length; i++) {
-          const result = results[i];
-          const typeName = missingTypes[i];
-          
-          if (result.success && result.urn) {
-            ownershipTypeMap.set(typeName.toLowerCase(), result.urn);
-          } else {
-            addError({
-              entityId: 'ownership-type',
-              entityName: typeName,
-              operation: 'create-ownership-type',
-              error: result.error || 'Failed to create ownership type',
-              retryable: false
-            });
-          }
-        }
+        await executePatchEntitiesMutation(ownershipTypePatches);
       }
 
-      // Store the ownership type map for use in ownership patches
-      ownershipTypeMapRef.current = ownershipTypeMap;
+      // Update the ownership type map
+      ownershipTypeMapRef.current = existingOwnershipTypes;
+
+      updateProgress({
+        currentOperation: `Ownership types ready`,
+      });
 
     } catch (error) {
       addError({
         entityId: 'ownership-types',
-        entityName: 'Batch',
+        entityName: 'Ownership Types',
         operation: 'load-ownership-types',
         error: `Failed to load/create ownership types: ${error instanceof Error ? error.message : 'Unknown error'}`,
         retryable: false
       });
     }
-  }, [executeGetOwnershipTypesQuery, executePatchEntitiesMutation, createOwnershipTypePatches, updateProgress, addError]);
+  }, [loadExistingOwnershipTypes, executePatchEntitiesMutation, createOwnershipTypePatches, updateProgress, addError]);
 
   /**
    * Create ownership patch for an entity
    */
   const createOwnershipPatch = useCallback((entity: Entity, urn: string): EntityPatchInput | null => {
-    if (!entity.data.ownership) return null;
+    const usersColumn = entity.data.ownership_users || '';
+    const groupsColumn = entity.data.ownership_groups || '';
+    
+    if (!usersColumn && !groupsColumn) return null;
     
     try {
-      const patches: PatchOperation[] = [];
-      const ownershipStrings = entity.data.ownership.split(',').map(owner => owner.trim());
-      
-      ownershipStrings.forEach((ownerString) => {
-        // Parse ownership string format: "type:owner" or "type:owner:corpType"
-        const parts = ownerString.split(':');
-        if (parts.length >= 2) {
-          const [type, owner, corpType] = parts;
-          
-          // Format owner URN
-          const ownerUrn = owner.startsWith('urn:li:') 
-            ? owner 
-            : `urn:li:corpuser:${owner}`;
-          
-          // Get ownership type URN from the map
-          const ownershipTypeUrn = ownershipTypeMapRef.current.get(type.toLowerCase());
-          if (!ownershipTypeUrn) {
-            addError({
-              entityId: entity.id,
-              entityName: entity.name,
-              operation: 'ownership',
-              error: `Ownership type "${type}" not found. Please ensure it exists in DataHub.`,
-              retryable: false
-            });
-            return;
-          }
-          
-          patches.push({
-            op: 'ADD',
-            path: `/owners/${ownerUrn}/${ownershipTypeUrn}`,
-            value: JSON.stringify({
-              owner: ownerUrn,
-              typeUrn: ownershipTypeUrn,
-              type: 'NONE',
-              source: { type: 'MANUAL' }
-            })
-          });
-        } else {
-          addError({
-            entityId: entity.id,
-            entityName: entity.name,
-            operation: 'ownership',
-            error: `Invalid ownership format: "${ownerString}". Expected format: "type:owner" or "type:owner:corpType"`,
-            retryable: false
-          });
-        }
-      });
+      // Validate ownership columns format
+      const validation = validateOwnershipColumns(usersColumn, groupsColumn);
+      if (!validation.isValid) {
+        addError({
+          entityId: entity.id,
+          entityName: entity.name,
+          operation: 'ownership',
+          error: validation.error || 'Invalid ownership format',
+          retryable: false
+        });
+        return null;
+      }
+
+      // Parse ownership from both columns using utility function
+      const parsedOwnership = parseOwnershipFromColumns(usersColumn, groupsColumn);
+      if (parsedOwnership.length === 0) return null;
+
+      // Create patch operations using utility function
+      const patches = createOwnershipPatchOperations(parsedOwnership, ownershipTypeMapRef.current);
       
       if (patches.length === 0) return null;
       
@@ -739,31 +800,43 @@ export const useImportProcessing = ({
   const processEntityBatch = useCallback(async (batch: ImportBatch): Promise<boolean> => {
     const { entities, existingEntities } = batch;
     try {
+      // Filter entities that need processing (skip unchanged and conflicted)
+      const entitiesToProcess = entities.filter(entity => 
+        entity.status === 'new' || entity.status === 'updated'
+      );
+
+      if (entitiesToProcess.length === 0) {
+        updateProgress({
+          currentOperation: 'No entities to process (all unchanged)',
+        });
+        return true;
+      }
+
       updateProgress({
-        currentOperation: `Creating ${entities.length} entities...`,
+        currentOperation: `Processing ${entitiesToProcess.length} entities (${entities.filter(e => e.status === 'new').length} new, ${entities.filter(e => e.status === 'updated').length} updated)...`,
       });
 
       // Load existing ownership types and create missing ones
-      await ensureOwnershipTypesExist(entities);
+      await ensureOwnershipTypesExist(entitiesToProcess);
 
-      // Build patch inputs for all entities in the batch
+      // Build patch inputs for entities that need processing
       const patchInputs: EntityPatchInput[] = [];
       
-      for (const entity of entities) {
+      for (const entity of entitiesToProcess) {
         // Build patch operations for the entity
         const patches: PatchOperation[] = [];
         
         // Required fields for new entities
-        patches.push({ op: 'ADD', path: '/name', value: entity.name });
-        patches.push({ op: 'ADD', path: '/definition', value: entity.data.description || '' });
-        patches.push({ op: 'ADD', path: '/termSource', value: entity.data.term_source || 'INTERNAL' });
+        patches.push({ op: 'ADD' as const, path: '/name', value: entity.name });
+        patches.push({ op: 'ADD' as const, path: '/definition', value: entity.data.description || '' });
+        patches.push({ op: 'ADD' as const, path: '/termSource', value: entity.data.term_source || 'INTERNAL' });
         
         // Optional fields
         if (entity.data.source_ref) {
-          patches.push({ op: 'ADD', path: '/sourceRef', value: entity.data.source_ref });
+          patches.push({ op: 'ADD' as const, path: '/sourceRef', value: entity.data.source_ref });
         }
         if (entity.data.source_url) {
-          patches.push({ op: 'ADD', path: '/sourceUrl', value: entity.data.source_url });
+          patches.push({ op: 'ADD' as const, path: '/sourceUrl', value: entity.data.source_url });
         }
         
         // Custom properties
@@ -775,7 +848,7 @@ export const useImportProcessing = ({
             
             Object.entries(customProps).forEach(([key, value]) => {
               patches.push({ 
-                op: 'ADD', 
+                op: 'ADD' as const, 
                 path: `/customProperties/${key}`,
                 value: JSON.stringify(String(value))
               });
@@ -796,6 +869,9 @@ export const useImportProcessing = ({
         // Ownership - will be handled separately after entity creation
 
         // Parent relationships - handle directly in patch operations
+        const parentUrns: string[] = [];
+        
+        // First, process explicitly provided parent nodes from CSV
         if (entity.data.parent_nodes) {
           const parentNames = entity.data.parent_nodes.split(',').map(name => name.trim());
           
@@ -807,11 +883,7 @@ export const useImportProcessing = ({
                              entity.parentUrns.find(urn => urn.includes(parentName));
             
             if (parentUrn) {
-              patches.push({ 
-                op: 'ADD', 
-                path: '/parentNode',
-                value: parentUrn
-              });
+              parentUrns.push(parentUrn);
             } else {
               addWarning({
                 entityId: entity.id,
@@ -822,6 +894,32 @@ export const useImportProcessing = ({
             }
           }
         }
+        
+        // If no parent nodes were provided in CSV, try to discover them from existing entities
+        if (parentUrns.length === 0) {
+          const discoveredParents = discoverParentRelationships(entity, existingEntities);
+          parentUrns.push(...discoveredParents);
+          
+          if (discoveredParents.length > 0) {
+            addWarning({
+              entityId: entity.id,
+              entityName: entity.name,
+              operation: 'parent',
+              message: `Auto-discovered ${discoveredParents.length} parent relationship(s) from existing entities`,
+            });
+          }
+        }
+        
+        // Add all discovered parent URNs to patches
+        for (const parentUrn of parentUrns) {
+          if (parentUrn) {
+            patches.push({ 
+              op: 'ADD' as const, 
+              path: '/parentNode',
+              value: parentUrn
+            });
+          }
+        }
 
         // Create the patch input for this entity
         const patchInput: EntityPatchInput = {
@@ -829,6 +927,11 @@ export const useImportProcessing = ({
           aspectName: entity.type === 'glossaryTerm' ? 'glossaryTermInfo' : 'glossaryNodeInfo',
           patch: patches,
         };
+
+        // For updated entities, include the existing URN to prevent duplicates
+        if (entity.status === 'updated' && entity.existingEntity?.urn) {
+          patchInput.urn = entity.existingEntity.urn;
+        }
 
         patchInputs.push(patchInput);
       }
@@ -861,7 +964,7 @@ export const useImportProcessing = ({
             entityUrnMap.current.set(entity.name, generatedUrn);
             
             // Create ownership patch if ownership data exists
-            if (entity.data.ownership) {
+            if (entity.data.ownership_users || entity.data.ownership_groups) {
               const ownershipPatch = createOwnershipPatch(entity, generatedUrn);
               if (ownershipPatch) {
                 ownershipPatches.push(ownershipPatch);

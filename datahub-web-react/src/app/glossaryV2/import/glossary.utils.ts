@@ -165,32 +165,6 @@ export function validateDomainUrn(domainUrn: string): ValidationResult {
   };
 }
 
-/**
- * Validate ownership string
- */
-export function validateOwnership(ownership: string): ValidationResult {
-  const errors: ValidationError[] = [];
-  const warnings: ValidationWarning[] = [];
-
-  if (ownership && ownership.trim() !== '') {
-    // Basic validation for ownership format
-    // This could be enhanced to validate specific ownership patterns
-    const owners = parseCommaSeparated(ownership);
-    if (owners.length > 20) {
-      warnings.push({
-        field: 'ownership',
-        message: 'Having more than 20 owners may cause performance issues',
-        code: 'TOO_MANY_OWNERS'
-      });
-    }
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings
-  };
-}
 
 /**
  * Validate custom properties string
@@ -295,6 +269,26 @@ export function convertGraphQLEntityToEntity(graphqlEntity: GraphQLEntity): Enti
 
   const parentNames = graphqlEntity.parentNodes?.nodes?.map(node => node.properties.name) || [];
 
+  // Convert ownership from GraphQL format to CSV format
+  const ownershipUsers: string[] = [];
+  const ownershipGroups: string[] = [];
+  
+  if (graphqlEntity.ownership?.owners) {
+    graphqlEntity.ownership.owners.forEach(owner => {
+      const ownerType = owner.ownershipType?.info?.name || 'NONE';
+      const ownerName = owner.owner.info?.displayName || owner.owner.username || owner.owner.name || '';
+      const corpType = owner.owner.__typename === 'CorpGroup' ? 'CORP_GROUP' : 'CORP_USER';
+      
+      const ownershipEntry = `${ownerName}:${ownerType}`;
+      
+      if (corpType === 'CORP_GROUP') {
+        ownershipGroups.push(ownershipEntry);
+      } else {
+        ownershipUsers.push(ownershipEntry);
+      }
+    });
+  }
+
   return {
     id: generateEntityId({
       entity_type: isGlossaryTerm ? 'glossaryTerm' : 'glossaryNode',
@@ -304,7 +298,8 @@ export function convertGraphQLEntityToEntity(graphqlEntity: GraphQLEntity): Enti
       term_source: graphqlEntity.properties?.termSource || '',
       source_ref: graphqlEntity.properties?.sourceRef || '',
       source_url: graphqlEntity.properties?.sourceUrl || '',
-      ownership: '',
+      ownership_users: ownershipUsers.join('|'),
+      ownership_groups: ownershipGroups.join('|'),
       parent_nodes: toCommaSeparated(parentNames),
       related_contains: '',
       related_inherits: '',
@@ -326,7 +321,8 @@ export function convertGraphQLEntityToEntity(graphqlEntity: GraphQLEntity): Enti
       term_source: graphqlEntity.properties?.termSource || '',
       source_ref: graphqlEntity.properties?.sourceRef || '',
       source_url: graphqlEntity.properties?.sourceUrl || '',
-      ownership: '',
+      ownership_users: ownershipUsers.join('|'),
+      ownership_groups: ownershipGroups.join('|'),
       parent_nodes: toCommaSeparated(parentNames),
       related_contains: '',
       related_inherits: '',
