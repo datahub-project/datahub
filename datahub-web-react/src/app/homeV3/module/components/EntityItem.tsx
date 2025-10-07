@@ -23,6 +23,8 @@ interface Props {
     hideSubtitle?: boolean;
     hideMatches?: boolean;
     padding?: string;
+    customOnClick?: (entity: Entity) => void;
+    customHover?: (entity: Entity, children: React.ReactNode) => React.ReactNode;
 }
 
 export default function EntityItem({
@@ -34,6 +36,8 @@ export default function EntityItem({
     hideSubtitle,
     hideMatches,
     padding,
+    customOnClick,
+    customHover,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const linkProps = useGetModalLinkProps();
@@ -50,37 +54,43 @@ export default function EntityItem({
         [entity.urn, moduleType, templateType],
     );
 
+    const autoCompleteItemProps = {
+        entity,
+        key: entity.urn,
+        hideSubtitle,
+        hideMatches,
+        padding,
+        customDetailsRenderer,
+        dragIconRenderer,
+        customHover,
+        navigateOnlyOnNameClick,
+        customOnClick,
+    };
+
+    if (customOnClick && !navigateOnlyOnNameClick) {
+        return (
+            <div
+                role="button"
+                tabIndex={0}
+                onClick={() => customOnClick(entity)}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        customOnClick(entity);
+                    }
+                }}
+            >
+                <AutoCompleteEntityItem {...autoCompleteItemProps} onClick={sendAnalytics} />
+            </div>
+        );
+    }
+
+    if (navigateOnlyOnNameClick) {
+        return <AutoCompleteEntityItem {...autoCompleteItemProps} onClick={sendAnalytics} />;
+    }
+
     return (
-        <>
-            {navigateOnlyOnNameClick ? (
-                <AutoCompleteEntityItem
-                    entity={entity}
-                    key={entity.urn}
-                    customDetailsRenderer={customDetailsRenderer}
-                    hideSubtitle={hideSubtitle}
-                    hideMatches={hideMatches}
-                    padding={padding}
-                    navigateOnlyOnNameClick
-                    dragIconRenderer={dragIconRenderer}
-                    onClick={sendAnalytics}
-                />
-            ) : (
-                <StyledLink
-                    to={entityRegistry.getEntityUrl(entity.type, entity.urn)}
-                    onClick={sendAnalytics}
-                    {...linkProps}
-                >
-                    <AutoCompleteEntityItem
-                        entity={entity}
-                        key={entity.urn}
-                        hideSubtitle={hideSubtitle}
-                        hideMatches={hideMatches}
-                        padding={padding}
-                        customDetailsRenderer={customDetailsRenderer}
-                        dragIconRenderer={dragIconRenderer}
-                    />
-                </StyledLink>
-            )}
-        </>
+        <StyledLink to={entityRegistry.getEntityUrl(entity.type, entity.urn)} onClick={sendAnalytics} {...linkProps}>
+            <AutoCompleteEntityItem {...autoCompleteItemProps} />
+        </StyledLink>
     );
 }

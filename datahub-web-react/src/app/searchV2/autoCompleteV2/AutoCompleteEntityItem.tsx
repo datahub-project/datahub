@@ -115,6 +115,8 @@ interface EntityAutocompleteItemProps {
     hideMatches?: boolean;
     padding?: string;
     onClick?: () => void;
+    customHover?: (entity: Entity, children: React.ReactNode) => React.ReactNode;
+    customOnClick?: (entity: Entity) => void;
 }
 
 export default function AutoCompleteEntityItem({
@@ -131,6 +133,8 @@ export default function AutoCompleteEntityItem({
     hideMatches,
     padding,
     onClick,
+    customHover,
+    customOnClick,
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
@@ -144,27 +148,55 @@ export default function AutoCompleteEntityItem({
         ? DisplayNameHoverFromSelf
         : DisplayNameHoverFromContainer;
 
-    const displayNameContent = variantProps?.nameCanBeHovered ? (
-        <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)} {...linkProps}>
-            <DisplayNameHoverComponent
+    let displayNameContent;
+
+    if (customOnClick) {
+        displayNameContent = (
+            <div
+                role="button"
+                tabIndex={0}
+                onClick={() => customOnClick(entity)}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        customOnClick(entity);
+                    }
+                }}
+            >
+                <DisplayNameHoverComponent
+                    displayName={displayName}
+                    highlight={query}
+                    color={variantProps?.nameColor}
+                    colorLevel={variantProps?.nameColorLevel}
+                    weight={variantProps?.nameWeight}
+                    $decorationColor={getColor(variantProps?.nameColor, variantProps?.nameColorLevel, theme)}
+                />
+            </div>
+        );
+    } else if (variantProps?.nameCanBeHovered) {
+        displayNameContent = (
+            <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)} {...linkProps}>
+                <DisplayNameHoverComponent
+                    displayName={displayName}
+                    highlight={query}
+                    color={variantProps?.nameColor}
+                    colorLevel={variantProps?.nameColorLevel}
+                    weight={variantProps?.nameWeight}
+                    $decorationColor={getColor(variantProps?.nameColor, variantProps?.nameColorLevel, theme)}
+                />
+            </Link>
+        );
+    } else {
+        displayNameContent = (
+            <DisplayName
                 displayName={displayName}
                 highlight={query}
                 color={variantProps?.nameColor}
                 colorLevel={variantProps?.nameColorLevel}
                 weight={variantProps?.nameWeight}
-                $decorationColor={getColor(variantProps?.nameColor, variantProps?.nameColorLevel, theme)}
+                showNameTooltipIfTruncated
             />
-        </Link>
-    ) : (
-        <DisplayName
-            displayName={displayName}
-            highlight={query}
-            color={variantProps?.nameColor}
-            colorLevel={variantProps?.nameColorLevel}
-            weight={variantProps?.nameWeight}
-            showNameTooltipIfTruncated
-        />
-    );
+        );
+    }
 
     return (
         <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick} $padding={padding} onClick={onClick}>
@@ -183,14 +215,18 @@ export default function AutoCompleteEntityItem({
                 )}
 
                 <DescriptionContainer>
-                    <HoverEntityTooltip
-                        placement="bottom"
-                        entity={entity}
-                        showArrow={false}
-                        canOpen={variantProps?.showEntityPopover}
-                    >
-                        <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>
-                    </HoverEntityTooltip>
+                    {customHover ? (
+                        customHover(entity, <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>)
+                    ) : (
+                        <HoverEntityTooltip
+                            placement="bottom"
+                            entity={entity}
+                            showArrow={false}
+                            canOpen={variantProps?.showEntityPopover}
+                        >
+                            <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>
+                        </HoverEntityTooltip>
+                    )}
 
                     {!hideSubtitle && (
                         <EntitySubtitle
