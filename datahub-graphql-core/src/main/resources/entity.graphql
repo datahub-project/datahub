@@ -9897,13 +9897,6 @@ input UpsertLinkInput {
   settings: LinkSettingsInput
 }
 
-input LinkSettingsInput {
-  """
-  Determines whether this link should be shown in the asset preview like entity header and search result cards
-  """
-  showInAssetPreview: Boolean
-}
-
 """
 Input provided when removing the association between a Metadata Entity and a Link
 """
