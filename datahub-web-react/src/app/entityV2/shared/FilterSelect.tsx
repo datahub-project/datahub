@@ -76,6 +76,7 @@ export const FilterSelect = ({
             areParentsSelectable={false}
             width={100}
             selectLabelProps={{ variant: 'labeled', label: 'Filter' }}
+            dataTestId="filter"
             shouldAlwaysSyncParentValues
             hideParentCheckbox
         />

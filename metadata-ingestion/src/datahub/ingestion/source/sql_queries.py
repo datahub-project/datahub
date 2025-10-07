@@ -40,7 +40,6 @@ from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -86,7 +85,7 @@ class SqlQueriesSourceConfig(
 
 
 @dataclass
-class SqlQueriesSourceReport(SourceReport, IngestionStageReport):
+class SqlQueriesSourceReport(SourceReport):
     num_entries_processed: int = 0
     num_entries_failed: int = 0
     num_queries_aggregator_failures: int = 0
