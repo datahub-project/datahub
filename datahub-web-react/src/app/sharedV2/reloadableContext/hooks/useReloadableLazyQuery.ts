@@ -8,7 +8,7 @@ export function useReloadableLazyQuery<T, K>(
     key: { type: string; id?: string },
     options: LazyQueryHookOptions<T, K>,
 ): QueryTuple<T, K> {
-    const { shouldBeReloaded, reloaded } = useReloadableContext();
+    const { shouldBeReloaded, markAsReloaded } = useReloadableContext();
     const [execute, result] = lazyQueryHook(options);
 
     const wrappedExecute = useCallback(
@@ -25,9 +25,9 @@ export function useReloadableLazyQuery<T, K>(
 
     useEffect(() => {
         if (!result.loading && !result.error) {
-            reloaded(key.type, key.id);
+            markAsReloaded(key.type, key.id);
         }
-    }, [result.loading, result.error, reloaded, key.type, key.id]);
+    }, [result.loading, result.error, markAsReloaded, key.type, key.id]);
 
     return [wrappedExecute, result];
 }

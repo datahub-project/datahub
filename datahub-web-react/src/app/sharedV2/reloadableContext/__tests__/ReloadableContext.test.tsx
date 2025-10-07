@@ -14,7 +14,7 @@ describe('ReloadableContext', () => {
         const { result } = renderHook(() => useReloadableContext());
 
         expect(result.current.shouldBeReloaded('any')).toBe(false);
-        expect(result.current.reloaded('any')).toBe(undefined);
+        expect(result.current.markAsReloaded('any')).toBe(undefined);
         expect(result.current.reloadByKeyType(['any'])).toBe(undefined);
     });
 
@@ -23,7 +23,7 @@ describe('ReloadableContext', () => {
         const { result } = renderHook(() => useReloadableContext(), { wrapper });
 
         act(() => {
-            result.current.reloaded('testKey');
+            result.current.markAsReloaded('testKey');
         });
 
         expect(result.current.shouldBeReloaded('testKey')).toBe(false);
@@ -41,8 +41,8 @@ describe('ReloadableContext', () => {
         const { result } = renderHook(() => useReloadableContext(), { wrapper });
 
         act(() => {
-            result.current.reloaded('testKey', '1');
-            result.current.reloaded('testKey', '2');
+            result.current.markAsReloaded('testKey', '1');
+            result.current.markAsReloaded('testKey', '2');
         });
 
         expect(result.current.shouldBeReloaded('testKey', '1')).toBe(false);
@@ -62,7 +62,7 @@ describe('ReloadableContext', () => {
         const { result } = renderHook(() => useReloadableContext(), { wrapper });
 
         act(() => {
-            result.current.reloaded('testKey', '1');
+            result.current.markAsReloaded('testKey', '1');
         });
 
         expect(result.current.shouldBeReloaded('testKey', '1')).toBe(false);

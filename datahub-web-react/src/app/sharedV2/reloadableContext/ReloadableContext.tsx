@@ -5,7 +5,7 @@ import { KEY_SEPARATOR, getReloadableKey } from '@app/sharedV2/reloadableContext
 
 const DEFAULT_CONTEXT: ReloadableContextType = {
     reloadByKeyType: () => {},
-    reloaded: () => {},
+    markAsReloaded: () => {},
     shouldBeReloaded: () => false,
 };
 
@@ -35,7 +35,7 @@ export function ReloadableProvider({ children }: Props) {
         }
     }, []);
 
-    const reloaded = useCallback((keyType: string, entryId?: string) => {
+    const markAsReloaded = useCallback((keyType: string, entryId?: string) => {
         const key = getReloadableKey(keyType, entryId);
         setReloadedKeys((prev) => new Set(prev).add(key));
     }, []);
@@ -49,7 +49,7 @@ export function ReloadableProvider({ children }: Props) {
     );
 
     return (
-        <ReloadableContext.Provider value={{ reloadByKeyType, reloaded, shouldBeReloaded }}>
+        <ReloadableContext.Provider value={{ reloadByKeyType, markAsReloaded, shouldBeReloaded }}>
             {children}
         </ReloadableContext.Provider>
     );

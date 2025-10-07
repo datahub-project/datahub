@@ -10,7 +10,7 @@ const ModuleContext = React.createContext<ModuleContextType>({
 });
 
 export function ModuleProvider({ children, module }: React.PropsWithChildren<ModuleProps>) {
-    const { shouldBeReloaded, reloaded } = useReloadableContext();
+    const { shouldBeReloaded, markAsReloaded } = useReloadableContext();
 
     const moduleUrn = module.urn;
     const moduleType = module.properties.type;
@@ -21,8 +21,8 @@ export function ModuleProvider({ children, module }: React.PropsWithChildren<Mod
     );
 
     const onReloadingFinished = useCallback(() => {
-        if (isReloading) reloaded(getReloadableModuleKey(moduleType), moduleUrn);
-    }, [reloaded, moduleUrn, moduleType, isReloading]);
+        if (isReloading) markAsReloaded(getReloadableModuleKey(moduleType), moduleUrn);
+    }, [markAsReloaded, moduleUrn, moduleType, isReloading]);
 
     return <ModuleContext.Provider value={{ isReloading, onReloadingFinished }}>{children}</ModuleContext.Provider>;
 }

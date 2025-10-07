@@ -8,7 +8,7 @@ export function useReloadableQuery<T, K>(
     key: { type: string; id?: string },
     options: QueryHookOptions<T, K>,
 ): QueryResult<T, K> {
-    const { shouldBeReloaded, reloaded } = useReloadableContext();
+    const { shouldBeReloaded, markAsReloaded } = useReloadableContext();
     const needsReload = shouldBeReloaded(key.type, key.id);
     const result = queryHook({
         ...options,
@@ -17,9 +17,9 @@ export function useReloadableQuery<T, K>(
 
     useEffect(() => {
         if (!result.loading && !result.error) {
-            reloaded(key.type, key.id);
+            markAsReloaded(key.type, key.id);
         }
-    }, [result.loading, result.error, reloaded, key.type, key.id]);
+    }, [result.loading, result.error, markAsReloaded, key.type, key.id]);
 
     return result;
 }
