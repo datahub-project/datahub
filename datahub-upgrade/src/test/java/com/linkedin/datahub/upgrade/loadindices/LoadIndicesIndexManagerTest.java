@@ -6,6 +6,8 @@ import static org.testng.Assert.*;
 
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -13,11 +15,8 @@ import java.util.Set;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsRequest;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
-import org.opensearch.client.IndicesClient;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.GetIndexRequest;
-import org.opensearch.client.indices.GetIndexResponse;
 import org.opensearch.common.settings.Settings;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -25,22 +24,17 @@ import org.testng.annotations.Test;
 public class LoadIndicesIndexManagerTest {
 
   private LoadIndicesIndexManager indexManager;
-  private RestHighLevelClient mockSearchClient;
-  private IndicesClient mockIndicesClient;
+  private SearchClientShim<?> mockSearchClient;
   private IndexConvention mockIndexConvention;
   private EntityRegistry mockEntityRegistry;
   private String configuredRefreshInterval;
 
   @BeforeMethod
   public void setUp() {
-    mockSearchClient = mock(RestHighLevelClient.class);
-    mockIndicesClient = mock(IndicesClient.class);
+    mockSearchClient = mock(SearchClientShim.class);
     mockIndexConvention = mock(IndexConvention.class);
     mockEntityRegistry = mock(EntityRegistry.class);
     configuredRefreshInterval = "3s";
-
-    // Mock the indices() method to return our mock IndicesClient
-    when(mockSearchClient.indices()).thenReturn(mockIndicesClient);
 
     indexManager =
         new LoadIndicesIndexManager(
@@ -67,7 +61,7 @@ public class LoadIndicesIndexManagerTest {
     when(mockResponse.getIndices()).thenReturn(allIndices);
 
     // Mock the search client
-    when(mockIndicesClient.get(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
 
     // Mock EntityRegistry to return entity specs
@@ -96,7 +90,7 @@ public class LoadIndicesIndexManagerTest {
   @Test
   public void testDiscoverDataHubIndicesWithIOException() throws IOException {
     // Mock IOException
-    when(mockIndicesClient.get(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenThrow(new IOException("Connection failed"));
 
     assertThrows(IOException.class, () -> indexManager.discoverDataHubIndices());
@@ -108,7 +102,7 @@ public class LoadIndicesIndexManagerTest {
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     String[] allIndices = {"datahub_dataset_v2"};
     when(mockResponse.getIndices()).thenReturn(allIndices);
-    when(mockIndicesClient.get(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
 
     // Mock EntityRegistry to return entity specs
@@ -125,11 +119,13 @@ public class LoadIndicesIndexManagerTest {
     when(mockSettingsResponse.getIndexToSettings())
         .thenReturn(java.util.Collections.singletonMap("datahub_dataset_v2", mockSettings));
 
-    when(mockIndicesClient.getSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndexSettings(
+            any(GetSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(mockSettingsResponse);
 
     // Mock update settings
-    when(mockIndicesClient.putSettings(any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.updateIndexSettings(
+            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(null);
 
     indexManager.disableRefresh();
@@ -140,7 +136,7 @@ public class LoadIndicesIndexManagerTest {
   @Test
   public void testDisableRefreshWithIOException() throws IOException {
     // Mock IOException during discovery
-    when(mockIndicesClient.get(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenThrow(new IOException("Discovery failed"));
 
     assertThrows(IOException.class, () -> indexManager.disableRefresh());
@@ -152,7 +148,7 @@ public class LoadIndicesIndexManagerTest {
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     String[] allIndices = {"datahub_dataset_v2"};
     when(mockResponse.getIndices()).thenReturn(allIndices);
-    when(mockIndicesClient.get(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
 
     // Mock EntityRegistry to return entity specs
@@ -168,10 +164,12 @@ public class LoadIndicesIndexManagerTest {
     when(mockSettingsResponse.getIndexToSettings())
         .thenReturn(java.util.Collections.singletonMap("datahub_dataset_v2", mockSettings));
 
-    when(mockIndicesClient.getSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndexSettings(
+            any(GetSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(mockSettingsResponse);
 
-    when(mockIndicesClient.putSettings(any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.updateIndexSettings(
+            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(null);
 
     // Disable refresh first
@@ -190,7 +188,7 @@ public class LoadIndicesIndexManagerTest {
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     String[] allIndices = {"datahub_dataset_v2"};
     when(mockResponse.getIndices()).thenReturn(allIndices);
-    when(mockIndicesClient.get(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
 
     // Mock EntityRegistry to return entity specs
@@ -206,10 +204,12 @@ public class LoadIndicesIndexManagerTest {
     when(mockSettingsResponse.getIndexToSettings())
         .thenReturn(java.util.Collections.singletonMap("datahub_dataset_v2", mockSettings));
 
-    when(mockIndicesClient.getSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndexSettings(
+            any(GetSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(mockSettingsResponse);
 
-    when(mockIndicesClient.putSettings(any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.updateIndexSettings(
+            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(null);
 
     // Disable refresh first
@@ -217,7 +217,8 @@ public class LoadIndicesIndexManagerTest {
     assertTrue(indexManager.isRefreshDisabled());
 
     // Mock IOException during restore
-    when(mockIndicesClient.putSettings(any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.updateIndexSettings(
+            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
         .thenThrow(new IOException("Restore failed"));
 
     // The implementation throws IOException when restore fails
@@ -284,7 +285,7 @@ public class LoadIndicesIndexManagerTest {
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     String[] allIndices = {"datahub_dataset_v2"};
     when(mockResponse.getIndices()).thenReturn(allIndices);
-    when(mockIndicesClient.get(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
 
     // Mock EntityRegistry to return entity specs
@@ -300,10 +301,12 @@ public class LoadIndicesIndexManagerTest {
     when(mockSettingsResponse.getIndexToSettings())
         .thenReturn(java.util.Collections.singletonMap("datahub_dataset_v2", mockSettings));
 
-    when(mockIndicesClient.getSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndexSettings(
+            any(GetSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(mockSettingsResponse);
 
-    when(mockIndicesClient.putSettings(any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.updateIndexSettings(
+            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(null);
 
     // First call
@@ -315,7 +318,8 @@ public class LoadIndicesIndexManagerTest {
     assertTrue(indexManager.isRefreshDisabled());
 
     // Verify discovery was called only once
-    verify(mockIndicesClient, times(1)).get(any(GetIndexRequest.class), any(RequestOptions.class));
+    verify(mockSearchClient, times(1))
+        .getIndex(any(GetIndexRequest.class), any(RequestOptions.class));
   }
 
   @Test
@@ -323,7 +327,7 @@ public class LoadIndicesIndexManagerTest {
     // Mock empty response
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     when(mockResponse.getIndices()).thenReturn(new String[0]);
-    when(mockIndicesClient.get(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
 
     Set<String> result = indexManager.discoverDataHubIndices();

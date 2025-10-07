@@ -12,11 +12,11 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -47,7 +47,7 @@ public class LoadIndicesConfig {
   @Nonnull
   public LoadIndicesIndexManager createIndexManager(
       @Qualifier("systemOperationContext") final OperationContext systemOperationContext,
-      @Qualifier("elasticSearchRestHighLevelClient") final RestHighLevelClient searchClient,
+      @Qualifier("searchClientShim") SearchClientShim<?> searchClient,
       @Value("${elasticsearch.index.refreshIntervalSeconds:3}")
           final String configuredRefreshInterval)
       throws Exception {

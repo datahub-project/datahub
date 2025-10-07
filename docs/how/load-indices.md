@@ -281,6 +281,7 @@ LoadIndices can be executed via:
 | ------------- | ----------------------------------------------- | ----------------------------------------- |
 | `urnLike`     | SQL LIKE pattern to filter URNs                 | `-a urnLike=urn:li:dataset:%`             |
 | `aspectNames` | Comma-separated list of aspect names to process | `-a aspectNames=ownership,schemaMetadata` |
+| `lastUrn`     | Resume processing from this URN (inclusive)     | `-a lastUrn=urn:li:dataset:my-dataset`    |
 
 ### ⚙️ System Configuration
 
@@ -333,6 +334,7 @@ The Gradle task supports these parameters:
 - `aspectNames`: Filter by aspect names
 - `lePitEpochMs`: Process records created before this timestamp
 - `gePitEpochMs`: Process records created after this timestamp
+- `lastUrn`: Resume processing from this URN (inclusive)
 
 ### 🐳 Docker Environment Variables
 
@@ -356,6 +358,56 @@ docker run --rm datahub-upgrade \
   -u LoadIndices \
   -a gePitEpochMs=1640995200000 \
   -a limit=50000
+
+# Resume from a specific URN
+docker run --rm datahub-upgrade \
+  -u LoadIndices \
+  -a lastUrn=urn:li:dataset:my-dataset \
+  -a batchSize=10000
+```
+
+### 🔄 Resume Functionality
+
+LoadIndices supports resuming from a specific URN when processing is interrupted:
+
+#### **Resume from Last Processed URN**
+
+When LoadIndices runs, it logs the last URN processed in each batch:
+
+```
+Batch completed - Last URN processed: urn:li:dataset:my-dataset
+Processed 10000 aspects - 150.2 aspects/sec - Last URN: urn:li:dataset:my-dataset
+```
+
+To resume from where you left off:
+
+```bash
+# Resume from the last URN that was successfully processed
+./gradlew :datahub-upgrade:runLoadIndices \
+  -a lastUrn=urn:li:dataset:my-dataset \
+  -a batchSize=10000
+```
+
+#### **Resume Best Practices**
+
+- **Use the exact URN**: Copy the URN exactly as logged (including any URL encoding)
+- **Inclusive processing**: The `lastUrn` parameter processes from the specified URN onwards (inclusive)
+- **Monitor progress**: Watch the logs for the "Last URN processed" messages to track progress
+- **Batch boundaries**: Resume works at the URN level, not batch level - some aspects may be reprocessed
+
+#### **Example Resume Workflow**
+
+```bash
+# 1. Start initial processing
+./gradlew :datahub-upgrade:runLoadIndices -a batchSize=5000
+
+# 2. If interrupted, check logs for last URN:
+# "Batch completed - Last URN processed: urn:li:dataset:my-dataset"
+
+# 3. Resume from that URN
+./gradlew :datahub-upgrade:runLoadIndices \
+  -a lastUrn=urn:li:dataset:my-dataset \
+  -a batchSize=5000
 ```
 
 ---

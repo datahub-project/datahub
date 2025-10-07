@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.loadindices;
 
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -9,19 +10,27 @@ import static org.testng.Assert.fail;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.UpdateIndicesService;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.upgrade.DataHubUpgradeState;
+import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -43,6 +52,7 @@ public class LoadIndicesStepTest {
   @Mock private UpgradeReport mockUpgradeReport;
   @Mock private OperationContext mockOperationContext;
   @Mock private EntityRegistry mockEntityRegistry;
+  @Mock private ActorContext mockActorContext;
 
   @BeforeMethod
   public void setup() {
@@ -63,6 +73,15 @@ public class LoadIndicesStepTest {
     when(mockUpgradeContext.report()).thenReturn(mockUpgradeReport);
     when(mockUpgradeContext.opContext()).thenReturn(mockOperationContext);
     when(mockOperationContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
+    when(mockOperationContext.getActorContext()).thenReturn(mockActorContext);
+
+    // Mock authentication context
+    com.datahub.authentication.Authentication mockAuth =
+        mock(com.datahub.authentication.Authentication.class);
+    com.datahub.authentication.Actor mockActor = mock(com.datahub.authentication.Actor.class);
+    when(mockActorContext.getAuthentication()).thenReturn(mockAuth);
+    when(mockAuth.getActor()).thenReturn(mockActor);
+    when(mockActor.toUrnStr()).thenReturn("urn:li:corpuser:testUser");
   }
 
   @AfterMethod
@@ -324,5 +343,907 @@ public class LoadIndicesStepTest {
     assertNotNull(result);
     assertEquals(result.batchSize, 10000); // Default batch size
     assertEquals(result.limit, Integer.MAX_VALUE); // Default limit
+  }
+
+  @Test
+  public void testGetArgsWithAllArguments() throws Exception {
+    var method = LoadIndicesStep.class.getDeclaredMethod("getArgs", UpgradeContext.class);
+    method.setAccessible(true);
+
+    // Test with all arguments provided
+    Map<String, Optional<String>> parsedArgs = new HashMap<>();
+    parsedArgs.put(LoadIndices.BATCH_SIZE_ARG_NAME, Optional.of("5000"));
+    parsedArgs.put(LoadIndices.LIMIT_ARG_NAME, Optional.of("1000"));
+    parsedArgs.put(LoadIndices.URN_LIKE_ARG_NAME, Optional.of("urn:li:dataset:%"));
+    parsedArgs.put(LoadIndices.LE_PIT_EPOCH_MS_ARG_NAME, Optional.of("1640995200000"));
+    parsedArgs.put(LoadIndices.GE_PIT_EPOCH_MS_ARG_NAME, Optional.of("1640908800000"));
+    parsedArgs.put(LoadIndices.ASPECT_NAMES_ARG_NAME, Optional.of("container,ownership"));
+    parsedArgs.put(LoadIndices.LAST_URN_ARG_NAME, Optional.of("urn:li:dataset:test"));
+
+    when(mockUpgradeContext.parsedArgs()).thenReturn(parsedArgs);
+
+    @SuppressWarnings("unchecked")
+    LoadIndicesArgs result = (LoadIndicesArgs) method.invoke(loadIndicesStep, mockUpgradeContext);
+
+    assertNotNull(result);
+    assertEquals(result.batchSize, 5000);
+    assertEquals(result.limit, 1000);
+    assertEquals(result.urnLike, "urn:li:dataset:%");
+    assertEquals(result.lePitEpochMs, Long.valueOf(1640995200000L));
+    assertEquals(result.gePitEpochMs, Long.valueOf(1640908800000L));
+    assertEquals(result.aspectNames, Arrays.asList("container", "ownership"));
+    assertEquals(result.lastUrn, "urn:li:dataset:test");
+
+    // Verify report messages were added
+    verify(mockUpgradeReport, atLeastOnce()).addLine(anyString());
+  }
+
+  @Test
+  public void testGetArgsWithLimitMaxValue() throws Exception {
+    var method = LoadIndicesStep.class.getDeclaredMethod("getArgs", UpgradeContext.class);
+    method.setAccessible(true);
+
+    Map<String, Optional<String>> parsedArgs = new HashMap<>();
+    parsedArgs.put(LoadIndices.LIMIT_ARG_NAME, Optional.of(String.valueOf(Integer.MAX_VALUE)));
+    when(mockUpgradeContext.parsedArgs()).thenReturn(parsedArgs);
+
+    @SuppressWarnings("unchecked")
+    LoadIndicesArgs result = (LoadIndicesArgs) method.invoke(loadIndicesStep, mockUpgradeContext);
+
+    assertEquals(result.limit, Integer.MAX_VALUE);
+    verify(mockUpgradeReport).addLine("limit is not applied (processing all matching records)");
+  }
+
+  @Test
+  public void testGetArgsWithDefaultAspectNames() throws Exception {
+    var method = LoadIndicesStep.class.getDeclaredMethod("getArgs", UpgradeContext.class);
+    method.setAccessible(true);
+
+    // Mock entity registry with searchable aspects
+    Map<String, EntitySpec> entitySpecs = new HashMap<>();
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Arrays.asList(mockAspectSpec));
+    when(mockAspectSpec.getSearchableFieldSpecs())
+        .thenReturn(Arrays.asList()); // Empty list for simplicity
+    when(mockAspectSpec.getName()).thenReturn("container");
+    when(mockEntitySpec.getKeyAspectName()).thenReturn("datasetKey");
+
+    entitySpecs.put("dataset", mockEntitySpec);
+    when(mockEntityRegistry.getEntitySpecs()).thenReturn(entitySpecs);
+
+    Map<String, Optional<String>> parsedArgs = new HashMap<>();
+    when(mockUpgradeContext.parsedArgs()).thenReturn(parsedArgs);
+
+    @SuppressWarnings("unchecked")
+    LoadIndicesArgs result = (LoadIndicesArgs) method.invoke(loadIndicesStep, mockUpgradeContext);
+
+    assertNotNull(result.aspectNames);
+    // Since we have no searchable aspects, the result should be empty
+    assertTrue(result.aspectNames.isEmpty());
+  }
+
+  @Test
+  public void testGetBatchSize() throws Exception {
+    var method = LoadIndicesStep.class.getDeclaredMethod("getBatchSize", Map.class);
+    method.setAccessible(true);
+
+    Map<String, Optional<String>> parsedArgs = new HashMap<>();
+    parsedArgs.put(LoadIndices.BATCH_SIZE_ARG_NAME, Optional.of("5000"));
+
+    int result = (Integer) method.invoke(loadIndicesStep, parsedArgs);
+    assertEquals(result, 5000);
+
+    // Test with empty args (should return default)
+    Map<String, Optional<String>> emptyArgs = new HashMap<>();
+    int defaultResult = (Integer) method.invoke(loadIndicesStep, emptyArgs);
+    assertEquals(defaultResult, 10000);
+  }
+
+  @Test
+  public void testGetLimit() throws Exception {
+    var method = LoadIndicesStep.class.getDeclaredMethod("getLimit", Map.class);
+    method.setAccessible(true);
+
+    Map<String, Optional<String>> parsedArgs = new HashMap<>();
+    parsedArgs.put(LoadIndices.LIMIT_ARG_NAME, Optional.of("1000"));
+
+    int result = (Integer) method.invoke(loadIndicesStep, parsedArgs);
+    assertEquals(result, 1000);
+
+    // Test with empty args (should return default)
+    Map<String, Optional<String>> emptyArgs = new HashMap<>();
+    int defaultResult = (Integer) method.invoke(loadIndicesStep, emptyArgs);
+    assertEquals(defaultResult, Integer.MAX_VALUE);
+  }
+
+  @Test
+  public void testGetInt() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod("getInt", Map.class, int.class, String.class);
+    method.setAccessible(true);
+
+    Map<String, Optional<String>> parsedArgs = new HashMap<>();
+    parsedArgs.put("testKey", Optional.of("42"));
+
+    int result = (Integer) method.invoke(loadIndicesStep, parsedArgs, 10, "testKey");
+    assertEquals(result, 42);
+
+    // Test with missing key (should return default)
+    int defaultResult = (Integer) method.invoke(loadIndicesStep, parsedArgs, 10, "missingKey");
+    assertEquals(defaultResult, 10);
+  }
+
+  @Test
+  public void testConvertToRestoreIndicesArgs() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "convertToRestoreIndicesArgs", LoadIndicesArgs.class, int.class);
+    method.setAccessible(true);
+
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.aspectNames = Arrays.asList("container", "ownership");
+    args.urnLike = "urn:li:dataset:%";
+    args.gePitEpochMs = 1640908800000L;
+    args.lePitEpochMs = 1640995200000L;
+    args.lastUrn = "urn:li:dataset:test";
+
+    RestoreIndicesArgs result = (RestoreIndicesArgs) method.invoke(loadIndicesStep, args, 1000);
+
+    assertNotNull(result);
+    assertEquals(result.aspectNames, Arrays.asList("container", "ownership"));
+    assertEquals(result.urnLike, "urn:li:dataset:%");
+    assertEquals(result.gePitEpochMs, Long.valueOf(1640908800000L));
+    assertEquals(result.lePitEpochMs, Long.valueOf(1640995200000L));
+    assertEquals(result.limit, 1000);
+    assertTrue(result.urnBasedPagination);
+    assertEquals(result.lastUrn, "urn:li:dataset:test");
+  }
+
+  @Test
+  public void testConvertToRestoreIndicesArgsWithNulls() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "convertToRestoreIndicesArgs", LoadIndicesArgs.class, int.class);
+    method.setAccessible(true);
+
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    // All fields are null
+
+    RestoreIndicesArgs result = (RestoreIndicesArgs) method.invoke(loadIndicesStep, args, 1000);
+
+    assertNotNull(result);
+    assertTrue(result.aspectNames == null || result.aspectNames.isEmpty());
+    assertTrue(result.urnLike == null);
+    assertEquals(result.gePitEpochMs, Long.valueOf(0L));
+    assertTrue(result.lePitEpochMs > 0); // Should be current time
+    assertEquals(result.limit, 1000);
+    assertFalse(result.urnBasedPagination);
+    assertTrue(result.lastUrn == null || result.lastUrn.isEmpty());
+  }
+
+  @Test
+  public void testConvertToMetadataChangeLog() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "convertToMetadataChangeLog", OperationContext.class, EbeanAspectV2.class);
+    method.setAccessible(true);
+
+    // Create test aspect with proper key
+    EbeanAspectV2 aspect = new EbeanAspectV2();
+    EbeanAspectV2.PrimaryKey key =
+        new EbeanAspectV2.PrimaryKey(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleDataset,PROD)", "container", 0);
+    aspect.setKey(key);
+    aspect.setMetadata("{\"container\":{\"urn\":\"urn:li:container:test\"}}");
+    aspect.setCreatedOn(Timestamp.from(Instant.now()));
+    aspect.setCreatedBy("testUser");
+
+    // Mock entity registry
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+    when(mockEntitySpec.getAspectSpec("container")).thenReturn(mockAspectSpec);
+    when(mockAspectSpec.getDataTemplateClass())
+        .thenReturn((Class) com.linkedin.container.Container.class);
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockEntitySpec);
+
+    MetadataChangeLog result =
+        (MetadataChangeLog) method.invoke(loadIndicesStep, mockOperationContext, aspect);
+
+    assertNotNull(result);
+    assertEquals(result.getEntityType(), "dataset");
+    assertEquals(result.getChangeType(), ChangeType.RESTATE);
+    assertEquals(result.getAspectName(), "container");
+  }
+
+  @Test(expectedExceptions = Exception.class)
+  public void testConvertToMetadataChangeLogWithInvalidUrn() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "convertToMetadataChangeLog", OperationContext.class, EbeanAspectV2.class);
+    method.setAccessible(true);
+
+    // Create test aspect with invalid URN
+    EbeanAspectV2 aspect = new EbeanAspectV2();
+    aspect.setUrn("invalid-urn");
+    aspect.setAspect("container");
+    aspect.setVersion(0);
+    aspect.setMetadata("{}");
+    aspect.setCreatedOn(Timestamp.from(Instant.now()));
+    aspect.setCreatedBy("testUser");
+
+    method.invoke(loadIndicesStep, mockOperationContext, aspect);
+  }
+
+  @Test
+  public void testWriteBatchWithRetrySuccess() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "writeBatchWithRetry",
+            OperationContext.class,
+            List.class,
+            LoadIndicesResult.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    List<MetadataChangeLog> batch = new ArrayList<>();
+    batch.add(mock(MetadataChangeLog.class));
+
+    LoadIndicesResult result = new LoadIndicesResult();
+
+    doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
+
+    method.invoke(
+        loadIndicesStep,
+        mockOperationContext,
+        batch,
+        result,
+        (java.util.function.Function<String, Void>) msg -> null);
+
+    verify(mockUpdateIndicesService, times(1)).handleChangeEvents(any(), any());
+    assertEquals(result.ignored, 0);
+  }
+
+  @Test
+  public void testWriteBatchWithRetryFailureAndSplit() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "writeBatchWithRetry",
+            OperationContext.class,
+            List.class,
+            LoadIndicesResult.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    List<MetadataChangeLog> batch = new ArrayList<>();
+    batch.add(mock(MetadataChangeLog.class));
+    batch.add(mock(MetadataChangeLog.class));
+    batch.add(mock(MetadataChangeLog.class));
+    batch.add(mock(MetadataChangeLog.class));
+
+    LoadIndicesResult result = new LoadIndicesResult();
+
+    // First call fails, second succeeds
+    doThrow(new RuntimeException("First attempt fails"))
+        .doNothing()
+        .when(mockUpdateIndicesService)
+        .handleChangeEvents(any(), any());
+
+    method.invoke(
+        loadIndicesStep,
+        mockOperationContext,
+        batch,
+        result,
+        (java.util.function.Function<String, Void>) msg -> null);
+
+    // Should have been called multiple times due to retry and split
+    verify(mockUpdateIndicesService, atLeast(2)).handleChangeEvents(any(), any());
+  }
+
+  @Test
+  public void testWriteBatchWithRetryMaxRetriesExceeded() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "writeBatchWithRetry",
+            OperationContext.class,
+            List.class,
+            LoadIndicesResult.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    List<MetadataChangeLog> batch = new ArrayList<>();
+    batch.add(mock(MetadataChangeLog.class));
+    batch.add(mock(MetadataChangeLog.class));
+    batch.add(mock(MetadataChangeLog.class));
+    batch.add(mock(MetadataChangeLog.class));
+
+    LoadIndicesResult result = new LoadIndicesResult();
+
+    // Always fail
+    doThrow(new RuntimeException("Always fails"))
+        .when(mockUpdateIndicesService)
+        .handleChangeEvents(any(), any());
+
+    method.invoke(
+        loadIndicesStep,
+        mockOperationContext,
+        batch,
+        result,
+        (java.util.function.Function<String, Void>) msg -> null);
+
+    // Should have been called multiple times due to retries and batch splitting
+    verify(mockUpdateIndicesService, atLeast(4)).handleChangeEvents(any(), any());
+    assertEquals(result.ignored, 4); // All items should be marked as ignored after max retries
+  }
+
+  @Test
+  public void testWriteBatchWithRetrySuccessAfterRetries() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "writeBatchWithRetry",
+            OperationContext.class,
+            List.class,
+            LoadIndicesResult.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    List<MetadataChangeLog> batch = new ArrayList<>();
+    batch.add(mock(MetadataChangeLog.class));
+    batch.add(mock(MetadataChangeLog.class));
+
+    LoadIndicesResult result = new LoadIndicesResult();
+
+    // Fail first 2 times, succeed on 3rd attempt
+    doThrow(new RuntimeException("Fail attempt 1"))
+        .doThrow(new RuntimeException("Fail attempt 2"))
+        .doNothing()
+        .when(mockUpdateIndicesService)
+        .handleChangeEvents(any(), any());
+
+    method.invoke(
+        loadIndicesStep,
+        mockOperationContext,
+        batch,
+        result,
+        (java.util.function.Function<String, Void>) msg -> null);
+
+    // Should have been called 3 times (2 failures + 1 success)
+    verify(mockUpdateIndicesService, times(3)).handleChangeEvents(any(), any());
+    assertEquals(result.ignored, 1); // First half of split batch gets ignored, second half succeeds
+  }
+
+  @Test
+  public void testWriteBatchWithRetryMaxRetriesExceededWithSmallBatch() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "writeBatchWithRetry",
+            OperationContext.class,
+            List.class,
+            LoadIndicesResult.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    List<MetadataChangeLog> batch = new ArrayList<>();
+    batch.add(mock(MetadataChangeLog.class));
+    batch.add(mock(MetadataChangeLog.class));
+
+    LoadIndicesResult result = new LoadIndicesResult();
+
+    // Always fail - should exceed max retries (3) and split batch
+    doThrow(new RuntimeException("Always fails"))
+        .when(mockUpdateIndicesService)
+        .handleChangeEvents(any(), any());
+
+    method.invoke(
+        loadIndicesStep,
+        mockOperationContext,
+        batch,
+        result,
+        (java.util.function.Function<String, Void>) msg -> null);
+
+    // Should have been called 3 times: initial attempt + 2 retries before exceeding max retries
+    verify(mockUpdateIndicesService, times(3)).handleChangeEvents(any(), any());
+    assertEquals(result.ignored, 2); // Both items should be marked as ignored after max retries
+  }
+
+  @Test
+  public void testWriteBatchWithRetryBatchSplitting() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "writeBatchWithRetry",
+            OperationContext.class,
+            List.class,
+            LoadIndicesResult.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    List<MetadataChangeLog> batch = new ArrayList<>();
+    batch.add(mock(MetadataChangeLog.class));
+    batch.add(mock(MetadataChangeLog.class));
+    batch.add(mock(MetadataChangeLog.class));
+    batch.add(mock(MetadataChangeLog.class));
+
+    LoadIndicesResult result = new LoadIndicesResult();
+
+    // Fail on full batch, succeed on split batches
+    doThrow(new RuntimeException("Full batch fails"))
+        .doNothing() // First half succeeds
+        .doNothing() // Second half succeeds
+        .when(mockUpdateIndicesService)
+        .handleChangeEvents(any(), any());
+
+    method.invoke(
+        loadIndicesStep,
+        mockOperationContext,
+        batch,
+        result,
+        (java.util.function.Function<String, Void>) msg -> null);
+
+    // Should have been called 3 times: 1 full batch failure + 2 successful split batches
+    verify(mockUpdateIndicesService, times(3)).handleChangeEvents(any(), any());
+    assertEquals(result.ignored, 0); // No items should be ignored since splits succeeded
+  }
+
+  @Test
+  public void testWriteBatchWithRetryFirstHalfFailure() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "writeBatchWithRetry",
+            OperationContext.class,
+            List.class,
+            LoadIndicesResult.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    List<MetadataChangeLog> batch = new ArrayList<>();
+    batch.add(mock(MetadataChangeLog.class));
+    batch.add(mock(MetadataChangeLog.class));
+    batch.add(mock(MetadataChangeLog.class));
+    batch.add(mock(MetadataChangeLog.class));
+
+    LoadIndicesResult result = new LoadIndicesResult();
+
+    // Fail on full batch and first half, succeed on second half
+    doThrow(new RuntimeException("Full batch fails"))
+        .doThrow(new RuntimeException("First half fails"))
+        .doNothing() // Second half succeeds
+        .when(mockUpdateIndicesService)
+        .handleChangeEvents(any(), any());
+
+    method.invoke(
+        loadIndicesStep,
+        mockOperationContext,
+        batch,
+        result,
+        (java.util.function.Function<String, Void>) msg -> null);
+
+    // Should have been called 3 times: 1 full batch failure + 1 first half failure + 1 second half
+    // success
+    verify(mockUpdateIndicesService, times(3)).handleChangeEvents(any(), any());
+    assertEquals(result.ignored, 2); // First half (2 items) should be ignored
+  }
+
+  @Test
+  public void testWriteBatchWithRetrySingleItemFailure() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "writeBatchWithRetry",
+            OperationContext.class,
+            List.class,
+            LoadIndicesResult.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    List<MetadataChangeLog> batch = new ArrayList<>();
+    batch.add(mock(MetadataChangeLog.class));
+
+    LoadIndicesResult result = new LoadIndicesResult();
+
+    // Always fail
+    doThrow(new RuntimeException("Always fails"))
+        .when(mockUpdateIndicesService)
+        .handleChangeEvents(any(), any());
+
+    method.invoke(
+        loadIndicesStep,
+        mockOperationContext,
+        batch,
+        result,
+        (java.util.function.Function<String, Void>) msg -> null);
+
+    assertEquals(
+        result.ignored,
+        1); // Single item should be marked as ignored when it can't be split further
+  }
+
+  @Test
+  public void testProcessAllDataDirectlyWithConversionErrors() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "processAllDataDirectly",
+            OperationContext.class,
+            LoadIndicesArgs.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    // Mock the updateIndicesService to not throw exceptions
+    doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
+
+    // Create test args with limit
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 100;
+    args.limit = 10;
+    args.aspectNames = java.util.List.of("container", "ownership");
+
+    // Add a test row with invalid metadata to cause conversion error
+    insertTestRow(
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,InvalidDataset,PROD)",
+        "container",
+        0,
+        Instant.now(),
+        "testUser");
+
+    // Call the method
+    Object result =
+        method.invoke(
+            loadIndicesStep,
+            mockOperationContext,
+            args,
+            (java.util.function.Function<String, Void>) msg -> null);
+
+    assertNotNull(result);
+    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+  }
+
+  @Test
+  public void testProcessAllDataDirectlyWithLimit() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "processAllDataDirectly",
+            OperationContext.class,
+            LoadIndicesArgs.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
+
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 100;
+    args.limit = 1; // Very small limit
+    args.aspectNames = java.util.List.of("container");
+
+    Object result =
+        method.invoke(
+            loadIndicesStep,
+            mockOperationContext,
+            args,
+            (java.util.function.Function<String, Void>) msg -> null);
+
+    assertNotNull(result);
+    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+  }
+
+  @Test
+  public void testProcessAllDataDirectlyWithUrnLike() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "processAllDataDirectly",
+            OperationContext.class,
+            LoadIndicesArgs.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
+
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 100;
+    args.limit = 10;
+    args.urnLike = "urn:li:dataset:%";
+    args.aspectNames = java.util.List.of("container");
+
+    Object result =
+        method.invoke(
+            loadIndicesStep,
+            mockOperationContext,
+            args,
+            (java.util.function.Function<String, Void>) msg -> null);
+
+    assertNotNull(result);
+    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+  }
+
+  @Test
+  public void testProcessAllDataDirectlyWithTimeFilters() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "processAllDataDirectly",
+            OperationContext.class,
+            LoadIndicesArgs.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
+
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 100;
+    args.limit = 10;
+    args.gePitEpochMs = Instant.now().minusSeconds(3600).toEpochMilli(); // 1 hour ago
+    args.lePitEpochMs = Instant.now().toEpochMilli(); // now
+    args.aspectNames = java.util.List.of("container");
+
+    Object result =
+        method.invoke(
+            loadIndicesStep,
+            mockOperationContext,
+            args,
+            (java.util.function.Function<String, Void>) msg -> null);
+
+    assertNotNull(result);
+    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+  }
+
+  @Test
+  public void testProcessAllDataDirectlyWithLastUrn() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "processAllDataDirectly",
+            OperationContext.class,
+            LoadIndicesArgs.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
+
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 100;
+    args.limit = 10;
+    args.lastUrn = "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleDataset1,PROD)";
+    args.aspectNames = java.util.List.of("container");
+
+    Object result =
+        method.invoke(
+            loadIndicesStep,
+            mockOperationContext,
+            args,
+            (java.util.function.Function<String, Void>) msg -> null);
+
+    assertNotNull(result);
+    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+  }
+
+  @Test
+  public void testProcessAllDataDirectlyWithEmptyBatch() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "processAllDataDirectly",
+            OperationContext.class,
+            LoadIndicesArgs.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
+
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 100;
+    args.limit = 10;
+    args.aspectNames = java.util.List.of("nonexistent"); // No matching aspects
+
+    Object result =
+        method.invoke(
+            loadIndicesStep,
+            mockOperationContext,
+            args,
+            (java.util.function.Function<String, Void>) msg -> null);
+
+    assertNotNull(result);
+    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+  }
+
+  @Test
+  public void testProcessAllDataDirectlyWithFinalFlushFailure() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "processAllDataDirectly",
+            OperationContext.class,
+            LoadIndicesArgs.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    // Mock successful batch processing but fail on final flush
+    doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
+    doThrow(new RuntimeException("Flush failed")).when(mockUpdateIndicesService).flush();
+
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 100;
+    args.limit = 10;
+    args.aspectNames = java.util.List.of("container");
+
+    // Execute - should not throw exception despite flush failure
+    Object result =
+        method.invoke(
+            loadIndicesStep,
+            mockOperationContext,
+            args,
+            (java.util.function.Function<String, Void>) msg -> null);
+
+    // Verify flush was called and failed gracefully
+    verify(mockUpdateIndicesService).flush();
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testGetDefaultAspectNamesWithSearchableAspects() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod("getDefaultAspectNames", OperationContext.class);
+    method.setAccessible(true);
+
+    // Create mock entity specs with searchable aspects
+    com.linkedin.metadata.models.EntitySpec mockEntitySpec1 =
+        mock(com.linkedin.metadata.models.EntitySpec.class);
+    com.linkedin.metadata.models.EntitySpec mockEntitySpec2 =
+        mock(com.linkedin.metadata.models.EntitySpec.class);
+
+    // Create mock aspect specs
+    com.linkedin.metadata.models.AspectSpec mockAspectSpec1 =
+        mock(com.linkedin.metadata.models.AspectSpec.class);
+    com.linkedin.metadata.models.AspectSpec mockAspectSpec2 =
+        mock(com.linkedin.metadata.models.AspectSpec.class);
+    com.linkedin.metadata.models.AspectSpec mockKeyAspectSpec =
+        mock(com.linkedin.metadata.models.AspectSpec.class);
+
+    // Create mock searchable field specs
+    com.linkedin.metadata.models.SearchableFieldSpec mockSearchableFieldSpec =
+        mock(com.linkedin.metadata.models.SearchableFieldSpec.class);
+
+    // Setup entity registry mock
+    when(mockEntityRegistry.getEntitySpecs())
+        .thenReturn(
+            java.util.Map.of(
+                "dataset", mockEntitySpec1,
+                "chart", mockEntitySpec2));
+
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockEntitySpec1);
+    when(mockEntityRegistry.getEntitySpec("chart")).thenReturn(mockEntitySpec2);
+
+    // Setup entity specs
+    when(mockEntitySpec1.getAspectSpecs())
+        .thenReturn(java.util.List.of(mockAspectSpec1, mockKeyAspectSpec));
+    when(mockEntitySpec2.getAspectSpecs()).thenReturn(java.util.List.of(mockAspectSpec2));
+
+    // Setup aspect specs - first has searchable fields, second doesn't
+    when(mockAspectSpec1.getName()).thenReturn("datasetProperties");
+    when(mockAspectSpec1.getSearchableFieldSpecs())
+        .thenReturn(java.util.List.of(mockSearchableFieldSpec));
+
+    when(mockAspectSpec2.getName()).thenReturn("chartInfo");
+    when(mockAspectSpec2.getSearchableFieldSpecs()).thenReturn(java.util.List.of());
+
+    when(mockKeyAspectSpec.getName()).thenReturn("datasetKey");
+    when(mockKeyAspectSpec.getSearchableFieldSpecs()).thenReturn(java.util.List.of());
+
+    // Setup key aspect names
+    when(mockEntitySpec1.getKeyAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec2.getKeyAspectName()).thenReturn("chartKey");
+
+    // Execute method
+    @SuppressWarnings("unchecked")
+    java.util.Set<String> result =
+        (java.util.Set<String>) method.invoke(loadIndicesStep, mockOperationContext);
+
+    // Verify results
+    assertNotNull(result);
+    assertTrue(result.contains("datasetProperties")); // Has searchable fields
+    assertTrue(result.contains("datasetKey")); // Key aspect included
+    assertFalse(result.contains("chartInfo")); // No searchable fields, not included
+    assertFalse(result.contains("chartKey")); // Key aspect not included since no searchable aspects
+  }
+
+  @Test
+  public void testGetDefaultAspectNamesWithEntityProcessingError() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod("getDefaultAspectNames", OperationContext.class);
+    method.setAccessible(true);
+
+    // Create mock entity specs
+    com.linkedin.metadata.models.EntitySpec mockEntitySpec1 =
+        mock(com.linkedin.metadata.models.EntitySpec.class);
+    com.linkedin.metadata.models.EntitySpec mockEntitySpec2 =
+        mock(com.linkedin.metadata.models.EntitySpec.class);
+
+    // Setup entity registry mock
+    when(mockEntityRegistry.getEntitySpecs())
+        .thenReturn(
+            java.util.Map.of(
+                "dataset", mockEntitySpec1,
+                "chart", mockEntitySpec2));
+
+    // First entity works fine
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockEntitySpec1);
+    com.linkedin.metadata.models.AspectSpec mockAspectSpec1 =
+        mock(com.linkedin.metadata.models.AspectSpec.class);
+    when(mockEntitySpec1.getAspectSpecs()).thenReturn(java.util.List.of(mockAspectSpec1));
+    when(mockAspectSpec1.getName()).thenReturn("datasetProperties");
+    when(mockAspectSpec1.getSearchableFieldSpecs())
+        .thenReturn(
+            java.util.List.of(mock(com.linkedin.metadata.models.SearchableFieldSpec.class)));
+    when(mockEntitySpec1.getKeyAspectName()).thenReturn("datasetKey");
+
+    // Second entity throws exception
+    when(mockEntityRegistry.getEntitySpec("chart"))
+        .thenThrow(new RuntimeException("Entity processing failed"));
+
+    // Execute method - should not throw exception
+    @SuppressWarnings("unchecked")
+    java.util.Set<String> result =
+        (java.util.Set<String>) method.invoke(loadIndicesStep, mockOperationContext);
+
+    // Verify results - should still include aspects from first entity
+    assertNotNull(result);
+    assertTrue(result.contains("datasetProperties"));
+    assertTrue(result.contains("datasetKey"));
+  }
+
+  @Test
+  public void testGetDefaultAspectNamesWithNoSearchableAspects() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod("getDefaultAspectNames", OperationContext.class);
+    method.setAccessible(true);
+
+    // Create mock entity spec with no searchable aspects
+    com.linkedin.metadata.models.EntitySpec mockEntitySpec =
+        mock(com.linkedin.metadata.models.EntitySpec.class);
+    com.linkedin.metadata.models.AspectSpec mockAspectSpec =
+        mock(com.linkedin.metadata.models.AspectSpec.class);
+
+    // Setup entity registry mock
+    when(mockEntityRegistry.getEntitySpecs())
+        .thenReturn(java.util.Map.of("dataset", mockEntitySpec));
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockEntitySpec);
+
+    // Setup aspect spec with no searchable fields
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(java.util.List.of(mockAspectSpec));
+    when(mockAspectSpec.getName()).thenReturn("datasetProperties");
+    when(mockAspectSpec.getSearchableFieldSpecs()).thenReturn(java.util.List.of());
+    when(mockEntitySpec.getKeyAspectName()).thenReturn("datasetKey");
+
+    // Execute method
+    @SuppressWarnings("unchecked")
+    java.util.Set<String> result =
+        (java.util.Set<String>) method.invoke(loadIndicesStep, mockOperationContext);
+
+    // Verify results - should be empty since no searchable aspects
+    assertNotNull(result);
+    assertTrue(result.isEmpty());
+  }
+
+  @Test
+  public void testProcessAllDataDirectlyWithFlushFailure() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "processAllDataDirectly",
+            OperationContext.class,
+            LoadIndicesArgs.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
+    doThrow(new RuntimeException("Flush failed")).when(mockUpdateIndicesService).flush();
+
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 100;
+    args.limit = 10;
+    args.aspectNames = java.util.List.of("container");
+
+    // Should not throw exception even if flush fails
+    Object result =
+        method.invoke(
+            loadIndicesStep,
+            mockOperationContext,
+            args,
+            (java.util.function.Function<String, Void>) msg -> null);
+
+    assertNotNull(result);
+    verify(mockUpdateIndicesService, atLeastOnce()).flush();
   }
 }

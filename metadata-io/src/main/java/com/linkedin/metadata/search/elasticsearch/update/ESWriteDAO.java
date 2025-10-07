@@ -6,6 +6,8 @@ import static org.opensearch.index.reindex.AbstractBulkByScrollRequest.AUTO_SLIC
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.time.Duration;
@@ -22,15 +24,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.core.CountResponse;
 import org.opensearch.client.indices.GetIndexRequest;
-import org.opensearch.client.indices.GetIndexResponse;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.client.tasks.TaskId;
-import org.opensearch.client.tasks.TaskSubmissionResponse;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.QueryBuilder;
@@ -43,7 +42,7 @@ import org.opensearch.script.ScriptType;
 @RequiredArgsConstructor
 public class ESWriteDAO {
   private final ElasticSearchConfiguration config;
-  private final RestHighLevelClient searchClient;
+  private final SearchClientShim<?> searchClient;
   @Getter private final ESBulkProcessor bulkProcessor;
 
   /** Result of a delete by query operation */
@@ -127,7 +126,7 @@ public class ESWriteDAO {
   private String[] getIndices(String pattern) {
     try {
       GetIndexResponse response =
-          searchClient.indices().get(new GetIndexRequest(pattern), RequestOptions.DEFAULT);
+          searchClient.getIndex(new GetIndexRequest(pattern), RequestOptions.DEFAULT);
       return response.getIndices();
     } catch (IOException e) {
       log.error("Failed to get indices using pattern {}", pattern);
@@ -140,7 +139,7 @@ public class ESWriteDAO {
    * CompletableFuture containing the task ID
    */
   @Nonnull
-  public CompletableFuture<TaskSubmissionResponse> deleteByQueryAsync(
+  public CompletableFuture<String> deleteByQueryAsync(
       @Nonnull String indexName,
       @Nonnull QueryBuilder query,
       @Nullable BulkDeleteConfiguration overrideConfig) {
@@ -154,8 +153,7 @@ public class ESWriteDAO {
             DeleteByQueryRequest request = buildDeleteByQueryRequest(indexName, query, finalConfig);
 
             // Submit the task asynchronously
-            TaskSubmissionResponse taskId =
-                searchClient.submitDeleteByQueryTask(request, RequestOptions.DEFAULT);
+            String taskId = searchClient.submitDeleteByQueryTask(request, RequestOptions.DEFAULT);
 
             log.info("Started async delete by query task: {} for index: {}", taskId, indexName);
 
@@ -208,9 +206,9 @@ public class ESWriteDAO {
         // Submit delete by query task
         DeleteByQueryRequest request = buildDeleteByQueryRequest(indexName, query, finalConfig);
 
-        TaskSubmissionResponse taskSubmission =
+        String taskSubmission =
             searchClient.submitDeleteByQueryTask(request, RequestOptions.DEFAULT);
-        TaskId taskId = parseTaskId(taskSubmission.getTask());
+        TaskId taskId = parseTaskId(taskSubmission);
         lastTaskId = taskId;
 
         log.info("Submitted delete by query task: {} for index: {}", taskId, indexName);
@@ -319,7 +317,7 @@ public class ESWriteDAO {
       getTaskRequest.setTimeout(TimeValue.timeValueMillis(finalTimeout.toMillis()));
 
       Optional<GetTaskResponse> taskResponse =
-          searchClient.tasks().get(getTaskRequest, RequestOptions.DEFAULT);
+          searchClient.getTask(getTaskRequest, RequestOptions.DEFAULT);
 
       if (taskResponse.isEmpty() || !taskResponse.get().isCompleted()) {
         // Count remaining documents to determine if any progress was made

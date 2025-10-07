@@ -30,6 +30,7 @@ public class LoadIndices implements Upgrade {
   public static final String GE_PIT_EPOCH_MS_ARG_NAME = "gePitEpochMs";
   public static final String LE_PIT_EPOCH_MS_ARG_NAME = "lePitEpochMs";
   public static final String ASPECT_NAMES_ARG_NAME = "aspectNames";
+  public static final String LAST_URN_ARG_NAME = "lastUrn";
 
   private final List<UpgradeStep> _steps;
 

@@ -19,8 +19,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -76,7 +76,7 @@ public class NonBlockingConfigs {
       final OperationContext opContext,
       EntityService<?> entityService,
       ElasticSearchService elasticSearchService,
-      RestHighLevelClient restHighLevelClient,
+      SearchClientShim<?> restHighLevelClient,
       @Value("${systemUpdate.processInstanceHasRunEvents.enabled}") final boolean enabled,
       @Value("${systemUpdate.processInstanceHasRunEvents.reprocess.enabled}")
           boolean reprocessEnabled,

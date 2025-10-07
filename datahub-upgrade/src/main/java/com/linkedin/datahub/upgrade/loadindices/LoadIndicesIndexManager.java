@@ -3,6 +3,8 @@ package com.linkedin.datahub.upgrade.loadindices;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
@@ -11,9 +13,7 @@ import org.opensearch.action.admin.indices.settings.get.GetSettingsRequest;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.GetIndexRequest;
-import org.opensearch.client.indices.GetIndexResponse;
 import org.opensearch.common.settings.Settings;
 
 /**
@@ -26,7 +26,7 @@ public class LoadIndicesIndexManager {
   private static final String REFRESH_INTERVAL_SETTING = "index.refresh_interval";
   private static final String DISABLED_REFRESH_INTERVAL = "-1";
 
-  private final RestHighLevelClient searchClient;
+  private final SearchClientShim<?> searchClient;
   private final IndexConvention indexConvention;
   private final EntityRegistry entityRegistry;
   private final String configuredRefreshInterval;
@@ -35,7 +35,7 @@ public class LoadIndicesIndexManager {
   private boolean indicesDiscovered = false;
 
   public LoadIndicesIndexManager(
-      RestHighLevelClient searchClient,
+      SearchClientShim<?> searchClient,
       IndexConvention indexConvention,
       EntityRegistry entityRegistry,
       String configuredRefreshInterval) {
@@ -56,7 +56,7 @@ public class LoadIndicesIndexManager {
 
     // Get all existing indices
     GetIndexRequest request = new GetIndexRequest("*");
-    GetIndexResponse response = searchClient.indices().get(request, RequestOptions.DEFAULT);
+    GetIndexResponse response = searchClient.getIndex(request, RequestOptions.DEFAULT);
     String[] allIndices = response.getIndices();
 
     log.info("Found {} total indices in Elasticsearch", allIndices.length);
@@ -201,8 +201,7 @@ public class LoadIndicesIndexManager {
             .includeDefaults(true)
             .names(REFRESH_INTERVAL_SETTING);
 
-    GetSettingsResponse response =
-        searchClient.indices().getSettings(request, RequestOptions.DEFAULT);
+    GetSettingsResponse response = searchClient.getIndexSettings(request, RequestOptions.DEFAULT);
     return response.getSetting(indexName, REFRESH_INTERVAL_SETTING);
   }
 
@@ -212,7 +211,7 @@ public class LoadIndicesIndexManager {
     Settings settings = Settings.builder().put(REFRESH_INTERVAL_SETTING, interval).build();
     request.settings(settings);
 
-    searchClient.indices().putSettings(request, RequestOptions.DEFAULT);
+    searchClient.updateIndexSettings(request, RequestOptions.DEFAULT);
   }
 
   /** Returns true if refresh intervals are currently disabled. */

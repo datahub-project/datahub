@@ -6,17 +6,17 @@ import static org.testng.Assert.assertNotNull;
 import com.linkedin.datahub.upgrade.loadindices.LoadIndices;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.client.RestHighLevelClient;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class LoadIndicesConfigTest {
 
-  @Mock private RestHighLevelClient mockSearchClient;
+  @Mock private SearchClientShim<?> mockSearchClient;
   @Mock private IndexConvention mockIndexConvention;
   @Mock private EntityRegistry mockEntityRegistry;
   @Mock private SearchContext mockSearchContext;

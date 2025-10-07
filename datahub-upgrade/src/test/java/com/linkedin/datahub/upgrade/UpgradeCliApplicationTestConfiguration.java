@@ -9,6 +9,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.registry.SchemaRegistryService;
 import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.mxe.TopicConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
@@ -27,8 +28,10 @@ import org.springframework.context.annotation.Primary;
 @Import(value = {SystemAuthenticationFactory.class})
 public class UpgradeCliApplicationTestConfiguration {
 
+  // TODO: We cannot remove the MockBean annotation here because with MockitoBean it is still trying
+  // to instantiate
+  //       see: https://github.com/spring-projects/spring-framework/issues/33934
   @MockBean public UpgradeCli upgradeCli;
-
   @MockBean public SearchService searchService;
 
   @MockBean public GraphService graphService;
@@ -36,6 +39,8 @@ public class UpgradeCliApplicationTestConfiguration {
   @MockBean public EntityRegistry entityRegistry;
 
   @MockBean public ConfigEntityRegistry configEntityRegistry;
+
+  @MockBean public SearchClientShim<?> searchClientShim;
 
   @Primary
   @Bean

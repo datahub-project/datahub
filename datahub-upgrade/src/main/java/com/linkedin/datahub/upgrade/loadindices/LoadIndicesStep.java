@@ -164,6 +164,12 @@ public class LoadIndicesStep implements UpgradeStep {
           .addLine(
               String.format("aspectNames not provided, using defaults: %s", result.aspectNames));
     }
+    if (containsKey(context.parsedArgs(), LoadIndices.LAST_URN_ARG_NAME)) {
+      result.lastUrn = context.parsedArgs().get(LoadIndices.LAST_URN_ARG_NAME).get();
+      context.report().addLine(String.format("lastUrn is %s", result.lastUrn));
+    } else {
+      context.report().addLine("No lastUrn arg present - will process from beginning");
+    }
     return result;
   }
 
@@ -206,6 +212,9 @@ public class LoadIndicesStep implements UpgradeStep {
         }
         if (args.gePitEpochMs != null) {
           countQuery = countQuery.ge(EbeanAspectV2.CREATED_ON_COLUMN, args.gePitEpochMs);
+        }
+        if (args.lastUrn != null) {
+          countQuery = countQuery.ge(EbeanAspectV2.URN_COLUMN, args.lastUrn);
         }
 
         totalRecords = countQuery.findCount();
@@ -263,6 +272,10 @@ public class LoadIndicesStep implements UpgradeStep {
                     int aspectsProcessed = aspects.size() - conversionErrors;
                     totalProcessed[0] += aspectsProcessed;
 
+                    // Log the last URN of every batch for resume capability
+                    String lastUrn = aspects.get(aspects.size() - 1).getKey().getUrn();
+                    log.info("Batch completed - Last URN processed: {}", lastUrn);
+
                     if (totalProcessed[0] % batchSize == 0 || conversionErrors > 0) {
                       long currentTime = System.currentTimeMillis();
                       long elapsedTime = currentTime - totalStartTime;
@@ -272,16 +285,17 @@ public class LoadIndicesStep implements UpgradeStep {
                       if (conversionErrors > 0) {
                         progressMessage =
                             String.format(
-                                "Processed %d aspects (total: %d, %d conversion errors) - %.1f aspects/sec",
+                                "Processed %d aspects (total: %d, %d conversion errors) - %.1f aspects/sec - Last URN: %s",
                                 aspectsProcessed,
                                 totalProcessed[0],
                                 conversionErrors,
-                                aspectsPerSecond);
+                                aspectsPerSecond,
+                                lastUrn);
                       } else {
                         progressMessage =
                             String.format(
-                                "Processed %d aspects - %.1f aspects/sec",
-                                totalProcessed[0], aspectsPerSecond);
+                                "Processed %d aspects - %.1f aspects/sec - Last URN: %s",
+                                totalProcessed[0], aspectsPerSecond, lastUrn);
                       }
 
                       if (totalRecords > 0 && aspectsPerSecond > 0 && totalProcessed[0] > 50000) {
@@ -531,6 +545,12 @@ public class LoadIndicesStep implements UpgradeStep {
     restoreArgs.lePitEpochMs =
         args.lePitEpochMs != null ? args.lePitEpochMs : System.currentTimeMillis();
     restoreArgs.limit = limit;
+
+    // Enable URN-based pagination if lastUrn is provided
+    if (args.lastUrn != null) {
+      restoreArgs.urnBasedPagination = true;
+      restoreArgs.lastUrn = args.lastUrn;
+    }
 
     return restoreArgs;
   }

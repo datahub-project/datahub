@@ -11,6 +11,7 @@ public class LoadIndicesArgs {
   public Long lePitEpochMs;
   public Long gePitEpochMs;
   public Collection<String> aspectNames;
+  public String lastUrn;
 
   public LoadIndicesArgs clone() {
     LoadIndicesArgs cloned = new LoadIndicesArgs();
@@ -20,6 +21,7 @@ public class LoadIndicesArgs {
     cloned.lePitEpochMs = this.lePitEpochMs;
     cloned.gePitEpochMs = this.gePitEpochMs;
     cloned.aspectNames = this.aspectNames;
+    cloned.lastUrn = this.lastUrn;
     return cloned;
   }
 }
