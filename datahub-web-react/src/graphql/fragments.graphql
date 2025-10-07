@@ -2612,6 +2612,9 @@ fragment ingestionSourceFields on IngestionSource {
         canDelete
         canExecute
     }
+    source {
+        type
+    }
 }
 
 fragment minimalIngestionExecutionRequestFields on ExecutionRequest {

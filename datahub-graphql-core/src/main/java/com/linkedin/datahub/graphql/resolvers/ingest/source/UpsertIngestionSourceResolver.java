@@ -127,8 +127,7 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
       result.setSource(
           new DataHubIngestionSourceSource()
               .setType(
-                  DataHubIngestionSourceSourceType.valueOf(
-                      input.getSource().getType().toString())));
+                  DataHubIngestionSourceSourceType.valueOf(input.getSource().getType().name())));
     }
     return result;
   }

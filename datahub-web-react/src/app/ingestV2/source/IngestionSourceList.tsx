@@ -144,6 +144,7 @@ const removeExecutionsFromIngestionSource = (source) => {
             type: source.type,
             schedule: source.schedule,
             config: source.config,
+            source: source.source,
         };
     }
     return undefined;
@@ -485,6 +486,7 @@ export const IngestionSourceList = ({
                             canView: true,
                         },
                         executions: null,
+                        source: input.source || null,
                         ownership: {
                             owners: buildOwnerEntities(newUrn, owners, defaultOwnerType),
                             lastModified: {
@@ -600,6 +602,12 @@ export const IngestionSourceList = ({
                     interval: recipeBuilderState.schedule?.interval as string,
                     timezone: recipeBuilderState.schedule?.timezone as string,
                 },
+                // Preserve source field when editing existing sources (especially system sources)
+                source: focusSource?.source
+                    ? {
+                          type: focusSource.source.type,
+                      }
+                    : undefined,
             },
             resetState,
             shouldRun,

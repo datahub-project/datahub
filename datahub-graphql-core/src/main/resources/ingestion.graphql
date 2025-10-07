@@ -523,6 +523,11 @@ type IngestionSource {
   Privileges given to a user relevant to this ingestion source
   """
   privileges: IngestionSourcePrivileges
+
+  """
+  The source or origin of the Ingestion Source
+  """
+  source: IngestionSourceSource
 }
 
 """
@@ -655,26 +660,40 @@ input UpdateIngestionSourceInput {
   config: UpdateIngestionSourceConfigInput!
 
   """
-  Optional information about the origin of the ingestion
+  Optionally specify source
   """
-  source: UpdateIngestionSourceSourceInput
+  source: IngestionSourceSourceInput
 }
 
 """
-Information about the origin of an ingestion source. Currently only used for provisioning system ingestion sources.
+Source information for an ingestion source
 """
-input UpdateIngestionSourceSourceInput {
+type IngestionSourceSource {
   """
-  The type of the source
+  The source type of the ingestion source
   """
-  type: IngestionSourceSourceType
+  type: IngestionSourceSourceType!
 }
 
+"""
+Input for specifying ingestion source source information
+"""
+input IngestionSourceSourceInput {
+  """
+  The source type of the ingestion source
+  """
+  type: IngestionSourceSourceType!
+}
+
+"""
+The type of ingestion source source
+"""
 enum IngestionSourceSourceType {
   """
-  The source is a "system" ingestion source, hidden from the normal UI experience
+  A system internal source, e.g. for running search indexing operations, feature computation, etc.
   """
   SYSTEM
+
   """
   A DataHub User defined the source
   """
