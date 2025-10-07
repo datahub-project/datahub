@@ -1218,6 +1218,117 @@ public class LoadIndicesStepTest {
   }
 
   @Test
+  public void testProcessAllDataDirectlyWithNonEmptyBatchButAllConversionErrors() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "processAllDataDirectly",
+            OperationContext.class,
+            LoadIndicesArgs.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    // Mock the updateIndicesService to not throw exceptions
+    doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
+
+    // Create test args with small batch size to ensure we hit the batch processing logic
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 2; // Small batch size to trigger batch processing
+    args.limit = 10;
+    args.aspectNames = java.util.List.of("container", "ownership");
+
+    // Add test rows with invalid metadata to cause conversion errors
+    // This will create a batch that is not empty but all aspects fail conversion
+    insertTestRow(
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,InvalidDataset1,PROD)",
+        "container",
+        0,
+        Instant.now(),
+        "testUser");
+
+    insertTestRow(
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,InvalidDataset2,PROD)",
+        "ownership",
+        0,
+        Instant.now(),
+        "testUser");
+
+    // Add a valid row to ensure we have some data to process
+    insertTestRow(
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,ValidDataset,PROD)",
+        "container",
+        0,
+        Instant.now(),
+        "testUser");
+
+    // Call the method
+    Object result =
+        method.invoke(
+            loadIndicesStep,
+            mockOperationContext,
+            args,
+            (java.util.function.Function<String, Void>) msg -> null);
+
+    assertNotNull(result);
+    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+
+    // Verify that the method completed successfully even with conversion errors
+    LoadIndicesResult loadResult = (LoadIndicesResult) result;
+    assertTrue(loadResult.ignored > 0); // Some aspects should be ignored due to conversion errors
+  }
+
+  @Test
+  public void testProcessAllDataDirectlyWithBatchProcessing() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "processAllDataDirectly",
+            OperationContext.class,
+            LoadIndicesArgs.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    // Mock the updateIndicesService to not throw exceptions
+    doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
+
+    // Create test args with small batch size to ensure batch processing is triggered
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 2; // Small batch size to trigger batch processing
+    args.limit = 5;
+    args.aspectNames = java.util.List.of("container");
+
+    // Add test rows to ensure we have data to process
+    insertTestRow(
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,TestDataset1,PROD)",
+        "container",
+        0,
+        Instant.now(),
+        "testUser");
+
+    insertTestRow(
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,TestDataset2,PROD)",
+        "container",
+        0,
+        Instant.now(),
+        "testUser");
+
+    // Call the method
+    Object result =
+        method.invoke(
+            loadIndicesStep,
+            mockOperationContext,
+            args,
+            (java.util.function.Function<String, Void>) msg -> null);
+
+    assertNotNull(result);
+    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+
+    // Verify that the method completed successfully
+    LoadIndicesResult loadResult = (LoadIndicesResult) result;
+    assertNotNull(loadResult);
+    // The key test is that the method doesn't throw an exception when processing batches
+    // This tests the !mclBatch.isEmpty() logic path
+  }
+
+  @Test
   public void testProcessAllDataDirectlyWithFlushFailure() throws Exception {
     var method =
         LoadIndicesStep.class.getDeclaredMethod(
