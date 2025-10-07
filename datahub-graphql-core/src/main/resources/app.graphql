@@ -28,7 +28,11 @@ extend type Query {
   """
   globalHomePageSettings: GlobalHomePageSettings
 
-  getPresignedUploadUrl(input: GetPresignedUploadUrlInput!): GetPresignedUploadUrlResponse!
+  """
+  Generates a presigned url to upload files
+  TODO:: move this and all related into separated file
+  """
+  getPresignedUploadUrl(input: GetPresignedUploadUrlInput!): GetPresignedUploadUrl!
 }
 
 extend type Mutation {
@@ -899,31 +903,29 @@ input GetPresignedUploadUrlInput {
   """
   The scenario for the upload (e.g., ASSET_DOCUMENTATION, PROFILE_IMAGE).
   """
-  scenario: UPLOAD_DOWNLOAD_SCENARIO!
-  """
-  A UUID for the file to be uploaded.
-  """
-  fileId: String!
+  scenario: UploadDownloadScenario!
   """
   The URN of the asset associated with the upload (required when scenario is ASSET_DOCUMENTATION).
   """
   assetUrn: String
+
+  """
+  Optional content type of file e.g. "application/pdf"
+  """
+  contentType: String
 }
 
 """
 Enum to specify the context of the upload.
 """
-enum UPLOAD_DOWNLOAD_SCENARIO {
+enum UploadDownloadScenario {
   """
   Upload for asset documentation.
   """
   ASSET_DOCUMENTATION
-  """
-  Upload for a profile image.
-  """
-  PROFILE_IMAGE
 }
 
-type GetPresignedUploadUrlResponse {
+type GetPresignedUploadUrl {
   url: String!
+  fileId: String!
 }
