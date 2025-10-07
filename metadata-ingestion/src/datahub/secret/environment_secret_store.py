@@ -9,6 +9,9 @@ class EnvironmentSecretStore(SecretStore):
     def __init__(self, config):
         pass
 
+    def close(self) -> None:
+        return
+
     def get_secret_values(self, secret_names: List[str]) -> Dict[str, Union[str, None]]:
         values = {}
         for secret_name in secret_names:
