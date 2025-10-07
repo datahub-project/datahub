@@ -73,6 +73,19 @@ class FivetranLogAPI:
                 if result is None:
                     raise ValueError("Failed to retrieve BigQuery project ID")
                 fivetran_log_database = result[0]
+        elif destination_platform == "databricks":
+            databricks_destination_config = (
+                self.fivetran_log_config.databricks_destination_config
+            )
+            if databricks_destination_config is not None:
+                engine = create_engine(
+                    databricks_destination_config.get_sql_alchemy_url(
+                        databricks_destination_config.catalog
+                    ),
+                    **databricks_destination_config.get_options(),
+                )
+                fivetran_log_query.set_schema(databricks_destination_config.log_schema)
+                fivetran_log_database = databricks_destination_config.catalog
         else:
             raise ConfigurationError(
                 f"Destination platform '{destination_platform}' is not yet supported."

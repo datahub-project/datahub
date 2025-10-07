@@ -5,6 +5,7 @@ import styled from 'styled-components';
 
 import TagStyleEntity from '@app/shared/TagStyleEntity';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { EntityType } from '@types';
 
@@ -37,7 +38,8 @@ export const TagProfileDrawer = ({ closeTagProfileDrawer, tagProfileDrawerVisibl
                             </Button>
                         </Space>
                         <Space>
-                            <Button href={entityRegistry.getEntityUrl(EntityType.Tag, urn)}>
+                            {/* broken */}
+                            <Button href={resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Tag, urn))}>
                                 <InfoCircleOutlined /> Tag Details
                             </Button>
                         </Space>

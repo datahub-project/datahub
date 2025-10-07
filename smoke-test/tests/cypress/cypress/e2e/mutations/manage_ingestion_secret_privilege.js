@@ -168,7 +168,7 @@ describe("Manage Ingestion and Secret Privileges", () => {
     cy.waitTextVisible("Welcome back");
     cy.hideOnboardingTour();
     cy.waitTextVisible(name);
-    cy.clickOptionWithText("Ingestion");
+    cy.get('[id="home-page-ingestion"]').scrollIntoView().click();
     cy.wait(1000);
     cy.get("body").click();
     cy.waitTextVisible("Manage Data Sources");

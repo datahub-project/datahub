@@ -9,11 +9,11 @@ import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.query.SearchDAOTestBase;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.fixtures.search.SampleDataFixtureConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import lombok.Getter;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
@@ -26,7 +26,7 @@ import org.testng.annotations.Test;
   SearchTestContainerConfiguration.class
 })
 public class SearchDAOOpenSearchTest extends SearchDAOTestBase {
-  @Autowired private RestHighLevelClient searchClient;
+  @Autowired private SearchClientShim<?> searchClient;
   @Autowired private SearchConfiguration searchConfiguration;
 
   @Autowired

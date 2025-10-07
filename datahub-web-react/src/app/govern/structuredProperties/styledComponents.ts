@@ -154,7 +154,7 @@ export const StyledCheckbox = styled(Checkbox)`
     .ant-checkbox-checked .ant-checkbox-inner {
         background-color: ${(props) => props.theme.styles['primary-color']};
         border-color: ${(props) => props.theme.styles['primary-color']} !important;
-    },
+    }
 `;
 
 export const StyledText = styled.div`
@@ -165,6 +165,26 @@ export const StyledText = styled.div`
 export const StyledFormItem = styled(Form.Item)`
     margin: 0;
 `;
+
+export const SupItemsContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    padding-top: 32px;
+`;
+
+export const StyledFormSubItem = styled(StyledFormItem)`
+    padding-top: 32px;
+    padding-left: 24px;
+
+    .ant-form-item-control-input {
+        min-height: 0px !important;
+    }
+`;
+
+export const CheckboxContainer = styled.div``;
+
+export const CompoundedItemWrapper = styled.div``;
 
 export const GridFormItem = styled(Form.Item)`
     display: grid;

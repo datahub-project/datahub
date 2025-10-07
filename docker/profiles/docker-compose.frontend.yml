@@ -12,6 +12,9 @@ x-datahub-frontend-service: &datahub-frontend-service
     KAFKA_BOOTSTRAP_SERVER: broker:29092
     DATAHUB_GMS_HOST: ${DATAHUB_GMS_HOST:-datahub-gms}
     THEME_V2_DEFAULT: ${THEME_V2_DEFAULT:-true}
+    PLAY_HTTP_CONTEXT: ${DATAHUB_BASE_PATH:-/}
+    DATAHUB_BASE_PATH: ${DATAHUB_BASE_PATH:-/}
+    DATAHUB_GMS_BASE_PATH: ${DATAHUB_GMS_BASE_PATH:-/}
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
@@ -58,6 +61,20 @@ services:
       - quickstart-consumers
     depends_on:
       system-update-quickstart:
+        condition: service_completed_successfully
+  frontend-quickstart-consumers-cdc:
+    <<: *datahub-frontend-service
+    profiles:
+      - quickstart-consumers-cdc
+    depends_on:
+      system-update-quickstart-cdc:
+        condition: service_completed_successfully
+  frontend-quickstart-postgres-cdc:
+    <<: *datahub-frontend-service
+    profiles:
+      - quickstart-postgres-cdc
+    depends_on:
+      system-update-quickstart-postgres-cdc:
         condition: service_completed_successfully
   frontend-debug:
     <<: *datahub-frontend-service-dev
@@ -110,6 +127,21 @@ services:
     depends_on:
       system-update-debug-consumers:
         condition: service_completed_successfully
+  frontend-debug-consumers-cdc:
+    <<: *datahub-frontend-service-dev
+    profiles:
+      - debug-consumers-cdc
+    depends_on:
+      system-update-debug-consumers-cdc:
+        condition: service_completed_successfully
+  frontend-debug-posgres-cdc:
+    <<: *datahub-frontend-service-dev
+    profiles:
+      - debug-postgres-cdc
+    depends_on:
+      system-update-debug-postgres-cdc:
+        condition: service_completed_successfully
+
   frontend-debug-neo4j:
     <<: *datahub-frontend-service-dev
     profiles:

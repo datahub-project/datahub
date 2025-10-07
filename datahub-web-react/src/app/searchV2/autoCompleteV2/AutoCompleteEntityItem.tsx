@@ -117,6 +117,7 @@ interface EntityAutocompleteItemProps {
     onClick?: () => void;
     customHover?: (entity: Entity, children: React.ReactNode) => React.ReactNode;
     customOnClick?: (entity: Entity) => void;
+    dataTestId?: string;
 }
 
 export default function AutoCompleteEntityItem({
@@ -135,6 +136,7 @@ export default function AutoCompleteEntityItem({
     onClick,
     customHover,
     customOnClick,
+    dataTestId,
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
@@ -199,7 +201,12 @@ export default function AutoCompleteEntityItem({
     }
 
     return (
-        <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick} $padding={padding} onClick={onClick}>
+        <Container
+            $navigateOnlyOnNameClick={navigateOnlyOnNameClick}
+            $padding={padding}
+            onClick={onClick}
+            data-testid={dataTestId}
+        >
             <ContentContainer>
                 {dragIconRenderer ? (
                     <Icons>
