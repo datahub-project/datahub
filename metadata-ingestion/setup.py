@@ -53,6 +53,8 @@ framework_common = {
     "jsonref",
     "jsonschema",
     "ruamel.yaml",
+    # T-digest for streaming percentile calculation in response time telemetry
+    "tdigest>=0.5.2",
 }
 
 rest_common = {"requests", "requests_file"}
