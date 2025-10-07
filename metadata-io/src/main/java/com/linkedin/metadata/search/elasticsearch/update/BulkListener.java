@@ -20,7 +20,8 @@ public class BulkListener implements BulkProcessor.Listener {
     return INSTANCES.computeIfAbsent("null", p -> new BulkListener(null, metricUtils));
   }
 
-  public static BulkListener getInstance(int processorIndex, WriteRequest.RefreshPolicy refreshPolicy, MetricUtils metricUtils) {
+  public static BulkListener getInstance(
+      int processorIndex, WriteRequest.RefreshPolicy refreshPolicy, MetricUtils metricUtils) {
     String key = processorIndex + ":" + refreshPolicy;
     return INSTANCES.computeIfAbsent(key, p -> new BulkListener(refreshPolicy, metricUtils));
   }

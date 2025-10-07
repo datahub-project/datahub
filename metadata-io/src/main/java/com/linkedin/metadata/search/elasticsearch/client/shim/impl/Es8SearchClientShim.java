@@ -1584,10 +1584,10 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
     this.threadCount = threadCount;
     this.bulkProcessors = new BulkIngester[threadCount];
     this.roundRobinCounter = new AtomicInteger(0);
-    
+
     co.elastic.clients.elasticsearch._helpers.bulk.BulkListener<Object> esBulkListener =
         new Es8BulkListener(metricUtils);
-    
+
     final Refresh refresh;
     switch (writeRequestRefreshPolicy) {
       case NONE:
@@ -1602,7 +1602,7 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
       default:
         refresh = null;
     }
-    
+
     for (int i = 0; i < threadCount; i++) {
       BulkIngester.Builder<Object> builder =
           new BulkIngester.Builder<>()
@@ -1610,11 +1610,11 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
               .flushInterval(bulkFlushPeriod, TimeUnit.SECONDS)
               .maxOperations(bulkRequestsLimit)
               .listener(esBulkListener);
-      
+
       builder.globalSettings(new BulkRequest.Builder().refresh(refresh));
       this.bulkProcessors[i] = builder.build();
     }
-    
+
     log.info(
         "Initialized Es8SearchClientShim with {} BulkIngester instances for parallel execution",
         threadCount);

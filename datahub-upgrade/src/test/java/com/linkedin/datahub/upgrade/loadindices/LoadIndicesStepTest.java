@@ -4,6 +4,7 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -120,6 +121,19 @@ public class LoadIndicesStepTest {
     aspectV2.setAspect(aspect);
     aspectV2.setVersion(version);
     aspectV2.setMetadata("{}"); // Required field
+    aspectV2.setCreatedOn(Timestamp.from(createdTime));
+    aspectV2.setCreatedBy(createdBy);
+    database.save(aspectV2);
+  }
+
+  private void insertTestRowWithValidData(
+      String urn, String aspect, int version, Instant createdTime, String createdBy) {
+    EbeanAspectV2 aspectV2 = new EbeanAspectV2();
+    aspectV2.setUrn(urn);
+    aspectV2.setAspect(aspect);
+    aspectV2.setVersion(version);
+    // Provide valid container aspect JSON data
+    aspectV2.setMetadata("{\"container\":{\"urn\":\"" + urn + "\"}}");
     aspectV2.setCreatedOn(Timestamp.from(createdTime));
     aspectV2.setCreatedBy(createdBy);
     database.save(aspectV2);
@@ -555,6 +569,88 @@ public class LoadIndicesStepTest {
     assertEquals(result.getEntityType(), "dataset");
     assertEquals(result.getChangeType(), ChangeType.RESTATE);
     assertEquals(result.getAspectName(), "container");
+  }
+
+  @Test
+  public void testConvertToMetadataChangeLogWithSystemMetadata() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "convertToMetadataChangeLog", OperationContext.class, EbeanAspectV2.class);
+    method.setAccessible(true);
+
+    // Create test aspect with proper key and system metadata
+    EbeanAspectV2 aspect = new EbeanAspectV2();
+    EbeanAspectV2.PrimaryKey key =
+        new EbeanAspectV2.PrimaryKey(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleDataset,PROD)", "container", 0);
+    aspect.setKey(key);
+    aspect.setMetadata("{\"container\":{\"urn\":\"urn:li:container:test\"}}");
+    aspect.setCreatedOn(Timestamp.from(Instant.now()));
+    aspect.setCreatedBy("testUser");
+
+    // Set system metadata to test the systemMetadata handling
+    aspect.setSystemMetadata("{\"lastObserved\":1234567890,\"runId\":\"test-run-id\"}");
+
+    // Mock entity registry
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+    when(mockEntitySpec.getAspectSpec("container")).thenReturn(mockAspectSpec);
+    when(mockAspectSpec.getDataTemplateClass())
+        .thenReturn((Class) com.linkedin.container.Container.class);
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockEntitySpec);
+
+    MetadataChangeLog result =
+        (MetadataChangeLog) method.invoke(loadIndicesStep, mockOperationContext, aspect);
+
+    assertNotNull(result);
+    assertEquals(result.getEntityType(), "dataset");
+    assertEquals(result.getChangeType(), ChangeType.RESTATE);
+    assertEquals(result.getAspectName(), "container");
+
+    // Verify that systemMetadata was properly set
+    assertNotNull(result.getSystemMetadata());
+    assertEquals(result.getSystemMetadata().getLastObserved(), 1234567890L);
+    assertEquals(result.getSystemMetadata().getRunId(), "test-run-id");
+  }
+
+  @Test
+  public void testConvertToMetadataChangeLogWithNullSystemMetadata() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "convertToMetadataChangeLog", OperationContext.class, EbeanAspectV2.class);
+    method.setAccessible(true);
+
+    // Create test aspect with proper key but no system metadata
+    EbeanAspectV2 aspect = new EbeanAspectV2();
+    EbeanAspectV2.PrimaryKey key =
+        new EbeanAspectV2.PrimaryKey(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleDataset,PROD)", "container", 0);
+    aspect.setKey(key);
+    aspect.setMetadata("{\"container\":{\"urn\":\"urn:li:container:test\"}}");
+    aspect.setCreatedOn(Timestamp.from(Instant.now()));
+    aspect.setCreatedBy("testUser");
+
+    // Explicitly set systemMetadata to null to test the null handling
+    aspect.setSystemMetadata(null);
+
+    // Mock entity registry
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+    when(mockEntitySpec.getAspectSpec("container")).thenReturn(mockAspectSpec);
+    when(mockAspectSpec.getDataTemplateClass())
+        .thenReturn((Class) com.linkedin.container.Container.class);
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockEntitySpec);
+
+    MetadataChangeLog result =
+        (MetadataChangeLog) method.invoke(loadIndicesStep, mockOperationContext, aspect);
+
+    assertNotNull(result);
+    assertEquals(result.getEntityType(), "dataset");
+    assertEquals(result.getChangeType(), ChangeType.RESTATE);
+    assertEquals(result.getAspectName(), "container");
+
+    // Verify that systemMetadata is null when input is null
+    assertNull(result.getSystemMetadata());
   }
 
   @Test(expectedExceptions = Exception.class)
@@ -1289,26 +1385,34 @@ public class LoadIndicesStepTest {
     // Mock the updateIndicesService to not throw exceptions
     doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
 
+    // Setup entity registry mock for dataset entity
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockEntitySpec);
+    when(mockEntitySpec.getAspectSpec("container")).thenReturn(mockAspectSpec);
+    when(mockAspectSpec.getDataTemplateClass())
+        .thenReturn((Class) com.linkedin.container.Container.class);
+
     // Create test args with small batch size to ensure batch processing is triggered
     LoadIndicesArgs args = new LoadIndicesArgs();
     args.batchSize = 2; // Small batch size to trigger batch processing
     args.limit = 5;
     args.aspectNames = java.util.List.of("container");
 
-    // Add test rows to ensure we have data to process
-    insertTestRow(
+    // Add test rows with valid aspect data to ensure we have data to process
+    insertTestRowWithValidData(
         "urn:li:dataset:(urn:li:dataPlatform:hdfs,TestDataset1,PROD)",
         "container",
         0,
         Instant.now(),
-        "testUser");
+        "urn:li:corpuser:testUser");
 
-    insertTestRow(
+    insertTestRowWithValidData(
         "urn:li:dataset:(urn:li:dataPlatform:hdfs,TestDataset2,PROD)",
         "container",
         0,
         Instant.now(),
-        "testUser");
+        "urn:li:corpuser:testUser");
 
     // Call the method
     Object result =
@@ -1326,6 +1430,117 @@ public class LoadIndicesStepTest {
     assertNotNull(loadResult);
     // The key test is that the method doesn't throw an exception when processing batches
     // This tests the !mclBatch.isEmpty() logic path
+  }
+
+  @Test
+  public void testProcessAllDataDirectlyWithProgressReporting() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "processAllDataDirectly",
+            OperationContext.class,
+            LoadIndicesArgs.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    // Mock the updateIndicesService to not throw exceptions
+    doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
+
+    // Setup entity registry mock for dataset entity
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockEntitySpec);
+    when(mockEntitySpec.getAspectSpec("container")).thenReturn(mockAspectSpec);
+    when(mockAspectSpec.getDataTemplateClass())
+        .thenReturn((Class) com.linkedin.container.Container.class);
+
+    // Create test args with small batch size to trigger progress reporting
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 2; // Small batch size to trigger batch processing
+    args.limit = 10;
+    args.aspectNames = java.util.List.of("container");
+
+    // Add multiple test rows with valid aspect data
+    for (int i = 0; i < 5; i++) {
+      insertTestRowWithValidData(
+          "urn:li:dataset:(urn:li:dataPlatform:hdfs,TestDataset" + i + ",PROD)",
+          "container",
+          0,
+          Instant.now(),
+          "urn:li:corpuser:testUser");
+    }
+
+    // Track progress messages
+    java.util.List<String> progressMessages = new java.util.ArrayList<>();
+    java.util.function.Function<String, Void> reportFunction =
+        msg -> {
+          progressMessages.add(msg);
+          return null;
+        };
+
+    // Call the method
+    Object result = method.invoke(loadIndicesStep, mockOperationContext, args, reportFunction);
+
+    assertNotNull(result);
+    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+
+    // Verify that progress messages were generated
+    assertTrue(progressMessages.size() > 0);
+
+    // Check that we have "Last URN processed" messages
+    boolean hasLastUrnMessage = progressMessages.stream().anyMatch(msg -> msg.contains("Last URN"));
+    assertTrue(hasLastUrnMessage, "Should have 'Last URN' messages");
+  }
+
+  @Test
+  public void testProcessAllDataDirectlyWithLargeDatasetETA() throws Exception {
+    var method =
+        LoadIndicesStep.class.getDeclaredMethod(
+            "processAllDataDirectly",
+            OperationContext.class,
+            LoadIndicesArgs.class,
+            java.util.function.Function.class);
+    method.setAccessible(true);
+
+    // Mock the updateIndicesService to not throw exceptions
+    doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
+
+    // Create test args that will trigger ETA calculation (>50000 processed)
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 1000; // Larger batch size
+    args.limit = 60000; // Set limit to trigger ETA calculation
+    args.aspectNames = java.util.List.of("container");
+
+    // Add many test rows to simulate large dataset
+    for (int i = 0; i < 100; i++) {
+      insertTestRow(
+          "urn:li:dataset:(urn:li:dataPlatform:hdfs,LargeDataset" + i + ",PROD)",
+          "container",
+          0,
+          Instant.now(),
+          "testUser");
+    }
+
+    // Track progress messages
+    java.util.List<String> progressMessages = new java.util.ArrayList<>();
+    java.util.function.Function<String, Void> reportFunction =
+        msg -> {
+          progressMessages.add(msg);
+          return null;
+        };
+
+    // Call the method
+    Object result = method.invoke(loadIndicesStep, mockOperationContext, args, reportFunction);
+
+    assertNotNull(result);
+    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+
+    // Verify that progress messages were generated
+    assertTrue(progressMessages.size() > 0);
+
+    // Check for ETA-related messages (though they may not appear due to test data size)
+    boolean hasProgressMessage =
+        progressMessages.stream().anyMatch(msg -> msg.contains("aspects/sec"));
+    assertTrue(hasProgressMessage, "Should have throughput messages");
   }
 
   @Test

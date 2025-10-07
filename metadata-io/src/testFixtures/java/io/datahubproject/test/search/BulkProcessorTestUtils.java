@@ -84,11 +84,13 @@ public class BulkProcessorTestUtils {
       // For multiple BulkIngesters, get the first one for testing purposes
       BulkIngester<?>[] processors = (BulkIngester<?>[]) bulkProcessors;
       if (processors.length > 0) {
-        return (ESBulkProcessorProxyListener) ReflectionTestUtils.getField(processors[0], "listener");
+        return (ESBulkProcessorProxyListener)
+            ReflectionTestUtils.getField(processors[0], "listener");
       }
     } else if (bulkProcessors instanceof BulkIngester<?>) {
       // Fallback for single BulkIngester (backward compatibility)
-      return (ESBulkProcessorProxyListener) ReflectionTestUtils.getField(bulkProcessors, "listener");
+      return (ESBulkProcessorProxyListener)
+          ReflectionTestUtils.getField(bulkProcessors, "listener");
     }
     return null;
   }
@@ -97,7 +99,7 @@ public class BulkProcessorTestUtils {
     var searchClient =
         (SearchClientShim<?>) ReflectionTestUtils.getField(esBulkProcessor, "searchClient");
     var bulkProcessors = ReflectionTestUtils.getField(searchClient, "bulkProcessors");
-    
+
     if (bulkProcessors instanceof BulkProcessor[]) {
       // Handle multiple BulkProcessors
       BulkProcessor[] processors = (BulkProcessor[]) bulkProcessors;

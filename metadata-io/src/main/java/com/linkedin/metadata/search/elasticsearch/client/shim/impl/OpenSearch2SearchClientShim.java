@@ -598,7 +598,7 @@ public class OpenSearch2SearchClientShim implements OpenSearchClientShim<RestHig
     this.threadCount = threadCount;
     this.bulkProcessors = new BulkProcessor[threadCount];
     this.roundRobinCounter = new AtomicInteger(0);
-    
+
     for (int i = 0; i < threadCount; i++) {
       this.bulkProcessors[i] =
           BulkProcessor.builder(
@@ -616,7 +616,7 @@ public class OpenSearch2SearchClientShim implements OpenSearchClientShim<RestHig
                       TimeValue.timeValueSeconds(retryInterval), numRetries))
               .build();
     }
-    
+
     log.info(
         "Initialized OpenSearch2SearchClientShim with {} BulkProcessor instances for parallel execution",
         threadCount);
@@ -634,7 +634,7 @@ public class OpenSearch2SearchClientShim implements OpenSearchClientShim<RestHig
     this.threadCount = threadCount;
     this.bulkProcessors = new BulkProcessor[threadCount];
     this.roundRobinCounter = new AtomicInteger(0);
-    
+
     for (int i = 0; i < threadCount; i++) {
       this.bulkProcessors[i] =
           BulkProcessor.builder(
@@ -658,7 +658,7 @@ public class OpenSearch2SearchClientShim implements OpenSearchClientShim<RestHig
                       TimeValue.timeValueSeconds(retryInterval), numRetries))
               .build();
     }
-    
+
     log.info(
         "Initialized OpenSearch2SearchClientShim with {} BulkProcessor instances for parallel execution",
         threadCount);

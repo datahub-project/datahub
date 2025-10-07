@@ -1,6 +1,5 @@
 package com.linkedin.metadata.elasticsearch.update;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -19,18 +18,20 @@ public class BulkListenerTest {
   @Test
   public void testConstructor() {
     MetricUtils metricUtils = mock(MetricUtils.class);
-    BulkListener test = BulkListener.getInstance(0, WriteRequest.RefreshPolicy.IMMEDIATE, metricUtils);
+    BulkListener test =
+        BulkListener.getInstance(0, WriteRequest.RefreshPolicy.IMMEDIATE, metricUtils);
     assertNotNull(test);
-    assertEquals(test, BulkListener.getInstance(0, WriteRequest.RefreshPolicy.IMMEDIATE, metricUtils));
+    assertEquals(
+        test, BulkListener.getInstance(0, WriteRequest.RefreshPolicy.IMMEDIATE, metricUtils));
     assertNotEquals(
-        test,
-        BulkListener.getInstance(1, WriteRequest.RefreshPolicy.IMMEDIATE, metricUtils));
+        test, BulkListener.getInstance(1, WriteRequest.RefreshPolicy.IMMEDIATE, metricUtils));
   }
 
   @Test
   public void testDefaultPolicy() {
     MetricUtils metricUtils = mock(MetricUtils.class);
-    BulkListener test = BulkListener.getInstance(0, WriteRequest.RefreshPolicy.IMMEDIATE, metricUtils);
+    BulkListener test =
+        BulkListener.getInstance(0, WriteRequest.RefreshPolicy.IMMEDIATE, metricUtils);
 
     BulkRequest mockRequest1 = mock(BulkRequest.class);
     test.beforeBulk(0L, mockRequest1);
