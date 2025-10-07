@@ -142,6 +142,8 @@ class LookerView:
         ctx: PipelineContext,
         extract_col_level_lineage: bool = False,
         populate_sql_logic_in_descriptions: bool = False,
+        looker_client: Optional[LookerAPI] = None,
+        view_to_explore_map: Optional[Dict[str, str]] = None,
     ) -> Optional["LookerView"]:
         view_name = view_context.name()
 
@@ -160,6 +162,8 @@ class LookerView:
             config=config,
             ctx=ctx,
             reporter=reporter,
+            looker_client=looker_client,
+            view_to_explore_map=view_to_explore_map,
         )
 
         field_type_vs_raw_fields = OrderedDict(
@@ -705,6 +709,11 @@ class LookMLSource(StatefulIngestionSourceBase):
         # Value: Tuple(model file name, connection name)
         view_connection_map: Dict[str, Tuple[str, str]] = {}
 
+        # Map of view name to explore name for API-based view lineage
+        # A view can be referenced by multiple explores, we only need one of the explores to use Looker Query API
+        # Key: view_name, Value: explore_name
+        view_to_explore_map: Dict[str, str] = {}
+
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
         model_files = sorted(
@@ -759,37 +768,37 @@ class LookMLSource(StatefulIngestionSourceBase):
                 )
             )
 
-            if self.source_config.emit_reachable_views_only:
-                model_explores_map = {d["name"]: d for d in model.explores}
-                for explore_dict in model.explores:
-                    try:
-                        if LookerRefinementResolver.is_refinement(explore_dict["name"]):
-                            continue
+            model_explores_map = {d["name"]: d for d in model.explores}
+            for explore_dict in model.explores:
+                try:
+                    if LookerRefinementResolver.is_refinement(explore_dict["name"]):
+                        continue
 
-                        explore_dict = (
-                            looker_refinement_resolver.apply_explore_refinement(
-                                explore_dict
-                            )
-                        )
-                        explore: LookerExplore = LookerExplore.from_dict(
-                            model_name,
-                            explore_dict,
-                            model.resolved_includes,
-                            viewfile_loader,
-                            self.reporter,
-                            model_explores_map,
-                        )
-                        if explore.upstream_views:
-                            for view_name in explore.upstream_views:
+                    explore_dict = looker_refinement_resolver.apply_explore_refinement(
+                        explore_dict
+                    )
+                    explore: LookerExplore = LookerExplore.from_dict(
+                        model_name,
+                        explore_dict,
+                        model.resolved_includes,
+                        viewfile_loader,
+                        self.reporter,
+                        model_explores_map,
+                    )
+                    if explore.upstream_views:
+                        for view_name in explore.upstream_views:
+                            if self.source_config.emit_reachable_views_only:
                                 explore_reachable_views.add(view_name.include)
-                    except Exception as e:
-                        self.reporter.report_warning(
-                            title="Failed to process explores",
-                            message="Failed to process explore dictionary.",
-                            context=f"Explore Details: {explore_dict}",
-                            exc=e,
-                        )
-                        logger.debug("Failed to process explore", exc_info=e)
+                            # Build view to explore mapping for API-based view lineage
+                            view_to_explore_map[view_name.include] = explore.name
+                except Exception as e:
+                    self.reporter.report_warning(
+                        title="Failed to process explores",
+                        message="Failed to process explore dictionary.",
+                        context=f"Explore Details: {explore_dict}",
+                        exc=e,
+                    )
+                    logger.debug("Failed to process explore", exc_info=e)
 
             processed_view_files = processed_view_map.setdefault(
                 model.connection, set()
@@ -878,6 +887,10 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 populate_sql_logic_in_descriptions=self.source_config.populate_sql_logic_for_missing_descriptions,
                                 config=self.source_config,
                                 ctx=self.ctx,
+                                looker_client=self.looker_client,
+                                view_to_explore_map=view_to_explore_map
+                                if view_to_explore_map
+                                else None,
                             )
                         except Exception as e:
                             self.reporter.report_warning(

@@ -3,6 +3,7 @@ package com.linkedin.metadata.registry;
 import static org.mockito.Mockito.when;
 
 import com.linkedin.metadata.EventSchemaConstants;
+import com.linkedin.metadata.EventSchemaData;
 import com.linkedin.mxe.TopicConvention;
 import java.util.List;
 import java.util.Optional;
@@ -50,7 +51,7 @@ public class SchemaRegistryServiceTest {
 
   private SchemaRegistryService createTestSchemaRegistryService(TopicConvention convention) {
     // Use the actual SchemaRegistryServiceImpl for testing with real schemas
-    return new SchemaRegistryServiceImpl(convention);
+    return new SchemaRegistryServiceImpl(convention, new EventSchemaData());
   }
 
   @Test
@@ -64,12 +65,12 @@ public class SchemaRegistryServiceTest {
   }
 
   @Test
-  public void testGetSchemaForTopicAndVersion_MCP_Version2() {
-    Optional<Schema> schema = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 2);
+  public void testGetSchemaForTopicAndVersion_MCP_Version3() {
+    Optional<Schema> schema = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 3);
 
     Assert.assertTrue(schema.isPresent());
     Assert.assertEquals(schema.get().getName(), "MetadataChangeProposal");
-    // Version 2 is the current schema with pegasus2avro namespace
+    // Version 3 is the current schema with pegasus2avro namespace
     Assert.assertEquals(schema.get().getNamespace(), "com.linkedin.pegasus2avro.mxe");
   }
 
@@ -82,18 +83,18 @@ public class SchemaRegistryServiceTest {
   }
 
   @Test
-  public void testGetSchemaForTopicAndVersion_FMCP_Version2() {
-    Optional<Schema> schema = schemaRegistryService.getSchemaForTopicAndVersion(FMCP_TOPIC, 2);
+  public void testGetSchemaForTopicAndVersion_FMCP_Version3() {
+    Optional<Schema> schema = schemaRegistryService.getSchemaForTopicAndVersion(FMCP_TOPIC, 3);
 
     Assert.assertTrue(schema.isPresent());
     Assert.assertEquals(schema.get().getName(), "FailedMetadataChangeProposal");
-    // Version 2 is the current schema with pegasus2avro namespace
+    // Version 3 is the current schema with pegasus2avro namespace
     Assert.assertEquals(schema.get().getNamespace(), "com.linkedin.pegasus2avro.mxe");
   }
 
   @Test
   public void testGetSchemaForTopicAndVersion_InvalidVersion() {
-    Optional<Schema> schema = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 3);
+    Optional<Schema> schema = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 4);
 
     Assert.assertFalse(schema.isPresent());
   }
@@ -111,7 +112,7 @@ public class SchemaRegistryServiceTest {
         schemaRegistryService.getLatestSchemaVersionForTopic(MCP_TOPIC);
 
     Assert.assertTrue(latestVersion.isPresent());
-    Assert.assertEquals(latestVersion.get().intValue(), 2);
+    Assert.assertEquals(latestVersion.get().intValue(), 3);
   }
 
   @Test
@@ -120,7 +121,7 @@ public class SchemaRegistryServiceTest {
         schemaRegistryService.getLatestSchemaVersionForTopic(FMCP_TOPIC);
 
     Assert.assertTrue(latestVersion.isPresent());
-    Assert.assertEquals(latestVersion.get().intValue(), 2);
+    Assert.assertEquals(latestVersion.get().intValue(), 3);
   }
 
   @Test
@@ -129,9 +130,10 @@ public class SchemaRegistryServiceTest {
         schemaRegistryService.getLatestSchemaVersionForTopic(MCE_TOPIC);
 
     Assert.assertTrue(latestVersion.isPresent());
-    // MCE_TOPIC actually supports 2 versions since versions are incremented across all schema IDs
-    // Version 1 = Schema ID 5 (MCE_V1), Version 2 = Schema ID 13 (MCE)
-    Assert.assertEquals(latestVersion.get().intValue(), 2);
+    // MCE_TOPIC actually supports 3 versions since versions are incremented across all schema IDs
+    // Version 1 = Schema ID 5 (MCE_V1), Version 2 = Schema ID 5 (MCE_V1), Version 3 = Schema ID 13
+    // (MCE)
+    Assert.assertEquals(latestVersion.get().intValue(), 3);
   }
 
   @Test
@@ -141,9 +143,10 @@ public class SchemaRegistryServiceTest {
 
     Assert.assertTrue(versions.isPresent());
     List<Integer> versionList = versions.get();
-    Assert.assertEquals(versionList.size(), 2);
+    Assert.assertEquals(versionList.size(), 3);
     Assert.assertTrue(versionList.contains(1));
     Assert.assertTrue(versionList.contains(2));
+    Assert.assertTrue(versionList.contains(3));
   }
 
   @Test
@@ -153,9 +156,10 @@ public class SchemaRegistryServiceTest {
 
     Assert.assertTrue(versions.isPresent());
     List<Integer> versionList = versions.get();
-    Assert.assertEquals(versionList.size(), 2);
+    Assert.assertEquals(versionList.size(), 3);
     Assert.assertTrue(versionList.contains(1));
     Assert.assertTrue(versionList.contains(2));
+    Assert.assertTrue(versionList.contains(3));
   }
 
   @Test
@@ -165,11 +169,13 @@ public class SchemaRegistryServiceTest {
 
     Assert.assertTrue(versions.isPresent());
     List<Integer> versionList = versions.get();
-    // MCE_TOPIC actually supports 2 versions since versions are incremented across all schema IDs
-    // Version 1 = Schema ID 5 (MCE_V1), Version 2 = Schema ID 13 (MCE)
-    Assert.assertEquals(versionList.size(), 2);
+    // MCE_TOPIC actually supports 3 versions since versions are incremented across all schema IDs
+    // Version 1 = Schema ID 5 (MCE_V1), Version 2 = Schema ID 5 (MCE_V1), Version 3 = Schema ID 13
+    // (MCE)
+    Assert.assertEquals(versionList.size(), 3);
     Assert.assertTrue(versionList.contains(1));
     Assert.assertTrue(versionList.contains(2));
+    Assert.assertTrue(versionList.contains(3));
   }
 
   @Test
@@ -194,10 +200,11 @@ public class SchemaRegistryServiceTest {
     Optional<Integer> id = schemaRegistryService.getSchemaIdForTopic(MCP_TOPIC);
 
     Assert.assertTrue(id.isPresent());
-    // MCP_TOPIC returns the latest schema ID (9) since the implementation returns the highest
+    // MCP_TOPIC returns the latest schema ID (16) since the implementation returns the highest
     // version
-    // Version 1 = Schema ID 0 (MCP_V1), Version 2 = Schema ID 9 (MCP)
-    Assert.assertEquals(id.get().intValue(), 9);
+    // Version 1 = Schema ID 0 (MCP_V1), Version 2 = Schema ID 9 (MCP_V1_FIX), Version 3 = Schema ID
+    // 16 (MCP)
+    Assert.assertEquals(id.get().intValue(), 16);
   }
 
   @Test
@@ -249,19 +256,19 @@ public class SchemaRegistryServiceTest {
   @Test
   public void testSchemaVersionsAreDifferent() {
     Optional<Schema> v1Schema = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 1);
-    Optional<Schema> v2Schema = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 2);
+    Optional<Schema> v3Schema = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 3);
 
     Assert.assertTrue(v1Schema.isPresent());
-    Assert.assertTrue(v2Schema.isPresent());
+    Assert.assertTrue(v3Schema.isPresent());
 
     // Both versions should be accessible and have the same name but different namespaces
     Assert.assertEquals(v1Schema.get().getName(), "MetadataChangeProposal");
-    Assert.assertEquals(v2Schema.get().getName(), "MetadataChangeProposal");
+    Assert.assertEquals(v3Schema.get().getName(), "MetadataChangeProposal");
     // Both versions now use the pegasus2avro namespace
     // Versions are incremented across all schema IDs for a given schema name when loaded in the
     // registry
     Assert.assertEquals(v1Schema.get().getNamespace(), "com.linkedin.pegasus2avro.mxe");
-    Assert.assertEquals(v2Schema.get().getNamespace(), "com.linkedin.pegasus2avro.mxe");
+    Assert.assertEquals(v3Schema.get().getNamespace(), "com.linkedin.pegasus2avro.mxe");
   }
 
   @Test
@@ -319,30 +326,46 @@ public class SchemaRegistryServiceTest {
         schemaRegistryService.getSupportedSchemaVersionsForTopic(mclTimeseriesTopic);
     Assert.assertTrue(supportedVersions.isPresent());
     Assert.assertEquals(
-        supportedVersions.get().size(), 4, "MCL_TIMESERIES should support version 4");
+        supportedVersions.get().size(), 6, "MCL_TIMESERIES should support version 6");
     Assert.assertTrue(supportedVersions.get().contains(1));
+    Assert.assertTrue(supportedVersions.get().contains(2));
+    Assert.assertTrue(supportedVersions.get().contains(3));
     Assert.assertTrue(supportedVersions.get().contains(4));
+    Assert.assertTrue(supportedVersions.get().contains(5));
+    Assert.assertTrue(supportedVersions.get().contains(6));
 
     // Test getting specific versions
     Optional<Schema> v1Schema =
         schemaRegistryService.getSchemaForTopicAndVersion(mclTimeseriesTopic, 1);
     Optional<Schema> v2Schema =
         schemaRegistryService.getSchemaForTopicAndVersion(mclTimeseriesTopic, 2);
+    Optional<Schema> v3Schema =
+        schemaRegistryService.getSchemaForTopicAndVersion(mclTimeseriesTopic, 3);
 
     Assert.assertTrue(v1Schema.isPresent(), "Version 1 schema should be present");
     Assert.assertTrue(v2Schema.isPresent(), "Version 2 schema should be present");
+    Assert.assertTrue(v3Schema.isPresent(), "Version 3 schema should be present");
 
     // Test getting latest version
     Optional<Integer> latestVersion =
         schemaRegistryService.getLatestSchemaVersionForTopic(mclTimeseriesTopic);
     Assert.assertTrue(latestVersion.isPresent());
-    Assert.assertEquals(latestVersion.get().intValue(), 4);
+    Assert.assertEquals(latestVersion.get().intValue(), 6);
 
-    // Test that both versions are different (different schema content)
-    Assert.assertNotEquals(
+    // Test that versions 1 and 2 are the same (both use MCL_V1_SCHEMA)
+    Assert.assertEquals(
         v1Schema.get().toString(),
         v2Schema.get().toString(),
-        "Version 1 and Version 2 schemas should be different");
+        "Version 1 and Version 2 schemas should be the same (both MCL_V1_SCHEMA)");
+
+    // Test that versions 1 and 5 are different (MCL_V1_SCHEMA vs MCL_SCHEMA)
+    Optional<Schema> v5Schema =
+        schemaRegistryService.getSchemaForTopicAndVersion(mclTimeseriesTopic, 5);
+    Assert.assertTrue(v5Schema.isPresent(), "Version 5 schema should be present");
+    Assert.assertNotEquals(
+        v1Schema.get().toString(),
+        v5Schema.get().toString(),
+        "Version 1 and Version 5 schemas should be different");
 
     // Test that MCL_TIMESERIES has NONE compatibility since it's now a versioned schema
     String compatibility = schemaRegistryService.getSchemaCompatibility(mclTimeseriesTopic);
@@ -374,22 +397,22 @@ public class SchemaRegistryServiceTest {
   }
 
   @Test
-  public void testMetadataChangeProposalVersion2IncludesAspectCreatedField() {
-    // Version 2 should include the aspectCreated field
-    Optional<Schema> v2Schema = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 2);
-    Assert.assertTrue(v2Schema.isPresent());
+  public void testMetadataChangeProposalVersion3IncludesAspectCreatedField() {
+    // Version 3 should include the aspectCreated field
+    Optional<Schema> v3Schema = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 3);
+    Assert.assertTrue(v3Schema.isPresent());
 
-    // Check that v2 schema has aspectCreated field in systemMetadata
-    boolean hasAspectCreated = hasAspectCreatedField(v2Schema.get());
-    Assert.assertTrue(hasAspectCreated, "Version 2 MCP schema should have aspectCreated field");
+    // Check that v3 schema has aspectCreated field in systemMetadata
+    boolean hasAspectCreated = hasAspectCreatedField(v3Schema.get());
+    Assert.assertTrue(hasAspectCreated, "Version 3 MCP schema should have aspectCreated field");
 
-    // Verify v2 schema has the expected basic fields
-    List<String> v2FieldNames =
-        v2Schema.get().getFields().stream().map(Schema.Field::name).collect(Collectors.toList());
+    // Verify v3 schema has the expected basic fields
+    List<String> v3FieldNames =
+        v3Schema.get().getFields().stream().map(Schema.Field::name).collect(Collectors.toList());
     Assert.assertTrue(
-        v2FieldNames.contains("entityType"), "Version 2 should have entityType field");
+        v3FieldNames.contains("entityType"), "Version 3 should have entityType field");
     Assert.assertTrue(
-        v2FieldNames.contains("changeType"), "Version 2 should have changeType field");
+        v3FieldNames.contains("changeType"), "Version 3 should have changeType field");
   }
 
   @Test
@@ -414,22 +437,22 @@ public class SchemaRegistryServiceTest {
   }
 
   @Test
-  public void testFailedMetadataChangeProposalVersion2IncludesAspectCreatedField() {
-    // Version 2 should include the aspectCreated field
-    Optional<Schema> v2Schema = schemaRegistryService.getSchemaForTopicAndVersion(FMCP_TOPIC, 2);
-    Assert.assertTrue(v2Schema.isPresent());
+  public void testFailedMetadataChangeProposalVersion3IncludesAspectCreatedField() {
+    // Version 3 should include the aspectCreated field
+    Optional<Schema> v3Schema = schemaRegistryService.getSchemaForTopicAndVersion(FMCP_TOPIC, 3);
+    Assert.assertTrue(v3Schema.isPresent());
 
-    // Check that v2 schema has aspectCreated field in systemMetadata
-    boolean hasAspectCreated = hasAspectCreatedField(v2Schema.get());
-    Assert.assertTrue(hasAspectCreated, "Version 2 FMCP schema should have aspectCreated field");
+    // Check that v3 schema has aspectCreated field in systemMetadata
+    boolean hasAspectCreated = hasAspectCreatedField(v3Schema.get());
+    Assert.assertTrue(hasAspectCreated, "Version 3 FMCP schema should have aspectCreated field");
 
-    // Verify v2 schema has the expected basic fields
-    List<String> v2FieldNames =
-        v2Schema.get().getFields().stream().map(Schema.Field::name).collect(Collectors.toList());
+    // Verify v3 schema has the expected basic fields
+    List<String> v3FieldNames =
+        v3Schema.get().getFields().stream().map(Schema.Field::name).collect(Collectors.toList());
     Assert.assertTrue(
-        v2FieldNames.contains("metadataChangeProposal"),
-        "Version 2 should have metadataChangeProposal field");
-    Assert.assertTrue(v2FieldNames.contains("error"), "Version 2 should have error field");
+        v3FieldNames.contains("metadataChangeProposal"),
+        "Version 3 should have metadataChangeProposal field");
+    Assert.assertTrue(v3FieldNames.contains("error"), "Version 3 should have error field");
   }
 
   @Test
@@ -448,15 +471,19 @@ public class SchemaRegistryServiceTest {
     Optional<Integer> latestVersion =
         schemaRegistryService.getLatestSchemaVersionForTopic(mclTopic);
     Assert.assertTrue(latestVersion.isPresent());
-    Assert.assertEquals(latestVersion.get().intValue(), 4);
+    Assert.assertEquals(latestVersion.get().intValue(), 6);
 
     // Test getting supported versions
     Optional<List<Integer>> supportedVersions =
         schemaRegistryService.getSupportedSchemaVersionsForTopic(mclTopic);
     Assert.assertTrue(supportedVersions.isPresent());
-    Assert.assertEquals(supportedVersions.get().size(), 4);
+    Assert.assertEquals(supportedVersions.get().size(), 6);
     Assert.assertTrue(supportedVersions.get().contains(1));
+    Assert.assertTrue(supportedVersions.get().contains(2));
+    Assert.assertTrue(supportedVersions.get().contains(3));
     Assert.assertTrue(supportedVersions.get().contains(4));
+    Assert.assertTrue(supportedVersions.get().contains(5));
+    Assert.assertTrue(supportedVersions.get().contains(6));
   }
 
   @Test
@@ -489,20 +516,20 @@ public class SchemaRegistryServiceTest {
   public void testAspectCreatedFieldVersioningConsistency() {
     // Test that both MCP and FMCP have consistent field presence across versions
     Optional<Schema> mcpV1 = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 1);
-    Optional<Schema> mcpV2 = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 2);
+    Optional<Schema> mcpV3 = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 3);
     Optional<Schema> fmcpV1 = schemaRegistryService.getSchemaForTopicAndVersion(FMCP_TOPIC, 1);
-    Optional<Schema> fmcpV2 = schemaRegistryService.getSchemaForTopicAndVersion(FMCP_TOPIC, 2);
+    Optional<Schema> fmcpV3 = schemaRegistryService.getSchemaForTopicAndVersion(FMCP_TOPIC, 3);
 
     Assert.assertTrue(mcpV1.isPresent());
-    Assert.assertTrue(mcpV2.isPresent());
+    Assert.assertTrue(mcpV3.isPresent());
     Assert.assertTrue(fmcpV1.isPresent());
-    Assert.assertTrue(fmcpV2.isPresent());
+    Assert.assertTrue(fmcpV3.isPresent());
 
     // Check aspectCreated field presence in each version
     boolean mcpV1HasAspectCreated = hasAspectCreatedField(mcpV1.get());
-    boolean mcpV2HasAspectCreated = hasAspectCreatedField(mcpV2.get());
+    boolean mcpV3HasAspectCreated = hasAspectCreatedField(mcpV3.get());
     boolean fmcpV1HasAspectCreated = hasAspectCreatedField(fmcpV1.get());
-    boolean fmcpV2HasAspectCreated = hasAspectCreatedField(fmcpV2.get());
+    boolean fmcpV3HasAspectCreated = hasAspectCreatedField(fmcpV3.get());
 
     // All v1 schemas should be consistent (none should have aspectCreated)
     Assert.assertEquals(
@@ -510,51 +537,51 @@ public class SchemaRegistryServiceTest {
         fmcpV1HasAspectCreated,
         "All v1 schemas should have consistent aspectCreated field presence");
 
-    // All v2 schemas should be consistent (all should have same aspectCreated field presence)
+    // All v3 schemas should be consistent (all should have same aspectCreated field presence)
     Assert.assertEquals(
-        mcpV2HasAspectCreated,
-        fmcpV2HasAspectCreated,
-        "All v2 schemas should have consistent aspectCreated field presence");
+        mcpV3HasAspectCreated,
+        fmcpV3HasAspectCreated,
+        "All v3 schemas should have consistent aspectCreated field presence");
 
     // Document current state
     System.out.println("MCP v1 has aspectCreated: " + mcpV1HasAspectCreated);
-    System.out.println("MCP v2 has aspectCreated: " + mcpV2HasAspectCreated);
+    System.out.println("MCP v3 has aspectCreated: " + mcpV3HasAspectCreated);
     System.out.println("FMCP v1 has aspectCreated: " + fmcpV1HasAspectCreated);
-    System.out.println("FMCP v2 has aspectCreated: " + fmcpV2HasAspectCreated);
+    System.out.println("FMCP v3 has aspectCreated: " + fmcpV3HasAspectCreated);
   }
 
   @Test
   public void testSchemaFieldCountsForVersioning() {
     // Test that schema field counts are consistent with versioning expectations
     Optional<Schema> mcpV1 = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 1);
-    Optional<Schema> mcpV2 = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 2);
+    Optional<Schema> mcpV3 = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 3);
     Optional<Schema> fmcpV1 = schemaRegistryService.getSchemaForTopicAndVersion(FMCP_TOPIC, 1);
-    Optional<Schema> fmcpV2 = schemaRegistryService.getSchemaForTopicAndVersion(FMCP_TOPIC, 2);
+    Optional<Schema> fmcpV3 = schemaRegistryService.getSchemaForTopicAndVersion(FMCP_TOPIC, 3);
 
     Assert.assertTrue(mcpV1.isPresent());
-    Assert.assertTrue(mcpV2.isPresent());
+    Assert.assertTrue(mcpV3.isPresent());
     Assert.assertTrue(fmcpV1.isPresent());
-    Assert.assertTrue(fmcpV2.isPresent());
+    Assert.assertTrue(fmcpV3.isPresent());
 
     int mcpV1FieldCount = mcpV1.get().getFields().size();
-    int mcpV2FieldCount = mcpV2.get().getFields().size();
+    int mcpV3FieldCount = mcpV3.get().getFields().size();
     int fmcpV1FieldCount = fmcpV1.get().getFields().size();
-    int fmcpV2FieldCount = fmcpV2.get().getFields().size();
+    int fmcpV3FieldCount = fmcpV3.get().getFields().size();
 
     // Document current field counts
     System.out.println("MCP v1 field count: " + mcpV1FieldCount);
-    System.out.println("MCP v2 field count: " + mcpV2FieldCount);
+    System.out.println("MCP v3 field count: " + mcpV3FieldCount);
     System.out.println("FMCP v1 field count: " + fmcpV1FieldCount);
-    System.out.println("FMCP v2 field count: " + fmcpV2FieldCount);
+    System.out.println("FMCP v3 field count: " + fmcpV3FieldCount);
 
-    // Verify that v1 and v2 have the same top-level field count
+    // Verify that v1 and v3 have the same top-level field count
     // The aspectCreated field is nested within systemMetadata, not a top-level field
     Assert.assertEquals(
-        mcpV1FieldCount, mcpV2FieldCount, "MCP v1 and v2 should have same top-level field count");
+        mcpV1FieldCount, mcpV3FieldCount, "MCP v1 and v3 should have same top-level field count");
     Assert.assertEquals(
         fmcpV1FieldCount,
-        fmcpV2FieldCount,
-        "FMCP v1 and v2 should have same top-level field count");
+        fmcpV3FieldCount,
+        "FMCP v1 and v3 should have same top-level field count");
   }
 
   /**
@@ -907,18 +934,20 @@ public class SchemaRegistryServiceTest {
         schemaRegistryService.getAllSchemaVersionsForSubject("MetadataChangeProposal-value");
     Assert.assertTrue(versions.isPresent());
     List<Integer> versionList = versions.get();
-    Assert.assertEquals(versionList.size(), 2);
+    Assert.assertEquals(versionList.size(), 3);
     Assert.assertTrue(versionList.contains(1));
     Assert.assertTrue(versionList.contains(2));
+    Assert.assertTrue(versionList.contains(3));
 
     // Test with FMCP subject
     Optional<List<Integer>> fmcpVersions =
         schemaRegistryService.getAllSchemaVersionsForSubject("FailedMetadataChangeProposal-value");
     Assert.assertTrue(fmcpVersions.isPresent());
     List<Integer> fmcpVersionList = fmcpVersions.get();
-    Assert.assertEquals(fmcpVersionList.size(), 2);
+    Assert.assertEquals(fmcpVersionList.size(), 3);
     Assert.assertTrue(fmcpVersionList.contains(1));
     Assert.assertTrue(fmcpVersionList.contains(2));
+    Assert.assertTrue(fmcpVersionList.contains(3));
 
     // Test with single version subject
     Optional<List<Integer>> peVersions =
@@ -982,13 +1011,13 @@ public class SchemaRegistryServiceTest {
   public void testCheckSchemaCompatibility() {
     // Test NONE compatibility (versioned schemas)
     Optional<Schema> mcpV1 = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 1);
-    Optional<Schema> mcpV2 = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 2);
+    Optional<Schema> mcpV3 = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 3);
     Assert.assertTrue(mcpV1.isPresent());
-    Assert.assertTrue(mcpV2.isPresent());
+    Assert.assertTrue(mcpV3.isPresent());
 
     // NONE compatibility should return false for different schemas
     boolean mcpCompatibility =
-        schemaRegistryService.checkSchemaCompatibility(MCP_TOPIC, mcpV2.get(), mcpV1.get());
+        schemaRegistryService.checkSchemaCompatibility(MCP_TOPIC, mcpV3.get(), mcpV1.get());
     Assert.assertFalse(
         mcpCompatibility, "NONE compatibility should return false for different schemas");
 
@@ -1003,7 +1032,7 @@ public class SchemaRegistryServiceTest {
 
     // Test with invalid topic
     boolean invalidTopicCompatibility =
-        schemaRegistryService.checkSchemaCompatibility("InvalidTopic", mcpV1.get(), mcpV2.get());
+        schemaRegistryService.checkSchemaCompatibility("InvalidTopic", mcpV1.get(), mcpV3.get());
     Assert.assertFalse(invalidTopicCompatibility, "Invalid topic should return false");
 
     // Test with null schemas - should handle gracefully
@@ -1110,13 +1139,13 @@ public class SchemaRegistryServiceTest {
 
     // Test that checkSchemaCompatibility respects the compatibility level
     Optional<Schema> mcpV1 = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 1);
-    Optional<Schema> mcpV2 = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 2);
+    Optional<Schema> mcpV3 = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 3);
     Assert.assertTrue(mcpV1.isPresent());
-    Assert.assertTrue(mcpV2.isPresent());
+    Assert.assertTrue(mcpV3.isPresent());
 
     if (EventSchemaConstants.SCHEMA_COMPATIBILITY_NONE.equals(mcpCompatibility)) {
       boolean compatibility =
-          schemaRegistryService.checkSchemaCompatibility(MCP_TOPIC, mcpV2.get(), mcpV1.get());
+          schemaRegistryService.checkSchemaCompatibility(MCP_TOPIC, mcpV3.get(), mcpV1.get());
       Assert.assertFalse(
           compatibility, "NONE compatibility should return false for different schemas");
     }

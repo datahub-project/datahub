@@ -7,8 +7,8 @@ import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRe
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.SYSTEM_UPDATE_TOPIC_KEY_PREFIX;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.metadata.EventSchemaData;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.util.Pair;
 import io.confluent.kafka.schemaregistry.ParsedSchema;
 import io.confluent.kafka.schemaregistry.avro.AvroSchema;
@@ -16,6 +16,7 @@ import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
+import io.datahubproject.metadata.context.ObjectMapperContext;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -85,16 +86,22 @@ public class MockSystemUpdateSerializer extends KafkaAvroSerializer {
         new CustomMockSchemaRegistryClient(topicNameToAvroSchemaMap);
 
     if (topicNameToAvroSchemaMap != null) {
+      // Create EventSchemaData instance for version lookup
+      EventSchemaData eventSchemaData =
+          new EventSchemaData(ObjectMapperContext.DEFAULT.getYamlMapper());
+
       topicNameToAvroSchemaMap.forEach(
           (topicName, schemaAndId) -> {
             try {
               // Get the schema name for this topic to determine the version
               String schemaName = getSchemaNameForTopic(topicName);
 
-              // Use SchemaRegistryServiceImpl static method to get the proper version
+              // Use EventSchemaData to get the proper version
               int version =
-                  SchemaRegistryServiceImpl.getVersionForSchemaId(
-                      schemaName, schemaAndId.getSecond());
+                  eventSchemaData.getVersionsForSchemaId(schemaAndId.getSecond()).stream()
+                      .mapToInt(Integer::intValue)
+                      .max()
+                      .orElse(1);
 
               schemaRegistry.register(
                   topicToSubjectName(topicName),

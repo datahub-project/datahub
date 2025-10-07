@@ -307,6 +307,12 @@ class ViewFieldType(Enum):
     UNKNOWN = "Unknown"
 
 
+class ViewFieldDimensionGroupType(Enum):
+    # Ref: https://cloud.google.com/looker/docs/reference/param-field-dimension-group
+    TIME = "time"
+    DURATION = "duration"
+
+
 class ViewFieldValue(Enum):
     NOT_AVAILABLE = "NotAvailable"
 

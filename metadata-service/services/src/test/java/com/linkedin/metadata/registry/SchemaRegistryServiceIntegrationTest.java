@@ -2,6 +2,7 @@ package com.linkedin.metadata.registry;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.EventSchemaData;
 import com.linkedin.mxe.TopicConvention;
 import java.util.List;
 import java.util.Optional;
@@ -117,7 +118,7 @@ public class SchemaRegistryServiceIntegrationTest {
           }
         };
 
-    schemaRegistryService = new SchemaRegistryServiceImpl(topicConvention);
+    schemaRegistryService = new SchemaRegistryServiceImpl(topicConvention, new EventSchemaData());
   }
 
   @Test
@@ -126,36 +127,37 @@ public class SchemaRegistryServiceIntegrationTest {
 
     // Test that we can get both versions
     Optional<Schema> v1Schema = schemaRegistryService.getSchemaForTopicAndVersion(topicName, 1);
-    Optional<Schema> v2Schema = schemaRegistryService.getSchemaForTopicAndVersion(topicName, 2);
+    Optional<Schema> v3Schema = schemaRegistryService.getSchemaForTopicAndVersion(topicName, 3);
 
     Assert.assertTrue(v1Schema.isPresent(), "Version 1 schema should be present");
-    Assert.assertTrue(v2Schema.isPresent(), "Version 2 schema should be present");
+    Assert.assertTrue(v3Schema.isPresent(), "Version 3 schema should be present");
 
     // Verify both schemas have the same name and pegasus2avro namespace
     Assert.assertEquals(v1Schema.get().getName(), "MetadataChangeProposal");
-    Assert.assertEquals(v2Schema.get().getName(), "MetadataChangeProposal");
+    Assert.assertEquals(v3Schema.get().getName(), "MetadataChangeProposal");
     Assert.assertEquals(v1Schema.get().getNamespace(), "com.linkedin.pegasus2avro.mxe");
-    Assert.assertEquals(v2Schema.get().getNamespace(), "com.linkedin.pegasus2avro.mxe");
+    Assert.assertEquals(v3Schema.get().getNamespace(), "com.linkedin.pegasus2avro.mxe");
 
-    // Verify the schemas are different (different versions)
+    // Verify the schemas are different (versions 1 and 3 use different schemas)
     Assert.assertNotEquals(
         v1Schema.get().toString(),
-        v2Schema.get().toString(),
-        "Version 1 and Version 2 schemas should be different");
+        v3Schema.get().toString(),
+        "Version 1 and Version 3 schemas should be different");
 
     // Test getting latest version
     Optional<Integer> latestVersion =
         schemaRegistryService.getLatestSchemaVersionForTopic(topicName);
     Assert.assertTrue(latestVersion.isPresent());
-    Assert.assertEquals(latestVersion.get().intValue(), 2);
+    Assert.assertEquals(latestVersion.get().intValue(), 3);
 
     // Test getting supported versions
     Optional<List<Integer>> supportedVersions =
         schemaRegistryService.getSupportedSchemaVersionsForTopic(topicName);
     Assert.assertTrue(supportedVersions.isPresent());
-    Assert.assertEquals(supportedVersions.get().size(), 2);
+    Assert.assertEquals(supportedVersions.get().size(), 3);
     Assert.assertTrue(supportedVersions.get().contains(1));
     Assert.assertTrue(supportedVersions.get().contains(2));
+    Assert.assertTrue(supportedVersions.get().contains(3));
 
     // Test default behavior (should return latest)
     Optional<Schema> defaultSchema = schemaRegistryService.getSchemaForTopic(topicName);
@@ -169,28 +171,29 @@ public class SchemaRegistryServiceIntegrationTest {
 
     // Test that Failed MCP topic also supports both versions
     Optional<Schema> v1Schema = schemaRegistryService.getSchemaForTopicAndVersion(topicName, 1);
-    Optional<Schema> v2Schema = schemaRegistryService.getSchemaForTopicAndVersion(topicName, 2);
+    Optional<Schema> v3Schema = schemaRegistryService.getSchemaForTopicAndVersion(topicName, 3);
 
     Assert.assertTrue(v1Schema.isPresent(), "Version 1 schema should be present");
-    Assert.assertTrue(v2Schema.isPresent(), "Version 2 schema should be present");
+    Assert.assertTrue(v3Schema.isPresent(), "Version 3 schema should be present");
 
     // Verify both schemas have the correct name and namespace
     Assert.assertEquals(v1Schema.get().getName(), "FailedMetadataChangeProposal");
-    Assert.assertEquals(v2Schema.get().getName(), "FailedMetadataChangeProposal");
+    Assert.assertEquals(v3Schema.get().getName(), "FailedMetadataChangeProposal");
 
     // Test getting latest version
     Optional<Integer> latestVersion =
         schemaRegistryService.getLatestSchemaVersionForTopic(topicName);
     Assert.assertTrue(latestVersion.isPresent());
-    Assert.assertEquals(latestVersion.get().intValue(), 2);
+    Assert.assertEquals(latestVersion.get().intValue(), 3);
 
     // Test getting supported versions
     Optional<List<Integer>> supportedVersions =
         schemaRegistryService.getSupportedSchemaVersionsForTopic(topicName);
     Assert.assertTrue(supportedVersions.isPresent());
-    Assert.assertEquals(supportedVersions.get().size(), 2);
+    Assert.assertEquals(supportedVersions.get().size(), 3);
     Assert.assertTrue(supportedVersions.get().contains(1));
     Assert.assertTrue(supportedVersions.get().contains(2));
+    Assert.assertTrue(supportedVersions.get().contains(3));
   }
 
   @Test

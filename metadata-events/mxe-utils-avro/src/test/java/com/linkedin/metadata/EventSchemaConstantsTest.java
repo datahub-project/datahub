@@ -2,6 +2,7 @@ package com.linkedin.metadata;
 
 import static org.testng.Assert.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.apache.avro.Schema;
@@ -12,76 +13,94 @@ public class EventSchemaConstantsTest {
   @Test
   public void testGetSchemaIdsForSchemaName() {
     // Test that we can get schema IDs for known schema names
+    EventSchemaData schemaData = new EventSchemaData();
+
     var mcpSchemaIds =
-        EventSchemaConstants.getSchemaIdsForSchemaName(
-            EventUtils.METADATA_CHANGE_PROPOSAL_SCHEMA_NAME);
-    assertTrue(mcpSchemaIds.isPresent());
-    assertEquals(mcpSchemaIds.get().size(), 2);
-    assertTrue(mcpSchemaIds.get().contains(EventSchemaConstants.MCP_V1_SCHEMA_ID));
-    assertTrue(mcpSchemaIds.get().contains(EventSchemaConstants.MCP_SCHEMA_ID));
+        schemaData.getSchemaIdsForSchemaName(EventUtils.METADATA_CHANGE_PROPOSAL_SCHEMA_NAME);
+    assertFalse(mcpSchemaIds.isEmpty());
+    assertEquals(mcpSchemaIds.size(), 3);
+    assertTrue(mcpSchemaIds.contains(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1.getSchemaId()));
+    assertTrue(
+        mcpSchemaIds.contains(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1_FIX.getSchemaId()));
+    assertTrue(mcpSchemaIds.contains(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL.getSchemaId()));
 
     var mclSchemaIds =
-        EventSchemaConstants.getSchemaIdsForSchemaName(EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME);
-    assertTrue(mclSchemaIds.isPresent());
-    assertEquals(mclSchemaIds.get().size(), 4);
-    assertTrue(mclSchemaIds.get().contains(EventSchemaConstants.MCL_V1_SCHEMA_ID));
-    assertTrue(mclSchemaIds.get().contains(EventSchemaConstants.MCL_SCHEMA_ID));
-    assertTrue(mclSchemaIds.get().contains(EventSchemaConstants.MCL_TIMESERIES_V1_SCHEMA_ID));
-    assertTrue(mclSchemaIds.get().contains(EventSchemaConstants.MCL_TIMESERIES_SCHEMA_ID));
+        schemaData.getSchemaIdsForSchemaName(EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME);
+    assertFalse(mclSchemaIds.isEmpty());
+    assertEquals(mclSchemaIds.size(), 6);
+    assertTrue(mclSchemaIds.contains(SchemaIdOrdinal.METADATA_CHANGE_LOG_V1.getSchemaId()));
+    assertTrue(mclSchemaIds.contains(SchemaIdOrdinal.METADATA_CHANGE_LOG.getSchemaId()));
+    assertTrue(
+        mclSchemaIds.contains(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES_V1.getSchemaId()));
+    assertTrue(mclSchemaIds.contains(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES.getSchemaId()));
+    assertTrue(mclSchemaIds.contains(SchemaIdOrdinal.METADATA_CHANGE_LOG_V1_FIX.getSchemaId()));
+    assertTrue(
+        mclSchemaIds.contains(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES_V1_FIX.getSchemaId()));
 
     var singleVersionSchemaIds =
-        EventSchemaConstants.getSchemaIdsForSchemaName(
-            EventUtils.METADATA_CHANGE_EVENT_SCHEMA_NAME);
-    assertTrue(singleVersionSchemaIds.isPresent());
-    assertEquals(singleVersionSchemaIds.get().size(), 2);
-    assertTrue(singleVersionSchemaIds.get().contains(EventSchemaConstants.MCE_V1_SCHEMA_ID));
-    assertTrue(singleVersionSchemaIds.get().contains(EventSchemaConstants.MCE_SCHEMA_ID));
+        schemaData.getSchemaIdsForSchemaName(EventUtils.METADATA_CHANGE_EVENT_SCHEMA_NAME);
+    assertFalse(singleVersionSchemaIds.isEmpty());
+    assertEquals(singleVersionSchemaIds.size(), 3);
+    assertTrue(
+        singleVersionSchemaIds.contains(SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1.getSchemaId()));
+    assertTrue(
+        singleVersionSchemaIds.contains(
+            SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1_FIX.getSchemaId()));
+    assertTrue(
+        singleVersionSchemaIds.contains(SchemaIdOrdinal.METADATA_CHANGE_EVENT.getSchemaId()));
   }
 
   @Test
   public void testGetSchemaNameForSchemaId() {
     // Test that we can get schema names for known schema IDs
+    EventSchemaData schemaData = new EventSchemaData();
+
     var mcpSchemaName =
-        EventSchemaConstants.getSchemaNameForSchemaId(EventSchemaConstants.MCP_SCHEMA_ID);
-    assertTrue(mcpSchemaName.isPresent());
-    assertEquals(mcpSchemaName.get(), EventUtils.METADATA_CHANGE_PROPOSAL_SCHEMA_NAME);
+        schemaData.getSchemaNameForSchemaId(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL.getSchemaId());
+    assertNotNull(mcpSchemaName);
+    assertEquals(mcpSchemaName, EventUtils.METADATA_CHANGE_PROPOSAL_SCHEMA_NAME);
 
     var mclSchemaName =
-        EventSchemaConstants.getSchemaNameForSchemaId(EventSchemaConstants.MCL_SCHEMA_ID);
-    assertTrue(mclSchemaName.isPresent());
-    assertEquals(mclSchemaName.get(), EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME);
+        schemaData.getSchemaNameForSchemaId(SchemaIdOrdinal.METADATA_CHANGE_LOG.getSchemaId());
+    assertNotNull(mclSchemaName);
+    assertEquals(mclSchemaName, EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME);
 
     var duheSchemaName =
-        EventSchemaConstants.getSchemaNameForSchemaId(EventSchemaConstants.DUHE_SCHEMA_ID);
-    assertTrue(duheSchemaName.isPresent());
-    assertEquals(duheSchemaName.get(), EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME);
+        schemaData.getSchemaNameForSchemaId(
+            SchemaIdOrdinal.DATAHUB_UPGRADE_HISTORY_EVENT.getSchemaId());
+    assertNotNull(duheSchemaName);
+    assertEquals(duheSchemaName, EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME);
   }
 
   @Test
   public void testGetSchemaNameForSchemaIdWithUnknownId() {
     // Test that unknown schema IDs return empty
-    var unknownSchemaName = EventSchemaConstants.getSchemaNameForSchemaId(999);
-    assertFalse(unknownSchemaName.isPresent());
+    EventSchemaData schemaData = new EventSchemaData();
+    var unknownSchemaName = schemaData.getSchemaNameForSchemaId(999);
+    assertNull(unknownSchemaName);
   }
 
   @Test
   public void testGetSchemaIdsForSchemaNameWithUnknownName() {
     // Test that unknown schema names return empty
-    var unknownSchemaIds = EventSchemaConstants.getSchemaIdsForSchemaName("UnknownSchema");
-    assertFalse(unknownSchemaIds.isPresent());
+    EventSchemaData schemaData = new EventSchemaData();
+    var unknownSchemaIds = schemaData.getSchemaIdsForSchemaName("UnknownSchema");
+    assertTrue(unknownSchemaIds.isEmpty());
   }
 
   @Test
   public void testGetSchemaIdsForSchemaNameWithNull() {
     // Test that null schema names return empty
-    var nullSchemaIds = EventSchemaConstants.getSchemaIdsForSchemaName(null);
-    assertFalse(nullSchemaIds.isPresent());
+    EventSchemaData schemaData = new EventSchemaData();
+    var nullSchemaIds = schemaData.getSchemaIdsForSchemaName(null);
+    assertTrue(nullSchemaIds.isEmpty());
   }
 
   @Test
   public void testGetAllSchemaNames() {
     // Test that we can get all schema names
-    List<String> allSchemaNames = EventSchemaConstants.getAllSchemaNames();
+    EventSchemaData schemaData = new EventSchemaData();
+    List<String> allSchemaNames = new ArrayList<>(schemaData.getSchemaNameToIdsMap().keySet());
     assertNotNull(allSchemaNames);
     assertTrue(allSchemaNames.size() > 0);
 
@@ -95,22 +114,29 @@ public class EventSchemaConstantsTest {
   @Test
   public void testSchemaIdOrdinalMapping() {
     // Test that schema IDs match their ordinal values
-    assertEquals(EventSchemaConstants.MCP_V1_SCHEMA_ID, 0);
-    assertEquals(EventSchemaConstants.FMCP_V1_SCHEMA_ID, 1);
-    assertEquals(EventSchemaConstants.MCL_V1_SCHEMA_ID, 2);
-    assertEquals(EventSchemaConstants.MCL_TIMESERIES_V1_SCHEMA_ID, 3);
-    assertEquals(EventSchemaConstants.PE_SCHEMA_ID, 4);
-    assertEquals(EventSchemaConstants.MCE_V1_SCHEMA_ID, 5);
-    assertEquals(EventSchemaConstants.FMCE_V1_SCHEMA_ID, 6);
-    assertEquals(EventSchemaConstants.MAE_V1_SCHEMA_ID, 7);
-    assertEquals(EventSchemaConstants.DUHE_SCHEMA_ID, 8);
-    assertEquals(EventSchemaConstants.MCP_SCHEMA_ID, 9);
-    assertEquals(EventSchemaConstants.FMCP_SCHEMA_ID, 10);
-    assertEquals(EventSchemaConstants.MCL_SCHEMA_ID, 11);
-    assertEquals(EventSchemaConstants.MCL_TIMESERIES_SCHEMA_ID, 12);
-    assertEquals(EventSchemaConstants.MCE_SCHEMA_ID, 13);
-    assertEquals(EventSchemaConstants.FMCE_SCHEMA_ID, 14);
-    assertEquals(EventSchemaConstants.MAE_SCHEMA_ID, 15);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1.getSchemaId(), 0);
+    assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL_V1.getSchemaId(), 1);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_LOG_V1.getSchemaId(), 2);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES_V1.getSchemaId(), 3);
+    assertEquals(SchemaIdOrdinal.PLATFORM_EVENT.getSchemaId(), 4);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1.getSchemaId(), 5);
+    assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1.getSchemaId(), 6);
+    assertEquals(SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1.getSchemaId(), 7);
+    assertEquals(SchemaIdOrdinal.DATAHUB_UPGRADE_HISTORY_EVENT.getSchemaId(), 8);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1_FIX.getSchemaId(), 9);
+    assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL_V1_FIX.getSchemaId(), 10);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_LOG_V1_FIX.getSchemaId(), 11);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES_V1_FIX.getSchemaId(), 12);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1_FIX.getSchemaId(), 13);
+    assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1_FIX.getSchemaId(), 14);
+    assertEquals(SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1_FIX.getSchemaId(), 15);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL.getSchemaId(), 16);
+    assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL.getSchemaId(), 17);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_LOG.getSchemaId(), 18);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES.getSchemaId(), 19);
+    assertEquals(SchemaIdOrdinal.METADATA_CHANGE_EVENT.getSchemaId(), 20);
+    assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT.getSchemaId(), 21);
+    assertEquals(SchemaIdOrdinal.METADATA_AUDIT_EVENT.getSchemaId(), 22);
   }
 
   @Test
@@ -173,7 +199,8 @@ public class EventSchemaConstantsTest {
   @Test
   public void testGetSchemaNameToSchemaIdsMap() {
     // Test that we can get the schema name to schema IDs mapping
-    Map<String, List<Integer>> schemaMap = EventSchemaConstants.getSchemaNameToSchemaIdsMap();
+    EventSchemaData schemaData = new EventSchemaData();
+    Map<String, List<Integer>> schemaMap = schemaData.getSchemaNameToIdsMap();
     assertNotNull(schemaMap);
     assertFalse(schemaMap.isEmpty());
 
@@ -195,7 +222,8 @@ public class EventSchemaConstantsTest {
   @Test
   public void testGetSchemaIdToSchemaNameMap() {
     // Test that we can get the schema ID to schema name mapping
-    Map<Integer, String> schemaMap = EventSchemaConstants.getSchemaIdToSchemaNameMap();
+    EventSchemaData schemaData = new EventSchemaData();
+    Map<Integer, String> schemaMap = schemaData.getSchemaIdToNameMap();
     assertNotNull(schemaMap);
     assertFalse(schemaMap.isEmpty());
 
@@ -208,17 +236,18 @@ public class EventSchemaConstantsTest {
     }
 
     // Verify specific mappings
-    assertTrue(schemaMap.containsKey(EventSchemaConstants.MCP_V1_SCHEMA_ID));
-    assertTrue(schemaMap.containsKey(EventSchemaConstants.MCP_SCHEMA_ID));
-    assertTrue(schemaMap.containsKey(EventSchemaConstants.DUHE_SCHEMA_ID));
-    assertTrue(schemaMap.containsKey(EventSchemaConstants.PE_SCHEMA_ID));
+    assertTrue(schemaMap.containsKey(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1.getSchemaId()));
+    assertTrue(schemaMap.containsKey(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL.getSchemaId()));
+    assertTrue(schemaMap.containsKey(SchemaIdOrdinal.DATAHUB_UPGRADE_HISTORY_EVENT.getSchemaId()));
+    assertTrue(schemaMap.containsKey(SchemaIdOrdinal.PLATFORM_EVENT.getSchemaId()));
   }
 
   @Test
   public void testSchemaNameToSchemaIdsMappingConsistency() {
     // Test that schema name to schema IDs mapping is consistent
-    Map<String, List<Integer>> nameToIdsMap = EventSchemaConstants.getSchemaNameToSchemaIdsMap();
-    Map<Integer, String> idToNameMap = EventSchemaConstants.getSchemaIdToSchemaNameMap();
+    EventSchemaData schemaData = new EventSchemaData();
+    Map<String, List<Integer>> nameToIdsMap = schemaData.getSchemaNameToIdsMap();
+    Map<Integer, String> idToNameMap = schemaData.getSchemaIdToNameMap();
 
     // For each schema name, verify that all its schema IDs map back to the same name
     for (Map.Entry<String, List<Integer>> entry : nameToIdsMap.entrySet()) {
@@ -243,8 +272,9 @@ public class EventSchemaConstantsTest {
   @Test
   public void testSchemaIdToSchemaNameMappingConsistency() {
     // Test that schema ID to schema name mapping is consistent
-    Map<String, List<Integer>> nameToIdsMap = EventSchemaConstants.getSchemaNameToSchemaIdsMap();
-    Map<Integer, String> idToNameMap = EventSchemaConstants.getSchemaIdToSchemaNameMap();
+    EventSchemaData schemaData = new EventSchemaData();
+    Map<String, List<Integer>> nameToIdsMap = schemaData.getSchemaNameToIdsMap();
+    Map<Integer, String> idToNameMap = schemaData.getSchemaIdToNameMap();
 
     // For each schema ID, verify that its schema name contains the ID in its list
     for (Map.Entry<Integer, String> entry : idToNameMap.entrySet()) {
@@ -262,8 +292,9 @@ public class EventSchemaConstantsTest {
   @Test
   public void testAllSchemaNamesAreMapped() {
     // Test that all schema names have corresponding schema IDs
-    List<String> allSchemaNames = EventSchemaConstants.getAllSchemaNames();
-    Map<String, List<Integer>> nameToIdsMap = EventSchemaConstants.getSchemaNameToSchemaIdsMap();
+    EventSchemaData schemaData = new EventSchemaData();
+    List<String> allSchemaNames = new ArrayList<>(schemaData.getSchemaNameToIdsMap().keySet());
+    Map<String, List<Integer>> nameToIdsMap = schemaData.getSchemaNameToIdsMap();
 
     for (String schemaName : allSchemaNames) {
       assertTrue(
@@ -279,8 +310,9 @@ public class EventSchemaConstantsTest {
   @Test
   public void testAllSchemaIdsAreMapped() {
     // Test that all schema IDs have corresponding schema names
-    Map<Integer, String> idToNameMap = EventSchemaConstants.getSchemaIdToSchemaNameMap();
-    Map<String, List<Integer>> nameToIdsMap = EventSchemaConstants.getSchemaNameToSchemaIdsMap();
+    EventSchemaData schemaData = new EventSchemaData();
+    Map<Integer, String> idToNameMap = schemaData.getSchemaIdToNameMap();
+    Map<String, List<Integer>> nameToIdsMap = schemaData.getSchemaNameToIdsMap();
 
     // Collect all schema IDs from the name to IDs mapping
     for (List<Integer> schemaIds : nameToIdsMap.values()) {

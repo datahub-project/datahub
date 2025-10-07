@@ -192,3 +192,55 @@ WHEN NOT MATCHED THEN
     statements = [statement.strip() for statement in split_statements(test_sql)]
     expected = [test_sql]
     assert statements == expected
+
+
+def test_split_statement_with_end_keyword_in_string():
+    test_sql = """
+    SELECT
+        [Id],
+        'End Date' as category
+    INTO myprodtable
+    FROM myrawtable
+    """
+    statements = [statement.strip() for statement in split_statements(test_sql)]
+    expected = [test_sql.strip()]
+    assert statements == expected
+
+
+def test_split_statement_with_end_keyword_in_string_with_escape():
+    test_sql = """
+    SELECT
+        [Id],
+        '''Escaped Part'' End Date' as category
+    INTO myprodtable
+    FROM myrawtable
+    """
+    statements = [statement.strip() for statement in split_statements(test_sql)]
+    expected = [test_sql.strip()]
+    assert statements == expected
+
+
+def test_split_statement_with_end_keyword_in_bracketed_identifier():
+    test_sql = """
+    SELECT
+        [Id],
+        [End Date]
+    INTO myprodtable
+    FROM myrawtable
+    """
+    statements = [statement.strip() for statement in split_statements(test_sql)]
+    expected = [test_sql.strip()]
+    assert statements == expected
+
+
+def test_split_statement_with_end_keyword_in_bracketed_identifier_with_escapes():
+    test_sql = """
+    SELECT
+        [Id],
+        [[Escaped Part]] End Date]
+    INTO myprodtable
+    FROM myrawtable
+    """
+    statements = [statement.strip() for statement in split_statements(test_sql)]
+    expected = [test_sql.strip()]
+    assert statements == expected

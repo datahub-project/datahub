@@ -52,6 +52,7 @@ class ParserState(Enum):
     STRING = 2
     COMMENT = 3
     MULTILINE_COMMENT = 4
+    BRACKETED_IDENTIFIER = 5
 
 
 class _StatementSplitter:
@@ -141,6 +142,10 @@ class _StatementSplitter:
                     self.state = ParserState.STRING
                     self.current_statement.append(c)
                     prev_real_char = c
+                elif c == "[":
+                    self.state = ParserState.BRACKETED_IDENTIFIER
+                    self.current_statement.append(c)
+                    prev_real_char = c
                 elif c == "-" and next_char == "-":
                     self.state = ParserState.COMMENT
                     self.current_statement.append(c)
@@ -170,6 +175,14 @@ class _StatementSplitter:
                     self.current_statement.append(next_char)
                     self.i += 1
                 elif c == "'":
+                    self.state = ParserState.NORMAL
+
+            elif self.state == ParserState.BRACKETED_IDENTIFIER:
+                self.current_statement.append(c)
+                if c == "]" and next_char == "]":
+                    self.current_statement.append(next_char)
+                    self.i += 1
+                elif c == "]":
                     self.state = ParserState.NORMAL
 
             elif self.state == ParserState.COMMENT:

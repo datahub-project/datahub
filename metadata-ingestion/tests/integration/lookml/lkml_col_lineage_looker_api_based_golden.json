@@ -1,0 +1,1670 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ddf73728714092b1445bb6e8d6062491",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "looker",
+                "env": "PROD",
+                "project_name": "lkml_col_lineage_sample"
+            },
+            "name": "lkml_col_lineage_sample",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ddf73728714092b1445bb6e8d6062491",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:looker"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ddf73728714092b1445bb6e8d6062491",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "LookML Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ddf73728714092b1445bb6e8d6062491",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Folders"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "# The name of this view in Looker is \"Purchases\"\nview: purchases {\n  # The sql_table_name parameter indicates the underlying database table\n  # to be used for all fields in this view.\n  sql_table_name: \"ECOMMERCE\".\"PURCHASES\" ;;\n\n  # No primary key is defined for this view. In order to join this view in an Explore,\n  # define primary_key: yes on a dimension that has no repeated values.\n\n  # Dates and timestamps can be represented in Looker using a dimension group of type: time.\n  # Looker converts dates and timestamps to the specified timeframes within the dimension group.\n\n  dimension_group: created {\n    type: time\n    timeframes: [raw, time, date, week, month, quarter, year]\n    sql: ${TABLE}.\"CREATED_AT\" ;;\n  }\n    # Here's what a typical dimension looks like in LookML.\n    # A dimension is a groupable field that can be used to filter query results.\n    # This dimension will be called \"Pk\" in Explore.\n\n  dimension: pk {\n    primary_key: yes\n    type: number\n    sql: ${TABLE}.\"PK\" ;;\n  }\n\n  dimension: purchase_amount {\n    type: number\n    sql: ${TABLE}.\"PURCHASE_AMOUNT\" ;;\n  }\n\n  dimension: status {\n    type: string\n    sql: ${TABLE}.\"STATUS\" ;;\n  }\n\n  dimension: tax_amount {\n    type: number\n    sql: ${TABLE}.\"TAX_AMOUNT\" ;;\n  }\n\n  dimension: total_amount {\n    type: number\n    sql: ${TABLE}.\"TOTAL_AMOUNT\" ;;\n  }\n\n  dimension_group: updated {\n    type: time\n    timeframes: [raw, time, date, week, month, quarter, year]\n    sql: ${TABLE}.\"UPDATED_AT\" ;;\n  }\n\n  dimension: user_fk {\n    type: number\n    sql: ${TABLE}.\"USER_FK\" ;;\n  }\n\n  # Inter View Dimension References\n  dimension: is_expensive_purchase {\n    type: yesno\n    sql: ${total_amount} > 100 ;;\n  }\n\n  # Inter View Nested Dimension References\n  measure: num_of_expensive_purchases {\n    type: count\n    drill_fields: [is_expensive_purchase]\n  }\n\n  # Intra View Dimension Reference\n  dimension: user_email{\n    type: string\n    sql:${users.email} ;;\n  }\n\n  measure: average_purchase_value{\n    type: average\n    sql: ${total_amount} ;;\n    value_format_name: usd\n  }\n\n  measure: count {\n    type: count\n  }\n\n  dimension_group: purchase_age {\n    type: duration\n    sql_start: ${TABLE}.\"CREATED_AT\" ;;\n    sql_end: CURRENT_TIMESTAMP ;;\n    intervals: [day, week, month, quarter, year]\n  }\n}\n",
+            "viewLanguage": "lookml"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:looker"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "purchases",
+            "platform": "urn:li:dataPlatform:looker",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "pk",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "purchase_amount",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "status",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "tax_amount",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "total_amount",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "user_fk",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "is_expensive_purchase",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "yesno",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "user_email",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "created",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "time",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            },
+                            {
+                                "tag": "urn:li:tag:Temporal"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "updated",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "time",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            },
+                            {
+                                "tag": "urn:li:tag:Temporal"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "purchase_age",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "duration",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            },
+                            {
+                                "tag": "urn:li:tag:Temporal"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "num_of_expensive_purchases",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "count",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "average_purchase_value",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "average",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "count",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "count",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                }
+            ],
+            "primaryKeys": [
+                "pk"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:datahub"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD)",
+                    "type": "VIEW"
+                },
+                {
+                    "auditStamp": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:datahub"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.users,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),PK)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD),pk)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),PURCHASE_AMOUNT)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD),purchase_amount)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),STATUS)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD),status)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),TAX_AMOUNT)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD),tax_amount)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),TOTAL_AMOUNT)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD),total_amount)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),USER_FK)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD),user_fk)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),TOTAL_AMOUNT)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD),is_expensive_purchase)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.users,PROD),EMAIL)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD),user_email)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),CREATED_AT)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD),created)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),UPDATED_AT)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD),updated)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),CREATED_AT)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD),purchase_age)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),PK)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD),num_of_expensive_purchases)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),TOTAL_AMOUNT)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD),average_purchase_value)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),PK)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD),count)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "looker.file.path": "views/purchases.view.lkml",
+                "looker.model": "dev_project"
+            },
+            "name": "purchases",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ddf73728714092b1445bb6e8d6062491"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.purchases,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:ddf73728714092b1445bb6e8d6062491",
+                    "urn": "urn:li:container:ddf73728714092b1445bb6e8d6062491"
+                },
+                {
+                    "id": "views"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.user_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.user_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT\n           user_fk as user_id,\n           COUNT(DISTINCT pk) as purchase_count,\n           SUM(total_amount) as total_spent\n         FROM ${purchases.SQL_TABLE_NAME}\n         GROUP BY user_id",
+            "viewLanguage": "sql"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.user_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:looker"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.user_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "user_metrics",
+            "platform": "urn:li:dataPlatform:looker",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "user_id",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "purchase_count",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "total_spent",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "customer_segment",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "high_value_customer_count",
+                    "nullable": false,
+                    "description": "Count of customers who spent over $1000",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "count_distinct",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                }
+            ],
+            "primaryKeys": [
+                "user_id"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.user_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:datahub"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD)",
+                    "type": "VIEW"
+                },
+                {
+                    "auditStamp": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:datahub"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.users,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),user_fk)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.user_metrics,PROD),user_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),pk)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.user_metrics,PROD),purchase_count)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),total_amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.user_metrics,PROD),total_spent)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),total_amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.user_metrics,PROD),customer_segment)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),total_amount)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.users,PROD),PK)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.user_metrics,PROD),high_value_customer_count)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.user_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "looker.file.path": "views/user_metrics.view.lkml",
+                "looker.model": "dev_project"
+            },
+            "name": "user_metrics",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.user_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ddf73728714092b1445bb6e8d6062491"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.user_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.user_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:ddf73728714092b1445bb6e8d6062491",
+                    "urn": "urn:li:container:ddf73728714092b1445bb6e8d6062491"
+                },
+                {
+                    "id": "views"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "# The name of this view in Looker is \"Users\"\nview: users {\n  # The sql_table_name parameter indicates the underlying database table\n  # to be used for all fields in this view.\n  sql_table_name: \"ECOMMERCE\".\"USERS\" ;;\n\n  # No primary key is defined for this view. In order to join this view in an Explore,\n  # define primary_key: yes on a dimension that has no repeated values.\n\n  # Dates and timestamps can be represented in Looker using a dimension group of type: time.\n  # Looker converts dates and timestamps to the specified timeframes within the dimension group.\n\n  dimension_group: created {\n    type: time\n    timeframes: [raw, time, date, week, month, quarter, year]\n    sql: ${TABLE}.\"CREATED_AT\" ;;\n  }\n    # Here's what a typical dimension looks like in LookML.\n    # A dimension is a groupable field that can be used to filter query results.\n    # This dimension will be called \"Email\" in Explore.\n\n  dimension: email {\n    type: string\n    sql: ${TABLE}.\"EMAIL\" ;;\n  }\n\n  dimension: pk {\n    primary_key: yes\n    type: number\n    sql: ${TABLE}.\"PK\" ;;\n  }\n\n  dimension_group: updated {\n    type: time\n    timeframes: [raw, time, date, week, month, quarter, year]\n    sql: ${TABLE}.\"UPDATED_AT\" ;;\n  }\n\n  measure: lifetime_purchase_count{\n    type: count_distinct\n    sql: ${purchases.pk} ;;\n    description: \"Total lifetime purchases count by user\"\n  }\n\n  measure: lifetime_total_purchase_amount{\n    type: sum\n    sql: ${purchases.total_amount};;\n    value_format_name: usd\n    description: \"Total lifetime revenue from purchases by user\"\n  }\n\n  dimension: user_purchase_status{\n    type: string\n    sql:\n      CASE\n        WHEN ${user_metrics.purchase_count} <= 1 THEN 'First Purchase'\n        WHEN ${user_metrics.purchase_count} <= 3 THEN 'Early Customer'\n        WHEN ${user_metrics.purchase_count} <= 10 THEN 'Regular Customer'\n        ELSE 'Loyal Customer'\n      END ;;\n  }\n\n  dimension_group: user_age {\n    type: duration\n    sql_start: ${TABLE}.\"CREATED_AT\" ;;\n    sql_end: CURRENT_TIMESTAMP ;;\n    intervals: [day, week, month, quarter, year]\n  }\n\n  measure: count {\n    type: count\n  }\n}\n",
+            "viewLanguage": "lookml"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:looker"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "users",
+            "platform": "urn:li:dataPlatform:looker",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "email",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "pk",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "user_purchase_status",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "created",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "time",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            },
+                            {
+                                "tag": "urn:li:tag:Temporal"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "updated",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "time",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            },
+                            {
+                                "tag": "urn:li:tag:Temporal"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "user_age",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "duration",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            },
+                            {
+                                "tag": "urn:li:tag:Temporal"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "lifetime_purchase_count",
+                    "nullable": false,
+                    "description": "Total lifetime purchases count by user",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "count_distinct",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "lifetime_total_purchase_amount",
+                    "nullable": false,
+                    "description": "Total lifetime revenue from purchases by user",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "sum",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "count",
+                    "nullable": false,
+                    "description": "",
+                    "label": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "count",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                }
+            ],
+            "primaryKeys": [
+                "pk"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:datahub"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD)",
+                    "type": "VIEW"
+                },
+                {
+                    "auditStamp": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:datahub"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.users,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.users,PROD),EMAIL)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD),email)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.users,PROD),PK)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD),pk)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),pk)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD),user_purchase_status)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.users,PROD),CREATED_AT)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD),created)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.users,PROD),UPDATED_AT)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD),updated)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.users,PROD),CREATED_AT)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD),user_age)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),PK)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD),lifetime_purchase_count)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.purchases,PROD),TOTAL_AMOUNT)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.users,PROD),PK)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD),lifetime_total_purchase_amount)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.ecommerce.users,PROD),PK)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD),count)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "looker.file.path": "views/users.view.lkml",
+                "looker.model": "dev_project"
+            },
+            "name": "users",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ddf73728714092b1445bb6e8d6062491"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_col_lineage_sample.view.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Develop"
+                },
+                {
+                    "id": "urn:li:container:ddf73728714092b1445bb6e8d6062491",
+                    "urn": "urn:li:container:ddf73728714092b1445bb6e8d6062491"
+                },
+                {
+                    "id": "views"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ddf73728714092b1445bb6e8d6062491",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Dimension",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Dimension"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Measure",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Measure"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Temporal",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Temporal"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
