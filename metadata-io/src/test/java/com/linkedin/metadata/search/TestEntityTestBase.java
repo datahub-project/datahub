@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search;
 
-import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
@@ -25,12 +24,12 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nonnull;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
@@ -42,7 +41,7 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
   private static final String BROWSE_V2_DELIMITER = "␟";
 
   @Nonnull
-  protected abstract RestHighLevelClient getSearchClient();
+  protected abstract SearchClientShim<?> getSearchClient();
 
   @Nonnull
   protected abstract ESBulkProcessor getBulkProcessor();
@@ -89,7 +88,6 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
         new ESSearchDAO(
             getSearchClient(),
             false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getElasticSearchConfiguration(),
             null,
             QueryFilterRewriteChain.EMPTY,
