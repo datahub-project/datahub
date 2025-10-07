@@ -49,26 +49,19 @@ public class BulkProcessorTestUtils {
 
   private static BulkProcessorProxyListener getBulkProcessorListener(
       ESBulkProcessor esBulkProcessor) {
-    var bulkProcessors =
-        (BulkProcessor[]) ReflectionTestUtils.getField(esBulkProcessor, "bulkProcessors");
-    // Use the first processor for testing purposes
-    var bulkProcessor = bulkProcessors[0];
+    var bulkProcessor = ReflectionTestUtils.getField(esBulkProcessor, "bulkProcessor");
     var bulkRequestHandler = ReflectionTestUtils.getField(bulkProcessor, "bulkRequestHandler");
     return (BulkProcessorProxyListener)
         ReflectionTestUtils.getField(bulkRequestHandler, "listener");
   }
 
   public static void replaceBulkProcessorListener(ESBulkProcessor esBulkProcessor) {
-    var bulkProcessors =
-        (BulkProcessor[]) ReflectionTestUtils.getField(esBulkProcessor, "bulkProcessors");
-
-    // Replace listener for all processors
-    for (BulkProcessor bulkProcessor : bulkProcessors) {
-      var bulkRequestHandler = ReflectionTestUtils.getField(bulkProcessor, "bulkRequestHandler");
-      var bulkProcessorListener =
-          (BulkProcessor.Listener) ReflectionTestUtils.getField(bulkRequestHandler, "listener");
-      ReflectionTestUtils.setField(
-          bulkRequestHandler, "listener", new BulkProcessorProxyListener(bulkProcessorListener));
-    }
+    var bulkProcessor =
+        (BulkProcessor) ReflectionTestUtils.getField(esBulkProcessor, "bulkProcessor");
+    var bulkRequestHandler = ReflectionTestUtils.getField(bulkProcessor, "bulkRequestHandler");
+    var bulkProcessorListener =
+        (BulkProcessor.Listener) ReflectionTestUtils.getField(bulkRequestHandler, "listener");
+    ReflectionTestUtils.setField(
+        bulkRequestHandler, "listener", new BulkProcessorProxyListener(bulkProcessorListener));
   }
 }
