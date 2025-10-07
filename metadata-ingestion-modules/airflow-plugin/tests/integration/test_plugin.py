@@ -705,7 +705,8 @@ class DagTestCase:
         return f"{self.dag_id}{self.test_variant or ''}"
 
 
-test_cases = [
+# Airflow 2.x test cases - these DAGs are in tests/integration/dags/
+test_cases_airflow2 = [
     DagTestCase(
         "simple_dag", multiple_connections=True, platform_instance=PLATFORM_INSTANCE
     ),
@@ -728,64 +729,97 @@ test_cases = [
     DagTestCase("athena_operator", v2_only=True),
 ]
 
+# Airflow 3.x test cases - these DAGs are in tests/integration/dags/airflow3/
+# All test cases are v2_only since Airflow 3.0+ only supports the listener-based plugin
+test_cases_airflow3 = [
+    DagTestCase(
+        "simple_dag", multiple_connections=True, platform_instance=PLATFORM_INSTANCE
+    ),
+    DagTestCase(
+        "simple_dag",
+        multiple_connections=True,
+        platform_instance=PLATFORM_INSTANCE,
+        enable_datajob_lineage=False,
+        test_variant="_no_datajob_lineage",
+    ),
+    DagTestCase("basic_iolets", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("dag_to_skip", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("snowflake_operator", success=False),
+    DagTestCase("sqlite_operator", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("custom_operator_dag", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("custom_operator_sql_parsing"),
+    DagTestCase("datahub_emitter_operator_jinja_template_dag"),
+    DagTestCase("athena_operator"),
+]
+
+
+def _get_test_parameters():
+    """Generate test parameters based on the Airflow version."""
+    if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
+        # Airflow 3.0+: Only run v2 plugin tests with airflow3 suffix
+        return [
+            pytest.param(
+                f"v2_{test_case.dag_test_id}_airflow3",
+                test_case,
+                False,  # is_v1
+                id=f"v2_{test_case.dag_test_id}_airflow3",
+            )
+            for test_case in test_cases_airflow3
+        ]
+    else:
+        # Airflow 2.x: Run both v1 and v2 plugin tests
+        return [
+            # v1 plugin tests (only on Airflow 2.3)
+            *[
+                pytest.param(
+                    f"v1_{test_case.dag_test_id}",
+                    test_case,
+                    True,
+                    id=f"v1_{test_case.dag_test_id}",
+                    marks=pytest.mark.skipif(
+                        AIRFLOW_VERSION >= packaging.version.parse("2.4.0"),
+                        reason="We only test the v1 plugin on Airflow 2.3",
+                    ),
+                )
+                for test_case in test_cases_airflow2
+                if not test_case.v2_only
+            ],
+            # v2 plugin tests
+            *[
+                pytest.param(
+                    (
+                        f"v2_{test_case.dag_test_id}"
+                        if HAS_AIRFLOW_DAG_LISTENER_API
+                        else f"v2_{test_case.dag_test_id}_no_dag_listener"
+                    ),
+                    test_case,
+                    False,
+                    id=(
+                        f"v2_{test_case.dag_test_id}"
+                        if HAS_AIRFLOW_DAG_LISTENER_API
+                        else f"v2_{test_case.dag_test_id}_no_dag_listener"
+                    ),
+                    marks=[
+                        pytest.mark.skipif(
+                            not HAS_AIRFLOW_LISTENER_API,
+                            reason="Cannot test plugin v2 without the Airflow plugin listener API",
+                        ),
+                        pytest.mark.skipif(
+                            AIRFLOW_VERSION < packaging.version.parse("2.4.0"),
+                            reason="We skip testing the v2 plugin on Airflow 2.3 because it causes flakiness in the custom properties. "
+                            "Ideally we'd just fix these, but given that Airflow 2.3 is EOL and likely going to be deprecated "
+                            "soon anyways, it's not worth the effort.",
+                        ),
+                    ],
+                )
+                for test_case in test_cases_airflow2
+            ],
+        ]
+
 
 @pytest.mark.parametrize(
     ["golden_filename", "test_case", "is_v1"],
-    [
-        *[
-            pytest.param(
-                f"v1_{test_case.dag_test_id}",
-                test_case,
-                True,
-                id=f"v1_{test_case.dag_test_id}",
-                marks=pytest.mark.skipif(
-                    AIRFLOW_VERSION >= packaging.version.parse("2.4.0"),
-                    reason="We only test the v1 plugin on Airflow 2.3",
-                ),
-            )
-            for test_case in test_cases
-            if not test_case.v2_only
-        ],
-        *[
-            pytest.param(
-                # On Airflow 2.3-2.4, test plugin v2 without dataFlows.
-                # On Airflow 3.0+, use airflow3 suffix for version-specific golden files
-                (
-                    f"v2_{test_case.dag_test_id}_airflow3"
-                    if AIRFLOW_VERSION >= packaging.version.parse("3.0.0")
-                    else (
-                        f"v2_{test_case.dag_test_id}"
-                        if HAS_AIRFLOW_DAG_LISTENER_API
-                        else f"v2_{test_case.dag_test_id}_no_dag_listener"
-                    )
-                ),
-                test_case,
-                False,
-                id=(
-                    f"v2_{test_case.dag_test_id}_airflow3"
-                    if AIRFLOW_VERSION >= packaging.version.parse("3.0.0")
-                    else (
-                        f"v2_{test_case.dag_test_id}"
-                        if HAS_AIRFLOW_DAG_LISTENER_API
-                        else f"v2_{test_case.dag_test_id}_no_dag_listener"
-                    )
-                ),
-                marks=[
-                    pytest.mark.skipif(
-                        not HAS_AIRFLOW_LISTENER_API,
-                        reason="Cannot test plugin v2 without the Airflow plugin listener API",
-                    ),
-                    pytest.mark.skipif(
-                        AIRFLOW_VERSION < packaging.version.parse("2.4.0"),
-                        reason="We skip testing the v2 plugin on Airflow 2.3 because it causes flakiness in the custom properties. "
-                        "Ideally we'd just fix these, but given that Airflow 2.3 is EOL and likely going to be deprecated "
-                        "soon anyways, it's not worth the effort.",
-                    ),
-                ],
-            )
-            for test_case in test_cases
-        ],
-    ],
+    _get_test_parameters(),
 )
 def test_airflow_plugin(
     tmp_path: pathlib.Path,

@@ -1,3 +1,4 @@
+# mypy: disable-error-code="no-redef, attr-defined"
 from typing import List
 
 import airflow.version

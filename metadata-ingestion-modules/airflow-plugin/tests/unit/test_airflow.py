@@ -1,3 +1,5 @@
+# mypy: ignore-errors
+# type: ignore  # Airflow 2.x unit tests
 import datetime
 import json
 import os

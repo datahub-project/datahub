@@ -1,0 +1,1651 @@
+[
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "catchup": "False",
+                "description": "None",
+                "doc_md": "None",
+                "fileloc": "<fileloc>",
+                "is_paused_upon_creation": "None",
+                "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
+                "tags": "set()",
+                "timezone": "Timezone('UTC')"
+            },
+            "externalUrl": "http://airflow.example.com/tree?dag_id=sqlite_operator",
+            "name": "sqlite_operator",
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),create_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),populate_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_processed_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "myairflow",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+                },
+                {
+                    "id": "sqlite_operator"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),create_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'create_cost_table'",
+                "execution_timeout": "None",
+                "sql": "'\\n        CREATE TABLE IF NOT EXISTS costs (\\n            id INTEGER PRIMARY KEY,\\n            month TEXT NOT NULL,\\n            total_cost REAL NOT NULL,\\n            area REAL NOT NULL\\n        )\\n        '",
+                "task_id": "'create_cost_table'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "['populate_cost_table']",
+                "inlets": "[]",
+                "outlets": "[]"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=create_cost_table",
+            "name": "create_cost_table",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),create_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),create_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),create_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [],
+            "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),create_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),create_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:fbeed1180fa0434e02ac6f75ace87869",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "run_id": "manual_run_test",
+                "start_date": "<start_date>",
+                "try_number": "0",
+                "state": "TaskInstanceState.RUNNING",
+                "task_id": "create_cost_table",
+                "dag_id": "sqlite_operator",
+                "max_tries": "0",
+                "log_url": "http://localhost:8080/dags/sqlite_operator/runs/manual_run_test/tasks/create_cost_table?try_number=1",
+                "orchestrator": "airflow"
+            },
+            "externalUrl": "http://localhost:8080/dags/sqlite_operator/runs/manual_run_test/tasks/create_cost_table?try_number=1",
+            "name": "sqlite_operator_create_cost_table_manual_run_test",
+            "type": "BATCH_AD_HOC",
+            "created": {
+                "time": 1759755934379,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:fbeed1180fa0434e02ac6f75ace87869",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),create_cost_table)",
+            "upstreamInstances": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:fbeed1180fa0434e02ac6f75ace87869",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:fbeed1180fa0434e02ac6f75ace87869",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1759755934379,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED",
+            "attempt": 1
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),create_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'create_cost_table'",
+                "execution_timeout": "None",
+                "sql": "'\\n        CREATE TABLE IF NOT EXISTS costs (\\n            id INTEGER PRIMARY KEY,\\n            month TEXT NOT NULL,\\n            total_cost REAL NOT NULL,\\n            area REAL NOT NULL\\n        )\\n        '",
+                "task_id": "'create_cost_table'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "['populate_cost_table']",
+                "inlets": "[]",
+                "outlets": "[]"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=create_cost_table",
+            "name": "create_cost_table",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),create_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),create_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),create_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [],
+            "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),create_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),create_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:fbeed1180fa0434e02ac6f75ace87869",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1759755935980,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),populate_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'populate_cost_table'",
+                "execution_timeout": "None",
+                "sql": "\"\\n        INSERT INTO costs (id, month, total_cost, area)\\n        VALUES\\n            (1, '2021-01', 100, 10),\\n            (2, '2021-02', 200, 20),\\n            (3, '2021-03', 300, 30)\\n        \"",
+                "task_id": "'populate_cost_table'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "['transform_cost_table']",
+                "inlets": "[]",
+                "outlets": "[]"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=populate_cost_table",
+            "name": "populate_cost_table",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),populate_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),populate_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),populate_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),create_cost_table)"
+            ],
+            "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),populate_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),populate_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:04e1badac1eacd1c41123d07f579fa92",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "run_id": "manual_run_test",
+                "start_date": "<start_date>",
+                "try_number": "0",
+                "state": "TaskInstanceState.RUNNING",
+                "task_id": "populate_cost_table",
+                "dag_id": "sqlite_operator",
+                "max_tries": "0",
+                "log_url": "http://localhost:8080/dags/sqlite_operator/runs/manual_run_test/tasks/populate_cost_table?try_number=1",
+                "orchestrator": "airflow"
+            },
+            "externalUrl": "http://localhost:8080/dags/sqlite_operator/runs/manual_run_test/tasks/populate_cost_table?try_number=1",
+            "name": "sqlite_operator_populate_cost_table_manual_run_test",
+            "type": "BATCH_AD_HOC",
+            "created": {
+                "time": 1759755936127,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:04e1badac1eacd1c41123d07f579fa92",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),populate_cost_table)",
+            "upstreamInstances": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:04e1badac1eacd1c41123d07f579fa92",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:04e1badac1eacd1c41123d07f579fa92",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1759755936127,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED",
+            "attempt": 1
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),populate_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'populate_cost_table'",
+                "execution_timeout": "None",
+                "sql": "\"\\n        INSERT INTO costs (id, month, total_cost, area)\\n        VALUES\\n            (1, '2021-01', 100, 10),\\n            (2, '2021-02', 200, 20),\\n            (3, '2021-03', 300, 30)\\n        \"",
+                "task_id": "'populate_cost_table'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "['transform_cost_table']",
+                "inlets": "[]",
+                "outlets": "[]"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=populate_cost_table",
+            "name": "populate_cost_table",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),populate_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),populate_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),populate_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),create_cost_table)"
+            ],
+            "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),populate_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),populate_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:04e1badac1eacd1c41123d07f579fa92",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1759755937058,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'transform_cost_table'",
+                "execution_timeout": "None",
+                "sql": "'\\n        CREATE TABLE IF NOT EXISTS processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        '",
+                "task_id": "'transform_cost_table'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "['cleanup_costs', 'cleanup_processed_costs']",
+                "inlets": "[]",
+                "outlets": "[]"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=transform_cost_table",
+            "name": "transform_cost_table",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),populate_cost_table)"
+            ],
+            "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:64e5ff8f552e857b607832731e09808b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "run_id": "manual_run_test",
+                "start_date": "<start_date>",
+                "try_number": "0",
+                "state": "TaskInstanceState.RUNNING",
+                "task_id": "transform_cost_table",
+                "dag_id": "sqlite_operator",
+                "max_tries": "0",
+                "log_url": "http://localhost:8080/dags/sqlite_operator/runs/manual_run_test/tasks/transform_cost_table?try_number=1",
+                "orchestrator": "airflow"
+            },
+            "externalUrl": "http://localhost:8080/dags/sqlite_operator/runs/manual_run_test/tasks/transform_cost_table?try_number=1",
+            "name": "sqlite_operator_transform_cost_table_manual_run_test",
+            "type": "BATCH_AD_HOC",
+            "created": {
+                "time": 1759755937176,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:64e5ff8f552e857b607832731e09808b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)",
+            "upstreamInstances": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:64e5ff8f552e857b607832731e09808b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:64e5ff8f552e857b607832731e09808b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1759755937176,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED",
+            "attempt": 1
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'transform_cost_table'",
+                "execution_timeout": "None",
+                "sql": "'\\n        CREATE TABLE IF NOT EXISTS processed_costs AS\\n        SELECT\\n            id,\\n            month,\\n            total_cost,\\n            area,\\n            total_cost / area as cost_per_area\\n        FROM costs\\n        '",
+                "task_id": "'transform_cost_table'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "['cleanup_costs', 'cleanup_processed_costs']",
+                "inlets": "[]",
+                "outlets": "[]"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=transform_cost_table",
+            "name": "transform_cost_table",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),populate_cost_table)"
+            ],
+            "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:64e5ff8f552e857b607832731e09808b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1759755938131,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_processed_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'cleanup_processed_costs'",
+                "execution_timeout": "None",
+                "sql": "'\\n            DROP TABLE processed_costs\\n            '",
+                "task_id": "'cleanup_processed_costs'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "[]",
+                "inlets": "[]",
+                "outlets": "[]"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_processed_costs",
+            "name": "cleanup_processed_costs",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_processed_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_processed_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_processed_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)"
+            ],
+            "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_processed_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_processed_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:bab908abccf3cd6607b50fdaf3003372",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "run_id": "manual_run_test",
+                "start_date": "<start_date>",
+                "try_number": "0",
+                "state": "TaskInstanceState.RUNNING",
+                "task_id": "cleanup_processed_costs",
+                "dag_id": "sqlite_operator",
+                "max_tries": "0",
+                "log_url": "http://localhost:8080/dags/sqlite_operator/runs/manual_run_test/tasks/cleanup_processed_costs?try_number=1",
+                "orchestrator": "airflow"
+            },
+            "externalUrl": "http://localhost:8080/dags/sqlite_operator/runs/manual_run_test/tasks/cleanup_processed_costs?try_number=1",
+            "name": "sqlite_operator_cleanup_processed_costs_manual_run_test",
+            "type": "BATCH_AD_HOC",
+            "created": {
+                "time": 1759755939057,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:bab908abccf3cd6607b50fdaf3003372",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_processed_costs)",
+            "upstreamInstances": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:bab908abccf3cd6607b50fdaf3003372",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:bab908abccf3cd6607b50fdaf3003372",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1759755939057,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED",
+            "attempt": 1
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'cleanup_costs'",
+                "execution_timeout": "None",
+                "sql": "'\\n            DROP TABLE costs\\n            '",
+                "task_id": "'cleanup_costs'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "[]",
+                "inlets": "[]",
+                "outlets": "[]"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_costs",
+            "name": "cleanup_costs",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)"
+            ],
+            "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:07285de22276959612189d51336cc21a",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "run_id": "manual_run_test",
+                "start_date": "<start_date>",
+                "try_number": "0",
+                "state": "TaskInstanceState.RUNNING",
+                "task_id": "cleanup_costs",
+                "dag_id": "sqlite_operator",
+                "max_tries": "0",
+                "log_url": "http://localhost:8080/dags/sqlite_operator/runs/manual_run_test/tasks/cleanup_costs?try_number=1",
+                "orchestrator": "airflow"
+            },
+            "externalUrl": "http://localhost:8080/dags/sqlite_operator/runs/manual_run_test/tasks/cleanup_costs?try_number=1",
+            "name": "sqlite_operator_cleanup_costs_manual_run_test",
+            "type": "BATCH_AD_HOC",
+            "created": {
+                "time": 1759755939063,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:07285de22276959612189d51336cc21a",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_costs)",
+            "upstreamInstances": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:07285de22276959612189d51336cc21a",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:07285de22276959612189d51336cc21a",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1759755939063,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED",
+            "attempt": 1
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_processed_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'cleanup_processed_costs'",
+                "execution_timeout": "None",
+                "sql": "'\\n            DROP TABLE processed_costs\\n            '",
+                "task_id": "'cleanup_processed_costs'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "[]",
+                "inlets": "[]",
+                "outlets": "[]"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_processed_costs",
+            "name": "cleanup_processed_costs",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_processed_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_processed_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_processed_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)"
+            ],
+            "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_processed_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_processed_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:bab908abccf3cd6607b50fdaf3003372",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1759755939986,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "depends_on_past": "False",
+                "email": "None",
+                "label": "'cleanup_costs'",
+                "execution_timeout": "None",
+                "sql": "'\\n            DROP TABLE costs\\n            '",
+                "task_id": "'cleanup_costs'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
+                "wait_for_downstream": "False",
+                "downstream_task_ids": "[]",
+                "inlets": "[]",
+                "outlets": "[]"
+            },
+            "externalUrl": "http://airflow.example.com/taskinstance/list/?flt1_dag_id_equals=sqlite_operator&_flt_3_task_id=cleanup_costs",
+            "name": "cleanup_costs",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airflow",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,myairflow)"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),transform_cost_table)"
+            ],
+            "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:airflow",
+                    "type": "DEVELOPER",
+                    "source": {
+                        "type": "SERVICE"
+                    }
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airflow"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.sqlite_operator,prod),cleanup_costs)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:07285de22276959612189d51336cc21a",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1759755940241,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "airflow"
+            }
+        }
+    }
+}
+]

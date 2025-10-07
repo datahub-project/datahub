@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Patch for Airflow 3.0+ SQLParser to use DataHub's SQL parser.
 

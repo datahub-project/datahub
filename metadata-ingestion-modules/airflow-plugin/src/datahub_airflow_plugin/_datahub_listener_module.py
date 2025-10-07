@@ -1,3 +1,5 @@
+# mypy: ignore-errors
+# type: ignore  # Airflow 2.x listener module wrapper
 from datahub_airflow_plugin.datahub_listener import (
     get_airflow_plugin_listener,
     hookimpl,

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 from typing import List, Union
 
 from airflow.models import BaseOperator

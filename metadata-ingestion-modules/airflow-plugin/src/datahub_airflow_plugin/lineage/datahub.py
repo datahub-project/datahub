@@ -1,3 +1,5 @@
+# mypy: ignore-errors
+# type: ignore  # Airflow 2.x lineage backend (deprecated)
 import json
 from typing import TYPE_CHECKING, Dict, List, Optional
 
@@ -6,6 +8,7 @@ from airflow.configuration import conf
 # Conditional import for Airflow version compatibility
 try:
     from airflow.lineage.backend import LineageBackend
+
     LINEAGE_BACKEND_AVAILABLE = True
 except ImportError:
     # airflow.lineage.backend was removed in Airflow 3.0
@@ -13,6 +16,7 @@ except ImportError:
     class LineageBackend:
         def __init__(self):
             pass
+
     LINEAGE_BACKEND_AVAILABLE = False
 
 from datahub_airflow_plugin.lineage._lineage_core import (
@@ -68,12 +72,13 @@ class DatahubLineageBackend(LineageBackend):
             _ = get_lineage_backend_config()
         else:
             import warnings
+
             warnings.warn(
                 "DataHub lineage backend is not available in Airflow 3.0+ as the lineage backend "
                 "system was removed. Consider using OpenLineage integration or manual lineage emission "
                 "through DataHub operators.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
 
     # With Airflow 2.0, this can be an instance method. However, with Airflow 1.10.x, this

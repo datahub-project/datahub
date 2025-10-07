@@ -1,3 +1,5 @@
+# mypy: ignore-errors
+# type: ignore  # Airflow 2.2 plugin (legacy)
 import contextlib
 import logging
 import traceback

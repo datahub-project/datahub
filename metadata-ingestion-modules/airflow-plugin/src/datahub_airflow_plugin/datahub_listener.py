@@ -66,7 +66,9 @@ from datahub_airflow_plugin._airflow_version_specific import IS_AIRFLOW_3_OR_HIG
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
 from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_to_datahub_urn
 from datahub_airflow_plugin._version import __package_name__, __version__
-from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
+from datahub_airflow_plugin.client.airflow_generator import (  # type: ignore[attr-defined]  # Circular import issue with mypy
+    AirflowGenerator,
+)
 
 # Only import extractors on Airflow < 3.0
 # On Airflow 3.0+, we use the SQLParser patch instead
@@ -92,7 +94,15 @@ _IS_MACOS_AIRFLOW3 = platform.system() == "Darwin" and IS_AIRFLOW_3_OR_HIGHER
 _F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:
     from airflow.datasets import Dataset
-    from airflow.models import DAG, DagRun, TaskInstance
+    from airflow.models import DagRun, TaskInstance
+
+    # Import the correct DAG type based on Airflow version
+    if IS_AIRFLOW_3_OR_HIGHER:
+        from airflow.sdk.definitions.dag import DAG
+    else:
+        from airflow.models import (  # type: ignore[assignment]  # False positive - both are DAG types
+            DAG,
+        )
 
     # To placate mypy on Airflow versions that don't have the listener API,
     # we define a dummy hookimpl that's an identity function.
@@ -204,13 +214,13 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
                 )
 
         # Debug: Log OpenLineage plugin state
-        if OpenLineagePlugin:
+        if OpenLineagePlugin is not None:
             logger.info(
                 f"OpenLineage plugin state: listeners={len(getattr(OpenLineagePlugin, 'listeners', []))} items, "
                 f"disable_openlineage_plugin={plugin_config.disable_openlineage_plugin}"
             )
 
-        if plugin_config.disable_openlineage_plugin and OpenLineagePlugin:
+        if plugin_config.disable_openlineage_plugin and OpenLineagePlugin is not None:
             # Deactivate the OpenLineagePlugin listener to avoid conflicts/errors.
             OpenLineagePlugin.listeners = []
             logger.info("Cleared OpenLineage plugin listeners")
@@ -299,11 +309,12 @@ class DataHubListener:
         # See discussion here https://github.com/OpenLineage/OpenLineage/pull/508 for
         # why we need to keep track of tasks ourselves.
         # For Airflow 3.0+, TaskHolder may be a dict stub, so we need to handle it gracefully
+        self._task_holder: Dict[str, Any]
         try:
-            self._task_holder = TaskHolder()
+            self._task_holder = TaskHolder()  # type: ignore[assignment] # TaskHolder is type[dict] in Airflow 3.0, not compatible with TaskHolder() from Airflow 2.x
         except (TypeError, AttributeError):
             # TaskHolder is just a dict stub in Airflow 3.0, use a real dict instead
-            self._task_holder = {}  # type: ignore
+            self._task_holder = {}
 
         # In our case, we also want to cache the initial datajob object
         # so that we can add to it when the task completes.
@@ -458,9 +469,10 @@ class DataHubListener:
                     sql_parsing_result = operator_lineage.run_facets[
                         DATAHUB_SQL_PARSING_RESULT_KEY
                     ]  # type: ignore
-                    logger.debug(
-                        f"Found DataHub SQL parsing result with {len(sql_parsing_result.column_lineage or [])} column lineages"
-                    )
+                    if sql_parsing_result is not None:
+                        logger.debug(
+                            f"Found DataHub SQL parsing result with {len(sql_parsing_result.column_lineage or [])} column lineages"
+                        )
 
             except Exception as e:
                 logger.debug(
@@ -615,15 +627,15 @@ class DataHubListener:
         if task_metadata:
             for k, v in task_metadata.job_facets.items():
                 datajob.properties[f"openlineage_job_facet_{k}"] = Serde.to_json(
-                    redact_with_exclusions(v)
+                    redact_with_exclusions(v)  # type: ignore[arg-type]
                 )
 
             for k, v in task_metadata.run_facets.items():
                 datajob.properties[f"openlineage_run_facet_{k}"] = Serde.to_json(
-                    redact_with_exclusions(v)
+                    redact_with_exclusions(v)  # type: ignore[arg-type]
                 )
 
-    def check_kill_switch(self):
+    def check_kill_switch(self) -> bool:
         # In Airflow 3.0+, Variable.get() cannot be called from listener hooks
         # because it creates a database session commit which breaks HA locks.
         # As a workaround, check an environment variable instead.
@@ -649,7 +661,7 @@ class DataHubListener:
 
     @hookimpl
     @run_in_thread
-    def on_task_instance_running(
+    def on_task_instance_running(  # type: ignore[no-untyped-def]  # Airflow 3.0 removed previous_state parameter
         self, previous_state, task_instance: "TaskInstance", **kwargs
     ) -> None:
         # In Airflow 3.0, the session parameter was removed from the hook signature
@@ -681,7 +693,7 @@ class DataHubListener:
         dagrun: "DagRun" = _get_dagrun_from_task_instance(task_instance)
         task = task_instance.task
         assert task is not None
-        dag: "DAG" = task.dag  # type: ignore[assignment]
+        dag: "DAG" = task.dag  # type: ignore[assignment]  # task.dag may return SerializedDAG in Airflow 3.0
 
         # Store task for later retrieval (only needed for Airflow < 3.0)
         if hasattr(self._task_holder, "set_task"):
@@ -705,7 +717,7 @@ class DataHubListener:
 
         datajob = AirflowGenerator.generate_datajob(
             cluster=self.config.cluster,
-            task=task,
+            task=task,  # type: ignore[arg-type]
             dag=dag,
             capture_tags=self.config.capture_tags_info,
             capture_owner=self.config.capture_ownership_info,
@@ -715,7 +727,7 @@ class DataHubListener:
         # TODO: Make use of get_task_location to extract github urls.
 
         # Add lineage info.
-        self._extract_lineage(datajob, dagrun, task, task_instance)
+        self._extract_lineage(datajob, dagrun, task, task_instance)  # type: ignore[arg-type]
 
         # TODO: Add handling for Airflow mapped tasks using task_instance.map_index
 
@@ -793,7 +805,7 @@ class DataHubListener:
             task = None
         assert task is not None
 
-        dag: "DAG" = task.dag  # type: ignore[assignment]
+        dag: "DAG" = task.dag  # type: ignore[assignment]  # task.dag may return SerializedDAG in Airflow 3.0
 
         if not self.config.dag_filter_pattern.allowed(dag.dag_id):
             logger.debug(f"DAG {dag.dag_id} is not allowed by the pattern")
@@ -801,7 +813,7 @@ class DataHubListener:
 
         datajob = AirflowGenerator.generate_datajob(
             cluster=self.config.cluster,
-            task=task,
+            task=task,  # type: ignore[arg-type]
             dag=dag,
             capture_tags=self.config.capture_tags_info,
             capture_owner=self.config.capture_ownership_info,
@@ -809,7 +821,7 @@ class DataHubListener:
         )
 
         # Add lineage info.
-        self._extract_lineage(datajob, dagrun, task, task_instance, complete=True)
+        self._extract_lineage(datajob, dagrun, task, task_instance, complete=True)  # type: ignore[arg-type]
 
         for mcp in datajob.generate_mcp(
             generate_lineage=self.config.enable_datajob_lineage,
@@ -837,7 +849,7 @@ class DataHubListener:
 
     @hookimpl
     @run_in_thread
-    def on_task_instance_success(
+    def on_task_instance_success(  # type: ignore[no-untyped-def]  # Airflow 3.0 removed previous_state parameter
         self, previous_state, task_instance: "TaskInstance", **kwargs
     ) -> None:
         if self.check_kill_switch():
@@ -855,7 +867,7 @@ class DataHubListener:
 
     @hookimpl
     @run_in_thread
-    def on_task_instance_failed(
+    def on_task_instance_failed(  # type: ignore[no-untyped-def]  # Airflow 3.0 removed previous_state parameter
         self, previous_state, task_instance: "TaskInstance", **kwargs
     ) -> None:
         if self.check_kill_switch():
@@ -874,7 +886,7 @@ class DataHubListener:
             f"DataHub listener finished processing task instance failure for {task_instance.task_id}"
         )
 
-    def on_dag_start(self, dag_run: "DagRun") -> None:
+    def on_dag_start(self, dag_run: "DagRun") -> None:  # type: ignore[no-untyped-def]
         dag = dag_run.dag
         if not dag:
             logger.warning(
@@ -884,7 +896,7 @@ class DataHubListener:
 
         dataflow = AirflowGenerator.generate_dataflow(
             config=self.config,
-            dag=dag,
+            dag=dag,  # type: ignore[arg-type]
         )
         dataflow.emit(self.emitter, callback=self._make_emit_callback())
         logger.debug(f"Emitted DataHub DataFlow: {dataflow}")
@@ -1050,7 +1062,7 @@ class DataHubListener:
 
         @hookimpl
         @run_in_thread
-        def on_dataset_created(self, dataset: "Dataset") -> None:
+        def on_dataset_created(self, dataset: "Dataset") -> None:  # type: ignore[no-untyped-def]
             self._set_log_level()
 
             logger.debug(
@@ -1059,7 +1071,7 @@ class DataHubListener:
 
         @hookimpl
         @run_in_thread
-        def on_dataset_changed(self, dataset: "Dataset") -> None:
+        def on_dataset_changed(self, dataset: "Dataset") -> None:  # type: ignore[no-untyped-def]
             self._set_log_level()
 
             logger.debug(
