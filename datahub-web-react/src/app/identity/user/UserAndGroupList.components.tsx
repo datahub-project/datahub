@@ -113,6 +113,15 @@ export const ActionsContainer = styled.div`
 export const SubTabsContainer = styled.div`
     margin-top: 8px;
     margin-bottom: 16px;
+    position: relative;
+`;
+
+export const TabPillWrapper = styled.div`
+    position: absolute;
+    top: 8px;
+    left: 155px;
+    z-index: 1;
+    pointer-events: none; /* Make it non-interactive */
 `;
 
 export const ModalFooter = styled.div`

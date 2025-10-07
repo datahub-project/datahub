@@ -14,6 +14,7 @@ import {
     ModalFooter,
     RecommendedUsersTab,
     SubTabsContainer,
+    TabPillWrapper,
     UserActionsMenu,
     UserGroupsCell,
     UserNameCell,
@@ -31,7 +32,7 @@ import { USERS_ASSIGN_ROLE_ID } from '@app/onboarding/config/UsersOnboardingConf
 import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';
 import { CORP_USER_STATUS_FIELD, ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { Message } from '@app/shared/Message';
-import { Button, Modal, Tabs } from '@src/alchemy-components';
+import { Button, Modal, Pill, Tabs } from '@src/alchemy-components';
 
 import { useBatchAssignRoleMutation, useSendUserInvitationsMutation } from '@graphql/mutations.generated';
 import { CorpUser, DataHubRole } from '@types';
@@ -438,7 +439,11 @@ export const UserAndGroupList = ({ hasSsoBanner }: Props) => {
                         },
                     ]}
                 />
+                <TabPillWrapper>
+                    <Pill size="sm" color="blue" label="New" />
+                </TabPillWrapper>
             </SubTabsContainer>
+
             {resetTokenUser && (
                 <ViewResetTokenModal
                     open={isViewingResetToken}
