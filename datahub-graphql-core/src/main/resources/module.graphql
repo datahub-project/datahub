@@ -247,7 +247,7 @@ enum DataHubPageModuleType {
   Module displaying the related terms of a given glossary term
   """
   RELATED_TERMS
-  """ 
+  """
   Module displaying the platforms in the instance
   """
   PLATFORMS
