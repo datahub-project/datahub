@@ -77,12 +77,13 @@ NEEDS_AIRFLOW_LISTENER_MODULE = AIRFLOW_VERSION < packaging.version.parse(
 ) or PLUGGY_VERSION <= packaging.version.parse("1.0.0")
 
 # OpenLineage compatibility - use native provider on Airflow 2.7+, old package otherwise
-USE_NATIVE_OPENLINEAGE_PROVIDER = AIRFLOW_VERSION >= packaging.version.parse("2.7.0.dev0")
+USE_NATIVE_OPENLINEAGE_PROVIDER = AIRFLOW_VERSION >= packaging.version.parse(
+    "2.7.0.dev0"
+)
 
 if USE_NATIVE_OPENLINEAGE_PROVIDER:
     # Airflow 2.7+ with native OpenLineage provider
     try:
-        from airflow.providers.openlineage.plugins.listener import OpenLineageListener
         from airflow.providers.openlineage.utils.utils import (
             get_operator_class,
             try_import_from_string,
@@ -97,7 +98,10 @@ if USE_NATIVE_OPENLINEAGE_PROVIDER:
             # Native provider doesn't expose this, so we just return the source as-is
             return source
 
-        OpenLineagePlugin = OpenLineageListener  # type: ignore
+        from airflow.providers.openlineage.plugins.openlineage import (
+            OpenLineageProviderPlugin as OpenLineagePlugin,
+        )
+
         HAS_OPENLINEAGE = True
     except ImportError:
         # Native provider not installed

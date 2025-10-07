@@ -2,10 +2,12 @@ import contextlib
 import logging
 import os
 
+import packaging.version
 from airflow.plugins_manager import AirflowPlugin
 
 from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
 from datahub_airflow_plugin._airflow_shims import (
+    AIRFLOW_VERSION,
     HAS_AIRFLOW_LISTENER_API,
     NEEDS_AIRFLOW_LISTENER_MODULE,
 )
@@ -35,10 +37,11 @@ if _USE_AIRFLOW_LISTENER_INTERFACE:
 
 
 with contextlib.suppress(Exception):
-    if os.getenv("DATAHUB_AIRFLOW_PLUGIN_SKIP_FORK_PATCH", "false").lower() not in (
-        "true",
-        "1",
-    ):
+    # Skip proxy workaround in Airflow 3.0+ as it causes SIGSEGV in forked workers
+    # Instead, set no_proxy="*" environment variable before starting Airflow
+    if AIRFLOW_VERSION < packaging.version.parse("3.0.0") and os.getenv(
+        "DATAHUB_AIRFLOW_PLUGIN_SKIP_FORK_PATCH", "false"
+    ).lower() not in ("true", "1"):
         # From https://github.com/apache/airflow/discussions/24463#discussioncomment-4404542
         # I'm not exactly sure why this fixes it, but I suspect it's that this
         # forces the proxy settings to get cached before the fork happens.

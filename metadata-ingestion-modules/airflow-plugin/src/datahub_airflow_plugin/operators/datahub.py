@@ -13,6 +13,7 @@ except ImportError:
         # so we just return the function unchanged
         return func
 
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub_airflow_plugin.hooks.datahub import (

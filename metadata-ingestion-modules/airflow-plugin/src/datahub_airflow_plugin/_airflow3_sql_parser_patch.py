@@ -44,7 +44,8 @@ def _datahub_generate_openlineage_metadata_from_sql(
         platform = OL_SCHEME_TWEAKS.get(platform, platform)
 
         # Get default database and schema
-        default_database = database or database_info.get("database")
+        # database_info is a DatabaseInfo object (dataclass/namedtuple), not a dict
+        default_database = database or getattr(database_info, "database", None)
         default_schema = self.default_schema
 
         # Handle list of SQL statements
@@ -103,31 +104,25 @@ def _datahub_generate_openlineage_metadata_from_sql(
                 logger.debug(f"Error converting URN {urn} to OL Dataset: {e}")
 
             # Fallback: use URN as name
-            return OpenLineageDataset(
-                namespace=f"{platform}://default",
-                name=urn
-            )
+            return OpenLineageDataset(namespace=f"{platform}://default", name=urn)
 
-        inputs = [
-            _urn_to_ol_dataset(urn)
-            for urn in sql_parsing_result.in_tables
-        ]
-        outputs = [
-            _urn_to_ol_dataset(urn)
-            for urn in sql_parsing_result.out_tables
-        ]
+        inputs = [_urn_to_ol_dataset(urn) for urn in sql_parsing_result.in_tables]
+        outputs = [_urn_to_ol_dataset(urn) for urn in sql_parsing_result.out_tables]
+
+        # Store the sql_parsing_result in run_facets for later retrieval by the listener
+        # We use a custom facet key that the listener can check for
+        # Note: We cannot add attributes directly to OperatorLineage as it uses @define (frozen)
+        DATAHUB_SQL_PARSING_RESULT_KEY = "datahub_sql_parsing_result"
+
+        run_facets = {DATAHUB_SQL_PARSING_RESULT_KEY: sql_parsing_result}
 
         # Create OperatorLineage with DataHub's results
         operator_lineage = OperatorLineage(
             inputs=inputs,
             outputs=outputs,
             job_facets={"sql": SqlJobFacet(query=sql)},
+            run_facets=run_facets,
         )
-
-        # Store the sql_parsing_result for later use in the listener
-        # This allows the listener to access column-level lineage
-        # We attach it to the SQLParser instance so it can be retrieved later
-        self._datahub_sql_parsing_result = sql_parsing_result
 
         return operator_lineage
 

@@ -22,7 +22,9 @@ if _listener:
         _listener.on_task_instance_success(previous_state, task_instance, session)
 
     @hookimpl
-    def on_task_instance_failed(previous_state, task_instance, error=None, session=None):
+    def on_task_instance_failed(
+        previous_state, task_instance, error=None, session=None
+    ):
         assert _listener
         # Airflow 3.x adds an 'error' parameter, Airflow 2.x has 'session' parameter
         # Our listener doesn't use error yet, so we just pass session

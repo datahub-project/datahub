@@ -7,9 +7,11 @@ from pydantic import Field
 # Support both Pydantic v1 and v2
 try:
     from pydantic import model_validator
+
     PYDANTIC_VERSION = 2
 except ImportError:
     from pydantic import root_validator  # type: ignore
+
     PYDANTIC_VERSION = 1
 
 import datahub.emitter.mce_builder as builder
@@ -101,7 +103,8 @@ class DatahubLineageConfig(ConfigModel):
 
     # Support both Pydantic v1 and v2
     if PYDANTIC_VERSION == 2:
-        @model_validator(mode='before')
+
+        @model_validator(mode="before")
         @classmethod
         def split_conn_ids(cls, data: Any) -> Any:
             if isinstance(data, dict):
@@ -111,6 +114,7 @@ class DatahubLineageConfig(ConfigModel):
                 cls._datahub_connection_ids = [conn_id.strip() for conn_id in conn_ids]
             return data
     else:
+
         @root_validator(skip_on_failure=True)  # type: ignore
         def split_conn_ids(cls, values: Dict) -> Dict:
             if not values.get("datahub_conn_id"):
@@ -139,8 +143,17 @@ def get_lineage_config() -> DatahubLineageConfig:
     enable_extractors = conf.get("datahub", "enable_extractors", fallback=True)
     log_level = conf.get("datahub", "log_level", fallback=None)
     debug_emitter = conf.get("datahub", "debug_emitter", fallback=False)
+
+    # For Airflow 3.0+, we need OpenLineage plugin enabled for SQL parsing
+    # For Airflow < 3.0, disable it by default to avoid conflicts
+    import airflow
+    import packaging.version
+
+    airflow_version = packaging.version.parse(airflow.__version__)
+    default_disable_openlineage = airflow_version < packaging.version.parse("3.0.0")
+
     disable_openlineage_plugin = conf.get(
-        "datahub", "disable_openlineage_plugin", fallback=True
+        "datahub", "disable_openlineage_plugin", fallback=default_disable_openlineage
     )
     render_templates = conf.get("datahub", "render_templates", fallback=True)
     datajob_url_link = conf.get(

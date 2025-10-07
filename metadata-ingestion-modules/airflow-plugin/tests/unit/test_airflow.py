@@ -277,11 +277,11 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
             "dag_id": "test_lineage_is_sent_to_backend",
             "start_date": DEFAULT_DATE,
         }
-        
+
         # Add default_view only for older Airflow versions that support it
-        if hasattr(airflow, '__version__') and not airflow.__version__.startswith('3.'):
+        if hasattr(airflow, "__version__") and not airflow.__version__.startswith("3."):
             dag_kwargs["default_view"] = "tree"
-        
+
         dag = DAG(**dag_kwargs)
 
         with dag:
@@ -355,27 +355,37 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
         # Check that the right things were emitted.
         actual_emit_count = mock_emitter.emit.call_count
         expected_emit_count_legacy = 19 if capture_executions else 11
-        
-        # In Airflow 3.0, the lineage backend system was completely removed, 
+
+        # In Airflow 3.0, the lineage backend system was completely removed,
         # but the DataHub listener system should still work
-        if hasattr(airflow, '__version__') and airflow.__version__.startswith('3.'):
+        if hasattr(airflow, "__version__") and airflow.__version__.startswith("3."):
             # For Airflow 3.0, the lineage backend doesn't work, but we might get emissions
             # from the DataHub listener system instead. Let's check if we get any emissions.
             if actual_emit_count == 0:
-                print("Airflow 3.0: No lineage emissions from lineage backend (expected - backend removed)")
-                print("Note: In Airflow 3.0, lineage should come from DataHub listener system instead")
+                print(
+                    "Airflow 3.0: No lineage emissions from lineage backend (expected - backend removed)"
+                )
+                print(
+                    "Note: In Airflow 3.0, lineage should come from DataHub listener system instead"
+                )
                 # Skip the detailed assertions since no lineage is emitted from the old backend
                 return
             else:
-                print(f"Airflow 3.0: Got {actual_emit_count} emissions (possibly from DataHub listener system)")
+                print(
+                    f"Airflow 3.0: Got {actual_emit_count} emissions (possibly from DataHub listener system)"
+                )
                 # Continue with assertions if we got some emissions
         else:
             # For older Airflow versions, use the exact count
-            assert actual_emit_count == expected_emit_count_legacy, f"Expected {expected_emit_count_legacy} but got {actual_emit_count}"
+            assert actual_emit_count == expected_emit_count_legacy, (
+                f"Expected {expected_emit_count_legacy} but got {actual_emit_count}"
+            )
 
         # Skip detailed assertions for Airflow 3.0 since emission behavior may differ
         # TODO: Replace this with a golden file-based comparison.
-        if not (hasattr(airflow, '__version__') and airflow.__version__.startswith('3.')):
+        if not (
+            hasattr(airflow, "__version__") and airflow.__version__.startswith("3.")
+        ):
             assert mock_emitter.method_calls[0].args[0].aspectName == "dataFlowInfo"
             assert (
                 mock_emitter.method_calls[0].args[0].entityUrn

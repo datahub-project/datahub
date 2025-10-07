@@ -42,11 +42,15 @@ def get_api_version() -> str:
         return "v2"
     return "v1"
 
+
 def is_airflow3() -> bool:
     """Check if the Airflow version is 3.0 or higher."""
     return AIRFLOW_VERSION >= packaging.version.parse("3.0.0")
 
-def _make_api_request(session: requests.Session, url: str, timeout: int = 5) -> requests.Response:
+
+def _make_api_request(
+    session: requests.Session, url: str, timeout: int = 5
+) -> requests.Response:
     """Make an API request with v2/v1 fallback for Airflow 3.0 compatibility issues."""
     try:
         res = session.get(url, timeout=timeout)
@@ -54,7 +58,9 @@ def _make_api_request(session: requests.Session, url: str, timeout: int = 5) -> 
         return res
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 401:
-            print(f"[DEBUG] Authentication failed (401) for {url}. Session auth: {session.auth}")
+            print(
+                f"[DEBUG] Authentication failed (401) for {url}. Session auth: {session.auth}"
+            )
             print(f"[DEBUG] Response: {e.response.text[:200]}")
             raise
         elif e.response.status_code == 404 and "/api/v2/" in url:
@@ -67,13 +73,19 @@ def _make_api_request(session: requests.Session, url: str, timeout: int = 5) -> 
             raise
 
 
-
 pytestmark = pytest.mark.integration
 
 logger = logging.getLogger(__name__)
 IS_LOCAL = os.environ.get("CI", "false") == "false"
 
-DAGS_FOLDER = pathlib.Path(__file__).parent / "dags"
+# Use Airflow 3-specific DAGs folder for Airflow 3.0+
+# This allows us to have different DAG implementations for operators that changed between versions
+_base_dags_folder = pathlib.Path(__file__).parent / "dags"
+if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
+    DAGS_FOLDER = _base_dags_folder / "airflow3"
+else:
+    DAGS_FOLDER = _base_dags_folder
+
 GOLDENS_FOLDER = pathlib.Path(__file__).parent / "goldens"
 
 DAG_TO_SKIP_INGESTION = "dag_to_skip"
@@ -111,7 +123,7 @@ class AirflowInstance:
             response = requests.post(
                 login_url,
                 json={"username": self.username, "password": self.password},
-                timeout=10
+                timeout=10,
             )
             response.raise_for_status()
             token = response.json()["access_token"]
@@ -133,13 +145,13 @@ class AirflowInstance:
 )
 def _wait_for_airflow_healthy(airflow_port: int) -> None:
     print("Checking if Airflow is ready...")
-    
+
     # Try the expected health endpoint for the version, with fallback
     if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
         health_endpoints = ["/api/v2/monitor/health", "/health"]
     else:
         health_endpoints = ["/health"]
-    
+
     res = None
     for endpoint in health_endpoints:
         try:
@@ -148,11 +160,13 @@ def _wait_for_airflow_healthy(airflow_port: int) -> None:
             break
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404 and endpoint != health_endpoints[-1]:
-                print(f"[DEBUG] Health endpoint {endpoint} not found (404), trying next...")
+                print(
+                    f"[DEBUG] Health endpoint {endpoint} not found (404), trying next..."
+                )
                 continue
             else:
                 raise
-    
+
     if res is None:
         raise RuntimeError("No working health endpoint found")
 
@@ -256,7 +270,7 @@ def _dump_dag_logs(airflow_instance: AirflowInstance, dag_id: str) -> None:
 
 
 @contextlib.contextmanager
-def _run_airflow(
+def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
     tmp_path: pathlib.Path,
     dags_folder: pathlib.Path,
     is_v1: bool,
@@ -291,11 +305,19 @@ def _run_airflow(
         # Enable Python fault handler for better SIGSEGV debugging
         "PYTHONFAULTHANDLER": "1",
         # Add debug wrapper for Airflow 3.0 to trace SIGSEGV crashes
-        "PYTHONPATH": "/tmp" + (os.pathsep + os.environ.get("PYTHONPATH", "") if os.environ.get("PYTHONPATH") else ""),
+        "PYTHONPATH": "/tmp"
+        + (
+            os.pathsep + os.environ.get("PYTHONPATH", "")
+            if os.environ.get("PYTHONPATH")
+            else ""
+        ),
         # Airflow 3.x moved web_server_port to api section, but standalone might need both
         "AIRFLOW__API__PORT": str(airflow_port),
-        "AIRFLOW__WEBSERVER__WEB_SERVER_PORT": str(airflow_port),  # Fallback for Airflow 2.x
+        "AIRFLOW__WEBSERVER__WEB_SERVER_PORT": str(
+            airflow_port
+        ),  # Fallback for Airflow 2.x
         "AIRFLOW__WEBSERVER__BASE_URL": "http://airflow.example.com",
+        "AIRFLOW__API__BASE_URL": "http://airflow.example.com",  # Airflow 3.0+ uses this for log URLs
         # Point airflow to the DAGs folder.
         "AIRFLOW__CORE__LOAD_EXAMPLES": "False",
         "AIRFLOW__CORE__DAGS_FOLDER": str(dags_folder),
@@ -353,20 +375,30 @@ def _run_airflow(
         if enable_datajob_lineage
         else "false",
     }
-    
+
     # Configure API authentication based on Airflow version
     if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
         # Airflow 3.x: Use anonymous auth for testing to avoid JWT authentication issues
-        environment["AIRFLOW__API__AUTH_BACKENDS"] = "airflow.api.auth.backend.anonymous"
+        environment["AIRFLOW__API__AUTH_BACKENDS"] = (
+            "airflow.api.auth.backend.anonymous"
+        )
+
+        # Enable OpenLineage provider using ConsoleTransport (required for SQL parsing in Airflow 3.0)
+        # ConsoleTransport logs events instead of sending them, avoiding network issues
+        environment["AIRFLOW__OPENLINEAGE__TRANSPORT"] = '{"type": "console"}'
 
         # Configure internal execution API JWT authentication
         # Required for executor to authenticate task execution requests
         environment["AIRFLOW__EXECUTION_API__JWT_EXPIRATION_TIME"] = "300"  # 5 minutes
-        environment["AIRFLOW__API_AUTH__JWT_SECRET"] = "test-secret-key-for-jwt-signing-in-tests"
+        environment["AIRFLOW__API_AUTH__JWT_SECRET"] = (
+            "test-secret-key-for-jwt-signing-in-tests"
+        )
         # Note: EXECUTION_API_SERVER_URL is set in airflow.cfg after db init to use correct port
     else:
         # Airflow 2.x supports basic auth for the API
-        environment["AIRFLOW__API__AUTH_BACKEND"] = "airflow.api.auth.backend.basic_auth"
+        environment["AIRFLOW__API__AUTH_BACKEND"] = (
+            "airflow.api.auth.backend.basic_auth"
+        )
 
     # For Airflow 3.0+, configure for LocalExecutor (SequentialExecutor was removed)
     if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
@@ -392,11 +424,14 @@ def _run_airflow(
 
     print(f"[DEBUG] Using Python: {sys.executable}")
     print(f"[DEBUG] Using Airflow: {airflow_executable}")
-    print(f"[DEBUG] AIRFLOW__TRIGGERER__ENABLED = {environment.get('AIRFLOW__TRIGGERER__ENABLED', 'NOT SET')}")
+    print(
+        f"[DEBUG] AIRFLOW__TRIGGERER__ENABLED = {environment.get('AIRFLOW__TRIGGERER__ENABLED', 'NOT SET')}"
+    )
 
     # Verify greenlet version
     try:
         import greenlet
+
         print(f"[DEBUG] Greenlet version in test environment: {greenlet.__version__}")
     except ImportError:
         print("[DEBUG] Greenlet not installed in test environment")
@@ -414,6 +449,7 @@ def _run_airflow(
     # This is needed because the default is localhost:8080, but we use a random port for testing
     if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
         import configparser
+
         config_file = airflow_home / "airflow.cfg"
         if config_file.exists():
             config = configparser.ConfigParser()
@@ -440,10 +476,8 @@ def _run_airflow(
 
     print(f"[DEBUG] Starting airflow standalone, logging to {standalone_log}")
 
-    # For Airflow 3.0 on macOS, inject debug wrapper to trace SIGSEGV
-    if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
-        environment["PYTHONSTARTUP"] = "/tmp/debug_gunicorn.py"
-        print("[DEBUG] Enabled SIGSEGV debug wrapper via PYTHONSTARTUP")
+    # Note: For Airflow 3.0 on macOS, gunicorn setproctitle is patched via sitecustomize.py
+    # in site-packages to prevent SIGSEGV crashes. See .tox/py311-airflow302/lib/python3.11/site-packages/sitecustomize.py
 
     airflow_process = subprocess.Popen(
         [str(airflow_executable), "standalone"],
@@ -500,30 +534,32 @@ def _run_airflow(
         # Load the admin user's password. This is generated by the
         # `airflow standalone` command, and is different from the
         # airflow user that we create when running locally.
-        
+
         # In Airflow 3.0+, there are multiple possible password file locations
         password_files = [
             airflow_home / "standalone_admin_password.txt",  # Traditional location
-            airflow_home / "simple_auth_manager_passwords.json.generated"  # New Airflow 3.0 location
+            airflow_home
+            / "simple_auth_manager_passwords.json.generated",  # New Airflow 3.0 location
         ]
-        
+
         print(f"[DEBUG] Looking for password files in: {airflow_home}")
         print(f"[DEBUG] Airflow home exists: {airflow_home.exists()}")
         if airflow_home.exists():
             print(f"[DEBUG] Contents of airflow home: {list(airflow_home.iterdir())}")
-        
+
         airflow_username = "admin"
         airflow_password = None
         password_source = None
-        
+
         # Try to find password in any of the possible locations
         for password_file in password_files:
             if password_file.exists():
                 print(f"[DEBUG] Found password file: {password_file.name}")
                 try:
-                    if password_file.name.endswith('.json.generated'):
+                    if password_file.name.endswith(".json.generated"):
                         # Handle JSON format for simple_auth_manager_passwords.json.generated
                         import json
+
                         content = json.loads(password_file.read_text())
                         # The structure might be {"admin": "password"} or similar
                         if "admin" in content:
@@ -533,22 +569,28 @@ def _run_airflow(
                             print(f"[DEBUG] JSON file structure: {content}")
                             # Try to get first password value if admin key not found
                             for key, value in content.items():
-                                if isinstance(value, str) and len(value) > 5:  # Looks like a password
+                                if (
+                                    isinstance(value, str) and len(value) > 5
+                                ):  # Looks like a password
                                     airflow_password = value
-                                    password_source = f"{password_file.name} (key: {key})"
+                                    password_source = (
+                                        f"{password_file.name} (key: {key})"
+                                    )
                                     break
                     else:
                         # Handle plain text format for standalone_admin_password.txt
                         airflow_password = password_file.read_text().strip()
                         password_source = password_file.name
-                    
+
                     if airflow_password:
-                        print(f"[DEBUG] Using admin credentials from {password_source}, password_length={len(airflow_password)}")
+                        print(
+                            f"[DEBUG] Using admin credentials from {password_source}, password_length={len(airflow_password)}"
+                        )
                         break
                 except Exception as e:
                     print(f"[DEBUG] Error reading {password_file.name}: {e}")
                     continue
-        
+
         # If no password found, wait and try again
         if not airflow_password:
             print("[DEBUG] No password files found, waiting for file creation...")
@@ -556,8 +598,9 @@ def _run_airflow(
             for password_file in password_files:
                 if password_file.exists():
                     try:
-                        if password_file.name.endswith('.json.generated'):
+                        if password_file.name.endswith(".json.generated"):
                             import json
+
                             content = json.loads(password_file.read_text())
                             if "admin" in content:
                                 airflow_password = content["admin"]
@@ -566,25 +609,35 @@ def _run_airflow(
                                 for key, value in content.items():
                                     if isinstance(value, str) and len(value) > 5:
                                         airflow_password = value
-                                        password_source = f"{password_file.name} (key: {key})"
+                                        password_source = (
+                                            f"{password_file.name} (key: {key})"
+                                        )
                                         break
                         else:
                             airflow_password = password_file.read_text().strip()
                             password_source = password_file.name
-                        
+
                         if airflow_password:
-                            print(f"[DEBUG] Found admin credentials after waiting: {password_source}, password_length={len(airflow_password)}")
+                            print(
+                                f"[DEBUG] Found admin credentials after waiting: {password_source}, password_length={len(airflow_password)}"
+                            )
                             break
                     except Exception as e:
-                        print(f"[DEBUG] Error reading {password_file.name} after wait: {e}")
+                        print(
+                            f"[DEBUG] Error reading {password_file.name} after wait: {e}"
+                        )
                         continue
-        
+
         # Final fallback
         if not airflow_password:
-            print("[DEBUG] No password files found after waiting, using fallback credentials")
+            print(
+                "[DEBUG] No password files found after waiting, using fallback credentials"
+            )
             airflow_password = "admin"  # Try default admin password
-        
-        print(f"[DEBUG] Final credentials: username={airflow_username}, password_length={len(airflow_password)}")
+
+        print(
+            f"[DEBUG] Final credentials: username={airflow_username}, password_length={len(airflow_password)}"
+        )
 
         airflow_instance = AirflowInstance(
             airflow_home=airflow_home,

@@ -52,11 +52,19 @@ plugins: Dict[str, Set[str]] = {
         # underlying package.
         "openlineage-airflow>=1.2.0",
     },
+    # plugin-v2-airflow3: For Airflow 3.0+, use native OpenLineage provider instead of openlineage-airflow
+    "plugin-v2-airflow3": {
+        f"acryl-datahub[sql-parser]{_self_pin}",
+        # Airflow 3.0+ uses the native apache-airflow-providers-openlineage provider
+        # instead of the standalone openlineage-airflow package
+    },
 }
 
 # Require some plugins by default.
 base_requirements.update(plugins["datahub-rest"])
-base_requirements.update(plugins["plugin-v2"])
+# Note: plugin-v2 or plugin-v2-airflow3 should be explicitly requested as an extra
+# They are NOT included in base_requirements to avoid pulling in openlineage-airflow
+# when it's not needed (Airflow 3.0 uses native provider instead)
 
 
 mypy_stubs = {

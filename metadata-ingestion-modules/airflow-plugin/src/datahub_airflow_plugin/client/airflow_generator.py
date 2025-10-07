@@ -463,44 +463,28 @@ class AirflowGenerator:
             clone_inlets=True,
             clone_outlets=True,
         )
-        job_property_bag: Dict[str, str] = {}
-        job_property_bag["run_id"] = str(dag_run.run_id)
-        # duration attribute doesn't exist in Airflow 3.0 RuntimeTaskInstance
-        if hasattr(ti, "duration"):
-            job_property_bag["duration"] = str(ti.duration)
-        job_property_bag["start_date"] = str(ti.start_date)
-        # end_date might not be set yet during task execution
-        if hasattr(ti, "end_date") and ti.end_date:
-            job_property_bag["end_date"] = str(ti.end_date)
-        # execution_date was removed in Airflow 3.0, replaced by logical_date
-        if hasattr(ti, "execution_date"):
-            job_property_bag["execution_date"] = str(ti.execution_date)
-        elif hasattr(ti, "logical_date"):
-            job_property_bag["logical_date"] = str(ti.logical_date)
-        job_property_bag["try_number"] = str(ti.try_number - 1)
-        # max_tries might not be available in RuntimeTaskInstance
-        if hasattr(ti, "max_tries"):
-            job_property_bag["max_tries"] = str(ti.max_tries)
-        # Not compatible with Airflow 1
-        if hasattr(ti, "external_executor_id"):
-            job_property_bag["external_executor_id"] = str(ti.external_executor_id)
-        job_property_bag["state"] = str(ti.state)
-        # operator attribute might not exist in RuntimeTaskInstance
-        if hasattr(ti, "operator"):
-            job_property_bag["operator"] = str(ti.operator)
-        # priority_weight might not be available
-        if hasattr(ti, "priority_weight"):
-            job_property_bag["priority_weight"] = str(ti.priority_weight)
-        # log_url might not be available in RuntimeTaskInstance
-        if hasattr(ti, "log_url"):
-            job_property_bag["log_url"] = ti.log_url
+
+        # Extract task instance attributes in a version-compatible way
+        from datahub_airflow_plugin._airflow_version_specific import (
+            get_task_instance_attributes,
+        )
+
+        job_property_bag = get_task_instance_attributes(ti)
+
+        # Add orchestrator and DAG/task IDs
         job_property_bag["orchestrator"] = "airflow"
-        job_property_bag["dag_id"] = str(dag.dag_id)
-        job_property_bag["task_id"] = str(ti.task_id)
+        if "dag_id" not in job_property_bag:
+            job_property_bag["dag_id"] = str(dag.dag_id)
+        if "task_id" not in job_property_bag:
+            job_property_bag["task_id"] = str(ti.task_id)
+        if "run_id" not in job_property_bag:
+            job_property_bag["run_id"] = str(dag_run.run_id)
+
         dpi.properties.update(job_property_bag)
-        # log_url might not be available in RuntimeTaskInstance
-        if hasattr(ti, "log_url"):
-            dpi.url = ti.log_url
+
+        # Set URL if log_url is available
+        if "log_url" in job_property_bag:
+            dpi.url = job_property_bag["log_url"]
 
         # This property only exists in Airflow2
         if hasattr(ti, "dag_run") and hasattr(ti.dag_run, "run_type"):

@@ -7,6 +7,8 @@ import airflow
 from airflow.models.baseoperator import BaseOperator
 from airflow.utils.module_loading import import_string
 
+from datahub_airflow_plugin._airflow_version_specific import IS_AIRFLOW_3_OR_HIGHER
+
 # Airflow 3.0 removed the airflow.lineage module, so define these constants locally
 # In Airflow 2.x these were: from airflow.lineage import PIPELINE_OUTLETS, AUTO
 # See: https://github.com/apache/airflow/blob/2.9.3/airflow/lineage/__init__.py#L32-L34
@@ -53,8 +55,7 @@ def get_task_inlets_advanced(task: BaseOperator, context: Any) -> Iterable[Any]:
 
     # Airflow 3.0 removed the lineage/inlets/outlets feature and XCom access from task workers
     # Skip XCom-based inlet retrieval for Airflow 3.0+
-    import packaging.version
-    if airflow.__version__ and packaging.version.parse(airflow.__version__) >= packaging.version.parse("3.0.0"):
+    if IS_AIRFLOW_3_OR_HIGHER:
         # For Airflow 3.0+, only return static inlets (not from XCom)
         if isinstance(task_inlets, (str, BaseOperator)):
             inlets = [task_inlets]
@@ -93,6 +94,7 @@ def get_task_inlets_advanced(task: BaseOperator, context: Any) -> Iterable[Any]:
         if inlets_from_xcom:
             try:
                 from cattr import structure
+
                 inlets = [
                     structure(item["data"], import_string(item["type_name"]))
                     # _get_instance(structure(item, Metadata))
@@ -102,7 +104,9 @@ def get_task_inlets_advanced(task: BaseOperator, context: Any) -> Iterable[Any]:
                 ]
             except ImportError:
                 # cattr not available - skip XCom inlet deserialization
-                print("Warning: cattr not available, skipping XCom inlet deserialization")
+                print(
+                    "Warning: cattr not available, skipping XCom inlet deserialization"
+                )
                 inlets = []
 
         for inlet in task_inlets:
@@ -370,7 +374,7 @@ def task_policy(task: Union[BaseOperator, MappedOperator]) -> None:
     # In Airflow 3.0+, callbacks are lists instead of single functions
     # We need to append to the list rather than replacing it
     if isinstance(task.on_failure_callback, list):
-        # Airflow 3.0+ style - callbacks are lists
+        # Airflow 3.0+ style - callbac  Cks are lists
         task.on_failure_callback.append(_wrap_on_failure_callback(None))
     else:
         # Airflow 2.x style - callbacks are single functions

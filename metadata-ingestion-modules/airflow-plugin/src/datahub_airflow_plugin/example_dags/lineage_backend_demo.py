@@ -16,6 +16,7 @@ except ImportError:
     def days_ago(n):
         return datetime(2025, 1, 1) - timedelta(days=n)
 
+
 from datahub_airflow_plugin.entities import Dataset, Urn
 
 default_args = {
@@ -40,7 +41,9 @@ dag_kwargs = {
 }
 
 # Handle schedule parameter change in Airflow 3.0
-if hasattr(airflow, '__version__') and airflow.__version__.startswith(('3.', '2.10', '2.9', '2.8', '2.7')):
+if hasattr(airflow, "__version__") and airflow.__version__.startswith(
+    ("3.", "2.10", "2.9", "2.8", "2.7")
+):
     # Use schedule for newer Airflow versions (2.7+)
     dag_kwargs["schedule"] = timedelta(days=1)
 else:
@@ -48,7 +51,7 @@ else:
     dag_kwargs["schedule_interval"] = timedelta(days=1)
 
 # Add default_view only for older Airflow versions that support it
-if hasattr(airflow, '__version__') and not airflow.__version__.startswith('3.'):
+if hasattr(airflow, "__version__") and not airflow.__version__.startswith("3."):
     dag_kwargs["default_view"] = "tree"
 
 with DAG(**dag_kwargs) as dag:
