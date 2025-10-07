@@ -3,7 +3,6 @@ import '@src/AppV2.less';
 
 import { ApolloClient, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
-import * as Sentry from '@sentry/react';
 import Cookies from 'js-cookie';
 import React from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
@@ -85,11 +84,6 @@ const client = new ApolloClient({
             fetchPolicy: 'no-cache',
         },
     },
-});
-
-Sentry.init({
-    dsn: 'https://50799ff93031aceb3246b8b31ca063ad@o4504487219363840.ingest.us.sentry.io/4508738535424000',
-    defaultIntegrations: false, // no default error/performance capture
 });
 
 export const InnerApp: React.VFC = () => {
