@@ -11183,11 +11183,6 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   description: String
 
   """
-  References to internal resources related to the ml model group
-  """
-  institutionalMemory: InstitutionalMemory
-
-  """
   Additional read only properties about the ML Model Group
   """
   properties: MLModelGroupProperties
