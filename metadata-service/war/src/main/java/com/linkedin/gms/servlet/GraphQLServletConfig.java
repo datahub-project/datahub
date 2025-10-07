@@ -6,7 +6,9 @@ import org.springframework.context.annotation.Configuration;
 @ComponentScan(
     basePackages = {
       "com.datahub.graphql",
+      "com.datahub.files",
       "com.linkedin.gms.factory.graphql",
+      "com.linkedin.gms.factory.s3",
       "com.linkedin.gms.factory.timeline",
       "com.linkedin.gms.factory.usage",
       "com.linkedin.gms.factory.recommendation",
