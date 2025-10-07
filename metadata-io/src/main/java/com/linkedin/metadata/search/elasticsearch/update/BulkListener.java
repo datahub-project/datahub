@@ -14,15 +14,15 @@ import org.opensearch.action.support.WriteRequest;
 
 @Slf4j
 public class BulkListener implements BulkProcessor.Listener {
-  private static final Map<WriteRequest.RefreshPolicy, BulkListener> INSTANCES = new HashMap<>();
+  private static final Map<String, BulkListener> INSTANCES = new HashMap<>();
 
   public static BulkListener getInstance(MetricUtils metricUtils) {
-    return INSTANCES.computeIfAbsent(null, p -> new BulkListener(p, metricUtils));
+    return INSTANCES.computeIfAbsent("null", p -> new BulkListener(null, metricUtils));
   }
 
-  public static BulkListener getInstance(
-      WriteRequest.RefreshPolicy refreshPolicy, MetricUtils metricUtils) {
-    return INSTANCES.computeIfAbsent(refreshPolicy, p -> new BulkListener(p, metricUtils));
+  public static BulkListener getInstance(int processorIndex, WriteRequest.RefreshPolicy refreshPolicy, MetricUtils metricUtils) {
+    String key = processorIndex + ":" + refreshPolicy;
+    return INSTANCES.computeIfAbsent(key, p -> new BulkListener(refreshPolicy, metricUtils));
   }
 
   private final WriteRequest.RefreshPolicy refreshPolicy;

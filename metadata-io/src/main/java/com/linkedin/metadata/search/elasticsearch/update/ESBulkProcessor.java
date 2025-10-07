@@ -44,6 +44,7 @@ public class ESBulkProcessor implements Closeable {
   @Builder.Default private Integer bulkFlushPeriod = 1;
   @Builder.Default private Integer numRetries = 3;
   @Builder.Default private Long retryInterval = 1L;
+  @Builder.Default private Integer threadCount = 1; // Default to single processor
   @Builder.Default private TimeValue defaultTimeout = TimeValue.timeValueMinutes(1);
   @Getter private final WriteRequest.RefreshPolicy writeRequestRefreshPolicy;
 
@@ -57,6 +58,7 @@ public class ESBulkProcessor implements Closeable {
       Integer bulkFlushPeriod,
       Integer numRetries,
       Long retryInterval,
+      Integer threadCount,
       TimeValue defaultTimeout,
       WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
       MetricUtils metricUtils) {
@@ -67,6 +69,7 @@ public class ESBulkProcessor implements Closeable {
     this.bulkFlushPeriod = bulkFlushPeriod;
     this.numRetries = numRetries;
     this.retryInterval = retryInterval;
+    this.threadCount = threadCount;
     this.defaultTimeout = defaultTimeout;
     this.writeRequestRefreshPolicy = writeRequestRefreshPolicy;
     if (async) {
@@ -76,7 +79,8 @@ public class ESBulkProcessor implements Closeable {
           bulkRequestsLimit,
           bulkFlushPeriod,
           retryInterval,
-          numRetries);
+          numRetries,
+          threadCount);
     } else {
       searchClient.generateBulkProcessor(
           writeRequestRefreshPolicy,
@@ -84,7 +88,8 @@ public class ESBulkProcessor implements Closeable {
           bulkRequestsLimit,
           bulkFlushPeriod,
           retryInterval,
-          numRetries);
+          numRetries,
+          threadCount);
     }
     this.metricUtils = metricUtils;
   }
@@ -94,6 +99,27 @@ public class ESBulkProcessor implements Closeable {
     searchClient.addBulk(request);
     log.debug(
         "Added request id: {}, operation type: {}, index: {}",
+        request.id(),
+        request.opType(),
+        request.index());
+    return this;
+  }
+
+  /**
+   * Add a request with URN-based routing for entity document consistency. This method routes all
+   * operations for the same URN to the same BulkProcessor to ensure consistent ordering and avoid
+   * conflicts when updating the same entity.
+   *
+   * @param urn the URN of the entity being updated
+   * @param request the document write request
+   * @return this ESBulkProcessor instance
+   */
+  public ESBulkProcessor add(@Nonnull String urn, @Nonnull DocWriteRequest<?> request) {
+    if (metricUtils != null) metricUtils.increment(this.getClass(), ES_WRITES_METRIC, 1);
+    searchClient.addBulk(urn, request);
+    log.debug(
+        "Added URN-aware request urn: {}, id: {}, operation type: {}, index: {}",
+        urn,
         request.id(),
         request.opType(),
         request.index());

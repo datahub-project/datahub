@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
@@ -117,7 +118,9 @@ public class OpenSearch2SearchClientShim implements OpenSearchClientShim<RestHig
   @Getter private final ShimConfiguration shimConfiguration;
   private final RestHighLevelClient client;
   protected SearchEngineType engineType;
-  private BulkProcessor bulkProcessor;
+  private BulkProcessor[] bulkProcessors;
+  private AtomicInteger roundRobinCounter;
+  private int threadCount = 1;
 
   public OpenSearch2SearchClientShim(@Nonnull ShimConfiguration config) throws IOException {
     this.shimConfiguration = config;
@@ -590,22 +593,33 @@ public class OpenSearch2SearchClientShim implements OpenSearchClientShim<RestHig
       int bulkRequestsLimit,
       long bulkFlushPeriod,
       long retryInterval,
-      int numRetries) {
-    bulkProcessor =
-        BulkProcessor.builder(
-                (request, bulkListener) -> {
-                  client.bulkAsync(request, RequestOptions.DEFAULT, bulkListener);
-                },
-                BulkListener.getInstance(writeRequestRefreshPolicy, metricUtils))
-            .setBulkActions(bulkRequestsLimit)
-            .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
-            // This retry is ONLY for "resource constraints", i.e. 429 errors (each request has
-            // other
-            // retry methods)
-            .setBackoffPolicy(
-                BackoffPolicy.constantBackoff(
-                    TimeValue.timeValueSeconds(retryInterval), numRetries))
-            .build();
+      int numRetries,
+      int threadCount) {
+    this.threadCount = threadCount;
+    this.bulkProcessors = new BulkProcessor[threadCount];
+    this.roundRobinCounter = new AtomicInteger(0);
+    
+    for (int i = 0; i < threadCount; i++) {
+      this.bulkProcessors[i] =
+          BulkProcessor.builder(
+                  (request, bulkListener) -> {
+                    client.bulkAsync(request, RequestOptions.DEFAULT, bulkListener);
+                  },
+                  BulkListener.getInstance(i, writeRequestRefreshPolicy, metricUtils))
+              .setBulkActions(bulkRequestsLimit)
+              .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
+              // This retry is ONLY for "resource constraints", i.e. 429 errors (each request has
+              // other
+              // retry methods)
+              .setBackoffPolicy(
+                  BackoffPolicy.constantBackoff(
+                      TimeValue.timeValueSeconds(retryInterval), numRetries))
+              .build();
+    }
+    
+    log.info(
+        "Initialized OpenSearch2SearchClientShim with {} BulkProcessor instances for parallel execution",
+        threadCount);
   }
 
   @Override
@@ -615,43 +629,69 @@ public class OpenSearch2SearchClientShim implements OpenSearchClientShim<RestHig
       int bulkRequestsLimit,
       long bulkFlushPeriod,
       long retryInterval,
-      int numRetries) {
-    bulkProcessor =
-        BulkProcessor.builder(
-                (request, bulkListener) -> {
-                  try {
-                    BulkResponse response = client.bulk(request, RequestOptions.DEFAULT);
-                    bulkListener.onResponse(response);
-                  } catch (IOException e) {
-                    bulkListener.onFailure(e);
-                    throw new RuntimeException(e);
-                  }
-                },
-                BulkListener.getInstance(writeRequestRefreshPolicy, metricUtils))
-            .setBulkActions(bulkRequestsLimit)
-            .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
-            // This retry is ONLY for "resource constraints", i.e. 429 errors (each request has
-            // other
-            // retry methods)
-            .setBackoffPolicy(
-                BackoffPolicy.constantBackoff(
-                    TimeValue.timeValueSeconds(retryInterval), numRetries))
-            .build();
+      int numRetries,
+      int threadCount) {
+    this.threadCount = threadCount;
+    this.bulkProcessors = new BulkProcessor[threadCount];
+    this.roundRobinCounter = new AtomicInteger(0);
+    
+    for (int i = 0; i < threadCount; i++) {
+      this.bulkProcessors[i] =
+          BulkProcessor.builder(
+                  (request, bulkListener) -> {
+                    try {
+                      BulkResponse response = client.bulk(request, RequestOptions.DEFAULT);
+                      bulkListener.onResponse(response);
+                    } catch (IOException e) {
+                      bulkListener.onFailure(e);
+                      throw new RuntimeException(e);
+                    }
+                  },
+                  BulkListener.getInstance(i, writeRequestRefreshPolicy, metricUtils))
+              .setBulkActions(bulkRequestsLimit)
+              .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
+              // This retry is ONLY for "resource constraints", i.e. 429 errors (each request has
+              // other
+              // retry methods)
+              .setBackoffPolicy(
+                  BackoffPolicy.constantBackoff(
+                      TimeValue.timeValueSeconds(retryInterval), numRetries))
+              .build();
+    }
+    
+    log.info(
+        "Initialized OpenSearch2SearchClientShim with {} BulkProcessor instances for parallel execution",
+        threadCount);
   }
 
   @Override
   public void addBulk(DocWriteRequest<?> writeRequest) {
-    bulkProcessor.add(writeRequest);
+    // Round-robin distribution across processors
+    int index = roundRobinCounter.getAndIncrement() % threadCount;
+    bulkProcessors[index].add(writeRequest);
+  }
+
+  @Override
+  public void addBulk(String urn, DocWriteRequest<?> writeRequest) {
+    // URN-based consistent hashing for entity document consistency
+    int index = Math.abs(urn.hashCode()) % threadCount;
+    bulkProcessors[index].add(writeRequest);
   }
 
   @Override
   public void flushBulkProcessor() {
-    bulkProcessor.flush();
+    // Flush all processors
+    for (BulkProcessor processor : bulkProcessors) {
+      processor.flush();
+    }
   }
 
   @Override
   public void closeBulkProcessor() {
-    bulkProcessor.close();
+    // Close all processors
+    for (BulkProcessor processor : bulkProcessors) {
+      processor.close();
+    }
   }
 
   @Nonnull

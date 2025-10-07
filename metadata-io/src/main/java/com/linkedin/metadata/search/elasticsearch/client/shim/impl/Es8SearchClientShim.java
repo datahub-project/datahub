@@ -98,6 +98,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -231,7 +232,9 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
   private final SearchEngineType engineType;
   private final ElasticsearchClient client;
   private final ObjectMapper objectMapper;
-  private BulkIngester<?> bulkProcessor;
+  private BulkIngester<?>[] bulkProcessors;
+  private AtomicInteger roundRobinCounter;
+  private int threadCount = 1;
   private final JacksonJsonpMapper jacksonJsonpMapper;
 
   static {
@@ -1576,15 +1579,15 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
       int bulkRequestsLimit,
       long bulkFlushPeriod,
       long retryInterval,
-      int numRetries) {
+      int numRetries,
+      int threadCount) {
+    this.threadCount = threadCount;
+    this.bulkProcessors = new BulkIngester[threadCount];
+    this.roundRobinCounter = new AtomicInteger(0);
+    
     co.elastic.clients.elasticsearch._helpers.bulk.BulkListener<Object> esBulkListener =
         new Es8BulkListener(metricUtils);
-    BulkIngester.Builder<Object> builder =
-        new BulkIngester.Builder<>()
-            .client(client)
-            .flushInterval(bulkFlushPeriod, TimeUnit.SECONDS)
-            .maxOperations(bulkRequestsLimit)
-            .listener(esBulkListener);
+    
     final Refresh refresh;
     switch (writeRequestRefreshPolicy) {
       case NONE:
@@ -1599,8 +1602,22 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
       default:
         refresh = null;
     }
-    builder.globalSettings(new BulkRequest.Builder().refresh(refresh));
-    this.bulkProcessor = builder.build();
+    
+    for (int i = 0; i < threadCount; i++) {
+      BulkIngester.Builder<Object> builder =
+          new BulkIngester.Builder<>()
+              .client(client)
+              .flushInterval(bulkFlushPeriod, TimeUnit.SECONDS)
+              .maxOperations(bulkRequestsLimit)
+              .listener(esBulkListener);
+      
+      builder.globalSettings(new BulkRequest.Builder().refresh(refresh));
+      this.bulkProcessors[i] = builder.build();
+    }
+    
+    log.info(
+        "Initialized Es8SearchClientShim with {} BulkIngester instances for parallel execution",
+        threadCount);
   }
 
   @Override
@@ -1610,14 +1627,16 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
       int bulkRequestsLimit,
       long bulkFlushPeriod,
       long retryInterval,
-      int numRetries) {
+      int numRetries,
+      int threadCount) {
     generateAsyncBulkProcessor(
         writeRequestRefreshPolicy,
         metricUtils,
         bulkRequestsLimit,
         bulkFlushPeriod,
         retryInterval,
-        numRetries);
+        numRetries,
+        threadCount);
   }
 
   @Override
@@ -1675,17 +1694,85 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
                           .v2())
                   .build());
     }
-    bulkProcessor.add(operation);
+    // Round-robin distribution across processors
+    int index = roundRobinCounter.getAndIncrement() % threadCount;
+    bulkProcessors[index].add(operation);
+  }
+
+  @Override
+  public void addBulk(String urn, DocWriteRequest<?> writeRequest) {
+    BulkOperation operation;
+    if (writeRequest instanceof UpdateRequest) {
+      UpdateRequest update = (UpdateRequest) writeRequest;
+      Script script = convertScript(update.script());
+      operation =
+          new BulkOperation(
+              new UpdateOperation.Builder<>()
+                  .id(writeRequest.id())
+                  .ifSeqNo(writeRequest.ifSeqNo())
+                  .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
+                  .retryOnConflict(((UpdateRequest) writeRequest).retryOnConflict())
+                  .requireAlias(writeRequest.isRequireAlias())
+                  .index(writeRequest.index())
+                  .routing(writeRequest.routing())
+                  .action(
+                      new UpdateAction.Builder<>()
+                          .doc(
+                              XContentHelper.convertToMap(
+                                      update.doc().source(), true, XContentType.JSON)
+                                  .v2())
+                          .detectNoop(update.detectNoop())
+                          .docAsUpsert(update.docAsUpsert())
+                          .script(script)
+                          .upsert(update.upsert())
+                          .build())
+                  .build());
+    } else if (writeRequest instanceof DeleteRequest) {
+      DeleteRequest deleteRequest = (DeleteRequest) writeRequest;
+      operation =
+          new BulkOperation(
+              new DeleteOperation.Builder()
+                  .id(deleteRequest.id())
+                  .ifSeqNo(deleteRequest.ifSeqNo())
+                  .ifPrimaryTerm(deleteRequest.ifPrimaryTerm())
+                  .index(deleteRequest.index())
+                  .routing(deleteRequest.routing())
+                  .build());
+    } else {
+      IndexRequest indexRequest = (IndexRequest) writeRequest;
+      operation =
+          new BulkOperation(
+              new IndexOperation.Builder<>()
+                  .ifSeqNo(indexRequest.ifSeqNo())
+                  .ifPrimaryTerm(indexRequest.ifPrimaryTerm())
+                  .requireAlias(indexRequest.isRequireAlias())
+                  .index(indexRequest.index())
+                  .routing(indexRequest.routing())
+                  .id(indexRequest.id())
+                  .document(
+                      XContentHelper.convertToMap(indexRequest.source(), true, XContentType.JSON)
+                          .v2())
+                  .build());
+    }
+    // URN-based consistent hashing for entity document consistency
+    int index = Math.abs(urn.hashCode()) % threadCount;
+    bulkProcessors[index].add(operation);
   }
 
   @Override
   public void flushBulkProcessor() {
-    bulkProcessor.flush();
+    // Flush all processors
+    for (BulkIngester<?> processor : bulkProcessors) {
+      processor.flush();
+    }
   }
 
   @Override
   public void closeBulkProcessor() {
-    bulkProcessor.close();
+    // Close all processors
+    for (BulkIngester<?> processor : bulkProcessors) {
+      processor.close();
+    }
   }
 
   @Override

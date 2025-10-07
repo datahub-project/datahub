@@ -274,7 +274,6 @@ public class LoadIndicesStep implements UpgradeStep {
 
                     // Log the last URN of every batch for resume capability
                     String lastUrn = aspects.get(aspects.size() - 1).getKey().getUrn();
-                    log.info("Batch completed - Last URN processed: {}", lastUrn);
 
                     if (totalProcessed[0] % batchSize == 0 || conversionErrors > 0) {
                       long currentTime = System.currentTimeMillis();
@@ -285,17 +284,16 @@ public class LoadIndicesStep implements UpgradeStep {
                       if (conversionErrors > 0) {
                         progressMessage =
                             String.format(
-                                "Processed %d aspects (total: %d, %d conversion errors) - %.1f aspects/sec - Last URN: %s",
+                                "Processed %d aspects (total: %d, %d conversion errors) - %.1f aspects/sec",
                                 aspectsProcessed,
                                 totalProcessed[0],
                                 conversionErrors,
-                                aspectsPerSecond,
-                                lastUrn);
+                                aspectsPerSecond);
                       } else {
                         progressMessage =
                             String.format(
-                                "Processed %d aspects - %.1f aspects/sec - Last URN: %s",
-                                totalProcessed[0], aspectsPerSecond, lastUrn);
+                                "Processed %d aspects - %.1f aspects/sec",
+                                totalProcessed[0], aspectsPerSecond);
                       }
 
                       if (totalRecords > 0 && aspectsPerSecond > 0 && totalProcessed[0] > 50000) {
@@ -323,6 +321,7 @@ public class LoadIndicesStep implements UpgradeStep {
                       }
 
                       reportFunction.apply(progressMessage);
+                      reportFunction.apply("Last URN processed: " + lastUrn);
                     }
                   }
                 });
