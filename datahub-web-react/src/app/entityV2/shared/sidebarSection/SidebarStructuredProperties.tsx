@@ -25,7 +25,7 @@ import {
     SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
     SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME,
 } from '@src/app/searchV2/utils/constants';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import {
     EntityType,
@@ -50,7 +50,7 @@ const MAX_STRUCTURED_PROPERTIES_TO_FETCH = 100;
 
 const SidebarStructuredProperties = ({ properties }: Props) => {
     const { entityData, entityType } = useEntityData();
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
     const canEditProps = entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
     const [isPropModalVisible, setIsPropModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();

@@ -16,7 +16,7 @@ describe('useReloadableLazyQuery', () => {
         const mockLazyQueryHook = vi.fn().mockReturnValue([mockExecute, { loading: false, error: null }]);
         useReloadableContextSpy.mockReturnValue({
             shouldBeReloaded: () => true,
-            reloaded: () => {},
+            markAsReloaded: () => {},
             reloadByKeyType: () => {},
         });
 
@@ -36,7 +36,7 @@ describe('useReloadableLazyQuery', () => {
         const mockLazyQueryHook = vi.fn().mockReturnValue([mockExecute, { loading: false, error: null }]);
         useReloadableContextSpy.mockReturnValue({
             shouldBeReloaded: () => false,
-            reloaded: () => {},
+            markAsReloaded: () => {},
             reloadByKeyType: () => {},
         });
 
@@ -52,46 +52,46 @@ describe('useReloadableLazyQuery', () => {
     });
 
     it('should call the reloaded function when the query is successful', () => {
-        const reloadedMock = vi.fn();
+        const markAsReloadedMock = vi.fn();
         const mockLazyQueryHook = vi.fn().mockReturnValue([vi.fn(), { loading: false, error: null }]);
         useReloadableContextSpy.mockReturnValue({
             shouldBeReloaded: () => true,
-            reloaded: reloadedMock,
+            markAsReloaded: markAsReloadedMock,
             reloadByKeyType: () => {},
         });
 
         renderHook(() => useReloadableLazyQuery(mockLazyQueryHook, { type: 'test', id: '1' }, {}));
 
-        expect(reloadedMock).toHaveBeenCalledWith('test', '1');
+        expect(markAsReloadedMock).toHaveBeenCalledWith('test', '1');
     });
 
     it('should not call the reloaded function when the query is loading', () => {
-        const reloadedMock = vi.fn();
+        const markAsReloadedMock = vi.fn();
         const mockLazyQueryHook = vi.fn().mockReturnValue([vi.fn(), { loading: true, error: null }]);
         useReloadableContextSpy.mockReturnValue({
             shouldBeReloaded: () => true,
-            reloaded: reloadedMock,
+            markAsReloaded: markAsReloadedMock,
             reloadByKeyType: () => {},
         });
 
         renderHook(() => useReloadableLazyQuery(mockLazyQueryHook, { type: 'test', id: '1' }, {}));
 
-        expect(reloadedMock).not.toHaveBeenCalled();
+        expect(markAsReloadedMock).not.toHaveBeenCalled();
     });
 
     it('should not call the reloaded function when the query has an error', () => {
-        const reloadedMock = vi.fn();
+        const markAsReloadedMock = vi.fn();
         const mockLazyQueryHook = vi
             .fn()
             .mockReturnValue([vi.fn(), { loading: false, error: new Error('test error') }]);
         useReloadableContextSpy.mockReturnValue({
             shouldBeReloaded: () => true,
-            reloaded: reloadedMock,
+            markAsReloaded: markAsReloadedMock,
             reloadByKeyType: () => {},
         });
 
         renderHook(() => useReloadableLazyQuery(mockLazyQueryHook, { type: 'test', id: '1' }, {}));
 
-        expect(reloadedMock).not.toHaveBeenCalled();
+        expect(markAsReloadedMock).not.toHaveBeenCalled();
     });
 });

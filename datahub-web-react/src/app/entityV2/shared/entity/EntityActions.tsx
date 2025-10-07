@@ -335,7 +335,7 @@ function EntityActions(props: Props) {
                     onContinue={batchAddGlossaryTerms}
                     onCancel={() => setIsBatchAddGlossaryTermModalVisible(false)}
                     fixedEntityTypes={Array.from(
-                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.GLOSSARY_TERMS as any),
+                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.GLOSSARY_TERMS),
                     )}
                 />
             )}
@@ -346,7 +346,7 @@ function EntityActions(props: Props) {
                     onContinue={batchSetDomain}
                     onCancel={() => setIsBatchSetDomainModalVisible(false)}
                     fixedEntityTypes={Array.from(
-                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.DOMAINS as any),
+                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.DOMAINS),
                     )}
                 />
             )}
@@ -357,7 +357,7 @@ function EntityActions(props: Props) {
                     onContinue={batchSetApplication}
                     onCancel={() => setIsBatchSetApplicationModalVisible(false)}
                     fixedEntityTypes={Array.from(
-                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.APPLICATIONS as any),
+                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.APPLICATIONS),
                     )}
                 />
             )}
@@ -368,7 +368,7 @@ function EntityActions(props: Props) {
                     onContinue={batchSetDataProduct}
                     onCancel={() => setIsBatchSetDataProductModalVisible(false)}
                     fixedEntityTypes={Array.from(
-                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.DATA_PRODUCTS as any),
+                        entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.DATA_PRODUCTS),
                     )}
                 />
             )}
