@@ -5,9 +5,10 @@ import analytics, { EventType } from '@app/analytics';
 import { useHandleDeleteDomain } from '@app/entityV2/shared/EntityDropdown/useHandleDeleteDomain';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossaryV2/utils';
-import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import { getDeleteEntityMutation } from '@app/shared/deleteUtils';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataHubPageModuleType, EntityType } from '@types';
@@ -76,23 +77,44 @@ function useDeleteEntity(
                         // Reload modules
                         // DataProducts - as listed data product could be removed
                         if (type === EntityType.DataProduct) {
-                            reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.DataProducts)]);
+                            reloadByKeyType([
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.DataProducts,
+                                ),
+                            ]);
                         }
                         // ChildHierarchy - as listed term in contents module in glossary node could be removed
                         // RelatedTerms - as listed term in related terms could be removed
                         if (type === EntityType.GlossaryTerm) {
                             reloadByKeyType([
-                                getReloadableModuleKey(DataHubPageModuleType.ChildHierarchy),
-                                getReloadableModuleKey(DataHubPageModuleType.RelatedTerms),
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.ChildHierarchy,
+                                ),
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.RelatedTerms,
+                                ),
                             ]);
                         }
                         // ChildHierarchy - as listed node in contents module in glossary node could be removed
                         if (type === EntityType.GlossaryNode) {
-                            reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.ChildHierarchy)]);
+                            reloadByKeyType([
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.ChildHierarchy,
+                                ),
+                            ]);
                         }
                         // ChildHierarchy - as listed domain in child domains module could be removed
                         if (type === EntityType.Domain) {
-                            reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.ChildHierarchy)]);
+                            reloadByKeyType([
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.ChildHierarchy,
+                                ),
+                            ]);
                         }
                     },
                     skipWait ? 0 : 2000,

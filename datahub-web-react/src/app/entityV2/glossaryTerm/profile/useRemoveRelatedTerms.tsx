@@ -1,8 +1,9 @@
 import { Modal, message } from 'antd';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
-import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveRelatedTermsMutation } from '@graphql/glossaryTerm.generated';
@@ -43,7 +44,9 @@ function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationsh
                     });
                     // Reload modules
                     // RelatedTerms - update related terms module on term summary tab
-                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.RelatedTerms)]);
+                    reloadByKeyType([
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.RelatedTerms),
+                    ]);
                 }, 2000);
             });
     }

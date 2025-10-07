@@ -6,11 +6,12 @@ import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainN
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { handleBatchError } from '@app/entityV2/shared/utils';
-import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import ClickOutside from '@app/shared/ClickOutside';
 import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
@@ -156,10 +157,21 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                     setSelectedDomain(undefined);
                     // Reload modules
                     // Assets - as assets module in domain summary tab could be updated
-                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.Assets)], 3000);
+                    reloadByKeyType(
+                        [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)],
+                        3000,
+                    );
                     // DataProduct - as data products module in domain summary tab could be updated
                     if (entityType === EntityType.DataProduct) {
-                        reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.DataProducts)], 3000);
+                        reloadByKeyType(
+                            [
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.DataProducts,
+                                ),
+                            ],
+                            3000,
+                        );
                     }
                 }
             })

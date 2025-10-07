@@ -12,9 +12,10 @@ import DescriptionModal from '@app/entity/shared/components/legacy/DescriptionMo
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
-import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';
@@ -134,7 +135,9 @@ function CreateGlossaryEntityModal(props: Props) {
                     }
                     // Reload modules
                     // ChildHierarchy - to update contents module as new term/node could change it
-                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.ChildHierarchy)]);
+                    reloadByKeyType([
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.ChildHierarchy),
+                    ]);
                 }, 2000);
             })
             .catch((e) => {

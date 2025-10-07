@@ -32,7 +32,3 @@ export function convertModuleToModuleInfo(module: PageModuleFragment): ModuleInf
         icon: getModuleIcon(module),
     };
 }
-
-export function getReloadableModuleKey(moduleType: string) {
-    return `module-${moduleType}`;
-}

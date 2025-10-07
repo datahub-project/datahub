@@ -11,6 +11,8 @@ import StructuredPropertyValue from '@app/entityV2/shared/tabs/Properties/Struct
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
 import { useReloadableQuery } from '@app/sharedV2/reloadableContext/hooks/useReloadableQuery';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
 import {
@@ -81,7 +83,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
     const { data } = useReloadableQuery(
         useGetSearchResultsForMultipleQuery,
         {
-            type: 'structuredPropertiesOnEntitySummaryTabSidebar',
+            type: getReloadableKeyType(ReloadableKeyTypeNamespace.STRUCTURED_PROPERTY, 'EntitySummaryTabSidebar'),
             id: `${entityType}-${isSchemaSidebar ? 'schema' : 'entity'}-sidebar`,
         },
         {

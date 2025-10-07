@@ -10,8 +10,9 @@ import SetDataProductModal from '@app/entityV2/shared/containers/profile/sidebar
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { DataProductLink } from '@app/sharedV2/tags/DataProductLink';
 
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
@@ -56,8 +57,8 @@ export default function DataProductSection({ readOnly }: Props) {
                 // Assets - as assets module could be changed in data product summary tab
                 reloadByKeyType(
                     [
-                        getReloadableModuleKey(DataHubPageModuleType.DataProducts),
-                        getReloadableModuleKey(DataHubPageModuleType.Assets),
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.DataProducts),
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
                     ],
                     3000,
                 );

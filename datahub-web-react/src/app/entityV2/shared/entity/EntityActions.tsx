@@ -10,8 +10,9 @@ import { EntityCapabilityType } from '@app/entityV2/Entity';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
 import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';
-import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useBatchSetApplicationMutation } from '@graphql/application.generated';
@@ -112,7 +113,9 @@ function EntityActions(props: Props) {
                         setShouldRefetchEmbeddedListSearch?.(true);
                         // Reload modules
                         // Assets - to reload shown related assets on asset summary tab
-                        reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.Assets)]);
+                        reloadByKeyType([
+                            getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
+                        ]);
                     }, 3000);
                 }
             })
@@ -155,8 +158,8 @@ function EntityActions(props: Props) {
                         // Assets - to reload shown related assets on asset summary tab
                         // Domains - to reload Domains module with top domains on home page as list of domains can be changed after adding assets
                         reloadByKeyType([
-                            getReloadableModuleKey(DataHubPageModuleType.Assets),
-                            getReloadableModuleKey(DataHubPageModuleType.Domains),
+                            getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
+                            getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Domains),
                         ]);
                     }, 3000);
                     analytics.event({
@@ -200,7 +203,9 @@ function EntityActions(props: Props) {
                         setShouldRefetchEmbeddedListSearch?.(true);
                         // Reload modules
                         // Assets - to reload shown related assets on asset summary tab
-                        reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.Assets)]);
+                        reloadByKeyType([
+                            getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
+                        ]);
                     }, 3000);
                     analytics.event({
                         type: EventType.BatchEntityActionEvent,

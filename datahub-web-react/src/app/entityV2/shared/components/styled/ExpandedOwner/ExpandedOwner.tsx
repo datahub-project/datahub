@@ -6,9 +6,10 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { getNameFromType } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
-import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveOwnerMutation } from '@graphql/mutations.generated';
@@ -69,7 +70,10 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
             // Reload modules
             // OwnedAssets - update Your assets module on home page
             if (isCurrentUserRemoved)
-                reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.OwnedAssets)], 3000);
+                reloadByKeyType(
+                    [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.OwnedAssets)],
+                    3000,
+                );
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {

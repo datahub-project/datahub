@@ -4,13 +4,14 @@ import styled from 'styled-components/macro';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
-import { getReloadableModuleKey } from '@app/homeV3/modules/utils';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
 import { getParentEntities } from '@app/searchV2/filters/utils';
 import ClickOutside from '@app/shared/ClickOutside';
 import TermLabel from '@app/shared/TermLabel';
 import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useAddRelatedTermsMutation } from '@graphql/glossaryTerm.generated';
@@ -71,7 +72,9 @@ function AddRelatedTermsModal(props: Props) {
                     refetch();
                     // Reload modules
                     // RelatedTerms - update related terms module on term summary tab
-                    reloadByKeyType([getReloadableModuleKey(DataHubPageModuleType.RelatedTerms)]);
+                    reloadByKeyType([
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.RelatedTerms),
+                    ]);
                 }, 2000);
             });
         onClose();

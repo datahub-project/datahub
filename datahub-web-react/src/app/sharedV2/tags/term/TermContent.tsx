@@ -10,6 +10,8 @@ import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveTermMutation } from '@graphql/mutations.generated';
@@ -174,7 +176,16 @@ export default function TermContent({
                                 // RelatedTerms - to update related terms in case some of them was removed
                                 // ChildHierarchy - to update contents module in glossary node
                                 reloadByKeyType(
-                                    [DataHubPageModuleType.RelatedTerms, DataHubPageModuleType.ChildHierarchy],
+                                    [
+                                        getReloadableKeyType(
+                                            ReloadableKeyTypeNamespace.MODULE,
+                                            DataHubPageModuleType.RelatedTerms,
+                                        ),
+                                        getReloadableKeyType(
+                                            ReloadableKeyTypeNamespace.MODULE,
+                                            DataHubPageModuleType.ChildHierarchy,
+                                        ),
+                                    ],
                                     3000,
                                 );
                             }
