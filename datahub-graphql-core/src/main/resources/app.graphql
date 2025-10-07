@@ -27,6 +27,8 @@ extend type Query {
   Global settings related to the home page for an instance
   """
   globalHomePageSettings: GlobalHomePageSettings
+
+  getPresignedUploadUrl(input: GetPresignedUploadUrlInput!): GetPresignedUploadUrlResponse!
 }
 
 extend type Mutation {
@@ -888,4 +890,40 @@ type GlobalHomePageSettings {
   The default page template for the home page for this instance
   """
   defaultTemplate: DataHubPageTemplate
+}
+
+"""
+Input for the getUploadPresignedUrl query.
+"""
+input GetPresignedUploadUrlInput {
+  """
+  The scenario for the upload (e.g., ASSET_DOCUMENTATION, PROFILE_IMAGE).
+  """
+  scenario: UPLOAD_DOWNLOAD_SCENARIO!
+  """
+  A UUID for the file to be uploaded.
+  """
+  fileId: String!
+  """
+  The URN of the asset associated with the upload (required when scenario is ASSET_DOCUMENTATION).
+  """
+  assetUrn: String
+}
+
+"""
+Enum to specify the context of the upload.
+"""
+enum UPLOAD_DOWNLOAD_SCENARIO {
+  """
+  Upload for asset documentation.
+  """
+  ASSET_DOCUMENTATION
+  """
+  Upload for a profile image.
+  """
+  PROFILE_IMAGE
+}
+
+type GetPresignedUploadUrlResponse {
+  url: String!
 }

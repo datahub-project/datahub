@@ -82,6 +82,7 @@ import com.linkedin.datahub.graphql.resolvers.entity.EntityExistsResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.versioning.LinkAssetVersionResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.versioning.UnlinkAssetVersionResolver;
+import com.linkedin.datahub.graphql.resolvers.files.GetPresignedUploadUrlResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchAssignFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchRemoveFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.CreateDynamicFormAssignmentResolver;
@@ -314,6 +315,7 @@ import com.linkedin.datahub.graphql.types.template.PageTemplateType;
 import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.datahub.graphql.types.versioning.VersionSetType;
 import com.linkedin.datahub.graphql.types.view.DataHubViewType;
+import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
@@ -371,6 +373,7 @@ import org.apache.commons.io.IOUtils;
 import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderOptions;
+import software.amazon.awssdk.services.sts.StsClient;
 
 /**
  * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the GMS
@@ -487,6 +490,8 @@ public class GmsGraphQLEngine {
 
   private final GraphQLConfiguration graphQLConfiguration;
   private final MetricUtils metricUtils;
+  private final StsClient stsClient;
+  private final S3Util s3Util;
 
   private final BusinessAttributeType businessAttributeType;
 
@@ -620,6 +625,13 @@ public class GmsGraphQLEngine {
     this.dataHubPageModuleType = new PageModuleType(entityClient);
     this.graphQLConfiguration = args.graphQLConfiguration;
     this.metricUtils = args.metricUtils;
+    this.stsClient = args.stsClient;
+
+    log.warn(">>> STS CLIENT: {}", this.stsClient);
+
+    this.s3Util = new S3Util( this.entityClient, this.stsClient,"arn:aws:iam::000000000000:root");
+
+    log.warn(">>> S3Util: {}", this.s3Util);
 
     this.businessAttributeType = new BusinessAttributeType(entityClient);
     // Init Lists
@@ -1107,7 +1119,8 @@ public class GmsGraphQLEngine {
                     new DocPropagationSettingsResolver(this.settingsService))
                 .dataFetcher(
                     "globalHomePageSettings",
-                    new GlobalHomePageSettingsResolver(this.settingsService)));
+                    new GlobalHomePageSettingsResolver(this.settingsService))
+            .dataFetcher("getPresignedUploadUrl", new GetPresignedUploadUrlResolver(this.s3Util)));
   }
 
   private DataFetcher getEntitiesResolver() {
@@ -3659,5 +3672,19 @@ public class GmsGraphQLEngine {
                       }
                       return null;
                     })));
+  }
+
+  private void configureFilesResolver(final RuntimeWiring.Builder builder) {
+    builder.type(
+            "GetPresignedUploadUrlResponse",
+            typeWiring ->
+                    typeWiring
+                            .dataFetcher(
+                                    "latestVersion",
+                                    new EntityTypeResolver(
+                                            entityTypes, (env) -> ((VersionSet) env.getSource()).getLatestVersion()))
+                            .dataFetcher(
+                                    "versionsSearch",
+                                    new VersionsSearchResolver(this.entityClient, this.viewService)));
   }
 }

@@ -22,6 +22,12 @@ dependencies {
     implementation externalDependency.guava
     implementation externalDependency.opentelemetryAnnotations
 
+    implementation platform('software.amazon.awssdk:bom:2.23.6')
+    implementation 'software.amazon.awssdk:regions'
+    implementation 'software.amazon.awssdk:sqs'
+    implementation 'software.amazon.awssdk:sts'
+    implementation 'software.amazon.awssdk:s3'
+
     implementation externalDependency.slf4jApi
     implementation externalDependency.springContext
     compileOnly externalDependency.lombok
