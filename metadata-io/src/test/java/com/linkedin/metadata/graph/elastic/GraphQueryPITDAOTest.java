@@ -44,6 +44,7 @@ import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URL;
@@ -64,7 +65,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.SearchHit;
@@ -74,7 +74,7 @@ import org.skyscreamer.jsonassert.JSONAssert;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-public class GraphQueryOpenSearchDAOTest {
+public class GraphQueryPITDAOTest {
 
   private static final String TEST_QUERY_FILE_LIMITED =
       "elasticsearch/sample_filters/lineage_query_filters_limited.json";
@@ -146,8 +146,8 @@ public class GraphQueryOpenSearchDAOTest {
     Long startTime = 0L;
     Long endTime = 1L;
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(null, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(null, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
     QueryBuilder limitedBuilder = TestUtils.getLineageQueryForEntityType(urns, edgeInfos);
 
     LineageGraphFilters lineageGraphFilters =
@@ -312,12 +312,12 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   public void testGetSearchResponse() throws Exception {
     // Mock dependencies
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
     // Create the DAO with mocks
-    GraphQueryOpenSearchDAO dao =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     // Mock the search response
     SearchResponse mockSearchResponse = mock(SearchResponse.class);
@@ -384,12 +384,12 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   public void testGetLineageQueryWithInvalidEntityTypes() {
     // Mock only the client
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
     // Create the DAO with minimal mocks
-    GraphQueryOpenSearchDAO dao =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     // Create a map with mixed entity types for a single entity type key
     Map<String, Set<Urn>> urnsPerEntityType = new HashMap<>();
@@ -430,12 +430,12 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   public void testGetLineageQueryWithEmptyUrns() {
     // Mock only the client
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
     // Create the DAO with minimal mocks
-    GraphQueryOpenSearchDAO dao =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     // Create a map with empty URN sets
     Map<String, Set<Urn>> urnsPerEntityType = new HashMap<>();
@@ -475,7 +475,8 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   public void testGetLineageQueryWithUndirectedEdges() {
     // Mock only the client
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
     // Create a LineageRegistry with undirected edges
     LineageRegistry mockLineageRegistry = mock(LineageRegistry.class);
@@ -500,9 +501,8 @@ public class GraphQueryOpenSearchDAOTest {
     when(customOperationContext.getLineageRegistry()).thenReturn(mockLineageRegistry);
 
     // Create the DAO with our mock registry
-    GraphQueryOpenSearchDAO dao =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     // Create a map with dataset URNs
     Map<String, Set<Urn>> urnsPerEntityType = new HashMap<>();
@@ -620,10 +620,11 @@ public class GraphQueryOpenSearchDAOTest {
     // construction
 
     // Mock dependencies
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockClient.search(any(SearchRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
     // Create a configuration with a specific limit
     GraphServiceConfiguration testConfig =
@@ -635,8 +636,8 @@ public class GraphQueryOpenSearchDAOTest {
             .build();
 
     // Create the DAO with our test config
-    GraphQueryOpenSearchDAO dao =
-        new GraphQueryOpenSearchDAO(mockClient, testConfig, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, testConfig, TEST_OS_SEARCH_CONFIG, null);
 
     // Create test data - requesting more than the limit
     GraphFilters graphFilters =
@@ -661,10 +662,11 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   public void testScrollSearchAppliesResultLimit() throws Exception {
     // Mock dependencies
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockClient.search(any(SearchRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
     // Create a configuration with a specific limit
     GraphServiceConfiguration testConfig =
@@ -676,8 +678,8 @@ public class GraphQueryOpenSearchDAOTest {
             .build();
 
     // Create the DAO with our test config
-    GraphQueryOpenSearchDAO dao =
-        new GraphQueryOpenSearchDAO(mockClient, testConfig, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, testConfig, TEST_OS_SEARCH_CONFIG, null);
 
     // Create test data
     GraphFilters graphFilters =
@@ -713,7 +715,8 @@ public class GraphQueryOpenSearchDAOTest {
         LineageGraphFilters.forEntityType(
             operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
 
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
     // Mock the createPit method for PIT search
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
@@ -721,9 +724,8 @@ public class GraphQueryOpenSearchDAOTest {
     when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
-    GraphQueryOpenSearchDAO dao =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     // Mock responses for slice-based search
     // With 2 slices, we expect 2 calls to search (one per slice)
@@ -777,7 +779,8 @@ public class GraphQueryOpenSearchDAOTest {
         LineageGraphFilters.forEntityType(
             operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
 
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
     // Create a configuration with a very low maxRelations limit to ensure we hit it
     ElasticSearchConfiguration testConfig =
@@ -794,8 +797,8 @@ public class GraphQueryOpenSearchDAOTest {
                     .build())
             .build();
 
-    GraphQueryOpenSearchDAO dao =
-        new GraphQueryOpenSearchDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig, null);
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig, null);
 
     // Create a simple response with 6 hits to exceed the maxRelations limit of 5
     SearchHit[] hits =
@@ -843,10 +846,10 @@ public class GraphQueryOpenSearchDAOTest {
         LineageGraphFilters.forEntityType(
             operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
 
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
-    GraphQueryOpenSearchDAO dao =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     // Mock a search operation that will throw an exception
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
@@ -881,10 +884,10 @@ public class GraphQueryOpenSearchDAOTest {
         LineageGraphFilters.forEntityType(
             operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
 
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
-    GraphQueryOpenSearchDAO dao =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     // Mock empty response
     SearchResponse searchResponse = createEmptySearchResponse(0);
@@ -918,10 +921,10 @@ public class GraphQueryOpenSearchDAOTest {
             DATASET_ENTITY_NAME,
             LineageDirection.DOWNSTREAM);
 
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
-    GraphQueryOpenSearchDAO dao =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     // Create mock data for direct relationships (1 hop)
     SearchHit[] hits =
@@ -1128,11 +1131,11 @@ public class GraphQueryOpenSearchDAOTest {
 
     // Create a mock client that returns the same search results multiple times
     // to simulate the scenario where multiple slices process the same data
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
-    GraphQueryOpenSearchDAO dao =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     // Create test URNs
     Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,TestSource,PROD)");
@@ -1222,13 +1225,13 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   private void testExecuteLineageSearchQueryThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch connection failed"));
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     // Test that executeLineageSearchQuery throws ESQueryException when client.search fails
     try {
@@ -1245,13 +1248,13 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   private void testExecuteSearchThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch search failed"));
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     SearchRequest searchRequest = new SearchRequest();
     searchRequest.indices("test_index");
@@ -1270,13 +1273,13 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   private void testExecuteScrollSearchQueryThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch scroll search failed"));
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     GraphFilters graphFilters = GraphFilters.outgoingFilter(EMPTY_FILTER);
     List<SortCriterion> sortCriteria =
@@ -1296,13 +1299,13 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   private void testExecuteGroupByLineageSearchQueryThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch group by lineage search failed"));
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     // Create test data
     Set<Urn> entityUrns = Set.of(Urn.createFromString("urn:li:dataset:test-urn"));
@@ -1343,13 +1346,13 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   private void testExecuteQueryWithLimitThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch query with limit failed"));
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     // Create test data
     Set<Urn> entityUrns = Set.of(Urn.createFromString("urn:li:dataset:test-urn"));
@@ -1390,13 +1393,13 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   private void testExecuteSearchRequestThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch search request failed"));
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     // Create test data
     Set<Urn> entityUrns = Set.of(Urn.createFromString("urn:li:dataset:test-urn"));
@@ -1437,10 +1440,11 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   private void testScrollSingleSliceFailsWhenPITDisabled() throws Exception {
     // Mock the client (not used since PIT validation fails first)
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(
             mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG_NO_PIT, null);
 
     // Create test data
@@ -1482,13 +1486,13 @@ public class GraphQueryOpenSearchDAOTest {
     };
 
     for (String exceptionMessage : exceptionMessages) {
-      RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+      SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+      when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
       when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
           .thenThrow(new RuntimeException(exceptionMessage));
 
-      GraphQueryOpenSearchDAO graphQueryDAO =
-          new GraphQueryOpenSearchDAO(
-              mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+      GraphQueryPITDAO graphQueryDAO =
+          new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
       try {
         graphQueryDAO.getSearchResponse(
@@ -1505,14 +1509,14 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   private void testExceptionHandlingPreservesOriginalException() throws Exception {
     // Test that the original exception is properly preserved
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     RuntimeException originalException = new RuntimeException("Original error message");
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(originalException);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     try {
       graphQueryDAO.getSearchResponse(
@@ -1528,14 +1532,14 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   private void testExceptionHandlingWithNullCause() throws Exception {
     // Test exception handling when the original exception has no cause
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     RuntimeException originalException = new RuntimeException("Error without cause");
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(originalException);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     try {
       graphQueryDAO.getSearchResponse(
@@ -1551,17 +1555,17 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   private void testExceptionHandlingWithChainedExceptions() throws Exception {
     // Test exception handling with chained exceptions
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     RuntimeException rootCause = new RuntimeException("Root cause");
     RuntimeException middleException = new RuntimeException("Middle layer", rootCause);
     RuntimeException topException = new RuntimeException("Top layer", middleException);
 
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(topException);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
 
     try {
       graphQueryDAO.getSearchResponse(
@@ -1581,7 +1585,8 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   private void testGetImpactLineageRequiresPITEnabled() throws Exception {
     // Test that getImpactLineage throws an exception when PIT is disabled
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
     // Create a configuration with PIT disabled
     ElasticSearchConfiguration testConfig =
@@ -1595,8 +1600,8 @@ public class GraphQueryOpenSearchDAOTest {
                     .build())
             .build();
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig, null);
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig, null);
 
     Urn testUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
     LineageGraphFilters lineageGraphFilters =
@@ -1623,7 +1628,8 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   private void testGetImpactLineageWithPITEnabled() throws Exception {
     // Test that getImpactLineage validation passes when PIT is enabled
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
     // Create a configuration with PIT enabled (default)
     ElasticSearchConfiguration testConfig =
@@ -1637,8 +1643,8 @@ public class GraphQueryOpenSearchDAOTest {
                     .build())
             .build();
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig, null);
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig, null);
 
     Urn testUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
     LineageGraphFilters lineageGraphFilters =
@@ -1690,12 +1696,13 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   public void testElasticsearchImplementationUsesScrollInsteadOfPIT() throws Exception {
     // Test that Elasticsearch implementation routes to scroll+slice instead of PIT+slice
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    // This triggers the scroll path
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
 
     // Create Elasticsearch configuration
     ElasticSearchConfiguration elasticsearchConfig =
         TEST_OS_SEARCH_CONFIG.toBuilder()
-            .implementation("elasticsearch") // This triggers the scroll path
             .search(
                 TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
                     .graph(
@@ -1705,9 +1712,8 @@ public class GraphQueryOpenSearchDAOTest {
                     .build())
             .build();
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, elasticsearchConfig, null);
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, elasticsearchConfig, null);
 
     // Mock scroll search responses
     SearchResponse mockScrollResponse = mock(SearchResponse.class);
@@ -1755,12 +1761,13 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   public void testScrollSearchWithSlices() throws Exception {
     // Test the scroll+slice functionality with actual data
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    // This triggers the scroll path
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
 
     // Create Elasticsearch configuration with 2 slices
     ElasticSearchConfiguration elasticsearchConfig =
         TEST_OS_SEARCH_CONFIG.toBuilder()
-            .implementation("elasticsearch")
             .search(
                 TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
                     .graph(
@@ -1774,9 +1781,8 @@ public class GraphQueryOpenSearchDAOTest {
                     .build())
             .build();
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, elasticsearchConfig, null);
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, elasticsearchConfig, null);
 
     // Create mock search hits with lineage data
     SearchHit[] hits1 =
@@ -1833,14 +1839,14 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   public void testScrollSearchHandlesEmptyResults() throws Exception {
     // Test scroll search when no results are found
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    // This triggers the scroll path
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
 
-    ElasticSearchConfiguration elasticsearchConfig =
-        TEST_OS_SEARCH_CONFIG.toBuilder().implementation("elasticsearch").build();
+    ElasticSearchConfiguration elasticsearchConfig = TEST_OS_SEARCH_CONFIG.toBuilder().build();
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, elasticsearchConfig, null);
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, elasticsearchConfig, null);
 
     // Mock empty search response
     SearchResponse mockResponse = mock(SearchResponse.class);
@@ -1876,11 +1882,12 @@ public class GraphQueryOpenSearchDAOTest {
   @Test
   public void testScrollSearchWithKeepAliveConfiguration() throws Exception {
     // Test that scroll search uses the configured keepAlive value
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    // This triggers the scroll path
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
 
     ElasticSearchConfiguration elasticsearchConfig =
         TEST_OS_SEARCH_CONFIG.toBuilder()
-            .implementation("elasticsearch")
             .search(
                 TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
                     .graph(
@@ -1893,9 +1900,8 @@ public class GraphQueryOpenSearchDAOTest {
                     .build())
             .build();
 
-    GraphQueryOpenSearchDAO graphQueryDAO =
-        new GraphQueryOpenSearchDAO(
-            mockClient, TEST_GRAPH_SERVICE_CONFIG, elasticsearchConfig, null);
+    GraphQueryPITDAO graphQueryDAO =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, elasticsearchConfig, null);
 
     // Mock search response
     SearchResponse mockResponse = mock(SearchResponse.class);

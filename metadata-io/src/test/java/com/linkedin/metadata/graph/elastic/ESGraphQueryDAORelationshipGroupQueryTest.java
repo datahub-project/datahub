@@ -21,6 +21,7 @@ import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
@@ -35,7 +36,6 @@ import org.mockito.stubbing.Answer;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -48,13 +48,14 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
   private final OperationContext operationContext =
       TestOperationContexts.systemContextNoSearchAuthorization();
 
-  private RestHighLevelClient mockClient;
+  private SearchClientShim<?> mockClient;
   private ESGraphQueryDAO graphQueryDAO;
 
   @BeforeMethod
   public void setup() {
     // Initialize mocks
-    mockClient = mock(RestHighLevelClient.class);
+    mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
     // Create configuration with timeout and batch settings
     GraphQueryConfiguration graphConfig =
