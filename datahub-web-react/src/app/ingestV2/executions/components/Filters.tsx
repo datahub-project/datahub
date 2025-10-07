@@ -3,9 +3,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import ExecutorTypeFilter, {
-    EXECUTOR_TYPE_ALL_VALUE,
-} from '@app/ingestV2/shared/components/filters/ExecutorTypeFilter';
+import ExecutorTypeFilter from '@app/ingestV2/shared/components/filters/ExecutorTypeFilter';
+import ResultStatusFilter from '@app/ingestV2/shared/components/filters/ResultStatusFilter';
 import SourceFilter from '@app/ingestV2/shared/components/filters/SourceFilter';
 import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
 import useFilters from '@app/searchV2/utils/useFilters';
@@ -14,6 +13,7 @@ import { FacetFilterInput } from '@types';
 
 export const INGESTION_SOURCE_FIELD = 'ingestionSource';
 export const EXECUTOR_TYPE_FIELD = 'executorType';
+export const RESULT_STATUS_FIELD = 'resultStatus';
 
 const Container = styled.div`
     display: flex;
@@ -35,11 +35,11 @@ export default function Filters({ onFiltersApplied, hideSystemSources, shouldPre
     // initialization of query params from location
     const queryParams = useMemo(() => QueryString.parse(location.search, { arrayFormat: 'comma' }), [location.search]);
     const paramFilters: Array<FacetFilterInput> = useFilters(queryParams);
-    const queryParamsValues = useMemo(
+    const defaultValues = useMemo(
         () => new Map<string, string[]>(paramFilters.map((item) => [item.field, item.values ?? []])),
         [paramFilters],
     );
-    const [valuesMap, setValuesMap] = useState<FiltersState>(queryParamsValues);
+    const [valuesMap, setValuesMap] = useState<FiltersState>(defaultValues);
 
     const [isInitialized, setIsInitialised] = useState<boolean>(false);
 
@@ -51,16 +51,16 @@ export default function Filters({ onFiltersApplied, hideSystemSources, shouldPre
 
     useEffect(() => {
         if (shouldPreserveParams.current) {
-            setValuesMap(queryParamsValues);
+            setValuesMap(defaultValues);
         }
-    }, [queryParamsValues, shouldPreserveParams]);
+    }, [defaultValues, shouldPreserveParams]);
 
     useEffect(() => {
         if (!isInitialized) {
-            onFiltersApplied?.(queryParamsValues);
+            onFiltersApplied?.(defaultValues);
             setIsInitialised(true);
         }
-    }, [queryParamsValues, onFiltersApplied, isInitialized]);
+    }, [defaultValues, onFiltersApplied, isInitialized]);
 
     const onUpdate = useCallback(
         (field: string, values: string[]) => {
@@ -89,30 +89,21 @@ export default function Filters({ onFiltersApplied, hideSystemSources, shouldPre
         [valuesMap, onFiltersApplied, history, location.pathname],
     );
 
-    const sourceDefaultValues = useMemo(() => queryParamsValues.get(INGESTION_SOURCE_FIELD), [queryParamsValues]);
-
-    const executorTypeValues = useMemo(() => {
-        const queryParamsExecutorTypeValues = queryParamsValues.get(EXECUTOR_TYPE_FIELD);
-        if (queryParamsExecutorTypeValues && queryParamsExecutorTypeValues.length > 0)
-            return queryParamsExecutorTypeValues;
-
-        const values = valuesMap.get(EXECUTOR_TYPE_FIELD);
-        if (values && values.length > 0) return values;
-
-        return [EXECUTOR_TYPE_ALL_VALUE];
-    }, [queryParamsValues, valuesMap]);
-
     return (
         <Container>
             <SourceFilter
-                defaultValues={sourceDefaultValues}
+                defaultValues={defaultValues.get(INGESTION_SOURCE_FIELD)}
                 onUpdate={(values) => onUpdate(INGESTION_SOURCE_FIELD, values)}
                 hideSystemSources={!!hideSystemSources}
                 shouldPreserveParams={shouldPreserveParams}
             />
             <ExecutorTypeFilter
-                values={executorTypeValues}
+                values={valuesMap.get(EXECUTOR_TYPE_FIELD) || []}
                 onUpdate={(values) => onUpdate(EXECUTOR_TYPE_FIELD, values)}
+            />
+            <ResultStatusFilter
+                defaultValues={defaultValues.get(RESULT_STATUS_FIELD)}
+                onUpdate={(values) => onUpdate(RESULT_STATUS_FIELD, values)}
             />
         </Container>
     );
