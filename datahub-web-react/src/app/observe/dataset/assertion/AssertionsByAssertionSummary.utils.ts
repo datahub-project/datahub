@@ -45,6 +45,7 @@ export const DEFAULT_TIME_RANGE =
 // Filter Options
 export type AssetFilterOptions = {
     platform: string[];
+    container: string[];
     domain: string[];
     owner: string[];
     term: string[];
@@ -63,6 +64,7 @@ export type FitlerOptions = {
     tags: string[];
     // asset filters
     asset_platform: string[];
+    asset_container: string[];
     asset_domain: string[];
     asset_owner: string[];
     asset_term: string[];
@@ -89,6 +91,7 @@ export const DEFAULT_FILTER_OPTIONS: FitlerOptions = {
 
     // asset filters
     asset_platform: [],
+    asset_container: [],
     asset_domain: [],
     asset_owner: [],
     asset_term: [],
@@ -110,6 +113,7 @@ export const FILTER_OPTIONS_DECODER: QueryParamDecoder<FitlerOptions> = {
     source: (value: string) => decodeURIComponent(value),
     tags: (value: string) => value.split(',').map((element) => decodeURIComponent(element)),
     asset_platform: (value: string) => value.split(',').map((element) => decodeURIComponent(element)),
+    asset_container: (value: string) => value.split(',').map((element) => decodeURIComponent(element)),
     asset_domain: (value: string) => value.split(',').map((element) => decodeURIComponent(element)),
     asset_owner: (value: string) => value.split(',').map((element) => decodeURIComponent(element)),
     asset_term: (value: string) => value.split(',').map((element) => decodeURIComponent(element)),
@@ -127,6 +131,7 @@ export const FILTER_OPTIONS_ENCODER: QueryParamEncoder<FitlerOptions> = {
     source: (value: string) => encodeURIComponent(value),
     tags: (value: string[]) => value.map((element) => encodeURIComponent(element)).join(','),
     asset_platform: (value: string[]) => value.map((element) => encodeURIComponent(element)).join(','),
+    asset_container: (value: string[]) => value.map((element) => encodeURIComponent(element)).join(','),
     asset_domain: (value: string[]) => value.map((element) => encodeURIComponent(element)).join(','),
     asset_owner: (value: string[]) => value.map((element) => encodeURIComponent(element)).join(','),
     asset_term: (value: string[]) => value.map((element) => encodeURIComponent(element)).join(','),

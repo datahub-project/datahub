@@ -97,6 +97,7 @@ type Props = {
     setPageSize: (size: number) => void;
     loading: boolean;
     hasModifiedDefaultFilters: boolean;
+    isAnomalyDetectionEnabled: boolean;
 };
 export const AssertionsByAssertionSummaryTable = ({
     assertions,
@@ -107,6 +108,7 @@ export const AssertionsByAssertionSummaryTable = ({
     setPageSize,
     loading,
     hasModifiedDefaultFilters,
+    isAnomalyDetectionEnabled,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
 
@@ -321,7 +323,13 @@ export const AssertionsByAssertionSummaryTable = ({
                                   Create Assertions to detect data quality issues.
                               </Text>,
                               <Text size="lg" color="gray">
-                                  Tip: Use <i>&lsquo;Bulk Create&rsquo;</i> to set up AI Anomaly Detection.
+                                  {isAnomalyDetectionEnabled ? (
+                                      <>
+                                          Tip: Use <i>&lsquo;Bulk Create&rsquo;</i> to set up AI Anomaly Detection.
+                                      </>
+                                  ) : (
+                                      'Be the first to know when your data breaks.'
+                                  )}
                               </Text>,
                               <a href={ASSERTIONS_DOCS_LINK} target="_blank" rel="noreferrer">
                                   <Text size="lg" weight="semiBold">

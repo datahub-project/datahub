@@ -15,6 +15,7 @@ import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.container.Container;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.domain.Domains;
@@ -167,6 +168,7 @@ public class AssertionAnalyticsRunEventHook implements MetadataChangeLogHook {
       if (entityResponse != null && entityResponse.hasAspects()) {
         final EnvelopedAspectMap aspectMap = entityResponse.getAspects();
         populateAsserteeDataPlatformContext(analyticsRunEvent, aspectMap);
+        populateAsserteeContainerContext(analyticsRunEvent, aspectMap);
         populateAsserteeTagContext(analyticsRunEvent, aspectMap);
         populateAsserteeGlossaryTermContext(analyticsRunEvent, aspectMap);
         populateAsserteeDomainContext(analyticsRunEvent, aspectMap);
@@ -199,6 +201,24 @@ public class AssertionAnalyticsRunEventHook implements MetadataChangeLogHook {
         analyticsRunEvent.setAsserteeDataPlatformInstance(maybeDataPlatformInstance.getInstance());
       }
     }
+  }
+
+  private void populateAsserteeContainerContext(
+      @Nonnull final AssertionAnalyticsRunEvent analyticsRunEvent,
+      @Nonnull final EnvelopedAspectMap aspectMap) {
+    Container maybeContainer = extractContainer(aspectMap);
+    if (maybeContainer != null) {
+      analyticsRunEvent.setAsserteeContainer(maybeContainer.getContainer());
+    }
+  }
+
+  @Nullable
+  private Container extractContainer(@Nonnull final EnvelopedAspectMap aspectMap) {
+    if (aspectMap.containsKey(CONTAINER_ASPECT_NAME)
+        && aspectMap.get(CONTAINER_ASPECT_NAME) != null) {
+      return new Container(aspectMap.get(CONTAINER_ASPECT_NAME).getValue().data());
+    }
+    return null;
   }
 
   @Nullable

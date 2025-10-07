@@ -100,7 +100,7 @@ export const DatasetHealthPage = () => {
                 {
                     component: (
                         <Content $isShowNavBarRedesign={isShowNavBarRedesign}>
-                            <AssertionsByTableSummary />
+                            <AssertionsByTableSummary isAnomalyDetectionEnabled={showBulkCreateAssertionsButton} />
                         </Content>
                     ),
                     key: BY_ASSET_TAB_ID,
@@ -109,7 +109,7 @@ export const DatasetHealthPage = () => {
                 {
                     component: (
                         <Content $isShowNavBarRedesign={isShowNavBarRedesign}>
-                            <AssertionsByAssertionSummary />
+                            <AssertionsByAssertionSummary isAnomalyDetectionEnabled={showBulkCreateAssertionsButton} />
                         </Content>
                     ),
                     key: BY_ASSERTIONS_TAB_ID,
