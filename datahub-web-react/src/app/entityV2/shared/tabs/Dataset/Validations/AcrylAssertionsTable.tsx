@@ -18,7 +18,7 @@ type StyledTableProps = {
     showSelect?: boolean;
 } & TableProps<any>;
 
-export const StyledTable = styled(Table)<StyledTableProps>`
+const BaseStyledTable = styled(Table)<StyledTableProps>`
     ${(props) => !props.showSelect && `margin-left: -50px;`}
     max-width: none;
     overflow: inherit;
@@ -71,6 +71,8 @@ export const StyledTable = styled(Table)<StyledTableProps>`
         background-color: inherit;
     }
 `;
+
+export const StyledTable = BaseStyledTable as <T = any>(props: StyledTableProps & TableProps<T>) => JSX.Element;
 
 const DetailsColumnWrapper = styled.div`
     display: flex;

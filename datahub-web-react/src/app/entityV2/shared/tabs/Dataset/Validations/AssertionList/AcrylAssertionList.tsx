@@ -37,10 +37,10 @@ import { useIngestionSourceForEntityQuery } from '@graphql/ingestion.generated';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '@graphql/monitor.generated';
 
 const AssertionListContainer = styled.div`
-    margin: 0px 20px;
-    height: 100%;
     display: flex;
+    height: 100%;
     flex-direction: column;
+    margin: 0px 20px;
     flex: 1;
     overflow: hidden;
 `;
