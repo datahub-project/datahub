@@ -1288,7 +1288,8 @@ const GlossaryImportList = ({
                     </div>
                 );
             },
-            width: '12%',
+            width: '140px',
+            minWidth: '140px',
             alignment: 'left',
             sorter: (a, b) => a.status.localeCompare(b.status),
         },
@@ -1296,7 +1297,8 @@ const GlossaryImportList = ({
             title: 'Type',
             key: 'type',
             render: (record) => record.type === 'glossaryNode' ? 'Term Group' : 'Term',
-            width: '8%',
+            width: '100px',
+            minWidth: '100px',
             alignment: 'left',
             sorter: (a, b) => a.type.localeCompare(b.type),
         },
@@ -1325,7 +1327,8 @@ const GlossaryImportList = ({
                     </EditableCell>
                 );
             },
-            width: '12%',
+            width: '200px',
+            minWidth: '200px',
             alignment: 'left',
             sorter: (a, b) => a.name.localeCompare(b.name),
         },
@@ -1360,7 +1363,8 @@ const GlossaryImportList = ({
                     </EditableCell>
                 );
             },
-            width: '10%',
+            width: '150px',
+            minWidth: '150px',
             alignment: 'left',
             sorter: (a, b) => a.parentNames.join(' > ').localeCompare(b.parentNames.join(' > ')),
         },
@@ -1389,7 +1393,8 @@ const GlossaryImportList = ({
                     </EditableCell>
                 );
             },
-            width: '15%',
+            width: '250px',
+            minWidth: '250px',
             alignment: 'left',
             sorter: (a, b) => a.data.description.localeCompare(b.data.description),
         },
@@ -1478,7 +1483,8 @@ const GlossaryImportList = ({
                     </EditableCell>
                 );
             },
-            width: '10%',
+            width: '150px',
+            minWidth: '150px',
             alignment: 'left',
             sorter: (a, b) => a.data.source_url.localeCompare(b.data.source_url),
         },
@@ -1507,7 +1513,8 @@ const GlossaryImportList = ({
                     </EditableCell>
                 );
             },
-            width: '12%',
+            width: '180px',
+            minWidth: '180px',
             alignment: 'left',
             sorter: (a, b) => a.data.ownership_users.localeCompare(b.data.ownership_users),
         },
@@ -1536,7 +1543,8 @@ const GlossaryImportList = ({
                     </EditableCell>
                 );
             },
-            width: '12%',
+            width: '180px',
+            minWidth: '180px',
             alignment: 'left',
             sorter: (a, b) => a.data.ownership_groups.localeCompare(b.data.ownership_groups),
         },
@@ -1565,7 +1573,8 @@ const GlossaryImportList = ({
                     </EditableCell>
                 );
             },
-            width: '8%',
+            width: '130px',
+            minWidth: '130px',
             alignment: 'left',
             sorter: (a, b) => a.data.related_contains.localeCompare(b.data.related_contains),
         },
@@ -1594,7 +1603,8 @@ const GlossaryImportList = ({
                     </EditableCell>
                 );
             },
-            width: '8%',
+            width: '130px',
+            minWidth: '130px',
             alignment: 'left',
             sorter: (a, b) => a.data.related_inherits.localeCompare(b.data.related_inherits),
         },
@@ -1623,7 +1633,8 @@ const GlossaryImportList = ({
                     </EditableCell>
                 );
             },
-            width: '8%',
+            width: '120px',
+            minWidth: '120px',
             alignment: 'left',
             sorter: (a, b) => a.data.domain_name.localeCompare(b.data.domain_name),
         },
@@ -1652,7 +1663,8 @@ const GlossaryImportList = ({
                     </EditableCell>
                 );
             },
-            width: '8%',
+            width: '150px',
+            minWidth: '150px',
             alignment: 'left',
             sorter: (a, b) => a.data.custom_properties.localeCompare(b.data.custom_properties),
         },
