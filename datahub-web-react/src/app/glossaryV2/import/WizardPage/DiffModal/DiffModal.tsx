@@ -62,7 +62,7 @@ const createTableColumns = () => [
     key: 'field',
     dataIndex: 'field',
     width: '20%',
-    render: (field: string, record: ComparisonField) => (
+    render: (record: ComparisonField) => (
       <Text color="gray" size="sm" weight="medium">
         {record.label}
       </Text>
@@ -78,7 +78,7 @@ const createTableColumns = () => [
     key: 'existing',
     dataIndex: 'existingValue',
     width: '40%',
-    render: (value: string, record: ComparisonField) => (
+    render: (record: ComparisonField) => (
       <div style={{ 
         padding: '8px 12px',
         backgroundColor: record.isConflict ? '#fef2f2' : record.hasChanges ? '#fef3c7' : '#f9fafb',
@@ -89,13 +89,13 @@ const createTableColumns = () => [
         alignItems: 'center',
         position: 'relative'
       }}>
-        {value ? (
+        {record.existingValue ? (
           <Text 
             color={record.isConflict ? 'red' : record.hasChanges ? 'orange' : 'gray'}
             size="sm"
             style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
           >
-            {value}
+            {record.existingValue}
           </Text>
         ) : (
           <Text color="gray" size="sm" style={{ fontStyle: 'italic' }}>
@@ -129,7 +129,7 @@ const createTableColumns = () => [
     key: 'imported',
     dataIndex: 'importedValue',
     width: '40%',
-    render: (value: string, record: ComparisonField) => (
+    render: (record: ComparisonField) => (
       <div style={{ 
         padding: '8px 12px',
         backgroundColor: record.isConflict ? '#fef2f2' : record.hasChanges ? '#fef3c7' : '#f9fafb',
@@ -140,13 +140,13 @@ const createTableColumns = () => [
         alignItems: 'center',
         position: 'relative'
       }}>
-        {value ? (
+        {record.importedValue ? (
           <Text 
             color={record.isConflict ? 'red' : record.hasChanges ? 'orange' : 'gray'}
             size="sm"
             style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
           >
-            {value}
+            {record.importedValue}
           </Text>
         ) : (
           <Text color="gray" size="sm" style={{ fontStyle: 'italic' }}>
