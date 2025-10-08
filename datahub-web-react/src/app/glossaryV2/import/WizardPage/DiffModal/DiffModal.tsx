@@ -238,8 +238,8 @@ export const DiffModal: React.FC<DiffModalProps> = ({
       subtitle={`Status: ${status.charAt(0).toUpperCase() + status.slice(1)}`}
       onCancel={onClose}
       open={visible}
-      width="90%"
-      maxWidth="1200px"
+            width="63%"
+            maxWidth="840px"
       buttons={[
         {
           text: 'Close',
