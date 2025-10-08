@@ -365,6 +365,10 @@ slack = {
     "tenacity>=8.0.1",
 }
 
+databricks_common = {
+    "databricks-sqlalchemy~=1.0",  # Note: This is pinned to 1.0 for compatibility with SQLAlchemy 1.x which is default for fivetran
+}
+
 databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
     # 0.22.0 has support for `include_browse` in metadata list apis
@@ -466,7 +470,14 @@ plugins: Dict[str, Set[str]] = {
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
-    "excel": {"openpyxl>=3.1.5", "pandas", *aws_common, *abs_base, *cachetools_lib, *data_lake_profiling},
+    "excel": {
+        "openpyxl>=3.1.5",
+        "pandas",
+        *aws_common,
+        *abs_base,
+        *cachetools_lib,
+        *data_lake_profiling,
+    },
     "cassandra": {
         "cassandra-driver>=3.28.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
@@ -582,7 +593,11 @@ plugins: Dict[str, Set[str]] = {
     "unity-catalog": databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks | sql_common,
-    "fivetran": snowflake_common | bigquery_common | sqlalchemy_lib | sqlglot_lib,
+    "fivetran": snowflake_common
+    | bigquery_common
+    | databricks_common
+    | sqlalchemy_lib
+    | sqlglot_lib,
     "snaplogic": set(),
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},
@@ -737,7 +752,7 @@ base_dev_requirements = {
             "cassandra",
             "neo4j",
             "vertexai",
-            "mssql-odbc"
+            "mssql-odbc",
         ]
         if plugin
         for dependency in plugins[plugin]
