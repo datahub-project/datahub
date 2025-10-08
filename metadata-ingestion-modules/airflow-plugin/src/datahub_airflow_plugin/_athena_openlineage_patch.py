@@ -26,6 +26,14 @@ def patch_athena_operator() -> None:
     try:
         from airflow.providers.amazon.aws.operators.athena import AthenaOperator
 
+        # Check if the method exists (only in Airflow 3.x)
+        if not hasattr(AthenaOperator, "get_openlineage_facets_on_complete"):
+            logger.debug(
+                "AthenaOperator.get_openlineage_facets_on_complete not found - "
+                "likely Airflow 2.x, skipping patch"
+            )
+            return
+
         # Check if already patched
         if hasattr(AthenaOperator, "_datahub_openlineage_patched"):
             logger.debug("AthenaOperator already patched for OpenLineage")
