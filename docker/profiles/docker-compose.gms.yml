@@ -456,6 +456,8 @@ services:
       CDC_MCL_PROCESSING_ENABLED: true
       CDC_CONFIGURE_SOURCE: true
       CDC_DB_TYPE: postgres
+      MAE_CONSUMER_ENABLED: false
+      MCE_CONSUMER_ENABLED: false
     depends_on:
       system-update-quickstart-postgres-cdc:
         condition: service_completed_successfully
@@ -612,6 +614,18 @@ services:
     depends_on:
       datahub-gms-quickstart-consumers-cdc:
         condition: service_healthy
+  datahub-mae-consumer-quickstart-postgres-cdc:
+    <<: *datahub-mae-consumer-service
+    environment:
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+    profiles:
+      - quickstart-postgres-cdc
+    depends_on:
+      datahub-gms-quickstart-postgres-cdc:
+        condition: service_healthy
+
   datahub-mae-consumer-debug-consumers-cdc:
     <<: *datahub-mae-consumer-service-dev
     environment:
@@ -645,6 +659,18 @@ services:
     depends_on:
       datahub-gms-quickstart-consumers-cdc:
         condition: service_healthy
+  datahub-mce-consumer-quickstart-postgres-consumers-cdc:
+    <<: *datahub-mce-consumer-service
+    environment:
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+    profiles:
+      - quickstart-postgres-cdc
+    depends_on:
+      datahub-gms-quickstart-postgres-cdc:
+        condition: service_healthy
+
   datahub-mce-consumer-debug-consumers:
     <<: *datahub-mce-consumer-service-dev
     profiles:
