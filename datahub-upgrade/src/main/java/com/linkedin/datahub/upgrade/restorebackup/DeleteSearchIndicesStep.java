@@ -4,15 +4,15 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.function.Function;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.GetIndexRequest;
-import org.opensearch.client.indices.GetIndexResponse;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 
@@ -20,9 +20,9 @@ public class DeleteSearchIndicesStep implements UpgradeStep {
 
   private final String _deletePattern;
 
-  private final RestHighLevelClient _searchClient;
+  private final SearchClientShim<?> _searchClient;
 
-  public DeleteSearchIndicesStep(final RestHighLevelClient searchClient) {
+  public DeleteSearchIndicesStep(final SearchClientShim searchClient) {
     _searchClient = searchClient;
     String prefix = System.getenv("INDEX_PREFIX");
     _deletePattern = Optional.ofNullable(prefix).map(p -> p + "_").orElse("") + "*index_v2*";
@@ -60,7 +60,7 @@ public class DeleteSearchIndicesStep implements UpgradeStep {
   private String[] getIndices(UpgradeContext context) {
     try {
       GetIndexResponse response =
-          _searchClient.indices().get(new GetIndexRequest(_deletePattern), RequestOptions.DEFAULT);
+          _searchClient.getIndex(new GetIndexRequest(_deletePattern), RequestOptions.DEFAULT);
       return response.getIndices();
     } catch (IOException e) {
       context

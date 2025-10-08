@@ -40,6 +40,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- Added multi-client search engine shim for Elasticsearch and OpenSearch support. This enables DataHub to work with ES 7.17 (with API compatibility mode for ES 8.x servers), ES 8.x, and OpenSearch 2.x through a unified interface. The shim includes auto-detection of search engine types and backward compatibility with existing RestHighLevelClient usage. See [elasticsearch-search-client-shim.md](./elasticsearch-search-client-shim.md) for configuration details.
+
 ## 1.2.0
 
 ### Breaking Changes

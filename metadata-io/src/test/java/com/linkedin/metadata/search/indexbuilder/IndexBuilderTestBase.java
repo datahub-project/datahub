@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.indexbuilder;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static org.testng.Assert.*;
 
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -11,6 +12,8 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataMappingsBuilder;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.version.GitVersion;
 import java.io.IOException;
 import java.util.Arrays;
@@ -25,16 +28,14 @@ import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
-import org.opensearch.client.IndicesClient;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.indices.GetIndexRequest;
-import org.opensearch.client.indices.GetIndexResponse;
 import org.opensearch.cluster.metadata.AliasMetadata;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.rest.RestStatus;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.springframework.util.CollectionUtils;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -42,12 +43,11 @@ import org.testng.annotations.Test;
 public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTests {
 
   @Nonnull
-  protected abstract RestHighLevelClient getSearchClient();
+  protected abstract SearchClientShim<?> getSearchClient();
 
   @Nonnull
   protected abstract ElasticSearchConfiguration getElasticSearchConfiguration();
 
-  private IndicesClient _indexClient;
   protected static final String TEST_INDEX_NAME = "esindex_builder_test";
   private ESIndexBuilder testDefaultBuilder;
   private ESIndexBuilder testReplicasBuilder;
@@ -55,7 +55,6 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
   @BeforeClass
   public void setup() {
-    _indexClient = getSearchClient().indices();
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
     testDefaultBuilder =
         new ESIndexBuilder(
@@ -88,30 +87,37 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   @BeforeMethod
   public void wipe() throws Exception {
     try {
-      _indexClient
-          .getAlias(new GetAliasesRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT)
+      getSearchClient()
+          .getIndexAliases(new GetAliasesRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT)
           .getAliases()
           .keySet()
           .forEach(
               index -> {
                 try {
-                  _indexClient.delete(new DeleteIndexRequest(index), RequestOptions.DEFAULT);
+                  getSearchClient()
+                      .deleteIndex(new DeleteIndexRequest(index), RequestOptions.DEFAULT);
                 } catch (IOException e) {
                   throw new RuntimeException(e);
                 }
               });
 
-      _indexClient.delete(new DeleteIndexRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT);
+      getSearchClient()
+          .deleteIndex(new DeleteIndexRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT);
     } catch (OpenSearchException exception) {
       if (exception.status() != RestStatus.NOT_FOUND) {
+        throw exception;
+      }
+    } catch (ElasticsearchException exception) {
+      if (exception.status() != 404) {
         throw exception;
       }
     }
   }
 
   public GetIndexResponse getTestIndex() throws IOException {
-    return _indexClient.get(
-        new GetIndexRequest(TEST_INDEX_NAME).includeDefaults(true), RequestOptions.DEFAULT);
+    return getSearchClient()
+        .getIndex(
+            new GetIndexRequest(TEST_INDEX_NAME).includeDefaults(true), RequestOptions.DEFAULT);
   }
 
   @Test
@@ -140,11 +146,11 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     // index one doc
     IndexRequest indexRequest =
         new IndexRequest(TEST_INDEX_NAME).id("1").source(new HashMap<>(), XContentType.JSON);
-    IndexResponse indexResponse = getSearchClient().index(indexRequest, RequestOptions.DEFAULT);
+    IndexResponse indexResponse =
+        getSearchClient().indexDocument(indexRequest, RequestOptions.DEFAULT);
     // make sure it will be counted
     getSearchClient()
-        .indices()
-        .refresh(
+        .refreshIndex(
             new org.opensearch.action.admin.indices.refresh.RefreshRequest(TEST_INDEX_NAME),
             RequestOptions.DEFAULT);
     numDocs =
@@ -188,7 +194,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     // index one doc
     IndexRequest indexRequest =
         new IndexRequest(TEST_INDEX_NAME).id("1").source(new HashMap<>(), XContentType.JSON);
-    IndexResponse indexResponse = getSearchClient().index(indexRequest, RequestOptions.DEFAULT);
+    IndexResponse indexResponse =
+        getSearchClient().indexDocument(indexRequest, RequestOptions.DEFAULT);
     // reindex
     ReindexResult rr = changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
     Map.Entry<String, List<AliasMetadata>> newIndex =
@@ -269,12 +276,12 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     for (int i = 0; i < NDOCS; i++) {
       IndexRequest indexRequest =
           new IndexRequest(TEST_INDEX_NAME).id("" + i).source(new HashMap<>(), XContentType.JSON);
-      IndexResponse indexResponse = getSearchClient().index(indexRequest, RequestOptions.DEFAULT);
+      IndexResponse indexResponse =
+          getSearchClient().indexDocument(indexRequest, RequestOptions.DEFAULT);
     }
     // make sure it will be counted
     getSearchClient()
-        .indices()
-        .refresh(
+        .refreshIndex(
             new org.opensearch.action.admin.indices.refresh.RefreshRequest(TEST_INDEX_NAME),
             RequestOptions.DEFAULT);
     // new index
@@ -563,7 +570,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     ReindexConfig reindexConfigNoIndexBefore =
         enabledMappingReindex.buildReindexState(
             TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
-    assertNull(reindexConfigNoIndexBefore.currentMappings());
+    assertTrue(CollectionUtils.isEmpty(reindexConfigNoIndexBefore.currentMappings()));
     assertEquals(
         reindexConfigNoIndexBefore.targetMappings(), SystemMetadataMappingsBuilder.getMappings());
     assertFalse(reindexConfigNoIndexBefore.requiresApplyMappings());
@@ -617,18 +624,37 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     ReindexConfig reindexConfigNoCopy =
         enabledMappingReindex.buildReindexState(
             TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
-    Map<String, Object> expectedMappingsStructPropsNested =
-        new HashMap<>(SystemMetadataMappingsBuilder.getMappings());
-    ((Map<String, Object>) expectedMappingsStructPropsNested.get("properties"))
-        .put(
-            "structuredProperties",
-            Map.of(
-                "properties",
-                Map.of(
-                    "myNumberProp",
-                    Map.of(SettingsBuilder.TYPE, ESUtils.DOUBLE_FIELD_TYPE),
-                    "myStringProp",
-                    Map.of(SettingsBuilder.TYPE, SettingsBuilder.KEYWORD))));
+    Map<String, Object> expectedMappingsStructPropsNested;
+    if (SearchClientShim.SearchEngineType.ELASTICSEARCH_8.equals(
+        getSearchClient().getEngineType())) {
+      expectedMappingsStructPropsNested =
+          new HashMap<>(SystemMetadataMappingsBuilder.getMappings());
+      ((Map<String, Object>) expectedMappingsStructPropsNested.get("properties"))
+          .put(
+              "structuredProperties",
+              Map.of(
+                  "properties",
+                  Map.of(
+                      "myNumberProp",
+                      Map.of(SettingsBuilder.TYPE, ESUtils.DOUBLE_FIELD_TYPE),
+                      "myStringProp",
+                      Map.of(SettingsBuilder.TYPE, SettingsBuilder.KEYWORD)),
+                  "type",
+                  "object"));
+    } else {
+      expectedMappingsStructPropsNested =
+          new HashMap<>(SystemMetadataMappingsBuilder.getMappings());
+      ((Map<String, Object>) expectedMappingsStructPropsNested.get("properties"))
+          .put(
+              "structuredProperties",
+              Map.of(
+                  "properties",
+                  Map.of(
+                      "myNumberProp",
+                      Map.of(SettingsBuilder.TYPE, ESUtils.DOUBLE_FIELD_TYPE),
+                      "myStringProp",
+                      Map.of(SettingsBuilder.TYPE, SettingsBuilder.KEYWORD))));
+    }
     assertEquals(reindexConfigNoCopy.currentMappings(), expectedMappingsStructPropsNested);
     assertEquals(reindexConfigNoCopy.targetMappings(), SystemMetadataMappingsBuilder.getMappings());
     assertFalse(reindexConfigNoCopy.isPureMappingsAddition());

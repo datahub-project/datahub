@@ -7,13 +7,13 @@ import static org.testng.Assert.assertNotNull;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.indexbuilder.IndexBuilderTestBase;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import java.util.Map;
 import java.util.Optional;
 import org.jetbrains.annotations.NotNull;
-import org.opensearch.client.RestHighLevelClient;
-import org.opensearch.client.indices.GetIndexResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.testng.annotations.Test;
@@ -21,11 +21,11 @@ import org.testng.annotations.Test;
 @Import({ElasticSearchSuite.class, SearchTestContainerConfiguration.class})
 public class IndexBuilderElasticSearchTest extends IndexBuilderTestBase {
 
-  @Autowired private RestHighLevelClient _searchClient;
+  @Autowired private SearchClientShim<?> _searchClient;
 
   @NotNull
   @Override
-  protected RestHighLevelClient getSearchClient() {
+  protected SearchClientShim getSearchClient() {
     return _searchClient;
   }
 
@@ -58,6 +58,6 @@ public class IndexBuilderElasticSearchTest extends IndexBuilderTestBase {
             gitVersion);
     customIndexBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
     GetIndexResponse resp = getTestIndex();
-    assertEquals("default", resp.getSetting(TEST_INDEX_NAME, "index.codec"));
+    assertEquals(resp.getSetting(TEST_INDEX_NAME, "index.codec"), "default");
   }
 }

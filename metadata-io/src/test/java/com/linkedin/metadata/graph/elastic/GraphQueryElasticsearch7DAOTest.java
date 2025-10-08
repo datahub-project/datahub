@@ -43,6 +43,7 @@ import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URL;
@@ -62,7 +63,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.SearchHit;
@@ -311,7 +311,7 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   public void testGetLineageQueryWithInvalidEntityTypes() {
     // Mock only the client
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
 
     // Create the DAO with minimal mocks
     GraphQueryElasticsearch7DAO dao =
@@ -357,7 +357,7 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   public void testGetLineageQueryWithEmptyUrns() {
     // Mock only the client
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
 
     // Create the DAO with minimal mocks
     GraphQueryElasticsearch7DAO dao =
@@ -402,7 +402,7 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   public void testGetLineageQueryWithUndirectedEdges() {
     // Mock only the client
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
 
     // Create a LineageRegistry with undirected edges
     LineageRegistry mockLineageRegistry = mock(LineageRegistry.class);
@@ -547,7 +547,7 @@ public class GraphQueryElasticsearch7DAOTest {
     // construction
 
     // Mock dependencies
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockClient.search(any(SearchRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
@@ -588,7 +588,7 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   public void testScrollSearchAppliesResultLimit() throws Exception {
     // Mock dependencies
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockClient.search(any(SearchRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
@@ -640,7 +640,7 @@ public class GraphQueryElasticsearch7DAOTest {
         LineageGraphFilters.forEntityType(
             operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
 
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
 
     // Note: GraphQueryElasticsearch7DAO uses scroll-based search, not PIT
     // No need to mock createPit for this DAO
@@ -706,7 +706,7 @@ public class GraphQueryElasticsearch7DAOTest {
         LineageGraphFilters.forEntityType(
             operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
 
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
 
     // Create a configuration with a very low maxRelations limit to ensure we hit it
     ElasticSearchConfiguration testConfig =
@@ -769,7 +769,7 @@ public class GraphQueryElasticsearch7DAOTest {
         LineageGraphFilters.forEntityType(
             operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
 
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     GraphQueryElasticsearch7DAO dao =
         new GraphQueryElasticsearch7DAO(
             mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
@@ -804,7 +804,7 @@ public class GraphQueryElasticsearch7DAOTest {
         LineageGraphFilters.forEntityType(
             operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
 
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     GraphQueryElasticsearch7DAO dao =
         new GraphQueryElasticsearch7DAO(
             mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
@@ -838,7 +838,7 @@ public class GraphQueryElasticsearch7DAOTest {
             DATASET_ENTITY_NAME,
             LineageDirection.DOWNSTREAM);
 
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     GraphQueryElasticsearch7DAO dao =
         new GraphQueryElasticsearch7DAO(
             mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
@@ -1045,7 +1045,7 @@ public class GraphQueryElasticsearch7DAOTest {
 
     // Create a mock client that returns the same search results multiple times
     // to simulate the scenario where multiple slices process the same data
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
 
     GraphQueryElasticsearch7DAO dao =
         new GraphQueryElasticsearch7DAO(
@@ -1136,7 +1136,7 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   private void testExecuteLineageSearchQueryThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch connection failed"));
 
@@ -1159,7 +1159,7 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   private void testExecuteSearchThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch search failed"));
 
@@ -1184,7 +1184,7 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   private void testExecuteScrollSearchQueryThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch scroll search failed"));
 
@@ -1210,7 +1210,7 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   private void testExecuteGroupByLineageSearchQueryThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch group by lineage search failed"));
 
@@ -1257,7 +1257,7 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   private void testExecuteQueryWithLimitThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch query with limit failed"));
 
@@ -1304,7 +1304,7 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   private void testExecuteSearchRequestThrowsESQueryException() throws Exception {
     // Mock the client to throw an exception
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch search request failed"));
 
@@ -1360,7 +1360,7 @@ public class GraphQueryElasticsearch7DAOTest {
     };
 
     for (String exceptionMessage : exceptionMessages) {
-      RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+      SearchClientShim<?> mockClient = mock(SearchClientShim.class);
       when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
           .thenThrow(new RuntimeException(exceptionMessage));
 
@@ -1383,7 +1383,7 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   private void testExceptionHandlingPreservesOriginalException() throws Exception {
     // Test that the original exception is properly preserved
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     RuntimeException originalException = new RuntimeException("Original error message");
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(originalException);
@@ -1406,7 +1406,7 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   private void testExceptionHandlingWithNullCause() throws Exception {
     // Test exception handling when the original exception has no cause
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     RuntimeException originalException = new RuntimeException("Error without cause");
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(originalException);
@@ -1429,7 +1429,7 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   private void testExceptionHandlingWithChainedExceptions() throws Exception {
     // Test exception handling with chained exceptions
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     RuntimeException rootCause = new RuntimeException("Root cause");
     RuntimeException middleException = new RuntimeException("Middle layer", rootCause);
     RuntimeException topException = new RuntimeException("Top layer", middleException);
@@ -1461,12 +1461,13 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   public void testElasticsearchImplementationUsesScrollInsteadOfPIT() throws Exception {
     // Test that Elasticsearch implementation routes to scroll+slice instead of PIT+slice
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    // This triggers the scroll path
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
 
     // Create Elasticsearch configuration
     ElasticSearchConfiguration elasticsearchConfig =
         TEST_OS_SEARCH_CONFIG.toBuilder()
-            .implementation("elasticsearch") // This triggers the scroll path
             .search(
                 TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
                     .graph(
@@ -1526,12 +1527,13 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   public void testScrollSearchWithSlices() throws Exception {
     // Test the scroll+slice functionality with actual data
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    // This triggers the scroll path
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
 
     // Create Elasticsearch configuration with 2 slices
     ElasticSearchConfiguration elasticsearchConfig =
         TEST_OS_SEARCH_CONFIG.toBuilder()
-            .implementation("elasticsearch")
             .search(
                 TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
                     .graph(
@@ -1604,10 +1606,11 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   public void testScrollSearchHandlesEmptyResults() throws Exception {
     // Test scroll search when no results are found
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    // This triggers the scroll path
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
 
-    ElasticSearchConfiguration elasticsearchConfig =
-        TEST_OS_SEARCH_CONFIG.toBuilder().implementation("elasticsearch").build();
+    ElasticSearchConfiguration elasticsearchConfig = TEST_OS_SEARCH_CONFIG.toBuilder().build();
 
     GraphQueryElasticsearch7DAO graphQueryDAO =
         new GraphQueryElasticsearch7DAO(
@@ -1647,11 +1650,12 @@ public class GraphQueryElasticsearch7DAOTest {
   @Test
   public void testScrollSearchWithKeepAliveConfiguration() throws Exception {
     // Test that scroll search uses the configured keepAlive value
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    // This triggers the scroll path
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
 
     ElasticSearchConfiguration elasticsearchConfig =
         TEST_OS_SEARCH_CONFIG.toBuilder()
-            .implementation("elasticsearch")
             .search(
                 TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
                     .graph(
@@ -1711,10 +1715,11 @@ public class GraphQueryElasticsearch7DAOTest {
   public void testScrollSearchCleanupOnException() throws Exception {
     // Test that scroll context cleanup is attempted when scroll search completes
     // Note: This test verifies the scroll cleanup mechanism works in normal cases
-    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    // This triggers the scroll path
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
 
-    ElasticSearchConfiguration elasticsearchConfig =
-        TEST_OS_SEARCH_CONFIG.toBuilder().implementation("elasticsearch").build();
+    ElasticSearchConfiguration elasticsearchConfig = TEST_OS_SEARCH_CONFIG.toBuilder().build();
 
     GraphQueryElasticsearch7DAO graphQueryDAO =
         new GraphQueryElasticsearch7DAO(

@@ -8,8 +8,8 @@ package com.linkedin.gms.factory.search.semantic;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import javax.annotation.Nonnull;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -19,8 +19,8 @@ import org.springframework.context.annotation.Configuration;
 public class SemanticEntitySearchServiceFactory {
 
   @Autowired
-  @Qualifier("elasticSearchRestHighLevelClient")
-  private RestHighLevelClient searchClient;
+  @Qualifier("searchClientShim")
+  private SearchClientShim<?> searchClient;
 
   @Autowired
   @Qualifier("embeddingProvider")

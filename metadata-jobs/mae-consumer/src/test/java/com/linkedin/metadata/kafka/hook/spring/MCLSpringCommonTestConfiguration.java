@@ -21,6 +21,7 @@ import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
@@ -29,6 +30,7 @@ import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
@@ -52,6 +54,8 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
     })
 public class MCLSpringCommonTestConfiguration {
 
+  // TODO: We cannot move from MockBeans here because we are reliant on their behavior in
+  // configuration classes
   @MockBean public EntityRegistry entityRegistry;
 
   @MockBean public ElasticSearchGraphService graphService;
@@ -121,4 +125,7 @@ public class MCLSpringCommonTestConfiguration {
 
   @MockBean(name = "integrationsService")
   IntegrationsService integrationsService;
+
+  @MockBean(name = "searchClientShim", answer = Answers.RETURNS_MOCKS)
+  SearchClientShim<?> searchClientShim;
 }

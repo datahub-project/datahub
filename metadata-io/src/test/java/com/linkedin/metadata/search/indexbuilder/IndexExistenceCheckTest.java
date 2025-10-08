@@ -4,23 +4,20 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.client.IndicesClient;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class IndexExistenceCheckTest {
 
-  @Mock private RestHighLevelClient _searchClient;
-
-  @Mock private IndicesClient indicesClient;
+  @Mock private SearchClientShim<?> searchClient;
 
   @Mock private GetIndexRequest getIndexRequest;
 
@@ -28,10 +25,10 @@ public class IndexExistenceCheckTest {
 
   // Test class that contains the code under test
   private class TestIndexOperationClass {
-    private final RestHighLevelClient _searchClient;
+    private final SearchClientShim<?> searchClient;
 
-    public TestIndexOperationClass(RestHighLevelClient searchClient) {
-      this._searchClient = searchClient;
+    public TestIndexOperationClass(SearchClientShim<?> searchClient) {
+      this.searchClient = searchClient;
     }
 
     public Map<String, Object> checkIndexAndPerformOperation(GetIndexRequest getIndexRequest)
@@ -39,7 +36,7 @@ public class IndexExistenceCheckTest {
       Map<String, Object> result = new HashMap<>();
 
       // This is the code under test
-      if (!_searchClient.indices().exists(getIndexRequest, RequestOptions.DEFAULT)) {
+      if (!searchClient.indexExists(getIndexRequest, RequestOptions.DEFAULT)) {
         result.put("skipped", true);
         result.put("reason", "Index does not exist");
         return result;
@@ -55,14 +52,14 @@ public class IndexExistenceCheckTest {
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
-    when(_searchClient.indices()).thenReturn(indicesClient);
-    testClass = new TestIndexOperationClass(_searchClient);
+    testClass = new TestIndexOperationClass(searchClient);
   }
 
   @Test
   public void testIndexDoesNotExist() throws IOException {
     // Setup
-    when(indicesClient.exists(eq(getIndexRequest), eq(RequestOptions.DEFAULT))).thenReturn(false);
+    when(searchClient.indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
+        .thenReturn(false);
 
     // Execute
     Map<String, Object> result = testClass.checkIndexAndPerformOperation(getIndexRequest);
@@ -74,13 +71,14 @@ public class IndexExistenceCheckTest {
     assertNull(result.get("operation"));
 
     // Verify the method was called
-    verify(indicesClient).exists(eq(getIndexRequest), eq(RequestOptions.DEFAULT));
+    verify(searchClient).indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT));
   }
 
   @Test
   public void testIndexExists() throws IOException {
     // Setup
-    when(indicesClient.exists(eq(getIndexRequest), eq(RequestOptions.DEFAULT))).thenReturn(true);
+    when(searchClient.indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
+        .thenReturn(true);
 
     // Execute
     Map<String, Object> result = testClass.checkIndexAndPerformOperation(getIndexRequest);
@@ -92,13 +90,13 @@ public class IndexExistenceCheckTest {
     assertEquals("completed", result.get("operation"));
 
     // Verify the method was called
-    verify(indicesClient).exists(eq(getIndexRequest), eq(RequestOptions.DEFAULT));
+    verify(searchClient).indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT));
   }
 
   @Test
   public void testExceptionDuringExistenceCheck() throws IOException {
     // Setup
-    when(indicesClient.exists(eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
+    when(searchClient.indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
         .thenThrow(new IOException("Connection error"));
     try {
       testClass.checkIndexAndPerformOperation(getIndexRequest);
@@ -107,7 +105,7 @@ public class IndexExistenceCheckTest {
       // Verify the exception message
       assertEquals("Connection error", exception.getMessage());
       // Verify the method was called
-      verify(indicesClient).exists(eq(getIndexRequest), eq(RequestOptions.DEFAULT));
+      verify(searchClient).indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT));
     }
   }
 
@@ -124,22 +122,10 @@ public class IndexExistenceCheckTest {
   }
 
   @Test
-  public void testIndicesClientReturnsNull() throws IOException {
-    // Setup
-    when(_searchClient.indices()).thenReturn(null);
-
-    try {
-      testClass.checkIndexAndPerformOperation(getIndexRequest);
-      fail("Expected NullPointerException was not thrown");
-    } catch (NullPointerException exception) {
-      // No additional assertions needed
-    }
-  }
-
-  @Test
   public void testMultipleCallsToExists() throws IOException {
     // Setup
-    when(indicesClient.exists(eq(getIndexRequest), eq(RequestOptions.DEFAULT))).thenReturn(false);
+    when(searchClient.indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
+        .thenReturn(false);
 
     // Execute multiple times
     testClass.checkIndexAndPerformOperation(getIndexRequest);
@@ -147,7 +133,7 @@ public class IndexExistenceCheckTest {
     testClass.checkIndexAndPerformOperation(getIndexRequest);
 
     // Verify the method was called exactly 3 times
-    verify(indicesClient, times(3)).exists(eq(getIndexRequest), eq(RequestOptions.DEFAULT));
+    verify(searchClient, times(3)).indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -155,9 +141,10 @@ public class IndexExistenceCheckTest {
     // This test verifies that we're using RequestOptions.DEFAULT specifically
 
     // Setup - mock any request options to return true
-    when(indicesClient.exists(any(), any())).thenReturn(true);
+    when(searchClient.indexExists(any(), any())).thenReturn(true);
     // But specifically mock DEFAULT options with getIndexRequest to return false
-    when(indicesClient.exists(eq(getIndexRequest), eq(RequestOptions.DEFAULT))).thenReturn(false);
+    when(searchClient.indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
+        .thenReturn(false);
 
     // Execute
     Map<String, Object> result = testClass.checkIndexAndPerformOperation(getIndexRequest);

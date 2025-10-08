@@ -7,6 +7,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.registry.SchemaRegistryService;
 import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.mxe.TopicConventionImpl;
 import io.ebean.Database;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -20,8 +21,10 @@ import org.springframework.context.annotation.Import;
 @Import(value = {SystemAuthenticationFactory.class})
 public class UpgradeCliApplicationTestConfiguration {
 
+  // TODO: We cannot remove the MockBean annotation here because with MockitoBean it is still trying
+  // to instantiate
+  //       see: https://github.com/spring-projects/spring-framework/issues/33934
   @MockBean public UpgradeCli upgradeCli;
-
   @MockBean public Database ebeanServer;
 
   @MockBean public SearchService searchService;
@@ -31,6 +34,8 @@ public class UpgradeCliApplicationTestConfiguration {
   @MockBean public EntityRegistry entityRegistry;
 
   @MockBean public ConfigEntityRegistry configEntityRegistry;
+
+  @MockBean public SearchClientShim<?> searchClientShim;
 
   @Bean
   public MeterRegistry meterRegistry() {

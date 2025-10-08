@@ -24,6 +24,8 @@ import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchResultUtils;
 import com.linkedin.metadata.utils.SearchUtil;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -39,9 +41,6 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.client.Request;
-import org.opensearch.client.Response;
-import org.opensearch.client.RestClient;
-import org.opensearch.client.RestHighLevelClient;
 
 // removed BoolQueryBuilder in favor of Map-based filters
 
@@ -93,7 +92,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   private static final double DEFAULT_OVERSAMPLE_FACTOR = 1.2d; // Lower for pre-filtering
   private static final int MAX_K = 500;
 
-  private final RestClient lowLevelClient;
+  private final SearchClientShim<?> searchClient;
   private final EmbeddingProvider embeddingProvider;
   private final QueryFilterRewriteChain queryFilterRewriteChain;
 
@@ -104,8 +103,8 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
    * @param embeddingProvider provider capable of generating query embeddings
    */
   public SemanticEntitySearchService(
-      @Nonnull RestHighLevelClient searchClient, @Nonnull EmbeddingProvider embeddingProvider) {
-    this.lowLevelClient = Objects.requireNonNull(searchClient, "searchClient").getLowLevelClient();
+      @Nonnull SearchClientShim<?> searchClient, @Nonnull EmbeddingProvider embeddingProvider) {
+    this.searchClient = Objects.requireNonNull(searchClient, "searchClientShim");
     this.embeddingProvider = Objects.requireNonNull(embeddingProvider, "embeddingProvider");
     // Initialize with empty chain for POC - in production this would be injected
     this.queryFilterRewriteChain = QueryFilterRewriteChain.EMPTY;
@@ -313,7 +312,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
       request.addParameter("allow_no_indices", "true");
 
       // Execute the request
-      Response response = lowLevelClient.performRequest(request);
+      RawResponse response = searchClient.performLowLevelRequest(request);
 
       // Parse the response
       String responseBody = EntityUtils.toString(response.getEntity());

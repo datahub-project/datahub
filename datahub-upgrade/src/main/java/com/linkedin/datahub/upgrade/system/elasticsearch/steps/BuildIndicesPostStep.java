@@ -63,8 +63,7 @@ public class BuildIndicesPostStep implements UpgradeStep {
           boolean ack =
               esComponents
                   .getSearchClient()
-                  .indices()
-                  .putSettings(request, RequestOptions.DEFAULT)
+                  .updateIndexSettings(request, RequestOptions.DEFAULT)
                   .isAcknowledged();
           log.info(
               "Updated index {} with new settings. Settings: {}, Acknowledged: {}",

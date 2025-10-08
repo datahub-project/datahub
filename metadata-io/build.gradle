@@ -48,6 +48,9 @@ dependencies {
   }
   api externalDependency.datastaxOssQueryBuilder
   api externalDependency.elasticSearchRest
+  
+  // Optional search client shim dependencies
+  api externalDependency.elasticsearch8Client
   implementation externalDependency.javatuples
   api externalDependency.javaxValidation
   runtimeOnly externalDependency.jna
