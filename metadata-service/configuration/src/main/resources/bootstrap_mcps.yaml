@@ -50,7 +50,7 @@ bootstrap:
       mcps_location: "bootstrap_mcps/page-modules.yaml"
 
     - name: page-templates
-      version: v4
+      version: v3
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/page-templates.yaml"
