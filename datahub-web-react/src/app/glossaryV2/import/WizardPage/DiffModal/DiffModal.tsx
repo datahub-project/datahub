@@ -1,9 +1,42 @@
 import React, { useMemo } from 'react';
-import styled from 'styled-components';
-import { Modal, Button, Card, Table } from '@components';
-import { Column } from '@components/components/Table/types';
+import { Modal, Button, Table, Text, Badge } from '@components';
 import { EntityData, Entity } from '../../glossary.types';
-import { parseCustomProperties, formatCustomPropertiesForCsv, compareCustomProperties } from '../../shared/utils/customPropertiesUtils';
+import { parseCustomProperties, compareCustomProperties } from '../../shared/utils/customPropertiesUtils';
+
+// Define data type for comparison table
+interface ComparisonField {
+  id: string;
+  field: string;
+  label: string;
+  existingValue: string;
+  importedValue: string;
+  hasChanges: boolean;
+  isConflict: boolean;
+}
+
+interface DiffModalProps {
+  visible: boolean;
+  onClose: () => void;
+  entity: Entity | null;
+  existingEntity?: Entity | null;
+}
+
+// Field labels for display
+const fieldLabels: Record<string, string> = {
+  entity_type: 'Entity Type',
+  name: 'Name',
+  description: 'Description',
+  term_source: 'Term Source',
+  source_ref: 'Source Ref',
+  source_url: 'Source URL',
+  ownership_users: 'Ownership (Users)',
+  ownership_groups: 'Ownership (Groups)',
+  parent_nodes: 'Parent Nodes',
+  related_contains: 'Related Contains',
+  related_inherits: 'Related Inherits',
+  domain_name: 'Domain Name',
+  custom_properties: 'Custom Properties',
+};
 
 // Helper function to format custom properties for display
 const formatCustomPropertiesForDisplay = (value: string): string => {
@@ -22,245 +55,120 @@ const formatCustomPropertiesForDisplay = (value: string): string => {
   }
 };
 
-interface DiffModalProps {
-  visible: boolean;
-  onClose: () => void;
-  entity: Entity | null;
-  existingEntity?: Entity | null;
-}
-
-const ModalContainer = styled.div`
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  margin: 0;
-`;
-
-const ModalHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 16px 20px;
-  border-bottom: 1px solid #e5e7eb;
-  flex-shrink: 0;
-`;
-
-const ModalTitle = styled.div`
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #111827;
-`;
-
-const CloseButton = styled(Button)`
-  border: none;
-  background: transparent;
-  color: #6b7280;
-  
-  &:hover {
-    background: #f3f4f6;
-    color: #374151;
-  }
-`;
-
-const ContentContainer = styled.div`
-  padding: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-`;
-
-const TableContainer = styled.div`
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-`;
-
-const StatusBadge = styled.div<{ status: string }>`
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  background: ${props => {
-    switch (props.status) {
-      case 'existing': return '#e0e7ff';
-      case 'imported': return '#dcfce7';
-      case 'conflict': return '#fee2e2';
-      default: return '#f3f4f6';
-    }
-  }};
-  color: ${props => {
-    switch (props.status) {
-      case 'existing': return '#3730a3';
-      case 'imported': return '#166534';
-      case 'conflict': return '#dc2626';
-      default: return '#6b7280';
-    }
-  }};
-`;
-
-const FieldValue = styled.div<{ hasChanges?: boolean; isConflict?: boolean }>`
-  padding: 4px 6px;
-  background: ${props => {
-    if (props.isConflict) return '#fef2f2';
-    if (props.hasChanges) return '#fef3c7';
-    return '#f9fafb';
-  }};
-  border: 1px solid ${props => {
-    if (props.isConflict) return '#fecaca';
-    if (props.hasChanges) return '#fde68a';
-    return '#e5e7eb';
-  }};
-  border-radius: 4px;
-  font-size: 11px;
-  color: ${props => {
-    if (props.isConflict) return '#dc2626';
-    if (props.hasChanges) return '#92400e';
-    return '#374151';
-  }};
-  min-height: 24px;
-  white-space: pre-wrap;
-  word-break: break-word;
-  display: flex;
-  align-items: center;
-  line-height: 1.2;
-`;
-
-const EmptyValue = styled.div`
-  padding: 4px 6px;
-  background: #f9fafb;
-  border: 1px dashed #d1d5db;
-  border-radius: 4px;
-  font-size: 11px;
-  color: #9ca3af;
-  font-style: italic;
-  min-height: 24px;
-  display: flex;
-  align-items: center;
-  line-height: 1.2;
-`;
-
-const ConflictIndicator = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: #dc2626;
-  font-weight: 500;
-  margin-top: 4px;
-`;
-
-const FooterActions = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  width: 100%;
-  padding: 16px 20px;
-  border-top: 1px solid #e5e7eb;
-  flex-shrink: 0;
-`;
-
-const fieldLabels: Record<string, string> = {
-  entity_type: 'Entity Type',
-  name: 'Name',
-  description: 'Description',
-  term_source: 'Term Source',
-  source_ref: 'Source Ref',
-  source_url: 'Source URL',
-  ownership_users: 'Ownership (Users)',
-  ownership_groups: 'Ownership (Groups)',
-  parent_nodes: 'Parent Nodes',
-  related_contains: 'Related Contains',
-  related_inherits: 'Related Inherits',
-  domain_name: 'Domain Name',
-  custom_properties: 'Custom Properties',
-};
-
-// Define table columns for the comparison table
-const createTableColumns = (): Column<any>[] => [
+// Create table columns following DataHub patterns
+const createTableColumns = () => [
   {
     title: 'Field',
     key: 'field',
-    render: (record) => (
-      <div style={{ 
-        fontSize: '11px', 
-        fontWeight: 500, 
-        color: '#6b7280', 
-        textTransform: 'uppercase',
-        letterSpacing: '0.05em'
-      }}>
+    dataIndex: 'field',
+    width: '20%',
+    render: (field: string, record: ComparisonField) => (
+      <Text color="gray" size="sm" weight="medium">
         {record.label}
-      </div>
+      </Text>
     ),
-    width: '15%',
-    alignment: 'left',
   },
   {
     title: (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span>Existing Data</span>
-        <StatusBadge status="existing">Current</StatusBadge>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <Text weight="medium">Existing Data</Text>
+        <Badge color="blue" size="sm">Current</Badge>
       </div>
     ),
     key: 'existing',
-    render: (record) => (
-      <FieldValue hasChanges={record.hasChanges} isConflict={record.isConflict}>
-        {record.existingValue ? (
-          record.key === 'custom_properties' ? (
-            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
-              {record.existingValue}
-            </pre>
-          ) : (
-            record.existingValue
-          )
+    dataIndex: 'existingValue',
+    width: '40%',
+    render: (value: string, record: ComparisonField) => (
+      <div style={{ 
+        padding: '8px 12px',
+        backgroundColor: record.isConflict ? '#fef2f2' : record.hasChanges ? '#fef3c7' : '#f9fafb',
+        border: `1px solid ${record.isConflict ? '#fecaca' : record.hasChanges ? '#fde68a' : '#e5e7eb'}`,
+        borderRadius: '6px',
+        minHeight: '40px',
+        display: 'flex',
+        alignItems: 'center',
+        position: 'relative'
+      }}>
+        {value ? (
+          <Text 
+            color={record.isConflict ? 'red' : record.hasChanges ? 'orange' : 'gray'}
+            size="sm"
+            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+          >
+            {value}
+          </Text>
         ) : (
-          <EmptyValue>No value</EmptyValue>
+          <Text color="gray" size="sm" style={{ fontStyle: 'italic' }}>
+            No value
+          </Text>
         )}
         {record.isConflict && (
-          <ConflictIndicator>
+          <Badge 
+            color="red" 
+            size="xs" 
+            style={{ 
+              position: 'absolute', 
+              top: '4px', 
+              right: '4px',
+              fontSize: '10px'
+            }}
+          >
             Conflict
-          </ConflictIndicator>
+          </Badge>
         )}
-      </FieldValue>
+      </div>
     ),
-    width: '42.5%',
-    alignment: 'left',
   },
   {
     title: (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span>Imported Data</span>
-        <StatusBadge status="imported">New</StatusBadge>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <Text weight="medium">Imported Data</Text>
+        <Badge color="green" size="sm">New</Badge>
       </div>
     ),
     key: 'imported',
-    render: (record) => (
-      <FieldValue hasChanges={record.hasChanges} isConflict={record.isConflict}>
-        {record.importedValue ? (
-          record.key === 'custom_properties' ? (
-            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
-              {record.importedValue}
-            </pre>
-          ) : (
-            record.importedValue
-          )
+    dataIndex: 'importedValue',
+    width: '40%',
+    render: (value: string, record: ComparisonField) => (
+      <div style={{ 
+        padding: '8px 12px',
+        backgroundColor: record.isConflict ? '#fef2f2' : record.hasChanges ? '#fef3c7' : '#f9fafb',
+        border: `1px solid ${record.isConflict ? '#fecaca' : record.hasChanges ? '#fde68a' : '#e5e7eb'}`,
+        borderRadius: '6px',
+        minHeight: '40px',
+        display: 'flex',
+        alignItems: 'center',
+        position: 'relative'
+      }}>
+        {value ? (
+          <Text 
+            color={record.isConflict ? 'red' : record.hasChanges ? 'orange' : 'gray'}
+            size="sm"
+            style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+          >
+            {value}
+          </Text>
         ) : (
-          <EmptyValue>No value</EmptyValue>
+          <Text color="gray" size="sm" style={{ fontStyle: 'italic' }}>
+            No value
+          </Text>
         )}
         {record.isConflict && (
-          <ConflictIndicator>
+          <Badge 
+            color="red" 
+            size="xs" 
+            style={{ 
+              position: 'absolute', 
+              top: '4px', 
+              right: '4px',
+              fontSize: '10px'
+            }}
+          >
             Conflict
-          </ConflictIndicator>
+          </Badge>
         )}
-      </FieldValue>
+      </div>
     ),
-    width: '42.5%',
-    alignment: 'left',
   },
 ];
 
@@ -270,8 +178,8 @@ export const DiffModal: React.FC<DiffModalProps> = ({
   entity,
   existingEntity,
 }) => {
-  const comparison = useMemo(() => {
-    if (!entity || !entity.data) return null;
+  const tableData = useMemo(() => {
+    if (!entity || !entity.data) return [];
 
     const importedData = entity.data;
     const existingData = existingEntity?.data;
@@ -281,138 +189,94 @@ export const DiffModal: React.FC<DiffModalProps> = ({
       key !== 'urn' && key !== 'status'
     );
 
-      if (!existingData) {
-        return {
-          hasChanges: false,
-          hasConflicts: false,
-          fields: fieldsToCompare.map(key => {
-            const importedValue = importedData[key as keyof EntityData];
-            const formatValue = (value: string | undefined) => {
-              if (key === 'custom_properties') {
-                return formatCustomPropertiesForDisplay(value || '');
-              }
-              return value || '';
-            };
-            
-            return {
-              key,
-              label: fieldLabels[key] || key,
-              importedValue: formatValue(importedValue),
-              existingValue: null,
-              hasChanges: false,
-              isConflict: false,
-            };
-          }),
-        };
-      }
+    return fieldsToCompare.map(key => {
+      const importedValue = importedData[key as keyof EntityData];
+      const existingValue = existingData?.[key as keyof EntityData];
+      
+      // Special formatting for custom properties
+      const formatValue = (value: string | undefined) => {
+        if (key === 'custom_properties') {
+          return formatCustomPropertiesForDisplay(value || '');
+        }
+        return value || '';
+      };
+      
+      const hasChanges = key === 'custom_properties' 
+        ? !compareCustomProperties(importedValue || '', existingValue || '')
+        : importedValue !== existingValue;
+      const isConflict = hasChanges && existingValue !== null && existingValue !== '';
 
-      const fields = fieldsToCompare.map(key => {
-        const importedValue = importedData[key as keyof EntityData];
-        const existingValue = existingData[key as keyof EntityData];
-        
-        // Special formatting for custom properties
-        const formatValue = (value: string | undefined) => {
-          if (key === 'custom_properties') {
-            return formatCustomPropertiesForDisplay(value || '');
-          }
-          return value || '';
-        };
-        
-        const hasChanges = key === 'custom_properties' 
-          ? !compareCustomProperties(importedValue || '', existingValue || '')
-          : importedValue !== existingValue;
-        const isConflict = hasChanges && existingValue !== null && existingValue !== '';
-
-        return {
-          key,
-          label: fieldLabels[key] || key,
-          importedValue: formatValue(importedValue),
-          existingValue: formatValue(existingValue),
-          hasChanges,
-          isConflict,
-        };
-      });
-
-    const hasChanges = fields.some(field => field.hasChanges);
-    const hasConflicts = fields.some(field => field.isConflict);
-
-    return {
-      hasChanges,
-      hasConflicts,
-      fields,
-    };
+      return {
+        id: key,
+        field: key,
+        label: fieldLabels[key] || key,
+        importedValue: formatValue(importedValue),
+        existingValue: formatValue(existingValue),
+        hasChanges,
+        isConflict,
+      };
+    });
   }, [entity, existingEntity]);
 
-  if (!entity || !comparison) {
+  const hasConflicts = useMemo(() => 
+    tableData.some(field => field.isConflict), 
+    [tableData]
+  );
+
+  const status = entity?.status || 'new';
+  const statusColor = status === 'conflict' ? 'red' : 
+                     status === 'updated' ? 'orange' : 
+                     status === 'new' ? 'green' : 'blue';
+
+  if (!entity) {
     return null;
   }
 
-  const status = entity.status || 'new';
-
   return (
     <Modal
-      open={visible}
+      title={`Entity Comparison: ${entity.name}`}
+      subtitle={`Status: ${status.charAt(0).toUpperCase() + status.slice(1)}`}
       onCancel={onClose}
-      width={900}
-      footer={null}
-      closable={false}
-      destroyOnClose
-      title=""
-      style={{ height: '70vh', maxHeight: '500px' }}
+      open={visible}
+      width="90%"
+      maxWidth="1200px"
+      buttons={[
+        {
+          text: 'Close',
+          variant: 'filled',
+          color: 'primary',
+          onClick: onClose,
+        },
+      ]}
+      dataTestId="diff-modal"
     >
-      <ModalContainer>
-        <ModalHeader>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <ModalTitle>
-              Entity Comparison: {entity.name}
-            </ModalTitle>
-            <StatusBadge status={status}>
-              {status.charAt(0).toUpperCase() + status.slice(1)}
-            </StatusBadge>
-          </div>
-          <CloseButton
-            variant="text"
-            icon={{ icon: 'X', source: 'phosphor' }}
-            onClick={onClose}
-          />
-        </ModalHeader>
+      {hasConflicts && (
+        <div style={{ 
+          marginBottom: '16px', 
+          padding: '12px 16px',
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fecaca',
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <Badge color="red" size="sm">Conflicts Detected</Badge>
+          <Text color="red" size="sm">
+            Values differ between existing and imported data
+          </Text>
+        </div>
+      )}
 
-        <ContentContainer>
-          {comparison.hasConflicts && (
-            <Card 
-              title="Conflicts Detected"
-              style={{ margin: '0 0 16px 0', border: '1px solid #fecaca', background: '#fef2f2' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ color: '#dc2626', fontWeight: 500 }}>
-                  Conflicts detected - values differ between existing and imported data
-                </div>
-              </div>
-            </Card>
-          )}
-
-          <TableContainer>
-            <Table
-              columns={createTableColumns()}
-              data={comparison.fields}
-              rowKey="key"
-              isScrollable={true}
-              scroll={{ y: 300 }}
-              pagination={false}
-            />
-          </TableContainer>
-        </ContentContainer>
-
-        <FooterActions>
-          <Button
-            variant="filled"
-            color="primary"
-            onClick={onClose}
-          >
-            Close
-          </Button>
-        </FooterActions>
-      </ModalContainer>
+      <Table
+        columns={createTableColumns()}
+        data={tableData}
+        showHeader
+        isScrollable
+        maxHeight="60vh"
+        rowKey="id"
+        isBorderless={false}
+      />
     </Modal>
   );
 };
