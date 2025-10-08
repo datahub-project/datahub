@@ -239,77 +239,495 @@ export const mockEntities: Entity[] = [
       custom_properties: 'sensitivity:high,classification:internal'
     },
     status: 'conflict'
+  },
+  {
+    id: '5',
+    name: 'Phone Number',
+    type: 'glossaryTerm',
+    urn: '',
+    parentNames: ['Business Terms'],
+    parentUrns: [],
+    level: 1,
+    data: {
+      entity_type: 'glossaryTerm',
+      urn: '',
+      name: 'Phone Number',
+      description: 'Customer contact phone number',
+      term_source: 'INTERNAL',
+      source_ref: '',
+      source_url: '',
+      ownership_users: 'admin:DEVELOPER',
+      ownership_groups: '',
+      parent_nodes: 'Business Terms',
+      related_contains: '',
+      related_inherits: '',
+      domain_urn: '',
+      domain_name: '',
+      custom_properties: 'sensitivity:high,classification:internal'
+    },
+    status: 'new'
+  },
+  {
+    id: '6',
+    name: 'Address',
+    type: 'glossaryTerm',
+    urn: '',
+    parentNames: ['Business Terms'],
+    parentUrns: [],
+    level: 1,
+    data: {
+      entity_type: 'glossaryTerm',
+      urn: '',
+      name: 'Address',
+      description: 'Customer physical address',
+      term_source: 'INTERNAL',
+      source_ref: '',
+      source_url: '',
+      ownership_users: 'admin:DEVELOPER',
+      ownership_groups: 'bfoo:Technical Owner',
+      parent_nodes: 'Business Terms',
+      related_contains: '',
+      related_inherits: '',
+      domain_urn: '',
+      domain_name: '',
+      custom_properties: 'sensitivity:high,classification:confidential'
+    },
+    status: 'updated'
+  },
+  {
+    id: '7',
+    name: 'Date of Birth',
+    type: 'glossaryTerm',
+    urn: '',
+    parentNames: ['Business Terms'],
+    parentUrns: [],
+    level: 1,
+    data: {
+      entity_type: 'glossaryTerm',
+      urn: '',
+      name: 'Date of Birth',
+      description: 'Customer birth date for age verification',
+      term_source: 'INTERNAL',
+      source_ref: '',
+      source_url: '',
+      ownership_users: 'datahub:Technical Owner',
+      ownership_groups: '',
+      parent_nodes: 'Business Terms',
+      related_contains: '',
+      related_inherits: '',
+      domain_urn: '',
+      domain_name: '',
+      custom_properties: 'sensitivity:high,classification:confidential'
+    },
+    status: 'new'
+  },
+  {
+    id: '8',
+    name: 'Product Catalog',
+    type: 'glossaryNode',
+    urn: '',
+    parentNames: [],
+    parentUrns: [],
+    level: 0,
+    data: {
+      entity_type: 'glossaryNode',
+      urn: '',
+      name: 'Product Catalog',
+      description: 'Product-related terminology and definitions',
+      term_source: 'INTERNAL',
+      source_ref: '',
+      source_url: '',
+      ownership_users: 'admin:DEVELOPER',
+      ownership_groups: 'bfoo:Technical Owner',
+      parent_nodes: '',
+      related_contains: '',
+      related_inherits: '',
+      domain_urn: '',
+      domain_name: '',
+      custom_properties: 'category:product,department:sales'
+    },
+    status: 'existing'
+  },
+  {
+    id: '9',
+    name: 'Product ID',
+    type: 'glossaryTerm',
+    urn: '',
+    parentNames: ['Product Catalog'],
+    parentUrns: [],
+    level: 1,
+    data: {
+      entity_type: 'glossaryTerm',
+      urn: '',
+      name: 'Product ID',
+      description: 'Unique identifier for each product',
+      term_source: 'INTERNAL',
+      source_ref: '',
+      source_url: '',
+      ownership_users: 'admin:DEVELOPER',
+      ownership_groups: '',
+      parent_nodes: 'Product Catalog',
+      related_contains: '',
+      related_inherits: '',
+      domain_urn: '',
+      domain_name: '',
+      custom_properties: 'sensitivity:low,classification:public'
+    },
+    status: 'new'
+  },
+  {
+    id: '10',
+    name: 'Product Name',
+    type: 'glossaryTerm',
+    urn: '',
+    parentNames: ['Product Catalog'],
+    parentUrns: [],
+    level: 1,
+    data: {
+      entity_type: 'glossaryTerm',
+      urn: '',
+      name: 'Product Name',
+      description: 'Human-readable name of the product',
+      term_source: 'INTERNAL',
+      source_ref: '',
+      source_url: '',
+      ownership_users: 'datahub:Technical Owner',
+      ownership_groups: 'bfoo:Technical Owner',
+      parent_nodes: 'Product Catalog',
+      related_contains: '',
+      related_inherits: '',
+      domain_urn: '',
+      domain_name: '',
+      custom_properties: 'sensitivity:low,classification:public'
+    },
+    status: 'updated'
+  },
+  {
+    id: '11',
+    name: 'Product Price',
+    type: 'glossaryTerm',
+    urn: '',
+    parentNames: ['Product Catalog'],
+    parentUrns: [],
+    level: 1,
+    data: {
+      entity_type: 'glossaryTerm',
+      urn: '',
+      name: 'Product Price',
+      description: 'Current selling price of the product',
+      term_source: 'INTERNAL',
+      source_ref: '',
+      source_url: '',
+      ownership_users: 'admin:DEVELOPER',
+      ownership_groups: '',
+      parent_nodes: 'Product Catalog',
+      related_contains: '',
+      related_inherits: '',
+      domain_urn: '',
+      domain_name: '',
+      custom_properties: 'sensitivity:medium,classification:internal'
+    },
+    status: 'conflict'
+  },
+  {
+    id: '12',
+    name: 'Order Management',
+    type: 'glossaryNode',
+    urn: '',
+    parentNames: [],
+    parentUrns: [],
+    level: 0,
+    data: {
+      entity_type: 'glossaryNode',
+      urn: '',
+      name: 'Order Management',
+      description: 'Order processing and fulfillment terminology',
+      term_source: 'INTERNAL',
+      source_ref: '',
+      source_url: '',
+      ownership_users: 'datahub:Technical Owner',
+      ownership_groups: 'bfoo:Technical Owner',
+      parent_nodes: '',
+      related_contains: '',
+      related_inherits: '',
+      domain_urn: '',
+      domain_name: '',
+      custom_properties: 'category:order,department:operations'
+    },
+    status: 'existing'
+  },
+  {
+    id: '13',
+    name: 'Order ID',
+    type: 'glossaryTerm',
+    urn: '',
+    parentNames: ['Order Management'],
+    parentUrns: [],
+    level: 1,
+    data: {
+      entity_type: 'glossaryTerm',
+      urn: '',
+      name: 'Order ID',
+      description: 'Unique identifier for each order',
+      term_source: 'INTERNAL',
+      source_ref: '',
+      source_url: '',
+      ownership_users: 'admin:DEVELOPER',
+      ownership_groups: '',
+      parent_nodes: 'Order Management',
+      related_contains: '',
+      related_inherits: '',
+      domain_urn: '',
+      domain_name: '',
+      custom_properties: 'sensitivity:low,classification:public'
+    },
+    status: 'new'
+  },
+  {
+    id: '14',
+    name: 'Order Status',
+    type: 'glossaryTerm',
+    urn: '',
+    parentNames: ['Order Management'],
+    parentUrns: [],
+    level: 1,
+    data: {
+      entity_type: 'glossaryTerm',
+      urn: '',
+      name: 'Order Status',
+      description: 'Current status of the order (pending, shipped, delivered)',
+      term_source: 'INTERNAL',
+      source_ref: '',
+      source_url: '',
+      ownership_users: 'datahub:Technical Owner',
+      ownership_groups: 'bfoo:Technical Owner',
+      parent_nodes: 'Order Management',
+      related_contains: '',
+      related_inherits: '',
+      domain_urn: '',
+      domain_name: '',
+      custom_properties: 'sensitivity:low,classification:public'
+    },
+    status: 'updated'
+  },
+  {
+    id: '15',
+    name: 'Payment Information',
+    type: 'glossaryTerm',
+    urn: '',
+    parentNames: ['Order Management'],
+    parentUrns: [],
+    level: 1,
+    data: {
+      entity_type: 'glossaryTerm',
+      urn: '',
+      name: 'Payment Information',
+      description: 'Customer payment details and methods',
+      term_source: 'INTERNAL',
+      source_ref: '',
+      source_url: '',
+      ownership_users: 'admin:DEVELOPER',
+      ownership_groups: '',
+      parent_nodes: 'Order Management',
+      related_contains: '',
+      related_inherits: '',
+      domain_urn: '',
+      domain_name: '',
+      custom_properties: 'sensitivity:high,classification:confidential'
+    },
+    status: 'conflict'
+  },
+  {
+    id: '16',
+    name: 'Analytics Terms',
+    type: 'glossaryNode',
+    urn: '',
+    parentNames: [],
+    parentUrns: [],
+    level: 0,
+    data: {
+      entity_type: 'glossaryNode',
+      urn: '',
+      name: 'Analytics Terms',
+      description: 'Data analytics and reporting terminology',
+      term_source: 'INTERNAL',
+      source_ref: '',
+      source_url: '',
+      ownership_users: 'datahub:Technical Owner',
+      ownership_groups: '',
+      parent_nodes: '',
+      related_contains: '',
+      related_inherits: '',
+      domain_urn: '',
+      domain_name: '',
+      custom_properties: 'category:analytics,department:data'
+    },
+    status: 'existing'
+  },
+  {
+    id: '17',
+    name: 'Conversion Rate',
+    type: 'glossaryTerm',
+    urn: '',
+    parentNames: ['Analytics Terms'],
+    parentUrns: [],
+    level: 1,
+    data: {
+      entity_type: 'glossaryTerm',
+      urn: '',
+      name: 'Conversion Rate',
+      description: 'Percentage of visitors who complete a desired action',
+      term_source: 'INTERNAL',
+      source_ref: '',
+      source_url: '',
+      ownership_users: 'admin:DEVELOPER',
+      ownership_groups: 'bfoo:Technical Owner',
+      parent_nodes: 'Analytics Terms',
+      related_contains: '',
+      related_inherits: '',
+      domain_urn: '',
+      domain_name: '',
+      custom_properties: 'sensitivity:low,classification:public'
+    },
+    status: 'new'
+  },
+  {
+    id: '18',
+    name: 'Revenue',
+    type: 'glossaryTerm',
+    urn: '',
+    parentNames: ['Analytics Terms'],
+    parentUrns: [],
+    level: 1,
+    data: {
+      entity_type: 'glossaryTerm',
+      urn: '',
+      name: 'Revenue',
+      description: 'Total income generated from sales',
+      term_source: 'INTERNAL',
+      source_ref: '',
+      source_url: '',
+      ownership_users: 'datahub:Technical Owner',
+      ownership_groups: '',
+      parent_nodes: 'Analytics Terms',
+      related_contains: '',
+      related_inherits: '',
+      domain_urn: '',
+      domain_name: '',
+      custom_properties: 'sensitivity:medium,classification:internal'
+    },
+    status: 'updated'
+  },
+  {
+    id: '19',
+    name: 'Customer Lifetime Value',
+    type: 'glossaryTerm',
+    urn: '',
+    parentNames: ['Analytics Terms'],
+    parentUrns: [],
+    level: 1,
+    data: {
+      entity_type: 'glossaryTerm',
+      urn: '',
+      name: 'Customer Lifetime Value',
+      description: 'Predicted revenue from a customer over their lifetime',
+      term_source: 'INTERNAL',
+      source_ref: '',
+      source_url: '',
+      ownership_users: 'admin:DEVELOPER',
+      ownership_groups: 'bfoo:Technical Owner',
+      parent_nodes: 'Analytics Terms',
+      related_contains: '',
+      related_inherits: '',
+      domain_urn: '',
+      domain_name: '',
+      custom_properties: 'sensitivity:medium,classification:internal'
+    },
+    status: 'conflict'
   }
 ];
 
 // Mock comparison result
 export const mockComparisonResult: ComparisonResult = {
-  newEntities: [mockEntities[1]], // Customer Name
-  updatedEntities: [mockEntities[0]], // Customer ID
-  unchangedEntities: [mockEntities[2]], // Business Terms
-  conflictedEntities: [mockEntities[3]], // Email Address
-  totalEntities: 4,
-  newCount: 1,
-  updatedCount: 1,
-  unchangedCount: 1,
-  conflictedCount: 1
+  newEntities: [
+    mockEntities[1], // Customer Name
+    mockEntities[4], // Phone Number
+    mockEntities[6], // Date of Birth
+    mockEntities[8], // Product ID
+    mockEntities[12], // Order ID
+    mockEntities[16] // Conversion Rate
+  ],
+  existingEntities: [
+    mockEntities[2], // Business Terms
+    mockEntities[7], // Product Catalog
+    mockEntities[11], // Order Management
+    mockEntities[15] // Analytics Terms
+  ],
+  updatedEntities: [
+    mockEntities[0], // Customer ID
+    mockEntities[5], // Address
+    mockEntities[9], // Product Name
+    mockEntities[13], // Order Status
+    mockEntities[17] // Revenue
+  ],
+  conflicts: [
+    mockEntities[3], // Email Address
+    mockEntities[10], // Product Price
+    mockEntities[14], // Payment Information
+    mockEntities[18] // Customer Lifetime Value
+  ]
 };
 
 // Mock progress states
 export const mockProgressStates = {
   idle: {
-    isProcessing: false,
-    currentOperation: '',
-    processed: 0,
     total: 0,
-    errors: [],
-    warnings: [],
-    success: false
+    processed: 0,
+    successful: 0,
+    failed: 0,
+    currentBatch: 0,
+    totalBatches: 0,
+    errors: []
   } as ImportProgress,
   
   processing: {
-    isProcessing: true,
-    currentOperation: 'Processing entities...',
-    processed: 2,
-    total: 4,
-    errors: [],
-    warnings: [],
-    success: false
+    total: 19,
+    processed: 8,
+    successful: 6,
+    failed: 2,
+    currentBatch: 2,
+    totalBatches: 4,
+    currentEntity: mockEntities[8], // Product ID
+    errors: []
   } as ImportProgress,
   
   completed: {
-    isProcessing: false,
-    currentOperation: 'Import completed successfully',
-    processed: 4,
-    total: 4,
-    errors: [],
-    warnings: [],
-    success: true
+    total: 19,
+    processed: 19,
+    successful: 19,
+    failed: 0,
+    currentBatch: 4,
+    totalBatches: 4,
+    errors: []
   } as ImportProgress,
   
   withErrors: {
-    isProcessing: false,
-    currentOperation: 'Import completed with errors',
-    processed: 3,
-    total: 4,
+    total: 19,
+    processed: 15,
+    successful: 13,
+    failed: 2,
+    currentBatch: 3,
+    totalBatches: 4,
     errors: [
       {
-        entityId: '4',
-        entityName: 'Email Address',
-        operation: 'create',
-        error: 'Validation failed: Invalid email format',
-        retryable: true
-      }
-    ],
-    warnings: [
+        entity: mockEntities[3], // Email Address
+        error: 'Validation failed: Invalid email format'
+      },
       {
-        entityId: '2',
-        entityName: 'Customer Name',
-        operation: 'ownership',
-        message: 'Auto-discovered 1 parent relationship(s) from existing entities'
+        entity: mockEntities[10], // Product Price
+        error: 'Failed to create entity: URN already exists'
       }
-    ],
-    success: false
+    ]
   } as ImportProgress
 };
 
