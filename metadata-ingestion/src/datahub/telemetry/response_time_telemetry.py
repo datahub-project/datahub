@@ -44,8 +44,13 @@ class ResponseTimeTelemetry:
         default_factory=dict
     )  # Calculated percentiles
 
+    # Recent context control
+    disable_recent_contexts: bool = False  # Disable recent context storage
+
     def add_time(
-        self, response_time: float, context: Optional[Dict[str, Any]] = None
+        self,
+        response_time: float,
+        context: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Add a response time measurement with optional context."""
         # Add to t-digest for streaming percentile calculation
@@ -65,8 +70,8 @@ class ResponseTimeTelemetry:
         self.total_time += response_time
         self.mean_time = self.total_time / self.count
 
-        # Store context information
-        if context is not None:
+        # Store context information (only if recent contexts are not disabled)
+        if context is not None and not self.disable_recent_contexts:
             context_entry = {
                 "response_time": response_time,
                 "context": context,
@@ -150,38 +155,27 @@ class ResponseTimeTelemetry:
         # Reset t-digest
         self._tdigest = TDigest()
 
-    def __str__(self) -> str:
-        """Return a formatted string representation of the telemetry."""
-        lines = [
-            f"Count: {self.count}",
-            f"Min: {self.min_time:.3f}s",
-            f"Max: {self.max_time:.3f}s",
-            f"Mean: {self.mean_time:.3f}s",
-        ]
-
-        # Add percentiles
-        percentiles = self.get_percentiles()
-        for p in sorted(percentiles.keys()):
-            lines.append(f"P{p}: {percentiles[p]:.3f}s")
-
-        return "\n".join(lines)
-
     def to_dict(self) -> Dict[str, Any]:
         """Convert telemetry to dictionary."""
         return {
-            "min_time": self.min_time,
-            "max_time": self.max_time,
-            "mean_time": self.mean_time,
+            "min": {
+                "time_in_secs": round(self.min_time, 3),
+                "context": self.min_time_context,
+            },
+            "max": {
+                "time_in_secs": round(self.max_time, 3),
+                "context": self.max_time_context,
+            },
+            "mean": round(self.mean_time, 3),
             "count": self.count,
-            "total_time": self.total_time,
-            "max_time_context": self.max_time_context,
-            "min_time_context": self.min_time_context,
-            "recent_contexts": self.recent_contexts,
-            "percentiles": self.percentiles,
-            "context_info": {
-                "max_recent_contexts_count": self.max_recent_contexts_count,
-                "total_stored": len(self.recent_contexts),
-                "percentiles_list": self.percentiles_list,
+            "total_time_in_secs": round(self.total_time, 3),
+            **(
+                {"recent_contexts": self.recent_contexts}
+                if not self.disable_recent_contexts
+                else {}
+            ),
+            "percentiles_in_secs": {
+                p: round(v, 3) for p, v in self.percentiles.items()
             },
         }
 
@@ -192,18 +186,15 @@ class ResponseTimeMetrics:
     def __init__(
         self,
         config: TelemetryConfig,
-        group_name: Optional[str] = None,
+        disable_recent_contexts: bool = False,
     ):
         self._stats: Dict[str, ResponseTimeTelemetry] = defaultdict(
-            ResponseTimeTelemetry
+            lambda: ResponseTimeTelemetry(
+                disable_recent_contexts=disable_recent_contexts
+            )
         )
         self._lock = threading.Lock()
         self._config = config
-        self._group_name = group_name
-
-    def _get_full_api_type(self, api_type: str) -> str:
-        """Get the full API type with group name prefix if configured."""
-        return f"{self._group_name}.{api_type}" if self._group_name else api_type
 
     def record_time(
         self,
@@ -212,22 +203,19 @@ class ResponseTimeMetrics:
         context: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Record a response time for a specific API type with optional context."""
-        full_api_type = self._get_full_api_type(api_type)
-
         if (
             self._config.disable_response_time_collection
-            or not self._config.capture_response_times_pattern.allowed(full_api_type)
-            or self._config.capture_response_times_pattern.denied(full_api_type)
+            or not self._config.capture_response_times_pattern.allowed(api_type)
+            or self._config.capture_response_times_pattern.denied(api_type)
         ):
             return
 
         with self._lock:
-            self._stats[full_api_type].add_time(response_time, context)
+            self._stats[api_type].add_time(response_time, context)
 
     def get_stats(self, api_type: str) -> Optional[ResponseTimeTelemetry]:
         """Get telemetry for a specific API type."""
-        full_api_type = self._get_full_api_type(api_type)
-        return self._stats.get(full_api_type)
+        return self._stats.get(api_type)
 
     def get_all_stats(self) -> Dict[str, Dict[str, Any]]:
         """Get all telemetry as dictionaries."""
@@ -280,7 +268,9 @@ class ResponseTimeMetrics:
                 stats.configure_percentiles(percentiles)
 
     def track_response_time(
-        self, api_type: str, context: Optional[Dict[str, Any]] = None
+        self,
+        api_type: str,
+        context: Optional[Dict[str, Any]] = None,
     ) -> "ResponseTimeTracker":
         """
         Create a context manager for tracking response times.
@@ -338,19 +328,14 @@ class ResponseTimeTracker:
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if self.start_time is not None:
             response_time = time.time() - self.start_time
-            # Add exception info to context if there was an exception
-            final_context = self.context.copy() if self.context else {}
-            if exc_type is not None:
-                final_context["exception"] = {
-                    "type": exc_type.__name__ if exc_type else None,
-                    "value": str(exc_val) if exc_val else None,
-                }
-            self.metrics.record_time(self.api_type, response_time, final_context)
+            self.metrics.record_time(self.api_type, response_time, self.context)
 
 
 def create_response_time_metrics_instance(
     config: TelemetryConfig,
-    group_name: Optional[str] = None,
+    disable_recent_contexts: bool = False,
 ) -> ResponseTimeMetrics:
     """Create a new metrics instance."""
-    return ResponseTimeMetrics(config=config, group_name=group_name)
+    return ResponseTimeMetrics(
+        config=config, disable_recent_contexts=disable_recent_contexts
+    )

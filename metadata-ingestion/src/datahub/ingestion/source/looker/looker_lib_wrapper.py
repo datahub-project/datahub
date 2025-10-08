@@ -23,11 +23,16 @@ from looker_sdk.sdk.api40.models import (
     User,
     WriteQuery,
 )
-from pydantic import BaseModel, Field
+from pydantic import Field
 from requests.adapters import HTTPAdapter
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
+from datahub.configuration.telemetry_config import TelemetryConfig
+from datahub.telemetry.response_time_telemetry import (
+    ResponseTimeMetrics,
+    create_response_time_metrics_instance,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,26 +64,10 @@ class LookerAPIConfig(ConfigModel):
         description="Populates the [TransportOptions](https://github.com/looker-open-source/sdk-codegen/blob/94d6047a0d52912ac082eb91616c1e7c379ab262/python/looker_sdk/rtl/transport.py#L70) struct for looker client",
     )
     max_retries: int = Field(3, description="Number of retries for Looker API calls")
-
-
-class LookerAPIStats(BaseModel):
-    dashboard_calls: int = 0
-    user_calls: int = 0
-    explore_calls: int = 0
-    query_calls: int = 0
-    folder_calls: int = 0
-    all_connections_calls: int = 0
-    connection_calls: int = 0
-    lookml_model_calls: int = 0
-    all_dashboards_calls: int = 0
-    all_looks_calls: int = 0
-    all_models_calls: int = 0
-    get_query_calls: int = 0
-    get_look_calls: int = 0
-    search_looks_calls: int = 0
-    search_dashboards_calls: int = 0
-    all_user_calls: int = 0
-    generate_sql_query_calls: int = 0
+    telemetry_config: Optional[TelemetryConfig] = Field(
+        default_factory=TelemetryConfig,
+        description="Configuration for response time telemetry collection",
+    )
 
 
 class LookerAPI:
@@ -126,7 +115,12 @@ class LookerAPI:
                 "Failed to connect/authenticate with looker - check your configuration"
             ) from e
 
-        self.client_stats = LookerAPIStats()
+        # Initialize response time telemetry
+        self.response_time_metrics: ResponseTimeMetrics = (
+            create_response_time_metrics_instance(
+                config=config.telemetry_config, disable_recent_contexts=True
+            )
+        )
 
     @staticmethod
     def __fields_mapper(fields: Union[str, List[str]]) -> str:
@@ -148,49 +142,54 @@ class LookerAPI:
 
     @lru_cache(maxsize=5000)
     def get_user(self, id_: str, user_fields: str) -> Optional[User]:
-        self.client_stats.user_calls += 1
-        try:
-            return self.client.user(
-                id_,
-                fields=cast(str, user_fields),
-                transport_options=self.transport_options,
-            )
-        except SDKError as e:
-            if "Looker Not Found (404)" in str(e):
-                # User not found
-                logger.info(f"Could not find user with id {id_}: 404 error")
-            else:
-                logger.warning(f"Could not find user with id {id_}")
-                logger.warning(f"Failure was {e}")
+        with self.response_time_metrics.track_response_time(
+            "get_user", {"user_id": id_}
+        ):
+            try:
+                return self.client.user(
+                    id_,
+                    fields=cast(str, user_fields),
+                    transport_options=self.transport_options,
+                )
+            except SDKError as e:
+                if "Looker Not Found (404)" in str(e):
+                    # User not found
+                    logger.info(f"Could not find user with id {id_}: 404 error")
+                else:
+                    logger.warning(f"Could not find user with id {id_}")
+                    logger.warning(f"Failure was {e}")
         # User not found
         return None
 
     def all_users(self, user_fields: str) -> Sequence[User]:
-        self.client_stats.all_user_calls += 1
-        try:
-            return self.client.all_users(
-                fields=cast(str, user_fields),
-                transport_options=self.transport_options,
-            )
-        except SDKError as e:
-            logger.warning(f"Failure was {e}")
+        with self.response_time_metrics.track_response_time("all_users"):
+            try:
+                return self.client.all_users(
+                    fields=cast(str, user_fields),
+                    transport_options=self.transport_options,
+                )
+            except SDKError as e:
+                logger.warning(f"Failure was {e}")
         return []
 
     def execute_query(self, write_query: WriteQuery) -> List[Dict]:
         logger.debug(f"Executing query {write_query}")
-        self.client_stats.query_calls += 1
 
-        response = self.client.run_inline_query(
-            result_format=LookerQueryResponseFormat.JSON.value,
-            body=write_query,
-            transport_options=self.transport_options,
-        )
+        with self.response_time_metrics.track_response_time(
+            "execute_query",
+            {"model": write_query.model, "view": write_query.view},
+        ):
+            response = self.client.run_inline_query(
+                result_format=LookerQueryResponseFormat.JSON.value,
+                body=write_query,
+                transport_options=self.transport_options,
+            )
 
-        data = json.loads(response)
+            data = json.loads(response)
 
-        logger.debug("=================Response=================")
-        logger.debug("Length of response: %d", len(data))
-        return data
+            logger.debug("=================Response=================")
+            logger.debug("Length of response: %d", len(data))
+            return data
 
     def generate_sql_query(
         self, write_query: WriteQuery, use_cache: bool = False
@@ -200,39 +199,45 @@ class LookerAPI:
 
         Note: This does not execute the query, it only generates the SQL query.
         """
-        logger.debug(f"Generating SQL query for {write_query}")
-        self.client_stats.generate_sql_query_calls += 1
-
-        response = self.client.run_inline_query(
-            result_format=LookerQueryResponseFormat.SQL.value,
-            body=write_query,
-            transport_options=self.transport_options,
-            cache=use_cache,
-        )
+        logger.debug(f"Generating SQL query for {write_query}, use_cache: {use_cache}")
+        with self.response_time_metrics.track_response_time(
+            "generate_sql_query",
+            {"model": write_query.model, "view": write_query.view},
+        ):
+            response = self.client.run_inline_query(
+                result_format=LookerQueryResponseFormat.SQL.value,
+                body=write_query,
+                transport_options=self.transport_options,
+                cache=use_cache,
+            )
 
         logger.debug("=================Response=================")
         logger.debug("Length of SQL response: %d", len(response))
         return str(response)
 
     def dashboard(self, dashboard_id: str, fields: Union[str, List[str]]) -> Dashboard:
-        self.client_stats.dashboard_calls += 1
-        return self.client.dashboard(
-            dashboard_id=dashboard_id,
-            fields=self.__fields_mapper(fields),
-            transport_options=self.transport_options,
-        )
+        with self.response_time_metrics.track_response_time(
+            "dashboard", {"dashboard_id": dashboard_id}
+        ):
+            return self.client.dashboard(
+                dashboard_id=dashboard_id,
+                fields=self.__fields_mapper(fields),
+                transport_options=self.transport_options,
+            )
 
     def all_lookml_models(self) -> Sequence[LookmlModel]:
-        self.client_stats.all_models_calls += 1
-        return self.client.all_lookml_models(
-            transport_options=self.transport_options,
-        )
+        with self.response_time_metrics.track_response_time("all_lookml_models"):
+            return self.client.all_lookml_models(
+                transport_options=self.transport_options,
+            )
 
     def lookml_model_explore(self, model: str, explore_name: str) -> LookmlModelExplore:
-        self.client_stats.explore_calls += 1
-        return self.client.lookml_model_explore(
-            model, explore_name, transport_options=self.transport_options
-        )
+        with self.response_time_metrics.track_response_time(
+            "lookml_model_explore", {"model": model, "explore_name": explore_name}
+        ):
+            return self.client.lookml_model_explore(
+                model, explore_name, transport_options=self.transport_options
+            )
 
     @lru_cache(maxsize=1000)
     def folder_ancestors(
@@ -241,71 +246,77 @@ class LookerAPI:
         fields: Optional[Union[str, List[str]]] = None,
     ) -> Sequence[Folder]:
         fields = fields or ["id", "name", "parent_id"]
-        self.client_stats.folder_calls += 1
-        try:
-            return self.client.folder_ancestors(
-                folder_id,
-                self.__fields_mapper(fields),
-                transport_options=self.transport_options,
-            )
-        except SDKError as e:
-            if "Looker Not Found (404)" in str(e):
-                # Folder ancestors not found
-                logger.info(
-                    f"Could not find ancestors for folder with id {folder_id}: 404 error"
+        with self.response_time_metrics.track_response_time(
+            "folder_ancestors", {"folder_id": folder_id}
+        ):
+            try:
+                return self.client.folder_ancestors(
+                    folder_id,
+                    self.__fields_mapper(fields),
+                    transport_options=self.transport_options,
                 )
-            else:
-                logger.warning(
-                    f"Could not find ancestors for folder with id {folder_id}"
-                )
-                logger.warning(f"Failure was {e}")
+            except SDKError as e:
+                if "Looker Not Found (404)" in str(e):
+                    # Folder ancestors not found
+                    logger.info(
+                        f"Could not find ancestors for folder with id {folder_id}: 404 error"
+                    )
+                else:
+                    logger.warning(
+                        f"Could not find ancestors for folder with id {folder_id}"
+                    )
+                    logger.warning(f"Failure was {e}")
         # Folder ancestors not found
         return []
 
     def all_connections(self):
-        self.client_stats.all_connections_calls += 1
-        return self.client.all_connections(transport_options=self.transport_options)
+        with self.response_time_metrics.track_response_time("all_connections"):
+            return self.client.all_connections(transport_options=self.transport_options)
 
     def connection(self, connection_name: str) -> DBConnection:
-        self.client_stats.connection_calls += 1
-        return self.client.connection(
-            connection_name, transport_options=self.transport_options
-        )
+        with self.response_time_metrics.track_response_time(
+            "connection", {"connection_name": connection_name}
+        ):
+            return self.client.connection(
+                connection_name, transport_options=self.transport_options
+            )
 
     def lookml_model(
         self, model_name: str, fields: Union[str, List[str]]
     ) -> LookmlModel:
-        self.client_stats.lookml_model_calls += 1
-        return self.client.lookml_model(
-            model_name,
-            self.__fields_mapper(fields),
-            transport_options=self.transport_options,
-        )
+        with self.response_time_metrics.track_response_time(
+            "lookml_model", {"model_name": model_name}
+        ):
+            return self.client.lookml_model(
+                model_name,
+                self.__fields_mapper(fields),
+                transport_options=self.transport_options,
+            )
 
     def compute_stats(self) -> Dict:
         return {
-            "client_stats": self.client_stats,
             "folder_cache": self.folder_ancestors.cache_info(),
             "user_cache": self.get_user.cache_info(),
+            "response_time_telemetry": self.response_time_metrics.get_all_stats(),
         }
 
     def all_dashboards(self, fields: Union[str, List[str]]) -> Sequence[DashboardBase]:
-        self.client_stats.all_dashboards_calls += 1
-        return self.client.all_dashboards(
-            fields=self.__fields_mapper(fields),
-            transport_options=self.transport_options,
-        )
+        with self.response_time_metrics.track_response_time("all_dashboards"):
+            return self.client.all_dashboards(
+                fields=self.__fields_mapper(fields),
+                transport_options=self.transport_options,
+            )
 
     def all_looks(
         self, fields: Union[str, List[str]], soft_deleted: bool
     ) -> List[Look]:
-        self.client_stats.all_looks_calls += 1
-        looks: List[Look] = list(
-            self.client.all_looks(
-                fields=self.__fields_mapper(fields),
-                transport_options=self.transport_options,
+        with self.response_time_metrics.track_response_time("all_looks"):
+            looks: List[Look] = list(
+                self.client.all_looks(
+                    fields=self.__fields_mapper(fields),
+                    transport_options=self.transport_options,
+                )
             )
-        )
 
         if soft_deleted:
             # Add soft deleted looks
@@ -314,39 +325,43 @@ class LookerAPI:
         return looks
 
     def get_query(self, query_id: str, fields: Union[str, List[str]]) -> Query:
-        self.client_stats.get_query_calls += 1
-        return self.client.query(
-            query_id=query_id,
-            fields=self.__fields_mapper(fields),
-            transport_options=self.transport_options,
-        )
+        with self.response_time_metrics.track_response_time(
+            "get_query", {"query_id": query_id}
+        ):
+            return self.client.query(
+                query_id=query_id,
+                fields=self.__fields_mapper(fields),
+                transport_options=self.transport_options,
+            )
 
     def get_look(self, look_id: str, fields: Union[str, List[str]]) -> LookWithQuery:
-        self.client_stats.get_look_calls += 1
-        return self.client.look(
-            look_id=look_id,
-            fields=self.__fields_mapper(fields),
-            transport_options=self.transport_options,
-        )
+        with self.response_time_metrics.track_response_time(
+            "get_look", {"look_id": look_id}
+        ):
+            return self.client.look(
+                look_id=look_id,
+                fields=self.__fields_mapper(fields),
+                transport_options=self.transport_options,
+            )
 
     def search_dashboards(
         self, fields: Union[str, List[str]], deleted: str
     ) -> Sequence[Dashboard]:
-        self.client_stats.search_dashboards_calls += 1
-        return self.client.search_dashboards(
-            fields=self.__fields_mapper(fields),
-            deleted=deleted,
-            transport_options=self.transport_options,
-        )
-
-    def search_looks(
-        self, fields: Union[str, List[str]], deleted: Optional[bool]
-    ) -> List[Look]:
-        self.client_stats.search_looks_calls += 1
-        return list(
-            self.client.search_looks(
+        with self.response_time_metrics.track_response_time("search_dashboards"):
+            return self.client.search_dashboards(
                 fields=self.__fields_mapper(fields),
                 deleted=deleted,
                 transport_options=self.transport_options,
             )
-        )
+
+    def search_looks(
+        self, fields: Union[str, List[str]], deleted: Optional[bool]
+    ) -> List[Look]:
+        with self.response_time_metrics.track_response_time("search_looks"):
+            return list(
+                self.client.search_looks(
+                    fields=self.__fields_mapper(fields),
+                    deleted=deleted,
+                    transport_options=self.transport_options,
+                )
+            )
