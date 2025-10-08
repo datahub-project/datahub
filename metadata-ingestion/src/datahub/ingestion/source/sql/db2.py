@@ -1,6 +1,8 @@
 from typing import (
     Dict,
     Iterable,
+    Optional,
+    Tuple,
 )
 
 import pydantic
@@ -70,6 +72,10 @@ class Db2Source(SQLAlchemySource):
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "Db2Source":
         config = Db2Config.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
+        schema, _view = dataset_identifier.split(".", 1)
+        return None, schema
 
     def get_inspectors(self) -> Iterable[Inspector]:
         for inspector in super().get_inspectors():
