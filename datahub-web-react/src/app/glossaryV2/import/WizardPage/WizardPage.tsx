@@ -2103,24 +2103,24 @@ export const WizardPage = () => {
                 {/* Actions Bar - Always visible */}
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
                     <ActionsBar>
-                        {currentStep !== 1 && (
-                            <Button
-                                variant="outline"
-                                onClick={handleRestart}
-                                icon={{ icon: 'ArrowClockwise', source: 'phosphor' }}
-                            >
-                                Reset
-                            </Button>
-                        )}
                         {entities.length > 0 && (
-                            <Button
-                                variant="filled"
-                                color="primary"
-                                onClick={handleStartImport}
-                                disabled={isProcessing}
-                            >
-                                Import Selected ({entities.length})
-                            </Button>
+                            <>
+                                <Button
+                                    variant="outline"
+                                    onClick={handleRestart}
+                                    icon={{ icon: 'ArrowClockwise', source: 'phosphor' }}
+                                >
+                                    Reset
+                                </Button>
+                                <Button
+                                    variant="filled"
+                                    color="primary"
+                                    onClick={handleStartImport}
+                                    disabled={isProcessing}
+                                >
+                                    Import Selected ({entities.length})
+                                </Button>
+                            </>
                         )}
                     </ActionsBar>
                 </div>

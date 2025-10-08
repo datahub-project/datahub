@@ -555,24 +555,24 @@ const GlossaryImportList = () => {
                 {/* Actions Bar - Always visible */}
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
                     <ActionsBar>
-                        {currentStep !== 1 && (
-                            <Button
-                                variant="outline"
-                                onClick={() => setCurrentStep(0)}
-                                icon={{ icon: 'ArrowClockwise', source: 'phosphor' }}
-                            >
-                                Reset
-                            </Button>
-                        )}
                         {entities.length > 0 && (
-                            <Button
-                                variant="filled"
-                                color="primary"
-                                onClick={() => setIsImportModalVisible(true)}
-                                disabled={isProcessing}
-                            >
-                                Import Selected ({entities.length})
-                            </Button>
+                            <>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setCurrentStep(0)}
+                                    icon={{ icon: 'ArrowClockwise', source: 'phosphor' }}
+                                >
+                                    Reset
+                                </Button>
+                                <Button
+                                    variant="filled"
+                                    color="primary"
+                                    onClick={() => setIsImportModalVisible(true)}
+                                    disabled={isProcessing}
+                                >
+                                    Import Selected ({entities.length})
+                                </Button>
+                            </>
                         )}
                     </ActionsBar>
                 </div>
