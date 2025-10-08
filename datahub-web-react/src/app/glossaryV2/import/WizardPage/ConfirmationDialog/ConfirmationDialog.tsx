@@ -1,10 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Modal, Typography, Space } from '@components';
+import { Modal, Text, Heading, Space } from '@components';
 import { ExclamationTriangleOutlined, QuestionCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { Button as DataHubButton } from '@components';
 
-const { Title, Text } = Typography;
 
 export type ConfirmationType = 'warning' | 'danger' | 'info' | 'question';
 

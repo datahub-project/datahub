@@ -1,9 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Spin, Typography, Progress } from '@components';
+import { Loader, Text, Heading, Progress } from '@components';
 import { Card } from '@components';
 
-const { Text, Title } = Typography;
 
 interface LoadingStatesProps {
   type: 'initial' | 'processing' | 'importing' | 'validating' | 'uploading';

@@ -1,12 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Alert, Button, Space, Typography, Collapse } from '@components';
+import { Alert, Button, Space, Text, Heading } from '@components';
 import { CloseOutlined, ExclamationCircleOutlined, WarningOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { Button as DataHubButton } from '@components';
 import { AppError, ErrorRecoveryAction } from '../../shared/hooks/useErrorHandling';
 
-const { Text, Title } = Typography;
-const { Panel } = Collapse;
 
 interface ErrorNotificationProps {
   error: AppError;
@@ -174,33 +172,39 @@ export const ErrorNotification: React.FC<ErrorNotificationProps> = ({
 
       {(hasDetails || hasContext) && (
         <ErrorDetails>
-          <Collapse size="small" ghost>
-            <Panel header="Error Details" key="details">
-              {hasDetails && (
-                <div style={{ marginBottom: hasContext ? '12px' : '0' }}>
-                  <Text type="secondary" style={{ fontSize: '12px' }}>
-                    {error.details}
-                  </Text>
-                </div>
-              )}
-              {hasContext && (
-                <div>
-                  <Text strong style={{ fontSize: '12px' }}>Context:</Text>
-                  <pre style={{ 
-                    fontSize: '11px', 
-                    color: '#6b7280', 
-                    margin: '4px 0 0 0',
-                    background: '#f9fafb',
-                    padding: '8px',
-                    borderRadius: '4px',
-                    overflow: 'auto'
-                  }}>
-                    {JSON.stringify(error.context, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </Panel>
-          </Collapse>
+          <div style={{ 
+            border: '1px solid #e5e7eb', 
+            borderRadius: '4px', 
+            padding: '8px',
+            backgroundColor: '#f9fafb'
+          }}>
+            <Text style={{ fontWeight: 500, marginBottom: '8px', display: 'block' }}>
+              Error Details
+            </Text>
+            {hasDetails && (
+              <div style={{ marginBottom: hasContext ? '12px' : '0' }}>
+                <Text style={{ fontSize: '12px', color: '#6b7280' }}>
+                  {error.details}
+                </Text>
+              </div>
+            )}
+            {hasContext && (
+              <div>
+                <Text style={{ fontSize: '12px', fontWeight: 500 }}>Context:</Text>
+                <pre style={{ 
+                  fontSize: '11px', 
+                  color: '#6b7280', 
+                  margin: '4px 0 0 0',
+                  background: '#f9fafb',
+                  padding: '8px',
+                  borderRadius: '4px',
+                  overflow: 'auto'
+                }}>
+                  {JSON.stringify(error.context, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
         </ErrorDetails>
       )}
 

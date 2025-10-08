@@ -1,10 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Typography, Alert, Space } from '@components';
+import { Text, Heading, Alert, Space } from '@components';
 import { Card } from '@components';
 import { ValidationError, ValidationWarning } from '../../../glossary.types';
 
-const { Text, Title } = Typography;
 
 interface ValidationSectionProps {
   validationErrors: ValidationError[];

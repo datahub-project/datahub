@@ -1,9 +1,8 @@
 import React, { useEffect, useCallback } from 'react';
 import styled from 'styled-components';
-import { Modal, Typography, Space, Tag } from '@components';
+import { Modal, Text, Heading, Space, Tag } from '@components';
 import { Button as DataHubButton } from '@components';
 
-const { Title, Text } = Typography;
 
 interface KeyboardShortcut {
   key: string;

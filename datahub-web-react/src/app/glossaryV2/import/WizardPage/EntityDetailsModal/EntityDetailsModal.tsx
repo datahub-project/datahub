@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import styled from 'styled-components';
-import { Modal, Button, Typography, Space, Divider } from '@components';
+import { Modal, Button, Text, Heading, Space } from '@components';
 import { CloseOutlined, SaveOutlined, EditOutlined } from '@ant-design/icons';
 import { Button as DataHubButton, Card } from '@components';
 import { EntityData } from '../../glossary.types';
@@ -11,7 +11,6 @@ import { DomainSection } from './sections/DomainSection';
 import { OwnershipSection } from './sections/OwnershipSection';
 import { ValidationSection } from './sections/ValidationSection';
 
-const { Title, Text } = Typography;
 
 interface EntityDetailsModalProps {
   visible: boolean;
@@ -210,7 +209,7 @@ export const EntityDetailsModal: React.FC<EntityDetailsModalProps> = ({
             validationErrors={validationErrors}
           />
 
-          <Divider />
+          <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '16px 0' }} />
 
           <ContentSection
             data={currentData}
@@ -219,7 +218,7 @@ export const EntityDetailsModal: React.FC<EntityDetailsModalProps> = ({
             validationErrors={validationErrors}
           />
 
-          <Divider />
+          <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '16px 0' }} />
 
           <DomainSection
             data={currentData}
@@ -228,7 +227,7 @@ export const EntityDetailsModal: React.FC<EntityDetailsModalProps> = ({
             validationErrors={validationErrors}
           />
 
-          <Divider />
+          <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '16px 0' }} />
 
           <OwnershipSection
             data={currentData}
@@ -237,7 +236,7 @@ export const EntityDetailsModal: React.FC<EntityDetailsModalProps> = ({
             validationErrors={validationErrors}
           />
 
-          <Divider />
+          <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '16px 0' }} />
 
           <ValidationSection
             validationErrors={validationErrors}

@@ -1,10 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Typography, Input } from '@components';
+import { Text, Input } from '@components';
 import { Card } from '@components';
 import { EntityData, ValidationError } from '../../../glossary.types';
 
-const { Text } = Typography;
 
 interface DomainSectionProps {
   data: EntityData | null;

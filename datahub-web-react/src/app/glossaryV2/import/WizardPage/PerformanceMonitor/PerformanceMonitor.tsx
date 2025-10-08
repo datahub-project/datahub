@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Card, Typography, Progress, Space, Button } from '@components';
+import { Card, Text, Heading, Progress, Space, Button } from '@components';
 import { Button as DataHubButton } from '@components';
 import { PerformanceMetrics } from '../../shared/hooks/usePerformanceOptimization';
 
-const { Text, Title } = Typography;
 
 interface PerformanceMonitorProps {
   metrics: PerformanceMetrics;

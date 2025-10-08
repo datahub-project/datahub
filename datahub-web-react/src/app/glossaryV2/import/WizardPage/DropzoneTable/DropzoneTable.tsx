@@ -5,10 +5,9 @@
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 import { Button } from '@components';
-import { Progress, Alert, Typography, Space } from '@components';
+import { Progress, Alert, Text, Space } from '@components';
 import { UploadOutlined, FileTextOutlined, ExclamationCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
 
-const { Text } = Typography;
 
 const DropzoneContainer = styled.div<{ isDragActive: boolean; hasFile: boolean }>`
   border: 2px dashed ${props => 

@@ -1,10 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Typography, Input, Select } from '@components';
+import { Text, Heading, Input, Select } from '@components';
 import { Card } from '@components';
 import { EntityData, ValidationError } from '../../../glossary.types';
 
-const { Title, Text } = Typography;
 const { Option } = Select;
 
 interface BasicInformationSectionProps {
@@ -20,7 +19,7 @@ const SectionCard = styled(Card)`
   margin-bottom: 16px;
 `;
 
-const SectionTitle = styled(Title)`
+const SectionTitle = styled(Heading)`
   margin: 0 0 16px 0 !important;
   font-size: 16px !important;
   font-weight: 600 !important;

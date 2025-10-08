@@ -13,11 +13,11 @@ import { Entity, EntityData } from '../glossary.types';
 import { EntityDetailsModal } from './EntityDetailsModal/EntityDetailsModal';
 import { DiffModal } from './DiffModal/DiffModal';
 import { ImportProgressModal } from './ImportProgressModal/ImportProgressModal';
-import { useImportProcessing } from '../shared/hooks/useImportProcessing';
-import { useCsvProcessing } from '../shared/hooks/useCsvProcessing';
-import { useEntityManagement } from '../shared/hooks/useEntityManagement';
-import { useGraphQLOperations } from '../shared/hooks/useGraphQLOperations';
-import { useEntityComparison } from '../shared/hooks/useEntityComparison';
+import { useMockImportProcessing } from '../shared/hooks/useMockImportProcessing';
+import { useMockCsvProcessing } from '../shared/hooks/useMockCsvProcessing';
+import { useMockEntityManagement } from '../shared/hooks/useMockEntityManagement';
+import { useMockGraphQLOperations } from '../shared/hooks/useMockGraphQLOperations';
+import { useMockEntityComparison } from '../shared/hooks/useMockEntityComparison';
 import { useApolloClient } from '@apollo/client';
 import DropzoneTable from './DropzoneTable/DropzoneTable';
 import { useImportState } from './WizardPage.hooks';
@@ -1817,7 +1817,7 @@ export const WizardPage = () => {
         cancelImport,
         retryFailed,
         resetProgress,
-    } = useImportProcessing({
+    } = useMockImportProcessing({
         apolloClient,
         onProgress: (progress) => {
             // Progress updates are handled automatically
@@ -1841,10 +1841,10 @@ export const WizardPage = () => {
     } = useImportState();
     
     // Initialize CSV processing hooks at component level
-    const csvProcessing = useCsvProcessing();
-    const entityManagement = useEntityManagement();
-    const { executeUnifiedGlossaryQuery } = useGraphQLOperations();
-    const { categorizeEntities } = useEntityComparison();
+    const csvProcessing = useMockCsvProcessing();
+    const entityManagement = useMockEntityManagement();
+    const { executeUnifiedGlossaryQuery } = useMockGraphQLOperations();
+    const { categorizeEntities } = useMockEntityComparison();
 
     // Import handlers
     const handleStartImport = useCallback(async () => {
