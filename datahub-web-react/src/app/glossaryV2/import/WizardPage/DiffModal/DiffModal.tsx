@@ -398,6 +398,7 @@ export const DiffModal: React.FC<DiffModalProps> = ({
               rowKey="key"
               isScrollable={true}
               scroll={{ y: 300 }}
+              pagination={false}
             />
           </TableContainer>
         </ContentContainer>

@@ -1,4 +1,4 @@
-import { Button, Checkbox, Input, PageTitle, Pagination, Pill, SearchBar, Select, SimpleSelect, Table } from '@components';
+import { Button, Checkbox, Input, PageTitle, Pill, SearchBar, Select, SimpleSelect, Table } from '@components';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
@@ -8,7 +8,6 @@ import { Column } from '@components/components/Table/types';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
-import usePagination from '@app/sharedV2/pagination/usePagination';
 import { Entity, EntityData } from '../glossary.types';
 import { EntityDetailsModal } from './EntityDetailsModal/EntityDetailsModal';
 import { DiffModal } from './DiffModal/DiffModal';
@@ -219,7 +218,6 @@ const StepButtons = styled.div`
     gap: 12px;
 `;
 
-const DEFAULT_PAGE_SIZE = 25;
 
 // Wizard step definitions
 const wizardSteps = [
@@ -1077,7 +1075,6 @@ const GlossaryImportList = ({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
-    const [selectionMode, setSelectionMode] = useState<'none' | 'currentPage' | 'allPages'>('none');
     const [editingCell, setEditingCell] = useState<{ rowId: string; field: string } | null>(null);
     
     // Entity Details Modal state
@@ -1085,7 +1082,6 @@ const GlossaryImportList = ({
     const [isDiffModalVisible, setIsDiffModalVisible] = useState(false);
     const [selectedEntity, setSelectedEntity] = useState<EntityData | null>(null);
 
-    const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
 
     // Initialize search input from URL parameter (if needed)
     useEffect(() => {
@@ -1104,22 +1100,11 @@ const GlossaryImportList = ({
     // Debounce the search query
     useDebounce(
         () => {
-            setPage(1);
             setQuery(searchInput);
         },
         300,
         [searchInput],
     );
-
-    // When status filter changes, reset page to 1
-    useEffect(() => {
-        setPage(1);
-    }, [statusFilter, setPage]);
-
-    const onChangePage = (newPage: number) => {
-        scrollToTop();
-        setPage(newPage);
-    };
 
     const onChangeSort = useCallback((field: string, order: 'ascend' | 'descend' | undefined) => {
         // Handle sorting logic here
@@ -1134,24 +1119,14 @@ const GlossaryImportList = ({
         onRestart();
     };
 
-    // Checkbox handlers - Progressive selection: none → current page → all pages → none
+    // Checkbox handlers - Toggle all selection
     const handleSelectAll = () => {
-        switch (selectionMode) {
-            case 'none':
-                // First click: Select current page
-                setSelectionMode('currentPage');
-                setSelectedRowKeys(paginatedData.map(entity => entity.id));
-                break;
-            case 'currentPage':
-                // Second click: Select all pages
-                setSelectionMode('allPages');
-                setSelectedRowKeys(entities.map(entity => entity.id));
-                break;
-            case 'allPages':
-                // Third click: Reset to none
-                setSelectionMode('none');
-                setSelectedRowKeys([]);
-                break;
+        if (selectedRowKeys.length === totalItems) {
+            // Deselect all
+            setSelectedRowKeys([]);
+        } else {
+            // Select all
+            setSelectedRowKeys(entities.map(entity => entity.id));
         }
     };
 
@@ -1233,14 +1208,12 @@ const GlossaryImportList = ({
         }
     }, [retryFailed]);
 
-    // Calculate paginated data
+    // Calculate total items for display
     const totalItems = entities.length;
-    const paginatedData = entities.slice(start, start + pageSize);
 
-    // Smart selection state logic for progressive selection
-    const isChecked = selectionMode === 'allPages';
-    const isIndeterminate = (selectionMode === 'none' && selectedRowKeys.length > 0) || 
-                           (selectionMode === 'currentPage' && selectedRowKeys.length < totalItems);
+    // Smart selection state logic
+    const isChecked = selectedRowKeys.length === totalItems && totalItems > 0;
+    const isIndeterminate = selectedRowKeys.length > 0 && selectedRowKeys.length < totalItems;
 
     const tableColumns: Column<Entity>[] = [
         {
@@ -1728,8 +1701,6 @@ const GlossaryImportList = ({
                         color: '#0066cc'
                     }}>
                         {selectedRowKeys.length} of {totalItems} items selected
-                        {selectionMode === 'currentPage' && ' (current page)'}
-                        {selectionMode === 'allPages' && ' (all pages)'}
                     </div>
                 )}
                 {!loading && entities.length === 0 ? (
@@ -1743,22 +1714,16 @@ const GlossaryImportList = ({
                         <TableContainer>
                             <Table
                                 columns={tableColumns}
-                                data={paginatedData}
+                                data={entities}
                                 rowKey="id"
                                 isScrollable
                                 handleSortColumnChange={handleSortColumnChange}
                                 isLoading={loading && entities.length === 0}
+                                pagination={false}
+                                scroll={{ y: 400 }}
                             />
                         </TableContainer>
                         <PaginationContainer>
-                            <Pagination
-                                currentPage={page}
-                                itemsPerPage={pageSize}
-                                total={totalItems}
-                                showLessItems
-                                onPageChange={onChangePage}
-                                showSizeChanger={false}
-                            />
                             <Button
                                 variant="filled"
                                 color="primary"
