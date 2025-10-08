@@ -1,4 +1,5 @@
 import { Button, Checkbox, Input, PageTitle, Pill, SearchBar, Select, SimpleSelect, Table } from '@components';
+import { ActionsBar } from '@alchemy-components/components/ActionsBar/ActionsBar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
@@ -1688,7 +1689,7 @@ const GlossaryImportList = ({
                             />
                         </SearchContainer>
                         <FilterButtonsContainer>
-                            <RefreshButton onClick={handleRefresh} />
+                            {/* Restart button moved to ActionsBar */}
                         </FilterButtonsContainer>
                     </StyledTabToolbar>
                 </HeaderContainer>
@@ -1726,14 +1727,7 @@ const GlossaryImportList = ({
                             />
                         </TableContainer>
                         <PaginationContainer>
-                            <Button
-                                variant="filled"
-                                color="primary"
-                                onClick={onStartImport}
-                                disabled={entities.length === 0 || isProcessing}
-                            >
-                                Import Selected ({entities.length})
-                            </Button>
+                            {/* Actions moved to always visible ActionsBar */}
                         </PaginationContainer>
                     </>
                 )}
@@ -2104,6 +2098,29 @@ export const WizardPage = () => {
             <PageContentContainer>
                 {/* Step Content - Full Width, No Container */}
                 {renderStepContent()}
+
+                {/* Actions Bar - Always visible */}
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
+                    <ActionsBar>
+                        <Button
+                            variant="outline"
+                            onClick={handleRestart}
+                            icon={{ icon: 'ArrowClockwise', source: 'phosphor' }}
+                        >
+                            Reset
+                        </Button>
+                        {entities.length > 0 && (
+                            <Button
+                                variant="filled"
+                                color="primary"
+                                onClick={handleStartImport}
+                                disabled={isProcessing}
+                            >
+                                Import Selected ({entities.length})
+                            </Button>
+                        )}
+                    </ActionsBar>
+                </div>
 
                 {/* Step Actions - Only show if not on data preview step */}
                 {currentStep !== 1 && (
