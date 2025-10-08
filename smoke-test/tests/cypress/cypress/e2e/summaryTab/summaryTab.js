@@ -20,35 +20,6 @@ function testPropertiesSection(properties) {
   utils.ensurePropertiesAreVisible(propertyTypes); // default properties
 
   properties.forEach((property) => utils.ensurePropertyExist(property));
-
-  // SaaS-only tests
-  // // Remove properties
-  // propertyTypes.forEach((propertyType) => utils.removeProperty(propertyType));
-  // utils.ensurePropertiesDoNotExist(propertyTypes); // properties were removed
-  // utils.ensurePropertiesAvailableToAdd(propertyTypes);
-
-  // // created and owners properties available on all entities right now
-  // // Add and replace properties
-  // utils.addProperty("CREATED");
-  // utils.ensurePropertiesAreVisible(["CREATED"]);
-  // utils.replaceProperty("CREATED", "OWNERS");
-  // utils.ensurePropertiesAreVisible(["OWNERS"]);
-  // utils.ensurePropertiesDoNotExist(["CREATED"]);
-}
-
-function testPropertiesSectionStructuredProperties(
-  structuredPropertyName,
-  structuredPropertyValue,
-) {
-  utils.addStructuredPropertyToOpenedEntity(
-    structuredPropertyName,
-    structuredPropertyValue,
-  );
-  utils.addStructuredPropertyToProperties(structuredPropertyName);
-  utils.ensureStructuredPropertyExists(
-    structuredPropertyName,
-    structuredPropertyValue,
-  );
 }
 
 function testAboutSection() {
@@ -75,19 +46,6 @@ function testTemplateSection(defaultModules, modulesAvailableToAdd) {
 
   // Check default modules
   defaultModules.forEach((module) => utils.ensureModuleExist(module));
-
-  // SaaS-only tests
-  // // Delete modules
-  // defaultModules.forEach((module) => utils.deleteModule(module));
-  // defaultModules.forEach((module) => utils.ensureModuleDoesNotExist(module));
-
-  // // Check modules available to add
-  // utils.ensureModulesAvailableToAdd(modulesAvailableToAdd);
-
-  // // Add the first default module
-  // const moduleToAdd = defaultModules[0];
-  // utils.addModule(moduleToAdd);
-  // utils.ensureModuleExist(moduleToAdd);
 }
 
 const ADDITIONAL_MODULES_AVAILABLE_TO_ADD = [
@@ -116,9 +74,6 @@ describe("summary tab", () => {
     const domainName = `domain_${testId}`;
     const childDomainName = `child_domain_${testId}`;
     const dataProductName = `dp_${testId}`;
-    // SaaS-only
-    // const structuredPropertyName = `property_${testId}`;
-    // const structuredPropertyValue = `value_${testId}`;
     const defaultModules = [
       {
         type: "assets",
@@ -143,8 +98,6 @@ describe("summary tab", () => {
       ...ADDITIONAL_MODULES_AVAILABLE_TO_ADD,
     ];
 
-    // SaaS-only
-    // utils.createStructuredProperty(structuredPropertyName);
     utils.createDomain(domainName);
     utils.openDomain(domainName);
     utils.createChildDomain(childDomainName, domainName);
@@ -160,12 +113,6 @@ describe("summary tab", () => {
       { name: "Owners", type: "OWNERS", value: USERNAME },
     ]);
 
-    // SaaS-only
-    // testPropertiesSectionStructuredProperties(
-    //   structuredPropertyName,
-    //   structuredPropertyValue,
-    // );
-
     testAboutSection();
 
     testTemplateSection(defaultModules, modulesAvailableToAdd);
@@ -175,17 +122,12 @@ describe("summary tab", () => {
     utils.deleteOpenedDataProduct();
     utils.deleteDomain(childDomainName);
     utils.deleteDomain(domainName);
-    // SaaS-only
-    // utils.deleteStructuredProperty(structuredPropertyName);
   });
 
   it("glossary node", () => {
     const testId = getTestId();
     const termName = `term_${testId}`;
     const nodeName = `node_${testId}`;
-    // SaaS-only
-    // const structuredPropertyName = `property_${testId}`;
-    // const structuredPropertyValue = `value_${testId}`;
     const defaultModules = [
       {
         type: "hierarchy",
@@ -200,8 +142,6 @@ describe("summary tab", () => {
       ...ADDITIONAL_MODULES_AVAILABLE_TO_ADD,
     ];
 
-    // SaaS-only
-    // utils.createStructuredProperty(structuredPropertyName);
     utils.createGlossaryNode(nodeName);
     utils.openGlossaryNode(nodeName);
     utils.createGlossaryTerm(nodeName, termName);
@@ -215,12 +155,6 @@ describe("summary tab", () => {
       { name: "Owners", type: "OWNERS", value: USERNAME },
     ]);
 
-    // SaaS-only
-    // testPropertiesSectionStructuredProperties(
-    //   structuredPropertyName,
-    //   structuredPropertyValue,
-    // );
-
     testAboutSection();
 
     testTemplateSection(defaultModules, modulesAvailableToAdd);
@@ -229,8 +163,6 @@ describe("summary tab", () => {
     utils.deleteOpenedGlossaryNode();
     utils.openGlossaryTerm(termName);
     utils.deleteOpenedGLossaryTerm();
-    // SaaS-only
-    // utils.deleteStructuredProperty(structuredPropertyName);
   });
 
   it("glossary term", () => {
@@ -239,9 +171,6 @@ describe("summary tab", () => {
     const nodeName = `term_node_${testId}`;
     const termName = `term_${testId}`;
     const relatedTermName = TEST_TERM;
-    // SaaS-only
-    // const structuredPropertyName = `property_${testId}`;
-    // const structuredPropertyValue = `value_${testId}`;
     const defaultModules = [
       {
         type: "assets",
@@ -259,8 +188,6 @@ describe("summary tab", () => {
       ...ADDITIONAL_MODULES_AVAILABLE_TO_ADD,
     ];
 
-    // SaaS-only
-    // utils.createStructuredProperty(structuredPropertyName);
     utils.createGlossaryNode(nodeName);
     utils.createGlossaryTerm(nodeName, termName);
     utils.openGlossaryTerm(termName);
@@ -278,12 +205,6 @@ describe("summary tab", () => {
       { name: "Domain", type: "DOMAIN", value: domainName },
     ]);
 
-    // SaaS-only
-    // testPropertiesSectionStructuredProperties(
-    //   structuredPropertyName,
-    //   structuredPropertyValue,
-    // );
-
     testAboutSection();
 
     testTemplateSection(defaultModules, modulesAvailableToAdd);
@@ -293,9 +214,6 @@ describe("summary tab", () => {
 
     utils.openGlossaryNode(nodeName);
     utils.deleteOpenedGlossaryNode();
-
-    // SaaS-only
-    // utils.deleteStructuredProperty(structuredPropertyName);
   });
 
   it("data product", () => {
@@ -304,9 +222,6 @@ describe("summary tab", () => {
     const dataProductName = `dp_${testId}`;
     const termName = TEST_TERM;
     const tagName = TEST_TAG;
-    // SaaS-only
-    // const structuredPropertyName = `property_${testId}`;
-    // const structuredPropertyValue = `value_${testId}`;
     const defaultModules = [
       {
         type: "assets",
@@ -319,8 +234,6 @@ describe("summary tab", () => {
       ...ADDITIONAL_MODULES_AVAILABLE_TO_ADD,
     ];
 
-    // SaaS-only
-    // utils.createStructuredProperty(structuredPropertyName);
     utils.createDataProduct(domainName, dataProductName);
     utils.openDataProduct(domainName, dataProductName);
     utils.addAsset("DATA_PRODUCT", TEST_ASSET_NAME, TEST_ASSET_URN);
@@ -338,19 +251,11 @@ describe("summary tab", () => {
       { name: "Glossary Terms", type: "GLOSSARY_TERMS", value: termName },
     ]);
 
-    // SaaS-only
-    // testPropertiesSectionStructuredProperties(
-    //   structuredPropertyName,
-    //   structuredPropertyValue,
-    // );
-
     testAboutSection();
 
     testTemplateSection(defaultModules, modulesAvailableToAdd);
 
     // Clean up
     utils.deleteOpenedDataProduct();
-    // SaaS-only
-    // utils.deleteStructuredProperty(structuredPropertyName);
   });
 });
