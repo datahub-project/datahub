@@ -44,8 +44,8 @@ const PageContentContainer = styled.div`
     gap: 24px;
     flex: 1;
     margin: 0 20px 20px 20px;
-    height: calc(100% - 120px); /* Increased space for ActionsBar */
-    min-height: 0; /* Allow flex shrinking */
+    height: calc(100% - 60px); /* Increased space for ActionsBar */
+    /* min-height: 0; Allow flex shrinking */
 `;
 
 const PageHeaderContainer = styled.div`
@@ -2103,13 +2103,15 @@ export const WizardPage = () => {
                 {/* Actions Bar - Always visible */}
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
                     <ActionsBar>
-                        <Button
-                            variant="outline"
-                            onClick={handleRestart}
-                            icon={{ icon: 'ArrowClockwise', source: 'phosphor' }}
-                        >
-                            Reset
-                        </Button>
+                        {currentStep !== 1 && (
+                            <Button
+                                variant="outline"
+                                onClick={handleRestart}
+                                icon={{ icon: 'ArrowClockwise', source: 'phosphor' }}
+                            >
+                                Reset
+                            </Button>
+                        )}
                         {entities.length > 0 && (
                             <Button
                                 variant="filled"
