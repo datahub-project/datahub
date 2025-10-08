@@ -46,6 +46,7 @@ buildscript {
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.1'
   ext.elasticsearchVersion = '2.11.1' // ES 7.10, Opensearch 1.x, 2.x
+  ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
   ext.jacksonVersion = '2.18.4'
   ext.jettyVersion = '12.0.21'
   // see also datahub-frontend/play.gradle
@@ -151,6 +152,8 @@ project.ext.externalDependency = [
     'ebeanDdl': 'io.ebean:ebean-ddl-generator:' + ebeanVersion,
     'ebeanQueryBean': 'io.ebean:querybean-generator:' + ebeanVersion,
     'elasticSearchRest': 'org.opensearch.client:opensearch-rest-high-level-client:' + elasticsearchVersion,
+    // Multi-client shim dependencies
+    'elasticsearch8Client': 'co.elastic.clients:elasticsearch-java:' + elasticsearch8Version,
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
     'graphqlJava': 'com.graphql-java:graphql-java:22.3',
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:22.0',
@@ -253,7 +256,7 @@ project.ext.externalDependency = [
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:12.0.0-PLAY2.8",
     'postgresql': 'org.postgresql:postgresql:42.7.8',
     'protobuf': 'com.google.protobuf:protobuf-java:4.32.0',
-    'grpcProtobuf': 'io.grpc:grpc-protobuf:1.53.0',
+    'grpcProtobuf': 'io.grpc:grpc-protobuf:1.75.0',
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
     'reflections': 'org.reflections:reflections:0.9.12',
     'resilience4j': 'io.github.resilience4j:resilience4j-retry:1.7.1',

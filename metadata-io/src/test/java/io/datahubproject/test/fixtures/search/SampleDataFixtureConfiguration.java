@@ -39,6 +39,7 @@ import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
@@ -51,7 +52,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -71,9 +71,9 @@ public class SampleDataFixtureConfiguration {
    */
   @Autowired private ESBulkProcessor _bulkProcessor;
 
-  @Autowired private RestHighLevelClient _searchClient;
+  @Autowired private SearchClientShim<?> _searchClient;
 
-  @Autowired private RestHighLevelClient _longTailSearchClient;
+  @Autowired private SearchClientShim<?> _longTailSearchClient;
 
   @Autowired
   @Qualifier("fixtureCustomSearchConfig")
@@ -164,7 +164,6 @@ public class SampleDataFixtureConfiguration {
         new ESSearchDAO(
             _searchClient,
             false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             TEST_OS_SEARCH_CONFIG,
             _customSearchConfiguration,
             queryFilterRewriteChain,

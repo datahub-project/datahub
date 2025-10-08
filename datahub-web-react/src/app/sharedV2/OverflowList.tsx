@@ -119,21 +119,22 @@ export default function OverflowList<Item extends OverflowListItem>({
 
     return (
         <Container $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace}>
+            <HiddenContainer>
+                {items.map((item) => (
+                    <ResizeObserver onResize={(size) => onItemResize(item.key, size.offsetWidth)} key={item.key}>
+                        <FitContainer>{item.node}</FitContainer>
+                    </ResizeObserver>
+                ))}
+                <ResizeObserver onResize={(size) => onRenderedHiddenItemsResize(size.offsetWidth)}>
+                    <FitContainer>{renderHiddenItems?.([])}</FitContainer>
+                </ResizeObserver>
+            </HiddenContainer>
             <ResizeObserver onResize={(size) => onContainerResize(size.width)}>
-                <Container $gap={finalGap} $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace}>
-                    <HiddenContainer>
-                        {items.map((item) => (
-                            <ResizeObserver
-                                onResize={(size) => onItemResize(item.key, size.offsetWidth)}
-                                key={item.key}
-                            >
-                                <FitContainer>{item.node}</FitContainer>
-                            </ResizeObserver>
-                        ))}
-                        <ResizeObserver onResize={(size) => onRenderedHiddenItemsResize(size.offsetWidth)}>
-                            <FitContainer>{renderHiddenItems?.([])}</FitContainer>
-                        </ResizeObserver>
-                    </HiddenContainer>
+                <Container
+                    $gap={finalGap}
+                    $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace}
+                    data-testid="overflow-list-container"
+                >
                     {visibleItems.map((item) => (
                         <React.Fragment key={item.key}>{item.node}</React.Fragment>
                     ))}

@@ -1,6 +1,8 @@
 package com.linkedin.r2.transport.http.server;
 
 import com.linkedin.data.ByteString;
+import com.linkedin.metadata.config.GMSConfiguration;
+import com.linkedin.metadata.utils.BasePathUtils;
 import com.linkedin.r2.message.RequestContext;
 import com.linkedin.r2.message.rest.*;
 import com.linkedin.r2.transport.common.WireAttributeHelper;
@@ -27,11 +29,15 @@ public abstract class AbstractJakartaR2Servlet extends HttpServlet {
   private static final long serialVersionUID = 1L;
 
   private final Duration timeout;
+  private final String basePath;
 
   protected abstract HttpDispatcher getDispatcher();
 
-  protected AbstractJakartaR2Servlet(Duration timeout) {
+  protected AbstractJakartaR2Servlet(Duration timeout, GMSConfiguration gmsConfiguration) {
     this.timeout = timeout;
+    this.basePath =
+        BasePathUtils.resolveBasePath(
+            gmsConfiguration.getBasePathEnabled(), gmsConfiguration.getBasePath());
   }
 
   @Override
@@ -74,10 +80,12 @@ public abstract class AbstractJakartaR2Servlet extends HttpServlet {
 
   private RestRequest createRestRequest(HttpServletRequest req)
       throws IOException, ServletException, URISyntaxException {
-    String pathInfo = extractPathInfo(req);
+    String pathInfo = extractPathInfo(req, basePath);
     String queryString = Optional.ofNullable(req.getQueryString()).map(q -> "?" + q).orElse("");
 
     URI uri = new URI(pathInfo + queryString);
+
+    log.info("Received request for path {} and query string {}", uri, queryString);
 
     RestRequestBuilder builder = new RestRequestBuilder(uri).setMethod(req.getMethod());
 
@@ -145,7 +153,8 @@ public abstract class AbstractJakartaR2Servlet extends HttpServlet {
     writeResponse(TransportResponseImpl.success(errorResponse), resp);
   }
 
-  protected static String extractPathInfo(HttpServletRequest req) throws ServletException {
+  protected static String extractPathInfo(HttpServletRequest req, String basePath)
+      throws ServletException {
     String requestUri = req.getRequestURI();
     String contextPath = Optional.ofNullable(req.getContextPath()).orElse("");
     String servletPath = Optional.ofNullable(req.getServletPath()).orElse("");
@@ -153,11 +162,28 @@ public abstract class AbstractJakartaR2Servlet extends HttpServlet {
     String prefix = contextPath + servletPath;
     String pathInfo = null;
 
+    String basePathGMS = basePath + "/gms";
+
+    log.info(
+        "extractPathInfo: requestUri='{}', contextPath='{}', servletPath='{}', prefix='{}', basePath='{}', basePathGMS='{}'",
+        requestUri,
+        contextPath,
+        servletPath,
+        prefix,
+        basePath,
+        basePathGMS);
+
     if (prefix.isEmpty()) {
       pathInfo = requestUri;
-    } else if (servletPath.startsWith("/gms") && requestUri.startsWith(prefix)) {
+    } else if (servletPath.startsWith(basePathGMS) && requestUri.startsWith(prefix)) {
+      // Special handling for /gms servlet paths
       pathInfo = requestUri.substring(prefix.length());
+    } else if (!basePath.isEmpty() && requestUri.startsWith(basePath)) {
+      // Handle case where servlet path includes base path but is not GMS
+      pathInfo = requestUri.substring(basePath.length());
     }
+
+    log.info("extractPathInfo result: pathInfo='{}'", pathInfo);
 
     if (pathInfo == null || pathInfo.isEmpty()) {
       log.debug(
@@ -187,6 +213,7 @@ public abstract class AbstractJakartaR2Servlet extends HttpServlet {
       pathInfo = requestUri;
     }
 
+    log.info("extractPathInfo result: pathInfo='{}'", pathInfo);
     return pathInfo;
   }
 }
