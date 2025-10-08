@@ -4,23 +4,24 @@ import { useHistory } from 'react-router-dom';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
+import { PlatformPills } from '@app/identity/user/PlatformPills';
 import {
-    EmptyMessage,
-    PlatformIcon,
-    PlatformPillWrapper,
     RecommendedUsersContainer,
     UserCard,
     UserDetails,
     UserEmail,
     UserEmailRow,
     UserInfo,
-    UserTag,
 } from '@app/identity/user/RecommendedUsersList.components';
-import { TopUserTooltip } from '@app/identity/user/RecommendedUsersTable.components';
+import {
+    EmptyStateContainer,
+    EmptyStateWrapper,
+    TopUserTooltip,
+} from '@app/identity/user/RecommendedUsersTable.components';
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import { shouldShowTopUserPill } from '@app/identity/user/UserUtils';
-import { PLATFORM_URN_TO_LOGO } from '@app/ingest/source/builder/constants';
 import { Pill, Tooltip } from '@src/alchemy-components';
+import EmptyUsersImage from '@src/images/empty-users.svg?react';
 
 import { CorpUser, DataHubRole } from '@types';
 
@@ -31,19 +32,6 @@ type InvitationStatus = 'pending' | 'success' | 'failed';
 type RecommendedUserState = {
     status: InvitationStatus;
     role?: DataHubRole;
-};
-
-// Helper function to extract platform name from URN
-const getPlatformNameFromUrn = (platformUrn: string): string => {
-    // Extract platform name from URN like "urn:li:dataPlatform:snowflake"
-    const parts = platformUrn.split(':');
-    const platformName = parts[parts.length - 1];
-    return platformName.charAt(0).toUpperCase() + platformName.slice(1);
-};
-
-// Helper function to get platform icon URL using DataHub's standard mapping
-const getPlatformIconUrl = (platformUrn: string): string | null => {
-    return PLATFORM_URN_TO_LOGO[platformUrn] || null;
 };
 
 interface Props {
@@ -108,11 +96,6 @@ export default function RecommendedUsersList({
 
     // Filter recommended users
     const validUsers = recommendedUsers.filter((user) => {
-        // Allow users with any usage percentile (including 0) or users without usage data
-        const hasValidUsage =
-            !user.usageFeatures?.userUsagePercentilePast30Days || user.usageFeatures.userUsagePercentilePast30Days >= 0;
-        if (!hasValidUsage) return false;
-
         // Don't show hidden users
         if (hiddenUsers.has(user.urn)) return false;
 
@@ -198,9 +181,14 @@ export default function RecommendedUsersList({
     // Show empty message if no recommended users after filtering
     if (displayUsers.length === 0) {
         return (
-            <RecommendedUsersContainer>
-                <EmptyMessage size="sm">Top recommended users are invited.</EmptyMessage>
-            </RecommendedUsersContainer>
+            <EmptyStateWrapper>
+                <EmptyStateContainer>
+                    <EmptyUsersImage style={{ width: '120px', height: '120px' }} />
+                </EmptyStateContainer>
+                <Text size="lg" weight="medium">
+                    No recommended users yet!
+                </Text>
+            </EmptyStateWrapper>
         );
     }
 
@@ -233,19 +221,10 @@ export default function RecommendedUsersList({
                                         </Tooltip>
                                     )}
                                 </UserEmailRow>
-                                <UserTag>
-                                    {/* Show platform pills for platforms user has usage on */}
-                                    {user.usageFeatures?.userPlatformUsageTotalsPast30Days?.map((platformUsage) => {
-                                        const platformName = getPlatformNameFromUrn(platformUsage.key);
-                                        const iconUrl = getPlatformIconUrl(platformUsage.key);
-
-                                        return (
-                                            <PlatformPillWrapper key={platformUsage.key}>
-                                                {iconUrl && <PlatformIcon src={iconUrl} alt={platformName} title="" />}
-                                            </PlatformPillWrapper>
-                                        );
-                                    })}
-                                </UserTag>
+                                {/* Show platform pills for platforms user has usage on */}
+                                <PlatformPills
+                                    platforms={user.usageFeatures?.userPlatformUsageTotalsPast30Days || []}
+                                />
                             </UserDetails>
                         </UserInfo>
                         {renderUserActions(user)}

@@ -63,6 +63,7 @@ export const PlatformFilter: React.FC<PlatformFilterProps> = ({
                 isMultiSelect
                 onUpdate={onPlatformChange}
                 width="fit-content"
+                size="lg"
                 renderCustomOptionText={(option) => {
                     const platformOption = option as PlatformSelectOption;
                     const iconUrl = getPlatformIconUrl(platformOption.platform.urn);

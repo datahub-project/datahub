@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { Avatar, Pill, Text, Tooltip } from '@src/alchemy-components';
+import { Avatar, Pill, Text } from '@src/alchemy-components';
+import { ResizablePills } from '@src/alchemy-components/components/ResizablePills';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { pluralize } from '@src/app/shared/textUtil';
 
@@ -11,7 +12,7 @@ export const RecommendedUsersContainer = styled.div`
     display: flex;
     flex-direction: column;
 
-    margin-top: 16px;
+    margin-top: 8px;
 `;
 
 export const RecommendedUsersHeader = styled.div`
@@ -29,34 +30,17 @@ export const FiltersHeader = styled.div`
 
 export const SearchContainer = styled.div`
     display: flex;
+    align-items: space-between;
     flex-direction: column;
 `;
 
-export const TableContainer = styled.div<{ $hasSsoBanner?: boolean }>`
+export const RecommendedTableContainer = styled.div<{ $hasSsoBanner?: boolean }>`
+    max-height: calc(100vh - ${(props) => (props.$hasSsoBanner ? '450px' : '365px')});
     flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
-    max-height: calc(100vh - ${(props) => (props.$hasSsoBanner ? '550px' : '300px')});
     overflow: auto;
-
-    /* Make table header sticky */
-    .ant-table-thead {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        background: white;
-    }
-
-    /* Ensure header cells have proper background */
-    .ant-table-thead > tr > th {
-        background: white !important;
-        border-bottom: 1px solid #f0f0f0;
-    }
-`;
-
-export const RecommendedTableContainer = styled(TableContainer)<{ $hasSsoBanner?: boolean }>`
-    max-height: calc(100vh - ${(props) => (props.$hasSsoBanner ? '520px' : '435px')});
 `;
 
 export const ActionsContainer = styled.div`
@@ -89,6 +73,9 @@ export const PlatformPillsContainer = styled.div`
     display: flex;
     align-items: center;
     gap: 4px;
+    flex-wrap: nowrap;
+    overflow: hidden;
+    width: 100%;
 `;
 
 export const UsageTooltipContent = styled.div`
@@ -121,12 +108,6 @@ export const FadingTableRow = styled.tr<{ $isHiding: boolean }>`
 export const RecommendedNoteContainer = styled.div`
     margin-top: 4px;
     margin-bottom: 14px;
-`;
-
-export const HeaderSection = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 16px;
 `;
 
 export const UserAvatarSection = styled.div`
@@ -186,7 +167,7 @@ export const EmptyStateContainer = styled.div`
 export const PaginationContainer = styled.div`
     display: flex;
     justify-content: center;
-    margin-top: 24px;
+    padding: 8px 20px 0 20px;
 `;
 
 // Helper function to extract platform name from URN
@@ -267,41 +248,43 @@ type PlatformPillsProps = {
 };
 
 export const PlatformPills = ({ user, getPlatformIconUrl }: PlatformPillsProps) => {
-    const platformUsages = user.usageFeatures?.userPlatformUsageTotalsPast30Days || [];
-    const displayPlatforms = platformUsages.slice(0, 3);
-    const extraCount = Math.max(0, platformUsages.length - 3);
-    const tooltipContent = (
-        <UserUsageTooltip user={user} platformUsages={platformUsages} getPlatformIconUrl={getPlatformIconUrl} />
+    const platformUsages = React.useMemo(
+        () => user.usageFeatures?.userPlatformUsageTotalsPast30Days || [],
+        [user.usageFeatures?.userPlatformUsageTotalsPast30Days],
     );
 
     return (
         <PlatformPillsContainer>
-            {displayPlatforms.map((platformUsage) => {
-                const platformName = getPlatformNameFromUrn(platformUsage.key);
-                const iconUrl = getPlatformIconUrl(platformUsage.key);
-                return (
-                    <Tooltip
-                        key={platformUsage.key}
-                        title={tooltipContent}
-                        placement="bottom"
-                        overlayStyle={{ borderRadius: '24px', minWidth: '320px' }}
-                    >
-                        <PlatformPillWrapper>
-                            {iconUrl && <PlatformIcon src={iconUrl} alt={platformName} title={platformName} />}
-                            <Text size="sm" weight="medium">
-                                &nbsp;{platformName}
-                            </Text>
-                        </PlatformPillWrapper>
-                    </Tooltip>
-                );
-            })}
-            {extraCount > 0 && (
-                <Tooltip title={tooltipContent} placement="bottom">
-                    <span>
-                        <Pill variant="filled" color="gray" label={`+${extraCount}`} />
-                    </span>
-                </Tooltip>
-            )}
+            <ResizablePills
+                items={platformUsages}
+                getItemWidth={(platform) => getPlatformNameFromUrn(platform.key).length * 8 + 32}
+                gap={4}
+                overflowButtonWidth={50}
+                minContainerWidthForOne={100}
+                keyExtractor={(platform) => platform.key}
+                renderPill={(platformUsage) => {
+                    const platformName = getPlatformNameFromUrn(platformUsage.key);
+                    const iconUrl = getPlatformIconUrl(platformUsage.key);
+                    return (
+                        <Pill
+                            variant="outline"
+                            label={platformName}
+                            customIconRenderer={
+                                iconUrl
+                                    ? () => <PlatformIcon src={iconUrl} alt={platformName} title={platformName} />
+                                    : undefined
+                            }
+                        />
+                    );
+                }}
+                overflowTooltipContent={() => (
+                    <UserUsageTooltip
+                        user={user}
+                        platformUsages={platformUsages}
+                        getPlatformIconUrl={getPlatformIconUrl}
+                    />
+                )}
+            />
         </PlatformPillsContainer>
     );
 };

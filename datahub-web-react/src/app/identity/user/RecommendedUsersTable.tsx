@@ -8,7 +8,6 @@ import {
     EmptyStateContainer,
     EmptyStateWrapper,
     FiltersHeader,
-    HeaderSection,
     PaginationContainer,
     PlatformPills,
     RecommendedNoteContainer,
@@ -26,7 +25,7 @@ import { useDismissUserSuggestionMutation } from '@app/identity/user/hooks/useDi
 import { useAvailablePlatforms } from '@app/identity/user/useAvailablePlatforms';
 import { useUserRecommendations } from '@app/identity/user/useUserRecommendations';
 import { PLATFORM_URN_TO_LOGO } from '@app/ingest/source/builder/constants';
-import { Avatar, Button, Heading, Pagination, Pill, SearchBar, Table, Text, Tooltip } from '@src/alchemy-components';
+import { Avatar, Button, Pagination, Pill, SearchBar, Table, Text, Tooltip } from '@src/alchemy-components';
 import EmptyUsersImage from '@src/images/empty-users.svg?react';
 
 import { CorpUser, DataHubRole, SearchSortInput, SortOrder } from '@types';
@@ -248,11 +247,11 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
             title: 'Email',
             dataIndex: 'email',
             key: 'email',
-            minWidth: '35%',
+            width: '22%',
             render: (user: CorpUser) => (
                 <UserAvatarSection>
                     <Avatar name={user.username || user.urn} size="lg" />
-                    <Text size="md" weight="medium">
+                    <Text size="md" weight="medium" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {user.username || user.urn}
                     </Text>
                 </UserAvatarSection>
@@ -262,7 +261,7 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
             title: 'Category',
             dataIndex: 'category',
             key: 'category',
-            minWidth: '15%',
+            width: '10%',
             render: (user: CorpUser) =>
                 shouldShowTopUserPill(user) ? (
                     <Tooltip
@@ -275,7 +274,7 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
                         overlayStyle={{ minWidth: '320px' }}
                     >
                         <span>
-                            <Pill variant="filled" color="gray" label="Top User" />
+                            <Pill variant="filled" color="violet" label="Top User" />
                         </span>
                     </Tooltip>
                 ) : null,
@@ -284,14 +283,14 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
             title: 'Platforms',
             dataIndex: 'platforms',
             key: 'platforms',
-            minWidth: '30%',
+            width: '30%',
             render: (user: CorpUser) => <PlatformPills user={user} getPlatformIconUrl={getPlatformIconUrl} />,
         },
         {
             title: 'Role',
             dataIndex: 'role',
             key: 'role',
-            minWidth: '20%',
+            minWidth: '15%',
             render: (user: CorpUser) => (
                 <SimpleSelectRole
                     selectedRole={userRoles[user.urn] || defaultRole}
@@ -305,7 +304,7 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
             title: '',
             dataIndex: 'actions',
             key: 'actions',
-            minWidth: '20%',
+            minWidth: '15%',
             render: (user: CorpUser) => {
                 const invitationState = invitationStates[user.urn];
                 const dismissalState = dismissalStates[user.urn];
@@ -384,13 +383,9 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
         <RecommendedUsersContainer>
             <FiltersHeader>
                 <div>
-                    <HeaderSection>
-                        <Heading size="md">Recommended Users</Heading>
-                        <Pill variant="filled" color="gray" label={totalRecommendedUsers.toString()} />
-                    </HeaderSection>
                     <RecommendedNoteContainer>
                         <Text size="sm" color="gray">
-                            Review these recommended users based on their activity in your connected sources.{' '}
+                            Review users based on their activity. Updates daily.{' '}
                             <a
                                 target="_blank"
                                 href="https://docs.datahub.com/docs/authentication/guides/add-users/"
@@ -399,30 +394,29 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
                                 Learn more
                             </a>
                         </Text>
-                        <Text size="sm" color="gray" type="p" style={{ fontStyle: 'italic' }}>
-                            Updated every 24 hours.
-                        </Text>
                     </RecommendedNoteContainer>
-                    <SearchContainer>
-                        <SearchBar
-                            placeholder="Search"
-                            value={searchQuery}
-                            onChange={handleSearchChange}
-                            width="300px"
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                        <SearchContainer>
+                            <SearchBar
+                                placeholder="Search"
+                                value={searchQuery}
+                                onChange={handleSearchChange}
+                                width="300px"
+                            />
+                            {searchQuery.length > 0 && searchQuery.length < 3 && (
+                                <Text size="xs" color="gray" style={{ marginTop: '4px' }}>
+                                    Enter at least 3 characters to search
+                                </Text>
+                            )}
+                        </SearchContainer>
+                        <PlatformFilter
+                            selectedPlatforms={selectedPlatforms}
+                            onPlatformChange={handlePlatformFilterChange}
+                            platforms={availablePlatforms}
+                            getPlatformIconUrl={getPlatformIconUrl}
                         />
-                        {searchQuery.length > 0 && searchQuery.length < 3 && (
-                            <Text size="xs" color="gray" style={{ marginTop: '4px' }}>
-                                Enter at least 3 characters to search
-                            </Text>
-                        )}
-                    </SearchContainer>
+                    </div>
                 </div>
-                <PlatformFilter
-                    selectedPlatforms={selectedPlatforms}
-                    onPlatformChange={handlePlatformFilterChange}
-                    platforms={availablePlatforms}
-                    getPlatformIconUrl={getPlatformIconUrl}
-                />
             </FiltersHeader>
             <RecommendedTableContainer $hasSsoBanner={hasSsoBanner}>
                 {recommendedUsers.length === 0 && !loading ? (
@@ -458,19 +452,17 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
                             rowKey="urn"
                         />
                         {totalRecommendedUsers > pageSize && (
-                            <div>
-                                <PaginationContainer>
-                                    <Pagination
-                                        currentPage={page}
-                                        itemsPerPage={pageSize}
-                                        total={totalRecommendedUsers}
-                                        onPageChange={handleChangePage}
-                                        showSizeChanger
-                                        pageSizeOptions={['10', '20', '50', '100']}
-                                        loading={loading}
-                                    />
-                                </PaginationContainer>
-                            </div>
+                            <PaginationContainer>
+                                <Pagination
+                                    currentPage={page}
+                                    itemsPerPage={pageSize}
+                                    total={totalRecommendedUsers}
+                                    onPageChange={handleChangePage}
+                                    showSizeChanger
+                                    pageSizeOptions={['10', '20', '50', '100']}
+                                    loading={loading}
+                                />
+                            </PaginationContainer>
                         )}
                     </>
                 )}
