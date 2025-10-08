@@ -1078,7 +1078,7 @@ const GlossaryImportList = ({
     const [statusFilter, setStatusFilter] = useState<number>(0); // 0 = All, 1 = New, 2 = Updated, 3 = Conflict
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+    // const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]); // Hidden for now
     const [editingCell, setEditingCell] = useState<{ rowId: string; field: string } | null>(null);
     
     // Entity Details Modal state
@@ -1123,26 +1123,26 @@ const GlossaryImportList = ({
         onRestart();
     };
 
-    // Checkbox handlers - Toggle all selection
-    const handleSelectAll = () => {
-        if (selectedRowKeys.length === totalItems) {
-            // Deselect all
-            setSelectedRowKeys([]);
-        } else {
-            // Select all
-            setSelectedRowKeys(entities.map(entity => entity.id));
-        }
-    };
+    // Checkbox handlers - Hidden for now
+    // const handleSelectAll = () => {
+    //     if (selectedRowKeys.length === totalItems) {
+    //         // Deselect all
+    //         setSelectedRowKeys([]);
+    //     } else {
+    //         // Select all
+    //         setSelectedRowKeys(entities.map(entity => entity.id));
+    //     }
+    // };
 
-    const handleSelectRow = (entityId: string, checked: boolean) => {
-        if (checked) {
-            setSelectedRowKeys(prev => [...prev, entityId]);
-        } else {
-            setSelectedRowKeys(prev => prev.filter(id => id !== entityId));
-            // If we deselect any item, reset to manual selection mode
-            setSelectionMode('none');
-        }
-    };
+    // const handleSelectRow = (entityId: string, checked: boolean) => {
+    //     if (checked) {
+    //         setSelectedRowKeys(prev => [...prev, entityId]);
+    //     } else {
+    //         setSelectedRowKeys(prev => prev.filter(id => id !== entityId));
+    //         // If we deselect any item, reset to manual selection mode
+    //         setSelectionMode('none');
+    //     }
+    // };
 
     // Cell editing handlers
     const handleCellEdit = (rowId: string, field: string) => {
@@ -1215,35 +1215,30 @@ const GlossaryImportList = ({
     // Calculate total items for display
     const totalItems = entities.length;
 
-    // Smart selection state logic
-    const isChecked = selectedRowKeys.length === totalItems && totalItems > 0;
-    const isIndeterminate = selectedRowKeys.length > 0 && selectedRowKeys.length < totalItems;
+    // Smart selection state logic - Hidden for now
+    // const isChecked = selectedRowKeys.length === totalItems && totalItems > 0;
+    // const isIndeterminate = selectedRowKeys.length > 0 && selectedRowKeys.length < totalItems;
 
     const tableColumns: Column<Entity>[] = [
         {
-            title: (
-                <Checkbox
-                    isChecked={isChecked}
-                    isIntermediate={isIndeterminate}
-                    setIsChecked={handleSelectAll}
-                    label=""
-                    size="xs"
-                />
-            ),
-            key: 'select',
+            title: 'Diff',
+            key: 'diff',
             render: (record) => (
-                <Checkbox
-                    isChecked={selectedRowKeys.includes(record.id)}
-                    setIsChecked={(value) => {
-                        const checked = typeof value === 'function' ? value(false) : value;
-                        handleSelectRow(record.id, checked);
-                    }}
-                    label=""
+                <Button
+                    variant="text"
                     size="xs"
-                />
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handleShowDiff(record);
+                    }}
+                    style={{ padding: '2px 6px', minWidth: 'auto' }}
+                >
+                    Diff
+                </Button>
             ),
-            width: '4%',
-            alignment: 'left',
+            width: '80px',
+            minWidth: '80px',
+            alignment: 'center',
         },
         {
             title: 'Status',
@@ -1267,29 +1262,16 @@ const GlossaryImportList = ({
                 };
 
                 return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Pill
-                            label={getStatusLabel(record.status)}
-                            color={getStatusColor(record.status)}
-                            size="sm"
-                            variant="filled"
-                        />
-                        <Button
-                            variant="text"
-                            size="xs"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleShowDiff(record);
-                            }}
-                            style={{ padding: '2px 6px', minWidth: 'auto' }}
-                        >
-                            Diff
-                        </Button>
-                    </div>
+                    <Pill
+                        label={getStatusLabel(record.status)}
+                        color={getStatusColor(record.status)}
+                        size="sm"
+                        variant="filled"
+                    />
                 );
             },
-            width: '140px',
-            minWidth: '140px',
+            width: '100px',
+            minWidth: '100px',
             alignment: 'left',
             sorter: (a, b) => a.status.localeCompare(b.status),
         },
@@ -1706,7 +1688,8 @@ const GlossaryImportList = ({
                         </FilterButtonsContainer>
                     </StyledTabToolbar>
                 </HeaderContainer>
-                {selectedRowKeys.length > 0 && (
+                {/* Selection display - Hidden for now */}
+                {/* {selectedRowKeys.length > 0 && (
                     <div style={{ 
                         padding: '8px 16px', 
                         backgroundColor: '#f0f8ff', 
@@ -1718,7 +1701,7 @@ const GlossaryImportList = ({
                     }}>
                         {selectedRowKeys.length} of {totalItems} items selected
                     </div>
-                )}
+                )} */}
                 {!loading && entities.length === 0 ? (
                     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
                         <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#666' }}>
@@ -2130,7 +2113,7 @@ export const WizardPage = () => {
                                     onClick={handleStartImport}
                                     disabled={isProcessing}
                                 >
-                                    Import Selected ({entities.length})
+                                    Import All ({entities.length})
                                 </Button>
                             </>
                         )}
