@@ -74,10 +74,9 @@ const ContentContainer = styled.div`
 
 const TableContainer = styled.div`
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  max-height: 300px;
 `;
 
 const StatusBadge = styled.div<{ status: string }>`
@@ -397,8 +396,8 @@ export const DiffModal: React.FC<DiffModalProps> = ({
               columns={createTableColumns()}
               data={comparison.fields}
               rowKey="key"
-              isScrollable={false}
-              style={{ height: '100%' }}
+              isScrollable={true}
+              scroll={{ y: 300 }}
             />
           </TableContainer>
         </ContentContainer>
