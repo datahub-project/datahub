@@ -33,6 +33,7 @@ import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';
 import { CORP_USER_STATUS_FIELD, ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { Message } from '@app/shared/Message';
 import { Button, Modal, Pill, Tabs } from '@src/alchemy-components';
+import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 import { useBatchAssignRoleMutation, useSendUserInvitationsMutation } from '@graphql/mutations.generated';
 import { CorpUser, DataHubRole } from '@types';
@@ -127,7 +128,7 @@ export const UserAndGroupList = ({ hasSsoBanner }: Props) => {
         } else {
             newUrl.searchParams.set('tab', newTab);
         }
-        history.replace(newUrl.pathname + newUrl.search);
+        history.replace(removeRuntimePath(newUrl.pathname) + newUrl.search);
     };
 
     const { usersData, loading, error, totalUsers, selectRoleOptions, usersRefetch, onChangePage, handleDelete } =

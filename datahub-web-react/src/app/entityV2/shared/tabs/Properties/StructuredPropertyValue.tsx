@@ -2,6 +2,7 @@ import Icon from '@ant-design/icons/lib/components/Icon';
 import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import EntityIcon from '@app/entity/shared/components/styled/EntityIcon';
@@ -162,9 +163,9 @@ export default function StructuredPropertyValue({
                         {entityRegistry.getDisplayName(value.entity.type, value.entity)}
                     </EntityName>
                     {isProposed && <ProposedIcon propertyName="Entity" />}
-                    <Typography.Link href={getEntityLink(value.entity)} target="_blank" rel="noopener noreferrer">
+                    <Link to={getEntityLink(value.entity)} target="_blank" rel="noopener noreferrer">
                         <StyledIcon component={ExternalLink} />
-                    </Typography.Link>
+                    </Link>
                 </EntityWrapper>
             );
         }

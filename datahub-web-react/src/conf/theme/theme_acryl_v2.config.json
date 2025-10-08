@@ -29,7 +29,7 @@
         "highlight-border-color": "#07878180"
     },
     "assets": {
-        "logoUrl": "/assets/logos/acryl-dark-mark.svg"
+        "logoUrl": "assets/logos/acryl-dark-mark.svg"
     },
     "content": {
         "title": "DataHub",

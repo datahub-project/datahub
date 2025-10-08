@@ -13,6 +13,7 @@ import { HAS_ACTIVE_INCIDENTS_FILTER_NAME, HAS_FAILING_ASSERTIONS_FILTER_NAME } 
 import { useUrlQueryParam } from '@app/shared/useUrlQueryParam';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useSearchAcrossLineageQuery } from '@graphql/search.generated';
 
@@ -82,7 +83,7 @@ export default function EmbeddedHealthIcon() {
             return (
                 <Tooltip title={title}>
                     <a
-                        href={`${window.location.origin}${entityType ? entityRegistry.getEntityUrl(entityType, urn) : `/${entityTypeFallback}/${encodeURIComponent(urn)}`}`}
+                        href={`${window.location.origin}${resolveRuntimePath(`${entityType ? entityRegistry.getEntityUrl(entityType, urn) : `/${entityTypeFallback}/${encodeURIComponent(urn)}`}`)}`}
                         target="_blank"
                         rel="noreferrer noopener"
                     >

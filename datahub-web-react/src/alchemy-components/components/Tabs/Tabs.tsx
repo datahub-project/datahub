@@ -7,6 +7,7 @@ import { Tooltip } from '@components/components/Tooltip';
 
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 import { colors } from '@src/alchemy-components/theme';
+import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 const ScrollableTabsContainer = styled.div<{ $maxHeight?: string }>`
     max-height: ${({ $maxHeight }) => $maxHeight || '100%'};
@@ -257,7 +258,7 @@ export function Tabs({
     urlMap,
     onUrlChange = (url) => window.history.replaceState({}, '', url),
     defaultTab,
-    getCurrentUrl = () => window.location.pathname,
+    getCurrentUrl = () => removeRuntimePath(window.location.pathname),
     secondary,
     styleOptions,
     addPaddingLeft,

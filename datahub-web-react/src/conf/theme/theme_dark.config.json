@@ -24,7 +24,7 @@
         "border-radius-navbar-redesign": "12px"
     },
     "assets": {
-        "logoUrl": "/assets/logos/datahub-logo.png"
+        "logoUrl": "assets/logos/datahub-logo.png"
     },
     "content": {
         "title": "DataHub",

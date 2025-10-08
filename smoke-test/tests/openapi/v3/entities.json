@@ -185,7 +185,7 @@
                 "datasetNameDelimiter": ".",
                 "type": "OTHERS",
                 "displayName": "OpenAPI",
-                "logoUrl": "/assets/platforms/openapilogo.png"
+                "logoUrl": "assets/platforms/openapilogo.png"
               }
             }
           }
@@ -240,7 +240,7 @@
                 "datasetNameDelimiter": ".",
                 "type": "OTHERS",
                 "displayName": "vertexai",
-                "logoUrl": "/assets/platforms/vertexai.png"
+                "logoUrl": "assets/platforms/vertexai.png"
               }
             }
           }

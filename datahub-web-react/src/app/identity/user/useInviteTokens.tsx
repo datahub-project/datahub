@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
 import { checkIsSsoEnabled } from '@app/settingsV2/platform/sso/utils';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useCreateInviteTokenMutation } from '@graphql/mutations.generated';
 import { useGetInviteTokenQuery } from '@graphql/role.generated';
@@ -71,7 +72,7 @@ export function useInviteTokens(selectedRole: DataHubRole | undefined) {
         const ssoSettingsData = ssoSettings?.globalSettings?.ssoSettings;
         const isSsoEnabled = ssoSettingsData ? checkIsSsoEnabled(ssoSettingsData) : false;
         const redirectParam = isSsoEnabled ? '&redirect_on_sso=true' : '';
-        return `${baseUrl}/signup?invite_token=${inviteToken}${redirectParam}`;
+        return `${baseUrl}${resolveRuntimePath(`/signup?invite_token=${inviteToken}${redirectParam}`)}`;
     }, [baseUrl, inviteToken, ssoSettings]);
 
     const resetInviteToken = useCallback(() => {

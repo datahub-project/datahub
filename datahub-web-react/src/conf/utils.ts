@@ -1,5 +1,3 @@
-import { HelpLinkRoutes } from '@conf/Global';
-
 /**
  *
  * as per the new route object
@@ -9,9 +7,12 @@ import { HelpLinkRoutes } from '@conf/Global';
          '/Validation/Assertions': '/Quality/List',
     }
  *  */
+import { Location } from 'history';
 
-export const getRedirectUrl = (newRoutes: { [key: string]: string }) => {
-    let newPathname = `${window.location.pathname}${window.location.search}`;
+import { HelpLinkRoutes } from '@conf/Global';
+
+export const getRedirectUrl = (newRoutes: { [key: string]: string }, location: Location) => {
+    let newPathname = `${location.pathname}${location.search}`;
     if (!newRoutes) {
         return newPathname;
     }
@@ -24,7 +25,7 @@ export const getRedirectUrl = (newRoutes: { [key: string]: string }) => {
         }
     }
 
-    return `${newPathname}${window.location.search}`;
+    return `${newPathname}${location.search}`;
 };
 
 /**

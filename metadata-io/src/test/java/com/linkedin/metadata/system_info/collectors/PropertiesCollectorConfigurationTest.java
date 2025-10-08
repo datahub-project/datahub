@@ -672,6 +672,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ingestionScheduler.consumerGroupSuffix",
           "ingestionScheduler.enabled",
           "ingestion.scheduler.refreshIntervalSeconds",
+          "path-mappings./",
 
           // Management and monitoring
           "management.defaults.metrics.export.enabled",
@@ -802,6 +803,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "springdoc.api-docs.version",
           "springdoc.cache.disabled",
           "springdoc.groups.enabled",
+          "springdoc.swagger-ui.disable-swagger-default-url",
           "springdoc.swagger-ui.path",
           "springdoc.swagger-ui.urls-primary-name",
           "structuredProperties.enabled",
@@ -838,6 +840,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "org.gradle.internal.worker.tmpdir",
           "org.springframework.boot.test.context.SpringBootTestContextBootstrapper",
           "datahub.policies.systemPolicyUrnList",
+
+          // Base Path
+          "datahub.basePath",
+          "server.servlet.context-path",
+          "datahub.gms.basePath",
+          "datahub.gms.basePathEnabled",
 
           // SaaS properties
           "assertionMonitors.resolveIngestionSourceForAspects",
