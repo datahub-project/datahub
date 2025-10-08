@@ -99,9 +99,9 @@ const FilterButtonsContainer = styled.div`
     gap: 8px;
 `;
 
-const StyledSearchBar = styled(SearchBar)`
-    width: 400px;
-`;
+const StyledSearchBar = React.forwardRef<any, any>((props, ref) => (
+    <SearchBar {...props} ref={ref} style={{ ...props.style, width: '400px' }} />
+));
 
 const StyledSimpleSelect = styled(SimpleSelect)`
     display: flex;
