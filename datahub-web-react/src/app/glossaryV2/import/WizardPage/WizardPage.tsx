@@ -1,10 +1,8 @@
 import { Button, Checkbox, Input, PageTitle, Pill, SearchBar, Select, SimpleSelect, Table } from '@components';
-import { Breadcrumb } from 'antd';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
-import { Link } from 'react-router-dom';
 
 import { Column } from '@components/components/Table/types';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
@@ -23,6 +21,7 @@ import { useMockEntityComparison } from '../shared/hooks/useMockEntityComparison
 import { useApolloClient } from '@apollo/client';
 import DropzoneTable from './DropzoneTable/DropzoneTable';
 import { useImportState } from './WizardPage.hooks';
+import { BreadcrumbHeader } from '../shared/components/BreadcrumbHeader';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
@@ -221,28 +220,6 @@ const StepButtons = styled.div`
     gap: 12px;
 `;
 
-const BreadcrumbWrapper = styled.div`
-    padding: 10px 0;
-    border-bottom: 1px solid #e5e7eb;
-    margin-bottom: 20px;
-`;
-
-const StyledBreadcrumb = styled(Breadcrumb)`
-    font-size: 14px;
-    
-    .ant-breadcrumb-link {
-        color: #6b7280;
-        text-decoration: none;
-        
-        &:hover {
-            color: #3b82f6;
-        }
-    }
-    
-    .ant-breadcrumb-separator {
-        color: #9ca3af;
-    }
-`;
 
 
 // Wizard step definitions
@@ -2105,24 +2082,26 @@ export const WizardPage = () => {
         }
     };
 
+    const breadcrumbItems = [
+        {
+            label: 'Glossary',
+            href: PageRoutes.GLOSSARY
+        },
+        {
+            label: 'Import',
+            isActive: true
+        }
+    ];
+
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
-            <BreadcrumbWrapper>
-                <StyledBreadcrumb separator=">">
-                    <Breadcrumb.Item>
-                        <Link to={PageRoutes.GLOSSARY}>Glossary</Link>
-                    </Breadcrumb.Item>
-                    <Breadcrumb.Item>Import</Breadcrumb.Item>
-                </StyledBreadcrumb>
-            </BreadcrumbWrapper>
-            <PageHeaderContainer>
-                <TitleContainer>
-                    <PageTitle
-                        title="Import Glossary"
-                        subTitle="Import glossary terms from CSV files and manage their import status"
-                    />
-                </TitleContainer>
-            </PageHeaderContainer>
+            <BreadcrumbHeader
+                items={breadcrumbItems}
+                title="Import Glossary"
+                subtitle="Import glossary terms from CSV files and manage their import status"
+                pillLabel="Mock"
+                pillColor="blue"
+            />
             <PageContentContainer>
                 {/* Step Content - Full Width, No Container */}
                 {renderStepContent()}
