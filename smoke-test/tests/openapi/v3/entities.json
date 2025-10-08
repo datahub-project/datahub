@@ -115,7 +115,8 @@
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
         "root\\['totalCount'\\]",
-        "root\\['entities'\\]\\[\\d+\\]\\['scrollId'\\]"
+        "root\\['entities'\\]\\[\\d+\\]\\['scrollId'\\]",
+        "root\\['facets'\\]"
       ],
       "json": {
         "entities": [
@@ -275,6 +276,7 @@
         "root\\['scrollId'\\]",
         "root\\['entities'\\]\\[\\d+\\]\\['scrollId'\\]",
         "root\\['totalCount'\\]",
+        "root\\['facets'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['sourceIP'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['telemetryTraceId'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['auditStamp'\\]",
@@ -328,7 +330,8 @@
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
         "root\\['entities'\\]\\[\\d+\\]\\['scrollId'\\]",
-        "root\\['totalCount'\\]"
+        "root\\['totalCount'\\]",
+        "root\\['facets'\\]"
       ],
       "json": {
         "entities": [
