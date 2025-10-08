@@ -7,8 +7,8 @@ from datetime import timedelta
 
 from airflow import DAG
 from airflow.operators.bash import BashOperator
+from airflow.utils.dates import days_ago
 
-from datahub_airflow_plugin._airflow_version_specific import days_ago
 from datahub_airflow_plugin.entities import Dataset, Urn
 
 default_args = {
@@ -20,33 +20,15 @@ default_args = {
 }
 
 
-# Create DAG arguments conditionally for Airflow version compatibility
-import airflow  # noqa: E402
-
-dag_kwargs = {
-    "dag_id": "datahub_lineage_backend_demo",
-    "default_args": default_args,
-    "description": "An example DAG demonstrating the usage of DataHub's Airflow lineage backend.",
-    "start_date": days_ago(2),
-    "tags": ["example_tag"],
-    "catchup": False,
-}
-
-# Handle schedule parameter change in Airflow 3.0
-if hasattr(airflow, "__version__") and airflow.__version__.startswith(
-    ("3.", "2.10", "2.9", "2.8", "2.7")
-):
-    # Use schedule for newer Airflow versions (2.7+)
-    dag_kwargs["schedule"] = timedelta(days=1)
-else:
-    # Use schedule_interval for older versions
-    dag_kwargs["schedule_interval"] = timedelta(days=1)
-
-# Add default_view only for older Airflow versions that support it
-if hasattr(airflow, "__version__") and not airflow.__version__.startswith("3."):
-    dag_kwargs["default_view"] = "tree"
-
-with DAG(**dag_kwargs) as dag:
+with DAG(
+    "datahub_lineage_backend_demo",
+    default_args=default_args,
+    description="An example DAG demonstrating the usage of DataHub's Airflow lineage backend.",
+    schedule_interval=timedelta(days=1),
+    start_date=days_ago(2),
+    tags=["example_tag"],
+    catchup=False,
+) as dag:
     task1 = BashOperator(
         task_id="run_data_task",
         dag=dag,

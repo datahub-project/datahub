@@ -45,12 +45,12 @@ SELECT
   tos.OPTION_VALUE as comment,
   t.is_insertable_into,
   t.ddl,
-  ts.row_count,
+  ts.row_count as row_count,
   ts.size_bytes as bytes,
   p.num_partitions,
   p.max_partition_id,
-  p.active_billable_bytes,
-  p.long_term_billable_bytes,
+  p.active_billable_bytes as active_billable_bytes,
+  IFNULL(p.long_term_billable_bytes, 0) as long_term_billable_bytes,
   REGEXP_EXTRACT(t.table_name, r"(?:(?:.+\\D)[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$") as table_suffix,
   REGEXP_REPLACE(t.table_name, r"(?:[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$", "") as table_base
 

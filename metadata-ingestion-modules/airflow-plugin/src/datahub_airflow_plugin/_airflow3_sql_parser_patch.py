@@ -40,8 +40,36 @@ def _datahub_generate_openlineage_metadata_from_sql(
         from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
         from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
 
-        # Get platform from dialect
+        # Handle missing database_info by creating a minimal one from connection
+        if database_info is None:
+            from airflow.providers.openlineage.sqlparser import DatabaseInfo
+
+            # Get basic properties from hook's connection
+            conn = getattr(hook, "get_connection", lambda: None)()
+            scheme = getattr(conn, "conn_type", None) if conn else None
+            db_name = getattr(conn, "schema", None) if conn else None
+
+            database_info = DatabaseInfo(
+                scheme=scheme,
+                authority=None,
+                database=db_name,
+                information_schema_columns=[],
+                information_schema_table_name="",
+                use_flat_cross_db_query=False,
+                is_information_schema_cross_db=False,
+                is_uppercase_names=False,
+                normalize_name_method=lambda x: x.lower(),
+            )
+            logger.debug(
+                f"Created minimal DatabaseInfo from connection: scheme={scheme}, database={db_name}"
+            )
+
+        # Get platform from dialect or from database_info scheme
+        # If dialect is "generic", prefer database_info.scheme (connection type)
         platform = self.dialect or "sql"
+        if platform == "generic" and database_info:
+            # Use the actual connection type instead of "generic"
+            platform = getattr(database_info, "scheme", platform) or platform
         platform = OL_SCHEME_TWEAKS.get(platform, platform)
 
         # Get default database and schema

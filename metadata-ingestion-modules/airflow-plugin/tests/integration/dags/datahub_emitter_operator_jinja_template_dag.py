@@ -10,9 +10,6 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DatasetSnapshotClass,
 )
-from datahub_airflow_plugin._airflow_version_specific import (
-    get_airflow_compatible_dag_kwargs,
-)
 from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
 
 default_args = {
@@ -27,14 +24,11 @@ default_args = {
 
 with DAG(
     "datahub_emitter_operator_jinja_template_dag",
-    **get_airflow_compatible_dag_kwargs(
-        default_args=default_args,
-        description="An example dag with jinja template",
-        schedule=None,
-        tags=["example_tag"],
-        catchup=False,
-        default_view="tree",
-    ),
+    default_args=default_args,
+    description="An example dag with jinja template",
+    schedule_interval=None,
+    tags=["example_tag"],
+    catchup=False,
 ):
     add_custom_properties = DatahubEmitterOperator(
         task_id="datahub_emitter_operator_jinja_template_dag_task",

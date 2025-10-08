@@ -45,6 +45,7 @@ def load_schemas(schemas_path: str) -> Dict[str, dict]:
         "mxe/MetadataChangeLog.avsc",
         "mxe/PlatformEvent.avsc",
         "platform/event/v1/EntityChangeEvent.avsc",
+        "platform/event/v1/RelationshipChangeEvent.avsc",
         "metadata/query/filter/Filter.avsc",  # temporarily added to test reserved keywords support
     }
 
@@ -323,7 +324,7 @@ ASPECT_NAME_MAP: Dict[str, Type[_Aspect]] = {{
     for aspect in ASPECT_CLASSES
 }}
 
-from typing import Literal
+from typing import Literal, Set
 from typing_extensions import TypedDict
 
 class AspectBag(TypedDict, total=False):
@@ -333,6 +334,8 @@ class AspectBag(TypedDict, total=False):
 KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
     {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}': {aspect['name']}Class" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
 }}
+
+KEY_ASPECT_NAMES: Set[str] = {{cls.ASPECT_NAME for cls in KEY_ASPECTS.values()}}
 
 ENTITY_TYPE_NAMES: List[str] = [
     {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}'" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
@@ -466,6 +469,10 @@ def create_from_ids(cls, data_flow_urn: str, job_id: str) -> "DataJobUrn":
 
 def get_data_flow_urn(self) -> "DataFlowUrn":
     return DataFlowUrn.from_string(self.flow)
+
+@property
+def orchestrator(self) -> str:
+    return self.get_data_flow_urn().orchestrator
 
 @deprecated(reason="Use .job_id instead")
 def get_job_id(self) -> str:

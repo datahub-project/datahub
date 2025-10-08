@@ -1,6 +1,6 @@
 package com.linkedin.datahub.upgrade.config;
 
-import com.datahub.authentication.Authentication;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
@@ -12,26 +12,17 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
-import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
-import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
+import com.linkedin.metadata.dao.throttle.ThrottleSensor;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
-import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.graph.SystemGraphRetriever;
-import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.search.SearchServiceSearchRetriever;
+import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.TopicConvention;
-import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.OperationContextConfig;
-import io.datahubproject.metadata.context.RetrieverContext;
-import io.datahubproject.metadata.context.ServicesRegistryContext;
-import io.datahubproject.metadata.context.ValidationContext;
-import io.datahubproject.metadata.services.RestrictedService;
 import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.NonNull;
@@ -113,13 +104,14 @@ public class SystemUpdateConfig {
       @Qualifier("configurationProvider") ConfigurationProvider provider,
       KafkaProperties properties,
       @Qualifier("duheSchemaRegistryConfig")
-          KafkaConfiguration.SerDeKeyValueConfig duheSchemaRegistryConfig) {
+          KafkaConfiguration.SerDeKeyValueConfig duheSchemaRegistryConfig,
+      MetricUtils metricUtils) {
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     Producer<String, IndexedRecord> producer =
         new KafkaProducer<>(
             DataHubKafkaProducerFactory.buildProducerProperties(
                 duheSchemaRegistryConfig, kafkaConfiguration, properties));
-    return new KafkaEventProducer(producer, topicConvention, kafkaHealthChecker);
+    return new KafkaEventProducer(producer, topicConvention, kafkaHealthChecker, metricUtils);
   }
 
   /**
@@ -151,57 +143,52 @@ public class SystemUpdateConfig {
     return duheSchemaRegistryConfig;
   }
 
+  /**
+   * Override EntityService bean in the datahub-upgrade context to use system update CDC mode
+   * configuration. Only active when system update is running blocking mode operations.
+   */
   @Primary
+  @Bean(name = "entityService")
+  @Conditional(SystemUpdateCondition.BlockingSystemUpdateCondition.class)
   @Nonnull
-  @Bean(name = "systemOperationContext")
-  protected OperationContext javaSystemOperationContext(
-      @Nonnull @Qualifier("systemAuthentication") final Authentication systemAuthentication,
-      @Nonnull final OperationContextConfig operationContextConfig,
-      @Nonnull final EntityRegistry entityRegistry,
-      @Nonnull final EntityService<?> entityService,
-      @Nonnull final RestrictedService restrictedService,
-      @Nonnull final GraphService graphService,
-      @Nonnull final SearchService searchService,
-      @Qualifier("baseElasticSearchComponents")
-          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
-      @Nonnull final ConfigurationProvider configurationProvider) {
+  protected EntityService<ChangeItemImpl> createEntityServiceWithSystemUpdateCDCMode(
+      @Qualifier("kafkaEventProducer") final KafkaEventProducer eventProducer,
+      @Qualifier("entityAspectDao") final AspectDao aspectDao,
+      @Qualifier("configurationProvider") ConfigurationProvider configurationProvider,
+      @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2,
+      @Value("${EBEAN_MAX_TRANSACTION_RETRY:#{null}}") final Integer ebeanMaxTransactionRetry,
+      final List<ThrottleSensor> throttleSensors) {
 
-    EntityServiceAspectRetriever entityServiceAspectRetriever =
-        EntityServiceAspectRetriever.builder()
-            .entityRegistry(entityRegistry)
-            .entityService(entityService)
-            .build();
+    FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
+    boolean systemUpdateCDCMode = configurationProvider.getSystemUpdate().isCdcMode();
 
-    SearchServiceSearchRetriever searchServiceSearchRetriever =
-        SearchServiceSearchRetriever.builder().searchService(searchService).build();
+    log.info(
+        "Creating EntityService with system update CDC mode override: {}", systemUpdateCDCMode);
 
-    SystemGraphRetriever systemGraphRetriever =
-        SystemGraphRetriever.builder().graphService(graphService).build();
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(
+            aspectDao,
+            eventProducer,
+            featureFlags.isAlwaysEmitChangeLog(),
+            systemUpdateCDCMode, // Use system update CDC mode
+            featureFlags.getPreProcessHooks(),
+            ebeanMaxTransactionRetry,
+            enableBrowsePathV2);
 
-    OperationContext systemOperationContext =
-        OperationContext.asSystem(
-            operationContextConfig,
-            systemAuthentication,
-            entityServiceAspectRetriever.getEntityRegistry(),
-            ServicesRegistryContext.builder().restrictedService(restrictedService).build(),
-            components.getIndexConvention(),
-            RetrieverContext.builder()
-                .aspectRetriever(entityServiceAspectRetriever)
-                .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
-                .graphRetriever(systemGraphRetriever)
-                .searchRetriever(searchServiceSearchRetriever)
-                .build(),
-            ValidationContext.builder()
-                .alternateValidation(
-                    configurationProvider.getFeatureFlags().isAlternateMCPValidation())
-                .build(),
-            null,
-            true);
+    if (throttleSensors != null
+        && !throttleSensors.isEmpty()
+        && configurationProvider
+            .getMetadataChangeProposal()
+            .getThrottle()
+            .getComponents()
+            .getApiRequests()
+            .isEnabled()) {
+      log.info("API Requests Throttle Enabled");
+      throttleSensors.forEach(sensor -> sensor.addCallback(entityService::handleThrottleEvent));
+    } else {
+      log.info("API Requests Throttle Disabled");
+    }
 
-    entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
-    systemGraphRetriever.setSystemOperationContext(systemOperationContext);
-    searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
-
-    return systemOperationContext;
+    return entityService;
   }
 }

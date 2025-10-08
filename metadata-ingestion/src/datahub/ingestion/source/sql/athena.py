@@ -16,6 +16,7 @@ from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.types import TypeEngine
 from sqlalchemy_bigquery import STRUCT
 
+from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import ContainerKey, DatabaseKey
 from datahub.ingestion.api.decorators import (
@@ -29,8 +30,14 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.sql.athena_properties_extractor import (
+    AthenaPropertiesExtractor,
+)
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     register_custom_type,
@@ -44,12 +51,17 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
-from datahub.metadata.schema_classes import MapTypeClass, RecordTypeClass
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    MapTypeClass,
+    RecordTypeClass,
+)
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 from datahub.utilities.sqlalchemy_type_converter import (
     MapType,
     get_schema_fields_for_sqlalchemy_column,
 )
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 try:
     from typing_extensions import override
@@ -61,6 +73,11 @@ except ImportError:
 
 
 logger = logging.getLogger(__name__)
+
+# Precompiled regex for SQL identifier validation
+# Athena identifiers can only contain lowercase letters, numbers, underscore, and period (for complex types)
+# Note: Athena automatically converts uppercase to lowercase, but we're being strict for security
+_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z0-9_.]+$")
 
 assert STRUCT, "required type modules are not available"
 register_custom_type(STRUCT, RecordTypeClass)
@@ -235,7 +252,7 @@ class CustomAthenaRestDialect(AthenaRestDialect):
 
 
 class AthenaConfig(SQLCommonConfig):
-    scheme: str = "awsathena+rest"
+    scheme: HiddenFromDocs[str] = "awsathena+rest"
     username: Optional[str] = pydantic.Field(
         default=None,
         description="Username credential. If not specified, detected with boto3 rules. See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html",
@@ -281,10 +298,20 @@ class AthenaConfig(SQLCommonConfig):
         description="Extract partitions for tables. Partition extraction needs to run a query (`select * from table$partitions`) on the table. Disable this if you don't want to grant select permission.",
     )
 
+    extract_partitions_using_create_statements: bool = pydantic.Field(
+        default=False,
+        description="Extract partitions using the `SHOW CREATE TABLE` statement instead of querying the table's partitions directly. This needs to be enabled to extract Iceberg partitions. If extraction fails it falls back to the default partition extraction. This is experimental.",
+    )
+
     _s3_staging_dir_population = pydantic_renamed_field(
         old_name="s3_staging_dir",
         new_name="query_result_location",
         print_warning=True,
+    )
+
+    emit_schema_fieldpaths_as_v1: bool = pydantic.Field(
+        default=False,
+        description="Convert simple field paths to DataHub field path v1 format. Simple column paths are those that do not contain any nested fields.",
     )
 
     profiling: AthenaProfilingConfig = AthenaProfilingConfig()
@@ -321,9 +348,24 @@ class Partitionitem:
 @capability(
     SourceCapability.DATA_PROFILING,
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
+    subtype_modifier=[SourceCapabilityModifier.TABLE],
 )
-@capability(SourceCapability.LINEAGE_COARSE, "Supported for S3 tables")
-@capability(SourceCapability.LINEAGE_FINE, "Supported for S3 tables")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Supported for S3 tables",
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.TABLE,
+    ],
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Supported for S3 tables",
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.TABLE,
+    ],
+)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 class AthenaSource(SQLAlchemySource):
     """
@@ -475,10 +517,69 @@ class AthenaSource(SQLAlchemySource):
         return schemas
 
     @classmethod
+    def _sanitize_identifier(cls, identifier: str) -> str:
+        """Sanitize SQL identifiers to prevent injection attacks.
+
+        Args:
+            identifier: The SQL identifier to sanitize
+
+        Returns:
+            Sanitized identifier safe for SQL queries
+
+        Raises:
+            ValueError: If identifier contains unsafe characters
+        """
+        if not identifier:
+            raise ValueError("Identifier cannot be empty")
+
+        # Allow only alphanumeric characters, underscores, and periods for identifiers
+        # This matches Athena's identifier naming rules
+        if not _IDENTIFIER_PATTERN.match(identifier):
+            raise ValueError(
+                f"Identifier '{identifier}' contains unsafe characters. Only alphanumeric characters, underscores, and periods are allowed."
+            )
+
+        return identifier
+
+    @classmethod
     def _casted_partition_key(cls, key: str) -> str:
         # We need to cast the partition keys to a VARCHAR, since otherwise
         # Athena may throw an error during concatenation / comparison.
-        return f"CAST({key} as VARCHAR)"
+        sanitized_key = cls._sanitize_identifier(key)
+        return f"CAST({sanitized_key} as VARCHAR)"
+
+    @classmethod
+    def _build_max_partition_query(
+        cls, schema: str, table: str, partitions: List[str]
+    ) -> str:
+        """Build SQL query to find the row with maximum partition values.
+
+        Args:
+            schema: Database schema name
+            table: Table name
+            partitions: List of partition column names
+
+        Returns:
+            SQL query string to find the maximum partition
+
+        Raises:
+            ValueError: If any identifier contains unsafe characters
+        """
+        # Sanitize all identifiers to prevent SQL injection
+        sanitized_schema = cls._sanitize_identifier(schema)
+        sanitized_table = cls._sanitize_identifier(table)
+        sanitized_partitions = [
+            cls._sanitize_identifier(partition) for partition in partitions
+        ]
+
+        casted_keys = [cls._casted_partition_key(key) for key in partitions]
+        if len(casted_keys) == 1:
+            part_concat = casted_keys[0]
+        else:
+            separator = "CAST('-' AS VARCHAR)"
+            part_concat = f"CONCAT({f', {separator}, '.join(casted_keys)})"
+
+        return f'select {",".join(sanitized_partitions)} from "{sanitized_schema}"."{sanitized_table}$partitions" where {part_concat} = (select max({part_concat}) from "{sanitized_schema}"."{sanitized_table}$partitions")'
 
     @override
     def get_partitions(
@@ -490,27 +591,37 @@ class AthenaSource(SQLAlchemySource):
         if not self.cursor:
             return None
 
-        metadata: AthenaTableMetadata = self.cursor.get_table_metadata(
-            table_name=table, schema_name=schema
-        )
+        if self.config.extract_partitions_using_create_statements:
+            try:
+                partitions = self._get_partitions_create_table(schema, table)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get partitions from create table statement for {schema}.{table} because of {e}. Falling back to SQLAlchemy.",
+                    exc_info=True,
+                )
 
-        partitions = []
-        for key in metadata.partition_keys:
-            if key.name:
-                partitions.append(key.name)
+                # If we can't get create table statement, we fall back to SQLAlchemy
+                partitions = self._get_partitions_sqlalchemy(schema, table)
+        else:
+            partitions = self._get_partitions_sqlalchemy(schema, table)
+
         if not partitions:
             return []
+
+        if (
+            not self.config.profiling.enabled
+            or not self.config.profiling.partition_profiling_enabled
+        ):
+            return partitions
 
         with self.report.report_exc(
             message="Failed to extract partition details",
             context=f"{schema}.{table}",
             level=StructuredLogLevel.WARN,
         ):
-            # We create an artifical concatenated partition key to be able to query max partition easier
-            part_concat = " || '-' || ".join(
-                self._casted_partition_key(key) for key in partitions
+            max_partition_query = self._build_max_partition_query(
+                schema, table, partitions
             )
-            max_partition_query = f'select {",".join(partitions)} from "{schema}"."{table}$partitions" where {part_concat} = (select max({part_concat}) from "{schema}"."{table}$partitions")'
             ret = self.cursor.execute(max_partition_query)
             max_partition: Dict[str, str] = {}
             if ret:
@@ -524,6 +635,56 @@ class AthenaSource(SQLAlchemySource):
                 max_partition=max_partition,
             )
 
+        return partitions
+
+    def _get_partitions_create_table(self, schema: str, table: str) -> List[str]:
+        assert self.cursor
+        try:
+            res = self.cursor.execute(f"SHOW CREATE TABLE `{schema}`.`{table}`")
+        except Exception as e:
+            # Athena does not support SHOW CREATE TABLE for views
+            # and will throw an error. We need to handle this case
+            # and caller needs to fallback to sqlalchemy's get partitions call.
+            logger.debug(
+                f"Failed to get table properties for {schema}.{table}: {e}",
+                exc_info=True,
+            )
+            raise e
+        rows = res.fetchall()
+
+        # Concatenate all rows into a single string with newlines
+        create_table_statement = "\n".join(row[0] for row in rows)
+
+        try:
+            athena_table_info = AthenaPropertiesExtractor.get_table_properties(
+                create_table_statement
+            )
+        except Exception as e:
+            logger.debug(
+                f"Failed to parse table properties for {schema}.{table}: {e} and statement: {create_table_statement}",
+                exc_info=True,
+            )
+            raise e
+
+        partitions = []
+        if (
+            athena_table_info.partition_info
+            and athena_table_info.partition_info.simple_columns
+        ):
+            partitions = [
+                ci.name for ci in athena_table_info.partition_info.simple_columns
+            ]
+        return partitions
+
+    def _get_partitions_sqlalchemy(self, schema: str, table: str) -> List[str]:
+        assert self.cursor
+        metadata: AthenaTableMetadata = self.cursor.get_table_metadata(
+            table_name=table, schema_name=schema
+        )
+        partitions = []
+        for key in metadata.partition_keys:
+            if key.name:
+                partitions.append(key.name)
         return partitions
 
     # Overwrite to modify the creation of schema fields
@@ -552,6 +713,18 @@ class AthenaSource(SQLAlchemySource):
             ),
         )
 
+        # Keeping it as individual check to make it more explicit and easier to understand
+        if not self.config.emit_schema_fieldpaths_as_v1:
+            return fields
+
+        if isinstance(
+            fields[0].type.type, (RecordTypeClass, MapTypeClass, ArrayTypeClass)
+        ):
+            return fields
+        else:
+            fields[0].fieldPath = get_simple_field_path_from_v2_field_path(
+                fields[0].fieldPath
+            )
         return fields
 
     def generate_partition_profiler_query(
@@ -565,16 +738,34 @@ class AthenaSource(SQLAlchemySource):
         ).get(table, None)
 
         if partition and partition.max_partition:
-            max_partition_filters = []
-            for key, value in partition.max_partition.items():
-                max_partition_filters.append(
-                    f"{self._casted_partition_key(key)} = '{value}'"
+            try:
+                # Sanitize identifiers to prevent SQL injection
+                sanitized_schema = self._sanitize_identifier(schema)
+                sanitized_table = self._sanitize_identifier(table)
+
+                max_partition_filters = []
+                for key, value in partition.max_partition.items():
+                    # Sanitize partition key and properly escape the value
+                    sanitized_key = self._sanitize_identifier(key)
+                    # Escape single quotes in the value to prevent injection
+                    escaped_value = value.replace("'", "''") if value else ""
+                    max_partition_filters.append(
+                        f"{self._casted_partition_key(sanitized_key)} = '{escaped_value}'"
+                    )
+                max_partition = str(partition.max_partition)
+                return (
+                    max_partition,
+                    f'SELECT * FROM "{sanitized_schema}"."{sanitized_table}" WHERE {" AND ".join(max_partition_filters)}',
                 )
-            max_partition = str(partition.max_partition)
-            return (
-                max_partition,
-                f'SELECT * FROM "{schema}"."{table}" WHERE {" AND ".join(max_partition_filters)}',
-            )
+            except ValueError as e:
+                # If sanitization fails due to malicious identifiers,
+                # return None to disable partition profiling for this table
+                # rather than crashing the entire ingestion
+                logger.warning(
+                    f"Failed to generate partition profiler query for {schema}.{table} due to unsafe identifiers: {e}. "
+                    f"Partition profiling disabled for this table."
+                )
+                return None, None
         return None, None
 
     def close(self):

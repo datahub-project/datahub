@@ -5,11 +5,14 @@ import { debounce } from 'lodash';
 import React, { useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entityV2/Entity';
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
+import ContextPath from '@app/previewV2/ContextPath';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
+import { Button, Text } from '@src/alchemy-components';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
@@ -17,15 +20,7 @@ import { getModalDomContainer } from '@src/utils/focus';
 
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
-import { DataProduct, Entity, EntityType } from '@types';
-
-const OptionWrapper = styled.div`
-    padding: 2px 0;
-
-    svg {
-        margin-right: 8px;
-    }
-`;
+import { DataHubPageModuleType, DataProduct, Entity, EntityType } from '@types';
 
 const LoadingWrapper = styled.div`
     display: flex;
@@ -53,6 +48,7 @@ export default function SetDataProductModal({
     refetch,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const { reloadModules } = useModulesContext();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [selectedDataProduct, setSelectedDataProduct] = useState<DataProduct | null>(currentDataProduct);
     const inputEl = useRef(null);
@@ -87,6 +83,24 @@ export default function SetDataProductModal({
         return debounce(fetch, 100);
     }, [getSearchResults]);
 
+    const sendAnalytics = () => {
+        const isBatchAction = urns.length > 1;
+
+        if (isBatchAction) {
+            analytics.event({
+                type: EventType.BatchEntityActionEvent,
+                actionType: EntityActionType.SetDataProduct,
+                entityUrns: urns,
+            });
+        } else {
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.SetDataProduct,
+                entityUrn: urns[0],
+            });
+        }
+    };
+
     function onOk() {
         if (!selectedDataProduct) return;
 
@@ -106,11 +120,15 @@ export default function SetDataProductModal({
             .then(() => {
                 message.success({ content: 'Updated Data Product!', duration: 3 });
                 setDataProduct?.(selectedDataProduct);
+                sendAnalytics();
                 onModalClose();
                 setSelectedDataProduct(null);
                 // refetch is for search results, need to set a timeout
                 setTimeout(() => {
                     refetch?.();
+                    // Reload modules
+                    // Assets - as assets module on data product summary tab could be updated
+                    reloadModules([DataHubPageModuleType.Assets]);
                 }, 2000);
             })
             .catch((e) => {
@@ -154,15 +172,23 @@ export default function SetDataProductModal({
         value: 'loading',
     };
 
-    const options = displayedDataProducts.map((result) => ({
-        label: (
-            <OptionWrapper>
-                {entityRegistry.getIcon(EntityType.DataProduct, 12, IconStyleType.ACCENT, 'black')}
-                {entityRegistry.getDisplayName(EntityType.DataProduct, result)}
-            </OptionWrapper>
-        ),
-        value: result.urn,
-    }));
+    const options = displayedDataProducts.map((result) => {
+        return {
+            label: (
+                <>
+                    <Text size="md">{entityRegistry.getDisplayName(EntityType.DataProduct, result)}</Text>
+                    <ContextPath
+                        entityType={EntityType.DataProduct}
+                        displayedEntityType="Data product"
+                        parentEntities={getParentEntities(result as DataProduct, EntityType.DataProduct)}
+                        entityTitleWidth={200}
+                        numVisible={3}
+                    />
+                </>
+            ),
+            value: result.urn,
+        };
+    });
 
     return (
         <Modal

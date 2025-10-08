@@ -8,9 +8,11 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import dateutil.parser as dp
 import requests
-from pydantic import BaseModel
-from pydantic.class_validators import root_validator, validator
+import sqlglot
+from pydantic import BaseModel, root_validator, validator
 from pydantic.fields import Field
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
@@ -75,6 +77,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaFieldDataType,
     SchemaMetadata,
     StringTypeClass,
+    TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -107,6 +110,12 @@ logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 25
 
+# Retry configuration constants
+RETRY_MAX_TIMES = 3
+RETRY_STATUS_CODES = [429, 500, 502, 503, 504]
+RETRY_BACKOFF_FACTOR = 1
+RETRY_ALLOWED_METHODS = ["GET"]
+
 
 chart_type_from_viz_type = {
     "line": ChartTypeClass.LINE,
@@ -131,8 +140,11 @@ FIELD_TYPE_MAPPING = {
     "STRING": StringTypeClass,
     "FLOAT": NumberTypeClass,
     "DATETIME": DateTypeClass,
+    "TIMESTAMP": TimeTypeClass,
     "BOOLEAN": BooleanTypeClass,
     "SQL": StringTypeClass,
+    "NUMERIC": NumberTypeClass,
+    "TEXT": StringTypeClass,
 }
 
 
@@ -149,6 +161,7 @@ class SupersetDataset(BaseModel):
     table_name: str
     changed_on_utc: Optional[str] = None
     explore_url: Optional[str] = ""
+    description: Optional[str] = ""
 
     @property
     def modified_dt(self) -> Optional[datetime]:
@@ -272,10 +285,11 @@ def get_filter_name(filter_obj):
 @config_class(SupersetConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
 @capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
+@capability(SourceCapability.TAGS, "Supported by default")
 class SupersetSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
@@ -321,6 +335,19 @@ class SupersetSource(StatefulIngestionSourceBase):
         logger.debug("Got access token from superset")
 
         requests_session = requests.Session()
+
+        # Configure retry strategy for transient failures
+        retry_strategy = Retry(
+            total=RETRY_MAX_TIMES,
+            status_forcelist=RETRY_STATUS_CODES,
+            backoff_factor=RETRY_BACKOFF_FACTOR,
+            allowed_methods=RETRY_ALLOWED_METHODS,
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        requests_session.mount("http://", adapter)
+        requests_session.mount("https://", adapter)
+
         requests_session.headers.update(
             {
                 "Authorization": f"Bearer {self.access_token}",
@@ -353,8 +380,13 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
 
             if response.status_code != 200:
-                logger.warning(f"Failed to get {entity_type} data: {response.text}")
-                continue
+                self.report.warning(
+                    title="Failed to fetch data from Superset API",
+                    message="Incomplete metadata extraction due to Superset API failure",
+                    context=f"Entity Type: {entity_type}, HTTP Status Code: {response.status_code}, Page: {current_page}. Response: {response.text}",
+                )
+                # we stop pagination for this entity type and we continue the overall ingestion
+                break
 
             payload = response.json()
             # Update total_items with the actual count from the response
@@ -515,6 +547,11 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         dashboard_snapshot.aspects.append(owners_info)
 
+        superset_tags = self._extract_and_map_tags(dashboard_data.get("tags", []))
+        tags = self._merge_tags_with_existing(dashboard_urn, superset_tags)
+        if tags:
+            dashboard_snapshot.aspects.append(tags)
+
         return dashboard_snapshot
 
     def _process_dashboard(self, dashboard_data: Any) -> Iterable[MetadataWorkUnit]:
@@ -633,62 +670,130 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         return input_fields
 
-    def construct_chart_cll(
-        self,
-        chart_data: dict,
-        datasource_urn: Union[str, None],
-        datasource_id: Union[Any, int],
-    ) -> List[InputField]:
-        column_data: List[Union[str, dict]] = chart_data.get("form_data", {}).get(
-            "all_columns", []
-        )
+    def _extract_columns_from_sql(self, sql_expr: Optional[str]) -> List[str]:
+        if not sql_expr:
+            return []
 
-        # the second field represents whether its a SQL expression,
-        # false being just regular column and true being SQL col
-        chart_column_data: List[Tuple[str, bool]] = [
-            (column, False)
-            if isinstance(column, str)
-            else (column.get("label", ""), True)
-            for column in column_data
-        ]
+        try:
+            parsed_expr = sqlglot.parse_one(sql_expr)
 
-        dataset_columns: List[Tuple[str, str, str]] = []
+            column_refs = set()
+            for node in parsed_expr.walk():
+                if isinstance(node, sqlglot.exp.Column):
+                    column_name = node.name
+                    column_refs.add(column_name)
 
-        # parses the superset dataset's column info, to build type and description info
-        if datasource_id:
-            dataset_info = self.get_dataset_info(datasource_id).get("result", {})
-            dataset_column_info = dataset_info.get("columns", [])
+            return list(column_refs)
+        except Exception as e:
+            self.report.warning(f"Failed to parse SQL expression '{sql_expr}': {e}")
+            return []
 
-            for column in dataset_column_info:
-                col_name = column.get("column_name", "")
-                col_type = column.get("type", "")
-                col_description = column.get("description", "")
+    def _process_column_item(
+        self, item: Union[str, dict], unique_columns: Dict[str, bool]
+    ) -> None:
+        """Process a single column item and add to unique_columns."""
 
-                # if missing column name or column type, cannot construct the column,
-                # so we skip this column, missing description is fine
-                if col_name == "" or col_type == "":
-                    logger.info(f"could not construct column lineage for {column}")
-                    continue
+        def add_column(col_name: str, is_sql: bool) -> None:
+            if not col_name:
+                return
+            # Always set to False if any non-SQL seen, else keep as is_sql
+            unique_columns[col_name] = unique_columns.get(col_name, True) and is_sql
 
-                dataset_columns.append((col_name, col_type, col_description))
+        if isinstance(item, str):
+            add_column(item, False)
+        elif isinstance(item, dict):
+            if item.get("expressionType") == "SIMPLE":
+                # For metrics with SIMPLE expression type
+                add_column(item.get("column", {}).get("column_name", ""), False)
+            elif item.get("expressionType") == "SQL":
+                sql_expr = item.get("sqlExpression")
+                column_refs = self._extract_columns_from_sql(sql_expr)
+                for col in column_refs:
+                    add_column(col, False)
+                if not column_refs:
+                    add_column(item.get("label", ""), True)
+
+    def _collect_all_unique_columns(self, form_data: dict) -> Dict[str, bool]:
+        """Collect all unique column names from form_data, distinguishing SQL vs non-SQL."""
+        unique_columns: Dict[str, bool] = {}
+
+        # Process regular columns
+        for column in form_data.get("all_columns", []):
+            self._process_column_item(column, unique_columns)
+
+        # Process metrics
+        # For charts with a single metric, the metric is stored in the form_data as a string in the 'metric' key
+        # For charts with multiple metrics, the metrics are stored in the form_data as a list of strings in the 'metrics' key
+        if "metric" in form_data:
+            metrics_data = [form_data.get("metric")]
         else:
-            # if no datasource id, cannot build cll, just return
+            metrics_data = form_data.get("metrics", [])
+
+        for metric in metrics_data:
+            if metric is not None:
+                self._process_column_item(metric, unique_columns)
+
+        # Process group by columns
+        for group in form_data.get("groupby", []):
+            self._process_column_item(group, unique_columns)
+
+        # Process x-axis columns
+        x_axis_data = form_data.get("x_axis")
+        if x_axis_data is not None:
+            self._process_column_item(x_axis_data, unique_columns)
+
+        return unique_columns
+
+    def _fetch_dataset_columns(
+        self, datasource_id: Union[Any, int]
+    ) -> List[Tuple[str, str, str]]:
+        """Fetch dataset columns and metrics from Superset API."""
+        if not datasource_id:
             logger.warning(
                 "no datasource id was found, cannot build column level lineage"
             )
             return []
 
+        dataset_info = self.get_dataset_info(datasource_id).get("result", {})
+        dataset_column_info = dataset_info.get("columns", [])
+        dataset_metric_info = dataset_info.get("metrics", [])
+
+        dataset_columns: List[Tuple[str, str, str]] = []
+        for column in dataset_column_info:
+            col_name = column.get("column_name", "")
+            col_type = column.get("type", "")
+            col_description = column.get("description", "")
+
+            if col_name == "" or col_type == "":
+                logger.info(f"could not construct column lineage for {column}")
+                continue
+
+            dataset_columns.append((col_name, col_type, col_description))
+
+        for metric in dataset_metric_info:
+            metric_name = metric.get("metric_name", "")
+            metric_type = metric.get("metric_type", "")
+            metric_description = metric.get("description", "")
+
+            if metric_name == "" or metric_type == "":
+                logger.info(f"could not construct metric lineage for {metric}")
+                continue
+
+            dataset_columns.append((metric_name, metric_type, metric_description))
+
+        return dataset_columns
+
+    def _match_chart_columns_with_dataset(
+        self,
+        unique_chart_columns: Dict[str, bool],
+        dataset_columns: List[Tuple[str, str, str]],
+    ) -> List[Tuple[str, str, str]]:
+        """Match chart columns with dataset columns, preserving SQL/non-SQL status."""
         chart_columns: List[Tuple[str, str, str]] = []
-        for chart_col in chart_column_data:
-            chart_col_name, is_sql = chart_col
+
+        for chart_col_name, is_sql in unique_chart_columns.items():
             if is_sql:
-                chart_columns.append(
-                    (
-                        chart_col_name,
-                        "SQL",
-                        "",
-                    )
-                )
+                chart_columns.append((chart_col_name, "SQL", ""))
                 continue
 
             # find matching upstream column
@@ -699,13 +804,36 @@ class SupersetSource(StatefulIngestionSourceBase):
                 if dataset_col_name == chart_col_name:
                     chart_columns.append(
                         (chart_col_name, dataset_col_type, dataset_col_description)
-                    )  # column name, column type, description
+                    )
                     break
-
-            # if no matching upstream column was found
-            if len(chart_columns) == 0 or chart_columns[-1][0] != chart_col_name:
+            else:
                 chart_columns.append((chart_col_name, "", ""))
 
+        return chart_columns
+
+    def construct_chart_cll(
+        self,
+        chart_data: dict,
+        datasource_urn: Union[str, None],
+        datasource_id: Union[Any, int],
+    ) -> List[InputField]:
+        """Construct column-level lineage for a chart."""
+        form_data = chart_data.get("form_data", {})
+
+        # Extract and process all columns in one go
+        unique_columns = self._collect_all_unique_columns(form_data)
+
+        # Fetch dataset columns
+        dataset_columns = self._fetch_dataset_columns(datasource_id)
+        if not dataset_columns:
+            return []
+
+        # Match chart columns with dataset columns
+        chart_columns = self._match_chart_columns_with_dataset(
+            unique_columns, dataset_columns
+        )
+
+        # Build input fields
         return self.build_input_fields(chart_columns, datasource_urn)
 
     def construct_chart_from_chart_data(
@@ -822,6 +950,12 @@ class SupersetSource(StatefulIngestionSourceBase):
             lastModified=last_modified,
         )
         chart_snapshot.aspects.append(owners_info)
+
+        superset_tags = self._extract_and_map_tags(chart_data.get("tags", []))
+        tags = self._merge_tags_with_existing(chart_urn, superset_tags)
+        if tags:
+            chart_snapshot.aspects.append(tags)
+
         yield MetadataWorkUnit(
             id=chart_urn, mce=MetadataChangeEvent(proposedSnapshot=chart_snapshot)
         )
@@ -966,7 +1100,27 @@ class SupersetSource(StatefulIngestionSourceBase):
                 fieldPath=col.get("column_name", ""),
                 type=SchemaFieldDataType(data_type),
                 nativeDataType="",
-                description=col.get("column_name", ""),
+                description=col.get("description") or col.get("column_name", ""),
+                nullable=True,
+            )
+            schema_fields.append(field)
+        return schema_fields
+
+    def gen_metric_schema_fields(
+        self, metric_data: List[Dict[str, Any]]
+    ) -> List[SchemaField]:
+        schema_fields: List[SchemaField] = []
+        for metric in metric_data:
+            metric_type = metric.get("metric_type", "")
+            data_type = resolve_sql_type(metric_type)
+            if data_type is None:
+                data_type = NullType()
+
+            field = SchemaField(
+                fieldPath=metric.get("metric_name", ""),
+                type=SchemaFieldDataType(data_type),
+                nativeDataType=metric_type or "",
+                description=metric.get("description", ""),
                 nullable=True,
             )
             schema_fields.append(field)
@@ -978,13 +1132,18 @@ class SupersetSource(StatefulIngestionSourceBase):
     ) -> SchemaMetadata:
         dataset_response = dataset_response.get("result", {})
         column_data = dataset_response.get("columns", [])
+        metric_data = dataset_response.get("metrics", [])
+
+        column_fields = self.gen_schema_fields(column_data)
+        metric_fields = self.gen_metric_schema_fields(metric_data)
+
         schema_metadata = SchemaMetadata(
             schemaName=dataset_response.get("table_name", ""),
             platform=make_data_platform_urn(self.platform),
             version=0,
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),
-            fields=self.gen_schema_fields(column_data),
+            fields=column_fields + metric_fields,
         )
         return schema_metadata
 
@@ -1049,6 +1208,8 @@ class SupersetSource(StatefulIngestionSourceBase):
         # To generate column level lineage, we can manually decode the metadata
         # to produce the ColumnLineageInfo
         columns = dataset_response.get("result", {}).get("columns", [])
+        metrics = dataset_response.get("result", {}).get("metrics", [])
+
         fine_grained_lineages: List[FineGrainedLineageClass] = []
 
         for column in columns:
@@ -1058,6 +1219,22 @@ class SupersetSource(StatefulIngestionSourceBase):
 
             downstream = [make_schema_field_urn(datasource_urn, column_name)]
             upstreams = [make_schema_field_urn(upstream_dataset, column_name)]
+            fine_grained_lineages.append(
+                FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=downstream,
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=upstreams,
+                )
+            )
+
+        for metric in metrics:
+            metric_name = metric.get("metric_name", "")
+            if not metric_name:
+                continue
+
+            downstream = [make_schema_field_urn(datasource_urn, metric_name)]
+            upstreams = [make_schema_field_urn(upstream_dataset, metric_name)]
             fine_grained_lineages.append(
                 FineGrainedLineageClass(
                     downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
@@ -1144,21 +1321,22 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         dataset_info = DatasetPropertiesClass(
             name=dataset.table_name,
-            description="",
+            description=dataset.description or "",
             externalUrl=dataset_url,
             lastModified=TimeStamp(time=modified_ts),
         )
-        global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
 
-        aspects_items: List[Any] = []
-        aspects_items.extend(
-            [
-                self.gen_schema_metadata(dataset_response),
-                dataset_info,
-                upstream_lineage,
-                global_tags,
-            ]
-        )
+        dataset_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
+        tags = self._merge_tags_with_existing(datasource_urn, dataset_tags)
+
+        aspects_items: List[Any] = [
+            self.gen_schema_metadata(dataset_response),
+            dataset_info,
+            upstream_lineage,
+        ]
+
+        if tags:
+            aspects_items.append(tags)
 
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
@@ -1179,6 +1357,75 @@ class SupersetSource(StatefulIngestionSourceBase):
         aspects_items.append(owners_info)
 
         return dataset_snapshot
+
+    def _extract_and_map_tags(
+        self, raw_tags: List[Dict[str, Any]]
+    ) -> Optional[GlobalTagsClass]:
+        """Extract and map Superset tags to DataHub GlobalTagsClass.
+
+        Filters out system-generated tags (type != 1) and only processes user-defined tags
+        from the Superset API response.
+
+        Args:
+            raw_tags: List of tag dictionaries from Superset API
+
+        Returns:
+            GlobalTagsClass with user-defined tags, or None if no tags found
+        """
+        user_tags = [
+            tag.get("name", "")
+            for tag in raw_tags
+            if tag.get("type") == 1 and tag.get("name")
+        ]
+
+        if not user_tags:
+            return None
+
+        tag_urns = [builder.make_tag_urn(tag) for tag in user_tags]
+        return GlobalTagsClass(
+            tags=[TagAssociationClass(tag=tag_urn) for tag_urn in tag_urns]
+        )
+
+    def _merge_tags_with_existing(
+        self, entity_urn: str, new_tags: Optional[GlobalTagsClass]
+    ) -> Optional[GlobalTagsClass]:
+        """Merge new tags with existing ones from DataHub to preserve manually added tags.
+
+        This method ensures that tags manually added via DataHub UI are not overwritten
+        during ingestion. It fetches existing tags from the graph and merges them with
+        new tags from the source system, avoiding duplicates.
+
+        Args:
+            entity_urn: URN of the entity to check for existing tags
+            new_tags: New tags to add as GlobalTagsClass object
+
+        Returns:
+            GlobalTagsClass with merged tags preserving existing ones, or None if no tags
+        """
+        if not new_tags or not new_tags.tags:
+            return None
+
+        # Fetch existing tags from DataHub
+        existing_global_tags = None
+        if self.ctx.graph:
+            existing_global_tags = self.ctx.graph.get_aspect(
+                entity_urn=entity_urn, aspect_type=GlobalTagsClass
+            )
+
+        # Merge existing tags with new ones, avoiding duplicates
+        all_tags = []
+        existing_tag_urns = set()
+
+        if existing_global_tags and existing_global_tags.tags:
+            all_tags.extend(existing_global_tags.tags)
+            existing_tag_urns = {tag.tag for tag in existing_global_tags.tags}
+
+        # Add new tags that don't already exist
+        for new_tag in new_tags.tags:
+            if new_tag.tag not in existing_tag_urns:
+                all_tags.append(new_tag)
+
+        return GlobalTagsClass(tags=all_tags) if all_tags else None
 
     def _process_dataset(self, dataset_data: Any) -> Iterable[MetadataWorkUnit]:
         dataset_name = ""

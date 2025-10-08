@@ -9,6 +9,7 @@ import {
 } from '@app/searchV2/filters/types';
 import { filterOptionsWithSearch, getStructuredPropFilterDisplayName } from '@app/searchV2/filters/utils';
 import { FILTER_DELIMITER } from '@app/searchV2/utils/constants';
+import { combineOrFilters } from '@app/searchV2/utils/filterUtils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import useGetSearchQueryInputs from '@src/app/search/useGetSearchQueryInputs';
@@ -20,7 +21,7 @@ import {
     useGetAutoCompleteMultipleResultsQuery,
     useGetSearchResultsForMultipleQuery,
 } from '@graphql/search.generated';
-import { EntityType } from '@types';
+import { AndFilterInput, EntityType } from '@types';
 
 const MAX_AGGREGATION_COUNT = 40;
 
@@ -53,11 +54,15 @@ export const useLoadAggregationOptions = ({
     visible,
     includeCounts,
     aggregationsEntityTypes,
+    extraOrFilters,
+    removeOptionsWithNoCount = false,
 }: {
     field: FilterField;
     visible: boolean;
     includeCounts: boolean;
     aggregationsEntityTypes?: Array<EntityType>;
+    extraOrFilters?: AndFilterInput[];
+    removeOptionsWithNoCount?: boolean;
 }) => {
     const { entityFilters, query, orFilters, viewUrn } = useGetSearchQueryInputs(
         useMemo(() => [field.field], [field.field]),
@@ -72,7 +77,7 @@ export const useLoadAggregationOptions = ({
                     maxAggValues: MAX_AGGREGATION_COUNT,
                 },
                 types: aggregationsEntityTypes || (field.field === ENTITY_FILTER_NAME ? null : entityFilters),
-                orFilters,
+                orFilters: extraOrFilters ? combineOrFilters(orFilters, extraOrFilters) : orFilters,
                 viewUrn,
             },
         },
@@ -84,7 +89,11 @@ export const useLoadAggregationOptions = ({
     }
 
     const requestedAgg = data?.aggregateAcrossEntities?.facets?.find((facet: any) => facet.field === field.field);
-    const options = requestedAgg?.aggregations?.map((aggregation): FilterValueOption => {
+    // Filter out options with no count only if removeOptionsWithNoCount otherwise do not filter
+    const filteredOptions = requestedAgg?.aggregations?.filter((agg) =>
+        removeOptionsWithNoCount ? !!agg.count : true,
+    );
+    const options = filteredOptions?.map((aggregation): FilterValueOption => {
         return {
             value: aggregation.value,
             entity: aggregation.entity,

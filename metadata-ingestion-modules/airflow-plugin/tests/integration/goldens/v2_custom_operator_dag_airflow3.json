@@ -268,6 +268,7 @@
                 "task_id": "custom_task_id",
                 "dag_id": "custom_operator_dag",
                 "max_tries": "0",
+                "operator": "CustomOperator",
                 "log_url": "http://airflow.example.com/dags/custom_operator_dag/runs/manual_run_test/tasks/custom_task_id?try_number=1",
                 "orchestrator": "airflow"
             },
@@ -275,7 +276,7 @@
             "name": "custom_operator_dag_custom_task_id_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1759827008016,
+                "time": 1759914813599,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -312,7 +313,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1759827008016,
+            "timestampMillis": 1759914813599,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -477,7 +478,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1759827009521,
+            "timestampMillis": 1759914817044,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

@@ -1,19 +1,8 @@
 # mypy: ignore-errors
-from typing import List, Union
+from typing import Any, List, Union
 
 from airflow.models import BaseOperator
 from avrogen.dict_wrapper import DictWrapper
-
-# Conditional import for Airflow version compatibility
-try:
-    from airflow.utils.decorators import apply_defaults
-except ImportError:
-    # apply_defaults was removed in Airflow 3.0
-    def apply_defaults(func):
-        # In Airflow 3.0+, the default value handling is built into the BaseOperator
-        # so we just return the function unchanged
-        return func
-
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -33,15 +22,11 @@ class DatahubBaseOperator(BaseOperator):
 
     hook: Union[DatahubRestHook, DatahubKafkaHook]
 
-    # mypy is not a fan of this. Newer versions of Airflow support proper typing for the decorator
-    # using PEP 612. However, there is not yet a good way to inherit the types of the kwargs from
-    # the superclass.
-    @apply_defaults  # type: ignore[misc]
-    def __init__(  # type: ignore[no-untyped-def]
+    def __init__(
         self,
         *,
         datahub_conn_id: str,
-        **kwargs,
+        **kwargs: Any,
     ):
         super().__init__(**kwargs)
 
@@ -60,13 +45,11 @@ class DatahubEmitterOperator(DatahubBaseOperator):
 
     template_fields = ["metadata"]
 
-    # See above for why these mypy type issues are ignored here.
-    @apply_defaults  # type: ignore[misc]
-    def __init__(  # type: ignore[no-untyped-def]
+    def __init__(
         self,
         mces: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]],
         datahub_conn_id: str,
-        **kwargs,
+        **kwargs: Any,
     ):
         super().__init__(
             datahub_conn_id=datahub_conn_id,

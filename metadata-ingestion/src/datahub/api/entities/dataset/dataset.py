@@ -27,10 +27,11 @@ from typing_extensions import TypeAlias
 
 import datahub.metadata.schema_classes as models
 from datahub.api.entities.structuredproperties.structuredproperties import AllowedTypes
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, LaxStr
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn,
+    make_domain_urn,
     make_schema_field_urn,
     make_tag_urn,
     make_term_urn,
@@ -43,6 +44,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetPropertiesClass,
+    DomainsClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
@@ -134,14 +136,13 @@ class StructuredPropertiesHelper:
 
 class SchemaFieldSpecification(StrictModel):
     id: Optional[str] = None
-    urn: Optional[str] = None
+    urn: Optional[str] = Field(None, validate_default=True)
     structured_properties: Optional[StructuredProperties] = None
     type: Optional[str] = None
     nativeDataType: Optional[str] = None
     jsonPath: Union[None, str] = None
     nullable: bool = False
     description: Union[None, str] = None
-    doc: Union[None, str] = None  # doc is an alias for description
     label: Optional[str] = None
     created: Optional[dict] = None
     lastModified: Optional[dict] = None
@@ -219,14 +220,14 @@ class SchemaFieldSpecification(StrictModel):
         return v
 
     @root_validator(pre=True)
-    def sync_description_and_doc(cls, values: Dict) -> Dict:
-        """Synchronize doc and description fields if one is provided but not the other."""
+    def sync_doc_into_description(cls, values: Dict) -> Dict:
+        """Synchronize doc into description field if doc is provided."""
         description = values.get("description")
-        doc = values.get("doc")
+        doc = values.pop("doc", None)
 
-        if description is not None and doc is None:
-            values["doc"] = description
-        elif doc is not None and description is None:
+        if doc is not None:
+            if description is not None:
+                raise ValueError("doc and description cannot both be provided")
             values["description"] = doc
 
         return values
@@ -294,10 +295,6 @@ class SchemaFieldSpecification(StrictModel):
             """Custom dict method for Pydantic v1 to handle YAML serialization properly."""
             exclude = kwargs.pop("exclude", None) or set()
 
-            # If description and doc are identical, exclude doc from the output
-            if self.description == self.doc and self.description is not None:
-                exclude.add("doc")
-
             # if nativeDataType and type are identical, exclude nativeDataType from the output
             if self.nativeDataType == self.type and self.nativeDataType is not None:
                 exclude.add("nativeDataType")
@@ -324,10 +321,6 @@ class SchemaFieldSpecification(StrictModel):
         def model_dump(self, **kwargs):
             """Custom model_dump method for Pydantic v2 to handle YAML serialization properly."""
             exclude = kwargs.pop("exclude", None) or set()
-
-            # If description and doc are identical, exclude doc from the output
-            if self.description == self.doc and self.description is not None:
-                exclude.add("doc")
 
             # if nativeDataType and type are identical, exclude nativeDataType from the output
             if self.nativeDataType == self.type and self.nativeDataType is not None:
@@ -380,12 +373,12 @@ class Dataset(StrictModel):
     id: Optional[str] = None
     platform: Optional[str] = None
     env: str = "PROD"
-    urn: Optional[str] = None
+    urn: Optional[str] = Field(None, validate_default=True)
     description: Optional[str] = None
-    name: Optional[str] = None
-    schema_metadata: Optional[SchemaSpecification] = Field(alias="schema")
+    name: Optional[str] = Field(None, validate_default=True)
+    schema_metadata: Optional[SchemaSpecification] = Field(default=None, alias="schema")
     downstreams: Optional[List[str]] = None
-    properties: Optional[Dict[str, str]] = None
+    properties: Optional[Dict[str, LaxStr]] = None
     subtype: Optional[str] = None
     subtypes: Optional[List[str]] = None
     tags: Optional[List[str]] = None
@@ -393,6 +386,7 @@ class Dataset(StrictModel):
     owners: Optional[List[Union[str, Ownership]]] = None
     structured_properties: Optional[StructuredProperties] = None
     external_url: Optional[str] = None
+    domains: Optional[List[str]] = None
 
     @property
     def platform_urn(self) -> str:
@@ -602,7 +596,7 @@ class Dataset(StrictModel):
                         ],
                         platformSchema=OtherSchemaClass(
                             rawSchema=yaml.dump(
-                                self.schema_metadata.dict(
+                                self.schema_metadata.model_dump(
                                     exclude_none=True, exclude_unset=True
                                 )
                             )
@@ -735,7 +729,14 @@ class Dataset(StrictModel):
                     )
                 )
                 yield from patch_builder.build()
-
+        if self.domains:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=self.urn,
+                aspect=DomainsClass(
+                    [make_domain_urn(domain) for domain in self.domains]
+                ),
+            )
+            yield mcp
         logger.info(f"Created dataset {self.urn}")
 
     @staticmethod
@@ -897,6 +898,7 @@ class Dataset(StrictModel):
                     structured_properties_map[sp.propertyUrn].extend(sp.values)  # type: ignore[arg-type,union-attr]
                 else:
                     structured_properties_map[sp.propertyUrn] = sp.values
+        domains: Optional[DomainsClass] = graph.get_aspect(urn, DomainsClass)
 
         if config.include_downstreams:
             related_downstreams = graph.get_related_entities(
@@ -937,6 +939,7 @@ class Dataset(StrictModel):
             structured_properties=(
                 structured_properties_map if structured_properties else None
             ),
+            domains=[domain for domain in domains.domains] if domains else None,
             downstreams=downstreams if config.include_downstreams else None,
         )
 

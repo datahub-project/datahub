@@ -1,12 +1,13 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
+import { FontColorLevelOptions, FontColorOptions } from '@components/theme/config';
+
 import { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
 import { isChart } from '@app/entityV2/chart/utils';
 import { isDashboard } from '@app/entityV2/dashboard/utils';
 import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { matchedInputFieldParams } from '@app/search/matches/matchedInputFieldRenderer';
-import { MATCH_COLOR, MATCH_COLOR_LEVEL } from '@app/searchV2/autoCompleteV2/constants';
 import { getDescriptionSlice, isDescriptionField, isHighlightableEntityField } from '@app/searchV2/matches/utils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { MatchText, Text } from '@src/alchemy-components';
@@ -26,9 +27,11 @@ interface Props {
     entityType: EntityType;
     entity: Entity;
     match: MatchesGroupedByFieldName;
+    color?: FontColorOptions;
+    colorLevel?: FontColorLevelOptions;
 }
 
-export default function Match({ query, entityType, entity, match }: Props) {
+export default function Match({ query, entityType, entity, match, color, colorLevel }: Props) {
     const entityRegistry = useEntityRegistryV2();
 
     const label = useMemo(
@@ -36,9 +39,10 @@ export default function Match({ query, entityType, entity, match }: Props) {
         [entityType, match.fieldName],
     );
 
+    const field = useMemo(() => match.matchedFields?.[0], [match]);
+
     const value = useMemo(() => {
         // show only the first value
-        const field = match.matchedFields?.[0];
         if (field === undefined) return undefined;
 
         // do not show empty matches
@@ -70,14 +74,15 @@ export default function Match({ query, entityType, entity, match }: Props) {
         }
 
         return field.value;
-    }, [match, query, entityRegistry, entity, entityType]);
+    }, [field, query, entityRegistry, entity, entityType]);
 
-    if (!value) return null;
+    if (!value || !field) return null;
 
     return (
-        <TextWrapper>
-            <Text color={MATCH_COLOR} colorLevel={MATCH_COLOR_LEVEL} size="sm" type="span">
-                {label}: <MatchText size="sm" type="span" text={value} highlight={query} />
+        <TextWrapper data-testid={`matched-field-container-${field.name}`}>
+            <Text color={color} colorLevel={colorLevel} size="sm" type="span">
+                {`${label}: `}
+                <MatchText size="sm" type="span" text={value} highlight={query} data-testid="matched-field-value" />
             </Text>
         </TextWrapper>
     );

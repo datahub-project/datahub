@@ -2,7 +2,6 @@ package io.datahubproject.openapi.v1.event;
 
 import static com.linkedin.metadata.Constants.DATAHUB_USAGE_EVENT_INDEX;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
-import static io.datahubproject.event.ExternalEventsService.PLATFORM_EVENT_TOPIC_NAME;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
@@ -14,6 +13,7 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.datahubusage.DataHubUsageService;
 import com.linkedin.metadata.datahubusage.ExternalAuditEventsSearchRequest;
 import com.linkedin.metadata.datahubusage.ExternalAuditEventsSearchResponse;
+import com.linkedin.mxe.Topics;
 import io.datahubproject.event.ExternalEventsService;
 import io.datahubproject.event.models.v1.ExternalEvent;
 import io.datahubproject.event.models.v1.ExternalEvents;
@@ -80,7 +80,7 @@ public class ExternalEventsController {
               name = "topic",
               required = true,
               description =
-                  "The topic to read events for. Currently only supports PlatformEvent_v1, which provides Platform Events such as EntityChangeEvent and NotificationRequestEvent.")
+                  "The topic to read events for. Currently only supports PlatformEvent_v1, which provides Platform Events such as EntityChangeEvent and NotificationRequestEvents and MetadataChangeLog_v1, which provides all aspect updates.")
           @RequestParam(name = "topic", required = true)
           String topic,
       @Parameter(name = "offsetId", description = "The offset to start reading the topic from")
@@ -140,8 +140,14 @@ public class ExternalEventsController {
 
   private boolean isAuthorizedToGetEvents(
       @Nonnull final OperationContext opContext, @Nonnull final String topic) {
-    if (PLATFORM_EVENT_TOPIC_NAME.equals(topic)) {
+    if (Topics.PLATFORM_EVENT.equals(topic)) {
       return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_PLATFORM_EVENTS_PRIVILEGE);
+    }
+    if (Topics.METADATA_CHANGE_LOG_VERSIONED.equals(topic)) {
+      return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_METADATA_CHANGE_LOG_EVENTS);
+    }
+    if (Topics.METADATA_CHANGE_LOG_TIMESERIES.equals(topic)) {
+      return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_METADATA_CHANGE_LOG_EVENTS);
     }
     return false;
   }

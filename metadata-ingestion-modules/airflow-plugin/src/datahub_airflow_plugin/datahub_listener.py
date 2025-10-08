@@ -71,7 +71,7 @@ from datahub_airflow_plugin.client.airflow_generator import (  # type: ignore[at
 )
 
 # Only import extractors on Airflow < 3.0
-# On Airflow 3.0+, we use the SQLParser patch instead
+# On Airflow 3.0+, we use the SQLParser patch and operator patches instead
 if not IS_AIRFLOW_3_OR_HIGHER:
     from datahub_airflow_plugin._extractors import (
         SQL_PARSING_RESULT_KEY,

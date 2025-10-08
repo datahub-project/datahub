@@ -50,7 +50,19 @@ export default function EnumValueMenu({
         aggregationsEntityTypes,
     });
 
-    const allOptions = [...defaultOptions, ...deduplicateOptions(defaultOptions, aggOptions)];
+    const optionsWithAggs = [...defaultOptions, ...deduplicateOptions(defaultOptions, aggOptions)];
+
+    // Do an aggregations query with the given search query as a filter to find any values not in the first set of results
+    const { options: searchAggOptions, loading: searchAggsLoading } = useLoadAggregationOptions({
+        field,
+        visible: !!searchQuery, // only run this query if there's a search query
+        includeCounts: includeCount,
+        aggregationsEntityTypes,
+        extraOrFilters: [{ and: [{ field: field.field, values: [searchQuery || ''] }] }],
+        removeOptionsWithNoCount: true,
+    });
+
+    const allOptions = [...optionsWithAggs, ...deduplicateOptions(optionsWithAggs, searchAggOptions)];
 
     const localSearchOptions = useFilterOptionsBySearchQuery(allOptions, searchQuery);
 
@@ -85,7 +97,7 @@ export default function EnumValueMenu({
             updateFilters={onApply}
             searchQuery={searchQuery || ''}
             updateSearchQuery={setSearchQuery}
-            isLoading={aggLoading}
+            isLoading={aggLoading || searchAggsLoading}
             searchPlaceholder={displayName}
             type={type}
             className={className}

@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Optional
 
 import requests
-from pydantic.class_validators import root_validator, validator
+from pydantic import root_validator, validator
 from pydantic.fields import Field
 
 from datahub.emitter.mce_builder import DEFAULT_ENV
@@ -69,9 +69,9 @@ class PresetConfig(SupersetConfig):
 
 @platform_name("Preset")
 @config_class(PresetConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
 class PresetSource(SupersetSource):
     """

@@ -10,10 +10,6 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonVirtualenvOperator
 
-from datahub_airflow_plugin._airflow_version_specific import (
-    get_airflow_compatible_dag_kwargs,
-)
-
 
 def ingest_from_mysql():
     from datahub.ingestion.run.pipeline import Pipeline
@@ -44,16 +40,13 @@ def ingest_from_mysql():
 
 with DAG(
     "datahub_mysql_ingest",
-    **get_airflow_compatible_dag_kwargs(
-        default_args={
-            "owner": "airflow",
-        },
-        description="An example DAG which ingests metadata from MySQL to DataHub",
-        start_date=datetime(2022, 1, 1),
-        schedule_interval=timedelta(days=1),
-        catchup=False,
-        default_view="tree",
-    ),
+    default_args={
+        "owner": "airflow",
+    },
+    description="An example DAG which ingests metadata from MySQL to DataHub",
+    start_date=datetime(2022, 1, 1),
+    schedule_interval=timedelta(days=1),
+    catchup=False,
 ) as dag:
     # While it is also possible to use the PythonOperator, we recommend using
     # the PythonVirtualenvOperator to ensure that there are no dependency

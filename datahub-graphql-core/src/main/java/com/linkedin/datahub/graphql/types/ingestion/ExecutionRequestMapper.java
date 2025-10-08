@@ -94,6 +94,7 @@ public class ExecutionRequestMapper implements ModelMapper<EntityResponse, Execu
       if (executionRequestInput.hasExecutorId()) {
         inputResult.setExecutorId(executionRequestInput.getExecutorId());
       }
+
       result.setInput(inputResult);
     }
 
@@ -134,8 +135,8 @@ public class ExecutionRequestMapper implements ModelMapper<EntityResponse, Execu
    * @param execRequestResult the ExecutionRequestResult to map
    * @return the mapped GraphQL ExecutionRequestResult object
    */
-  private com.linkedin.datahub.graphql.generated.ExecutionRequestResult mapExecutionRequestResult(
-      final ExecutionRequestResult execRequestResult) {
+  public static com.linkedin.datahub.graphql.generated.ExecutionRequestResult
+      mapExecutionRequestResult(final ExecutionRequestResult execRequestResult) {
     final com.linkedin.datahub.graphql.generated.ExecutionRequestResult result =
         new com.linkedin.datahub.graphql.generated.ExecutionRequestResult();
     result.setStatus(execRequestResult.getStatus());
@@ -154,7 +155,8 @@ public class ExecutionRequestMapper implements ModelMapper<EntityResponse, Execu
    * @param structuredReport the StructuredExecutionReport to map
    * @return the mapped GraphQL StructuredReport object
    */
-  private StructuredReport mapStructuredReport(final StructuredExecutionReport structuredReport) {
+  private static StructuredReport mapStructuredReport(
+      final StructuredExecutionReport structuredReport) {
     StructuredReport structuredReportResult = new StructuredReport();
     structuredReportResult.setType(structuredReport.getType());
     structuredReportResult.setSerializedValue(structuredReport.getSerializedValue());

@@ -37,6 +37,9 @@ public class DataHubAppConfiguration {
   /** Search bar related configs */
   private SearchBarConfiguration searchBar;
 
+  /** Search card related configs */
+  private SearchCardConfiguration searchCard;
+
   /** Home page related configs */
   private HomePageConfiguration homePage;
 
@@ -81,4 +84,10 @@ public class DataHubAppConfiguration {
 
   /** SystemMetadata Service configuration */
   private SystemMetadataServiceConfig systemMetadataService;
+
+  /* Secret service configuration */
+  private SecretServiceConfiguration secretService;
+
+  /** MCL Processing configurations */
+  private MCLProcessingConfiguration mclProcessing;
 }

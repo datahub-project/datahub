@@ -36,4 +36,7 @@ clean {
   delete 'src/main/pegasus'
   delete 'src/mainGeneratedAvroSchema/avro'
   delete 'src/renamed/avro'
+  delete 'bin'
 }
+
+generateTestDataTemplate.dependsOn spotlessJava

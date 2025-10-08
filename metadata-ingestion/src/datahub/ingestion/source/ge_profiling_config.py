@@ -1,12 +1,12 @@
 import datetime
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
 import pydantic
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, SupportedSources
 from datahub.ingestion.source_config.operation_config import OperationConfig
 
 _PROFILING_FLAGS_TO_REPORT = {
@@ -120,28 +120,37 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         "number of columns to profile goes up.",
     )
 
-    profile_if_updated_since_days: Optional[pydantic.PositiveFloat] = Field(
+    profile_if_updated_since_days: Annotated[
+        Optional[pydantic.PositiveFloat], SupportedSources(["snowflake", "bigquery"])
+    ] = Field(
         default=None,
         description="Profile table only if it has been updated since these many number of days. "
         "If set to `null`, no constraint of last modified time for tables to profile. "
         "Supported only in `snowflake` and `BigQuery`.",
     )
 
-    profile_table_size_limit: Optional[int] = Field(
+    profile_table_size_limit: Annotated[
+        Optional[int],
+        SupportedSources(["snowflake", "bigquery", "unity-catalog", "oracle"]),
+    ] = Field(
         default=5,
         description="Profile tables only if their size is less than specified GBs. If set to `null`, "
         "no limit on the size of tables to profile. Supported only in `Snowflake`, `BigQuery` and "
         "`Databricks`. Supported for `Oracle` based on calculated size from gathered stats.",
     )
 
-    profile_table_row_limit: Optional[int] = Field(
+    profile_table_row_limit: Annotated[
+        Optional[int], SupportedSources(["snowflake", "bigquery", "oracle"])
+    ] = Field(
         default=5000000,
         description="Profile tables only if their row count is less than specified count. "
         "If set to `null`, no limit on the row count of tables to profile. Supported only in "
         "`Snowflake`, `BigQuery`. Supported for `Oracle` based on gathered stats.",
     )
 
-    profile_table_row_count_estimate_only: bool = Field(
+    profile_table_row_count_estimate_only: Annotated[
+        bool, SupportedSources(["postgres", "mysql"])
+    ] = Field(
         default=False,
         description="Use an approximate query for row count. This will be much faster but slightly "
         "less accurate. Only supported for Postgres and MySQL. ",
@@ -157,29 +166,35 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     # Hidden option - used for debugging purposes.
     catch_exceptions: bool = Field(default=True, description="")
 
-    partition_profiling_enabled: bool = Field(
+    partition_profiling_enabled: Annotated[
+        bool, SupportedSources(["athena", "bigquery"])
+    ] = Field(
         default=True,
         description="Whether to profile partitioned tables. Only BigQuery and Aws Athena supports this. "
         "If enabled, latest partition data is used for profiling.",
     )
-    partition_datetime: Optional[datetime.datetime] = Field(
+    partition_datetime: Annotated[
+        Optional[datetime.datetime], SupportedSources(["bigquery"])
+    ] = Field(
         default=None,
         description="If specified, profile only the partition which matches this datetime. "
         "If not specified, profile the latest partition. Only Bigquery supports this.",
     )
-    use_sampling: bool = Field(
+    use_sampling: Annotated[bool, SupportedSources(["bigquery", "snowflake"])] = Field(
         default=True,
         description="Whether to profile column level stats on sample of table. Only BigQuery and Snowflake support this. "
         "If enabled, profiling is done on rows sampled from table. Sampling is not done for smaller tables. ",
     )
 
-    sample_size: int = Field(
+    sample_size: Annotated[int, SupportedSources(["bigquery", "snowflake"])] = Field(
         default=10000,
         description="Number of rows to be sampled from table for column level profiling."
         "Applicable only if `use_sampling` is set to True.",
     )
 
-    profile_external_tables: bool = Field(
+    profile_external_tables: Annotated[
+        bool, SupportedSources(["redshift", "snowflake"])
+    ] = Field(
         default=False,
         description="Whether to profile external tables. Only Snowflake and Redshift supports this.",
     )

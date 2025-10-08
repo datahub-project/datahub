@@ -1,18 +1,24 @@
 import { Typography, message } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
+import colors from '@components/theme/foundations/colors';
+
+import { useDomainsContext } from '@app/domainV2/DomainsContext';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import CompactContext from '@app/shared/CompactContext';
+import usePrevious from '@app/shared/usePrevious';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 
 import { useUpdateNameMutation } from '@graphql/mutations.generated';
-import { EntityType } from '@types';
+import { DataHubPageModuleType, EntityType } from '@types';
 
 const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
     font-weight: 700;
@@ -28,7 +34,7 @@ const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
     `}
     &&& {
         margin-bottom: 0;
-        word-break: break-word;
+        white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
@@ -49,13 +55,16 @@ interface Props {
 
 function EntityName(props: Props) {
     const { isNameEditable } = props;
+    const { isClosed: isSidebarClosed } = useContext(EntitySidebarContext);
     const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { setUpdatedDomain } = useDomainsContext();
     const { urn, entityType, entityData } = useEntityData();
     const entityName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : '';
     const [updatedName, setUpdatedName] = useState(entityName);
     const [isEditing, setIsEditing] = useState(false);
+    const { reloadModules } = useModulesContext();
 
     const isCompact = React.useContext(CompactContext);
     const showEntityLink = isCompact && entityType !== EntityType.Query;
@@ -85,6 +94,34 @@ function EntityName(props: Props) {
                     const parentNodeToUpdate = getParentNodeToUpdate(entityData, entityType);
                     updateGlossarySidebar([parentNodeToUpdate], urnsToUpdate, setUrnsToUpdate);
                 }
+                if (setUpdatedDomain !== undefined) {
+                    const updatedDomain = {
+                        urn,
+                        type: EntityType.Domain,
+                        id: urn,
+                        properties: {
+                            name,
+                        },
+                    };
+                    setUpdatedDomain(updatedDomain);
+                }
+                // Reload modules as name of some asset could be changed in them
+                reloadModules(
+                    [
+                        DataHubPageModuleType.AssetCollection,
+                        DataHubPageModuleType.OwnedAssets,
+                        DataHubPageModuleType.Assets,
+                        DataHubPageModuleType.ChildHierarchy,
+                        DataHubPageModuleType.Domains,
+                    ],
+                    3000,
+                );
+                if (entityType === EntityType.GlossaryTerm) {
+                    reloadModules([DataHubPageModuleType.RelatedTerms], 3000);
+                }
+                if (entityType === EntityType.DataProduct) {
+                    reloadModules([DataHubPageModuleType.DataProducts], 3000);
+                }
             })
             .catch((e: unknown) => {
                 message.destroy();
@@ -93,6 +130,19 @@ function EntityName(props: Props) {
                 }
             });
     };
+
+    // The following handles bug where sidebar opening causes ellipses and closing it doesn't show full name again
+    const [key, setKey] = useState(0);
+
+    const previousIsSidebarClosed = usePrevious(isSidebarClosed);
+    useEffect(() => {
+        if (isSidebarClosed !== previousIsSidebarClosed) {
+            // timeout to wait for sidebar to fully re-open
+            setTimeout(() => {
+                setKey((prev) => prev + 1);
+            }, 200);
+        }
+    }, [isSidebarClosed, previousIsSidebarClosed]);
 
     const Title = isNameEditable ? (
         <EntityTitle
@@ -103,11 +153,23 @@ function EntityName(props: Props) {
                 onStart: handleStartEditing,
             }}
             $showEntityLink={showEntityLink}
+            ellipsis={{
+                tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: colors.gray[1700] } },
+            }}
+            key={`${updatedName}-${key}`}
         >
             {updatedName}
         </EntityTitle>
     ) : (
-        <EntityTitle $showEntityLink={showEntityLink}>{entityName}</EntityTitle>
+        <EntityTitle
+            $showEntityLink={showEntityLink}
+            ellipsis={{
+                tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: colors.gray[1700] } },
+            }}
+            key={`${entityName}-${key}`}
+        >
+            {entityName}
+        </EntityTitle>
     );
 
     // have entity link open new tab if in the chrome extension

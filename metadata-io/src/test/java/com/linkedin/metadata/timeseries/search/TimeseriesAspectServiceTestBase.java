@@ -46,6 +46,7 @@ import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectSer
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.AggregationType;
@@ -67,7 +68,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -97,7 +97,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   private static final String ES_FIELD_STAT = "stat";
 
   @Nonnull
-  protected abstract RestHighLevelClient getSearchClient();
+  protected abstract SearchClientShim<?> getSearchClient();
 
   @Nonnull
   protected abstract ESBulkProcessor getBulkProcessor();
@@ -151,7 +151,8 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
         TEST_TIMESERIES_ASPECT_SERVICE_CONFIG,
         opContext.getEntityRegistry(),
         opContext.getSearchContext().getIndexConvention(),
-        getIndexBuilder());
+        getIndexBuilder(),
+        null);
   }
 
   /*

@@ -1,7 +1,7 @@
 import logging
 import re
 import urllib.parse
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pydantic
 import sqlalchemy.dialects.mssql
@@ -10,9 +10,10 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError, ResourceClosedError
+from sqlalchemy.sql import quoted_name
 
 import datahub.metadata.schema_classes as models
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -27,6 +28,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.mssql.job_models import (
     JobStep,
     MSSQLDataFlow,
@@ -40,7 +42,6 @@ from datahub.ingestion.source.sql.mssql.job_models import (
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
-    SqlWorkUnit,
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import (
@@ -74,7 +75,7 @@ DEFAULT_TEMP_TABLES_PATTERNS = [
 class SQLServerConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
-    scheme: str = Field(default="mssql+pytds", description="", hidden_from_docs=True)
+    scheme: HiddenFromDocs[str] = Field(default="mssql+pytds")
 
     # TODO: rename to include_procedures ?
     include_stored_procedures: bool = Field(
@@ -130,10 +131,14 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         "match the entire table name in database.schema.table format. Defaults are to set in such a way "
         "to ignore the temporary staging tables created by known ETL tools.",
     )
+    quote_schemas: bool = Field(
+        default=False,
+        description="Represent a schema identifiers combined with quoting preferences. See [sqlalchemy quoted_name docs](https://docs.sqlalchemy.org/en/20/core/sqlelement.html#sqlalchemy.sql.expression.quoted_name).",
+    )
 
     @pydantic.validator("uri_args")
     def passwords_match(cls, v, values, **kwargs):
-        if values["use_odbc"] and "driver" not in v:
+        if values["use_odbc"] and not values["sqlalchemy_uri"] and "driver" not in v:
             raise ValueError("uri_args must contain a 'driver' option")
         elif not values["use_odbc"] and v:
             raise ValueError("uri_args is not supported when ODBC is disabled")
@@ -159,7 +164,15 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             uri_opts=uri_opts,
         )
         if self.use_odbc:
-            uri = f"{uri}?{urllib.parse.urlencode(self.uri_args)}"
+            final_uri_args = self.uri_args.copy()
+            if final_uri_args and current_db:
+                final_uri_args.update({"database": current_db})
+
+            uri = (
+                f"{uri}?{urllib.parse.urlencode(final_uri_args)}"
+                if final_uri_args
+                else uri
+            )
         return uri
 
     @property
@@ -174,7 +187,22 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_lineage`",
+    subtype_modifier=[
+        SourceCapabilityModifier.STORED_PROCEDURE,
+        SourceCapabilityModifier.VIEW,
+    ],
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
+    subtype_modifier=[
+        SourceCapabilityModifier.STORED_PROCEDURE,
+        SourceCapabilityModifier.VIEW,
+    ],
+)
 class SQLServerSource(SQLAlchemySource):
     """
     This plugin extracts the following:
@@ -327,28 +355,6 @@ class SQLServerSource(SQLAlchemySource):
                     message="Failed to list jobs",
                     title="SQL Server Jobs Extraction",
                     context="Error occurred during database-level job extraction",
-                    exc=e,
-                )
-
-    def get_schema_level_workunits(
-        self,
-        inspector: Inspector,
-        schema: str,
-        database: str,
-    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        yield from super().get_schema_level_workunits(
-            inspector=inspector,
-            schema=schema,
-            database=database,
-        )
-        if self.config.include_stored_procedures:
-            try:
-                yield from self.loop_stored_procedures(inspector, schema, self.config)
-            except Exception as e:
-                self.report.failure(
-                    message="Failed to list stored procedures",
-                    title="SQL Server Stored Procedures Extraction",
-                    context="Error occurred during schema-level stored procedure extraction",
                     exc=e,
                 )
 
@@ -620,7 +626,7 @@ class SQLServerSource(SQLAlchemySource):
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLServerConfig,
+        sql_config: SQLServerConfig,  # type: ignore
     ) -> Iterable[MetadataWorkUnit]:
         """
         Loop schema data for get stored procedures as dataJob-s.
@@ -929,25 +935,29 @@ class SQLServerSource(SQLAlchemySource):
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
-        with engine.connect() as conn:
-            if self.config.database and self.config.database != "":
-                inspector = inspect(conn)
-                yield inspector
-            else:
+
+        if (
+            self.config.database
+            and self.config.database != ""
+            or (self.config.sqlalchemy_uri and self.config.sqlalchemy_uri != "")
+        ):
+            inspector = inspect(engine)
+            yield inspector
+        else:
+            with engine.begin() as conn:
                 databases = conn.execute(
                     "SELECT name FROM master.sys.databases WHERE name NOT IN \
                   ('master', 'model', 'msdb', 'tempdb', 'Resource', \
                        'distribution' , 'reportserver', 'reportservertempdb'); "
-                )
-                for db in databases:
-                    if self.config.database_pattern.allowed(db["name"]):
-                        url = self.config.get_sql_alchemy_url(current_db=db["name"])
-                        with create_engine(
-                            url, **self.config.options
-                        ).connect() as conn:
-                            inspector = inspect(conn)
-                            self.current_database = db["name"]
-                            yield inspector
+                ).fetchall()
+
+            for db in databases:
+                if self.config.database_pattern.allowed(db["name"]):
+                    url = self.config.get_sql_alchemy_url(current_db=db["name"])
+                    engine = create_engine(url, **self.config.options)
+                    inspector = inspect(engine)
+                    self.current_database = db["name"]
+                    yield inspector
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
@@ -1027,3 +1037,45 @@ class SQLServerSource(SQLAlchemySource):
             if self.config.convert_urns_to_lowercase
             else table_ref_str
         )
+
+    def get_allowed_schemas(self, inspector: Inspector, db_name: str) -> Iterable[str]:
+        for schema in super().get_allowed_schemas(inspector, db_name):
+            if self.config.quote_schemas:
+                yield quoted_name(schema, True)
+            else:
+                yield schema
+
+    def get_db_name(self, inspector: Inspector) -> str:
+        engine = inspector.engine
+
+        try:
+            if (
+                engine
+                and hasattr(engine, "url")
+                and hasattr(engine.url, "database")
+                and engine.url.database
+            ):
+                return str(engine.url.database).strip('"')
+
+            if (
+                engine
+                and hasattr(engine, "url")
+                and hasattr(engine.url, "query")
+                and "odbc_connect" in engine.url.query
+            ):
+                # According to the ODBC connection keywords: https://learn.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver17#supported-dsnconnection-string-keywords-and-connection-attributes
+                database = re.search(
+                    r"DATABASE=([^;]*);",
+                    urllib.parse.unquote_plus(str(engine.url.query["odbc_connect"])),
+                    flags=re.IGNORECASE,
+                )
+
+                if database and database.group(1):
+                    return database.group(1)
+
+            return ""
+
+        except Exception as e:
+            raise RuntimeError(
+                "Unable to get database name from Sqlalchemy inspector"
+            ) from e

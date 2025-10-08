@@ -52,6 +52,7 @@ export default function SelectActionButtons({
                     isCircle
                     size={fontSize}
                     onClick={onClearClickHandler}
+                    data-testid="button-clear"
                 />
             )}
             <StyledIcon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" color="gray" />

@@ -8,16 +8,7 @@ pulls the DB connection configuration from Airflow's connection store.
 from datetime import datetime, timedelta
 
 from airflow import DAG
-
-from datahub_airflow_plugin._airflow_version_specific import (
-    IS_AIRFLOW_3_OR_HIGHER,
-    get_airflow_compatible_dag_kwargs,
-)
-
-if IS_AIRFLOW_3_OR_HIGHER:
-    from airflow.hooks.base_hook import BaseHook  # type: ignore[attr-defined]
-else:
-    from airflow.hooks.base import BaseHook  # type: ignore[attr-defined]
+from airflow.hooks.base import BaseHook
 from airflow.operators.python import PythonVirtualenvOperator
 
 
@@ -59,16 +50,13 @@ def ingest_from_snowflake(snowflake_credentials, datahub_gms_server):
 
 with DAG(
     "datahub_snowflake_ingest",
-    **get_airflow_compatible_dag_kwargs(
-        default_args={
-            "owner": "airflow",
-        },
-        description="An example DAG which ingests metadata from Snowflake to DataHub",
-        start_date=datetime(2022, 1, 1),
-        schedule_interval=timedelta(days=1),
-        catchup=False,
-        default_view="tree",
-    ),
+    default_args={
+        "owner": "airflow",
+    },
+    description="An example DAG which ingests metadata from Snowflake to DataHub",
+    start_date=datetime(2022, 1, 1),
+    schedule_interval=timedelta(days=1),
+    catchup=False,
 ) as dag:
     # This example pulls credentials from Airflow's connection store.
     # For this to work, you must have previously configured these connections in Airflow.

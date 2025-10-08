@@ -84,9 +84,10 @@ class SnowflakeAssertionCompiler(AssertionCompiler):
 
         dmf_definitions_path = self.output_dir / DMF_DEFINITIONS_FILE_NAME
         dmf_associations_path = self.output_dir / DMF_ASSOCIATIONS_FILE_NAME
-        with (dmf_definitions_path).open("w") as definitions, (
-            dmf_associations_path
-        ).open("w") as associations:
+        with (
+            (dmf_definitions_path).open("w") as definitions,
+            (dmf_associations_path).open("w") as associations,
+        ):
             for assertion_spec in assertion_config_spec.assertions:
                 result.report.num_processed += 1
                 try:

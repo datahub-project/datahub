@@ -8,13 +8,10 @@ from datetime import timedelta
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.utils.dates import days_ago
 
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub_airflow_plugin._airflow_version_specific import (
-    days_ago,
-    get_airflow_compatible_dag_kwargs,
-)
 
 default_args = {
     "owner": "airflow",
@@ -39,14 +36,11 @@ def datahub_recipe():
 
 with DAG(
     "datahub_ingest_using_recipe",
-    **get_airflow_compatible_dag_kwargs(
-        default_args=default_args,
-        description="An example DAG which runs a DataHub ingestion recipe",
-        start_date=days_ago(2),
-        schedule_interval=timedelta(days=1),
-        catchup=False,
-        default_view="tree",
-    ),
+    default_args=default_args,
+    description="An example DAG which runs a DataHub ingestion recipe",
+    schedule_interval=timedelta(days=1),
+    start_date=days_ago(2),
+    catchup=False,
 ) as dag:
     ingest_task = PythonOperator(
         task_id="ingest_using_recipe",

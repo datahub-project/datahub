@@ -23,10 +23,15 @@ interface Props {
 export default function DropdownFooterActions({ onCancel, onUpdate, size }: Props) {
     return (
         <FooterBase>
-            <Button onClick={onCancel} variant="text" size={size}>
+            <Button onClick={onCancel} variant="text" size={size} data-testid="footer-button-cancel">
                 Cancel
             </Button>
-            <Button onClick={onUpdate} size={size} onFocus={(e) => e.stopPropagation()}>
+            <Button
+                onClick={onUpdate}
+                size={size}
+                onFocus={(e) => e.stopPropagation()}
+                data-testid="footer-button-update"
+            >
                 Update
             </Button>
         </FooterBase>

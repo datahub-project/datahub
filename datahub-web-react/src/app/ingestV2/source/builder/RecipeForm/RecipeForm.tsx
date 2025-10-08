@@ -6,19 +6,17 @@ import React, { Fragment } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
+import { useCapabilitySummary } from '@app/ingestV2/shared/hooks/useCapabilitySummary';
 import FormField from '@app/ingestV2/source/builder/RecipeForm/FormField';
 import TestConnectionButton from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
 import { RecipeField, setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
-import {
-    CONNECTORS_WITH_TEST_CONNECTION,
-    RECIPE_FIELDS,
-    RecipeSections,
-} from '@app/ingestV2/source/builder/RecipeForm/constants';
+import { RECIPE_FIELDS, RecipeSections } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
 import { jsonToYaml } from '@app/ingestV2/source/utils';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 
 import { useListSecretsQuery } from '@graphql/ingestion.generated';
+import { IngestionSource } from '@types';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -105,10 +103,20 @@ interface Props {
     setStagedRecipe: (recipe: string) => void;
     onClickNext: () => void;
     goToPrevious?: () => void;
+    selectedSource?: IngestionSource;
 }
 
 function RecipeForm(props: Props) {
-    const { state, isEditing, displayRecipe, sourceConfigs, setStagedRecipe, onClickNext, goToPrevious } = props;
+    const {
+        state,
+        isEditing,
+        displayRecipe,
+        sourceConfigs,
+        setStagedRecipe,
+        onClickNext,
+        goToPrevious,
+        selectedSource,
+    } = props;
     const { type } = state;
     const version = state.config?.version;
     const { fields, advancedFields, filterFields, filterSectionTooltip, advancedSectionTooltip, defaultOpenSections } =
@@ -125,6 +133,7 @@ function RecipeForm(props: Props) {
     const secrets =
         data?.listSecrets?.secrets?.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
     const [form] = Form.useForm();
+    const { getConnectorsWithTestConnection: getConnectorsWithTestConnectionFromHook } = useCapabilitySummary();
 
     function updateFormValues(changedValues: any, allValues: any) {
         let updatedValues = YAML.parse(displayRecipe);
@@ -167,12 +176,13 @@ function RecipeForm(props: Props) {
                             updateFormValue={updateFormValue}
                         />
                     ))}
-                    {CONNECTORS_WITH_TEST_CONNECTION.has(type as string) && (
+                    {getConnectorsWithTestConnectionFromHook().has(type as string) && (
                         <TestConnectionWrapper>
                             <TestConnectionButton
                                 recipe={displayRecipe}
                                 sourceConfigs={sourceConfigs}
                                 version={version}
+                                selectedSource={selectedSource}
                             />
                         </TestConnectionWrapper>
                     )}

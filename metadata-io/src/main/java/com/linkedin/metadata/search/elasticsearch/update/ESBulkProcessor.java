@@ -1,23 +1,17 @@
 package com.linkedin.metadata.search.elasticsearch.update;
 
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Optional;
-import lombok.AccessLevel;
+import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NonNull;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.DocWriteRequest;
-import org.opensearch.action.bulk.BackoffPolicy;
-import org.opensearch.action.bulk.BulkProcessor;
-import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
-import org.opensearch.client.tasks.TaskSubmissionResponse;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilder;
@@ -38,13 +32,14 @@ public class ESBulkProcessor implements Closeable {
   private static final String ES_REINDEX_SUCCESS_METRIC = "reindex_success";
   private static final String ES_REINDEX_FAILED_METRIC = "reindex_failed";
 
-  public static ESBulkProcessor.ESBulkProcessorBuilder builder(RestHighLevelClient searchClient) {
-    return hiddenBuilder().searchClient(searchClient);
+  public static ESBulkProcessor.ESBulkProcessorBuilder builder(
+      SearchClientShim<?> searchClient, MetricUtils metricUtils) {
+    return hiddenBuilder().metricUtils(metricUtils).searchClient(searchClient);
   }
 
-  @NonNull private final RestHighLevelClient searchClient;
-  @Builder.Default @NonNull private Boolean async = false;
-  @Builder.Default @NonNull private Boolean batchDelete = false;
+  @Nonnull private final SearchClientShim<?> searchClient;
+  @Builder.Default @Nonnull private Boolean async = false;
+  @Builder.Default @Nonnull private Boolean batchDelete = false;
   @Builder.Default private Integer bulkRequestsLimit = 500;
   @Builder.Default private Integer bulkFlushPeriod = 1;
   @Builder.Default private Integer numRetries = 3;
@@ -52,21 +47,19 @@ public class ESBulkProcessor implements Closeable {
   @Builder.Default private TimeValue defaultTimeout = TimeValue.timeValueMinutes(1);
   @Getter private final WriteRequest.RefreshPolicy writeRequestRefreshPolicy;
 
-  @Setter(AccessLevel.NONE)
-  @Getter(AccessLevel.NONE)
-  private final BulkProcessor bulkProcessor;
+  private final MetricUtils metricUtils;
 
   private ESBulkProcessor(
-      @NonNull RestHighLevelClient searchClient,
-      @NonNull Boolean async,
-      @NonNull Boolean batchDelete,
+      @Nonnull SearchClientShim<?> searchClient,
+      @Nonnull Boolean async,
+      @Nonnull Boolean batchDelete,
       Integer bulkRequestsLimit,
       Integer bulkFlushPeriod,
       Integer numRetries,
       Long retryInterval,
       TimeValue defaultTimeout,
       WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
-      BulkProcessor ignored) {
+      MetricUtils metricUtils) {
     this.searchClient = searchClient;
     this.async = async;
     this.batchDelete = batchDelete;
@@ -76,12 +69,29 @@ public class ESBulkProcessor implements Closeable {
     this.retryInterval = retryInterval;
     this.defaultTimeout = defaultTimeout;
     this.writeRequestRefreshPolicy = writeRequestRefreshPolicy;
-    this.bulkProcessor = async ? toAsyncBulkProcessor() : toBulkProcessor();
+    if (async) {
+      searchClient.generateAsyncBulkProcessor(
+          writeRequestRefreshPolicy,
+          metricUtils,
+          bulkRequestsLimit,
+          bulkFlushPeriod,
+          retryInterval,
+          numRetries);
+    } else {
+      searchClient.generateBulkProcessor(
+          writeRequestRefreshPolicy,
+          metricUtils,
+          bulkRequestsLimit,
+          bulkFlushPeriod,
+          retryInterval,
+          numRetries);
+    }
+    this.metricUtils = metricUtils;
   }
 
   public ESBulkProcessor add(DocWriteRequest<?> request) {
-    MetricUtils.counter(this.getClass(), ES_WRITES_METRIC).inc();
-    bulkProcessor.add(request);
+    if (metricUtils != null) metricUtils.increment(this.getClass(), ES_WRITES_METRIC, 1);
+    searchClient.addBulk(request);
     log.info(
         "Added request id: {}, operation type: {}, index: {}",
         request.id(),
@@ -110,11 +120,13 @@ public class ESBulkProcessor implements Closeable {
     try {
       final BulkByScrollResponse updateResponse =
           searchClient.updateByQuery(updateByQuery, RequestOptions.DEFAULT);
-      MetricUtils.counter(this.getClass(), ES_WRITES_METRIC).inc(updateResponse.getTotal());
+      if (metricUtils != null)
+        metricUtils.increment(this.getClass(), ES_WRITES_METRIC, updateResponse.getTotal());
       return Optional.of(updateResponse);
     } catch (Exception e) {
       log.error("ERROR: Failed to update by query. See stacktrace for a more detailed error:", e);
-      MetricUtils.exceptionCounter(ESBulkProcessor.class, ES_UPDATE_EXCEPTION_METRIC, e);
+      if (metricUtils != null)
+        metricUtils.exceptionIncrement(ESBulkProcessor.class, ES_UPDATE_EXCEPTION_METRIC, e);
     }
 
     return Optional.empty();
@@ -135,22 +147,24 @@ public class ESBulkProcessor implements Closeable {
     try {
       if (!batchDelete) {
         // flush pending writes
-        bulkProcessor.flush();
+        searchClient.flushBulkProcessor();
       }
       // perform delete after local flush
       final BulkByScrollResponse deleteResponse =
           searchClient.deleteByQuery(deleteByQueryRequest, RequestOptions.DEFAULT);
-      MetricUtils.counter(this.getClass(), ES_WRITES_METRIC).inc(deleteResponse.getTotal());
+      if (metricUtils != null)
+        metricUtils.increment(this.getClass(), ES_WRITES_METRIC, deleteResponse.getTotal());
       return Optional.of(deleteResponse);
     } catch (Exception e) {
       log.error("ERROR: Failed to delete by query. See stacktrace for a more detailed error:", e);
-      MetricUtils.exceptionCounter(ESBulkProcessor.class, ES_DELETE_EXCEPTION_METRIC, e);
+      if (metricUtils != null)
+        metricUtils.exceptionIncrement(ESBulkProcessor.class, ES_DELETE_EXCEPTION_METRIC, e);
     }
 
     return Optional.empty();
   }
 
-  public Optional<TaskSubmissionResponse> deleteByQueryAsync(
+  public Optional<String> deleteByQueryAsync(
       QueryBuilder queryBuilder,
       boolean refresh,
       int limit,
@@ -171,62 +185,28 @@ public class ESBulkProcessor implements Closeable {
     deleteByQueryRequest.indices(indices);
     try {
       // flush pending writes
-      bulkProcessor.flush();
-      TaskSubmissionResponse resp =
+      searchClient.flushBulkProcessor();
+      String resp =
           searchClient.submitDeleteByQueryTask(deleteByQueryRequest, RequestOptions.DEFAULT);
-      MetricUtils.counter(this.getClass(), ES_BATCHES_METRIC).inc();
+      if (metricUtils != null) metricUtils.increment(this.getClass(), ES_BATCHES_METRIC, 1);
       return Optional.of(resp);
     } catch (Exception e) {
       log.error(
           "ERROR: Failed to submit a delete by query task. See stacktrace for a more detailed error:",
           e);
-      MetricUtils.exceptionCounter(ESBulkProcessor.class, ES_SUBMIT_DELETE_EXCEPTION_METRIC, e);
+      if (metricUtils != null)
+        metricUtils.exceptionIncrement(ESBulkProcessor.class, ES_SUBMIT_DELETE_EXCEPTION_METRIC, e);
     }
     return Optional.empty();
   }
 
-  private BulkProcessor toBulkProcessor() {
-    return BulkProcessor.builder(
-            (request, bulkListener) -> {
-              try {
-                BulkResponse response = searchClient.bulk(request, RequestOptions.DEFAULT);
-                bulkListener.onResponse(response);
-              } catch (IOException e) {
-                bulkListener.onFailure(e);
-                throw new RuntimeException(e);
-              }
-            },
-            BulkListener.getInstance(writeRequestRefreshPolicy))
-        .setBulkActions(bulkRequestsLimit)
-        .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
-        // This retry is ONLY for "resource constraints", i.e. 429 errors (each request has other
-        // retry methods)
-        .setBackoffPolicy(
-            BackoffPolicy.constantBackoff(TimeValue.timeValueSeconds(retryInterval), numRetries))
-        .build();
-  }
-
-  private BulkProcessor toAsyncBulkProcessor() {
-    return BulkProcessor.builder(
-            (request, bulkListener) -> {
-              searchClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener);
-            },
-            BulkListener.getInstance(writeRequestRefreshPolicy))
-        .setBulkActions(bulkRequestsLimit)
-        .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
-        // This retry is ONLY for "resource constraints", i.e. 429 errors (each request has other
-        // retry methods)
-        .setBackoffPolicy(
-            BackoffPolicy.constantBackoff(TimeValue.timeValueSeconds(retryInterval), numRetries))
-        .build();
-  }
-
   @Override
   public void close() throws IOException {
-    bulkProcessor.close();
+    flush(); // Make sure pending operations are flushed
+    searchClient.closeBulkProcessor();
   }
 
   public void flush() {
-    bulkProcessor.flush();
+    searchClient.flushBulkProcessor();
   }
 }

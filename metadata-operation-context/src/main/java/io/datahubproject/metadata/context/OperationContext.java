@@ -18,6 +18,7 @@ import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.metadata.exception.OperationContextException;
@@ -70,13 +71,13 @@ public class OperationContext implements AuthorizationSession {
   @Nonnull
   public static OperationContext asSession(
       OperationContext systemOperationContext,
-      @Nonnull RequestContext requestContext,
+      @Nonnull RequestContext.RequestContextBuilder requestContext,
       @Nonnull Authorizer authorizer,
       @Nonnull Authentication sessionAuthentication,
       boolean allowSystemAuthentication) {
     return OperationContext.asSession(
         systemOperationContext,
-        requestContext,
+        requestContext.metricUtils(systemOperationContext.getMetricUtils().orElse(null)),
         authorizer,
         sessionAuthentication,
         allowSystemAuthentication,
@@ -86,7 +87,7 @@ public class OperationContext implements AuthorizationSession {
   @Nonnull
   public static OperationContext asSession(
       OperationContext systemOperationContext,
-      @Nonnull RequestContext requestContext,
+      @Nonnull RequestContext.RequestContextBuilder requestContext,
       @Nonnull Authorizer authorizer,
       @Nonnull Authentication sessionAuthentication,
       boolean allowSystemAuthentication,
@@ -99,7 +100,10 @@ public class OperationContext implements AuthorizationSession {
                 .allowSystemAuthentication(allowSystemAuthentication)
                 .build())
         .authorizationContext(AuthorizationContext.builder().authorizer(authorizer).build())
-        .requestContext(requestContext)
+        .requestContext(
+            requestContext
+                .metricUtils(systemOperationContext.getMetricUtils().orElse(null))
+                .build())
         .validationContext(systemOperationContext.getValidationContext())
         .build(sessionAuthentication, skipCache);
   }
@@ -162,7 +166,7 @@ public class OperationContext implements AuthorizationSession {
       @Nullable IndexConvention indexConvention,
       @Nullable RetrieverContext retrieverContext,
       @Nonnull ValidationContext validationContext,
-      @Nullable TraceContext traceContext,
+      @Nullable SystemTelemetryContext systemTelemetryContext,
       boolean enforceExistenceEnabled) {
     return asSystem(
         config,
@@ -173,7 +177,7 @@ public class OperationContext implements AuthorizationSession {
         retrieverContext,
         validationContext,
         ObjectMapperContext.DEFAULT,
-        traceContext,
+        systemTelemetryContext,
         enforceExistenceEnabled);
   }
 
@@ -186,7 +190,7 @@ public class OperationContext implements AuthorizationSession {
       @Nullable RetrieverContext retrieverContext,
       @Nonnull ValidationContext validationContext,
       @Nonnull ObjectMapperContext objectMapperContext,
-      @Nullable TraceContext traceContext,
+      @Nullable SystemTelemetryContext systemTelemetryContext,
       boolean enforceExistenceEnabled) {
 
     ActorContext systemActorContext =
@@ -210,11 +214,12 @@ public class OperationContext implements AuthorizationSession {
           .entityRegistryContext(EntityRegistryContext.builder().build(entityRegistry))
           .servicesRegistryContext(servicesRegistryContext)
           // Authorizer.EMPTY doesn't actually apply to system auth
-          .authorizationContext(AuthorizationContext.builder().authorizer(Authorizer.EMPTY).build())
+          .authorizationContext(
+              AuthorizationContext.builder().authorizer(Authorizer.SYSTEM).build())
           .retrieverContext(retrieverContext)
           .objectMapperContext(objectMapperContext)
           .validationContext(validationContext)
-          .traceContext(traceContext)
+          .systemTelemetryContext(systemTelemetryContext)
           .build(systemAuthentication, false);
     } catch (OperationContextException e) {
       throw new RuntimeException(e);
@@ -232,7 +237,7 @@ public class OperationContext implements AuthorizationSession {
   @Nonnull private final RetrieverContext retrieverContext;
   @Nonnull private final ObjectMapperContext objectMapperContext;
   @Nonnull private final ValidationContext validationContext;
-  @Nullable private final TraceContext traceContext;
+  @Nullable private final SystemTelemetryContext systemTelemetryContext;
 
   public OperationContext withSearchFlags(
       @Nonnull Function<SearchFlags, SearchFlags> flagDefaults) {
@@ -245,13 +250,13 @@ public class OperationContext implements AuthorizationSession {
   }
 
   public OperationContext asSession(
-      @Nonnull RequestContext requestContext,
+      @Nonnull RequestContext.RequestContextBuilder requestContext,
       @Nonnull Authorizer authorizer,
       @Nonnull Authentication sessionAuthentication)
       throws ActorAccessException {
     return OperationContext.asSession(
         this,
-        requestContext,
+        requestContext.metricUtils(getMetricUtils().orElse(null)),
         authorizer,
         sessionAuthentication,
         getOperationContextConfig().isAllowSystemAuthentication(),
@@ -362,6 +367,14 @@ public class OperationContext implements AuthorizationSession {
     return authorizationContext.authorize(getSessionActorContext(), privilege, resourceSpec);
   }
 
+  public AuthorizationResult authorize(
+      @Nonnull String privilege,
+      @Nullable EntitySpec resourceSpec,
+      @Nonnull Collection<EntitySpec> subResources) {
+    return authorizationContext.authorize(
+        getSessionActorContext(), privilege, resourceSpec, subResources);
+  }
+
   @Nullable
   public SystemMetadata withTraceId(@Nullable SystemMetadata systemMetadata) {
     return withTraceId(systemMetadata, false);
@@ -369,16 +382,16 @@ public class OperationContext implements AuthorizationSession {
 
   @Nullable
   public SystemMetadata withTraceId(@Nullable SystemMetadata systemMetadata, boolean force) {
-    if (systemMetadata != null && traceContext != null) {
-      return traceContext.withTraceId(systemMetadata, force);
+    if (systemMetadata != null && systemTelemetryContext != null) {
+      return systemTelemetryContext.withTraceId(systemMetadata, force);
     }
     return systemMetadata;
   }
 
   public SystemMetadata withProducerTrace(
       String operationName, @Nullable SystemMetadata systemMetadata, String topicName) {
-    if (systemMetadata != null && traceContext != null) {
-      return traceContext.withProducerTrace(operationName, systemMetadata, topicName);
+    if (systemMetadata != null && systemTelemetryContext != null) {
+      return systemTelemetryContext.withProducerTrace(operationName, systemMetadata, topicName);
     }
     return systemMetadata;
   }
@@ -393,16 +406,16 @@ public class OperationContext implements AuthorizationSession {
    * @param <T> generic
    */
   public <T> T withSpan(String name, Supplier<T> operation, String... attributes) {
-    if (traceContext != null) {
-      return traceContext.withSpan(name, operation, attributes);
+    if (systemTelemetryContext != null) {
+      return systemTelemetryContext.withSpan(name, operation, attributes);
     } else {
       return operation.get();
     }
   }
 
   public void withSpan(String name, Runnable operation, String... attributes) {
-    if (traceContext != null) {
-      traceContext.withSpan(name, operation, attributes);
+    if (systemTelemetryContext != null) {
+      systemTelemetryContext.withSpan(name, operation, attributes);
     } else {
       operation.run();
     }
@@ -427,8 +440,8 @@ public class OperationContext implements AuthorizationSession {
       String topicName,
       Runnable operation,
       String... attributes) {
-    if (traceContext != null) {
-      traceContext.withQueueSpan(name, systemMetadata, topicName, operation, attributes);
+    if (systemTelemetryContext != null) {
+      systemTelemetryContext.withQueueSpan(name, systemMetadata, topicName, operation, attributes);
     } else {
       operation.run();
     }
@@ -443,6 +456,10 @@ public class OperationContext implements AuthorizationSession {
       log.error("Error creating trace.", e);
     }
     return throwables.stream().map(Throwable::getMessage).collect(Collectors.joining("\n"));
+  }
+
+  public Optional<MetricUtils> getMetricUtils() {
+    return Optional.ofNullable(systemTelemetryContext).map(SystemTelemetryContext::getMetricUtils);
   }
 
   /**
@@ -473,7 +490,10 @@ public class OperationContext implements AuthorizationSession {
             .add(getRequestContext() == null ? EmptyContext.EMPTY : getRequestContext())
             .add(getRetrieverContext())
             .add(getObjectMapperContext())
-            .add(getTraceContext() == null ? EmptyContext.EMPTY : getTraceContext())
+            .add(
+                getSystemTelemetryContext() == null
+                    ? EmptyContext.EMPTY
+                    : getSystemTelemetryContext())
             .build()
             .stream()
             .map(ContextInterface::getCacheKeyComponent)
@@ -617,7 +637,7 @@ public class OperationContext implements AuthorizationSession {
           this.retrieverContext,
           this.objectMapperContext != null ? this.objectMapperContext : ObjectMapperContext.DEFAULT,
           this.validationContext,
-          this.traceContext);
+          this.systemTelemetryContext);
     }
 
     private OperationContext build() {

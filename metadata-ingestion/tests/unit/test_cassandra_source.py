@@ -120,11 +120,14 @@ def test_authenticate_ssl_ca_certs():
     report = MagicMock(spec=SourceReport)
     api = CassandraAPI(config, report)
 
-    with patch(
-        "datahub.ingestion.source.cassandra.cassandra_api.Cluster"
-    ) as mock_cluster, patch(
-        "datahub.ingestion.source.cassandra.cassandra_api.ssl.SSLContext"
-    ) as mock_ssl_context:
+    with (
+        patch(
+            "datahub.ingestion.source.cassandra.cassandra_api.Cluster"
+        ) as mock_cluster,
+        patch(
+            "datahub.ingestion.source.cassandra.cassandra_api.ssl.SSLContext"
+        ) as mock_ssl_context,
+    ):
         mock_ssl_instance = MagicMock()
         mock_ssl_context.return_value = mock_ssl_instance
         mock_cluster.return_value.connect.return_value = MagicMock()
@@ -149,11 +152,14 @@ def test_authenticate_ssl_all_certs():
     report = MagicMock(spec=SourceReport)
     api = CassandraAPI(config, report)
 
-    with patch(
-        "datahub.ingestion.source.cassandra.cassandra_api.Cluster"
-    ) as mock_cluster, patch(
-        "datahub.ingestion.source.cassandra.cassandra_api.ssl.SSLContext"
-    ) as mock_ssl_context:
+    with (
+        patch(
+            "datahub.ingestion.source.cassandra.cassandra_api.Cluster"
+        ) as mock_cluster,
+        patch(
+            "datahub.ingestion.source.cassandra.cassandra_api.ssl.SSLContext"
+        ) as mock_ssl_context,
+    ):
         mock_ssl_instance = MagicMock()
         mock_ssl_context.return_value = mock_ssl_instance
         mock_cluster.return_value.connect.return_value = MagicMock()

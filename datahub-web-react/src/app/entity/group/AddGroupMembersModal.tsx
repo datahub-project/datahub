@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
+import { addUserFiltersToSearchInput } from '@app/shared/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useAddGroupMembersMutation } from '@graphql/group.generated';
@@ -42,14 +43,19 @@ export const AddGroupMembersModal = ({ urn, open, onCloseModal, onSubmit }: Prop
     const inputEl = useRef(null);
 
     const handleUserSearch = (text: string) => {
+        const input = addUserFiltersToSearchInput(
+            {
+                type: EntityType.CorpUser,
+                query: text,
+                start: 0,
+                count: 5,
+            },
+            EntityType.CorpUser,
+        );
+
         userSearch({
             variables: {
-                input: {
-                    type: EntityType.CorpUser,
-                    query: text,
-                    start: 0,
-                    count: 5,
-                },
+                input,
             },
         });
     };

@@ -13,10 +13,13 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.restli.client.Client;
 import io.ebean.Database;
 import java.net.URI;
+import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -36,17 +39,22 @@ public class MceConsumerApplicationTestConfiguration {
 
   @MockBean public EntityService<?> _entityService;
 
+  @MockBean(answer = Answers.RETURNS_MOCKS)
+  public SearchClientShim<?> searchClientShim;
+
   @Bean
   @Primary
   public SystemEntityClient systemEntityClient(
       @Qualifier("configurationProvider") final ConfigurationProvider configurationProvider,
-      final EntityClientConfig entityClientConfig) {
+      final EntityClientConfig entityClientConfig,
+      final MetricUtils metricUtils) {
     String selfUri = restTemplate.getRootUri();
     final Client restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(selfUri), null);
     return new SystemRestliEntityClient(
         restClient,
         entityClientConfig,
-        configurationProvider.getCache().getClient().getEntityClient());
+        configurationProvider.getCache().getClient().getEntityClient(),
+        metricUtils);
   }
 
   @Bean

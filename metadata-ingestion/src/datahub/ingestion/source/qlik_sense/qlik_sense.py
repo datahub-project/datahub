@@ -101,7 +101,7 @@ logger = logging.getLogger(__name__)
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Disabled by default. ",
+    "Disabled by default.",
 )
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
@@ -109,6 +109,7 @@ logger = logging.getLogger(__name__)
     "Enabled by default, configured using `ingest_owner`",
 )
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:

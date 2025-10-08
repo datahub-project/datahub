@@ -4,6 +4,7 @@ plugins {
 }
 import com.avast.gradle.dockercompose.tasks.ComposeUp
 import com.avast.gradle.dockercompose.tasks.ComposeDownForced
+import org.yaml.snakeyaml.Yaml
 
 apply from: "../gradle/versioning/versioning.gradle"
 
@@ -14,13 +15,40 @@ ext {
     backend_profile_modules = [
             ':docker:elasticsearch-setup',
             ':docker:mysql-setup',
-            ':docker:kafka-setup',
             ':datahub-upgrade',
             ':metadata-service:war',
     ]
 
     python_services_modules = [
     ]
+
+    // Load environment variables from file if DATAHUB_LOCAL_COMMON_ENV is set
+    loadCommonEnvFile = {
+        def envFile = System.getenv("DATAHUB_LOCAL_COMMON_ENV")
+        def envVars = [:]
+        
+        if (envFile && new File(envFile).exists()) {
+            logger.lifecycle("Loading environment variables from: ${envFile}")
+            new File(envFile).eachLine { line ->
+                line = line.trim()
+                if (line && !line.startsWith("#") && line.contains("=")) {
+                    def parts = line.split("=", 2)
+                    if (parts.length == 2) {
+                        envVars[parts[0].trim()] = parts[1].trim()
+                    }
+                }
+            }
+        }
+        
+        // Also load any environment variables that start with DATAHUB_
+        System.getenv().each { key, value ->
+            if (key.startsWith("DATAHUB_")) {
+                envVars[key] = value
+            }
+        }
+        
+        return envVars
+    }
 
     // Common configuration for all tasks
     common_config = [
@@ -39,6 +67,13 @@ ext {
                             ':datahub-actions',
                     ]
             ],
+            'quickstartCLI': [
+                    profile: 'quickstart',
+                    modules: python_services_modules + backend_profile_modules + [
+                            ':datahub-frontend',
+                            ':datahub-actions',
+                    ]
+            ],
             'quickstartDebug': [
                     profile: 'debug',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
@@ -47,17 +82,48 @@ ext {
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
                     ]
             ],
+            'quickstartCypress': [
+                    profile: 'debug',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ],
+                    // Override project name for cypress dev environment
+                    additionalConfig: [
+                            projectName: 'dh-cypress'
+                    ]
+            ],
             'quickstartDebugMin': [
                     profile: 'debug-min',
                     modules: backend_profile_modules + [':datahub-frontend'],
                     isDebug: true
+            ],
+            'quickstartCDC': [
+                    profile: 'quickstart-consumers-cdc',
+                    modules: backend_profile_modules + [':datahub-frontend',
+                                                        ':metadata-jobs:mce-consumer-job',
+                                                        ':metadata-jobs:mae-consumer-job',
+                                                        ':datahub-actions',
+                    ],
+
+            ],
+            'quickstartCDCDebug': [
+                    profile: 'debug-consumers-cdc',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
+                                                                                  ':metadata-jobs:mce-consumer-job',
+                                                                                  ':metadata-jobs:mae-consumer-job',
+                                                                                  ':datahub-actions'
+                    ],
+                    isDebug: true,
             ],
             'quickstartDebugConsumers': [
                     profile: 'debug-consumers',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
                                                                           ':metadata-jobs:mce-consumer-job',
                                                                           ':metadata-jobs:mae-consumer-job',
-                                                                          ':datahub-actions'],
+                                                                          ':datahub-actions'
+                    ],
                     isDebug: true,
                     additionalEnv: [
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
@@ -71,6 +137,14 @@ ext {
                             ':datahub-actions',
                     ]
             ],
+            'quickstartPgCdc': [
+                profile: 'quickstart-postgres-cdc',
+                modules: (backend_profile_modules - [':docker:mysql-setup']) + [
+                    ':docker:postgres-setup',
+                    ':datahub-frontend',
+                    ':datahub-actions',
+                ]
+            ],
             'quickstartPgDebug': [
                     profile: 'debug-postgres',
                     modules: python_services_modules + (backend_profile_modules - [':docker:mysql-setup']) + [
@@ -79,6 +153,15 @@ ext {
                     ],
                     isDebug: true
             ],
+            'quickstartPgCdcDebug': [
+                profile: 'debug-postgres-cdc',
+                modules: python_services_modules + (backend_profile_modules - [':docker:mysql-setup']) + [
+                    ':docker:postgres-setup',
+                    ':datahub-frontend'
+                ],
+                isDebug: true
+            ],
+
             'quickstartSlim': [
                     profile: 'quickstart-backend',
                     modules: backend_profile_modules + [
@@ -91,7 +174,8 @@ ext {
                             ':datahub-actions',
                     ],
                     additionalEnv: [
-                            'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env"
+                            'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env",
+                            'METADATA_SERVICE_AUTH_ENABLED': 'false'
                     ]
             ],
             'quickstartStorage': [
@@ -119,7 +203,7 @@ ext {
             ]
     ]
 
-    // only for debug variants of quickstart to enable <variant>Reload tasks. 
+    // only for debug variants of quickstart to enable <variant>Reload tasks.
     // The actual service name needs the profile to be appended,  <container-name>-<profile>
     // This list only contains modules that can be reloaded via the reloadTask. If other modules need to be reloaded, quickstart* needs to be used.
     moduleToContainer = [
@@ -135,7 +219,7 @@ quickstart_configs.each { taskName, config ->
     tasks.register(taskName) {
         group = 'quickstart'
     }
-    
+
 }
 
 // Dynamically create all quickstart tasks and configurations
@@ -156,11 +240,19 @@ dockerCompose {
                 composeAdditionalArgs = ['--profile', config.profile]
             }
 
+            // Load common environment variables from file if DATAHUB_LOCAL_COMMON_ENV is set
+            def commonEnvVars = loadCommonEnvFile.call()
+            commonEnvVars.each { key, value ->
+                environment.put key, value
+            }
+
             // Common environment variables
             environment.put 'DATAHUB_VERSION', System.getenv("DATAHUB_VERSION") ?: "v${version}"
+            environment.put 'DATAHUB_APP_VERSION', System.getenv("DATAHUB_APP_VERSION") ?: "v${version}"
             environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false'
             environment.put "METADATA_TESTS_ENABLED", "true"
             environment.put "DATAHUB_REPO", "${docker_registry}"
+
 
             // Additional environment variables if specified
             if (config.additionalEnv) {
@@ -194,6 +286,52 @@ dockerCompose {
 }
 
 
+task generateQuickstartComposeConfig {
+    description = "Generates the docker-compose config output for quickstart configuration for use with oss quickstart cli"
+    group = "docker"
+
+    doLast {
+        def composeUpTask = tasks.named("quickstartCLIComposeUp")
+
+        // Some of these details task gleaned from the docker-compose plugin source code
+        // https://github.com/avast/gradle-docker-compose-plugin/blob/main/src/main/groovy/com/avast/gradle/dockercompose/ComposeExecutor.groovy
+        def composeExecutor = composeUpTask.get().getComposeExecutor().get()
+        composeExecutor.parameters.environment.put("DATAHUB_VERSION", '__VERSION__')
+        composeExecutor.parameters.environment.put("DATAHUB_APP_VERSION", '__VERSION__')
+        composeExecutor.parameters.environment.put("METADATA_SERVICE_AUTH_ENABLED", 'false')
+
+        def configOutput = composeExecutor.execute('config')
+
+        // The `config` returns a fully resolved compose file. We need to replace the DATAHUB_VERSION and HOME with values not available at build time
+        configOutput = configOutput.replace('__VERSION__', '${DATAHUB_VERSION}')
+        configOutput = configOutput.replace('__VERSION__', '${DATAHUB_APP_VERSION}')
+        configOutput = configOutput.replace(System.getenv('HOME'), '${HOME}')
+
+        // Parse configOutput as yaml and add UI_INGESTION_DEFAULT_CLI_VERSION as an env var under datahub-gms-quickstart.environment key
+        // This needs to be matched with the version of the CLI used to launch quickstart
+        def yaml = new Yaml()
+        def config = yaml.load(configOutput)
+        config['services']['datahub-gms-quickstart']['environment']['UI_INGESTION_DEFAULT_CLI_VERSION'] = '${UI_INGESTION_DEFAULT_CLI_VERSION}'
+
+        // Configure YAML dump options to match Docker Compose format
+        def dumpOptions = new org.yaml.snakeyaml.DumperOptions()
+        dumpOptions.setDefaultFlowStyle(org.yaml.snakeyaml.DumperOptions.FlowStyle.BLOCK)
+        dumpOptions.setIndent(2)
+        dumpOptions.setWidth(120)
+        yaml = new Yaml(dumpOptions)
+        configOutput = yaml.dump(config)
+
+        configOutput = "# This file is generated as part of build process. If any build changes cause this file to be modified, please check in the generated file\n" + configOutput
+
+        def outputFile = project.file("${project.projectDir}/quickstart/docker-compose.quickstart-profile.yml")
+        outputFile.getParentFile().mkdirs()
+
+        outputFile.text = configOutput
+
+        logger.lifecycle("quickstart Docker Compose config saved to: ${outputFile.absolutePath}")
+    }
+}
+
 // Register all quickstart tasks
 quickstart_configs.each { taskName, config ->
     tasks.register("prepareAll${taskName}"){
@@ -219,6 +357,7 @@ quickstart_configs.each { taskName, config ->
         def taskSuffix = config.isDebug? 'debug' : ''
         dependsOn(config.modules.collect { it + ":generateBakeSnippet${taskSuffix}" })
         dependsOn(tasks.getByName("prepareAll${taskName}"))
+        dependsOn tasks.named("generateQuickstartComposeConfig")
 
         def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
 
@@ -270,17 +409,24 @@ quickstart_configs.each { taskName, config ->
 
 tasks.register('minDockerCompose2.20', Exec) {
     executable 'bash'
-    args '-c', 'echo -e "$(docker compose version --short)\n2.20"|sort --version-sort --check=quiet --reverse'
+    args '-c', 'echo -e "$(docker compose version | sed -E \'s/.*v([0-9.]+).*/\\1/\')\n2.20"|sort --version-sort --check=quiet --reverse'
 }
 
-tasks.register('quickstartNuke') {
-    group = 'quickstart'
-    doFirst {
-        quickstart_configs.each { taskName, config ->
+// Create nuke tasks for all configurations
+quickstart_configs.each { taskName, config ->
+    def actualProjectName = config.additionalConfig?.projectName ?: project_name
+
+    tasks.register("${taskName}Nuke") {
+        group = 'quickstart'
+        description = "Nuke containers and volumes for configuration: ${taskName} (project: ${actualProjectName})"
+        doFirst {
+            // Set removeVolumes for this specific configuration
             dockerCompose."${taskName}".removeVolumes = !config.preserveVolumes
         }
+        finalizedBy(tasks.matching { task ->
+            task.name == "${taskName}ComposeDownForced"
+        })
     }
-    finalizedBy(tasks.withType(ComposeDownForced))
 }
 
 tasks.register('quickstartDown') {
@@ -308,21 +454,27 @@ quickstart_configs.each { taskName, config ->
                 moduleToContainer.each { modulePath, containerName ->
                     def moduleProject = project.project(modulePath)
                     def dockerPrepareTask = moduleProject.tasks.findByName('dockerPrepare')
-                    
+
                     if (dockerPrepareTask && executedTasks.contains(dockerPrepareTask) && !dockerPrepareTask.state.upToDate) {
                         containersToRestart << "${containerName}-${config.profile}"
                     }
                 }
-                
+
                 // Only restart containers that had their modules rebuilt
                 if (containersToRestart) {
-                    def cmd = ["docker compose -p datahub --profile ${config.profile}"] + ['-f', compose_base] + ['restart'] + containersToRestart
+                    def composeFiles = dockerCompose."${taskName}".useComposeFiles.get()
+                    def composeFileArgs = composeFiles.collectMany { ['-f', it] }
+
+                    // Use the actual project name from config, fallback to default
+                    def actualProjectName = config.additionalConfig?.projectName ?: project_name
+
+                    def cmd = ["docker compose -p ${actualProjectName} --profile ${config.profile}"] + composeFileArgs + ['restart'] + containersToRestart
                     println(cmd.join(" "))
                     commandLine 'bash', '-c', cmd.join(" ")
                 } else {
                     // If no containers need restart, make this a no-op
                     commandLine 'bash', '-c', 'echo "No containers need restarting - all modules are up to date"'
-                }    
+                }
             }
         }
         tasks.register("${reloadTaskName}ReloadEnv", Exec) {
@@ -337,10 +489,19 @@ quickstart_configs.each { taskName, config ->
                         containersToRestart << "${containerName}-${config.profile}"
                     }
                 }
-                def cmd = ["docker compose -p datahub --profile ${config.profile}"] + ['-f', compose_base] + ['up', '-d', '--no-deps'] + containersToRestart
+                def composeFiles = dockerCompose."${taskName}".useComposeFiles.get()
+                def composeFileArgs = composeFiles.collectMany { ['-f', it] }
+
+                // Use the actual project name from config, fallback to default
+                def actualProjectName = config.additionalConfig?.projectName ?: project_name
+
+                def cmd = ["docker compose -p ${actualProjectName} --profile ${config.profile}"] + composeFileArgs + ['up', '-d', '--no-deps'] + containersToRestart
                 println(cmd.join(" "))
                 commandLine 'bash', '-c', cmd.join(" ")
             }
         }
     }
 }
+
+// :docker:build builds all docker images.
+build.dependsOn buildImagesallImages

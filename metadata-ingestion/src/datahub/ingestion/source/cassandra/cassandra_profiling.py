@@ -18,7 +18,7 @@ from datahub.ingestion.source.cassandra.cassandra_api import (
 )
 from datahub.ingestion.source.cassandra.cassandra_config import CassandraSourceConfig
 from datahub.ingestion.source.cassandra.cassandra_utils import CassandraSourceReport
-from datahub.ingestion.source_report.ingestion_stage import PROFILING
+from datahub.ingestion.source_report.ingestion_stage import IngestionHighStage
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
@@ -70,11 +70,12 @@ class CassandraProfiler:
     ) -> Iterable[MetadataWorkUnit]:
         for keyspace_name in cassandra_data.keyspaces:
             tables = cassandra_data.tables.get(keyspace_name, [])
-            with self.report.new_stage(
-                f"{keyspace_name}: {PROFILING}"
-            ), ThreadPoolExecutor(
-                max_workers=self.config.profiling.max_workers
-            ) as executor:
+            with (
+                self.report.new_high_stage(IngestionHighStage.PROFILING),
+                ThreadPoolExecutor(
+                    max_workers=self.config.profiling.max_workers
+                ) as executor,
+            ):
                 future_to_dataset = {
                     executor.submit(
                         self.generate_profile,

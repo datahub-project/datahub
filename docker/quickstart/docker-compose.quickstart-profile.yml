@@ -1,0 +1,463 @@
+# This file is generated as part of build process. If any build changes cause this file to be modified, please check in the generated file
+name: datahub
+services:
+  datahub-actions-quickstart:
+    profiles:
+    - quickstart
+    - quickstart-backend
+    depends_on:
+      datahub-gms-quickstart:
+        condition: service_healthy
+        required: true
+    environment:
+      ACTIONS_CONFIG: ''
+      ACTIONS_EXTRA_PACKAGES: ''
+      DATAHUB_GMS_HOST: datahub-gms
+      DATAHUB_GMS_PORT: '8080'
+      DATAHUB_GMS_PROTOCOL: http
+      DATAHUB_SYSTEM_CLIENT_ID: __datahub_system
+      DATAHUB_SYSTEM_CLIENT_SECRET: JohnSnowKnowsNothing
+      ELASTICSEARCH_HOST: search
+      ELASTICSEARCH_PORT: '9200'
+      ELASTICSEARCH_PROTOCOL: http
+      ELASTICSEARCH_USE_SSL: 'false'
+      KAFKA_BOOTSTRAP_SERVER: broker:29092
+      KAFKA_PROPERTIES_SECURITY_PROTOCOL: PLAINTEXT
+      METADATA_AUDIT_EVENT_NAME: MetadataAuditEvent_v4
+      METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME: MetadataChangeLog_Versioned_v1
+      SCHEMA_REGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
+    hostname: actions
+    image: acryldata/datahub-actions:${DATAHUB_VERSION}-slim
+    networks:
+      default: null
+  datahub-gms-quickstart:
+    profiles:
+    - quickstart
+    - quickstart-backend
+    depends_on:
+      system-update-quickstart:
+        condition: service_completed_successfully
+        required: true
+    environment:
+      ALTERNATE_MCP_VALIDATION: 'true'
+      DATAHUB_BASE_PATH: /
+      DATAHUB_GMS_BASE_PATH: /
+      DATAHUB_SERVER_TYPE: quickstart
+      DATAHUB_TELEMETRY_ENABLED: 'false'
+      DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID: generic-duhe-consumer-job-client-gms
+      EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
+      EBEAN_DATASOURCE_HOST: mysql:3306
+      EBEAN_DATASOURCE_PASSWORD: datahub
+      EBEAN_DATASOURCE_URL: jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
+      EBEAN_DATASOURCE_USERNAME: datahub
+      ELASTICSEARCH_HOST: search
+      ELASTICSEARCH_IMPLEMENTATION: opensearch
+      ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: 'true'
+      ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX: 'true'
+      ELASTICSEARCH_LIMIT_RESULTS_STRICT: 'true'
+      ELASTICSEARCH_PORT: '9200'
+      ELASTICSEARCH_PROTOCOL: http
+      ELASTICSEARCH_USE_SSL: 'false'
+      ENTITY_REGISTRY_CONFIG_PATH: /datahub/datahub-gms/resources/entity-registry.yml
+      ENTITY_SERVICE_ENABLE_RETENTION: 'true'
+      ENTITY_VERSIONING_ENABLED: 'true'
+      ES_BULK_REFRESH_POLICY: WAIT_UNTIL
+      GRAPH_SERVICE_DIFF_MODE_ENABLED: 'true'
+      GRAPH_SERVICE_IMPL: elasticsearch
+      JAVA_OPTS: -Xms1g -Xmx1g
+      KAFKA_BOOTSTRAP_SERVER: broker:29092
+      KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
+      MAE_CONSUMER_ENABLED: 'true'
+      MCE_CONSUMER_ENABLED: 'true'
+      METADATA_SERVICE_AUTH_ENABLED: 'false'
+      NEO4J_HOST: http://neo4j:7474
+      NEO4J_PASSWORD: datahub
+      NEO4J_URI: bolt://neo4j
+      NEO4J_USERNAME: neo4j
+      PE_CONSUMER_ENABLED: 'true'
+      SCHEMA_REGISTRY_TYPE: INTERNAL
+      SEARCH_BAR_API_VARIANT: SEARCH_ACROSS_ENTITIES
+      SHOW_HAS_SIBLINGS_FILTER: 'true'
+      SHOW_HOME_PAGE_REDESIGN: 'true'
+      SHOW_INGESTION_PAGE_REDESIGN: 'true'
+      SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN: 'true'
+      STRICT_URN_VALIDATION_ENABLED: 'true'
+      THEME_V2_DEFAULT: 'true'
+      UI_INGESTION_ENABLED: 'true'
+      UI_INGESTION_DEFAULT_CLI_VERSION: ${UI_INGESTION_DEFAULT_CLI_VERSION}
+    hostname: datahub-gms
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -sS --fail http://datahub-gms:8080/health
+      timeout: 5s
+      interval: 1s
+      retries: 3
+      start_period: 1m30s
+    image: acryldata/datahub-gms:${DATAHUB_VERSION}
+    labels:
+      io.datahubproject.datahub.component: gms
+    networks:
+      default: null
+    ports:
+    - mode: ingress
+      target: 8080
+      published: '8080'
+      protocol: tcp
+    volumes:
+    - type: bind
+      source: ${HOME}/.datahub/plugins
+      target: /etc/datahub/plugins
+      bind:
+        create_host_path: true
+    - type: bind
+      source: ${HOME}/.datahub/search
+      target: /etc/datahub/search
+      bind:
+        create_host_path: true
+  frontend-quickstart:
+    profiles:
+    - quickstart
+    - quickstart-frontend
+    depends_on:
+      system-update-quickstart:
+        condition: service_completed_successfully
+        required: true
+    environment:
+      DATAHUB_APP_VERSION: ${DATAHUB_VERSION}
+      DATAHUB_BASE_PATH: /
+      DATAHUB_GMS_BASE_PATH: /
+      DATAHUB_GMS_HOST: datahub-gms
+      DATAHUB_GMS_PORT: '8080'
+      DATAHUB_PLAY_MEM_BUFFER_SIZE: 10MB
+      DATAHUB_SECRET: YouKnowNothing
+      DATAHUB_TRACKING_TOPIC: DataHubUsageEvent_v1
+      ELASTIC_CLIENT_HOST: elasticsearch
+      ELASTIC_CLIENT_PORT: '9200'
+      JAVA_OPTS: -Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf
+        -Dlogback.configurationFile=datahub-frontend/conf/logback.xml -Dlogback.debug=false -Dpidfile.path=/dev/null
+      KAFKA_BOOTSTRAP_SERVER: broker:29092
+      PLAY_HTTP_CONTEXT: /
+      THEME_V2_DEFAULT: 'true'
+    hostname: datahub-frontend-react
+    image: acryldata/datahub-frontend-react:${DATAHUB_VERSION}
+    networks:
+      default: null
+    ports:
+    - mode: ingress
+      target: 9002
+      published: '9002'
+      protocol: tcp
+    volumes:
+    - type: bind
+      source: ${HOME}/.datahub/plugins
+      target: /etc/datahub/plugins
+      bind:
+        create_host_path: true
+  kafka-broker:
+    command:
+    - /bin/bash
+    - -c
+    - |
+      # Generate KRaft clusterID
+      file_path="/var/lib/kafka/data/clusterID"
+
+      if [ ! -f "$$file_path" ]; then
+         /bin/kafka-storage random-uuid > $$file_path
+         echo "Cluster id has been created..."
+         # KRaft required step: Format the storage directory with a new cluster ID
+         kafka-storage format --ignore-formatted -t $$(cat "$$file_path") -c /etc/kafka/kafka.properties
+      fi
+
+      export CLUSTER_ID=$$(cat "$$file_path")
+      echo "CLUSTER_ID=$$CLUSTER_ID"
+
+      /etc/confluent/docker/run
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: BROKER://broker:29092,EXTERNAL://localhost:9092
+      KAFKA_BROKER_ID: '1'
+      KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: 'false'
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:39092
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: '0'
+      KAFKA_HEAP_OPTS: -Xms512m -Xmx512m
+      KAFKA_INTER_BROKER_LISTENER_NAME: BROKER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,BROKER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: BROKER://broker:29092,EXTERNAL://broker:9092,CONTROLLER://broker:39092
+      KAFKA_LOG4J_LOGGERS: org.apache.kafka.image.loader.MetadataLoader=WARN
+      KAFKA_MAX_MESSAGE_BYTES: '5242880'
+      KAFKA_MESSAGE_MAX_BYTES: '5242880'
+      KAFKA_NODE_ID: '1'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: '1'
+      KAFKA_PROCESS_ROLES: controller, broker
+      KAFKA_ZOOKEEPER_CONNECT: null
+    hostname: broker
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - nc -z broker $${DATAHUB_KAFKA_BROKER_PORT:-9092}
+      timeout: 5s
+      interval: 1s
+      retries: 5
+      start_period: 1m0s
+    image: confluentinc/cp-kafka:8.0.0
+    networks:
+      default: null
+    ports:
+    - mode: ingress
+      target: 9092
+      published: '9092'
+      protocol: tcp
+    volumes:
+    - type: volume
+      source: broker
+      target: /var/lib/kafka/data
+      volume: {}
+  mysql:
+    profiles:
+    - quickstart
+    - quickstart-backend
+    - quickstart-frontend
+    - quickstart-storage
+    - quickstart-consumers
+    - quickstart-consumers-cdc
+    - debug
+    - debug-min
+    - debug-datahub-actions
+    - debug-frontend
+    - debug-backend
+    - debug-consumers
+    - debug-consumers-cdc
+    - debug-neo4j
+    - debug-elasticsearch
+    - debug-backend-aws
+    - debug-aws
+    command:
+    - --character-set-server=utf8mb4
+    - --collation-server=utf8mb4_bin
+    - --default-authentication-plugin=caching_sha2_password
+    environment:
+      MYSQL_DATABASE: datahub
+      MYSQL_PASSWORD: datahub
+      MYSQL_ROOT_HOST: '%'
+      MYSQL_ROOT_PASSWORD: datahub
+      MYSQL_USER: datahub
+    hostname: mysql
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - mysqladmin ping -h mysql -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
+      timeout: 10s
+      interval: 2s
+      retries: 5
+      start_period: 20s
+    image: mysql:8.2
+    networks:
+      default: null
+    ports:
+    - mode: ingress
+      target: 3306
+      published: '3306'
+      protocol: tcp
+    restart: on-failure
+    volumes:
+    - type: volume
+      source: mysqldata
+      target: /var/lib/mysql
+      volume: {}
+  mysql-setup:
+    profiles:
+    - quickstart
+    - quickstart-backend
+    - quickstart-frontend
+    - quickstart-storage
+    - quickstart-consumers
+    depends_on:
+      mysql:
+        condition: service_healthy
+        required: true
+    environment:
+      CDC_MCL_PROCESSING_ENABLED: 'false'
+      CDC_PASSWORD: datahub_cdc
+      CDC_USER: datahub_cdc
+      DATAHUB_DB_NAME: datahub
+      MYSQL_HOST: mysql
+      MYSQL_PASSWORD: datahub
+      MYSQL_PORT: '3306'
+      MYSQL_ROOT_PASSWORD: datahub
+      MYSQL_USERNAME: datahub
+    hostname: mysql-setup
+    image: acryldata/datahub-mysql-setup:${DATAHUB_VERSION}
+    labels:
+      datahub_setup_job: 'true'
+    networks:
+      default: null
+  opensearch:
+    profiles:
+    - quickstart
+    - quickstart-backend
+    - quickstart-actions
+    - quickstart-frontend
+    - quickstart-storage
+    - quickstart-cassandra
+    - quickstart-postgres
+    - quickstart-postgres-cdc
+    - quickstart-consumers
+    - quickstart-consumers-cdc
+    - debug
+    - debug-min
+    - debug-datahub-actions
+    - debug-frontend
+    - debug-backend
+    - debug-postgres
+    - debug-postgres-cdc
+    - debug-cassandra
+    - debug-consumers
+    - debug-consumers-cdc
+    - debug-neo4j
+    - debug-backend-aws
+    - debug-aws
+    deploy:
+      resources:
+        limits:
+          memory: '2147483648'
+    environment:
+      DISABLE_SECURITY_PLUGIN: 'true'
+      ES_JAVA_OPTS: -Xms256m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
+      OPENSEARCH_JAVA_OPTS: -Xms768m -Xmx1024m -Dlog4j2.formatMsgNoLookups=true
+      discovery.type: single-node
+    hostname: search
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -sS --fail http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
+      timeout: 15s
+      interval: 5s
+      retries: 10
+      start_period: 1m0s
+    image: opensearchproject/opensearch:2.17.0
+    networks:
+      default: null
+    ports:
+    - mode: ingress
+      target: 9200
+      published: '9200'
+      protocol: tcp
+    volumes:
+    - type: volume
+      source: osdata
+      target: /usr/share/opensearch/data
+      volume: {}
+  opensearch-setup:
+    profiles:
+    - quickstart
+    - quickstart-datahub-actions
+    - quickstart-backend
+    - quickstart-frontend
+    - quickstart-storage
+    - quickstart-cassandra
+    - quickstart-postgres
+    - quickstart-postgres-cdc
+    - quickstart-consumers
+    - quickstart-consumers-cdc
+    command:
+    - /bin/sh
+    - -c
+    - /create-indices.sh
+    depends_on:
+      opensearch:
+        condition: service_healthy
+        required: true
+    environment:
+      ELASTICSEARCH_HOST: search
+      ELASTICSEARCH_PORT: '9200'
+      ELASTICSEARCH_PROTOCOL: http
+      ELASTICSEARCH_USE_SSL: 'false'
+      USE_AWS_ELASTICSEARCH: 'true'
+    hostname: opensearch-setup
+    image: acryldata/datahub-elasticsearch-setup:${DATAHUB_VERSION}
+    labels:
+      datahub_setup_job: 'true'
+    networks:
+      default: null
+  system-update-quickstart:
+    profiles:
+    - quickstart
+    - quickstart-storage
+    - quickstart-consumers
+    - quickstart-frontend
+    - quickstart-backend
+    command:
+    - -u
+    - SystemUpdate
+    depends_on:
+      mysql:
+        condition: service_healthy
+        required: true
+      mysql-setup:
+        condition: service_completed_successfully
+        required: true
+      opensearch:
+        condition: service_healthy
+        required: true
+      opensearch-setup:
+        condition: service_completed_successfully
+        required: true
+    environment:
+      BACKFILL_BROWSE_PATHS_V2: 'true'
+      DATAHUB_BASE_PATH: /
+      DATAHUB_GMS_BASE_PATH: /
+      DATAHUB_GMS_HOST: datahub-gms
+      DATAHUB_GMS_PORT: '8080'
+      DATAHUB_PRECREATE_TOPICS: 'true'
+      EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
+      EBEAN_DATASOURCE_HOST: mysql:3306
+      EBEAN_DATASOURCE_PASSWORD: datahub
+      EBEAN_DATASOURCE_URL: jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
+      EBEAN_DATASOURCE_USERNAME: datahub
+      ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES: 'false'
+      ELASTICSEARCH_HOST: search
+      ELASTICSEARCH_IMPLEMENTATION: opensearch
+      ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: 'true'
+      ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS: '3'
+      ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX: 'true'
+      ELASTICSEARCH_PORT: '9200'
+      ELASTICSEARCH_PROTOCOL: http
+      ELASTICSEARCH_USE_SSL: 'false'
+      ENTITY_REGISTRY_CONFIG_PATH: /datahub/datahub-gms/resources/entity-registry.yml
+      ENTITY_VERSIONING_ENABLED: 'true'
+      GRAPH_SERVICE_IMPL: elasticsearch
+      KAFKA_BOOTSTRAP_SERVER: broker:29092
+      KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
+      NEO4J_HOST: http://neo4j:7474
+      NEO4J_PASSWORD: datahub
+      NEO4J_URI: bolt://neo4j
+      NEO4J_USERNAME: neo4j
+      REPROCESS_DEFAULT_BROWSE_PATHS_V2: 'false'
+      SCHEMA_REGISTRY_SYSTEM_UPDATE: 'true'
+      SCHEMA_REGISTRY_TYPE: INTERNAL
+      SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS: 'true'
+      SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION: 'true'
+      USE_CONFLUENT_SCHEMA_REGISTRY: 'false'
+    hostname: datahub-system-update
+    image: acryldata/datahub-upgrade:${DATAHUB_VERSION}
+    labels:
+      datahub_setup_job: 'true'
+    networks:
+      default: null
+    volumes:
+    - type: bind
+      source: ${HOME}/.datahub/plugins
+      target: /etc/datahub/plugins
+      bind:
+        create_host_path: true
+networks:
+  default:
+    name: datahub_network
+volumes:
+  broker:
+    name: datahub_broker
+  mysqldata:
+    name: datahub_mysqldata
+  osdata:
+    name: datahub_osdata

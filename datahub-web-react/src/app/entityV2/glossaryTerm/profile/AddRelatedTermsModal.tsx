@@ -4,6 +4,7 @@ import styled from 'styled-components/macro';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
+import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
 import { getParentEntities } from '@app/searchV2/filters/utils';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -13,7 +14,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useAddRelatedTermsMutation } from '@graphql/glossaryTerm.generated';
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { EntityType, SearchResult, TermRelationshipType } from '@types';
+import { DataHubPageModuleType, EntityType, SearchResult, TermRelationshipType } from '@types';
 
 const StyledSelect = styled(Select)`
     width: 480px;
@@ -23,6 +24,7 @@ const SearchResultContainer = styled.div`
     display: flex;
     flex-direction: column;
     justify-content: center;
+    font-size: 12px;
 `;
 
 interface Props {
@@ -40,6 +42,7 @@ function AddRelatedTermsModal(props: Props) {
     const entityRegistry = useEntityRegistry();
     const { urn: entityDataUrn } = useEntityData();
     const refetch = useRefetch();
+    const { reloadModules } = useModulesContext();
 
     const [AddRelatedTerms] = useAddRelatedTermsMutation();
 
@@ -65,6 +68,9 @@ function AddRelatedTermsModal(props: Props) {
                         duration: 2,
                     });
                     refetch();
+                    // Reload modules
+                    // RelatedTerms - update related terms module on term summary tab
+                    reloadModules([DataHubPageModuleType.RelatedTerms]);
                 }, 2000);
             });
         onClose();

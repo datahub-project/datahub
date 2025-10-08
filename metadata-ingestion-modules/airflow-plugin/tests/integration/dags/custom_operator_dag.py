@@ -5,9 +5,6 @@ from typing import Any, List, Tuple
 from airflow import DAG
 from airflow.models.baseoperator import BaseOperator
 
-from datahub_airflow_plugin._airflow_version_specific import (
-    get_airflow_compatible_dag_kwargs,
-)
 from datahub_airflow_plugin.entities import Dataset
 
 logger = logging.getLogger(__name__)
@@ -63,14 +60,11 @@ default_args = {
 
 with DAG(
     "custom_operator_dag",
-    **get_airflow_compatible_dag_kwargs(
-        default_args=default_args,
-        description="An example dag with custom operator",
-        schedule=None,
-        tags=["example_tag"],
-        catchup=False,
-        default_view="tree",
-    ),
+    default_args=default_args,
+    description="An example dag with custom operator",
+    schedule_interval=None,
+    tags=["example_tag"],
+    catchup=False,
 ) as dag:
     custom_task = CustomOperator(
         task_id="custom_task_id",

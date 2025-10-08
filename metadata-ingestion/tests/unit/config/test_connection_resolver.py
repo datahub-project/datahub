@@ -34,8 +34,9 @@ def test_auto_connection_resolver():
     # Missing connection -> should raise an error.
     fake_graph = MagicMock()
     fake_graph.get_connection_json.return_value = None
-    with set_graph_context(fake_graph), pytest.raises(
-        pydantic.ValidationError, match=r"not found"
+    with (
+        set_graph_context(fake_graph),
+        pytest.raises(pydantic.ValidationError, match=r"not found"),
     ):
         config = MyConnectionType.parse_obj(
             {

@@ -1,0 +1,14 @@
+namespace com.linkedin.settings.asset
+
+/**
+ * Settings associated with this asset
+ */
+@Aspect = {
+  "name": "assetSettings"
+}
+record AssetSettings {
+  /**
+   * Information related to the asset summary for this asset
+   */
+  assetSummary: optional AssetSummarySettings
+}

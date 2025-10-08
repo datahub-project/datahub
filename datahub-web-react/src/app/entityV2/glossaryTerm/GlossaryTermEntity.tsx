@@ -3,12 +3,12 @@ import { BookmarkSimple } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import GlossaryRelatedAssetsTabHeader from '@app/entityV2/glossaryTerm/GlossaryRelatedAssetsTabHeader';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewContext, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/glossaryTerm/preview/Preview';
 import GlossaryRelatedEntity from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedEntity';
 import GlossayRelatedTerms from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTerms';
 import { RelatedTermTypes } from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
+import useGlossaryRelatedAssetsTabCount from '@app/entityV2/glossaryTerm/profile/useGlossaryRelatedAssetsTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
@@ -24,8 +24,10 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityTab } from '@app/entityV2/shared/types';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { FetchedEntity } from '@app/lineage/types';
 
 import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
@@ -69,10 +71,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         return (
             <BookmarkSimple
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
@@ -102,51 +101,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 headerActionItems={new Set([EntityActionItem.BATCH_ADD_GLOSSARY_TERM])}
                 headerDropdownItems={headerDropdownItems}
                 isNameEditable
-                tabs={[
-                    {
-                        name: 'Documentation',
-                        component: DocumentationTab,
-                        icon: FileOutlined,
-                    },
-                    {
-                        name: 'Related Assets',
-                        getDynamicName: GlossaryRelatedAssetsTabHeader,
-                        component: GlossaryRelatedEntity,
-                        icon: AppstoreOutlined,
-                    },
-                    {
-                        name: 'Schema',
-                        component: SchemaTab,
-                        icon: LayoutOutlined,
-                        properties: {
-                            editMode: false,
-                        },
-                        display: {
-                            visible: (_, glossaryTerm: GetGlossaryTermQuery) =>
-                                glossaryTerm?.glossaryTerm?.schemaMetadata !== null,
-                            enabled: (_, glossaryTerm: GetGlossaryTermQuery) =>
-                                glossaryTerm?.glossaryTerm?.schemaMetadata !== null,
-                        },
-                    },
-                    {
-                        name: 'Related Terms',
-                        getDynamicName: (entityData, _, loading) => {
-                            const totalRelatedTerms = Object.keys(RelatedTermTypes).reduce((acc, curr) => {
-                                return acc + (entityData?.[curr]?.total || 0);
-                            }, 0);
-                            return (
-                                <TabNameWithCount name="Related Terms" count={totalRelatedTerms} loading={loading} />
-                            );
-                        },
-                        component: GlossayRelatedTerms,
-                        icon: () => <BookmarkSimple style={{ marginRight: 6 }} />,
-                    },
-                    {
-                        name: 'Properties',
-                        component: PropertiesTab,
-                        icon: UnorderedListOutlined,
-                    },
-                ]}
+                tabs={this.getProfileTabs()}
                 sidebarSections={this.getSidebarSections()}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
                 sidebarTabs={this.getSidebarTabs()}
@@ -184,6 +139,66 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         },
     ];
 
+    getProfileTabs = (): EntityTab[] => {
+        const showSummaryTab = useShowAssetSummaryPage();
+
+        return [
+            ...(showSummaryTab
+                ? [
+                      {
+                          name: 'Summary',
+                          component: SummaryTab,
+                      },
+                  ]
+                : []),
+            ...(!showSummaryTab
+                ? [
+                      {
+                          name: 'Documentation',
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                      },
+                  ]
+                : []),
+            {
+                name: 'Related Assets',
+                getCount: useGlossaryRelatedAssetsTabCount,
+                component: GlossaryRelatedEntity,
+                icon: AppstoreOutlined,
+            },
+            {
+                name: 'Schema',
+                component: SchemaTab,
+                icon: LayoutOutlined,
+                properties: {
+                    editMode: false,
+                },
+                display: {
+                    visible: (_, glossaryTerm: GetGlossaryTermQuery) =>
+                        glossaryTerm?.glossaryTerm?.schemaMetadata !== null,
+                    enabled: (_, glossaryTerm: GetGlossaryTermQuery) =>
+                        glossaryTerm?.glossaryTerm?.schemaMetadata !== null,
+                },
+            },
+            {
+                name: 'Related Terms',
+                getCount: (entityData, _, loading) => {
+                    const totalRelatedTerms = Object.keys(RelatedTermTypes).reduce((acc, curr) => {
+                        return acc + (entityData?.[curr]?.total || 0);
+                    }, 0);
+                    return !loading ? totalRelatedTerms : undefined;
+                },
+                component: GlossayRelatedTerms,
+                icon: () => <BookmarkSimple style={{ marginRight: 6 }} />,
+            },
+            {
+                name: 'Properties',
+                component: PropertiesTab,
+                icon: UnorderedListOutlined,
+            },
+        ];
+    };
+
     getSidebarTabs = () => [
         {
             name: 'Properties',
@@ -201,10 +216,10 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
     };
 
     renderSearch = (result: SearchResult) => {
-        return this.renderPreview(PreviewType.SEARCH, result.entity as GlossaryTerm);
+        return this.renderPreview(PreviewType.SEARCH, result.entity as GlossaryTerm, undefined, undefined);
     };
 
-    renderPreview = (previewType: PreviewType, data: GlossaryTerm) => {
+    renderPreview = (previewType: PreviewType, data: GlossaryTerm, _actions, extraContext?: PreviewContext) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
@@ -218,6 +233,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 deprecation={data?.deprecation}
                 domain={data.domain?.domain}
                 headerDropdownItems={headerDropdownItems}
+                propagationDetails={extraContext?.propagationDetails}
             />
         );
     };

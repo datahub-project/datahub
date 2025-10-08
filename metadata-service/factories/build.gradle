@@ -6,7 +6,7 @@ apply from: '../../gradle/coverage/java-coverage.gradle'
 dependencies {
   api project(':metadata-io')
   api project(':metadata-utils')
-  implementation project(':metadata-service:auth-impl')
+  api project(':metadata-service:auth-impl')
   api project(':metadata-service:auth-config')
   api project(':metadata-service:plugin')
   api project(':metadata-service:configuration')
@@ -22,6 +22,7 @@ dependencies {
     exclude group: 'org.json', module: 'json'
   }
   implementation externalDependency.elasticSearchRest
+  implementation externalDependency.elasticsearch8Client
   implementation externalDependency.httpClient
   implementation externalDependency.gson
   implementation (externalDependency.hazelcast) {
@@ -32,6 +33,7 @@ dependencies {
   implementation externalDependency.kafkaAvroSerde
   compileOnly externalDependency.lombok
   implementation externalDependency.servletApi
+  implementation externalDependency.graphqlJava
   api externalDependency.springBeans
   implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.springBootStarterCache
@@ -40,6 +42,8 @@ dependencies {
   api externalDependency.springKafka
   api externalDependency.springWeb
   api externalDependency.httpClient
+  implementation externalDependency.springActuator
+  implementation externalDependency.micrometerObserve
   implementation externalDependency.awsPostgresIamAuth
   implementation externalDependency.awsRds
   implementation(externalDependency.mixpanel) {
@@ -64,6 +68,12 @@ dependencies {
   testImplementation externalDependency.testng
   testImplementation externalDependency.hazelcastTest
   testImplementation externalDependency.javatuples
+  testImplementation externalDependency.testContainers
+  testImplementation externalDependency.testContainersElasticsearch
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+  testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
 
 
   constraints {

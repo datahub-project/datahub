@@ -333,7 +333,7 @@ class APISource(Source, ABC):
                     ),
                 )
                 yield wu
-            elif endpoint_dets["method"] != "get":
+            elif endpoint_dets["method"] != "GET":
                 self.report.report_warning(
                     title="Failed to Extract Endpoint Metadata",
                     message=f"No example provided for {endpoint_dets['method']}",

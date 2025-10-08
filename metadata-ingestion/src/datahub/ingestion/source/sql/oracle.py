@@ -37,7 +37,7 @@ from datahub.ingestion.source.sql.sql_config import (
 
 logger = logging.getLogger(__name__)
 
-oracledb.version = "8.3.0"
+oracledb.version = "8.3.0"  # type: ignore[assignment]
 sys.modules["cx_Oracle"] = oracledb
 
 extra_oracle_types = {
@@ -110,10 +110,10 @@ class OracleConfig(BasicSQLAlchemyConfig):
         return v
 
     @pydantic.validator("data_dictionary_mode")
-    def check_data_dictionary_mode(cls, values):
-        if values not in ("ALL", "DBA"):
+    def check_data_dictionary_mode(cls, value):
+        if value not in ("ALL", "DBA"):
             raise ValueError("Specify one of data dictionary views mode: 'ALL', 'DBA'.")
-        return values
+        return value
 
     @pydantic.validator("thick_mode_lib_dir", always=True)
     def check_thick_mode_lib_dir(cls, v, values):
@@ -441,7 +441,7 @@ class OracleInspectorObjectWrapper:
             "\nac.constraint_name,"
             "\nac.constraint_type,"
             "\nacc.column_name AS local_column,"
-            "\nac.r_table_name AS remote_table,"
+            "\nac.table_name AS remote_table,"
             "\nrcc.column_name AS remote_column,"
             "\nac.r_owner AS remote_owner,"
             "\nacc.position AS loc_pos,"

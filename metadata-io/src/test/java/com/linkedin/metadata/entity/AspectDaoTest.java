@@ -27,7 +27,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
@@ -42,6 +42,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
@@ -61,7 +62,7 @@ public class AspectDaoTest {
 
             // Create a tracer
             Tracer tracer = openTelemetry.getTracer("test-tracer");
-            return TraceContext.builder().tracer(tracer).build();
+            return SystemTelemetryContext.builder().tracer(tracer).build();
           });
   private final EntitySpec corpUserEntitySpec =
       opContext.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME);
@@ -465,7 +466,10 @@ public class AspectDaoTest {
     }
 
     @Override
-    public int deleteUrn(TransactionContext txContext, String urn) {
+    public int deleteUrn(
+        @Nonnull OperationContext opContext,
+        @Nullable TransactionContext txContext,
+        @Nonnull final String urn) {
       return 0;
     }
 

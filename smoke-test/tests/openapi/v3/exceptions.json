@@ -42,7 +42,7 @@
         "root\\['message'\\]"
       ],
       "json": {
-        "error": "Validation Error"
+        "error": "Precondition Error"
       }
     }
   },
@@ -71,7 +71,7 @@
         "root\\['message'\\]"
       ],
       "json": {
-        "error": "Validation Error"
+        "error": "Precondition Error"
       }
     }
   },
@@ -258,6 +258,30 @@
     "response": {
       "status_codes": [
         200
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataHubPolicy/urn%3Ali%dataHubPolicy%3A0",
+      "description": "System policy cannot be deleted",
+      "method": "delete"
+    },
+    "response": {
+      "status_codes": [
+        400
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataHubPolicy/urn%3Ali%dataHubPolicy%3A1",
+      "description": "System policy cannot be deleted",
+      "method": "delete"
+    },
+    "response": {
+      "status_codes": [
+        400
       ]
     }
   }

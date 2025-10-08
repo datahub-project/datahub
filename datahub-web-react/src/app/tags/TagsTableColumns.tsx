@@ -290,7 +290,7 @@ export const TagActionsColumn = React.memo(
         return (
             <CardIcons>
                 <Dropdown menu={{ items }} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
-                    <Icon icon="MoreVert" size="md" />
+                    <Icon icon="MoreVert" size="md" data-testid={`${tagUrn}-actions`} />
                 </Dropdown>
             </CardIcons>
         );

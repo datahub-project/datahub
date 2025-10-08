@@ -1,9 +1,6 @@
 import { FolderOpenOutlined } from '@ant-design/icons';
-import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
-
-import { Entity } from '@types';
 
 const IconWrapper = styled.span`
     img,
@@ -18,13 +15,7 @@ const DefaultIcon = styled(FolderOpenOutlined)`
     }
 `;
 
-interface Props {
-    entity: Maybe<Entity>;
-}
-
-function ContextPathEntityIcon({ entity }: Props) {
-    if (!entity) return null;
-
+function ContextPathEntityIcon() {
     // For now, we keep it simple - each parent shares the same icon within the context path.
     return (
         <IconWrapper>

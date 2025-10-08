@@ -11,12 +11,12 @@ create or replace role datahub_role;
 // Grant access to a warehouse to run queries to view metadata
 grant operate, usage on warehouse "<your-warehouse>" to role datahub_role;
 
-// Grant access to view database and schema in which your tables/views exist
+// Grant access to view database and schema in which your tables/views/dynamic tables exist
 grant usage on DATABASE "<your-database>" to role datahub_role;
 grant usage on all schemas in database "<your-database>" to role datahub_role;
 grant usage on future schemas in database "<your-database>" to role datahub_role;
-grant select on all streams in database "<your-database>> to role datahub_role;
-grant select on future streams in database "<your-database>> to role datahub_role;
+grant select on all streams in database "<your-database>" to role datahub_role;
+grant select on future streams in database "<your-database>" to role datahub_role;
 
 // If you are NOT using Snowflake Profiling or Classification feature: Grant references privileges to your tables and views
 grant references on all tables in database "<your-database>" to role datahub_role;
@@ -25,6 +25,8 @@ grant references on all external tables in database "<your-database>" to role da
 grant references on future external tables in database "<your-database>" to role datahub_role;
 grant references on all views in database "<your-database>" to role datahub_role;
 grant references on future views in database "<your-database>" to role datahub_role;
+
+// Grant monitor privileges for dynamic tables (Enterprise Edition feature)
 grant monitor on all dynamic tables in database "<your-database>" to role datahub_role;
 grant monitor on future dynamic tables in database "<your-database>" to role datahub_role;
 
@@ -53,7 +55,7 @@ The details of each granted privilege can be viewed in [snowflake docs](https://
   this permission is not required.
 - `usage` is required for us to run queries using the warehouse
 - `usage` on `database` and `schema` are required because without it tables, views, and streams inside them are not accessible. If an admin does the required grants on `table` but misses the grants on `schema` or the `database` in which the table/view/stream exists then we will not be able to get metadata for the table/view/stream.
-- If metadata is required only on some schemas then you can grant the usage privilieges only on a particular schema like
+- If metadata is required only on some schemas then you can grant the usage privileges only on a particular schema like
 
 ```sql
 grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
@@ -146,16 +148,17 @@ If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/dat
   ```yaml
   shares:
     X: # name of the share
-      database_name: db1
+      database: db1
       platform_instance: instance1
       consumers: # list of all databases created from share X
-        - database_name: db1_from_X
+        - database: db1_from_X
           platform_instance: instance2
   ```
 - If share `X` is shared with more snowflake accounts and database is created from share `X` in those account then additional entries need to be added in `consumers` list for share `X`, one per snowflake account. The same `shares` config can then be copied across recipes of all accounts.
 
 ### Caveats
 
-- Some of the features are only available in the Snowflake Enterprise Edition. This doc has notes mentioning where this applies.
+- Some of the features are only available in the Snowflake Enterprise Edition. This includes dynamic tables, advanced lineage features, and tags. This doc has notes mentioning where this applies.
+- Dynamic tables require the `monitor` privilege for metadata extraction. Without this privilege, dynamic tables will not be visible to DataHub.
 - The underlying Snowflake views that we use to get metadata have a [latency of 45 minutes to 3 hours](https://docs.snowflake.com/en/sql-reference/account-usage.html#differences-between-account-usage-and-information-schema). So we would not be able to get very recent metadata in some cases like queries you ran within that time period etc. This is applicable particularly for lineage, usage and tags (without lineage) extraction.
 - If there is any [incident going on for Snowflake](https://status.snowflake.com/) we will not be able to get the metadata until that incident is resolved.

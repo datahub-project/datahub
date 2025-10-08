@@ -18,13 +18,12 @@ import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
-import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
-import com.linkedin.metadata.config.GraphQLConcurrencyConfiguration;
+import com.linkedin.metadata.config.graphql.GraphQLConcurrencyConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
@@ -41,12 +40,17 @@ import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
+import com.linkedin.metadata.service.PageModuleService;
+import com.linkedin.metadata.service.PageTemplateService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
@@ -55,7 +59,6 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -66,7 +69,6 @@ import org.springframework.context.annotation.Import;
 
 @Configuration
 @Import({
-  RestHighLevelClientFactory.class,
   IndexConventionFactory.class,
   RecommendationServiceFactory.class,
   EntityRegistryFactory.class,
@@ -77,8 +79,8 @@ import org.springframework.context.annotation.Import;
 })
 public class GraphQLEngineFactory {
   @Autowired
-  @Qualifier("elasticSearchRestHighLevelClient")
-  private RestHighLevelClient elasticClient;
+  @Qualifier("searchClientShim")
+  private SearchClientShim<?> elasticClient;
 
   @Autowired
   @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
@@ -207,19 +209,30 @@ public class GraphQLEngineFactory {
   @Qualifier("assertionService")
   private AssertionService assertionService;
 
+  @Autowired
+  @Qualifier("pageTemplateService")
+  private PageTemplateService pageTemplateService;
+
+  @Autowired
+  @Qualifier("pageModuleService")
+  private PageModuleService pageModuleService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
       @Qualifier("entityClient") final EntityClient entityClient,
       @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient,
-      final EntityVersioningService entityVersioningService) {
+      final EntityVersioningService entityVersioningService,
+      final MetricUtils metricUtils) {
     GmsGraphQLEngineArgs args = new GmsGraphQLEngineArgs();
     args.setEntityClient(entityClient);
     args.setSystemEntityClient(systemEntityClient);
     args.setGraphClient(graphClient);
     args.setUsageClient(
         new UsageStatsJavaClient(
-            timeseriesAspectService, configProvider.getCache().getClient().getUsageClient()));
+            timeseriesAspectService,
+            configProvider.getCache().getClient().getUsageClient(),
+            metricUtils));
     if (isAnalyticsEnabled) {
       args.setAnalyticsService(new AnalyticsService(elasticClient, indexConvention));
     }
@@ -242,6 +255,7 @@ public class GraphQLEngineFactory {
     args.setDatahubConfiguration(configProvider.getDatahub());
     args.setViewsConfiguration(configProvider.getViews());
     args.setSearchBarConfiguration(configProvider.getSearchBar());
+    args.setSearchCardConfiguration(configProvider.getSearchCard());
     args.setHomePageConfiguration(configProvider.getHomePage());
     args.setSiblingGraphService(siblingGraphService);
     args.setGroupService(groupService);
@@ -259,22 +273,21 @@ public class GraphQLEngineFactory {
     args.setRestrictedService(restrictedService);
     args.setDataProductService(dataProductService);
     args.setApplicationService(applicationService);
-    args.setGraphQLQueryComplexityLimit(
-        configProvider.getGraphQL().getQuery().getComplexityLimit());
-    args.setGraphQLQueryIntrospectionEnabled(
-        configProvider.getGraphQL().getQuery().isIntrospectionEnabled());
-    args.setGraphQLQueryDepthLimit(configProvider.getGraphQL().getQuery().getDepthLimit());
+    args.setPageTemplateService(pageTemplateService);
+    args.setPageModuleService(pageModuleService);
+    args.setGraphQLConfiguration(configProvider.getGraphQL());
     args.setBusinessAttributeService(businessAttributeService);
     args.setChromeExtensionConfiguration(configProvider.getChromeExtension());
     args.setEntityVersioningService(entityVersioningService);
     args.setConnectionService(_connectionService);
     args.setAssertionService(assertionService);
+    args.setMetricUtils(metricUtils);
     return new GmsGraphQLEngine(args).builder().build();
   }
 
   @Bean(name = "graphQLWorkerPool")
   @ConditionalOnProperty("graphQL.concurrency.separateThreadPool")
-  protected ExecutorService graphQLWorkerPool() {
+  protected ExecutorService graphQLWorkerPool(MetricUtils metricUtils) {
     GraphQLConcurrencyConfiguration concurrencyConfig =
         configProvider.getGraphQL().getConcurrency();
     GraphQLWorkerPoolThreadFactory threadFactory =
@@ -297,7 +310,13 @@ public class GraphQLEngineFactory {
             new SynchronousQueue(),
             threadFactory,
             new ThreadPoolExecutor.CallerRunsPolicy());
-    GraphQLConcurrencyUtils.setExecutorService(graphQLWorkerPool);
+
+    ExecutorService graphqlExecutorService =
+        GraphQLConcurrencyUtils.setExecutorService(graphQLWorkerPool);
+    if (metricUtils != null) {
+      MicrometerMetricsRegistry.registerExecutorMetrics(
+          "graphql", graphqlExecutorService, metricUtils.getRegistry());
+    }
 
     return graphQLWorkerPool;
   }

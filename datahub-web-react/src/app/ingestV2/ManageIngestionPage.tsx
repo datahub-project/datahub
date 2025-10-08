@@ -1,6 +1,6 @@
-import { Button, PageTitle, Tabs } from '@components';
-import React, { useEffect, useRef, useState } from 'react';
-import { useHistory } from 'react-router';
+import { Button, PageTitle, Tabs, Tooltip } from '@components';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { Tab } from '@components/components/Tabs/Tabs';
@@ -15,6 +15,8 @@ import {
     INGESTION_CREATE_SOURCE_ID,
     INGESTION_REFRESH_SOURCES_ID,
 } from '@app/onboarding/config/IngestionOnboardingConfig';
+import { NoPageFound } from '@app/shared/NoPageFound';
+import { useUrlQueryParam } from '@app/shared/useUrlQueryParam';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
@@ -67,36 +69,65 @@ export const ManageIngestionPage = () => {
     /**
      * Determines which view should be visible: ingestion sources or secrets.
      */
-    const me = useUserContext();
-    const { config, loaded } = useAppConfig();
+    const { platformPrivileges, loaded: loadedPlatformPrivileges } = useUserContext();
+    const { config, loaded: loadedAppConfig } = useAppConfig();
+    const location = useLocation();
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
-    const showIngestionTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
-    const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
-    const [selectedTab, setSelectedTab] = useState<TabType>();
+    const canManageIngestion = platformPrivileges?.manageIngestion;
+    const showIngestionTab = isIngestionEnabled && canManageIngestion;
+    const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
+
+    // undefined == not loaded, null == no permissions
+    const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
+
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
-    const [hideSystemSources, setHideSystemSources] = useState(true);
-
     const history = useHistory();
     const shouldPreserveParams = useRef(false);
 
+    // Use URL query param hooks for state management
+    const { value: hideSystemSources, setValue: setHideSystemSources } = useUrlQueryParam('hideSystem', 'true');
+    const { value: sourceFilter, setValue: setSourceFilter } = useUrlQueryParam('sourceFilter');
+    const { value: searchQuery, setValue: setSearchQuery } = useUrlQueryParam('query');
+
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
-        if (loaded && me.loaded && !showIngestionTab && selectedTab === TabType.Sources) {
-            setSelectedTab(TabType.Secrets);
-        }
-    }, [loaded, me.loaded, showIngestionTab, selectedTab]);
+        if (loadedAppConfig && loadedPlatformPrivileges && selectedTab === undefined) {
+            const currentPath = location.pathname;
 
-    const onSwitchTab = (newTab: string, options?: { clearQueryParams: boolean }) => {
-        const preserveParams = shouldPreserveParams.current;
-        const matchingTab = Object.values(TabType).find((tab) => tab === newTab);
-        if (!preserveParams && options?.clearQueryParams) {
-            history.push({ search: '' });
+            // Check if current URL matches any tab URL
+            const currentTab = Object.entries(tabUrlMap).find(([, url]) => url === currentPath)?.[0] as TabType;
+
+            if (currentTab) {
+                // We're on a valid tab URL, set that tab
+                setSelectedTab(currentTab);
+            } else if (showIngestionTab) {
+                // We're not on a tab URL, default to Sources tab
+                setSelectedTab(TabType.Sources);
+            } else if (showSecretsTab) {
+                // We're not on a tab URL, default to Secrets tab
+                setSelectedTab(TabType.Secrets);
+            } else {
+                setSelectedTab(null);
+                return;
+            }
+
+            // If we're on the base /ingestion path, redirect to the appropriate default tab
+            if (currentPath === '/ingestion') {
+                const defaultTabType = showIngestionTab ? TabType.Sources : TabType.Secrets;
+                history.replace(tabUrlMap[defaultTabType]);
+            }
         }
-        setSelectedTab(matchingTab || selectedTab);
-        shouldPreserveParams.current = false;
-    };
+    }, [
+        loadedAppConfig,
+        loadedPlatformPrivileges,
+        showIngestionTab,
+        showSecretsTab,
+        selectedTab,
+        history,
+        location.pathname,
+    ]);
 
     const tabs: Tab[] = [
         showIngestionTab && {
@@ -105,8 +136,14 @@ export const ManageIngestionPage = () => {
                     showCreateModal={showCreateSourceModal}
                     setShowCreateModal={setShowCreateSourceModal}
                     shouldPreserveParams={shouldPreserveParams}
-                    hideSystemSources={hideSystemSources}
-                    setHideSystemSources={setHideSystemSources}
+                    hideSystemSources={hideSystemSources === 'true'}
+                    setHideSystemSources={(value: boolean) => setHideSystemSources(value.toString())}
+                    selectedTab={selectedTab}
+                    setSelectedTab={setSelectedTab}
+                    sourceFilter={sourceFilter ? Number(sourceFilter) : undefined}
+                    setSourceFilter={(value: number | undefined) => setSourceFilter(value?.toString() || '')}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
                 />
             ),
             key: TabType.Sources as string,
@@ -116,12 +153,14 @@ export const ManageIngestionPage = () => {
             component: (
                 <ExecutionsTab
                     shouldPreserveParams={shouldPreserveParams}
-                    hideSystemSources={hideSystemSources}
-                    setHideSystemSources={setHideSystemSources}
+                    hideSystemSources={hideSystemSources === 'true'}
+                    setHideSystemSources={(value: boolean) => setHideSystemSources(value.toString())}
+                    selectedTab={selectedTab}
+                    setSelectedTab={setSelectedTab}
                 />
             ),
-            key: TabType.ExecutionLog as string,
-            name: 'Execution Log',
+            key: TabType.RunHistory as string,
+            name: 'Run History',
         },
         showSecretsTab && {
             component: (
@@ -132,9 +171,14 @@ export const ManageIngestionPage = () => {
         },
     ].filter((tab): tab is Tab => Boolean(tab));
 
-    const onUrlChange = (tabPath: string) => {
-        history.push(tabPath);
-    };
+    const onUrlChange = useCallback(
+        (tabPath: string) => {
+            history.push({ pathname: tabPath, search: '' });
+        },
+        [history],
+    );
+
+    const getCurrentUrl = useCallback(() => location.pathname, [location.pathname]);
 
     const handleCreateSource = () => {
         setShowCreateSourceModal(true);
@@ -143,6 +187,13 @@ export const ManageIngestionPage = () => {
     const handleCreateSecret = () => {
         setShowCreateSecretModal(true);
     };
+
+    if (selectedTab === undefined) {
+        return <></>; // loading
+    }
+    if (selectedTab === null) {
+        return <NoPageFound />;
+    }
 
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
@@ -156,15 +207,25 @@ export const ManageIngestionPage = () => {
                 </TitleContainer>
                 <HeaderActionsContainer>
                     {selectedTab === TabType.Sources && showIngestionTab && (
-                        <Button
-                            variant="filled"
-                            id={INGESTION_CREATE_SOURCE_ID}
-                            onClick={handleCreateSource}
-                            data-testid="create-ingestion-source-button"
-                            icon={{ icon: 'Plus', source: 'phosphor' }}
+                        <Tooltip
+                            title={
+                                !canManageIngestion &&
+                                `You don't have permission to perform this action. Please contact your DataHub admin for more info.`
+                            }
                         >
-                            Create new source
-                        </Button>
+                            <div>
+                                <Button
+                                    variant="filled"
+                                    id={INGESTION_CREATE_SOURCE_ID}
+                                    onClick={handleCreateSource}
+                                    data-testid="create-ingestion-source-button"
+                                    icon={{ icon: 'Plus', source: 'phosphor' }}
+                                    disabled={!canManageIngestion}
+                                >
+                                    Create source
+                                </Button>
+                            </div>
+                        </Tooltip>
                     )}
 
                     {selectedTab === TabType.Secrets && showSecretsTab && (
@@ -174,7 +235,7 @@ export const ManageIngestionPage = () => {
                             data-testid="create-secret-button"
                             icon={{ icon: 'Plus', source: 'phosphor' }}
                         >
-                            Create new secret
+                            Create secret
                         </Button>
                     )}
                 </HeaderActionsContainer>
@@ -183,11 +244,11 @@ export const ManageIngestionPage = () => {
                 <Tabs
                     tabs={tabs}
                     selectedTab={selectedTab}
-                    onChange={(tab) => onSwitchTab(tab, { clearQueryParams: true })}
+                    onChange={(tab) => setSelectedTab(tab as TabType)}
                     urlMap={tabUrlMap}
                     onUrlChange={onUrlChange}
                     defaultTab={TabType.Sources}
-                    getCurrentUrl={() => window.location.pathname}
+                    getCurrentUrl={getCurrentUrl}
                 />
             </PageContentContainer>
         </PageContainer>

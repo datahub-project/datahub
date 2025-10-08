@@ -44,6 +44,10 @@ from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.telemetry import stats
 from datahub.telemetry.telemetry import telemetry_instance
+from datahub.upgrade.upgrade import (
+    is_server_default_cli_ahead,
+    retrieve_version_stats,
+)
 from datahub.utilities._custom_package_loader import model_version_name
 from datahub.utilities.global_warning_util import (
     clear_global_warnings,
@@ -171,7 +175,10 @@ class Pipeline:
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
 
-        with contextlib.ExitStack() as exit_stack, contextlib.ExitStack() as inner_exit_stack:
+        with (
+            contextlib.ExitStack() as exit_stack,
+            contextlib.ExitStack() as inner_exit_stack,
+        ):
             self.graph: Optional[DataHubGraph] = None
             with _add_init_error_context("connect to DataHub"):
                 if self.config.datahub_api:
@@ -258,6 +265,11 @@ class Pipeline:
                 with _add_init_error_context("configure transformers"):
                     self._configure_transforms()
 
+                # Register completion callback with sink to handle final reporting
+                self.sink.register_pre_shutdown_callback(
+                    self._notify_reporters_on_ingestion_completion
+                )
+
             # If all of the initialization succeeds, we can preserve the exit stack until the pipeline run.
             # We need to use an exit stack so that if we have an exception during initialization,
             # things that were already initialized are still cleaned up.
@@ -337,8 +349,48 @@ class Pipeline:
         for reporter in self.reporters:
             try:
                 reporter.on_start(ctx=self.ctx)
-            except Exception as e:
-                logger.warning("Reporting failed on start", exc_info=e)
+            except Exception:
+                logger.warning("Reporting failed on start", exc_info=True)
+
+    def _warn_old_cli_version(self) -> None:
+        """
+        Check if the server default CLI version is ahead of the CLI version being used.
+        If so, add a warning to the report.
+        """
+
+        try:
+            version_stats = retrieve_version_stats(timeout=2.0, graph=self.graph)
+        except RuntimeError as e:
+            # Handle case where there's no event loop available (e.g., in ThreadPoolExecutor)
+            if "no current event loop" in str(e):
+                logger.debug("Skipping version check - no event loop available")
+                return
+            raise
+
+        if not version_stats or not self.graph:
+            return
+
+        if is_server_default_cli_ahead(version_stats):
+            server_default_version = (
+                version_stats.server.current_server_default_cli_version.version
+                if version_stats.server.current_server_default_cli_version
+                else None
+            )
+            current_version = version_stats.client.current.version
+
+            logger.debug(
+                f"""
+                client_version: {current_version}
+                server_default_version: {server_default_version}
+                server_default_cli_ahead: True
+            """
+            )
+
+            self.source.get_report().warning(
+                title="Server default CLI version is ahead of CLI version",
+                message="Please upgrade the CLI version being used",
+                context=f"Server Default CLI version: {server_default_version}, Used CLI version: {current_version}",
+            )
 
     def _notify_reporters_on_ingestion_completion(self) -> None:
         for reporter in self.reporters:
@@ -360,8 +412,8 @@ class Pipeline:
                     report=self._get_structured_report(),
                     ctx=self.ctx,
                 )
-            except Exception as e:
-                logger.warning("Reporting failed on completion", exc_info=e)
+            except Exception:
+                logger.warning("Reporting failed on completion", exc_info=True)
 
     @classmethod
     def create(
@@ -395,7 +447,20 @@ class Pipeline:
             return True
         return False
 
+    def _set_platform(self) -> None:
+        platform = self.source.infer_platform()
+        if platform:
+            self.source.get_report().set_platform(platform)
+        else:
+            self.source.get_report().warning(
+                message="Platform not found",
+                title="Platform not found",
+                context="Platform not found",
+            )
+
     def run(self) -> None:
+        self._set_platform()
+        self._warn_old_cli_version()
         with self.exit_stack, self.inner_exit_stack:
             if self.config.flags.generate_memory_profiles:
                 import memray
@@ -461,10 +526,10 @@ class Pipeline:
 
                     except (RuntimeError, SystemExit):
                         raise
-                    except Exception as e:
+                    except Exception:
                         logger.error(
                             "Failed to process some records. Continuing.",
-                            exc_info=e,
+                            exc_info=True,
                         )
                         # TODO: Transformer errors should be reported more loudly / as part of the pipeline report.
 
@@ -493,17 +558,15 @@ class Pipeline:
 
                 self.process_commits()
                 self.final_status = PipelineStatus.COMPLETED
-            except (SystemExit, KeyboardInterrupt) as e:
+            except (SystemExit, KeyboardInterrupt):
                 self.final_status = PipelineStatus.CANCELLED
-                logger.error("Caught error", exc_info=e)
+                logger.error("Caught error", exc_info=True)
                 raise
             except Exception as exc:
                 self.final_status = PipelineStatus.ERROR
                 self._handle_uncaught_pipeline_exception(exc)
             finally:
                 clear_global_warnings()
-
-                self._notify_reporters_on_ingestion_completion()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
@@ -578,15 +641,22 @@ class Pipeline:
         sink_failures = len(self.sink.get_report().failures)
         sink_warnings = len(self.sink.get_report().warnings)
         global_warnings = len(get_global_warnings())
+        source_aspects = self.source.get_report().get_aspects_dict()
+        source_aspects_by_subtype = (
+            self.source.get_report().get_aspects_by_subtypes_dict()
+        )
 
         telemetry_instance.ping(
             "ingest_stats",
             {
                 "source_type": self.source_type,
+                "source_aspects": source_aspects,
+                "source_aspects_by_subtype": source_aspects_by_subtype,
                 "sink_type": self.sink_type,
                 "transformer_types": [
                     transformer.type for transformer in self.config.transformers or []
                 ],
+                "extractor_type": self.config.source.extractor,
                 "records_written": stats.discretize(
                     self.sink.get_report().total_records_written
                 ),
