@@ -802,6 +802,11 @@ type FeatureFlagsConfig {
   Enables displaying the asset summary page
   """
   assetSummaryPageV1: Boolean!
+
+  """
+  If enabled, allows uploading of files for documentation.
+  """
+  documentationFileUploadV1: Boolean!
 }
 
 """
