@@ -1576,8 +1576,8 @@ const GlossaryImportList = ({
                     </EditableCell>
                 );
             },
-            width: '130px',
-            minWidth: '130px',
+            width: '150px',
+            minWidth: '150px',
             alignment: 'left',
             sorter: (a, b) => a.data.related_contains.localeCompare(b.data.related_contains),
         },
@@ -1606,8 +1606,8 @@ const GlossaryImportList = ({
                     </EditableCell>
                 );
             },
-            width: '130px',
-            minWidth: '130px',
+            width: '160px',
+            minWidth: '160px',
             alignment: 'left',
             sorter: (a, b) => a.data.related_inherits.localeCompare(b.data.related_inherits),
         },
@@ -1636,8 +1636,8 @@ const GlossaryImportList = ({
                     </EditableCell>
                 );
             },
-            width: '120px',
-            minWidth: '120px',
+            width: '140px',
+            minWidth: '140px',
             alignment: 'left',
             sorter: (a, b) => a.data.domain_name.localeCompare(b.data.domain_name),
         },
@@ -1666,8 +1666,8 @@ const GlossaryImportList = ({
                     </EditableCell>
                 );
             },
-            width: '150px',
-            minWidth: '150px',
+            width: '170px',
+            minWidth: '170px',
             alignment: 'left',
             sorter: (a, b) => a.data.custom_properties.localeCompare(b.data.custom_properties),
         },
