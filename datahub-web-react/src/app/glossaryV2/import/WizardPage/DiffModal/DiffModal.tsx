@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { Modal, Button, Card } from '@components';
+import { Modal, Button, Card, Table } from '@components';
+import { Column } from '@components/components/Table/types';
 import { EntityData, Entity } from '../../glossary.types';
 import { parseCustomProperties, formatCustomPropertiesForCsv, compareCustomProperties } from '../../shared/utils/customPropertiesUtils';
 
@@ -61,42 +62,8 @@ const ContentContainer = styled.div`
   padding: 16px;
 `;
 
-const ComparisonTable = styled.table`
-  width: 100%;
-  border-collapse: collapse;
+const TableContainer = styled.div`
   margin-bottom: 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  overflow: hidden;
-  font-size: 12px;
-`;
-
-const TableHeader = styled.thead`
-  background: #f9fafb;
-`;
-
-const TableHeaderRow = styled.tr`
-  border-bottom: 1px solid #e5e7eb;
-`;
-
-const TableHeaderCell = styled.th`
-  padding: 8px 12px;
-  text-align: left;
-  font-weight: 600;
-  font-size: 12px;
-  color: #374151;
-  background: #f9fafb;
-  border-right: 1px solid #e5e7eb;
-  
-  &:last-child {
-    border-right: none;
-  }
-`;
-
-const HeaderContent = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
 `;
 
 const StatusBadge = styled.div<{ status: string }>`
@@ -122,41 +89,6 @@ const StatusBadge = styled.div<{ status: string }>`
       default: return '#6b7280';
     }
   }};
-`;
-
-const TableBody = styled.tbody``;
-
-const TableRow = styled.tr`
-  border-bottom: 1px solid #f3f4f6;
-  
-  &:last-child {
-    border-bottom: none;
-  }
-`;
-
-const FieldLabelCell = styled.td`
-  padding: 8px 12px;
-  background: #f9fafb;
-  font-size: 11px;
-  font-weight: 500;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  width: 20%;
-  vertical-align: top;
-  border-right: 1px solid #e5e7eb;
-`;
-
-const FieldValueCell = styled.td`
-  padding: 8px 12px;
-  vertical-align: top;
-  width: 40%;
-  border-right: 1px solid #e5e7eb;
-  font-size: 12px;
-  
-  &:last-child {
-    border-right: none;
-  }
 `;
 
 const FieldValue = styled.div<{ hasChanges?: boolean; isConflict?: boolean }>`
@@ -230,6 +162,89 @@ const fieldLabels: Record<string, string> = {
   domain_name: 'Domain Name',
   custom_properties: 'Custom Properties',
 };
+
+// Define table columns for the comparison table
+const createTableColumns = (): Column<any>[] => [
+  {
+    title: 'Field',
+    key: 'field',
+    render: (record) => (
+      <div style={{ 
+        fontSize: '11px', 
+        fontWeight: 500, 
+        color: '#6b7280', 
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em'
+      }}>
+        {record.label}
+      </div>
+    ),
+    width: '20%',
+    alignment: 'left',
+  },
+  {
+    title: (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>Existing Data</span>
+        <StatusBadge status="existing">Current</StatusBadge>
+      </div>
+    ),
+    key: 'existing',
+    render: (record) => (
+      <FieldValue hasChanges={record.hasChanges} isConflict={record.isConflict}>
+        {record.existingValue ? (
+          record.key === 'custom_properties' ? (
+            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+              {record.existingValue}
+            </pre>
+          ) : (
+            record.existingValue
+          )
+        ) : (
+          <EmptyValue>No value</EmptyValue>
+        )}
+        {record.isConflict && (
+          <ConflictIndicator>
+            Conflict
+          </ConflictIndicator>
+        )}
+      </FieldValue>
+    ),
+    width: '40%',
+    alignment: 'left',
+  },
+  {
+    title: (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>Imported Data</span>
+        <StatusBadge status="imported">New</StatusBadge>
+      </div>
+    ),
+    key: 'imported',
+    render: (record) => (
+      <FieldValue hasChanges={record.hasChanges} isConflict={record.isConflict}>
+        {record.importedValue ? (
+          record.key === 'custom_properties' ? (
+            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+              {record.importedValue}
+            </pre>
+          ) : (
+            record.importedValue
+          )
+        ) : (
+          <EmptyValue>No value</EmptyValue>
+        )}
+        {record.isConflict && (
+          <ConflictIndicator>
+            Conflict
+          </ConflictIndicator>
+        )}
+      </FieldValue>
+    ),
+    width: '40%',
+    alignment: 'left',
+  },
+];
 
 export const DiffModal: React.FC<DiffModalProps> = ({
   visible,
@@ -357,82 +372,14 @@ export const DiffModal: React.FC<DiffModalProps> = ({
             </Card>
           )}
 
-          <ComparisonTable>
-            <TableHeader>
-              <TableHeaderRow>
-                <TableHeaderCell style={{ width: '20%' }}>
-                  Field
-                </TableHeaderCell>
-                <TableHeaderCell>
-                  <HeaderContent>
-                    <span>Existing Data</span>
-                    <StatusBadge status="existing">Current</StatusBadge>
-                  </HeaderContent>
-                </TableHeaderCell>
-                <TableHeaderCell>
-                  <HeaderContent>
-                    <span>Imported Data</span>
-                    <StatusBadge status="imported">New</StatusBadge>
-                  </HeaderContent>
-                </TableHeaderCell>
-              </TableHeaderRow>
-            </TableHeader>
-            <TableBody>
-              {comparison.fields.map(field => (
-                <TableRow key={field.key}>
-                  <FieldLabelCell>
-                    {field.label}
-                  </FieldLabelCell>
-                  <FieldValueCell>
-                    {field.existingValue ? (
-                      <FieldValue 
-                        hasChanges={field.hasChanges} 
-                        isConflict={field.isConflict}
-                      >
-                        {field.key === 'custom_properties' ? (
-                          <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
-                            {field.existingValue}
-                          </pre>
-                        ) : (
-                          field.existingValue
-                        )}
-                      </FieldValue>
-                    ) : (
-                      <EmptyValue>No value</EmptyValue>
-                    )}
-                    {field.isConflict && (
-                      <ConflictIndicator>
-                        Conflict
-                      </ConflictIndicator>
-                    )}
-                  </FieldValueCell>
-                  <FieldValueCell>
-                    {field.importedValue ? (
-                      <FieldValue 
-                        hasChanges={field.hasChanges} 
-                        isConflict={field.isConflict}
-                      >
-                        {field.key === 'custom_properties' ? (
-                          <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
-                            {field.importedValue}
-                          </pre>
-                        ) : (
-                          field.importedValue
-                        )}
-                      </FieldValue>
-                    ) : (
-                      <EmptyValue>No value</EmptyValue>
-                    )}
-                    {field.isConflict && (
-                      <ConflictIndicator>
-                        Conflict
-                      </ConflictIndicator>
-                    )}
-                  </FieldValueCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </ComparisonTable>
+          <TableContainer>
+            <Table
+              columns={createTableColumns()}
+              data={comparison.fields}
+              rowKey="key"
+              isScrollable
+            />
+          </TableContainer>
         </ContentContainer>
 
         <FooterActions>
