@@ -1155,6 +1155,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         except NotImplementedError:
             return ""
 
+    def get_view_default_db_schema(
+        self, dataset_name: str, _inspector: Inspector, _schema: str, _view: str
+    ) -> Tuple[Optional[str], str]:
+        # Some databases use alternate implicit databases/schemas for unqualified
+        # names in view definitions, so provide this function as an override hook.
+        return self.get_db_schema(dataset_name)
+
     def _process_view(
         self,
         dataset_name: str,
@@ -1201,7 +1208,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             default_db = None
             default_schema = None
             try:
-                default_db, default_schema = self.get_db_schema(dataset_name)
+                default_db, default_schema = self.get_view_default_db_schema(
+                    dataset_name, inspector, schema, view
+                )
             except ValueError:
                 logger.warning(f"Invalid view identifier: {dataset_name}")
             self.aggregator.add_view_definition(
