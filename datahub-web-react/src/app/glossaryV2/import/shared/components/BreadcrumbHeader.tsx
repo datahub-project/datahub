@@ -3,11 +3,16 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 // Styled Components
+const BreadcrumbWrapper = styled.div`
+    padding: 20px 24px 16px 24px;
+    background-color: white;
+`;
+
 const BreadcrumbContainer = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 12px 0 16px 0;
+    margin: 0 0 16px 0;
     &&& {
         font-size: 16px;
     }
@@ -17,6 +22,7 @@ const Header = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-bottom: 8px;
 `;
 
 // Simple Text Component (replace with your preferred text component)
@@ -114,7 +120,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
     pillColor = 'blue'
 }) => {
     return (
-        <>
+        <BreadcrumbWrapper>
             <BreadcrumbContainer>
                 {items.map((item, index) => (
                     <React.Fragment key={index}>
@@ -152,7 +158,7 @@ export const BreadcrumbHeader: React.FC<BreadcrumbHeaderProps> = ({
                     {subtitle}
                 </Text>
             )}
-        </>
+        </BreadcrumbWrapper>
     );
 };
 
