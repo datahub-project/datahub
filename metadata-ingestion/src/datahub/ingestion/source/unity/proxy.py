@@ -40,6 +40,7 @@ from datahub.api.entities.external.unity_catalog_external_entites import UnityCa
 from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.source.unity.config import (
     LineageDataSource,
+    UsageDataSource,
 )
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.proxy_profiling import (
@@ -163,6 +164,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         report: UnityCatalogReport,
         hive_metastore_proxy: Optional[HiveMetastoreProxy] = None,
         lineage_data_source: LineageDataSource = LineageDataSource.AUTO,
+        usage_data_source: UsageDataSource = UsageDataSource.AUTO,
         databricks_api_page_size: int = 0,
     ):
         self._workspace_client = WorkspaceClient(
@@ -175,6 +177,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.report = report
         self.hive_metastore_proxy = hive_metastore_proxy
         self.lineage_data_source = lineage_data_source
+        self.usage_data_source = usage_data_source
         self.databricks_api_page_size = databricks_api_page_size
         self._sql_connection_params = {
             "server_hostname": self._workspace_client.config.host.replace(
@@ -400,6 +403,75 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             response = self._workspace_client.api_client.do(  # type: ignore
                 method, path, body={**body, "page_token": response["next_page_token"]}
             )
+
+    def get_query_history_via_system_tables(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+    ) -> Iterable[Query]:
+        """Get query history using system.query.history table.
+
+        This method provides an alternative to the REST API for fetching query history,
+        offering better performance and richer data for large query volumes.
+        """
+        logger.info(
+            f"Fetching query history from system.query.history for period: {start_time} to {end_time}"
+        )
+
+        allowed_types = [typ.value for typ in ALLOWED_STATEMENT_TYPES]
+        statement_type_filter = ", ".join(f"'{typ}'" for typ in allowed_types)
+
+        query = f"""
+            SELECT
+                statement_id,
+                statement_text,
+                statement_type,
+                start_time,
+                end_time,
+                executed_by,
+                executed_as,
+                executed_by_user_id,
+                executed_as_user_id
+            FROM system.query.history
+            WHERE
+                start_time >= %s
+                AND end_time <= %s
+                AND execution_status = 'FINISHED'
+                AND statement_type IN ({statement_type_filter})
+            ORDER BY start_time
+        """
+
+        try:
+            rows = self._execute_sql_query(query, (start_time, end_time))
+            for row in rows:
+                try:
+                    yield Query(
+                        query_id=row.statement_id if row.statement_id else None,
+                        query_text=row.statement_text,
+                        statement_type=(
+                            QueryStatementType(row.statement_type)
+                            if row.statement_type
+                            else None
+                        ),
+                        start_time=row.start_time,
+                        end_time=row.end_time,
+                        user_id=row.executed_by_user_id,
+                        user_name=row.executed_by if row.executed_by else None,
+                        executed_as_user_id=(
+                            row.executed_as_user_id if row.executed_as_user_id else None
+                        ),
+                        executed_as_user_name=(
+                            row.executed_as if row.executed_as else None
+                        ),
+                    )
+                except Exception as e:
+                    logger.warning(f"Error parsing query from system table: {e}")
+                    self.report.report_warning("query-parse-system-table", str(e))
+        except Exception as e:
+            logger.error(
+                f"Error fetching query history from system tables: {e}", exc_info=True
+            )
+            self.report.report_warning("get-query-history-system-tables", str(e))
 
     def _build_datetime_where_conditions(
         self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None

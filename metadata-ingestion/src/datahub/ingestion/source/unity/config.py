@@ -51,6 +51,12 @@ class LineageDataSource(ConfigEnum):
     API = "API"
 
 
+class UsageDataSource(ConfigEnum):
+    AUTO = "AUTO"
+    SYSTEM_TABLES = "SYSTEM_TABLES"
+    API = "API"
+
+
 class UnityCatalogProfilerConfig(ConfigModel):
     method: str = Field(
         description=(
@@ -336,6 +342,16 @@ class UnityCatalogSourceConfig(
         description="Generate usage statistics.",
     )
 
+    usage_data_source: UsageDataSource = pydantic.Field(
+        default=UsageDataSource.AUTO,
+        description=(
+            "Source for usage/query history data extraction. Options: "
+            f"'{UsageDataSource.AUTO.value}' - Use system tables when SQL warehouse is available, fallback to API; "
+            f"'{UsageDataSource.SYSTEM_TABLES.value}' - Force use of system.query.history table (requires SQL warehouse); "
+            f"'{UsageDataSource.API.value}' - Force use of REST API endpoints for query history"
+        ),
+    )
+
     # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[
         UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig
@@ -433,8 +449,8 @@ class UnityCatalogSourceConfig(
 
     @pydantic.validator("start_time")
     def within_thirty_days(cls, v: datetime) -> datetime:
-        if (datetime.now(timezone.utc) - v).days > 30:
-            raise ValueError("Query history is only maintained for 30 days.")
+         if (datetime.now(timezone.utc) - v).days > 30:
+           raise ValueError("Query history is only maintained for 30 days.")
         return v
 
     @pydantic.validator("workspace_url")
@@ -493,6 +509,20 @@ class UnityCatalogSourceConfig(
         if lineage_data_source == LineageDataSource.SYSTEM_TABLES and not warehouse_id:
             raise ValueError(
                 f"lineage_data_source='{LineageDataSource.SYSTEM_TABLES.value}' requires warehouse_id to be set"
+            )
+
+        return values
+
+    @pydantic.root_validator(skip_on_failure=True)
+    def validate_usage_data_source_with_warehouse(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        usage_data_source = values.get("usage_data_source", UsageDataSource.AUTO)
+        warehouse_id = values.get("warehouse_id")
+
+        if usage_data_source == UsageDataSource.SYSTEM_TABLES and not warehouse_id:
+            raise ValueError(
+                f"usage_data_source='{UsageDataSource.SYSTEM_TABLES.value}' requires warehouse_id to be set"
             )
 
         return values
