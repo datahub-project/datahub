@@ -70,6 +70,9 @@ export const StyledTable = styled(Table)<StyledTableProps>`
     &&& .ant-table-thead > tr > th.ant-table-cell-fix-right {
         background-color: inherit;
     }
+    &&& .ant-pagination {
+        margin: 8px 0;
+    }
 `;
 
 const DetailsColumnWrapper = styled.div`
