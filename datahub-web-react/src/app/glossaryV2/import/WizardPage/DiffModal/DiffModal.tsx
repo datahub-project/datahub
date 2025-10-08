@@ -30,7 +30,11 @@ interface DiffModalProps {
 }
 
 const ModalContainer = styled.div`
-  /* Modal styling is handled by the shared Modal component */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  margin: 0;
 `;
 
 const ModalHeader = styled.div`
@@ -38,6 +42,9 @@ const ModalHeader = styled.div`
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
 `;
 
 const ModalTitle = styled.div`
@@ -59,11 +66,17 @@ const CloseButton = styled(Button)`
 `;
 
 const ContentContainer = styled.div`
-  padding: 16px;
+  padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 `;
 
 const TableContainer = styled.div`
-  margin-bottom: 16px;
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 `;
 
 const StatusBadge = styled.div<{ status: string }>`
@@ -145,6 +158,9 @@ const FooterActions = styled.div`
   justify-content: flex-end;
   align-items: center;
   width: 100%;
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+  flex-shrink: 0;
 `;
 
 const fieldLabels: Record<string, string> = {
@@ -335,11 +351,12 @@ export const DiffModal: React.FC<DiffModalProps> = ({
     <Modal
       open={visible}
       onCancel={onClose}
-      width={700}
+      width={900}
       footer={null}
       closable={false}
       destroyOnClose
       title=""
+      style={{ height: '80vh', maxHeight: '600px' }}
     >
       <ModalContainer>
         <ModalHeader>
@@ -362,7 +379,7 @@ export const DiffModal: React.FC<DiffModalProps> = ({
           {comparison.hasConflicts && (
             <Card 
               title="Conflicts Detected"
-              style={{ marginBottom: '24px', border: '1px solid #fecaca', background: '#fef2f2' }}
+              style={{ margin: '0 0 16px 0', border: '1px solid #fecaca', background: '#fef2f2' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ color: '#dc2626', fontWeight: 500 }}>
@@ -377,7 +394,8 @@ export const DiffModal: React.FC<DiffModalProps> = ({
               columns={createTableColumns()}
               data={comparison.fields}
               rowKey="key"
-              isScrollable
+              isScrollable={false}
+              style={{ height: '100%' }}
             />
           </TableContainer>
         </ContentContainer>
