@@ -1803,7 +1803,7 @@ export const WizardPage = () => {
     console.log('🎭 Mock UI: WizardPage component rendering');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const history = useHistory();
-    const [currentStep, setCurrentStep] = useState(0);
+    const [currentStep, setCurrentStep] = useState(1); // Start at step 1 for mock UI to show data
     
     // Import Processing state
     const [isImportModalVisible, setIsImportModalVisible] = useState(false);
