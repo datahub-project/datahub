@@ -1,13 +1,16 @@
 import { Button, Checkbox, Input, PageTitle, Pill, SearchBar, Select, SimpleSelect, Table } from '@components';
+import { Breadcrumb } from 'antd';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
+import { Link } from 'react-router-dom';
 
 import { Column } from '@components/components/Table/types';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
+import { PageRoutes } from '@conf/Global';
 import { Entity, EntityData } from '../glossary.types';
 import { EntityDetailsModal } from './EntityDetailsModal/EntityDetailsModal';
 import { DiffModal } from './DiffModal/DiffModal';
@@ -216,6 +219,29 @@ const StepActions = styled.div`
 const StepButtons = styled.div`
     display: flex;
     gap: 12px;
+`;
+
+const BreadcrumbWrapper = styled.div`
+    padding: 10px 0;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 20px;
+`;
+
+const StyledBreadcrumb = styled(Breadcrumb)`
+    font-size: 14px;
+    
+    .ant-breadcrumb-link {
+        color: #6b7280;
+        text-decoration: none;
+        
+        &:hover {
+            color: #3b82f6;
+        }
+    }
+    
+    .ant-breadcrumb-separator {
+        color: #9ca3af;
+    }
 `;
 
 
@@ -2081,6 +2107,14 @@ export const WizardPage = () => {
 
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
+            <BreadcrumbWrapper>
+                <StyledBreadcrumb separator=">">
+                    <Breadcrumb.Item>
+                        <Link to={PageRoutes.GLOSSARY}>Glossary</Link>
+                    </Breadcrumb.Item>
+                    <Breadcrumb.Item>Import</Breadcrumb.Item>
+                </StyledBreadcrumb>
+            </BreadcrumbWrapper>
             <PageHeaderContainer>
                 <TitleContainer>
                     <PageTitle
@@ -2088,11 +2122,6 @@ export const WizardPage = () => {
                         subTitle="Import glossary terms from CSV files and manage their import status"
                     />
                 </TitleContainer>
-                <HeaderActionsContainer>
-                    <Button variant="filled" onClick={() => history.back()}>
-                        Back to Glossary
-                    </Button>
-                </HeaderActionsContainer>
             </PageHeaderContainer>
             <PageContentContainer>
                 {/* Step Content - Full Width, No Container */}
