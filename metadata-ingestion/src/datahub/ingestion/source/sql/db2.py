@@ -40,6 +40,31 @@ class DB2DialectWithoutNormalization(DB2Dialect):
         self._reflector.normalize_name = lambda s: s
         self._reflector.denormalize_name = lambda s: s
 
+    def get_table_comment(self, connection, table_name, schema=None, **kwargs):
+        # see: https://github.com/ibmdb/python-ibmdbsa/issues/171
+        try:
+            comment = super().get_table_comment(
+                connection, table_name, schema=schema, **kwargs
+            )
+            if comment and comment.get("text"):
+                return comment
+        except NotImplementedError:
+            pass
+
+        if self.has_table(connection, "TABLES", schema="SYSCAT"):
+            result = connection.execute(
+                """
+                select REMARKS
+                from SYSCAT.TABLES
+                where TABSCHEMA = ?
+                and TABNAME = ?
+            """,
+                (schema, table_name),
+            )
+            return {"text": result.scalar()}
+
+        return {"text": ""}
+
 
 class Db2Config(BasicSQLAlchemyConfig):
     # Override defaults
