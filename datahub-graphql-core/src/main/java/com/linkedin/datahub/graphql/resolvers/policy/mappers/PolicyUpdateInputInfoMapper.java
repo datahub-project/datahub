@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.policy.mappers;
 
+import com.datahub.authorization.EntityFieldType;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
@@ -17,6 +18,8 @@ import com.linkedin.policy.PolicyMatchCriterion;
 import com.linkedin.policy.PolicyMatchCriterionArray;
 import com.linkedin.policy.PolicyMatchFilter;
 import java.net.URISyntaxException;
+import java.util.Arrays;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -26,6 +29,11 @@ public class PolicyUpdateInputInfoMapper
     implements ModelMapper<PolicyUpdateInput, DataHubPolicyInfo> {
 
   public static final PolicyUpdateInputInfoMapper INSTANCE = new PolicyUpdateInputInfoMapper();
+
+  private static final Set<String> VALID_ENTITY_FIELD_TYPES =
+      Arrays.stream(EntityFieldType.values())
+          .map(EntityFieldType::name)
+          .collect(Collectors.toSet());
 
   public static DataHubPolicyInfo map(
       @Nullable QueryContext context, @Nonnull final PolicyUpdateInput policyInput) {
@@ -102,13 +110,24 @@ public class PolicyUpdateInputInfoMapper
             new PolicyMatchCriterionArray(
                 filter.getCriteria().stream()
                     .map(
-                        criterion ->
-                            new PolicyMatchCriterion()
-                                .setField(criterion.getField())
-                                .setValues(new StringArray(criterion.getValues()))
-                                .setCondition(
-                                    PolicyMatchCondition.valueOf(criterion.getCondition().name())))
+                        criterion -> {
+                          validateFieldType(criterion.getField());
+                          return new PolicyMatchCriterion()
+                              .setField(criterion.getField())
+                              .setValues(new StringArray(criterion.getValues()))
+                              .setCondition(
+                                  PolicyMatchCondition.valueOf(criterion.getCondition().name()));
+                        })
                     .collect(Collectors.toList())));
+  }
+
+  private void validateFieldType(final String field) {
+    if (!VALID_ENTITY_FIELD_TYPES.contains(field)) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Invalid field type '%s'. Must be one of: %s",
+              field, String.join(", ", VALID_ENTITY_FIELD_TYPES)));
+    }
   }
 
   private Urn createUrn(String urnStr) {
