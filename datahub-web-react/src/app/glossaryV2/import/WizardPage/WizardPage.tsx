@@ -1,5 +1,4 @@
-import { Button, Checkbox, Input, PageTitle, Pill, SearchBar, Select, SimpleSelect, Table } from '@components';
-import { ActionsBar } from '@alchemy-components/components/ActionsBar/ActionsBar';
+import { Button, Checkbox, Input, PageTitle, Pill, SearchBar, Select, SimpleSelect, Table, ActionsBar } from '@components';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
