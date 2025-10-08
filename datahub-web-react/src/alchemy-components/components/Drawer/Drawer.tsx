@@ -16,13 +16,16 @@ export const Drawer = ({
     width = drawerDefault.width,
     closable = drawerDefault.closable,
     maskTransparent = drawerDefault.maskTransparent,
+    dataTestId,
 }: React.PropsWithChildren<DrawerProps>) => {
     return (
         <StyledDrawer
             onClose={onClose}
             destroyOnClose
             title={
-                <TitleContainer>
+                <TitleContainer
+                    data-testid={dataTestId ? `${dataTestId}-drawer-title-container` : 'drawer-title-container'}
+                >
                     <TitleLeftContainer>
                         {onBack && (
                             <Button
@@ -35,7 +38,7 @@ export const Drawer = ({
                                 variant="text"
                             />
                         )}
-                        <Text weight="bold" size="xl">
+                        <Text weight="bold" size="xl" data-testid="drawer-title">
                             {title}
                         </Text>
                     </TitleLeftContainer>
@@ -48,6 +51,7 @@ export const Drawer = ({
                             onClick={() => onClose?.()}
                             size="xl"
                             variant="text"
+                            data-testid="drawer-close-button"
                         />
                     )}
                 </TitleContainer>
