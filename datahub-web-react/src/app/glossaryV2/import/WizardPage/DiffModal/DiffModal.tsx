@@ -29,27 +29,7 @@ interface DiffModalProps {
 }
 
 const ModalContainer = styled.div`
-  .ant-modal-content {
-    border-radius: 8px;
-    overflow: hidden;
-  }
-  
-  .ant-modal-header {
-    border-bottom: 1px solid #e5e7eb;
-    padding: 12px 16px;
-  }
-  
-  .ant-modal-body {
-    padding: 0;
-    max-height: 70vh;
-    overflow-y: auto;
-  }
-  
-  .ant-modal-footer {
-    border-top: 1px solid #e5e7eb;
-    padding: 12px 16px;
-    background: #f9fafb;
-  }
+  /* Modal styling is handled by the shared Modal component */
 `;
 
 const ModalHeader = styled.div`

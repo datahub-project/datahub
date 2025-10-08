@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Typography, Input } from 'antd';
+import { Typography, Input } from '@components';
 import { Card } from '@components';
 import { EntityData, ValidationError } from '../../../glossary.types';
 

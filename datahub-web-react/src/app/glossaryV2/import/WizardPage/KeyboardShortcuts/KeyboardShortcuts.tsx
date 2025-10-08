@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback } from 'react';
 import styled from 'styled-components';
-import { Modal, Typography, Space, Tag } from 'antd';
+import { Modal, Typography, Space, Tag } from '@components';
 import { Button as DataHubButton } from '@components';
 
 const { Title, Text } = Typography;

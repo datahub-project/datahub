@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Modal, Typography, Space } from 'antd';
+import { Modal, Typography, Space } from '@components';
 import { ExclamationTriangleOutlined, QuestionCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { Button as DataHubButton } from '@components';
 

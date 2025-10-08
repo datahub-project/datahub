@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Spin, Typography, Progress } from 'antd';
+import { Spin, Typography, Progress } from '@components';
 import { Card } from '@components';
 
 const { Text, Title } = Typography;

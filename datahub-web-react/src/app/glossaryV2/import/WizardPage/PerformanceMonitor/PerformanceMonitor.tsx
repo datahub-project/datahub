@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Card, Typography, Progress, Space, Button } from 'antd';
+import { Card, Typography, Progress, Space, Button } from '@components';
 import { Button as DataHubButton } from '@components';
 import { PerformanceMetrics } from '../../shared/hooks/usePerformanceOptimization';
 

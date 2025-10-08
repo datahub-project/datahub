@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import styled from 'styled-components';
-import { Modal, Button, Typography, Space, Divider } from 'antd';
+import { Modal, Button, Typography, Space, Divider } from '@components';
 import { CloseOutlined, SaveOutlined, EditOutlined } from '@ant-design/icons';
 import { Button as DataHubButton, Card } from '@components';
 import { EntityData } from '../../glossary.types';

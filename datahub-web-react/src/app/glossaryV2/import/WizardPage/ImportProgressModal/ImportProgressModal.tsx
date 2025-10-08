@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Modal, Button } from '@components';
-import { Progress } from 'antd';
+import { Progress } from '@components';
 import { Message } from '@app/shared/Message';
 import { ImportProgress, ImportError, ImportWarning } from '../../shared/hooks/useImportProcessing';
 

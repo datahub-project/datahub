@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Typography, Alert, Space } from 'antd';
+import { Typography, Alert, Space } from '@components';
 import { Card } from '@components';
 import { ValidationError, ValidationWarning } from '../../../glossary.types';
 
