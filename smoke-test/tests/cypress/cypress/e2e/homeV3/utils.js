@@ -224,3 +224,25 @@ export function dragAndDropModuleToNewRow(moduleId) {
 export function waitUntilTemplateIsLoaded() {
   cy.getWithTestId("home-template-wrapper");
 }
+
+export function ensureThatModuleIsAvailable(moduleName, moduleType) {
+  cy.getWithTestId(`${moduleType}-module`)
+    .first()
+    .should("contain", moduleName);
+}
+
+export function ensureModuleHasContent(moduleType, content) {
+  cy.getWithTestId(`${moduleType}-module`).first().should("contain", content);
+}
+
+export function clickViewAll(moduleType) {
+  cy.getWithTestId(`${moduleType}-module`)
+    .first()
+    .within(() => {
+      cy.getWithTestId("view-all").scrollIntoView().click();
+    });
+}
+
+export function ensureUrlContains(text) {
+  cy.url().should("include", text);
+}
