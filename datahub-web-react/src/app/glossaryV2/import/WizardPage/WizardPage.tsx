@@ -44,7 +44,8 @@ const PageContentContainer = styled.div`
     gap: 24px;
     flex: 1;
     margin: 0 20px 20px 20px;
-    height: calc(100% - 80px);
+    height: calc(100% - 120px); /* Increased space for ActionsBar */
+    min-height: 0; /* Allow flex shrinking */
 `;
 
 const PageHeaderContainer = styled.div`
@@ -112,6 +113,7 @@ const StyledSimpleSelect = styled(SimpleSelect)`
 const TableContainer = styled.div`
     flex: 1;
     overflow: auto;
+    padding-bottom: 80px; /* Add space for ActionsBar */
 `;
 
 const PaginationContainer = styled.div`
@@ -1722,7 +1724,7 @@ const GlossaryImportList = ({
                                 handleSortColumnChange={handleSortColumnChange}
                                 isLoading={loading && entities.length === 0}
                                 pagination={false}
-                                scroll={{ y: 400 }}
+                                scroll={{ y: 450 }}
                             />
                         </TableContainer>
                         <PaginationContainer>
