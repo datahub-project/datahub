@@ -24,6 +24,7 @@ const DEFAULT_DATETIME_FORMAT = 'l @ LT (z)';
 
 const StyledText = styled(Text)`
     text-wrap: auto;
+    width: max-content;
 `;
 
 interface Props {
@@ -43,7 +44,15 @@ export default function DateTimeColumn({ time, format = DEFAULT_DATETIME_FORMAT,
 
     const relativeTime = toRelativeTimeString(time);
 
-    return <>{showRelative ? <StyledText>{relativeTime}</StyledText> : <StyledText>{formattedDateTime}</StyledText>}</>;
+    return (
+        <>
+            {showRelative ? (
+                <StyledText data-testid="ingestion-source-last-run">{relativeTime}</StyledText>
+            ) : (
+                <StyledText>{formattedDateTime}</StyledText>
+            )}
+        </>
+    );
 }
 
 const DateTimeCellWrapper = styled(CellHoverWrapper)`
