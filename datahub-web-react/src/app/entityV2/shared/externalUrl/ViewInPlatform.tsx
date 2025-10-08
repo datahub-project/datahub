@@ -60,7 +60,7 @@ export default function ViewInPlatform({
     if (linkItems.length === 0) return null;
 
     return (
-        <Links $shouldTakeAllAvailableSpace={shouldFillAllAvailableSpace}>
+        <Links $shouldTakeAllAvailableSpace={shouldFillAllAvailableSpace} data-testid="platform-links-container">
             <OverflowList
                 items={linkItems}
                 renderHiddenItems={(items) => <ViewMoreDropdown linkItems={items} />}
