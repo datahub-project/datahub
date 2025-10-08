@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import styled from 'styled-components';
-import { Modal, Button, Text, Heading, Space } from '@components';
+import { Modal, Button, Text, Heading } from '@components';
 import { CloseOutlined, SaveOutlined, EditOutlined } from '@ant-design/icons';
 import { Button as DataHubButton, Card } from '@components';
 import { EntityData } from '../../glossary.types';
@@ -253,7 +253,7 @@ export const EntityDetailsModal: React.FC<EntityDetailsModalProps> = ({
             )}
           </div>
           
-          <Space>
+          <div style={{ display: 'flex', gap: '8px' }}>
             {isEditing ? (
               <>
                 <DataHubButton
@@ -281,7 +281,7 @@ export const EntityDetailsModal: React.FC<EntityDetailsModalProps> = ({
                 Edit Entity
               </DataHubButton>
             )}
-          </Space>
+          </div>
         </FooterActions>
       </ModalContainer>
     </Modal>

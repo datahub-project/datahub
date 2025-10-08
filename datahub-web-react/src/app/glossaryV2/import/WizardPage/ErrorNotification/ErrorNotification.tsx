@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Alert, Button, Space, Text, Heading } from '@components';
+import { Alert, Button, Text, Heading } from '@components';
 import { CloseOutlined, ExclamationCircleOutlined, WarningOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { Button as DataHubButton } from '@components';
 import { AppError, ErrorRecoveryAction } from '../../shared/hooks/useErrorHandling';
@@ -210,7 +210,7 @@ export const ErrorNotification: React.FC<ErrorNotificationProps> = ({
 
       {recoveryActions.length > 0 && (
         <ErrorActions>
-          <Space>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {recoveryActions.map(action => (
               <ActionButton
                 key={action.id}
@@ -221,7 +221,7 @@ export const ErrorNotification: React.FC<ErrorNotificationProps> = ({
                 {action.label}
               </ActionButton>
             ))}
-          </Space>
+          </div>
         </ErrorActions>
       )}
     </NotificationContainer>

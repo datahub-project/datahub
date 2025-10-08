@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Text, Heading, Alert, Space } from '@components';
+import { Text, Heading, Alert } from '@components';
 import { Card } from '@components';
 import { ValidationError, ValidationWarning } from '../../../glossary.types';
 
@@ -81,12 +81,12 @@ export const ValidationSection: React.FC<ValidationSectionProps> = ({
 
   return (
     <SectionCard title="Validation">
-      <Space direction="vertical" style={{ width: '100%' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '16px' }}>
         {hasErrors && (
           <div>
-            <Title level={5} style={{ color: '#dc2626', margin: '0 0 8px 0' }}>
+            <Heading type="h5" style={{ color: '#dc2626', margin: '0 0 8px 0' }}>
               Errors ({validationErrors.length})
-            </Title>
+            </Heading>
             {validationErrors.map((error, index) => (
               <ErrorItem key={index}>
                 <FieldLabel>{error.field}:</FieldLabel>
@@ -98,9 +98,9 @@ export const ValidationSection: React.FC<ValidationSectionProps> = ({
 
         {hasWarnings && (
           <div>
-            <Title level={5} style={{ color: '#d97706', margin: '0 0 8px 0' }}>
+            <Heading type="h5" style={{ color: '#d97706', margin: '0 0 8px 0' }}>
               Warnings ({validationWarnings.length})
-            </Title>
+            </Heading>
             {validationWarnings.map((warning, index) => (
               <WarningItem key={index}>
                 <FieldLabel>{warning.field}:</FieldLabel>
@@ -109,7 +109,7 @@ export const ValidationSection: React.FC<ValidationSectionProps> = ({
             ))}
           </div>
         )}
-      </Space>
+      </div>
     </SectionCard>
   );
 };

@@ -5,7 +5,7 @@
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 import { Button } from '@components';
-import { Progress, Alert, Text, Space } from '@components';
+import { Progress, Alert, Text } from '@components';
 import { UploadOutlined, FileTextOutlined, ExclamationCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
 
 
@@ -278,14 +278,14 @@ export default function DropzoneTable({
           </ProgressContainer>
         )}
         
-        <Space direction="vertical" size="small">
-          <Text type="secondary" style={{ fontSize: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+          <Text style={{ fontSize: 12, color: '#6b7280' }}>
             Supported formats: {acceptedFileTypes.join(', ')}
           </Text>
-          <Text type="secondary" style={{ fontSize: 12 }}>
+          <Text style={{ fontSize: 12, color: '#6b7280' }}>
             Maximum file size: {maxFileSize}MB
           </Text>
-        </Space>
+        </div>
       </DropzoneContent>
     );
   };
