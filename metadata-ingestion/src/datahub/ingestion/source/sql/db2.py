@@ -4,6 +4,8 @@ from typing import (
 )
 
 import pydantic
+from ibm_db_sa import dialect as DB2Dialect
+from sqlalchemy.engine.reflection import Inspector
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -17,6 +19,16 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
+
+
+class DB2DialectWithoutNormalization(DB2Dialect):
+    def initialize(self, connection):
+        # see:
+        # - https://github.com/ibmdb/python-ibmdbsa/issues/153
+        # - https://github.com/ibmdb/python-ibmdbsa/issues/170
+        super().initialize(connection)
+        self._reflector.normalize_name = lambda s: s
+        self._reflector.denormalize_name = lambda s: s
 
 
 class Db2Config(BasicSQLAlchemyConfig):
@@ -53,6 +65,12 @@ class Db2Source(SQLAlchemySource):
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "Db2Source":
         config = Db2Config.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_inspectors(self) -> Iterable[Inspector]:
+        for inspector in super().get_inspectors():
+            inspector.dialect = DB2DialectWithoutNormalization()
+            inspector.dialect.initialize(inspector.bind)
+            yield inspector
 
     def get_schema_names(self, inspector) -> Iterable[str]:
         for s in inspector.get_schema_names():
