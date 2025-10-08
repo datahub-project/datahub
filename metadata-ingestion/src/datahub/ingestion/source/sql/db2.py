@@ -6,6 +6,7 @@ from typing import (
 import pydantic
 from ibm_db_sa import dialect as DB2Dialect
 from sqlalchemy.engine.reflection import Inspector
+from sqlglot.dialects.dialect import Dialect as SQLGlotDialect, NormalizationStrategy
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -19,6 +20,10 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
+
+
+class Db2(SQLGlotDialect):
+    NORMALIZATION_STRATEGY = NormalizationStrategy.UPPERCASE
 
 
 class DB2DialectWithoutNormalization(DB2Dialect):
