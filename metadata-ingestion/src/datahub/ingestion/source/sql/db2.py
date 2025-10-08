@@ -1,4 +1,7 @@
-from typing import Dict
+from typing import (
+    Dict,
+    Iterable,
+)
 
 import pydantic
 
@@ -50,3 +53,8 @@ class Db2Source(SQLAlchemySource):
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "Db2Source":
         config = Db2Config.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_schema_names(self, inspector) -> Iterable[str]:
+        for s in inspector.get_schema_names():
+            # inspect.get_schema_names() can return schema names with extra space on the end
+            yield s.rstrip()
