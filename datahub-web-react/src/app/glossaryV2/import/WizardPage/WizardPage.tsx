@@ -207,6 +207,30 @@ const EditableCell = styled.div`
     }
 `;
 
+const DiffButton = styled.div`
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: #0066cc;
+    background-color: transparent;
+    border: 1px solid #d9d9d9;
+    transition: all 0.2s ease;
+    
+    &:hover {
+        background-color: #f0f8ff;
+        border-color: #0066cc;
+        color: #0052a3;
+    }
+    
+    &:active {
+        background-color: #e6f3ff;
+        transform: translateY(1px);
+    }
+`;
+
 
 const StepActions = styled.div`
     display: flex;
@@ -1224,17 +1248,14 @@ const GlossaryImportList = ({
             title: 'Diff',
             key: 'diff',
             render: (record) => (
-                <Button
-                    variant="text"
-                    size="xs"
+                <DiffButton
                     onClick={(e) => {
                         e.stopPropagation();
                         handleShowDiff(record);
                     }}
-                    style={{ padding: '2px 6px', minWidth: 'auto' }}
                 >
                     Diff
-                </Button>
+                </DiffButton>
             ),
             width: '80px',
             minWidth: '80px',
