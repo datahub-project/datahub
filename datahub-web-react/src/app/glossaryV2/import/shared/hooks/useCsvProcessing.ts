@@ -146,7 +146,7 @@ export function useCsvProcessing(): UseCsvProcessingReturn {
             if (parts.length < 2) {
               warnings.push({
                 row: index + 1,
-                field: 'ownership',
+                field: 'ownership_users',
                 message: `Invalid ownership format: "${entry}". Expected format: "owner:ownershipType"`,
                 type: 'suggestion'
               });

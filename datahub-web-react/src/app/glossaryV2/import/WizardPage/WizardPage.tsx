@@ -1506,33 +1506,62 @@ const GlossaryImportList = ({
             sorter: (a, b) => a.data.source_url.localeCompare(b.data.source_url),
         },
         {
-            title: 'Ownership',
-            key: 'ownership',
+            title: 'Ownership (Users)',
+            key: 'ownership_users',
             render: (record) => {
-                if (isEditing(record.id, 'ownership')) {
+                if (isEditing(record.id, 'ownership_users')) {
                     return (
                         <EditableInputWrapper>
                             <Input
-                                value={record.data.ownership}
+                                value={record.data.ownership_users}
                                 setValue={(value) => {
                                     const stringValue = typeof value === 'function' ? value('') : value;
-                                    handleCellSave(record.id, 'ownership', stringValue);
+                                    handleCellSave(record.id, 'ownership_users', stringValue);
                                 }}
-                                placeholder="Enter ownership"
+                                placeholder="Enter user ownership (e.g., admin:DEVELOPER)"
                                 label=""
                             />
                         </EditableInputWrapper>
                     );
                 }
                 return (
-                    <EditableCell onClick={() => handleCellEdit(record.id, 'ownership')}>
-                        {record.data.ownership}
+                    <EditableCell onClick={() => handleCellEdit(record.id, 'ownership_users')}>
+                        {record.data.ownership_users}
                     </EditableCell>
                 );
             },
-            width: '8%',
+            width: '12%',
             alignment: 'left',
-            sorter: (a, b) => a.data.ownership.localeCompare(b.data.ownership),
+            sorter: (a, b) => a.data.ownership_users.localeCompare(b.data.ownership_users),
+        },
+        {
+            title: 'Ownership (Groups)',
+            key: 'ownership_groups',
+            render: (record) => {
+                if (isEditing(record.id, 'ownership_groups')) {
+                    return (
+                        <EditableInputWrapper>
+                            <Input
+                                value={record.data.ownership_groups}
+                                setValue={(value) => {
+                                    const stringValue = typeof value === 'function' ? value('') : value;
+                                    handleCellSave(record.id, 'ownership_groups', stringValue);
+                                }}
+                                placeholder="Enter group ownership (e.g., bfoo:Technical Owner)"
+                                label=""
+                            />
+                        </EditableInputWrapper>
+                    );
+                }
+                return (
+                    <EditableCell onClick={() => handleCellEdit(record.id, 'ownership_groups')}>
+                        {record.data.ownership_groups}
+                    </EditableCell>
+                );
+            },
+            width: '12%',
+            alignment: 'left',
+            sorter: (a, b) => a.data.ownership_groups.localeCompare(b.data.ownership_groups),
         },
         {
             title: 'Related Contains',
@@ -1949,9 +1978,16 @@ export const WizardPage = () => {
                             term_source: properties.termSource || '',
                             source_ref: properties.sourceRef || '',
                             source_url: properties.sourceUrl || '',
-                            ownership: entity.ownership?.owners?.map((owner: any) => 
-                              `${owner.type}:${owner.owner.username || owner.owner.name || owner.owner.urn}`
-                            ).join(',') || '',
+                            ownership_users: entity.ownership?.owners?.filter((owner: any) => 
+                              owner.owner.__typename === 'CorpUser'
+                            ).map((owner: any) => 
+                              `${owner.owner.username || owner.owner.name || owner.owner.urn}:${owner.ownershipType?.info?.name || 'NONE'}`
+                            ).join('|') || '',
+                            ownership_groups: entity.ownership?.owners?.filter((owner: any) => 
+                              owner.owner.__typename === 'CorpGroup'
+                            ).map((owner: any) => 
+                              `${owner.owner.username || owner.owner.name || owner.owner.urn}:${owner.ownershipType?.info?.name || 'NONE'}`
+                            ).join('|') || '',
                             parent_nodes: parentNodes.map((node: any) => node.properties?.name || '').join(','),
                             related_contains: convertRelationshipUrnsToNames(entity.contains?.relationships || []),
                             related_inherits: convertRelationshipUrnsToNames(entity.inherits?.relationships || []),

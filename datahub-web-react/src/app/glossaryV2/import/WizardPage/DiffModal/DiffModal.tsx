@@ -371,7 +371,7 @@ export const DiffModal: React.FC<DiffModalProps> = ({
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ color: '#dc2626', fontWeight: 500 }}>
-                  ⚠️ Conflicts detected - values differ between existing and imported data
+                  Conflicts detected - values differ between existing and imported data
                 </div>
               </div>
             </Card>
@@ -422,7 +422,7 @@ export const DiffModal: React.FC<DiffModalProps> = ({
                     )}
                     {field.isConflict && (
                       <ConflictIndicator>
-                        ⚠️ Conflict
+                        Conflict
                       </ConflictIndicator>
                     )}
                   </FieldValueCell>
@@ -445,7 +445,7 @@ export const DiffModal: React.FC<DiffModalProps> = ({
                     )}
                     {field.isConflict && (
                       <ConflictIndicator>
-                        ⚠️ Conflict
+                        Conflict
                       </ConflictIndicator>
                     )}
                   </FieldValueCell>

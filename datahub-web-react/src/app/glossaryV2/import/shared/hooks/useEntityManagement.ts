@@ -250,11 +250,14 @@ export function useEntityManagement(): UseEntityManagementReturn {
  */
 function compareEntityData(data1: EntityData, data2: EntityData): boolean {
   const fieldsToCompare: (keyof EntityData)[] = [
+    'entity_type',
+    'name',
     'description',
     'term_source',
     'source_ref',
     'source_url',
-    'ownership',
+    'ownership_users',
+    'ownership_groups',
     'parent_nodes',
     'related_contains',
     'related_inherits',
@@ -263,9 +266,9 @@ function compareEntityData(data1: EntityData, data2: EntityData): boolean {
     'custom_properties'
   ];
 
-  return fieldsToCompare.some(field => {
+  return fieldsToCompare.every(field => {
     const value1 = data1[field] || '';
     const value2 = data2[field] || '';
-    return value1.trim() !== value2.trim();
+    return value1.trim() === value2.trim();
   });
 }

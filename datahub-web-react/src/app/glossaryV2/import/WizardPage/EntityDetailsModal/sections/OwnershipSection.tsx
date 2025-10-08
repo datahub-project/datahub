@@ -99,10 +99,17 @@ export const OwnershipSection: React.FC<OwnershipSectionProps> = ({
   return (
     <SectionCard title="Ownership">
       <FieldContainer>
-        <FieldLabel>Ownership</FieldLabel>
-        {renderField('ownership', 'Ownership')}
-        {getFieldError('ownership') && (
-          <ErrorText>{getFieldError('ownership')?.message}</ErrorText>
+        <FieldLabel>Ownership (Users)</FieldLabel>
+        {renderField('ownership_users', 'User Ownership')}
+        {getFieldError('ownership_users') && (
+          <ErrorText>{getFieldError('ownership_users')?.message}</ErrorText>
+        )}
+      </FieldContainer>
+      <FieldContainer>
+        <FieldLabel>Ownership (Groups)</FieldLabel>
+        {renderField('ownership_groups', 'Group Ownership')}
+        {getFieldError('ownership_groups') && (
+          <ErrorText>{getFieldError('ownership_groups')?.message}</ErrorText>
         )}
       </FieldContainer>
     </SectionCard>

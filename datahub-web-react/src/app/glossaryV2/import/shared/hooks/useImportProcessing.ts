@@ -878,9 +878,19 @@ export const useImportProcessing = ({
           for (const parentName of parentNames) {
             if (!parentName) continue;
             
-            // Look up parent URN from our map or existing entities
-            const parentUrn = entityUrnMap.current.get(parentName) || 
-                             entity.parentUrns.find(urn => urn.includes(parentName));
+            // Look up parent URN from our map, existing entities, or current entity's parent URNs
+            let parentUrn = entityUrnMap.current.get(parentName) || 
+                           entity.parentUrns.find(urn => urn.includes(parentName));
+            
+            // If not found, check existing entities
+            if (!parentUrn) {
+              const existingParent = existingEntities.find(existing => 
+                existing.name.toLowerCase() === parentName.toLowerCase()
+              );
+              if (existingParent) {
+                parentUrn = existingParent.urn;
+              }
+            }
             
             if (parentUrn) {
               parentUrns.push(parentUrn);

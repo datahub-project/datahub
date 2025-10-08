@@ -40,7 +40,7 @@ describe('useImportProcessing', () => {
   });
 
   describe('ownership parsing and processing', () => {
-    it('should parse single ownership correctly', () => {
+    it('should parse single ownership correctly', async () => {
       const { result } = renderHook(() => 
         useImportProcessing({
           apolloClient: mockApolloClient,
@@ -86,7 +86,7 @@ describe('useImportProcessing', () => {
       expect(result.current.progress.errors).toHaveLength(0);
     });
 
-    it('should parse multiple ownership entries with pipe separator', () => {
+    it('should parse multiple ownership entries with pipe separator', async () => {
       const { result } = renderHook(() => 
         useImportProcessing({
           apolloClient: mockApolloClient,
@@ -117,14 +117,19 @@ describe('useImportProcessing', () => {
         }
       };
 
-      act(() => {
-        result.current.processEntity(testEntity);
+      await act(async () => {
+        const batch = {
+          entities: [testEntity],
+          existingEntities: [],
+          hierarchyMaps: { parentMap: new Map(), childMap: new Map() }
+        };
+        await result.current.processBatch(batch);
       });
 
       expect(result.current.progress.errors).toHaveLength(0);
     });
 
-    it('should parse multiple ownership entries with comma separator', () => {
+    it('should parse multiple ownership entries with comma separator', async () => {
       const { result } = renderHook(() => 
         useImportProcessing({
           apolloClient: mockApolloClient,
@@ -155,14 +160,19 @@ describe('useImportProcessing', () => {
         }
       };
 
-      act(() => {
-        result.current.processEntity(testEntity);
+      await act(async () => {
+        const batch = {
+          entities: [testEntity],
+          existingEntities: [],
+          hierarchyMaps: { parentMap: new Map(), childMap: new Map() }
+        };
+        await result.current.processBatch(batch);
       });
 
       expect(result.current.progress.errors).toHaveLength(0);
     });
 
-    it('should handle empty ownership gracefully', () => {
+    it('should handle empty ownership gracefully', async () => {
       const { result } = renderHook(() => 
         useImportProcessing({
           apolloClient: mockApolloClient,
@@ -192,14 +202,19 @@ describe('useImportProcessing', () => {
         }
       };
 
-      act(() => {
-        result.current.processEntity(testEntity);
+      await act(async () => {
+        const batch = {
+          entities: [testEntity],
+          existingEntities: [],
+          hierarchyMaps: { parentMap: new Map(), childMap: new Map() }
+        };
+        await result.current.processBatch(batch);
       });
 
       expect(result.current.progress.errors).toHaveLength(0);
     });
 
-    it('should handle invalid ownership format with error', () => {
+    it('should handle invalid ownership format with error', async () => {
       const { result } = renderHook(() => 
         useImportProcessing({
           apolloClient: mockApolloClient,
@@ -229,8 +244,13 @@ describe('useImportProcessing', () => {
         }
       };
 
-      act(() => {
-        result.current.processEntity(testEntity);
+      await act(async () => {
+        const batch = {
+          entities: [testEntity],
+          existingEntities: [],
+          hierarchyMaps: { parentMap: new Map(), childMap: new Map() }
+        };
+        await result.current.processBatch(batch);
       });
 
       // Should have an error for invalid ownership format
@@ -240,7 +260,7 @@ describe('useImportProcessing', () => {
   });
 
   describe('ownership type creation', () => {
-    it('should create ownership type patches with required audit fields', () => {
+    it('should create ownership type patches with required audit fields', async () => {
       const { result } = renderHook(() => 
         useImportProcessing({
           apolloClient: mockApolloClient,
@@ -270,8 +290,13 @@ describe('useImportProcessing', () => {
         }
       };
 
-      act(() => {
-        result.current.processEntity(testEntity);
+      await act(async () => {
+        const batch = {
+          entities: [testEntity],
+          existingEntities: [],
+          hierarchyMaps: { parentMap: new Map(), childMap: new Map() }
+        };
+        await result.current.processBatch(batch);
       });
 
       expect(result.current.progress.errors).toHaveLength(0);
@@ -279,7 +304,7 @@ describe('useImportProcessing', () => {
   });
 
   describe('CSV import workflow', () => {
-    it('should process a complete CSV import batch', () => {
+    it('should process a complete CSV import batch', async () => {
       const { result } = renderHook(() => 
         useImportProcessing({
           apolloClient: mockApolloClient,
@@ -355,8 +380,13 @@ describe('useImportProcessing', () => {
         }
       ];
 
-      act(() => {
-        result.current.processEntityBatch(testEntities);
+      await act(async () => {
+        const batch = {
+          entities: testEntities,
+          existingEntities: [],
+          hierarchyMaps: { parentMap: new Map(), childMap: new Map() }
+        };
+        await result.current.processBatch(batch);
       });
 
       // Should process all entities without errors
@@ -364,7 +394,7 @@ describe('useImportProcessing', () => {
       expect(result.current.progress.processed).toBe(3);
     });
 
-    it('should handle mixed ownership types and glossary terms', () => {
+    it('should handle mixed ownership types and glossary terms', async () => {
       const { result } = renderHook(() => 
         useImportProcessing({
           apolloClient: mockApolloClient,
@@ -418,8 +448,13 @@ describe('useImportProcessing', () => {
         }
       ];
 
-      act(() => {
-        result.current.processEntityBatch(testEntities);
+      await act(async () => {
+        const batch = {
+          entities: testEntities,
+          existingEntities: [],
+          hierarchyMaps: { parentMap: new Map(), childMap: new Map() }
+        };
+        await result.current.processBatch(batch);
       });
 
       expect(result.current.progress.errors).toHaveLength(0);
@@ -428,7 +463,7 @@ describe('useImportProcessing', () => {
   });
 
   describe('error handling', () => {
-    it('should handle missing ownership type gracefully', () => {
+    it('should handle missing ownership type gracefully', async () => {
       const { result } = renderHook(() => 
         useImportProcessing({
           apolloClient: mockApolloClient,
@@ -459,8 +494,13 @@ describe('useImportProcessing', () => {
         }
       };
 
-      act(() => {
-        result.current.processEntity(testEntity);
+      await act(async () => {
+        const batch = {
+          entities: [testEntity],
+          existingEntities: [],
+          hierarchyMaps: { parentMap: new Map(), childMap: new Map() }
+        };
+        await result.current.processBatch(batch);
       });
 
       // Should have an error for missing ownership type
@@ -469,7 +509,7 @@ describe('useImportProcessing', () => {
       expect(result.current.progress.errors[0].error).toContain('not found');
     });
 
-    it('should handle malformed ownership strings', () => {
+    it('should handle malformed ownership strings', async () => {
       const { result } = renderHook(() => 
         useImportProcessing({
           apolloClient: mockApolloClient,
@@ -499,8 +539,13 @@ describe('useImportProcessing', () => {
         }
       };
 
-      act(() => {
-        result.current.processEntity(testEntity);
+      await act(async () => {
+        const batch = {
+          entities: [testEntity],
+          existingEntities: [],
+          hierarchyMaps: { parentMap: new Map(), childMap: new Map() }
+        };
+        await result.current.processBatch(batch);
       });
 
       // Should still process the ownership (it will use the first 3 parts)
