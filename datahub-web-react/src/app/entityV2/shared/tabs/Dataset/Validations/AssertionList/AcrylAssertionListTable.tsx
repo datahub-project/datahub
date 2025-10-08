@@ -109,7 +109,6 @@ export const AcrylAssertionListTable = ({
                     showHeader
                     scroll={{
                         y: tableHeight,
-                        x: 'max-content',
                     }}
                     pagination={{
                         pageSize: 50,
