@@ -9,15 +9,16 @@ import { useMockEntityManagement } from '../shared/hooks/useMockEntityManagement
 import { useMockEntityComparison } from '../shared/hooks/useMockEntityComparison';
 import { useHierarchyManagement } from '../shared/hooks/useHierarchyManagement';
 import { useMockFileUpload, useMockFileValidation } from './DropzoneTable/useMockFileUpload';
+import { mockEntities, mockExistingEntities, mockComparisonResult } from '../shared/mocks/mockData';
 
 export function useImportState() {
   const [csvData, setCsvData] = useState<EntityData[]>([]);
   const [parseResult, setParseResult] = useState<CsvParseResult | null>(null);
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const [entities, setEntitiesState] = useState<Entity[]>([]);
-  const [existingEntities, setExistingEntitiesState] = useState<Entity[]>([]);
-  const [comparisonResult, setComparisonResultState] = useState<ComparisonResult | null>(null);
-  const [isComparisonComplete, setIsComparisonComplete] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(true); // Initialize as loaded for mock
+  const [entities, setEntitiesState] = useState<Entity[]>(mockEntities); // Initialize with mock data
+  const [existingEntities, setExistingEntitiesState] = useState<Entity[]>(mockExistingEntities); // Initialize with mock data
+  const [comparisonResult, setComparisonResultState] = useState<ComparisonResult | null>(mockComparisonResult); // Initialize with mock data
+  const [isComparisonComplete, setIsComparisonComplete] = useState(true); // Initialize as complete for mock
 
   const setCsvDataAndResult = useCallback((data: EntityData[], result: CsvParseResult) => {
     setCsvData(data);
