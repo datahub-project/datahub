@@ -74,9 +74,10 @@ const ContentContainer = styled.div`
 
 const TableContainer = styled.div`
   flex: 1;
-  overflow: hidden;
+  overflow: auto;
   display: flex;
   flex-direction: column;
+  max-height: 300px;
 `;
 
 const StatusBadge = styled.div<{ status: string }>`
@@ -105,7 +106,7 @@ const StatusBadge = styled.div<{ status: string }>`
 `;
 
 const FieldValue = styled.div<{ hasChanges?: boolean; isConflict?: boolean }>`
-  padding: 8px;
+  padding: 4px 6px;
   background: ${props => {
     if (props.isConflict) return '#fef2f2';
     if (props.hasChanges) return '#fef3c7';
@@ -117,30 +118,32 @@ const FieldValue = styled.div<{ hasChanges?: boolean; isConflict?: boolean }>`
     return '#e5e7eb';
   }};
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px;
   color: ${props => {
     if (props.isConflict) return '#dc2626';
     if (props.hasChanges) return '#92400e';
     return '#374151';
   }};
-  min-height: 40px;
+  min-height: 24px;
   white-space: pre-wrap;
   word-break: break-word;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  line-height: 1.2;
 `;
 
 const EmptyValue = styled.div`
-  padding: 8px;
+  padding: 4px 6px;
   background: #f9fafb;
   border: 1px dashed #d1d5db;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px;
   color: #9ca3af;
   font-style: italic;
-  min-height: 40px;
+  min-height: 24px;
   display: flex;
   align-items: center;
+  line-height: 1.2;
 `;
 
 const ConflictIndicator = styled.div`
@@ -195,7 +198,7 @@ const createTableColumns = (): Column<any>[] => [
         {record.label}
       </div>
     ),
-    width: '20%',
+    width: '15%',
     alignment: 'left',
   },
   {
@@ -226,7 +229,7 @@ const createTableColumns = (): Column<any>[] => [
         )}
       </FieldValue>
     ),
-    width: '40%',
+    width: '42.5%',
     alignment: 'left',
   },
   {
@@ -257,7 +260,7 @@ const createTableColumns = (): Column<any>[] => [
         )}
       </FieldValue>
     ),
-    width: '40%',
+    width: '42.5%',
     alignment: 'left',
   },
 ];
@@ -356,7 +359,7 @@ export const DiffModal: React.FC<DiffModalProps> = ({
       closable={false}
       destroyOnClose
       title=""
-      style={{ height: '80vh', maxHeight: '600px' }}
+      style={{ height: '70vh', maxHeight: '500px' }}
     >
       <ModalContainer>
         <ModalHeader>
