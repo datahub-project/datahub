@@ -3,7 +3,9 @@ import React, { useState } from 'react';
 
 import DataProductBuilderForm from '@app/entityV2/domain/DataProductsTab/DataProductBuilderForm';
 import { DataProductBuilderState } from '@app/entityV2/domain/DataProductsTab/types';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 
 import { useCreateDataProductMutation } from '@graphql/dataProduct.generated';
 import { DataHubPageModuleType, DataProduct, Domain } from '@types';
@@ -29,7 +31,7 @@ type Props = {
 export default function CreateDataProductModal({ domain, onCreateDataProduct, onClose }: Props) {
     const [builderState, updateBuilderState] = useState<DataProductBuilderState>(DEFAULT_STATE);
     const [createDataProductMutation] = useCreateDataProductMutation();
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
 
     function createDataProduct() {
         createDataProductMutation({
@@ -53,7 +55,10 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
                     onClose();
                     // Reload modules
                     // DataProducts - handling of creating of new data product from data products tab
-                    reloadModules([DataHubPageModuleType.DataProducts], 3000);
+                    reloadByKeyType(
+                        [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.DataProducts)],
+                        3000,
+                    );
                 }
             })
             .catch(() => {

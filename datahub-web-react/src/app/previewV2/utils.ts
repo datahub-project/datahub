@@ -2,7 +2,9 @@ import { Modal, message } from 'antd';
 
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useBatchSetDataProductMutation } from '@src/graphql/dataProduct.generated';
 
 import { useBatchSetApplicationMutation } from '@graphql/application.generated';
@@ -34,7 +36,7 @@ export const isNullOrUndefined = (value: any) => {
 export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
     const { entityState, refetch, entityType } = useEntityContext();
     const [unsetDomainMutation] = useUnsetDomainMutation();
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
 
     const handleRemoveDomain = (urnToRemoveFrom) => {
         message.loading({ content: 'Removing Domain...', duration: 2 });
@@ -47,10 +49,14 @@ export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
                     message.success({ content: 'Domain Removed!', duration: 2 });
                     // Reload modules
                     // Assets - to update assets in domain summary tab
-                    reloadModules([DataHubPageModuleType.Assets]);
+                    reloadByKeyType([
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
+                    ]);
                     // DataProduct - to update data products module in domain summary tab
                     if (entityType === EntityType.DataProduct) {
-                        reloadModules([DataHubPageModuleType.DataProducts]);
+                        reloadByKeyType([
+                            getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.DataProducts),
+                        ]);
                     }
                 }, 2000);
             })
@@ -80,7 +86,7 @@ export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
 }
 
 export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) {
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
     const [removeTermMutation] = useRemoveTermMutation();
 
     const handleRemoveTerm = (previewData, termUrn) => {
@@ -99,7 +105,9 @@ export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) 
                         setTimeout(() => {
                             setShouldRefetchEmbeddedListSearch(true);
                             message.success({ content: 'Term Removed!', duration: 2 });
-                            reloadModules([DataHubPageModuleType.Assets]);
+                            reloadByKeyType([
+                                getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
+                            ]);
                         }, 2000);
                     }
                 })
@@ -128,7 +136,7 @@ export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) 
 }
 
 export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
 
     function handleDataProduct(urn) {
@@ -137,7 +145,9 @@ export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
                 setTimeout(() => {
                     setShouldRefetchEmbeddedListSearch(true);
                     message.success({ content: 'Removed Data Product.', duration: 2 });
-                    reloadModules([DataHubPageModuleType.Assets]);
+                    reloadByKeyType([
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
+                    ]);
                 }, 2000);
             })
             .catch((e: unknown) => {
