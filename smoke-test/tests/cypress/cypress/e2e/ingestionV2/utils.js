@@ -184,7 +184,7 @@ export const navigateToTab = (tabName) => {
 
 export const filterBySource = (sourceName) => {
   cy.get('[data-testid="source-name-filter"').click();
-  cy.get('[data-testid="select-search-input"').type(sourceName);
+  cy.get('[data-testid="dropdown-search-bar"').type(sourceName);
   cy.get("body .ant-dropdown").contains(sourceName).click();
-  cy.get('[data-testid="select-update-button"').click();
+  cy.get('[data-testid="footer-button-update"').click();
 };
