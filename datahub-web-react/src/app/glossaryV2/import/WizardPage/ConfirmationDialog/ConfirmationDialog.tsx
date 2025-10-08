@@ -48,7 +48,7 @@ const ModalHeader = styled.div`
   gap: 12px;
 `;
 
-const ModalTitle = styled(Title)`
+const ModalTitle = styled(Heading)`
   margin: 0 !important;
   font-size: 18px !important;
   font-weight: 600 !important;

@@ -1,10 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Text, Input } from '@components';
+import { Text, Input, TextArea } from '@components';
 import { Card } from '@components';
 import { EntityData, ValidationError } from '../../../glossary.types';
 
-const { TextArea } = Input;
 
 interface ContentSectionProps {
   data: EntityData | null;

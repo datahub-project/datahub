@@ -28,7 +28,7 @@ const LoadingCard = styled(Card)`
   max-width: 400px;
 `;
 
-const LoadingTitle = styled(Title)`
+const LoadingTitle = styled(Heading)`
   margin: 0 0 16px 0 !important;
   font-size: 18px !important;
   font-weight: 600 !important;

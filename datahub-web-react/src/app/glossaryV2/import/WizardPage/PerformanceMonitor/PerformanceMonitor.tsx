@@ -36,7 +36,7 @@ const MonitorHeader = styled.div`
   margin-bottom: 16px;
 `;
 
-const MonitorTitle = styled(Title)`
+const MonitorTitle = styled(Heading)`
   margin: 0 !important;
   font-size: 14px !important;
   font-weight: 600 !important;

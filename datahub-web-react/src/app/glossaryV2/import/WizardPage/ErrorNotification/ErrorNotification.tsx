@@ -34,7 +34,7 @@ const ErrorIcon = styled.div`
   gap: 8px;
 `;
 
-const ErrorTitle = styled(Title)`
+const ErrorTitle = styled(Heading)`
   margin: 0 !important;
   font-size: 14px !important;
   font-weight: 600 !important;

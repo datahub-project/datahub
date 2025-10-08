@@ -51,7 +51,7 @@ const ModalHeader = styled.div`
   width: 100%;
 `;
 
-const ModalTitle = styled(Title)`
+const ModalTitle = styled(Heading)`
   margin: 0 !important;
   font-size: 18px !important;
   font-weight: 600 !important;
@@ -77,7 +77,7 @@ const CategoryContainer = styled.div`
   }
 `;
 
-const CategoryTitle = styled(Title)`
+const CategoryTitle = styled(Heading)`
   margin: 0 0 12px 0 !important;
   font-size: 16px !important;
   font-weight: 600 !important;
@@ -101,7 +101,7 @@ const ShortcutDescription = styled(Text)`
   font-size: 14px;
 `;
 
-const ShortcutKey = styled(Tag)`
+const ShortcutKey = styled(Badge)`
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 12px;
   background: #f3f4f6;
