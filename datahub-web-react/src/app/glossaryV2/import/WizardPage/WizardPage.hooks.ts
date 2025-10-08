@@ -12,6 +12,10 @@ import { useMockFileUpload, useMockFileValidation } from './DropzoneTable/useMoc
 import { mockEntities, mockExistingEntities, mockComparisonResult } from '../shared/mocks/mockData';
 
 export function useImportState() {
+  console.log('🎭 Mock UI: useImportState initialized with mock data');
+  console.log('🎭 Mock entities:', mockEntities.length);
+  console.log('🎭 Mock existing entities:', mockExistingEntities.length);
+  
   const [csvData, setCsvData] = useState<EntityData[]>([]);
   const [parseResult, setParseResult] = useState<CsvParseResult | null>(null);
   const [isDataLoaded, setIsDataLoaded] = useState(true); // Initialize as loaded for mock

@@ -1800,6 +1800,7 @@ const GlossaryImportList = ({
 };
 
 export const WizardPage = () => {
+    console.log('🎭 Mock UI: WizardPage component rendering');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const history = useHistory();
     const [currentStep, setCurrentStep] = useState(0);
