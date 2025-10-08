@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Text, Heading, Alert } from '@components';
+import { Text, Heading, Badge } from '@components';
 import { Card } from '@components';
 import { ValidationError, ValidationWarning } from '../../../glossary.types';
 

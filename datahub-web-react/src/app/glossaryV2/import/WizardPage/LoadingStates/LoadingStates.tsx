@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Loader, Text, Heading, Progress } from '@components';
+import { Loader, Text, Heading } from '@components';
 import { Card } from '@components';
 
 

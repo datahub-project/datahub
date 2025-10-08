@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback } from 'react';
 import styled from 'styled-components';
-import { Modal, Text, Heading, Tag } from '@components';
+import { Modal, Text, Heading, Badge } from '@components';
 import { Button as DataHubButton } from '@components';
 
 

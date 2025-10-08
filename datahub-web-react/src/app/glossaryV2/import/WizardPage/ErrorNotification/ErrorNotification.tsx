@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Alert, Button, Text, Heading } from '@components';
+import { Badge, Button, Text, Heading } from '@components';
 import { CloseOutlined, ExclamationCircleOutlined, WarningOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { Button as DataHubButton } from '@components';
 import { AppError, ErrorRecoveryAction } from '../../shared/hooks/useErrorHandling';

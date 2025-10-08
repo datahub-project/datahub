@@ -5,7 +5,7 @@
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 import { Button } from '@components';
-import { Progress, Alert, Text } from '@components';
+import { Badge, Text } from '@components';
 import { UploadOutlined, FileTextOutlined, ExclamationCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
 
 
@@ -86,6 +86,24 @@ const FileSize = styled(Text)`
 const ProgressContainer = styled.div`
   width: 100%;
   max-width: 400px;
+`;
+
+const CustomProgressBar = styled.div<{ progress: number }>`
+  width: 100%;
+  height: 8px;
+  background-color: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  
+  &::after {
+    content: '';
+    display: block;
+    width: ${props => props.progress}%;
+    height: 100%;
+    background-color: #3b82f6;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
 `;
 
 const ActionButtons = styled.div`
@@ -223,22 +241,22 @@ export default function DropzoneTable({
           
           {isProcessing && (
             <ProgressContainer>
-              <Progress 
-                percent={Math.round(progress)} 
-                status={error ? 'exception' : 'active'}
-                strokeColor="#52c41a"
-              />
+              <CustomProgressBar progress={Math.round(progress)} />
             </ProgressContainer>
           )}
           
           {error && (
-            <Alert
-              message="Upload Error"
-              description={error}
-              type="error"
-              showIcon
-              style={{ maxWidth: 400 }}
-            />
+            <div style={{ 
+              padding: '12px', 
+              backgroundColor: '#fef2f2', 
+              border: '1px solid #fecaca', 
+              borderRadius: '6px',
+              color: '#dc2626',
+              fontSize: '14px',
+              maxWidth: 400
+            }}>
+              <strong>Upload Error:</strong> {error}
+            </div>
           )}
           
           {!isProcessing && (
@@ -270,11 +288,7 @@ export default function DropzoneTable({
         
         {isProcessing && (
           <ProgressContainer>
-            <Progress 
-              percent={Math.round(progress)} 
-              status="active"
-              strokeColor="#1890ff"
-            />
+            <CustomProgressBar progress={Math.round(progress)} />
           </ProgressContainer>
         )}
         

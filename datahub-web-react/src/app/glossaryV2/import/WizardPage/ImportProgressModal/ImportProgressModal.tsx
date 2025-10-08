@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Modal, Button } from '@components';
-import { Progress } from '@components';
+// Progress component not available, using custom progress bar
 import { Message } from '@app/shared/Message';
 import { ImportProgress, ImportError, ImportWarning } from '../../shared/hooks/useImportProcessing';
 
@@ -46,6 +46,24 @@ const ProgressInfo = styled.div`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
+`;
+
+const CustomProgressBar = styled.div<{ progress: number }>`
+  width: 100%;
+  height: 8px;
+  background-color: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  
+  &::after {
+    content: '';
+    display: block;
+    width: ${props => props.progress}%;
+    height: 100%;
+    background-color: #3b82f6;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
 `;
 
 const ProgressText = styled.div`
@@ -139,12 +157,7 @@ export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({
             <ProgressText>{progressPercent}%</ProgressText>
           </ProgressInfo>
           
-          <Progress
-            percent={progressPercent}
-            status={getProgressStatus()}
-            strokeColor={getProgressColor()}
-            showInfo={false}
-          />
+          <CustomProgressBar progress={progressPercent} />
         </ProgressContainer>
 
         {progress.currentEntity && (
