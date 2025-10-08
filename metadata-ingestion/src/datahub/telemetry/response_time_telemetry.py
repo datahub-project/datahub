@@ -289,23 +289,6 @@ class ResponseTimeMetrics:
         """
         return ResponseTimeTracker(self, api_type, context)
 
-    def __str__(self) -> str:
-        """Return a formatted summary of all metrics."""
-        lines = ["=== Response Time Telemetry Summary ==="]
-        for api_type, stats in self._stats.items():
-            lines.append(f"\n{api_type}:")
-            lines.append(f"  Count: {stats.count}")
-            lines.append(f"  Min: {stats.min_time:.3f}s")
-            lines.append(f"  Max: {stats.max_time:.3f}s")
-            lines.append(f"  Mean: {stats.mean_time:.3f}s")
-
-            # Print configured percentiles
-            percentiles = stats.get_percentiles()
-            for p in sorted(percentiles.keys()):
-                lines.append(f"  P{p}: {percentiles[p]:.3f}s")
-
-        return "\n".join(lines)
-
 
 class ResponseTimeTracker:
     """Context manager for tracking response times."""

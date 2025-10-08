@@ -1557,12 +1557,6 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     looker_user_count: int = 0
 
     _looker_api: Optional[LookerAPI] = None
-    query_latency: Dict[str, datetime.timedelta] = dataclasses_field(
-        default_factory=dict
-    )
-    user_resolution_latency: Dict[str, datetime.timedelta] = dataclasses_field(
-        default_factory=dict
-    )
 
     def report_total_dashboards(self, total_dashboards: int) -> None:
         self.total_dashboards = total_dashboards
@@ -1591,16 +1585,6 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
         # recording total combined latency is not very useful, keeping this method as a placeholder
         # for future implementation of min / max / percentiles etc.
         pass
-
-    def report_query_latency(
-        self, query_type: str, latency: datetime.timedelta
-    ) -> None:
-        self.query_latency[query_type] = latency
-
-    def report_user_resolution_latency(
-        self, generator_type: str, latency: datetime.timedelta
-    ) -> None:
-        self.user_resolution_latency[generator_type] = latency
 
     def report_stage_start(self, stage_name: str) -> None:
         self.stage_latency.append(
