@@ -221,7 +221,6 @@ const StepButtons = styled.div`
 `;
 
 
-
 // Wizard step definitions
 const wizardSteps = [
     {
@@ -2024,6 +2023,17 @@ export const WizardPage = () => {
         clearData();
     };
 
+    const breadcrumbItems = [
+        {
+            label: 'Glossary',
+            href: PageRoutes.GLOSSARY
+        },
+        {
+            label: 'Import',
+            isActive: true
+        }
+    ];
+
     const renderStepContent = () => {
         switch (currentStep) {
             case 0: // Upload CSV
@@ -2081,17 +2091,6 @@ export const WizardPage = () => {
                 return false;
         }
     };
-
-    const breadcrumbItems = [
-        {
-            label: 'Glossary',
-            href: PageRoutes.GLOSSARY
-        },
-        {
-            label: 'Import',
-            isActive: true
-        }
-    ];
 
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
