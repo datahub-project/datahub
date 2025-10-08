@@ -75,7 +75,7 @@ def patch_sqlite_hook() -> None:
             )
 
         # Apply the patch (mypy doesn't like dynamic method assignment, but it's necessary for patching)
-        SqliteHook.get_openlineage_database_info = get_openlineage_database_info  # type: ignore[method-assign]
+        SqliteHook.get_openlineage_database_info = get_openlineage_database_info  # type: ignore[method-assign,attr-defined]
         SqliteHook._datahub_openlineage_patched = True  # type: ignore[attr-defined]
 
         logger.info(
