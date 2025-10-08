@@ -11,7 +11,10 @@ from databricks.sdk.service.sql import QueryStatementType
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+from datahub.ingestion.source.unity.config import (
+    UnityCatalogSourceConfig,
+    UsageDataSource,
+)
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
     OPERATION_STATEMENT_TYPES,
@@ -166,9 +169,36 @@ class UnityCatalogUsageExtractor:
 
     def _get_queries(self) -> Iterable[Query]:
         try:
-            yield from self.proxy.query_history(
-                self.config.start_time, self.config.end_time
-            )
+            usage_data_source = self.config.usage_data_source
+
+            if usage_data_source == UsageDataSource.AUTO:
+                if self.proxy.warehouse_id:
+                    logger.info(
+                        "Using system tables for usage query history (AUTO mode)"
+                    )
+                    yield from self.proxy.get_query_history_via_system_tables(
+                        self.config.start_time, self.config.end_time
+                    )
+                else:
+                    logger.info(
+                        "Using API for usage query history (AUTO mode, no warehouse)"
+                    )
+                    yield from self.proxy.query_history(
+                        self.config.start_time, self.config.end_time
+                    )
+            elif usage_data_source == UsageDataSource.SYSTEM_TABLES:
+                logger.info("Using system tables for usage query history (forced)")
+                yield from self.proxy.get_query_history_via_system_tables(
+                    self.config.start_time, self.config.end_time
+                )
+            elif usage_data_source == UsageDataSource.API:
+                logger.info("Using API for usage query history (forced)")
+                yield from self.proxy.query_history(
+                    self.config.start_time, self.config.end_time
+                )
+            else:
+                raise ValueError(f"Unsupported usage_data_source: {usage_data_source}")
+
         except Exception as e:
             logger.warning("Error getting queries", exc_info=True)
             self.report.report_warning("get-queries", str(e))
