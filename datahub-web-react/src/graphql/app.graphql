@@ -113,6 +113,7 @@ query appConfig {
             logicalModelsEnabled
             showHomepageUserRole
             assetSummaryPageV1
+            documentationFileUploadV1
         }
         chromeExtensionConfig {
             enabled

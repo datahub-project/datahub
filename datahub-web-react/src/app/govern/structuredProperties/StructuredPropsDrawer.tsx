@@ -27,6 +27,9 @@ import {
     getValueType,
     valueTypes,
 } from '@app/govern/structuredProperties/utils';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { Button, Text } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
@@ -118,6 +121,8 @@ const StructuredPropsDrawer = ({
         showToastMessage(ToastType.SUCCESS, `Structured property ${isEditMode ? 'updated' : 'created'}!`, 3);
     };
 
+    const { reloadByKeyType } = useReloadableContext();
+
     const handleSubmit = () => {
         if (isEditMode) {
             form.validateFields().then(() => {
@@ -183,6 +188,12 @@ const StructuredPropsDrawer = ({
                         });
                         refetch();
                         showSuccessMessage();
+                        reloadByKeyType([
+                            getReloadableKeyType(
+                                ReloadableKeyTypeNamespace.STRUCTURED_PROPERTY,
+                                'EntitySummaryTabSidebar',
+                            ),
+                        ]);
                     })
                     .catch(() => {
                         showErrorMessage();
@@ -242,6 +253,12 @@ const StructuredPropsDrawer = ({
 
                         showSuccessMessage();
                         updatePropertiesList(client, inputs, res.data?.createStructuredProperty, searchAcrossEntities);
+                        reloadByKeyType([
+                            getReloadableKeyType(
+                                ReloadableKeyTypeNamespace.STRUCTURED_PROPERTY,
+                                'EntitySummaryTabSidebar',
+                            ),
+                        ]);
                     })
                     .catch(() => {
                         showErrorMessage();
