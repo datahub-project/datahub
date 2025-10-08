@@ -94,22 +94,6 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
         setColorValue(color);
     };
 
-    const handleTagNameChange: React.Dispatch<React.SetStateAction<string>> = (value) => {
-        if (typeof value === 'function') {
-            setTagName(value);
-        } else {
-            setTagName(value);
-        }
-    };
-
-    const handleDescriptionChange: React.Dispatch<React.SetStateAction<string>> = (value) => {
-        if (typeof value === 'function') {
-            setDescription(value);
-        } else {
-            setDescription(value);
-        }
-    };
-
     // Check if anything has changed
     const hasChanges = () => {
         return (
@@ -291,9 +275,9 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
                     <Input
                         label="Name"
                         value={tagName}
-                        setValue={handleTagNameChange}
+                        setValue={setTagName}
                         placeholder="Enter tag name"
-                        required
+                        isRequired
                         data-testid="tag-name-field"
                     />
                 </FormSection>
@@ -302,7 +286,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
                     <Input
                         label="Description"
                         value={description}
-                        setValue={handleDescriptionChange}
+                        setValue={setDescription}
                         placeholder="Tag description"
                         type="textarea"
                         data-testid="tag-description-field"
