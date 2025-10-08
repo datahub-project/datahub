@@ -79,16 +79,38 @@ def get_kafka_schema_registry():
     )
 
 
-def get_mysql_url():
-    return os.getenv("DATAHUB_MYSQL_URL") or "localhost:3306"
+def get_db_type():
+    db_type = os.getenv("DB_TYPE")
+    if db_type:
+        return db_type
+    else:
+        # infer from profile
+        profile_name = os.getenv("PROFILE_NAME")
+        if profile_name and "postgres" in profile_name:
+            return "postgres"
+        else:
+            return "mysql"
 
 
-def get_mysql_username():
-    return os.getenv("DATAHUB_MYSQL_USERNAME") or "datahub"
+def get_db_url():
+    if get_db_type() == "mysql":
+        return os.getenv("DATAHUB_MYSQL_URL") or "localhost:3306"
+    else:
+        return os.getenv("DATAHUB_POSTGRES_URL") or "localhost:5432"
 
 
-def get_mysql_password():
-    return os.getenv("DATAHUB_MYSQL_PASSWORD") or "datahub"
+def get_db_username():
+    if get_db_type() == "mysql":
+        return os.getenv("DATAHUB_MYSQL_USERNAME") or "datahub"
+    else:
+        return os.getenv("DATAHUB_POSTGRES_USERNAME") or "datahub"
+
+
+def get_db_password():
+    if get_db_type() == "mysql":
+        return os.getenv("DATAHUB_MYSQL_PASSWORD") or "datahub"
+    else:
+        return os.getenv("DATAHUB_POSTGRES_PASSWORD") or "datahub"
 
 
 def get_sleep_info() -> Tuple[int, int]:
