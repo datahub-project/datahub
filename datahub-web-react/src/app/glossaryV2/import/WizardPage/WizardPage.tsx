@@ -990,6 +990,13 @@ const GlossaryImportList = ({
                     existingEntity={selectedEntity.existingEntity || null}
                 />
             )}
+
+            <ImportProgressModal
+                visible={isImportModalVisible}
+                onClose={() => setIsImportModalVisible(false)}
+                progress={progress}
+                isProcessing={isProcessing}
+            />
         </>
     );
 };
