@@ -106,6 +106,30 @@ const EditableInputWrapper = styled.div`
     width: 100%;
 `;
 
+const DiffButton = styled.div`
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: #0066cc;
+    background-color: transparent;
+    border: 1px solid #d9d9d9;
+    transition: all 0.2s ease;
+    
+    &:hover {
+        background-color: #f0f8ff;
+        border-color: #0066cc;
+        color: #0052a3;
+    }
+    
+    &:active {
+        background-color: #e6f3ff;
+        transform: translateY(1px);
+    }
+`;
+
 const StatusPill = styled(Pill)`
     && {
         font-size: 12px;
@@ -243,23 +267,55 @@ const GlossaryImportList = () => {
     // Table columns
     const tableColumns: Column<Entity>[] = [
         {
+            title: 'Diff',
+            key: 'diff',
+            render: (record) => (
+                <DiffButton
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handleShowDiff(record);
+                    }}
+                >
+                    Diff
+                </DiffButton>
+            ),
+            width: '80px',
+            minWidth: '80px',
+            alignment: 'center',
+        },
+        {
             title: 'Status',
             key: 'status',
             render: (record) => {
-                const statusColors = {
-                    new: 'green',
-                    updated: 'blue',
-                    existing: 'gray',
-                    conflict: 'red'
+                const getStatusColor = (status: string) => {
+                    switch (status) {
+                        case 'new':
+                            return 'green';
+                        case 'updated':
+                            return 'blue';
+                        case 'conflict':
+                            return 'red';
+                        default:
+                            return 'gray';
+                    }
                 };
+
+                const getStatusLabel = (status: string) => {
+                    return status.charAt(0).toUpperCase() + status.slice(1);
+                };
+
                 return (
-                    <StatusPill color={statusColors[record.status as keyof typeof statusColors]}>
-                        {record.status.toUpperCase()}
-                    </StatusPill>
+                    <Pill
+                        label={getStatusLabel(record.status)}
+                        color={getStatusColor(record.status)}
+                        size="sm"
+                        variant="filled"
+                    />
                 );
             },
-            width: '10%',
-            alignment: 'center',
+            width: '100px',
+            minWidth: '100px',
+            alignment: 'left',
             sorter: (a, b) => a.status.localeCompare(b.status),
         },
         {
@@ -287,7 +343,8 @@ const GlossaryImportList = () => {
                     </EditableCell>
                 );
             },
-            width: '20%',
+            width: '200px',
+            minWidth: '200px',
             alignment: 'left',
             sorter: (a, b) => a.name.localeCompare(b.name),
         },
@@ -295,8 +352,9 @@ const GlossaryImportList = () => {
             title: 'Type',
             key: 'type',
             render: (record) => record.type,
-            width: '10%',
-            alignment: 'center',
+            width: '100px',
+            minWidth: '100px',
+            alignment: 'left',
             sorter: (a, b) => a.type.localeCompare(b.type),
         },
         {
@@ -324,7 +382,8 @@ const GlossaryImportList = () => {
                     </EditableCell>
                 );
             },
-            width: '25%',
+            width: '250px',
+            minWidth: '250px',
             alignment: 'left',
             sorter: (a, b) => a.data.description.localeCompare(b.data.description),
         },
@@ -353,7 +412,8 @@ const GlossaryImportList = () => {
                     </EditableCell>
                 );
             },
-            width: '12%',
+            width: '180px',
+            minWidth: '180px',
             alignment: 'left',
             sorter: (a, b) => a.data.ownership_users.localeCompare(b.data.ownership_users),
         },
@@ -382,7 +442,8 @@ const GlossaryImportList = () => {
                     </EditableCell>
                 );
             },
-            width: '12%',
+            width: '180px',
+            minWidth: '180px',
             alignment: 'left',
             sorter: (a, b) => a.data.ownership_groups.localeCompare(b.data.ownership_groups),
         },
@@ -570,7 +631,7 @@ const GlossaryImportList = () => {
                                     onClick={() => setIsImportModalVisible(true)}
                                     disabled={isProcessing}
                                 >
-                                    Import Selected ({entities.length})
+                                    Import All ({entities.length})
                                 </Button>
                             </>
                         )}
