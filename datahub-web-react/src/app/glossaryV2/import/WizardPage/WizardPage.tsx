@@ -164,94 +164,8 @@ const wizardSteps = [
     },
 ];
 
-// Mock data removed - real page loads actual data from GraphQL API
-
-// Function to load real data from GraphQL API
-const loadRealData = async (apolloClient: any, executeUnifiedGlossaryQuery: any) => {
-    try {
-        console.log('🔄 Loading real data from GraphQL API...');
-        
-        // Load existing glossary entities
-        const result = await executeUnifiedGlossaryQuery({
-            input: {
-                start: 0,
-                count: 1000,
-                query: '*',
-                filters: []
-            }
-        });
-        
-        console.log('📊 GraphQL result:', result);
-        
-        // Convert GraphQL entities to our format
-        const realEntities: Entity[] = result?.data?.search?.searchResults?.map((entity: any) => {
-            const isGlossaryTerm = entity.entity.__typename === 'GlossaryTerm';
-            const name = isGlossaryTerm 
-                ? entity.entity.hierarchicalName || entity.entity.properties?.name || ''
-                : entity.entity.properties?.name || '';
-
-            const parentNames = entity.entity.parentNodes?.nodes?.map((node: any) => node.properties.name) || [];
-
-            // Convert ownership from GraphQL format to CSV format
-            const ownershipUsers: string[] = [];
-            const ownershipGroups: string[] = [];
-            
-            if (entity.entity.ownership?.owners) {
-                entity.entity.ownership.owners.forEach((owner: any) => {
-                    const ownerType = owner.ownershipType?.info?.name || 'NONE';
-                    const ownerName = owner.owner.info?.displayName || owner.owner.username || owner.owner.name || '';
-                    const corpType = owner.owner.__typename === 'CorpGroup' ? 'CORP_GROUP' : 'CORP_USER';
-                    
-                    const ownershipEntry = `${ownerName}:${ownerType}`;
-                    
-                    if (corpType === 'CORP_GROUP') {
-                        ownershipGroups.push(ownershipEntry);
-        } else {
-                        ownershipUsers.push(ownershipEntry);
-                    }
-                });
-            }
-
-            return {
-                id: entity.entity.urn,
-                name,
-                type: isGlossaryTerm ? 'glossaryTerm' : 'glossaryNode',
-                urn: entity.entity.urn,
-                parentNames,
-                parentUrns: entity.entity.parentNodes?.nodes?.map((node: any) => node.urn) || [],
-                level: 0, // Will be calculated later
-                data: {
-                    entity_type: isGlossaryTerm ? 'glossaryTerm' : 'glossaryNode',
-                    urn: entity.entity.urn,
-                    name,
-                    description: entity.entity.properties?.description || '',
-                    term_source: entity.entity.properties?.termSource || '',
-                    source_ref: entity.entity.properties?.sourceRef || '',
-                    source_url: entity.entity.properties?.sourceUrl || '',
-                    ownership_users: ownershipUsers.join('|'),
-                    ownership_groups: ownershipGroups.join('|'),
-                    parent_nodes: parentNames.join(','),
-                    related_contains: '',
-                    related_inherits: '',
-                    domain_urn: entity.entity.domain?.domain.urn || '',
-                    domain_name: entity.entity.domain?.domain.properties.name || '',
-                    custom_properties: entity.entity.properties?.customProperties?.map((cp: any) => `${cp.key}:${cp.value}`).join(',') || ''
-                },
-                status: 'existing' as const
-            };
-        }) || [];
-        
-        console.log('✅ Loaded real entities:', realEntities.length);
-        return realEntities;
-        
-        } catch (error) {
-        console.error('❌ Error loading real data:', error);
-        return [];
-    }
-};
 
 export const WizardPage = () => {
-    console.log('🔄 Real UI: WizardPage component rendering');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const history = useHistory();
     const [currentStep, setCurrentStep] = useState(0); // Start at step 0 for upload page
@@ -308,21 +222,6 @@ export const WizardPage = () => {
     const entityManagement = useEntityManagement();
     const { executeUnifiedGlossaryQuery } = useGraphQLOperations();
     
-    // Load real data when component mounts
-    useEffect(() => {
-        const loadData = async () => {
-            try {
-                console.log('🔄 Loading real data from GraphQL API...');
-                const realEntities = await loadRealData(apolloClient, executeUnifiedGlossaryQuery);
-                setExistingEntities(realEntities);
-                console.log('✅ Loaded real entities:', realEntities.length);
-            } catch (error) {
-                console.error('❌ Error loading real data:', error);
-            }
-        };
-        
-        loadData();
-    }, [apolloClient, executeUnifiedGlossaryQuery]);
     const { categorizeEntities } = useEntityComparison();
 
     // Import handlers
