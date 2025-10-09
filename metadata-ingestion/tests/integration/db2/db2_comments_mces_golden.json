@@ -1,0 +1,600 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "db2",
+                "env": "PROD",
+                "database": "testdb"
+            },
+            "name": "testdb",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361283,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361284,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:db2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361284,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361285,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361285,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8e695d429f033dbdffccb62fd1d5fd85",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3ca0f877cedba2daa215b980552cfb69"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361298,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8e695d429f033dbdffccb62fd1d5fd85",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "db2",
+                "env": "PROD",
+                "database": "testdb",
+                "schema": "COMMENTS"
+            },
+            "name": "COMMENTS",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361299,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8e695d429f033dbdffccb62fd1d5fd85",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361299,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8e695d429f033dbdffccb62fd1d5fd85",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:db2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361300,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8e695d429f033dbdffccb62fd1d5fd85",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361300,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8e695d429f033dbdffccb62fd1d5fd85",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+                    "urn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361301,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYTABLE,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:8e695d429f033dbdffccb62fd1d5fd85"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361315,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYTABLE,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "MYTABLE",
+                        "description": "this is a table comment",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "COMMENTS.MYTABLE",
+                        "platform": "urn:li:dataPlatform:db2",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "ID",
+                                "nullable": true,
+                                "description": "this is a column comment",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361316,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYTABLE,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361317,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYTABLE,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+                    "urn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69"
+                },
+                {
+                    "id": "urn:li:container:8e695d429f033dbdffccb62fd1d5fd85",
+                    "urn": "urn:li:container:8e695d429f033dbdffccb62fd1d5fd85"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361318,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYVIEW,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:8e695d429f033dbdffccb62fd1d5fd85"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361352,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYVIEW,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "is_view": "True",
+                            "view_definition": "create view myview as select * from mytable"
+                        },
+                        "name": "MYVIEW",
+                        "description": "this is a view comment",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "COMMENTS.MYVIEW",
+                        "platform": "urn:li:dataPlatform:db2",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "ID",
+                                "nullable": true,
+                                "description": "this is a view column comment",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361353,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYVIEW,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361353,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYVIEW,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "create view myview as select * from mytable",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361354,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYVIEW,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1759975361352,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYTABLE,PROD)",
+                    "type": "VIEW",
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CCOMMENTS.MYVIEW%2CPROD%29"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYTABLE,PROD),ID)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYVIEW,PROD),ID)"
+                    ],
+                    "transformOperation": "COPY: \"MYTABLE\".\"ID\" AS \"ID\"",
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CCOMMENTS.MYVIEW%2CPROD%29"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361354,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYVIEW,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+                    "urn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69"
+                },
+                {
+                    "id": "urn:li:container:8e695d429f033dbdffccb62fd1d5fd85",
+                    "urn": "urn:li:container:8e695d429f033dbdffccb62fd1d5fd85"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361355,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CCOMMENTS.MYVIEW%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "CREATE VIEW myview AS\nSELECT\n  *\nFROM mytable",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:_ingestion"
+            },
+            "lastModified": {
+                "time": 1759975361352,
+                "actor": "urn:li:corpuser:_ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361356,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CCOMMENTS.MYVIEW%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYTABLE,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYVIEW,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYTABLE,PROD),ID)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:db2,COMMENTS.MYVIEW,PROD),ID)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361356,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CCOMMENTS.MYVIEW%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:db2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361357,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adb2%2CCOMMENTS.MYVIEW%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759975361357,
+        "runId": "db2-2025_10_08-22_02_40-fbdcrx",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
