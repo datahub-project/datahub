@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Modal, Text, Heading } from '@components';
-import { ExclamationTriangleOutlined, QuestionCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
 import { Button as DataHubButton } from '@components';
 
 
@@ -70,14 +70,14 @@ const FooterActions = styled.div`
 const getIcon = (type: ConfirmationType) => {
   switch (type) {
     case 'warning':
-      return <ExclamationTriangleOutlined style={{ color: '#f59e0b', fontSize: '20px' }} />;
+      return <Icon icon="Warning" source="phosphor" size="md" color="yellow" />;
     case 'danger':
-      return <ExclamationTriangleOutlined style={{ color: '#ef4444', fontSize: '20px' }} />;
+      return <Icon icon="Warning" source="phosphor" size="md" color="red" />;
     case 'info':
-      return <InfoCircleOutlined style={{ color: '#3b82f6', fontSize: '20px' }} />;
+      return <Icon icon="Info" source="phosphor" size="md" color="blue" />;
     case 'question':
     default:
-      return <QuestionCircleOutlined style={{ color: '#6b7280', fontSize: '20px' }} />;
+      return <Icon icon="Question" source="phosphor" size="md" color="gray" />;
   }
 };
 
@@ -86,7 +86,7 @@ const getConfirmButtonColor = (type: ConfirmationType) => {
     case 'danger':
       return 'red';
     case 'warning':
-      return 'orange';
+      return 'yellow';
     case 'info':
       return 'blue';
     default:
@@ -118,6 +118,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
 
   return (
     <Modal
+      title=""
       open={visible}
       onCancel={handleCancel}
       width={400}
@@ -128,7 +129,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
       <ModalContainer>
         <ModalHeader>
           {getIcon(type)}
-          <ModalTitle level={4}>
+          <ModalTitle>
             {title}
           </ModalTitle>
         </ModalHeader>
@@ -140,7 +141,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
         <FooterActions>
           {showCancel && (
             <DataHubButton
-              variant="outlined"
+              variant="outline"
               onClick={handleCancel}
             >
               {cancelText}

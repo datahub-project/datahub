@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Badge, Button, Text, Heading } from '@components';
-import { CloseOutlined, ExclamationCircleOutlined, WarningOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
 import { Button as DataHubButton } from '@components';
 import { AppError, ErrorRecoveryAction } from '../../shared/hooks/useErrorHandling';
 
@@ -111,17 +111,17 @@ const ActionButton = styled(DataHubButton)<{ actionType: string }>`
 const getErrorIcon = (type: AppError['type']) => {
   switch (type) {
     case 'network':
-      return <ExclamationCircleOutlined style={{ color: '#dc2626' }} />;
+      return <Icon icon="Warning" source="phosphor" size="md" color="red" />;
     case 'validation':
-      return <ExclamationCircleOutlined style={{ color: '#dc2626' }} />;
+      return <Icon icon="Warning" source="phosphor" size="md" color="red" />;
     case 'csv':
-      return <ExclamationCircleOutlined style={{ color: '#dc2626' }} />;
+      return <Icon icon="Warning" source="phosphor" size="md" color="red" />;
     case 'graphql':
-      return <ExclamationCircleOutlined style={{ color: '#dc2626' }} />;
+      return <Icon icon="Warning" source="phosphor" size="md" color="red" />;
     case 'import':
-      return <ExclamationCircleOutlined style={{ color: '#dc2626' }} />;
+      return <Icon icon="Warning" source="phosphor" size="md" color="red" />;
     default:
-      return <ExclamationCircleOutlined style={{ color: '#dc2626' }} />;
+      return <Icon icon="Warning" source="phosphor" size="md" color="red" />;
   }
 };
 
@@ -157,7 +157,7 @@ export const ErrorNotification: React.FC<ErrorNotificationProps> = ({
         <ErrorIcon>
           {getErrorIcon(error.type)}
           <div>
-            <ErrorTitle level={5}>
+            <ErrorTitle>
               {getErrorTypeLabel(error.type)}
             </ErrorTitle>
             <ErrorMessage>{error.message}</ErrorMessage>

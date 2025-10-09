@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { Modal, Button, Text, Heading } from '@components';
-import { CloseOutlined, SaveOutlined, EditOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
 import { Button as DataHubButton, Card } from '@components';
 import { EntityData } from '../../glossary.types';
 import { useEntityDetails } from './EntityDetailsModal.hooks';

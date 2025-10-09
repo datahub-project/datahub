@@ -6,7 +6,7 @@ import React, { useCallback } from 'react';
 import styled from 'styled-components';
 import { Button } from '@components';
 import { Badge, Text } from '@components';
-import { UploadOutlined, FileTextOutlined, ExclamationCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
 
 
 const DropzoneContainer = styled.div<{ isDragActive: boolean; hasFile: boolean }>`
@@ -38,14 +38,20 @@ const DropzoneContent = styled.div`
   gap: 16px;
 `;
 
-const UploadIcon = styled(UploadOutlined)`
+const UploadIcon = styled.div`
   font-size: 48px;
   color: #8c8c8c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
-const FileIcon = styled(FileTextOutlined)`
+const FileIcon = styled.div`
   font-size: 32px;
   color: #52c41a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 const StatusIcon = styled.div<{ status: 'success' | 'error' | 'processing' }>`
@@ -208,25 +214,29 @@ export default function DropzoneTable({
     if (error) {
       return (
         <StatusIcon status="error">
-          <ExclamationCircleOutlined />
+          <Icon icon="Warning" source="phosphor" size="md" color="red" />
         </StatusIcon>
       );
     }
     if (file && !isProcessing) {
       return (
         <StatusIcon status="success">
-          <CheckCircleOutlined />
+          <Icon icon="CheckCircle" source="phosphor" size="md" color="green" />
         </StatusIcon>
       );
     }
     if (isProcessing) {
       return (
         <StatusIcon status="processing">
-          <UploadOutlined />
+          <Icon icon="Upload" source="phosphor" size="md" color="blue" />
         </StatusIcon>
       );
     }
-    return <UploadIcon />;
+    return (
+      <UploadIcon>
+        <Icon icon="Upload" source="phosphor" size="lg" color="gray" />
+      </UploadIcon>
+    );
   };
 
   const renderContent = () => {
