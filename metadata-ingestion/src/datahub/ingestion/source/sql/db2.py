@@ -11,7 +11,7 @@ from ibm_db_sa import dialect as DB2Dialect
 from sqlalchemy.engine.reflection import Inspector
 from sqlglot.dialects.dialect import Dialect as SQLGlotDialect, NormalizationStrategy
 
-from datahub.configuration.common import HiddenFromDocs
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -23,6 +23,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,17 @@ class DB2DialectWithoutNormalization(DB2Dialect):
 
 class Db2Config(BasicSQLAlchemyConfig):
     database: str = pydantic.Field(description="The Db2 database to ingest from.")
+
+    include_stored_procedures: bool = pydantic.Field(
+        default=True,
+        description="Ingest stored procedures.",
+    )
+
+    procedure_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for stored procedures to filter in ingestion."
+        "Specify regex to match the entire procedure name in schema.procedure_name format.",
+    )
 
     # Override defaults
     host_port: str = pydantic.Field(default="localhost:50000")
@@ -123,3 +135,38 @@ class Db2Source(SQLAlchemySource):
         for s in inspector.get_schema_names():
             # inspect.get_schema_names() can return schema names with extra space on the end
             yield s.rstrip()
+
+    def get_procedures_for_schema(
+        self, inspector: Inspector, schema: str, _db_name: str
+    ) -> Iterable[BaseProcedure]:
+        result = inspector.bind.execute(
+            """
+            select
+                ROUTINENAME,
+                LANGUAGE,
+                CREATE_TIME,
+                ALTER_TIME,
+                QUALIFIER,
+                TEXT,
+                REMARKS
+            from SYSCAT.ROUTINES
+            where ROUTINESCHEMA = ?
+            and ROUTINETYPE = 'P'
+        """,
+            (schema,),
+        )
+        for row in result:
+            # sometimes keys are uppercase, sometimes they are lowercase... just uppercase them all
+            row = {k.upper(): v for (k, v) in dict(row).items()}
+            yield BaseProcedure(
+                name=row["ROUTINENAME"],
+                language=row["LANGUAGE"].strip(),  # can have trailing spaces
+                procedure_definition=row["TEXT"],
+                comment=row["REMARKS"],
+                created=row["CREATE_TIME"],
+                last_altered=row["ALTER_TIME"],
+                # TODO: qualifier
+                argument_signature=None,
+                return_type=None,
+                extra_properties={},
+            )
