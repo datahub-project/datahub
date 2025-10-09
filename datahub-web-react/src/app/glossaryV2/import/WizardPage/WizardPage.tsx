@@ -116,11 +116,6 @@ const TableContainer = styled.div`
     padding-bottom: 80px; /* Add space for ActionsBar */
 `;
 
-const PaginationContainer = styled.div`
-    display: flex;
-    justify-content: center;
-    flex-shrink: 0;
-`;
 
 // Editable input styles for DataHub components
 const EditableInputWrapper = styled.div`
