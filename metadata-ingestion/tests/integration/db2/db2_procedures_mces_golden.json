@@ -1,0 +1,681 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "db2",
+                "env": "PROD",
+                "database": "testdb"
+            },
+            "name": "testdb",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357587,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357588,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:db2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357589,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357590,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357591,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:48e3ed296c1ff67dc3647b7ee48cae2b",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3ca0f877cedba2daa215b980552cfb69"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357609,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:48e3ed296c1ff67dc3647b7ee48cae2b",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "db2",
+                "env": "PROD",
+                "database": "testdb",
+                "schema": "PROCEDURES"
+            },
+            "name": "PROCEDURES",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357610,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:48e3ed296c1ff67dc3647b7ee48cae2b",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357611,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:48e3ed296c1ff67dc3647b7ee48cae2b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:db2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357612,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:48e3ed296c1ff67dc3647b7ee48cae2b",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357612,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:48e3ed296c1ff67dc3647b7ee48cae2b",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+                    "urn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357613,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:db2,PROCEDURES.SOURCE_TABLE,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:48e3ed296c1ff67dc3647b7ee48cae2b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357627,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:db2,PROCEDURES.SOURCE_TABLE,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "SOURCE_TABLE",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "PROCEDURES.SOURCE_TABLE",
+                        "platform": "urn:li:dataPlatform:db2",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "ID",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357628,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:db2,PROCEDURES.SOURCE_TABLE,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357630,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:db2,PROCEDURES.SOURCE_TABLE,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+                    "urn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69"
+                },
+                {
+                    "id": "urn:li:container:48e3ed296c1ff67dc3647b7ee48cae2b",
+                    "urn": "urn:li:container:48e3ed296c1ff67dc3647b7ee48cae2b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357630,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:db2,PROCEDURES.TARGET_TABLE,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:48e3ed296c1ff67dc3647b7ee48cae2b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357650,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:db2,PROCEDURES.TARGET_TABLE,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "TARGET_TABLE",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "PROCEDURES.TARGET_TABLE",
+                        "platform": "urn:li:dataPlatform:db2",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "ID",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357651,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:db2,PROCEDURES.TARGET_TABLE,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357652,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:db2,PROCEDURES.TARGET_TABLE,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+                    "urn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69"
+                },
+                {
+                    "id": "urn:li:container:48e3ed296c1ff67dc3647b7ee48cae2b",
+                    "urn": "urn:li:container:48e3ed296c1ff67dc3647b7ee48cae2b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357653,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(db2,testdb.PROCEDURES.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "testdb.PROCEDURES.stored_procedures"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357654,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(db2,testdb.PROCEDURES.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Procedures Container"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357654,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(db2,testdb.PROCEDURES.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3ca0f877cedba2daa215b980552cfb69"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357655,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(db2,testdb.PROCEDURES.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+                    "urn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357655,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(db2,testdb.PROCEDURES.stored_procedures,PROD),MYPROCEDURE)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "MYPROCEDURE",
+            "type": {
+                "string": "Stored Procedure"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357703,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(db2,testdb.PROCEDURES.stored_procedures,PROD),MYPROCEDURE)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Stored Procedure"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357704,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(db2,testdb.PROCEDURES.stored_procedures,PROD),MYPROCEDURE)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:48e3ed296c1ff67dc3647b7ee48cae2b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357704,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(db2,testdb.PROCEDURES.stored_procedures,PROD),MYPROCEDURE)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "create procedure myprocedure()\nlanguage sql\n\nbegin\n  insert into target_table (id) select id from source_table; end",
+                        "language": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357705,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(db2,testdb.PROCEDURES.stored_procedures,PROD),MYPROCEDURE)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:db2,TESTDB.PROCEDURES.SOURCE_TABLE,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:db2,TESTDB.PROCEDURES.TARGET_TABLE,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:db2,TESTDB.PROCEDURES.SOURCE_TABLE,PROD),ID)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:db2,TESTDB.PROCEDURES.TARGET_TABLE,PROD),ID)"
+                    ],
+                    "transformOperation": "COPY: \"SOURCE_TABLE\".\"ID\" AS \"ID\"",
+                    "confidenceScore": 0.2
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357705,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(db2,testdb.PROCEDURES.stored_procedures,PROD),MYPROCEDURE)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3ca0f877cedba2daa215b980552cfb69",
+                    "urn": "urn:li:container:3ca0f877cedba2daa215b980552cfb69"
+                },
+                {
+                    "id": "urn:li:container:48e3ed296c1ff67dc3647b7ee48cae2b",
+                    "urn": "urn:li:container:48e3ed296c1ff67dc3647b7ee48cae2b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357706,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(db2,testdb.PROCEDURES.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357707,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(db2,testdb.PROCEDURES.stored_procedures,PROD),MYPROCEDURE)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1759977357707,
+        "runId": "db2-2025_10_08-22_35_56-yqpe90",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
