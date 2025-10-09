@@ -492,12 +492,13 @@ public class EntityController
     // Group results by entity type for response structure
     Map<String, List<IngestResult>> resultsByEntityType = new HashMap<>();
     for (IngestResult result : results) {
-      String entityType = result.getUrn().getEntityType();
+      String entityType = result.getUrn().getEntityType().toLowerCase();
       resultsByEntityType.computeIfAbsent(entityType, k -> new ArrayList<>()).add(result);
     }
 
     for (String entityName : entityTypes) {
-      List<IngestResult> entityResults = resultsByEntityType.getOrDefault(entityName, List.of());
+      List<IngestResult> entityResults =
+          resultsByEntityType.getOrDefault(entityName.toLowerCase(), List.of());
       response.put(entityName, buildEntityList(opContext, entityResults, withSystemMetadata));
     }
 

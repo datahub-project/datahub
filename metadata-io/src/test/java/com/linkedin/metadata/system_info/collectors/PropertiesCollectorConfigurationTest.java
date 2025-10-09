@@ -464,6 +464,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.businessAttributeEntityEnabled",
           "featureFlags.cdcModeChangeLog",
           "featureFlags.dataContractsEnabled",
+          "featureFlags.documentationFileUploadV1",
           "featureFlags.editableDatasetNameEnabled",
           "featureFlags.entityVersioning",
           "featureFlags.erModelRelationshipFeatureEnabled",
