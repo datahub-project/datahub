@@ -1073,9 +1073,8 @@ const GlossaryImportList = ({
                 </div>
                 
                 <div style={{ width: '200px', flexShrink: 0 }}>
-                    <Select
+                    <SimpleSelect
                         values={[statusFilter]}
-                        onUpdate={(values) => setStatusFilter(values[0] || '0')}
                         isMultiSelect={false}
                         options={[
                             { label: 'All', value: '0' },
@@ -1083,6 +1082,7 @@ const GlossaryImportList = ({
                             { label: 'Updated', value: '2' },
                             { label: 'Conflict', value: '3' },
                         ]}
+                        onUpdate={(values) => setStatusFilter(values[0] || '0')}
                     />
                 </div>
             </div>
