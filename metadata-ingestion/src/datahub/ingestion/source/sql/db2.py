@@ -161,12 +161,12 @@ class Db2Source(SQLAlchemySource):
             row = {k.upper(): v for (k, v) in dict(row).items()}
             yield BaseProcedure(
                 name=row["ROUTINENAME"],
-                language=row["LANGUAGE"].strip(),  # can have trailing spaces
+                language=row["LANGUAGE"].rstrip(),  # can have trailing spaces
                 procedure_definition=row["TEXT"],
                 comment=row["REMARKS"],
                 created=row["CREATE_TIME"],
                 last_altered=row["ALTER_TIME"],
-                # TODO: qualifier
+                default_schema=row["QUALIFIER"],
                 argument_signature=None,
                 return_type=None,
                 extra_properties={},

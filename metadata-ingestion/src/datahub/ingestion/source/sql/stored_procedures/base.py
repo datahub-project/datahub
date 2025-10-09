@@ -44,6 +44,8 @@ class BaseProcedure:
     return_type: Optional[str]
     language: str
     extra_properties: Optional[Dict[str, str]]
+    default_db: Optional[str] = None
+    default_schema: Optional[str] = None
 
     def get_procedure_identifier(
         self,
@@ -247,7 +249,8 @@ def generate_procedure_workunits(
                 schema_resolver=schema_resolver,
                 procedure=procedure,
                 procedure_job_urn=job_urn,
-                default_db=database_key.database,
-                default_schema=schema_key.db_schema if schema_key else None,
+                default_db=procedure.default_db or database_key.database,
+                default_schema=procedure.default_schema
+                or (schema_key.db_schema if schema_key else None),
             )
         )
