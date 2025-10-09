@@ -24,7 +24,7 @@ import { BreadcrumbHeader } from '../shared/components/BreadcrumbHeader';
 
 // Styled components following IngestionSourceList pattern
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    padding-top: 20px;
+    padding: 20px 24px;
     background-color: white;
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
@@ -53,6 +53,7 @@ const StyledTabToolbar = styled.div`
     display: flex;
     justify-content: space-between;
     padding: 1px 0 16px 0;
+    margin: 0 0 16px 0;
     height: auto;
     z-index: unset;
     box-shadow: none;
@@ -84,6 +85,7 @@ const TableContainer = styled.div`
     flex: 1;
     overflow: auto;
     min-width: 0;
+    margin: 0 0 16px 0;
     
     /* Enable horizontal scrolling for the table */
     .table-wrapper {
@@ -121,6 +123,9 @@ const PaginationContainer = styled.div`
     display: flex;
     justify-content: center;
     flex-shrink: 0;
+    padding: 16px 0;
+    margin-top: 16px;
+    border-top: 1px solid #e8e8e8;
 `;
 
 const StepActions = styled.div`
@@ -128,7 +133,7 @@ const StepActions = styled.div`
     justify-content: space-between;
     align-items: center;
     margin-top: 16px;
-    padding-top: 16px;
+    padding: 16px 0;
     border-top: 1px solid #e8e8e8;
 `;
 
