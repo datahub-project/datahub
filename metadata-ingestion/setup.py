@@ -369,7 +369,12 @@ slack = {
 }
 
 databricks_common = {
-    "databricks-sqlalchemy~=1.0",  # Note: This is pinned to 1.0 for compatibility with SQLAlchemy 1.x which is default for fivetran
+    # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
+    # Version 3.0.0 required SQLAlchemy > 2.0.21
+    # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
+    # in src/datahub/ingestion/source/unity/proxy.py (_patch_databricks_sql_proxy_auth)
+    # as the fix was included natively in 3.0.0 via https://github.com/databricks/databricks-sql-python/pull/354
+    "databricks-sql-connector>=2.8.0,<3.0.0",
 }
 
 databricks = {
@@ -378,12 +383,6 @@ databricks = {
     "databricks-sdk>=0.30.0",
     "pyspark~=3.5.6",
     "requests",
-    # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
-    # Version 3.0.0 required SQLAlchemy > 2.0.21
-    # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
-    # in src/datahub/ingestion/source/unity/proxy.py (_patch_databricks_sql_proxy_auth)
-    # as the fix was included natively in 3.0.0 via https://github.com/databricks/databricks-sql-python/pull/354
-    "databricks-sql-connector>=2.8.0,<3.0.0",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
     # databricks-sql-connector<3.0.0 requires pandas<2.2.0
     "pandas<2.2.0",
@@ -593,9 +592,9 @@ plugins: Dict[str, Set[str]] = {
     ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
-    "unity-catalog": databricks | sql_common,
+    "unity-catalog": databricks_common | databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
-    "databricks": databricks | sql_common,
+    "databricks": databricks_common | databricks | sql_common,
     "fivetran": snowflake_common
     | bigquery_common
     | databricks_common
