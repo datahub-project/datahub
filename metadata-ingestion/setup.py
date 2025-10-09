@@ -295,6 +295,9 @@ iceberg_common = {
     # - From v0.10.0, new signatures: `visit_timestamp_ns`, `visit_timestampz_ns` and `visit_unknown`
     # need to be implemented (still to be done).
     "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.8.0,<0.10.0",
+    # Pin pydantic due to incompatibility with pyiceberg 0.9.1.
+    # pyiceberg 0.9.1 requires pydantic>=2.0,<2.12
+    "pydantic<2.12",
     *cachetools_lib,
 }
 
