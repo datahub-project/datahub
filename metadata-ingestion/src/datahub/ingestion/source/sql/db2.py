@@ -12,7 +12,6 @@ import ibm_db_sa
 import pydantic
 import sqlalchemy
 import sqlglot
-from sqlalchemy.engine import Row
 from sqlalchemy.engine.reflection import Inspector
 from sqlglot.dialects.dialect import NormalizationStrategy
 
@@ -53,7 +52,7 @@ class CustomDb2SqlAlchemyDialect(ibm_db_sa.dialect):
         self._reflector.normalize_name = lambda s: s
         self._reflector.denormalize_name = lambda s: s
 
-    def get_schema_names(self, connection, **kwargs) -> Iterable[str]:
+    def get_schema_names(self, connection, **kwargs):
         for s in super().get_schema_names(connection, **kwargs):
             # get_schema_names() can return schema names with extra space on the end
             # see https://github.com/ibmdb/python-ibmdbsa/issues/172
@@ -123,10 +122,10 @@ class Db2Source(SQLAlchemySource):
             inspector.dialect.initialize(inspector.bind)
             yield inspector
 
-    def get_db_name(self, _inspector: Inspector) -> str:
+    def get_db_name(self, inspector: Inspector) -> str:
         # database names are case-insensitive, so normalize them to uppercase
         # to match everything else.
-        return self.config.database.upper()
+        return super().get_db_name(inspector).upper()
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
@@ -136,7 +135,7 @@ class Db2Source(SQLAlchemySource):
 
     def get_view_default_db_schema(
         self, _dataset_name: str, inspector: Inspector, schema: str, view: str
-    ) -> Tuple[Optional[str], str]:
+    ) -> Tuple[Optional[str], Optional[str]]:
         # Db2 views look up unqualified names in the schema from the session
         # when the view was created. Not the schema that the view itself lives in!
         schema_name = _db2_get_view_qualifier_quoted(inspector, schema, view)
@@ -159,7 +158,7 @@ class Db2Source(SQLAlchemySource):
             yield BaseProcedure(
                 name=row["ROUTINENAME"],
                 # language can have trailing spaces
-                language=row["LANGUAGE"].rstrip(),
+                language=row["LANGUAGE"].rstrip() if row["LANGUAGE"] else "",
                 procedure_definition=row["TEXT"],
                 comment=row["REMARKS"],
                 created=row["CREATE_TIME"],
@@ -171,7 +170,9 @@ class Db2Source(SQLAlchemySource):
             )
 
 
-def _db2_get_table_comment(inspector: Inspector, schema: str, table_name: str) -> str:
+def _db2_get_table_comment(
+    inspector: Inspector, schema: str, table_name: str
+) -> Optional[str]:
     if inspector.has_table("TABLES", schema="SYSCAT"):
         # Db2 LUW
         query = """
@@ -226,11 +227,11 @@ def _db2_get_view_qualifier_quoted(
                 schema,
                 view,
             ),
-        )
+        ).scalar()
 
         # the schema name must be quoted so that case-sensitive names make it through
         # to the sqlglot lineage parser without being normalized.
-        return _quote_identifier(result.scalar().rstrip())
+        return _quote_identifier(result.rstrip()) if result else None
 
     elif inspector.has_table("SYSVIEWS", schema="SYSIBM"):
         # Db2 z/OS
@@ -245,11 +246,12 @@ def _db2_get_view_qualifier_quoted(
                 schema,
                 view,
             ),
-        )
-        result = result.scalar().strip()
+        ).scalar()
+        if not result:
+            return None
         # format is like: "SYSIBM","SYSPROC","SMITH","SESSION_USER"
         # split, ignoring commas inside double quotes
-        pathschemas = re.findall(r'([^",]+|"(?:[^"]|"")*")(?:,\s*|$)', result)
+        pathschemas = re.findall(r'([^",]+|"(?:[^"]|"")*")(?:,\s*|$)', result.strip())
         if len(pathschemas) > 1:
             raise NotImplementedError(f"len(PATHSCHEMAS) > 1: {repr(pathschemas)}")
         # already quoted, don't have to call _quote_identifier.
@@ -266,7 +268,9 @@ def _db2_get_view_qualifier_quoted(
         )
 
 
-def _db2_get_procedures(inspector: Inspector, schema: str) -> Iterable[Row]:
+def _db2_get_procedures(
+    inspector: Inspector, schema: str
+) -> Iterable[sqlalchemy.engine.Row]:
     if inspector.has_table("ROUTINES", schema="SYSCAT"):
         # Db2 LUW
         yield from inspector.bind.execute(
