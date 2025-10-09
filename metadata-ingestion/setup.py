@@ -212,6 +212,8 @@ bigquery_common = {
     "google-cloud-resource-manager",
     "more-itertools>=8.12.0",
     "sqlalchemy-bigquery>=1.4.1",
+    # setuptools provides pkg_resources which is required by google-cloud-logging
+    "setuptools",
     *path_spec_common,
 }
 
