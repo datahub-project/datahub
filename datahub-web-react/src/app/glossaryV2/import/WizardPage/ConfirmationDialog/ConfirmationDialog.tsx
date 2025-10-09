@@ -21,25 +21,7 @@ interface ConfirmationDialogProps {
 }
 
 const ModalContainer = styled.div`
-  .ant-modal-content {
-    border-radius: 8px;
-    overflow: hidden;
-  }
-  
-  .ant-modal-header {
-    border-bottom: 1px solid #e5e7eb;
-    padding: 16px 24px;
-  }
-  
-  .ant-modal-body {
-    padding: 24px;
-  }
-  
-  .ant-modal-footer {
-    border-top: 1px solid #e5e7eb;
-    padding: 16px 24px;
-    background: #f9fafb;
-  }
+  /* Modal styling is handled by DataHub Modal component */
 `;
 
 const ModalHeader = styled.div`
