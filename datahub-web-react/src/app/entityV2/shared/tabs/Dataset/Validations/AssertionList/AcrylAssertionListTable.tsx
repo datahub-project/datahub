@@ -14,7 +14,7 @@ import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Valida
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { AssertionType, DataContract, Entity } from '@src/types.generated';
 
-const HEADER_AND_PAGINATION_HEIGHT_PX = 130;
+const HEADER_AND_PAGINATION_HEIGHT_PX = 104;
 
 const TableContainer = styled.div`
     overflow: hidden;
@@ -112,7 +112,6 @@ export const AcrylAssertionListTable = ({
                     showHeader
                     scroll={{
                         y: tableHeight,
-                        x: 'max-content',
                     }}
                     pagination={{
                         pageSize: 50,

@@ -15,6 +15,7 @@ import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
@@ -29,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -57,7 +57,7 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
           Constants.ML_MODEL_GROUP_ENTITY_NAME,
           Constants.ML_FEATURE_TABLE_ENTITY_NAME);
 
-  private final RestHighLevelClient _searchClient;
+  private final SearchClientShim<?> _searchClient;
   private final IndexConvention _indexConvention;
   private final EntityService<?> _entityService;
 
@@ -86,11 +86,9 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
     boolean analyticsEnabled = false;
     try {
       analyticsEnabled =
-          _searchClient
-              .indices()
-              .exists(
-                  new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
-                  RequestOptions.DEFAULT);
+          _searchClient.indexExists(
+              new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
+              RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("Failed to check whether DataHub usage index exists");
     }

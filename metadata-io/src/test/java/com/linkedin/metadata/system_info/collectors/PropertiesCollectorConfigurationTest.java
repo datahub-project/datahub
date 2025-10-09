@@ -154,7 +154,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.authenticators[*].configs.jwksUri",
           "authentication.authenticators[*].configs.userIdClaim",
           "authentication.authenticators[*].configs.algorithm",
-          "authentication.authenticators[*].configs.discoveryUri");
+          "authentication.authenticators[*].configs.discoveryUri",
+          // Shim properties
+          "elasticsearch.shim.*");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
@@ -354,6 +356,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "http.nonProxyHosts",
           "npm_config_yes",
           "socksNonProxyHosts",
+          "ELASTIC_VERSION",
 
           // Java system properties
           "apple.awt.application.name",
@@ -673,6 +676,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ingestionScheduler.consumerGroupSuffix",
           "ingestionScheduler.enabled",
           "ingestion.scheduler.refreshIntervalSeconds",
+          "path-mappings./",
 
           // Management and monitoring
           "management.defaults.metrics.export.enabled",
@@ -803,6 +807,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "springdoc.api-docs.version",
           "springdoc.cache.disabled",
           "springdoc.groups.enabled",
+          "springdoc.swagger-ui.disable-swagger-default-url",
           "springdoc.swagger-ui.path",
           "springdoc.swagger-ui.urls-primary-name",
           "structuredProperties.enabled",
@@ -839,6 +844,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "org.gradle.internal.worker.tmpdir",
           "org.springframework.boot.test.context.SpringBootTestContextBootstrapper",
           "datahub.policies.systemPolicyUrnList",
+
+          // Base Path
+          "datahub.basePath",
+          "server.servlet.context-path",
+          "datahub.gms.basePath",
+          "datahub.gms.basePathEnabled",
 
           // SaaS properties
           "assertionMonitors.resolveIngestionSourceForAspects",

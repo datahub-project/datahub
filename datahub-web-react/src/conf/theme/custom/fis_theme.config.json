@@ -69,7 +69,7 @@
         ]
     },
     "assets": {
-        "logoUrl": "/assets/logos/custom/fis-logo.png"
+        "logoUrl": "assets/logos/custom/fis-logo.png"
     },
     "content": {
         "title": "DataHub",

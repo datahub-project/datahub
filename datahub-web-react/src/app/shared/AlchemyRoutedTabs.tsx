@@ -123,7 +123,7 @@ export const AlchemyRoutedTabs = ({ defaultPath, tabs, onTabChange }: AlchemyRou
                             onChange={handleTabChange}
                             urlMap={urlMap}
                             onUrlChange={(newUrl) => history.replace(newUrl)}
-                            getCurrentUrl={() => window.location.pathname}
+                            getCurrentUrl={() => pathname}
                             styleOptions={{ containerHeight: 'full' }}
                         />
                     </ErrorBoundary>

@@ -20,6 +20,7 @@ import { Header } from '@app/observe/dataset/shared/shared';
 import { useSyncFiltersWithQueryParams } from '@app/observe/dataset/shared/util';
 import BaseEntityFilter from '@app/searchV2/filtersV2/filters/BaseEntityFilter/BaseEntityFilter';
 import {
+    CONTAINER_FILTER_NAME,
     DOMAINS_FILTER_NAME,
     GLOSSARY_TERMS_FILTER_NAME,
     OWNERS_FILTER_NAME,
@@ -99,6 +100,7 @@ export const IncidentsSummary = () => {
         domains: selectedDomains,
         owners: selectedOwnership,
         platforms: selectedPlatforms,
+        containers: selectedContainers,
         terms: selectedTerms,
         tags: selectedTags,
     } = filterOptions;
@@ -114,6 +116,9 @@ export const IncidentsSummary = () => {
     const setSelectedPlatforms = (platforms: string[]) => {
         setFilterOptions((options) => ({ ...options, platforms }));
     };
+    const setSelectedContainers = (containers: string[]) => {
+        setFilterOptions((options) => ({ ...options, containers }));
+    };
     const setSelectedTerms = (terms: string[]) => {
         setFilterOptions((options) => ({ ...options, terms }));
     };
@@ -127,6 +132,7 @@ export const IncidentsSummary = () => {
         selectedDomains.length > 0 ||
         selectedOwnership.length > 0 ||
         selectedPlatforms.length > 0 ||
+        selectedContainers.length > 0 ||
         selectedTerms.length > 0 ||
         selectedTags.length > 0;
 
@@ -136,7 +142,15 @@ export const IncidentsSummary = () => {
             setPage(1);
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [searchQuery, selectedDomains, selectedOwnership, selectedPlatforms, selectedTerms, selectedTags],
+        [
+            searchQuery,
+            selectedDomains,
+            selectedOwnership,
+            selectedPlatforms,
+            selectedContainers,
+            selectedTerms,
+            selectedTags,
+        ],
     );
 
     const orFilters: AndFilterInput[] = [{ and: [{ field: HAS_ACTIVE_INCIDENTS_FILTER_FIELD, value: 'true' }] }];
@@ -151,6 +165,10 @@ export const IncidentsSummary = () => {
 
     if (selectedPlatforms.length > 0) {
         orFilters[0].and?.push({ field: PLATFORM_FILTER_NAME, values: selectedPlatforms });
+    }
+
+    if (selectedContainers.length > 0) {
+        orFilters[0].and?.push({ field: CONTAINER_FILTER_NAME, values: selectedContainers });
     }
 
     if (selectedTerms.length > 0) {
@@ -234,6 +252,7 @@ export const IncidentsSummary = () => {
                 />
 
                 {/* ************************* Filter Options ************************* */}
+                {/* TODO: generalize the filter options so we don't have to copy and paste for each filter */}
                 <FilterOptionsWrapper>
                     {viewUrn && (
                         <Tooltip title="You may change or remove the view via the search bar at the very top of the page.">
@@ -326,6 +345,37 @@ export const IncidentsSummary = () => {
                                 tabType: 'IncidentsByAsset',
                                 filterType: 'filter',
                                 filterSubType: 'assetPlatforms',
+                                content: {
+                                    filterValues: selectedValues,
+                                },
+                            });
+                        }}
+                    />
+
+                    {/* ----------- Containers ----------- */}
+                    <BaseEntityFilter
+                        entityTypes={[EntityType.Container]}
+                        renderEntity={(entity) => tryGetDisplayName(entity) || entity.urn}
+                        filterName="Container"
+                        fieldName={CONTAINER_FILTER_NAME}
+                        facetState={{ facet: facets?.find((facet) => facet.field === CONTAINER_FILTER_NAME) }}
+                        appliedFilters={{
+                            filters: [
+                                {
+                                    field: CONTAINER_FILTER_NAME,
+                                    values: selectedContainers,
+                                    condition: FilterOperator.In,
+                                },
+                            ],
+                        }}
+                        onUpdate={(values) => {
+                            const selectedValues = values.filters?.[0]?.values ?? [];
+                            setSelectedContainers(selectedValues);
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'IncidentsByAsset',
+                                filterType: 'filter',
+                                filterSubType: 'assetContainers',
                                 content: {
                                     filterValues: selectedValues,
                                 },

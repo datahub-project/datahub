@@ -80,8 +80,7 @@ public class BuildIndicesPreStep implements UpgradeStep {
             boolean cloneAck =
                 esComponents
                     .getSearchClient()
-                    .indices()
-                    .clone(resizeRequest, RequestOptions.DEFAULT)
+                    .cloneIndex(resizeRequest, RequestOptions.DEFAULT)
                     .isAcknowledged();
             log.info("Cloned index {} into {}, Acknowledged: {}", indexName, clonedName, cloneAck);
             if (!cloneAck) {
@@ -110,8 +109,7 @@ public class BuildIndicesPreStep implements UpgradeStep {
       ack =
           esComponents
               .getSearchClient()
-              .indices()
-              .putSettings(request, RequestOptions.DEFAULT)
+              .updateIndexSettings(request, RequestOptions.DEFAULT)
               .isAcknowledged();
       log.info(
           "Updated index {} with new settings. Settings: {}, Acknowledged: {}",

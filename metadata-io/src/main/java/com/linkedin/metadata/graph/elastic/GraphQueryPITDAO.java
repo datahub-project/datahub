@@ -12,6 +12,7 @@ import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -24,7 +25,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -32,12 +32,12 @@ import org.opensearch.search.slice.SliceBuilder;
 
 /** A search DAO for Elasticsearch backend. */
 @Slf4j
-public class GraphQueryOpenSearchDAO extends GraphQueryBaseDAO {
+public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
-  @Getter private final RestHighLevelClient client;
+  @Getter private final SearchClientShim<?> client;
 
-  public GraphQueryOpenSearchDAO(
-      RestHighLevelClient client,
+  public GraphQueryPITDAO(
+      SearchClientShim<?> client,
       GraphServiceConfiguration graphServiceConfig,
       ElasticSearchConfiguration config,
       MetricUtils metricUtils) {
@@ -47,7 +47,7 @@ public class GraphQueryOpenSearchDAO extends GraphQueryBaseDAO {
 
   /**
    * Search using PIT and slice-based parallel processing for better performance. Note:
-   * Elasticsearch doesn't support slicing with PIT searches, so we fall back to scroll+slice for
+   * Elasticsearch 7 doesn't support slicing with PIT searches, so we fall back to scroll+slice for
    * Elasticsearch.
    *
    * @param maxRelations The remaining capacity for relationships (decremented from original limit)
@@ -131,7 +131,6 @@ public class GraphQueryOpenSearchDAO extends GraphQueryBaseDAO {
           ESUtils.computePointInTime(
               null,
               keepAlive,
-              config.getImplementation(),
               client,
               opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME));
 
@@ -224,7 +223,7 @@ public class GraphQueryOpenSearchDAO extends GraphQueryBaseDAO {
       throw new RuntimeException("Failed to execute PIT search for slice " + sliceId, e);
     } finally {
       // Clean up PIT to prevent hitting the limit
-      ESUtils.cleanupPointInTime(client, pitId, config.getImplementation(), "slice " + sliceId);
+      ESUtils.cleanupPointInTime(client, pitId, "slice " + sliceId);
     }
 
     return sliceRelationships;

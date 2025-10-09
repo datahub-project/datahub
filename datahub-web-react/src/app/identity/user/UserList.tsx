@@ -174,7 +174,7 @@ export const UserList = () => {
                 />
                 <UserPaginationContainer>
                     <Pagination
-                        style={{ margin: 40 }}
+                        style={{ margin: '8px 0' }}
                         current={page}
                         pageSize={pageSize}
                         total={totalUsers}

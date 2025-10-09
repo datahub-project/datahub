@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { PreviewType } from '@app/entity/Entity';
@@ -55,6 +55,7 @@ export default function BulkVerify({ closeFormModal }: Props) {
 
     const isV2 = useIsThemeV2();
 
+    const location = useLocation();
     const showSearchFiltersV2 = useIsSearchV2();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { query, unionType, filters, viewUrn, page } = useGetSearchQueryInputs();
@@ -71,7 +72,7 @@ export default function BulkVerify({ closeFormModal }: Props) {
         onChangeSelectAll,
     } = useSearchPage({
         searchResults: resultItems,
-        currentPath: window.location.pathname,
+        currentPath: location.pathname,
         selectedEntities,
         setSelectedEntities,
         defaultIsSelectMode: true,

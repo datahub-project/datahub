@@ -1,7 +1,7 @@
 import { PageTitle, colors } from '@components';
 import { Plus } from 'phosphor-react';
 import React from 'react';
-import { useHistory } from 'react-router';
+import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -44,6 +44,7 @@ export const DatasetHealthPage = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     const history = useHistory();
+    const location = useLocation();
 
     const [selectedTab, setSelectedTab] = React.useState<string>(ASSERTIONS_TAB_ID);
     const [selectedAssertionsSubTab, setSelectedAssertionsSubTab] = React.useState<string>(BY_ASSET_TAB_ID);
@@ -57,7 +58,7 @@ export const DatasetHealthPage = () => {
 
     // Initialize tab state based on current URL
     React.useEffect(() => {
-        const currentUrl = window.location.pathname;
+        const currentUrl = location.pathname;
         if (currentUrl === BY_ASSET_URL) {
             setSelectedAssertionsSubTab(BY_ASSET_TAB_ID);
         } else if (currentUrl === BY_ASSET_INCIDENTS_URL) {
@@ -67,7 +68,7 @@ export const DatasetHealthPage = () => {
             setSelectedIncidentsSubTab(BY_INCIDENTS_TAB_ID);
             setSelectedTab(INCIDENTS_TAB_ID);
         }
-    }, []);
+    }, [location.pathname]);
 
     const handleMainTabChange = (tabKey: string) => {
         setSelectedTab(tabKey);
@@ -100,7 +101,7 @@ export const DatasetHealthPage = () => {
                 {
                     component: (
                         <Content $isShowNavBarRedesign={isShowNavBarRedesign}>
-                            <AssertionsByTableSummary />
+                            <AssertionsByTableSummary isAnomalyDetectionEnabled={showBulkCreateAssertionsButton} />
                         </Content>
                     ),
                     key: BY_ASSET_TAB_ID,
@@ -109,7 +110,7 @@ export const DatasetHealthPage = () => {
                 {
                     component: (
                         <Content $isShowNavBarRedesign={isShowNavBarRedesign}>
-                            <AssertionsByAssertionSummary />
+                            <AssertionsByAssertionSummary isAnomalyDetectionEnabled={showBulkCreateAssertionsButton} />
                         </Content>
                     ),
                     key: BY_ASSERTIONS_TAB_ID,

@@ -221,6 +221,7 @@ export const IncidentsByIncidentSummary = () => {
                 />
 
                 {/* ************************* Filter Options ************************* */}
+                {/* TODO: generalize the filter options so we don't have to copy and paste for each filter */}
                 <FilterOptionsWrapper>
                     {/* ************************* State Selector ************************* */}
                     <SimpleSelect

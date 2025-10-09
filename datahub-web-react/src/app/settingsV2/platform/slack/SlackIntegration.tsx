@@ -3,7 +3,7 @@ import { InfoCircleFilled } from '@ant-design/icons';
 import { Alert, Button as AntButton, Divider, Form, Image, Input, Modal, Radio, Typography, message } from 'antd';
 import { isEqual } from 'lodash';
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { EventType } from '@app/analytics';
@@ -122,6 +122,7 @@ const OBFUSCATED_STARS = '***';
 
 export const SlackIntegration = () => {
     const appConfig = useAppConfig();
+    const history = useHistory();
 
     const isRequestMinimalSlackPermissions =
         appConfig.config.featureFlags.requestMinimalSlackPermissions === true ? 'true' : 'false';
@@ -258,11 +259,11 @@ export const SlackIntegration = () => {
                             // If we are using the app-token path, redirect once settings are updated.
                             if (isOnAppConfigTab) {
                                 if (isConnected) {
-                                    redirectToSlackRefreshInstallation({
+                                    redirectToSlackRefreshInstallation(history, {
                                         requestMinimalSlackPermissions: isRequestMinimalSlackPermissions,
                                     });
                                 } else {
-                                    redirectToSlackInstall({
+                                    redirectToSlackInstall(history, {
                                         requestMinimalSlackPermissions: isRequestMinimalSlackPermissions,
                                     });
                                 }
@@ -295,7 +296,7 @@ export const SlackIntegration = () => {
                                     content: `This will create and install a new Slack app with the currently set App Tokens.\nEnsure the tokens entered are up-to-date.`,
                                     onOk() {
                                         updateSlackSettings(true, () =>
-                                            redirectToSlackInstall({
+                                            redirectToSlackInstall(history, {
                                                 requestMinimalSlackPermissions: isRequestMinimalSlackPermissions,
                                             }),
                                         );

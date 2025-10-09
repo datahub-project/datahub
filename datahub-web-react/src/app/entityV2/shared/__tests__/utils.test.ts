@@ -95,7 +95,7 @@ describe('entity V2 utils test ->', () => {
                     type: 'DATA_PLATFORM',
                     urn: 'urn:li:dataPlatform:clickhouse',
                     properties: {
-                        logoUrl: '/assets/platforms/clickhouselogo.png',
+                        logoUrl: 'assets/platforms/clickhouselogo.png',
                     },
                 },
             };

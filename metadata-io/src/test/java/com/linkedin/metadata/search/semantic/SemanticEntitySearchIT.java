@@ -7,6 +7,7 @@ package com.linkedin.metadata.search.semantic;
 
 import static org.testng.Assert.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -14,18 +15,16 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nonnull;
-import org.apache.http.HttpHost;
 import org.opensearch.client.Request;
-import org.opensearch.client.Response;
-import org.opensearch.client.RestClient;
-import org.opensearch.client.RestClientBuilder;
-import org.opensearch.client.RestHighLevelClient;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -34,32 +33,37 @@ import org.testng.annotations.Test;
 @Test(enabled = false) // Disabled: Requires OpenSearch with semantic indices
 public class SemanticEntitySearchIT {
 
-  private RestHighLevelClient client;
+  private SearchClientShim<?> client;
 
   @BeforeClass
-  public void setUp() {
-    RestClientBuilder builder = RestClient.builder(new HttpHost("localhost", 9200, "http"));
-    client = new RestHighLevelClient(builder);
+  public void setUp() throws IOException {
+    SearchClientShimUtil.ShimConfigurationBuilder configBuilder =
+        new SearchClientShimUtil.ShimConfigurationBuilder()
+            .withHost("localhost")
+            .withPort(9200)
+            .withSSL(false);
+    client =
+        SearchClientShimUtil.createShimWithAutoDetection(configBuilder.build(), new ObjectMapper());
 
     // Skip if OpenSearch is not available
     try {
-      RestClient low = client.getLowLevelClient();
-      Response resp = low.performRequest(new Request("GET", "/_cluster/health"));
+      RawResponse resp = client.performLowLevelRequest(new Request("GET", "/_cluster/health"));
       int status = resp.getStatusLine().getStatusCode();
       if (status < 200 || status >= 300) {
         throw new SkipException("OpenSearch not healthy: status=" + status);
       }
 
       // Ensure semantic dataset index exists
-      Response headIndex = low.performRequest(new Request("HEAD", "/datasetindex_v2_semantic"));
+      RawResponse headIndex =
+          client.performLowLevelRequest(new Request("HEAD", "/datasetindex_v2_semantic"));
       int idxStatus = headIndex.getStatusLine().getStatusCode();
       if (idxStatus == 404) {
         throw new SkipException("Index datasetindex_v2_semantic not found; skipping semantic IT");
       }
 
       // Ensure vector field mapping exists
-      Response mapping =
-          low.performRequest(
+      RawResponse mapping =
+          client.performLowLevelRequest(
               new Request(
                   "GET",
                   "/datasetindex_v2_semantic/_mapping/field/embeddings.cohere_embed_v3.chunks.vector"));

@@ -61,6 +61,7 @@ export const ASSERTEE_OWNERS_FILTER_NAME = 'asserteeOwners';
 export const ASSERTEE_DATA_PLATFORMS_FILTER_NAME = 'asserteeDataPlatforms';
 export const ASSERTEE_PLATFORM_FILTER_NAME = 'asserteeDataPlatform';
 export const ASSERTEE_PLATFORM_INSTANCES_FILTER_NAME = 'asserteeDataPlatformInstance';
+export const ASSERTEE_CONTAINER_FILTER_NAME = 'asserteeContainer';
 export const ASSERTEE_SCHEMA_FIELD_GLOSSARY_TERMS_FILTER_NAME = 'asserteeSchemaFieldGlossaryTerms';
 export const ASSERTEE_SCHEMA_FIELD_TAGS_FILTER_NAME = 'asserteeSchemaFieldTags';
 

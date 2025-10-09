@@ -1,4 +1,6 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
+import { getGlobalInvitedUsers, subscribeToInvitedUsers } from '@app/identity/user/inviteUsersGlobalState';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { CorpUser, EntityType, FacetFilterInput, FilterOperator, SearchSortInput, SortOrder } from '@types';
@@ -140,15 +142,43 @@ export function useUserRecommendations(options?: UseUserRecommendationsOptions) 
         skip, // Skip query when modal is closed
     });
 
+    // Track changes to global invited users to trigger re-filtering
+    const [invitedUsersVersion, setInvitedUsersVersion] = useState(0);
+
+    useEffect(() => {
+        // Subscribe to changes in global invited users
+        const unsubscribe = subscribeToInvitedUsers(() => {
+            // Force re-render by updating version
+            setInvitedUsersVersion((v) => v + 1);
+        });
+
+        return unsubscribe;
+    }, []);
+
     const { recommendedUsers, totalRecommendedUsers } = useMemo(() => {
         const searchResults = searchData?.searchAcrossEntities?.searchResults || [];
         const total = searchData?.searchAcrossEntities?.total || 0;
 
+        // Filter out globally invited users
+        const globalInvitedUsers = getGlobalInvitedUsers();
+        const filteredUsers = searchResults
+            .map((result) => result.entity as CorpUser)
+            .filter((user) => {
+                // Check if user or their email has been invited
+                if (globalInvitedUsers.has(user.urn)) return false;
+
+                const userEmail = user.info?.email || user.properties?.email || user.username;
+                if (userEmail && globalInvitedUsers.has(userEmail)) return false;
+
+                return true;
+            });
+
         return {
-            recommendedUsers: searchResults.map((result) => result.entity as CorpUser),
+            recommendedUsers: filteredUsers,
             totalRecommendedUsers: total,
         };
-    }, [searchData]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchData, invitedUsersVersion]);
 
     return {
         recommendedUsers,

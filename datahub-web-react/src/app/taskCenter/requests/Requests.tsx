@@ -62,7 +62,7 @@ export const Requests = () => {
         const encodedFormUrn = encodeURIComponent(formUrn);
         const url = new URL(window.location.href);
         url.searchParams.set('form_urn', encodedFormUrn);
-        history.push(url.pathname + url.search);
+        history.push(location.pathname + url.search);
     };
 
     // Close modal & refetch - now it removes the form_urn from the URL
@@ -70,7 +70,7 @@ export const Requests = () => {
         refetch();
         const url = new URL(window.location.href);
         url.searchParams.delete('form_urn');
-        history.push(url.pathname + url.search);
+        history.push(location.pathname + url.search);
     };
 
     return (

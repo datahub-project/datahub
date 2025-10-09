@@ -45,6 +45,11 @@ type Props = {
 const MAX_RECOMMENDED_USERS = 6;
 // always fetch exactly 6, get fresh ones on reopen
 
+const INVITE_TAB_KEYS = {
+    VIA_EMAIL: 'via-email',
+    RECOMMENDED: 'recommended',
+} as const;
+
 export default function InviteUsersModal({ open, onClose }: Props) {
     const {
         selectedRole,
@@ -67,7 +72,7 @@ export default function InviteUsersModal({ open, onClose }: Props) {
         emailInvitations,
         refetchRecommendations,
     } = useInviteUsersModal({
-        limit: MAX_RECOMMENDED_USERS * 3, // Fetch more to account for filtering, then slice to 6
+        limit: MAX_RECOMMENDED_USERS, // Fetch exactly the number we need
         sortInput: {
             sortCriterion: {
                 field: 'userUsageTotalPast30DaysFeature',
@@ -82,6 +87,8 @@ export default function InviteUsersModal({ open, onClose }: Props) {
     const [recommendedUserStates, setRecommendedUserStates] = useState<Record<string, RecommendedUserState>>({});
     // Track users that have been successfully invited and should be hidden
     const [hiddenUsers, setHiddenUsers] = useState<Set<string>>(new Set());
+    // Track which tab the user is currently viewing
+    const [activeTab, setActiveTab] = useState<string>(INVITE_TAB_KEYS.VIA_EMAIL);
 
     // Reset modal state when dialog opens and advance recommendation index
     useEffect(() => {
@@ -89,6 +96,7 @@ export default function InviteUsersModal({ open, onClose }: Props) {
             resetModalState();
             setRecommendedUserStates({}); // Reset recommended user states
             setHiddenUsers(new Set()); // Reset hidden users
+            setActiveTab(INVITE_TAB_KEYS.VIA_EMAIL); // Reset to default tab
 
             // Only refetch if user has invited someone (gamification approach)
             if (getHasInvitedYet()) {
@@ -169,10 +177,27 @@ export default function InviteUsersModal({ open, onClose }: Props) {
         [emailInvitations],
     );
 
+    // Calculate how many displayable recommended users we have after filtering
+    const validUsers = recommendedUsers.filter((user) => {
+        // Don't show hidden users
+        if (hiddenUsers.has(user.urn)) return false;
+
+        return true;
+    });
+
+    // Gamification: show fewer slots as users get invited successfully (matches RecommendedUsersList)
+    const invitedCount = Object.keys(recommendedUserStates).filter(
+        (urn) => recommendedUserStates[urn]?.status === 'success',
+    ).length;
+    const availableSlots = Math.max(0, MAX_RECOMMENDED_USERS - invitedCount);
+
+    // Only show the tab if there are displayable users after gamification
+    const displayableRecommendedUsers = validUsers.slice(0, availableSlots);
+
     // Create tabs for the invite section
     const inviteTabs: Tab[] = [
         {
-            key: 'via-email',
+            key: INVITE_TAB_KEYS.VIA_EMAIL,
             label: 'Via Email',
             content: (
                 <>
@@ -207,22 +232,28 @@ export default function InviteUsersModal({ open, onClose }: Props) {
                 </>
             ),
         },
-        {
-            key: 'recommended',
-            label: 'Recommended',
-            content: (
-                <RecommendedUsersList
-                    recommendedUsers={recommendedUsers}
-                    totalRecommendedUsers={totalRecommendedUsers}
-                    maxDisplayUsers={MAX_RECOMMENDED_USERS}
-                    selectedRole={selectedRole}
-                    onInviteUser={handleInviteRecommendedUser}
-                    userStates={recommendedUserStates}
-                    hiddenUsers={hiddenUsers}
-                    onClose={onClose}
-                />
-            ),
-        },
+        // Only show Recommended tab if there are users OR if user is currently on it
+        // This allows empty state to show when user invites all, but hides tab when switching away
+        ...(displayableRecommendedUsers.length > 0 || activeTab === INVITE_TAB_KEYS.RECOMMENDED
+            ? [
+                  {
+                      key: INVITE_TAB_KEYS.RECOMMENDED,
+                      label: 'Recommended',
+                      content: (
+                          <RecommendedUsersList
+                              recommendedUsers={recommendedUsers}
+                              totalRecommendedUsers={totalRecommendedUsers}
+                              maxDisplayUsers={MAX_RECOMMENDED_USERS}
+                              selectedRole={selectedRole}
+                              onInviteUser={handleInviteRecommendedUser}
+                              userStates={recommendedUserStates}
+                              hiddenUsers={hiddenUsers}
+                              onClose={onClose}
+                          />
+                      ),
+                  },
+              ]
+            : []),
     ];
 
     return (
@@ -299,7 +330,7 @@ export default function InviteUsersModal({ open, onClose }: Props) {
                 {/* Invite Users Section with Tabs */}
                 <InviteUsersTabsSection>
                     <SectionTitle>Invite Users</SectionTitle>
-                    <ButtonTabs tabs={inviteTabs} defaultKey="via-email" />
+                    <ButtonTabs tabs={inviteTabs} defaultKey="via-email" onTabClick={setActiveTab} />
                 </InviteUsersTabsSection>
             </ModalSection>
         </Modal>

@@ -107,6 +107,16 @@ record AssertionAnalyticsContext {
   asserteeDataPlatformInstance: optional Urn
 
   /**
+   * The container of the parent
+   */
+  @Searchable = {
+    "fieldType": "URN",
+    "addToFilters": true
+  }
+  @TimeseriesField = {}
+  asserteeContainer: optional Urn
+
+  /**
    * Only provided if the Assertion is of type 'Column'. The glossary terms associated with the target column.
    */
   @Searchable = {

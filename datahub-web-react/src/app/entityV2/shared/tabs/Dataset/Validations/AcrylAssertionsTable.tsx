@@ -70,6 +70,9 @@ const BaseStyledTable = styled(Table)<StyledTableProps>`
     &&& .ant-table-thead > tr > th.ant-table-cell-fix-right {
         background-color: inherit;
     }
+    &&& .ant-pagination {
+        margin: 8px 0;
+    }
 `;
 
 export const StyledTable = BaseStyledTable as <T = any>(props: StyledTableProps & TableProps<T>) => JSX.Element;

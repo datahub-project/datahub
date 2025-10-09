@@ -29,6 +29,7 @@ import { Header } from '@app/observe/dataset/shared/shared';
 import { compareListItems, useSyncFiltersWithQueryParams } from '@app/observe/dataset/shared/util';
 import BaseEntityFilter from '@app/searchV2/filtersV2/filters/BaseEntityFilter/BaseEntityFilter';
 import {
+    ASSERTEE_CONTAINER_FILTER_NAME,
     ASSERTEE_DOMAINS_FILTER_NAME,
     ASSERTEE_GLOSSARY_TERMS_FILTER_NAME,
     ASSERTEE_OWNERS_FILTER_NAME,
@@ -75,7 +76,11 @@ const FilterOptionsWrapper = styled.div`
     align-items: center;
 `;
 
-export const AssertionsByAssertionSummary = () => {
+type Props = {
+    isAnomalyDetectionEnabled: boolean;
+};
+
+export const AssertionsByAssertionSummary = ({ isAnomalyDetectionEnabled }: Props) => {
     const entityRegistry = useEntityRegistry();
     const tryGetDisplayName = (entity?: Maybe<Entity>): string | undefined => {
         if (!entity) {
@@ -136,6 +141,7 @@ export const AssertionsByAssertionSummary = () => {
     // Asset Filters
     const assetFilterOptions: AssetFilterOptions = {
         platform: filterOptions.asset_platform,
+        container: filterOptions.asset_container,
         domain: filterOptions.asset_domain,
         owner: filterOptions.asset_owner,
         term: filterOptions.asset_term,
@@ -145,6 +151,7 @@ export const AssertionsByAssertionSummary = () => {
         setFilterOptions((options) => ({
             ...options,
             asset_platform: asset.platform,
+            asset_container: asset.container,
             asset_domain: asset.domain,
             asset_owner: asset.owner,
             asset_term: asset.term,
@@ -165,6 +172,7 @@ export const AssertionsByAssertionSummary = () => {
             assertionSource,
             assertionTags,
             assetFilterOptions.platform,
+            assetFilterOptions.container,
             assetFilterOptions.domain,
             assetFilterOptions.owner,
             assetFilterOptions.term,
@@ -217,6 +225,14 @@ export const AssertionsByAssertionSummary = () => {
             filters.push({
                 field: ASSERTEE_PLATFORM_FILTER_NAME,
                 values: assetFilterOptions.platform,
+                condition: FilterOperator.In,
+            });
+        }
+
+        if (assetFilterOptions.container.length > 0) {
+            filters.push({
+                field: ASSERTEE_CONTAINER_FILTER_NAME,
+                values: assetFilterOptions.container,
                 condition: FilterOperator.In,
             });
         }
@@ -324,6 +340,7 @@ export const AssertionsByAssertionSummary = () => {
                 />
 
                 {/* ************************* Filter Options ************************* */}
+                {/* TODO: generalize the filter options so we don't have to copy and paste for each filter */}
                 <FilterOptionsWrapper>
                     {/* ************************* Status Selector ************************* */}
                     <SimpleSelect
@@ -513,6 +530,15 @@ export const AssertionsByAssertionSummary = () => {
                                                 count: aggregation.count,
                                                 name: aggregation.value,
                                             })) || [],
+                                    container:
+                                        facets
+                                            ?.find((facet) => facet.field === ASSERTEE_CONTAINER_FILTER_NAME)
+                                            ?.aggregations.map((aggregation) => ({
+                                                displayName: tryGetDisplayName(aggregation.entity) || aggregation.value,
+                                                category: 'container',
+                                                count: aggregation.count,
+                                                name: aggregation.value,
+                                            })) || [],
                                     domain:
                                         facets
                                             ?.find((facet) => facet.field === ASSERTEE_DOMAINS_FILTER_NAME)
@@ -557,6 +583,9 @@ export const AssertionsByAssertionSummary = () => {
                                     const domainValues = values
                                         .filter((value) => value.category === 'domain')
                                         .map((value) => value.name);
+                                    const containerValues = values
+                                        .filter((value) => value.category === 'container')
+                                        .map((value) => value.name);
                                     const ownerValues = values
                                         .filter((value) => value.category === 'owner')
                                         .map((value) => value.name);
@@ -585,6 +614,21 @@ export const AssertionsByAssertionSummary = () => {
                                                 filterSubType: 'assetDomains',
                                                 content: {
                                                     filterValues: domainValues,
+                                                },
+                                            });
+                                        }
+                                    }
+                                    if (!compareListItems(containerValues, assetFilterOptions.container)) {
+                                        newAssetFilterOptions.container = containerValues;
+                                        hasChanged = true;
+                                        if (containerValues.length > 0) {
+                                            analytics.event({
+                                                type: EventType.DatasetHealthFilterEvent,
+                                                tabType: 'AssertionsByAssertion',
+                                                filterType: 'filter',
+                                                filterSubType: 'assetContainers',
+                                                content: {
+                                                    filterValues: containerValues,
                                                 },
                                             });
                                         }
@@ -669,6 +713,7 @@ export const AssertionsByAssertionSummary = () => {
                 pageSize={size}
                 setPageSize={setPageSize}
                 hasModifiedDefaultFilters={hasFilters}
+                isAnomalyDetectionEnabled={isAnomalyDetectionEnabled}
             />
         </Container>
     );

@@ -20,6 +20,7 @@ import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -34,7 +35,6 @@ import org.mockito.ArgumentCaptor;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.aggregations.Aggregations;
@@ -48,7 +48,7 @@ import org.testng.annotations.Test;
 
 @Import(SearchCommonTestConfiguration.class)
 public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
-  private RestHighLevelClient mockClient;
+  private SearchClientShim<?> mockClient;
   private ESBrowseDAO browseDAO;
   private OperationContext opContext;
 
@@ -58,7 +58,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
 
   @BeforeMethod
   public void setup() throws RemoteInvocationException, URISyntaxException {
-    mockClient = mock(RestHighLevelClient.class);
+    mockClient = mock(SearchClientShim.class);
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
             new IndexConventionImpl(

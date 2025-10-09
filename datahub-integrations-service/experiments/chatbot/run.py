@@ -194,6 +194,18 @@ async def process_all_batches(
         f"Starting batched execution of {len(filtered_prompts)} experiments (batch size: {BATCH_SIZE})"
     )
 
+    instances = set(prompt.instance for prompt in filtered_prompts)
+    logger.info(f"Checking connection to instances: {instances}")
+    for instance in instances:
+        try:
+            create_uncached_datahub_graph(key=instance)
+        except Exception as e:
+            logger.error(f"Error creating graph for instance: {instance}")
+            logger.error(f"Error details: {e}")
+            raise
+        
+    logger.info("Good to go!")
+
     # Split prompts into batches to control parallelism
     prompt_batches = list(more_itertools.chunked(filtered_prompts, BATCH_SIZE))
     logger.info(

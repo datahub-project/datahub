@@ -104,4 +104,5 @@ class TestLineageFeaturesSource:
             assert aspect.upstreamCount == 0
             assert aspect.downstreamCount == 0
             assert aspect.hasAssetLevelLineage is False
+            assert aspect.computedAt is not None
             assert aspect.computedAt.actor == "urn:li:corpuser:__datahub_system"

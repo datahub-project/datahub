@@ -137,9 +137,9 @@ def run_generation(graph):
         print(f"  - Total columns: {len(result.extracted_entity_info.column_names)}")
         print(f"  - Table name: {result.extracted_entity_info.table_name or 'Unknown'}")
         if result.extracted_entity_info.table_tags:
-            print(f"  - Tags: {', '.join([t.name for t in result.extracted_entity_info.table_tags[:5]])}")
+            print(f"  - Tags: {', '.join([t.tag_name for t in result.extracted_entity_info.table_tags[:5]])}")
         if result.extracted_entity_info.table_glossary_terms:
-            print(f"  - Glossary Terms: {', '.join([t.name for t in result.extracted_entity_info.table_glossary_terms[:5]])}")
+            print(f"  - Glossary Terms: {', '.join([t.tag_name for t in result.extracted_entity_info.table_glossary_terms[:5]])}")
 
 
 if __name__ == "__main__":

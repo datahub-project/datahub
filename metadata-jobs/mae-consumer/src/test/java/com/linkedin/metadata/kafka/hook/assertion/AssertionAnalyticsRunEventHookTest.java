@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka.hook.assertion;
 import static com.linkedin.metadata.Constants.ASSERTION_ANALYTICS_RUN_EVENT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.ASSERTION_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.ASSERTION_RUN_EVENT_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
@@ -41,6 +42,7 @@ import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.container.Container;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
@@ -77,6 +79,7 @@ public class AssertionAnalyticsRunEventHookTest {
   private static final Urn TEST_DOMAIN_URN_2 = UrnUtils.getUrn("urn:li:domain:2");
   private static final Urn TEST_OWNER_URN_1 = UrnUtils.getUrn("urn:li:corpuser:1");
   private static final Urn TEST_OWNER_URN_2 = UrnUtils.getUrn("urn:li:corpGroup:2");
+  private static final Urn TEST_CONTAINER_URN = UrnUtils.getUrn("urn:li:container:test");
 
   private static OperationContext mockOperationContext() {
     return TestOperationContexts.userContextNoSearchAuthorization(ENTITY_REGISTRY);
@@ -203,6 +206,9 @@ public class AssertionAnalyticsRunEventHookTest {
             ImmutableList.of(
                 new Owner().setOwner(TEST_OWNER_URN_1), new Owner().setOwner(TEST_OWNER_URN_2))));
 
+    Container entityContainer = new Container();
+    entityContainer.setContainer(TEST_CONTAINER_URN);
+
     SystemEntityClient entityClient = mock(SystemEntityClient.class);
     Mockito.when(
             entityClient.getV2(
@@ -239,9 +245,14 @@ public class AssertionAnalyticsRunEventHookTest {
                                 .setValue(new Aspect(entityDomains.data())),
                             OWNERSHIP_ASPECT_NAME,
                             new EnvelopedAspect()
-                                .setName(DOMAINS_ASPECT_NAME)
+                                .setName(OWNERSHIP_ASPECT_NAME)
                                 .setType(AspectType.VERSIONED)
-                                .setValue(new Aspect(entityOwnership.data()))))));
+                                .setValue(new Aspect(entityOwnership.data())),
+                            CONTAINER_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setName(CONTAINER_ASPECT_NAME)
+                                .setType(AspectType.VERSIONED)
+                                .setValue(new Aspect(entityContainer.data()))))));
 
     final AssertionAnalyticsRunEventHook hook =
         new AssertionAnalyticsRunEventHook(assertionService, entityClient, true);
@@ -275,7 +286,8 @@ public class AssertionAnalyticsRunEventHookTest {
             entityDataPlatformInstance,
             entityTags,
             entityDomains,
-            entityOwnership);
+            entityOwnership,
+            entityContainer);
 
     MetadataChangeProposal expected =
         buildMetadataChangeProposal(
@@ -348,6 +360,7 @@ public class AssertionAnalyticsRunEventHookTest {
             null,
             null,
             null,
+            null,
             null);
 
     MetadataChangeProposal expected =
@@ -381,7 +394,8 @@ public class AssertionAnalyticsRunEventHookTest {
       @Nullable DataPlatformInstance dataPlatformInstance,
       @Nullable GlobalTags globalTags,
       @Nullable Domains domains,
-      @Nullable Ownership ownership) {
+      @Nullable Ownership ownership,
+      @Nullable Container container) {
     AssertionAnalyticsRunEvent event = new AssertionAnalyticsRunEvent();
     event.setType(AssertionType.FRESHNESS);
     event.setTimestampMillis(1L);
@@ -417,6 +431,9 @@ public class AssertionAnalyticsRunEventHookTest {
       event.setAsserteeOwners(
           new UrnArray(
               ownership.getOwners().stream().map(Owner::getOwner).collect(Collectors.toList())));
+    }
+    if (container != null) {
+      event.setAsserteeContainer(container.getContainer());
     }
     return event;
   }

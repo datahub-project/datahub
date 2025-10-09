@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.util;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import java.io.IOException;
@@ -17,7 +18,6 @@ import org.opensearch.action.admin.indices.settings.get.GetSettingsRequest;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
 import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 
 @Slf4j
 public class IndexUtils {
@@ -46,7 +46,7 @@ public class IndexUtils {
   }
 
   public static boolean validateWriteBlock(
-      RestHighLevelClient esClient, String indexName, boolean expectedState)
+      SearchClientShim<?> esClient, String indexName, boolean expectedState)
       throws IOException, InterruptedException {
     final String finalIndexName = resolveAlias(esClient, indexName);
 
@@ -58,8 +58,7 @@ public class IndexUtils {
 
     int count = INDEX_BLOCKS_WRITE_RETRY;
     while (count > 0) {
-      GetSettingsResponse response =
-          esClient.indices().getSettings(request, RequestOptions.DEFAULT);
+      GetSettingsResponse response = esClient.getIndexSettings(request, RequestOptions.DEFAULT);
       if (response
           .getSetting(finalIndexName, INDEX_BLOCKS_WRITE_SETTING)
           .equals(String.valueOf(expectedState))) {
@@ -75,12 +74,12 @@ public class IndexUtils {
     return false;
   }
 
-  public static String resolveAlias(RestHighLevelClient esClient, String indexName)
+  public static String resolveAlias(SearchClientShim<?> esClient, String indexName)
       throws IOException {
     String finalIndexName = indexName;
 
     GetAliasesResponse aliasResponse =
-        esClient.indices().getAlias(new GetAliasesRequest(indexName), RequestOptions.DEFAULT);
+        esClient.getIndexAliases(new GetAliasesRequest(indexName), RequestOptions.DEFAULT);
 
     if (!aliasResponse.getAliases().isEmpty()) {
       Set<String> indices = aliasResponse.getAliases().keySet();
