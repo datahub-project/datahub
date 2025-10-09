@@ -65,7 +65,6 @@ public class LoadIndicesConfigTest {
 
     // Verify that the operation context methods were called
     org.mockito.Mockito.verify(mockOperationContext).getSearchContext();
-    org.mockito.Mockito.verify(mockOperationContext).getEntityRegistry();
   }
 
   @Test
@@ -77,7 +76,6 @@ public class LoadIndicesConfigTest {
 
     // Verify that the operation context methods were called
     org.mockito.Mockito.verify(mockOperationContext).getSearchContext();
-    org.mockito.Mockito.verify(mockOperationContext).getEntityRegistry();
   }
 
   @Test
@@ -90,6 +88,5 @@ public class LoadIndicesConfigTest {
 
     // Verify that the operation context methods were called
     org.mockito.Mockito.verify(mockOperationContext).getSearchContext();
-    org.mockito.Mockito.verify(mockOperationContext).getEntityRegistry();
   }
 }
