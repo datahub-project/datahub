@@ -367,6 +367,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         yield optional_ml_model_version
 
     def ml_training_run(self, run_id: str) -> Optional[TrainingRun]:
+        if not run_id:
+            return None
         try:
             response = self._workspace_client.api_client.do(  # type: ignore
                 "GET",
@@ -1057,10 +1059,14 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 else obj.get("run_name")
             )
             params = {
-                k: v for k, v in obj.get("data", {}).get("params", {}).items() if v
+                item["key"]: item["value"]
+                for item in obj.get("data", {}).get("params", [])
+                if item.get("value")
             }
             metrics = {
-                k: v for k, v in obj.get("data", {}).get("metrics", {}).items() if v
+                item["key"]: item["value"]
+                for item in obj.get("data", {}).get("metrics", [])
+                if item.get("value")
             }
 
             if not run_id:

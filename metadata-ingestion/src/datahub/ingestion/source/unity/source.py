@@ -696,7 +696,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 ml_model, include_aliases=self.config.include_ml_model_aliases
             ):
                 run_id = ml_model_version.run_id
-                ml_training_run = self.unity_catalog_api_proxy.ml_training_run(run_id)
+                ml_training_run = None
+                if run_id:
+                    ml_training_run = self.unity_catalog_api_proxy.ml_training_run(run_id)
                 yield from self.process_ml_model_version(
                     ml_model_urn, ml_model_version, schema, ml_training_run
                 )
@@ -745,6 +747,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             training_metrics = ml_training_run.metrics
             hyper_params = ml_training_run.params
 
+        # Convert signature to custom properties dictionary
+        custom_properties = {}
+        if ml_model_version.signature:
+            import json
+            signature_dict = {
+                "inputs": ml_model_version.signature.inputs,
+                "outputs": ml_model_version.signature.outputs,
+                "parameters": ml_model_version.signature.parameters,
+            }
+            # Remove None values
+            signature_dict = {k: v for k, v in signature_dict.items() if v is not None}
+            if signature_dict:
+                custom_properties["signature"] = json.dumps(signature_dict)
+
         ml_model = MLModel(
             id=ml_model_version.id,
             name=ml_model_version.name,
@@ -757,7 +773,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             extra_aspects=extra_aspects,
             training_metrics=training_metrics,
             hyper_params=hyper_params,
-            custom_properties=ml_model_version.signature,
+            custom_properties=custom_properties if custom_properties else None,
         )
 
         yield from ml_model.as_workunits()
