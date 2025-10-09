@@ -3,12 +3,12 @@ import styled from 'styled-components';
 import { Modal, Button } from '@components';
 // Progress component not available, using custom progress bar
 import { Message } from '@app/shared/Message';
-import { ImportProgress, ImportError, ImportWarning } from '../../shared/hooks/useImportProcessing';
+import { ComprehensiveImportProgress, ImportError, ImportWarning } from '../../shared/hooks/useComprehensiveImport';
 
 interface ImportProgressModalProps {
   visible: boolean;
   onClose: () => void;
-  progress: ImportProgress;
+  progress: ComprehensiveImportProgress;
   isProcessing: boolean;
 }
 

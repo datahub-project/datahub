@@ -13,7 +13,7 @@ import { Entity, EntityData } from '../glossary.types';
 import { EntityDetailsModal } from './EntityDetailsModal/EntityDetailsModal';
 import { DiffModal } from './DiffModal/DiffModal';
 import { ImportProgressModal } from './ImportProgressModal/ImportProgressModal';
-import { useImportProcessing } from '../shared/hooks/useImportProcessing';
+import { useComprehensiveImport } from '../shared/hooks/useComprehensiveImport';
 import { useCsvProcessing } from '../shared/hooks/useCsvProcessing';
 import { useEntityManagement } from '../shared/hooks/useEntityManagement';
 import { useGraphQLOperations } from '../shared/hooks/useGraphQLOperations';
@@ -183,7 +183,7 @@ export const WizardPage = () => {
         cancelImport,
         retryFailed,
         resetProgress,
-    } = useImportProcessing({
+    } = useComprehensiveImport({
         apolloClient,
         onProgress: (progress) => {
             // Progress updates are handled automatically
