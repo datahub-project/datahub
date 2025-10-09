@@ -1062,10 +1062,11 @@ const GlossaryImportList = ({
             <div style={{ 
                 marginBottom: '16px', 
                 display: 'flex', 
-                gap: '16px', 
-                alignItems: 'center' 
+                gap: '12px', 
+                alignItems: 'center',
+                width: 'fit-content'
             }}>
-                <div style={{ maxWidth: '400px', flex: '0 0 auto' }}>
+                <div style={{ width: '300px' }}>
                     <SearchBar
                         placeholder="Search entities..."
                         value={searchInput}
@@ -1074,7 +1075,7 @@ const GlossaryImportList = ({
                     />
                 </div>
                 
-                <div style={{ maxWidth: '200px', flex: '0 0 auto' }}>
+                <div style={{ width: '150px' }}>
                     <Select
                         values={[statusFilter]}
                         onUpdate={(values) => setStatusFilter(values[0] || '0')}
