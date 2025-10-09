@@ -373,7 +373,7 @@ export const WizardPage = () => {
     console.log('🔄 Real UI: WizardPage component rendering');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const history = useHistory();
-    const [currentStep, setCurrentStep] = useState(1); // Start at step 1 for mock UI to show data
+    const [currentStep, setCurrentStep] = useState(0); // Start at step 0 for upload page
     
     // Import Processing state
     const [isImportModalVisible, setIsImportModalVisible] = useState(false);
@@ -726,10 +726,8 @@ export const WizardPage = () => {
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             <BreadcrumbHeader
                 items={breadcrumbItems}
-                        title="Import Glossary"
+                title="Import Glossary"
                 subtitle="Import glossary terms from CSV files and manage their import status"
-                pillLabel="Mock"
-                pillColor="blue"
             />
             <PageContentContainer>
                 {/* Step Content - Full Width, No Container */}
@@ -1060,8 +1058,8 @@ const GlossaryImportList = ({
     ];
 
     return (
-        <>
-            <div style={{ marginBottom: '16px' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
+            <div style={{ marginBottom: '16px', maxWidth: '400px' }}>
                 <SearchBar
                     placeholder="Search entities..."
                     value={searchInput}
@@ -1070,7 +1068,7 @@ const GlossaryImportList = ({
                 />
             </div>
             
-            <div style={{ marginBottom: '16px' }}>
+            <div style={{ marginBottom: '16px', maxWidth: '200px' }}>
                 <Select
                     values={[statusFilter]}
                     onUpdate={(values) => setStatusFilter(values[0] || '0')}
@@ -1109,7 +1107,7 @@ const GlossaryImportList = ({
                     existingEntity={null}
                 />
             )}
-        </>
+        </div>
     );
 };
 
