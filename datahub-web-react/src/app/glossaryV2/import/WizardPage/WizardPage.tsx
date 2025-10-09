@@ -1109,7 +1109,7 @@ const GlossaryImportList = ({
                     visible={isDiffModalVisible}
                     onClose={handleCloseDiff}
                     entity={selectedEntity}
-                    existingEntity={existingEntities.find(existing => existing.urn === selectedEntity.urn) || null}
+                    existingEntity={selectedEntity.existingEntity || null}
                 />
             )}
         </>
