@@ -683,6 +683,7 @@ export const WizardPage = () => {
                 return <GlossaryImportList 
                     entities={entities} 
                     setEntities={setEntities} 
+                    existingEntities={existingEntities}
                     onRestart={handleRestart} 
                     csvProcessing={csvProcessing} 
                     entityManagement={entityManagement} 
@@ -801,6 +802,7 @@ export const WizardPage = () => {
 const GlossaryImportList = ({ 
     entities, 
     setEntities, 
+    existingEntities,
     onRestart, 
     csvProcessing, 
     entityManagement, 
@@ -814,6 +816,7 @@ const GlossaryImportList = ({
 }: {
     entities: Entity[];
     setEntities: (entities: Entity[]) => void;
+    existingEntities: Entity[];
     onRestart: () => void;
     csvProcessing: any;
     entityManagement: any;
@@ -836,7 +839,7 @@ const GlossaryImportList = ({
     // Entity Details Modal state
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [isDiffModalVisible, setIsDiffModalVisible] = useState(false);
-    const [selectedEntity, setSelectedEntity] = useState<EntityData | null>(null);
+    const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
 
     // Initialize search input from URL parameter (if needed)
     useEffect(() => {
@@ -894,7 +897,7 @@ const GlossaryImportList = ({
     };
 
     const handleShowDiff = (entity: Entity) => {
-        setSelectedEntity(entity.data);
+        setSelectedEntity(entity);
         setIsDiffModalVisible(true);
     };
 
@@ -904,7 +907,7 @@ const GlossaryImportList = ({
     };
 
     const handleShowDetails = (entity: Entity) => {
-        setSelectedEntity(entity.data);
+        setSelectedEntity(entity);
         setIsModalVisible(true);
     };
 
@@ -1101,7 +1104,7 @@ const GlossaryImportList = ({
                 <EntityDetailsModal
                     visible={isModalVisible}
                     onClose={handleCloseDetails}
-                    entityData={selectedEntity}
+                    entityData={selectedEntity.data}
                     onSave={() => {}}
                 />
             )}
@@ -1110,8 +1113,8 @@ const GlossaryImportList = ({
                 <DiffModal
                     visible={isDiffModalVisible}
                     onClose={handleCloseDiff}
-                    entity={selectedEntity as any}
-                    existingEntity={null}
+                    entity={selectedEntity}
+                    existingEntity={existingEntities.find(existing => existing.urn === selectedEntity.urn) || null}
                 />
             )}
         </>
