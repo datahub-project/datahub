@@ -77,8 +77,8 @@ public class LoadIndicesStep implements UpgradeStep {
             .addLine(
                 "Loading indices directly from local DB ordered by URN/aspect for optimal document batching");
 
-        indexManager.disableRefresh();
-        context.report().addLine("Disabled refresh intervals for DataHub indices");
+        indexManager.optimizeForBulkOperations();
+        context.report().addLine("Optimized settings for bulk operations on DataHub indices");
 
         log.info("Starting loadIndices");
 
@@ -107,17 +107,17 @@ public class LoadIndicesStep implements UpgradeStep {
         context.report().addLine(String.format("Error during execution: %s", e.getMessage()));
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       } finally {
-        if (indexManager.isRefreshDisabled()) {
+        if (indexManager.isSettingsOptimized()) {
           try {
-            indexManager.restoreRefresh();
-            context.report().addLine("Restored refresh intervals for all DataHub indices");
-          } catch (IOException e) {
-            log.error("Failed to restore refresh intervals", e);
+            indexManager.restoreFromConfiguration();
             context
                 .report()
-                .addLine(
-                    String.format(
-                        "Warning: Failed to restore refresh intervals: %s", e.getMessage()));
+                .addLine("Restored settings to configured values for all DataHub indices");
+          } catch (IOException e) {
+            log.error("Failed to restore settings", e);
+            context
+                .report()
+                .addLine(String.format("Warning: Failed to restore settings: %s", e.getMessage()));
           }
         }
       }

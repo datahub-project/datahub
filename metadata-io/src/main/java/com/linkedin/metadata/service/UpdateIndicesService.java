@@ -350,7 +350,7 @@ public class UpdateIndicesService implements SearchIndicesService {
     }
 
     if (searchDocument.isEmpty()) {
-      log.debug("Search document for urn: {} aspect: {} was empty", urn, aspect);
+      log.warn("Search document for urn: {} aspect: {} was empty", urn, aspect);
       return;
     }
 

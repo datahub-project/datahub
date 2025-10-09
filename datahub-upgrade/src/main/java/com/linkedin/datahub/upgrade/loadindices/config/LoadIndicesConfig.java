@@ -18,7 +18,6 @@ import io.ebean.Database;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -48,14 +47,11 @@ public class LoadIndicesConfig {
   public LoadIndicesIndexManager createIndexManager(
       @Qualifier("systemOperationContext") final OperationContext systemOperationContext,
       @Qualifier("searchClientShim") SearchClientShim<?> searchClient,
-      @Value("${elasticsearch.index.refreshIntervalSeconds:3}")
-          final String configuredRefreshInterval)
+      @Qualifier("elasticSearchIndexBuilder")
+          final com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder indexBuilder)
       throws Exception {
     return new LoadIndicesIndexManager(
-        searchClient,
-        systemOperationContext.getSearchContext().getIndexConvention(),
-        systemOperationContext.getEntityRegistry(),
-        configuredRefreshInterval);
+        searchClient, systemOperationContext.getSearchContext().getIndexConvention(), indexBuilder);
   }
 
   @Bean(name = "loadIndices")

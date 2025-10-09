@@ -5,6 +5,7 @@ import static org.testng.Assert.assertNotNull;
 
 import com.linkedin.datahub.upgrade.loadindices.LoadIndices;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
@@ -21,6 +22,7 @@ public class LoadIndicesConfigTest {
   @Mock private EntityRegistry mockEntityRegistry;
   @Mock private SearchContext mockSearchContext;
   @Mock private OperationContext mockOperationContext;
+  @Mock private ESIndexBuilder mockIndexBuilder;
 
   private LoadIndicesConfig config;
 
@@ -56,36 +58,34 @@ public class LoadIndicesConfigTest {
   public void testCreateIndexManager() throws Exception {
     // Test that createIndexManager method creates LoadIndicesIndexManager successfully
     // This test verifies that the method works with proper mocks
-    var result = config.createIndexManager(mockOperationContext, mockSearchClient, "3");
+    var result =
+        config.createIndexManager(mockOperationContext, mockSearchClient, mockIndexBuilder);
     assertNotNull(result);
 
     // Verify that the operation context methods were called
     org.mockito.Mockito.verify(mockOperationContext).getSearchContext();
-    org.mockito.Mockito.verify(mockOperationContext).getEntityRegistry();
   }
 
   @Test
   public void testCreateIndexManagerWithCustomRefreshInterval() throws Exception {
-    // Test that createIndexManager method works with custom refresh interval
-    String customRefreshInterval = "5";
+    // Test that createIndexManager method works with custom index builder
     var result =
-        config.createIndexManager(mockOperationContext, mockSearchClient, customRefreshInterval);
+        config.createIndexManager(mockOperationContext, mockSearchClient, mockIndexBuilder);
     assertNotNull(result);
 
     // Verify that the operation context methods were called
     org.mockito.Mockito.verify(mockOperationContext).getSearchContext();
-    org.mockito.Mockito.verify(mockOperationContext).getEntityRegistry();
   }
 
   @Test
   public void testOperationContextIntegration() throws Exception {
     // Test that the operation context is properly used in createIndexManager
-    // This verifies that the method correctly accesses the search context and entity registry
-    var result = config.createIndexManager(mockOperationContext, mockSearchClient, "3");
+    // This verifies that the method correctly accesses the search context
+    var result =
+        config.createIndexManager(mockOperationContext, mockSearchClient, mockIndexBuilder);
     assertNotNull(result);
 
     // Verify that the operation context methods were called
     org.mockito.Mockito.verify(mockOperationContext).getSearchContext();
-    org.mockito.Mockito.verify(mockOperationContext).getEntityRegistry();
   }
 }

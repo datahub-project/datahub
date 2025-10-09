@@ -1,226 +1,210 @@
 package com.linkedin.datahub.upgrade.loadindices;
 
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.opensearch.action.admin.indices.settings.get.GetSettingsRequest;
-import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
-import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.GetIndexRequest;
-import org.opensearch.common.settings.Settings;
 
 /**
  * Manages DataHub Elasticsearch indices during bulk loading operations. Discovers DataHub indices
- * and manages their refresh intervals for optimal bulk loading performance.
+ * and manages their refresh intervals and replica counts for optimal bulk loading performance. Uses
+ * the same patterns as existing reindexing code with ReindexConfig and ESIndexBuilder.
  */
 @Slf4j
 public class LoadIndicesIndexManager {
 
-  private static final String REFRESH_INTERVAL_SETTING = "index.refresh_interval";
   private static final String DISABLED_REFRESH_INTERVAL = "-1";
 
   private final SearchClientShim<?> searchClient;
   private final IndexConvention indexConvention;
-  private final EntityRegistry entityRegistry;
-  private final String configuredRefreshInterval;
-  private Set<String> managedIndices;
-  private boolean refreshDisabled = false;
+  private final ESIndexBuilder indexBuilder;
+  private List<ReindexConfig> managedIndexConfigs;
+
+  /** -- GETTER -- Returns true if index settings are currently optimized for bulk operations. */
+  @Getter private boolean settingsOptimized = false;
+
   private boolean indicesDiscovered = false;
 
   public LoadIndicesIndexManager(
       SearchClientShim<?> searchClient,
       IndexConvention indexConvention,
-      EntityRegistry entityRegistry,
-      String configuredRefreshInterval) {
+      ESIndexBuilder indexBuilder) {
     this.searchClient = searchClient;
     this.indexConvention = indexConvention;
-    this.entityRegistry = entityRegistry;
-    this.configuredRefreshInterval = configuredRefreshInterval;
+    this.indexBuilder = indexBuilder;
     // Delay index discovery until first use
-    this.managedIndices = new HashSet<>();
+    this.managedIndexConfigs = new ArrayList<>();
   }
 
   /**
-   * Discovers all DataHub indices that should have refresh intervals managed. This includes entity
-   * indices, timeseries indices, and system indices.
+   * Discovers all DataHub indices that should have settings managed during bulk operations. This
+   * includes entity indices, graph service indices, and system metadata indices since these are all
+   * stored in SQL and will be modified by load indices operations. Timeseries indices are excluded
+   * since they are not stored in SQL.
+   *
+   * @return List of ReindexConfig objects for managed indices
+   * @throws IOException if there's an error communicating with Elasticsearch
    */
-  public Set<String> discoverDataHubIndices() throws IOException {
-    Set<String> indices = new HashSet<>();
+  public List<ReindexConfig> discoverDataHubIndexConfigs() throws IOException {
+    List<ReindexConfig> configs = new ArrayList<>();
 
-    // Get all existing indices
-    GetIndexRequest request = new GetIndexRequest("*");
-    GetIndexResponse response = searchClient.getIndex(request, RequestOptions.DEFAULT);
-    String[] allIndices = response.getIndices();
+    // Get entity indices using IndexConvention pattern
+    String entityPattern = indexConvention.getAllEntityIndicesPattern();
+    log.debug("Querying entity indices with pattern: {}", entityPattern);
+    GetIndexRequest entityRequest = new GetIndexRequest(entityPattern);
+    GetIndexResponse entityResponse = searchClient.getIndex(entityRequest, RequestOptions.DEFAULT);
+    String[] entityIndices = entityResponse.getIndices();
 
-    log.info("Found {} total indices in Elasticsearch", allIndices.length);
-
-    // Filter to DataHub indices
-    for (String indexName : allIndices) {
-      if (isDataHubIndex(indexName)) {
-        indices.add(indexName);
-        log.debug("Added DataHub index: {}", indexName);
+    for (String indexName : entityIndices) {
+      try {
+        ReindexConfig config = indexBuilder.buildReindexState(indexName, Map.of(), Map.of());
+        configs.add(config);
+        log.debug("Added entity index config: {}", indexName);
+      } catch (IOException e) {
+        log.warn(
+            "Failed to build reindex config for entity index {}: {}", indexName, e.getMessage());
       }
     }
 
-    log.info("Discovered {} DataHub indices for refresh interval management", indices.size());
-    return indices;
+    // Get graph service index
+    String graphIndexName = indexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME);
+    log.debug("Querying graph service index: {}", graphIndexName);
+    GetIndexRequest graphRequest = new GetIndexRequest(graphIndexName);
+    try {
+      GetIndexResponse graphResponse = searchClient.getIndex(graphRequest, RequestOptions.DEFAULT);
+      String[] graphIndices = graphResponse.getIndices();
+      for (String indexName : graphIndices) {
+        try {
+          ReindexConfig config = indexBuilder.buildReindexState(indexName, Map.of(), Map.of());
+          configs.add(config);
+          log.debug("Added graph service index config: {}", indexName);
+        } catch (IOException e) {
+          log.warn(
+              "Failed to build reindex config for graph index {}: {}", indexName, e.getMessage());
+        }
+      }
+    } catch (Exception e) {
+      log.debug(
+          "Graph service index {} does not exist or is not accessible: {}",
+          graphIndexName,
+          e.getMessage());
+    }
+
+    // Get system metadata index
+    String systemMetadataIndexName =
+        indexConvention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME);
+    log.debug("Querying system metadata index: {}", systemMetadataIndexName);
+    GetIndexRequest systemMetadataRequest = new GetIndexRequest(systemMetadataIndexName);
+    try {
+      GetIndexResponse systemMetadataResponse =
+          searchClient.getIndex(systemMetadataRequest, RequestOptions.DEFAULT);
+      String[] systemMetadataIndices = systemMetadataResponse.getIndices();
+      for (String indexName : systemMetadataIndices) {
+        try {
+          ReindexConfig config = indexBuilder.buildReindexState(indexName, Map.of(), Map.of());
+          configs.add(config);
+          log.debug("Added system metadata index config: {}", indexName);
+        } catch (IOException e) {
+          log.warn(
+              "Failed to build reindex config for system metadata index {}: {}",
+              indexName,
+              e.getMessage());
+        }
+      }
+    } catch (Exception e) {
+      log.debug(
+          "System metadata index {} does not exist or is not accessible: {}",
+          systemMetadataIndexName,
+          e.getMessage());
+    }
+
+    return configs;
   }
 
-  /** Disables refresh interval for all DataHub indices. */
-  public void disableRefresh() throws IOException {
-    if (refreshDisabled) {
-      log.warn("Refresh intervals are already disabled");
+  /**
+   * Optimizes index settings for bulk operations by disabling refresh and setting replicas to zero.
+   */
+  public void optimizeForBulkOperations() throws IOException {
+    if (settingsOptimized) {
+      log.warn("Index settings are already optimized for bulk operations");
       return;
     }
 
     // Discover indices lazily on first use (after BuildIndicesStep has run)
     if (!indicesDiscovered) {
-      log.info("Discovering DataHub indices for refresh interval management...");
-      this.managedIndices = discoverDataHubIndices();
+      log.info("Discovering DataHub indices for settings optimization...");
+      this.managedIndexConfigs = discoverDataHubIndexConfigs();
       this.indicesDiscovered = true;
     }
 
-    log.info("Disabling refresh intervals for {} indices", managedIndices.size());
+    log.info("Optimizing settings for bulk operations on {} indices", managedIndexConfigs.size());
 
-    for (String indexName : managedIndices) {
+    for (ReindexConfig config : managedIndexConfigs) {
       try {
-        // Set to disabled (-1)
-        setIndexRefreshInterval(indexName, DISABLED_REFRESH_INTERVAL);
+        // Disable refresh interval for bulk operations
+        indexBuilder.setIndexRefreshInterval(config.name(), DISABLED_REFRESH_INTERVAL);
 
-        log.debug("Disabled refresh for index: {}", indexName);
+        indexBuilder.tweakReplicas(config, false);
+
+        log.debug("Optimized settings for index: {}", config.name());
       } catch (IOException e) {
-        log.error("Failed to disable refresh for index: {}", indexName, e);
+        log.error("Failed to optimize settings for index: {}", config.name(), e);
         throw e;
       }
     }
 
-    refreshDisabled = true;
-    log.info("Successfully disabled refresh intervals for all managed indices");
+    settingsOptimized = true;
+    log.info("Successfully optimized settings for bulk operations on all managed indices");
   }
 
-  /** Restores refresh intervals to configured values for all managed indices. */
-  public void restoreRefresh() throws IOException {
-    if (!refreshDisabled) {
-      log.warn("Refresh intervals are not currently disabled");
+  /** Restores index settings to configured values for all managed indices. */
+  public void restoreFromConfiguration() throws IOException {
+    if (!settingsOptimized) {
+      log.warn("Index settings are not currently optimized");
       return;
     }
 
-    log.info(
-        "Restoring refresh intervals to configured value ({}s) for {} indices",
-        configuredRefreshInterval,
-        managedIndices.size());
+    log.info("Restoring settings to configured values for {} indices", managedIndexConfigs.size());
 
-    for (String indexName : managedIndices) {
+    for (ReindexConfig config : managedIndexConfigs) {
       try {
-        setIndexRefreshInterval(indexName, configuredRefreshInterval + "s");
-        log.debug("Restored refresh for index: {} to: {}s", indexName, configuredRefreshInterval);
+        // Get target settings from ReindexConfig (includes per-index overrides)
+        Map<String, Object> targetSettings = config.targetSettings();
+        Map<String, Object> indexSettings = (Map<String, Object>) targetSettings.get("index");
+
+        // Extract refresh interval and replica count from target settings
+        String targetRefreshInterval = (String) indexSettings.get(ESIndexBuilder.REFRESH_INTERVAL);
+        Integer targetReplicaCount = (Integer) indexSettings.get(ESIndexBuilder.NUMBER_OF_REPLICAS);
+
+        // Restore refresh interval to target value (includes per-index overrides)
+        indexBuilder.setIndexRefreshInterval(config.name(), targetRefreshInterval);
+
+        // Restore replica count to target value (includes per-index overrides)
+        indexBuilder.setIndexReplicaCount(config.name(), targetReplicaCount);
+
+        log.debug(
+            "Restored settings for index: {} to refresh: {}, replicas: {}",
+            config.name(),
+            targetRefreshInterval,
+            targetReplicaCount);
       } catch (IOException e) {
-        log.error("Failed to restore refresh for index: {}", indexName, e);
+        log.error("Failed to restore settings for index: {}", config.name(), e);
         throw e;
       }
     }
 
-    refreshDisabled = false;
-    log.info("Successfully restored refresh intervals to configured value for all managed indices");
-  }
-
-  /** Determines if an index is a DataHub index that should be managed. */
-  private boolean isDataHubIndex(String indexName) {
-    // Skip system indices
-    if (indexName.startsWith(".")) {
-      log.debug("Skipping system index: {}", indexName);
-      return false;
-    }
-
-    // Skip internal Elasticsearch indices
-    if (indexName.startsWith("_")) {
-      log.debug("Skipping internal Elasticsearch index: {}", indexName);
-      return false;
-    }
-
-    // Use IndexConvention to determine if this is a DataHub index
-    return isDataHubIndexByConvention(indexName);
-  }
-
-  /**
-   * Uses the IndexConvention and EntityRegistry to determine if an index is a DataHub index. This
-   * method follows IndexConvention patterns only - no hardcoded rules or explicit configuration.
-   */
-  private boolean isDataHubIndexByConvention(String indexName) {
-
-    try {
-      // Check if this is an entity index using IndexConvention patterns
-      for (String entityName : entityRegistry.getEntitySpecs().keySet()) {
-        String entityIndexName = indexConvention.getEntityIndexName(entityName);
-        if (indexName.equals(entityIndexName)) {
-          log.debug("Identified entity index: {} (entity: {})", indexName, entityName);
-          return true;
-        }
-      }
-
-      // Check if this is a timeseries aspect index using IndexConvention patterns
-      for (String entityName : entityRegistry.getEntitySpecs().keySet()) {
-        for (AspectSpec aspectSpec : entityRegistry.getEntitySpec(entityName).getAspectSpecs()) {
-          String aspectName = aspectSpec.getName();
-          String aspectIndexName =
-              indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
-          if (indexName.equals(aspectIndexName)) {
-            log.debug(
-                "Identified timeseries aspect index: {} (entity: {}, aspect: {})",
-                indexName,
-                entityName,
-                aspectName);
-            return true;
-          }
-        }
-      }
-
-      log.debug("Index {} does not match any IndexConvention patterns", indexName);
-      return false;
-    } catch (Exception e) {
-      log.warn(
-          "Error checking index {} against IndexConvention patterns: {}",
-          indexName,
-          e.getMessage());
-      return false;
-    }
-  }
-
-  /** Gets the current refresh interval for an index. */
-  private String getIndexRefreshInterval(String indexName) throws IOException {
-    GetSettingsRequest request =
-        new GetSettingsRequest()
-            .indices(indexName)
-            .includeDefaults(true)
-            .names(REFRESH_INTERVAL_SETTING);
-
-    GetSettingsResponse response = searchClient.getIndexSettings(request, RequestOptions.DEFAULT);
-    return response.getSetting(indexName, REFRESH_INTERVAL_SETTING);
-  }
-
-  /** Sets the refresh interval for an index. */
-  private void setIndexRefreshInterval(String indexName, String interval) throws IOException {
-    UpdateSettingsRequest request = new UpdateSettingsRequest(indexName);
-    Settings settings = Settings.builder().put(REFRESH_INTERVAL_SETTING, interval).build();
-    request.settings(settings);
-
-    searchClient.updateIndexSettings(request, RequestOptions.DEFAULT);
-  }
-
-  /** Returns true if refresh intervals are currently disabled. */
-  public boolean isRefreshDisabled() {
-    return refreshDisabled;
-  }
-
-  /** Gets the number of managed indices. */
-  public int getManagedIndexCount() throws IOException {
-    return discoverDataHubIndices().size();
+    settingsOptimized = false;
+    log.info("Successfully restored settings to configured values for all managed indices");
   }
 }
