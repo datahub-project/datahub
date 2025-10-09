@@ -1157,10 +1157,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def get_view_default_db_schema(
         self, dataset_name: str, _inspector: Inspector, _schema: str, _view: str
-    ) -> Tuple[Optional[str], str]:
+    ) -> Tuple[Optional[str], Optional[str]]:
         # Some databases use different implicit databases/schemas for unqualified
         # names in view definitions than the database/schema of the view itself.
-        return None
+        return None, None
 
     def _process_view(
         self,
@@ -1509,8 +1509,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self, inspector: Inspector, schema: str, db_name: str
     ) -> List[BaseProcedure]:
         try:
-            raw_procedures: List[BaseProcedure] = self.get_procedures_for_schema(
-                inspector, schema, db_name
+            raw_procedures = list(
+                self.get_procedures_for_schema(inspector, schema, db_name)
             )
             procedures: List[BaseProcedure] = []
             for procedure in raw_procedures:
@@ -1541,7 +1541,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
-    ) -> List[BaseProcedure]:
+    ) -> Iterable[BaseProcedure]:
         raise NotImplementedError(
             "Subclasses must implement the 'get_procedures_for_schema' method."
         )

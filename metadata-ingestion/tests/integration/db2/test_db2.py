@@ -34,7 +34,7 @@ def _split_statements(sql):
     """Split a SQL script into individual statements that can be executed.
     Statements are usually separated by semicolons, except that BEGIN/END
     blocks are kept as a single item."""
-    statements = []
+    statements: list[str] = []
     inside_begin = False
     sql = re.sub(r"--[^\n]*", "", sql)
     for statement in sql.split(";"):
