@@ -28,7 +28,7 @@ import {
 import { EditorContainer, EditorTheme } from '@components/components/Editor/EditorTheme';
 import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
-import { uploadFile } from '@components/components/Editor/extensions/fileDragDrop/fileUploadUtils';
+import useFileUpload from '@components/components/Editor/extensions/fileDragDrop/useFileUpload';
 import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
 import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
 import { DataHubMentionsExtension } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
@@ -50,7 +50,6 @@ type EditorProps = {
     hideHighlightToolbar?: boolean;
     toolbarStyles?: React.CSSProperties;
     enableFileDragDrop?: boolean;
-    onFileUpload?: (file: File) => Promise<string>;
 };
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
@@ -63,8 +62,8 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         hideHighlightToolbar,
         toolbarStyles,
         enableFileDragDrop = true,
-        onFileUpload,
     } = props;
+    const { uploadFile } = useFileUpload();
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
@@ -81,7 +80,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             ...(enableFileDragDrop
                 ? [
                       new FileDragDropExtension({
-                          onFileUpload: onFileUpload || uploadFile,
+                          onFileUpload: uploadFile,
                       }),
                   ]
                 : []),

@@ -4,7 +4,6 @@ import {
     CommandFunction,
     ExtensionPriority,
     ExtensionTag,
-    Handler,
     NodeExtension,
     NodeExtensionSpec,
     NodeSpecOverride,
@@ -25,6 +24,7 @@ export const FILE_ATTRS = {
     name: 'data-file-name',
     type: 'data-file-type',
     size: 'data-file-size',
+    id: 'data-file-id',
 };
 
 type FileNodeAttributes = ProsemirrorAttributes & {
@@ -32,12 +32,18 @@ type FileNodeAttributes = ProsemirrorAttributes & {
     name: string;
     type: string;
     size: number;
+    id: string; // Unique identifier for reliable lookup
 };
 
 interface FileDragDropOptions {
     onFileUpload?: (file: File) => Promise<string>; // Returns the uploaded file URL
     supportedTypes?: string[]; // MIME types to support
 }
+
+// Helper function to generate unique IDs for file nodes
+const generateFileId = (): string => {
+    return `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
 
 /**
  * The FileDragDrop extension allows users to drag and drop files into the editor.
@@ -84,7 +90,9 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                             if (event.dataTransfer?.types.includes('Files')) {
                                 console.log('🔥 Files detected in dragover - preventing default');
                                 event.preventDefault();
-                                event.dataTransfer.dropEffect = 'copy';
+                                if (event.dataTransfer) {
+                                    event.dataTransfer.dropEffect = 'copy';
+                                }
                                 return true; // We handled this event
                             }
                             return false;
@@ -97,7 +105,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                             }
                             return false;
                         },
-                        dragleave: (view: EditorView, event: DragEvent) => {
+                        dragleave: (_view: EditorView, _event: DragEvent) => {
                             return false;
                         },
                     },
@@ -156,11 +164,13 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
 
                 try {
                     // Create a placeholder node first
+                    const fileId = generateFileId();
                     const placeholderAttrs: FileNodeAttributes = {
                         url: '', // Will be filled after upload
                         name: file.name,
                         type: file.type,
                         size: file.size,
+                        id: fileId,
                     };
 
                     console.log('Creating node with attrs:', placeholderAttrs);
@@ -173,24 +183,41 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                     // Upload the file if onFileUpload is provided
                     if (this.options.onFileUpload) {
                         try {
-                            const uploadedUrl = await this.options.onFileUpload(file);
-                            const finalUrl =
-                                'https://file.notion.so/f/f/f818df0d-1067-44ab-99e1-8cf45d930c01/d79ab45e-aa89-41b1-aef7-4323d83b75eb/response_body_(2).txt?table=block&id=276fc6a6-4277-809b-ab50-ea9147dfed1a&spaceId=f818df0d-1067-44ab-99e1-8cf45d930c01&expirationTimestamp=1758672000000&signature=b0h8T76oI_6pBYBB73dUClYbLH1SNYpmcRqNJyD1iBU&downloadName=response_body+%2823%29.txt';
+                            const finalUrl = await this.options.onFileUpload(file);
+                            // const finalUrl =
+                            //     'https://file.notion.so/f/f/f818df0d-1067-44ab-99e1-8cf45d930c01/d79ab45e-aa89-41b1-aef7-4323d83b75eb/response_body_(2).txt?table=block&id=276fc6a6-4277-809b-ab50-ea9147dfed1a&spaceId=f818df0d-1067-44ab-99e1-8cf45d930c01&expirationTimestamp=1758672000000&signature=b0h8T76oI_6pBYBB73dUClYbLH1SNYpmcRqNJyD1iBU&downloadName=response_body+%2823%29.txt';
                             console.log('File uploaded, URL:', finalUrl);
 
-                            // Find the node again in the current state (position might have changed)
+                            // Find the node by searching through the document for a matching placeholder
                             const currentState = view.state;
-                            const nodeAtPos = currentState.doc.nodeAt(pos);
+                            let nodeToUpdate = null;
+                            let nodePos = null;
 
-                            if (nodeAtPos && nodeAtPos.type === this.type) {
+                            // Search through the document to find our placeholder node by unique ID
+                            currentState.doc.descendants((descendantNode, descendantPos) => {
+                                if (descendantNode.type === this.type && 
+                                    descendantNode.attrs.id === placeholderAttrs.id && 
+                                    descendantNode.attrs.url === '') {
+                                    nodeToUpdate = descendantNode;
+                                    nodePos = descendantPos;
+                                    return false; // Stop searching
+                                }
+                                return true; // Continue searching
+                            });
+
+                            if (nodeToUpdate && nodePos !== null) {
                                 // Update the node with the uploaded URL
                                 const updatedAttrs = { ...placeholderAttrs, url: finalUrl };
-                                const updatedNode = this.type.create(updatedAttrs);
-                                const updateTransaction = currentState.tr.setNodeMarkup(pos, null, updatedAttrs);
+                                const updateTransaction = currentState.tr.setNodeMarkup(nodePos, null, updatedAttrs);
                                 view.dispatch(updateTransaction);
-                                console.log('Node updated with uploaded URL');
+                                console.log('Node updated with uploaded URL at position:', nodePos);
                             } else {
-                                console.log('Could not find node to update at position:', pos);
+                                console.log('Could not find placeholder node to update. Searched for:', {
+                                    id: placeholderAttrs.id,
+                                    name: placeholderAttrs.name,
+                                    type: placeholderAttrs.type,
+                                    url: placeholderAttrs.url,
+                                });
                             }
                         } catch (uploadError) {
                             console.error('Upload failed:', uploadError);
@@ -218,11 +245,13 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
 
             try {
                 // Create a placeholder node first
+                const fileId = generateFileId();
                 const placeholderAttrs: FileNodeAttributes = {
                     url: '', // Will be filled after upload
                     name: file.name,
                     type: file.type,
                     size: file.size,
+                    id: fileId,
                 };
 
                 console.log('Creating node with attrs:', placeholderAttrs);
@@ -235,27 +264,44 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                 // Upload the file if onFileUpload is provided
                 if (this.options.onFileUpload) {
                     try {
-                        const uploadedUrl = await this.options.onFileUpload(file);
-                        const finalUrl =
-                            'https://file.notion.so/f/f/f818df0d-1067-44ab-99e1-8cf45d930c01/d79ab45e-aa89-41b1-aef7-4323d83b75eb/response_body_(2).txt?table=block&id=276fc6a6-4277-809b-ab50-ea9147dfed1a&spaceId=f818df0d-1067-44ab-99e1-8cf45d930c01&expirationTimestamp=1758672000000&signature=b0h8T76oI_6pBYBB73dUClYbLH1SNYpmcRqNJyD1iBU&downloadName=response_body+%2823%29.txt';
-                        console.log('File uploaded, URL:', finalUrl);
+                        const finalUrl = await this.options.onFileUpload(file);
+                        // const finalUrl =
+                        //     'https://file.notion.so/f/f/f818df0d-1067-44ab-99e1-8cf45d930c01/d79ab45e-aa89-41b1-aef7-4323d83b75eb/response_body_(2).txt?table=block&id=276fc6a6-4277-809b-ab50-ea9147dfed1a&spaceId=f818df0d-1067-44ab-99e1-8cf45d930c01&expirationTimestamp=1758672000000&signature=b0h8T76oI_6pBYBB73dUClYbLH1SNYpmcRqNJyD1iBU&downloadName=response_body+%2823%29.txt';
 
-                        // Find the node again in the current state (position might have changed)
+                        // Find the node by searching through the document for a matching placeholder
                         const currentState = view.state;
-                        const nodeAtPos = currentState.doc.nodeAt(coordinates.pos);
+                        let nodeToUpdate = null;
+                        let nodePos = null;
 
-                        if (nodeAtPos && nodeAtPos.type === this.type) {
+                        // Search through the document to find our placeholder node by unique ID
+                        currentState.doc.descendants((descendantNode, descendantPos) => {
+                            if (descendantNode.type === this.type && 
+                                descendantNode.attrs.id === placeholderAttrs.id && 
+                                descendantNode.attrs.url === '') {
+                                nodeToUpdate = descendantNode;
+                                nodePos = descendantPos;
+                                return false; // Stop searching
+                            }
+                            return true; // Continue searching
+                        });
+
+                        if (nodeToUpdate && nodePos !== null) {
                             // Update the node with the uploaded URL
                             const updatedAttrs = { ...placeholderAttrs, url: finalUrl };
                             const updateTransaction = currentState.tr.setNodeMarkup(
-                                coordinates.pos,
+                                nodePos,
                                 null,
                                 updatedAttrs,
                             );
                             view.dispatch(updateTransaction);
-                            console.log('Node updated with uploaded URL');
+                            console.log('Node updated with uploaded URL at position:', nodePos);
                         } else {
-                            console.log('Could not find node to update at coordinates:', coordinates.pos);
+                            console.log('Could not find placeholder node to update. Searched for:', {
+                                id: placeholderAttrs.id,
+                                name: placeholderAttrs.name,
+                                type: placeholderAttrs.type,
+                                url: placeholderAttrs.url,
+                            });
                         }
                     } catch (uploadError) {
                         console.error('Upload failed:', uploadError);
@@ -286,6 +332,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                 name: { default: '' },
                 type: { default: '' },
                 size: { default: 0 },
+                id: { default: '' },
             },
             parseDOM: [
                 {
@@ -299,15 +346,16 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                         const name = node.getAttribute(FILE_ATTRS.name) || '';
                         const type = node.getAttribute(FILE_ATTRS.type) || '';
                         const size = parseInt(node.getAttribute(FILE_ATTRS.size) || '0', 10);
+                        const id = node.getAttribute(FILE_ATTRS.id) || generateFileId();
 
-                        return { ...extra.parse(node), url, name, type, size };
+                        return { ...extra.parse(node), url, name, type, size, id };
                     },
                 },
                 ...(override.parseDOM ?? []),
             ],
             toDOM: (node) => {
                 console.log('🔥 toDOM called for file node:', node);
-                const { url, name, type, size } = omitExtraAttributes(node.attrs, extra) as FileNodeAttributes;
+                const { url, name, type, size, id } = omitExtraAttributes(node.attrs, extra) as FileNodeAttributes;
 
                 const attrs = {
                     ...extra.dom(node),
@@ -316,13 +364,19 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                     [FILE_ATTRS.name]: name,
                     [FILE_ATTRS.type]: type,
                     [FILE_ATTRS.size]: size.toString(),
+                    [FILE_ATTRS.id]: id,
                     style: 'padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 6px; margin: 8px 0; background: #fafafa; cursor: pointer; display: inline-block;',
                     title: `${name} (${type}) - Click to download`,
-                    onclick: url ? `window.open('${url}', '_blank')` : undefined,
+                    // onclick: url ? `window.open('${url}', '_blank')` : undefined,
                 };
 
                 // Create a more styled content for read-only mode
-                const icon = type.startsWith('image/') ? '🖼️' : type === 'application/pdf' ? '📄' : '📎';
+                let icon = '📎';
+                if (type.startsWith('image/')) {
+                    icon = '🖼️';
+                } else if (type === 'application/pdf') {
+                    icon = '📄';
+                }
 
                 console.log('🔥 toDOM returning:', ['div', attrs, `${icon} ${name}`]);
                 return ['div', attrs, `${icon} ${name}`];
@@ -353,8 +407,10 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
 }
 
 const decoratedExt = extension<FileDragDropOptions>({
-    handlerKeys: ['onFileUpload'],
+    staticKeys: [],
+    handlerKeys: [],
     defaultOptions: {
+        onFileUpload: undefined,
         supportedTypes: [
             'image/jpeg',
             'image/png',

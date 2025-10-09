@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -26,10 +25,6 @@ public class S3UtilFactory {
   private String executorRoleArn;
 
   @Bean(name = "s3Util")
-  @ConditionalOnProperty(
-      name = "datahub.files.s3.enabled",
-      havingValue = "true",
-      matchIfMissing = false)
   @Nonnull
   protected S3Util getInstance() {
     log.info("Creating S3Util bean for file serving");

@@ -99,6 +99,7 @@ interface FileNodeViewProps extends NodeViewComponentProps {
             name: string;
             type: string;
             size: number;
+            id: string;
         };
     };
 }
@@ -126,21 +127,26 @@ const getFileIcon = (type: string) => {
 const handleDownload = (url: string, name: string) => {
     if (!url) return;
 
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = name;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Use window.open to ensure it opens in a new tab
+    const newWindow = window.open(url, '_blank');
+    
+    // If window.open was blocked (popup blocker), fall back to direct download
+    if (!newWindow) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
 };
 
 export const FileNodeView: React.FC<FileNodeViewProps> = ({ node }) => {
-    const { url, name, type, size } = node.attrs;
+    const { url, name, type, size, id } = node.attrs;
 
     // Can add resolution to get real URL from backend here and have loading state while we ask for pre-signed URL to download given the file ID
 
-    console.log('🔥 FileNodeView rendering with attrs:', { url, name, type, size });
+    console.log('🔥 FileNodeView rendering with attrs:', { url, name, type, size, id });
 
     // Create props with data attributes for markdown conversion
     // These must match exactly what toDOM creates in the extension
@@ -150,11 +156,13 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node }) => {
         [FILE_ATTRS.name]: name,
         [FILE_ATTRS.type]: type,
         [FILE_ATTRS.size]: size.toString(),
+        [FILE_ATTRS.id]: id,
         // Also add the standard data- attributes that HTML expects
         'data-file-url': url,
         'data-file-name': name,
         'data-file-type': type,
         'data-file-size': size.toString(),
+        'data-file-id': id,
     };
 
     console.log('🔥 Container props:', containerProps);
@@ -207,7 +215,7 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node }) => {
     // Render other file types as downloadable cards
     return (
         <FileContainer {...containerProps}>
-            <FileCard hoverable onClick={() => handleDownload(url, name)} style={{ cursor: 'pointer' }}>
+            <FileCard hoverable style={{ cursor: 'pointer' }}>
                 <FileInfo>
                     <FileIcon>{getFileIcon(type)}</FileIcon>
                     <FileDetails>

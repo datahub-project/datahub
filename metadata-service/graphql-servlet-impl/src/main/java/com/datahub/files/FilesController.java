@@ -42,14 +42,7 @@ public class FilesController {
       @PathVariable("fileId") String fileId,
       @RequestParam(value = "expiration", required = false) Integer expirationSeconds,
       HttpServletRequest request) {
-    
-    try {
-      // Validate fileId is a valid UUID
-      UUID.fromString(fileId);
-    } catch (IllegalArgumentException e) {
-      log.warn("Invalid file ID format: {}", fileId);
-      return ResponseEntity.badRequest().build();
-    }
+    // TODO: add permission checks
 
     // Validate and set expiration time
     int expiration = expirationSeconds != null ? expirationSeconds : DEFAULT_EXPIRATION_SECONDS;
@@ -69,14 +62,15 @@ public class FilesController {
       // - You have proper S3 configuration in place
       
       // Example mapping (replace with your actual logic):
-      String bucket = "your-datahub-files-bucket";
-      String key = "files/" + fileId;
+      String bucket = "local-bucket";
+      String key = fileId; // later it willbe "product-assets" + fileId or make that configurable
       
       // Generate presigned URL using the existing S3Util
       String presignedUrl = s3Util.generatePresignedDownloadUrl(bucket, key, expiration);
       
       log.info("Generated presigned URL for file ID: {}, expires in: {}s", fileId, expiration);
-      
+      log.info("Presigned URL: {}s", presignedUrl);
+
       // Return redirect response
       HttpHeaders headers = new HttpHeaders();
       headers.setLocation(URI.create(presignedUrl));

@@ -54,6 +54,7 @@ public class GetPresignedUploadUrlResolver
 
           GetPresignedUploadUrl result = new GetPresignedUploadUrl();
           result.setUrl(presignedUploadUrl);
+          result.setFileId(newFileId);
           return result;
         },
         this.getClass().getSimpleName(),

@@ -338,6 +338,8 @@ services:
         condition: service_completed_successfully
       opensearch-setup-dev:
         condition: service_completed_successfully
+    environment:
+      <<: [*localstack-env]
   system-update-debug-consumers: # for consistent naming based on profile
     <<: *system-update-debug
     profiles:

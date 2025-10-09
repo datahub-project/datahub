@@ -46,6 +46,12 @@ dependencies {
   implementation externalDependency.micrometerObserve
   implementation externalDependency.awsPostgresIamAuth
   implementation externalDependency.awsRds
+  
+  // AWS SDK for S3 file serving
+  implementation platform('software.amazon.awssdk:bom:2.23.6')
+  implementation 'software.amazon.awssdk:regions'
+  implementation 'software.amazon.awssdk:sts'
+  implementation 'software.amazon.awssdk:s3'
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }

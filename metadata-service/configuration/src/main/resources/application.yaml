@@ -1057,3 +1057,7 @@ eventsApi:
 icebergCatalog:
   enablePublicRead: ${ENABLE_PUBLIC_READ:false}
   publiclyReadableTag: ${PUBLICLY_READABLE_TAG:PUBLICLY_READABLE}
+
+# S3 configuration options
+s3:
+  bucketPrefix: ${DATAHUB_BUCKET_NAME:}
