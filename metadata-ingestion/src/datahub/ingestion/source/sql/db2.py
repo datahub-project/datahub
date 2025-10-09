@@ -6,11 +6,11 @@ from typing import (
     Tuple,
 )
 
+import ibm_db_sa
 import pydantic
-import sqlalchemy
-from ibm_db_sa import dialect as DB2Dialect
+import sqlglot
 from sqlalchemy.engine.reflection import Inspector
-from sqlglot.dialects.dialect import Dialect as SQLGlotDialect, NormalizationStrategy
+from sqlglot.dialects.dialect import NormalizationStrategy
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.common import PipelineContext
@@ -29,12 +29,12 @@ from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 logger = logging.getLogger(__name__)
 
 
-class Db2(SQLGlotDialect):
+class CustomDb2SqlGlotDialect(sqlglot.Dialect):
     NORMALIZATION_STRATEGY = NormalizationStrategy.UPPERCASE
 
 
-class CustomDB2Dialect(DB2Dialect):
-    #
+class CustomDb2SqlAlchemyDialect(ibm_db_sa.dialect):
+    # ibm_db_sa result column names have inconsistent casing
     # see: https://github.com/ibmdb/python-ibmdbsa/issues/173
     requires_name_normalize = False
 
@@ -48,6 +48,12 @@ class CustomDB2Dialect(DB2Dialect):
         super().initialize(connection)
         self._reflector.normalize_name = lambda s: s
         self._reflector.denormalize_name = lambda s: s
+
+    def get_schema_names(self, connection, **kwargs) -> Iterable[str]:
+        for s in super().get_schema_names(connection, **kwargs):
+            # get_schema_names() can return schema names with extra space on the end
+            # see https://github.com/ibmdb/python-ibmdbsa/issues/172
+            yield s.rstrip()
 
     def get_table_comment(self, connection, table_name, schema=None, **kwargs):
         # get_table_comment returns nothing for views
@@ -107,48 +113,34 @@ class Db2Config(BasicSQLAlchemyConfig):
 class Db2Source(SQLAlchemySource):
     def __init__(self, config: Db2Config, ctx: PipelineContext):
         super().__init__(config, ctx, "db2")
+        # register custom SQLGlot dialect
+        sqlglot.Dialect.classes.setdefault("db2", CustomDb2SqlGlotDialect)
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "Db2Source":
         config = Db2Config.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def get_inspectors(self) -> Iterable[Inspector]:
+        for inspector in super().get_inspectors():
+            # use our custom SQLAlchemy dialect for connections
+            inspector.dialect = CustomDb2SqlAlchemyDialect()
+            inspector.dialect.initialize(inspector.bind)
+            yield inspector
+
     def get_view_default_db_schema(
         self, _dataset_name: str, inspector: Inspector, schema: str, view: str
     ) -> Tuple[Optional[str], str]:
-        try:
-            result = inspector.bind.execute(
-                """
-                select QUALIFIER
-                from SYSCAT.VIEWS
-                where VIEWSCHEMA = ?
-                and VIEWNAME = ?
-            """,
-                (schema, view),
-            )
-            return None, result.scalar()
-        except Exception as e:
-            logger.warning(
-                f"Failed to get qualifier schema for unqualified names in view {schema}.{view}: {e}",
-                exc_info=e,
-            )  # TODO add to report
-        return super().get_view_default_db_schema(inspector, schema, view)
-
-    def get_inspectors(self) -> Iterable[Inspector]:
-        url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = sqlalchemy.create_engine(url, **self.config.options)
-
-        # use our custom SQLAlchemy dialect
-        engine.dialect = CustomDB2Dialect()
-        with engine.connect() as conn:
-            yield sqlalchemy.inspect(conn)
-
-    def get_schema_names(self, inspector) -> Iterable[str]:
-        for s in inspector.get_schema_names():
-            # inspect.get_schema_names() can return schema names with extra space on the end
-            # see https://github.com/ibmdb/python-ibmdbsa/issues/172
-            yield s.rstrip()
+        result = inspector.bind.execute(
+            """
+            select QUALIFIER
+            from SYSCAT.VIEWS
+            where VIEWSCHEMA = ?
+            and VIEWNAME = ?
+        """,
+            (schema, view),
+        )
+        return None, result.scalar()
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, _db_name: str

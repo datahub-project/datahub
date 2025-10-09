@@ -1211,8 +1211,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 default_db, default_schema = self.get_view_default_db_schema(
                     dataset_name, inspector, schema, view
                 )
-            except ValueError:
-                logger.warning(f"Invalid view identifier: {dataset_name}")
+            except Exception as e:
+                self.report.warning(
+                    "Failed to get default db and schema names for view",
+                    context=dataset_name,
+                    exc=e,
+                )
             self.aggregator.add_view_definition(
                 view_urn=dataset_urn,
                 view_definition=view_definition,
