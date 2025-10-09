@@ -1,10 +1,5 @@
 type: db2
 config:
-  host_port: localhost:50000
-  database: testdb
-  username: db2inst1
-  password: password
-
   schema_pattern:
     allow:
     - basic
