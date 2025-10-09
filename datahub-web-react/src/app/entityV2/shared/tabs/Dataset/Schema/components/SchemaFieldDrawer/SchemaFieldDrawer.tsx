@@ -247,7 +247,7 @@ export default function SchemaFieldDrawer({
                     closable={false}
                 >
                     {expandedField && (
-                        <DrawerContent>
+                        <DrawerContent data-testid="schema-field-drawer-content">
                             <FieldHeader
                                 setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                                 expandedField={expandedField}
