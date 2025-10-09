@@ -42,13 +42,12 @@ def _split_statements(sql):
         logger.warning(statement)
         if not statement:
             continue
-        if "BEGIN" in statement.upper():
-            inside_begin = True
-            statements.append(statement)
-        elif inside_begin and statements:
+        if inside_begin and statements:
             statements[-1] += "; " + statement
         else:
             statements.append(statement)
+        if "BEGIN" in statement.upper():
+            inside_begin = True
         if statement.upper() == "END":
             inside_begin = False
     return statements

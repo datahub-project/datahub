@@ -1,5 +1,6 @@
 import logging
 from typing import (
+    Any,
     Dict,
     Iterable,
     Optional,
@@ -58,28 +59,22 @@ class CustomDb2SqlAlchemyDialect(ibm_db_sa.dialect):
     def get_table_comment(self, connection, table_name, schema=None, **kwargs):
         # get_table_comment returns nothing for views
         # see: https://github.com/ibmdb/python-ibmdbsa/issues/171
-        try:
-            comment = super().get_table_comment(
-                connection, table_name, schema=schema, **kwargs
-            )
-            if comment and comment.get("text"):
-                return comment
-        except NotImplementedError:
-            pass
+        comment = super().get_table_comment(
+            connection, table_name, schema=schema, **kwargs
+        )
+        if comment and comment.get("text"):
+            return comment
 
-        if self.has_table(connection, "TABLES", schema="SYSCAT"):
-            result = connection.execute(
-                """
-                select REMARKS
-                from SYSCAT.TABLES
-                where TABSCHEMA = ?
-                and TABNAME = ?
-            """,
-                (schema, table_name),
-            )
-            return {"text": result.scalar()}
-
-        return {"text": ""}
+        result = connection.execute(
+            """
+            select REMARKS
+            from SYSCAT.TABLES
+            where TABSCHEMA = ?
+            and TABNAME = ?
+        """,
+            (schema, table_name),
+        )
+        return {"text": result.scalar()}
 
 
 class Db2Config(BasicSQLAlchemyConfig):
@@ -101,6 +96,10 @@ class Db2Config(BasicSQLAlchemyConfig):
     scheme: HiddenFromDocs[str] = pydantic.Field(default="db2+ibm_db")
 
 
+def _quote_identifier(value):
+    return '"' + value.replace('"', '""') + '"'
+
+
 @platform_name("IBM Db2", id="db2")
 @config_class(Db2Config)
 @support_status(SupportStatus.TESTING)
@@ -114,7 +113,8 @@ class Db2Source(SQLAlchemySource):
     def __init__(self, config: Db2Config, ctx: PipelineContext):
         super().__init__(config, ctx, "db2")
         # register custom SQLGlot dialect
-        sqlglot.Dialect.classes.setdefault("db2", CustomDb2SqlGlotDialect)
+        if not sqlglot.Dialect.get("db2"):
+            sqlglot.Dialect.classes["db2"] = CustomDb2SqlGlotDialect
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "Db2Source":
@@ -123,14 +123,28 @@ class Db2Source(SQLAlchemySource):
 
     def get_inspectors(self) -> Iterable[Inspector]:
         for inspector in super().get_inspectors():
-            # use our custom SQLAlchemy dialect for connections
-            inspector.dialect = CustomDb2SqlAlchemyDialect()
+            # use our custom SQLAlchemy dialect for connections (for the custom SQL
+            # we run) and inspectors (for everything else).
+            inspector.dialect = inspector.bind.dialect = CustomDb2SqlAlchemyDialect()
             inspector.dialect.initialize(inspector.bind)
             yield inspector
+
+    def get_db_name(self, _inspector: Inspector) -> str:
+        # database names are case-insensitive, so normalize them to uppercase
+        # to match everything else.
+        return self.config.database.upper()
+
+    def get_identifier(
+        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+    ) -> str:
+        # database.schema.object
+        return f"{self.get_db_name(inspector)}.{schema}.{entity}"
 
     def get_view_default_db_schema(
         self, _dataset_name: str, inspector: Inspector, schema: str, view: str
     ) -> Tuple[Optional[str], str]:
+        # Db2 views look up unqualified names in the schema from the session
+        # when the view was created. Not the schema that the view itself lives in!
         result = inspector.bind.execute(
             """
             select QUALIFIER
@@ -140,7 +154,11 @@ class Db2Source(SQLAlchemySource):
         """,
             (schema, view),
         )
-        return None, result.scalar()
+        # the schema name must be quoted so that case-sensitive names make it through
+        # to the sqlglot lineage parser without being normalized.
+        schema_name = _quote_identifier(result.scalar().rstrip())
+        db_name = self.get_db_name(inspector)
+        return db_name, schema_name
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, _db_name: str
@@ -164,12 +182,17 @@ class Db2Source(SQLAlchemySource):
         for row in result:
             yield BaseProcedure(
                 name=row["ROUTINENAME"],
-                language=row["LANGUAGE"].rstrip(),  # can have trailing spaces
+                # language can have trailing spaces
+                language=row["LANGUAGE"].rstrip(),
                 procedure_definition=row["TEXT"],
                 comment=row["REMARKS"],
                 created=row["CREATE_TIME"],
                 last_altered=row["ALTER_TIME"],
-                default_schema=row["QUALIFIER"],
+                # similar to views, stored procedures look up unqualified names in the
+                # schema from the session when they were created, not the schema of the
+                # proc itself. also quote the schema name so case-sensitive names make
+                # it through sqlglot without being normalized.
+                default_schema=_quote_identifier(row["QUALIFIER"].rstrip()),
                 argument_signature=None,
                 return_type=None,
                 extra_properties={},
