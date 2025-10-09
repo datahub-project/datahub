@@ -46,7 +46,7 @@ actions_router = fastapi.APIRouter()
 actions_gql = (pathlib.Path(__file__).parent / "actions.gql").read_text()
 
 
-base_action_config = {
+base_action_config: dict[str, Any] = {
     "source": {
         "type": "kafka",
         "config": {
@@ -68,6 +68,18 @@ base_action_config = {
                             "sasl.password": "${KAFKA_PROPERTIES_SASL_PASSWORD:-}",
                         }
                         if os.environ.get("KAFKA_PROPERTIES_SASL_MECHANISM")
+                        and os.environ.get("KAFKA_PROPERTIES_SASL_MECHANISM")
+                        != "OAUTHBEARER"
+                        else {}
+                    ),
+                    **(
+                        {
+                            "sasl.mechanism": "${KAFKA_PROPERTIES_SASL_MECHANISM:-OAUTHBEARER}",
+                            "sasl.oauthbearer.method": "${KAFKA_PROPERTIES_SASL_OAUTHBEARER_METHOD:-default}",
+                            "oauth_cb": "${KAFKA_PROPERTIES_OAUTH_CALLBACK:-datahub_actions.utils.kafka_msk_iam:oauth_cb}",
+                        }
+                        if os.environ.get("KAFKA_PROPERTIES_SASL_MECHANISM")
+                        == "OAUTHBEARER"
                         else {}
                     ),
                     # Reset these to their default values, as per
@@ -84,7 +96,7 @@ base_action_config = {
         "server": DATAHUB_SERVER,
     },
 }
-overridable_action_config = {
+overridable_action_config: dict[str, Any] = {
     "filter": None,
 }
 
