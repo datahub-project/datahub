@@ -134,6 +134,7 @@ class Db2Source(SQLAlchemySource):
     def get_schema_names(self, inspector) -> Iterable[str]:
         for s in inspector.get_schema_names():
             # inspect.get_schema_names() can return schema names with extra space on the end
+            # see https://github.com/ibmdb/python-ibmdbsa/issues/172
             yield s.rstrip()
 
     def get_procedures_for_schema(
