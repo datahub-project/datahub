@@ -29,6 +29,7 @@ concurrency:
 
 env:
   IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/acryl-private-smoke-tests"
+  IMAGE_INGESTION_BASE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion-base"
 
 jobs:
   setup:
@@ -95,3 +96,31 @@ jobs:
           context: .
           file: ./docker/datahub-ingestion-base/smoke.Dockerfile
           platforms: linux/amd64,linux/arm64/v8
+
+  build-ingestion-base:
+    name: Build and ${{ (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') && 'Push' || 'test-build' }} datahub-ingestion-base (${{ matrix.app_env == 'full' && 'default' || 'slim' }})
+    runs-on: ubuntu-latest
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        app_env: [full, slim]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build and push datahub-ingestion-base (${{ matrix.app_env }})
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.IMAGE_INGESTION_BASE }}
+          image_tag: ${{ matrix.app_env == 'full' && needs.setup.outputs.tag || format('{0}-slim', needs.setup.outputs.tag) }}
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          dockerhub-username: ${{ secrets.DOCKER_USERNAME }}
+          dockerhub-password: ${{ secrets.DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+          context: .
+          file: docker/datahub-ingestion-base/Dockerfile
+          platforms: linux/amd64
+          build-args: |
+            APP_ENV=${{ matrix.app_env }}

@@ -35,7 +35,6 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
         echo "Creating new user datahub with UID 1000"; \
         adduser --disabled-password --uid 1000 --gid 1000 --home $HOME datahub; \
     fi && \
-    # Create and set proper permissions for datahub directories
     mkdir -p $HOME && \
     chown -R datahub:datahub $HOME && \
     chmod g-s $HOME
@@ -73,9 +72,16 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTH
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
+# Configure pip/uv index URLs. Defaults to public PyPI but can be overridden at build time.
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
-RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+ARG PIP_EXTRA_INDEX_URL=""
+# Persist settings for subsequent build layers and for optional venv builds
+ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
+ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+# Also configure pip globally inside the image so tools without env still use the mirror
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
+    if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
 
 USER datahub
 WORKDIR $HOME
@@ -183,10 +189,13 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-execu
 
 
 # =============================================================================
-# PRE-BUILD BUNDLED INGESTION VENVS
+# PRE-BUILD BUNDLED INGESTION VENVS (optional; default off)
 # =============================================================================
 
 USER 0
+
+# Control whether to build venvs in this image (default: is to build)
+ARG BUILD_BUNDLED_VENVS=true
 
 # Set up bundled venv configuration
 ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
@@ -195,28 +204,26 @@ ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
 ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
 
-# Create venv directory
+# Create venv directory and ensure ownership
 RUN mkdir -p $DATAHUB_BUNDLED_VENV_PATH && \
     chown -R datahub:datahub $DATAHUB_BUNDLED_VENV_PATH
 
-# Copy the self-contained venv build scripts
-COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
-COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
+# Copy the self-contained venv build scripts into a stable location for reuse
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /usr/local/bin/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /usr/local/bin/
 
 # Make scripts executable
-RUN chmod +x /tmp/build_bundled_venvs_unified.sh && \
-    chmod +x /tmp/build_bundled_venvs_unified.py
+RUN chmod +x /usr/local/bin/build_bundled_venvs_unified.sh && \
+    chmod +x /usr/local/bin/build_bundled_venvs_unified.py
 
 USER datahub
 
-# Build bundled venvs using our self-contained script
-RUN /tmp/build_bundled_venvs_unified.sh
-
-# Remove build scripts to reduce image size
-USER 0
-RUN rm -rf /tmp/build_bundled_venvs_unified.py /tmp/build_bundled_venvs_unified.sh
-
-USER datahub
+# Optionally build bundled venvs (keeps scripts in image regardless)
+RUN if [ "${BUILD_BUNDLED_VENVS}" = "true" ]; then \
+      /usr/local/bin/build_bundled_venvs_unified.sh ; \
+    else \
+      echo "Skipping bundled venv build (BUILD_BUNDLED_VENVS=${BUILD_BUNDLED_VENVS})" ; \
+    fi
 
 # =============================================================================
 # END DEFAULT VENVS SECTION
