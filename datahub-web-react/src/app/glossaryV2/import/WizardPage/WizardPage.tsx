@@ -22,7 +22,7 @@ import { useApolloClient } from '@apollo/client';
 import DropzoneTable from './DropzoneTable/DropzoneTable';
 import { BreadcrumbHeader } from '../shared/components/BreadcrumbHeader';
 
-// Minimal styled components following IngestionSourceList pattern
+// Styled components following IngestionSourceList pattern
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
     background-color: white;
@@ -71,7 +71,8 @@ const FilterButtonsContainer = styled.div`
 `;
 
 const StyledSearchBar = styled(SearchBar)`
-    width: 400px;
+    width: 300px;
+    min-width: 200px;
 `;
 
 const StyledSimpleSelect = styled(SimpleSelect)`
@@ -82,6 +83,38 @@ const StyledSimpleSelect = styled(SimpleSelect)`
 const TableContainer = styled.div`
     flex: 1;
     overflow: auto;
+    min-width: 0;
+    
+    /* Enable horizontal scrolling for the table */
+    .table-wrapper {
+        overflow-x: auto;
+        overflow-y: visible;
+        min-width: 100%;
+    }
+    
+    /* Reduce table cell padding and spacing */
+    .ant-table-tbody > tr > td {
+        padding: 8px 12px !important;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .ant-table-thead > tr > th {
+        padding: 8px 12px !important;
+        background-color: #fafafa;
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Compact table styling */
+    .ant-table {
+        font-size: 13px;
+    }
+    
+    .ant-table-tbody > tr:hover > td {
+        background-color: #f5f5f5;
+    }
 `;
 
 const PaginationContainer = styled.div`
@@ -578,12 +611,12 @@ export const WizardPage = () => {
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             <BreadcrumbHeader
                 items={breadcrumbItems}
-                title="Import Glossary"
+                        title="Import Glossary"
                 subtitle="Import glossary terms from CSV files and manage their import status"
             />
             <SourceContainer>
                 <HeaderContainer>
-                    {renderStepContent()}
+                {renderStepContent()}
                 </HeaderContainer>
                 
                 {/* Actions Bar - Always visible */}
@@ -789,7 +822,7 @@ const GlossaryImportList = ({
         setEditingCell(null);
     };
 
-    // Table columns
+    // Table columns with optimized widths for horizontal scrolling
     const tableColumns: Column<Entity>[] = [
         {
             title: 'Diff',
@@ -806,8 +839,9 @@ const GlossaryImportList = ({
                     Diff
                 </Button>
             ),
-            width: '80px',
-            minWidth: '80px',
+            width: '60px',
+            minWidth: '60px',
+            maxWidth: '60px',
             alignment: 'center',
         },
         {
@@ -840,8 +874,9 @@ const GlossaryImportList = ({
                     />
                 );
             },
-            width: '100px',
-            minWidth: '100px',
+            width: '80px',
+            minWidth: '80px',
+            maxWidth: '80px',
             alignment: 'left',
             sorter: (a, b) => a.status.localeCompare(b.status),
         },
@@ -849,8 +884,9 @@ const GlossaryImportList = ({
             title: 'Type',
             key: 'type',
             render: (record) => record.type === 'glossaryNode' ? 'Term Group' : 'Term',
-            width: '100px',
-            minWidth: '100px',
+            width: '90px',
+            minWidth: '90px',
+            maxWidth: '90px',
             alignment: 'left',
             sorter: (a, b) => a.type.localeCompare(b.type),
         },
@@ -872,13 +908,24 @@ const GlossaryImportList = ({
                     );
                 }
                 return (
-                    <div onClick={() => handleCellEdit(record.id, 'name')}>
+                    <div 
+                        onClick={() => handleCellEdit(record.id, 'name')}
+                        style={{ 
+                            cursor: 'pointer',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            maxWidth: '150px'
+                        }}
+                        title={record.name}
+                    >
                         {record.name}
                     </div>
                 );
             },
-            width: '200px',
-            minWidth: '200px',
+            width: '150px',
+            minWidth: '150px',
+            maxWidth: '150px',
             alignment: 'left',
             sorter: (a, b) => a.name.localeCompare(b.name),
         },
@@ -900,15 +947,84 @@ const GlossaryImportList = ({
                     );
                 }
                 return (
-                    <div onClick={() => handleCellEdit(record.id, 'description')}>
+                    <div 
+                        onClick={() => handleCellEdit(record.id, 'description')}
+                        style={{ 
+                            cursor: 'pointer',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            maxWidth: '200px'
+                        }}
+                        title={record.data.description}
+                    >
                         {record.data.description}
                     </div>
                 );
             },
-            width: '250px',
-            minWidth: '250px',
+            width: '200px',
+            minWidth: '200px',
+            maxWidth: '200px',
             alignment: 'left',
             sorter: (a, b) => a.data.description.localeCompare(b.data.description),
+        },
+        {
+            title: 'Term Source',
+            key: 'term_source',
+            render: (record) => (
+                <div 
+                    style={{ 
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        maxWidth: '100px'
+                    }}
+                    title={record.data.term_source}
+                >
+                    {record.data.term_source || '-'}
+                </div>
+            ),
+            width: '100px',
+            minWidth: '100px',
+            maxWidth: '100px',
+            alignment: 'left',
+            sorter: (a, b) => (a.data.term_source || '').localeCompare(b.data.term_source || ''),
+        },
+        {
+            title: 'Ownership',
+            key: 'ownership',
+            render: (record) => {
+                const hasUsers = record.data.ownership_users && record.data.ownership_users.trim() !== '';
+                const hasGroups = record.data.ownership_groups && record.data.ownership_groups.trim() !== '';
+                
+                if (!hasUsers && !hasGroups) {
+                    return <span style={{ color: '#6b7280' }}>-</span>;
+                }
+                
+                const ownershipText = [
+                    hasUsers ? `Users: ${record.data.ownership_users.split('|').length}` : '',
+                    hasGroups ? `Groups: ${record.data.ownership_groups.split('|').length}` : ''
+                ].filter(Boolean).join(', ');
+                
+                return (
+                    <div 
+                        style={{ 
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            maxWidth: '120px',
+                            fontSize: '12px'
+                        }}
+                        title={`Users: ${record.data.ownership_users || 'none'}, Groups: ${record.data.ownership_groups || 'none'}`}
+                    >
+                        {ownershipText}
+                    </div>
+                );
+            },
+            width: '120px',
+            minWidth: '120px',
+            maxWidth: '120px',
+            alignment: 'left',
         },
     ];
 
@@ -948,6 +1064,7 @@ const GlossaryImportList = ({
                     data={filteredEntities}
                     showHeader
                     isScrollable
+                    maxHeight="400px"
                     rowKey="id"
                     isBorderless={false}
                 />
