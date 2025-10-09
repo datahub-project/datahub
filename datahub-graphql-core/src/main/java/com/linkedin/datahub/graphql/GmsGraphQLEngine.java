@@ -631,8 +631,8 @@ public class GmsGraphQLEngine {
 
     // TODO: Add logic to get real role
     String gmsRoleArn = "arn:aws:iam::000000000000:root";
-    if (gmsRoleArn == null || gmsRoleArn.trim().isEmpty()) {
-      log.info("GMS role ARN is not set, not creating S3Util");
+    if (gmsRoleArn == null || gmsRoleArn.trim().isEmpty() || this.stsClient == null) {
+      log.info("GMS role ARN is not set or STS client is not available, not creating S3Util");
       this.s3Util = null;
     } else {
       this.s3Util = new S3Util(this.entityClient, this.stsClient, gmsRoleArn);
