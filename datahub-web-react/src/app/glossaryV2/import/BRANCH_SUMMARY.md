@@ -1,57 +1,50 @@
-# CSV Import UI-Only Branch Summary
+# CSV Import UI Branch Summary
 
-## 🎯 **Branch Created: `glossary-import-ui-only`**
+## 🎯 **Branch: `glossary-import-ui-only`**
 
-This branch contains a complete UI-only version of the CSV import functionality with mock data and simplified logic hooks.
+This branch contains the CSV import functionality with real data integration and clean, maintainable code.
 
 ## 📁 **What's Included**
 
-### **1. Mock Data System**
-- **`shared/mocks/mockData.ts`** - Comprehensive mock data including:
-  - 4 sample entities with different statuses (new, updated, existing, conflict)
-  - Realistic ownership data (users and groups)
-  - Parent-child relationships
-  - Custom properties
-  - Progress states (idle, processing, completed, with errors)
-  - File upload states
+### **1. Real Data Integration**
+- **Real GraphQL API integration** - Uses actual DataHub GraphQL endpoints
+- **Live entity loading** - Fetches existing glossary entities from DataHub
+- **Real CSV processing** - Processes actual CSV files with validation
+- **Production-ready hooks** - All business logic hooks use real implementations
 
-### **2. Mock Hooks (Business Logic)**
-- **`useMockImportProcessing.ts`** - Import orchestration with simulated progress
-- **`useMockCsvProcessing.ts`** - CSV parsing and validation
-- **`useMockEntityManagement.ts`** - Entity normalization and operations
-- **`useMockEntityComparison.ts`** - Entity comparison and conflict detection
-- **`useMockGraphQLOperations.ts`** - GraphQL operations with mock responses
-- **`useMockFileUpload.ts`** - File upload and validation
+### **2. Clean Architecture**
+- **Minimal styled components** - Following IngestionSourceList.tsx pattern
+- **DataHub component usage** - Uses @components directly without over-abstraction
+- **Consistent design patterns** - Matches existing DataHub UI patterns
+- **Maintainable code structure** - Easy to understand and modify
 
-### **3. Mock UI Components**
-- **`WizardPage.mock.tsx`** - Complete UI with all functionality using mock data
-- **`mockRoutes.tsx`** - Routing for mock UI access
-- **`MOCK_UI_README.md`** - Comprehensive documentation
-
-### **4. Utility Scripts**
-- **`switch-to-mock.js`** - Script to toggle between mock and real implementations
-- **`package.json`** - Convenient npm scripts for development
+### **3. Core Components**
+- **`WizardPage.tsx`** - Main import wizard with real data
+- **`GlossaryImportList`** - Entity list with search, filter, and table
+- **`DiffModal`** - Entity comparison modal
+- **`ImportProgressModal`** - Import progress tracking
+- **`DropzoneTable`** - File upload interface
 
 ## 🚀 **How to Use**
 
-### **Access the Mock UI**
+### **Access the Import UI**
 ```bash
-# Navigate to the mock UI
-http://localhost:3000/glossaryV2/import/mock
-```
+# Navigate to the import UI
+http://localhost:3000/glossaryV2/import
 
-### **Switch Between Mock and Real**
-```bash
-# Switch to mock mode
-cd datahub-web-react/src/app/glossaryV2/import
-node scripts/switch-to-mock.js mock
+## 🎨 **Design Patterns**
 
-# Switch to real mode  
-node scripts/switch-to-mock.js real
+### **Following IngestionSourceList.tsx Pattern**
+- **Minimal styled components** - Only 8 essential containers vs 20+ before
+- **Clean component structure** - Uses DataHub components directly
+- **Consistent layout** - Same structure as other DataHub pages
+- **Maintainable code** - Easy to understand and modify
 
-# Or use npm scripts
-yarn switch:mock
-yarn switch:real
+### **Key Improvements**
+- ✅ **Removed mock files** - All mock data and hooks deleted
+- ✅ **Real data integration** - Uses actual GraphQL APIs
+- ✅ **Clean architecture** - Follows DataHub design patterns
+- ✅ **Production ready** - No mock dependencies
 ```
 
 ## 🎨 **UI Features Available**

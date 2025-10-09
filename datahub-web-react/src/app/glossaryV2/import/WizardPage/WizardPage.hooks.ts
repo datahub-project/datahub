@@ -9,20 +9,17 @@ import { useEntityManagement } from '../shared/hooks/useEntityManagement';
 import { useEntityComparison } from '../shared/hooks/useEntityComparison';
 import { useHierarchyManagement } from '../shared/hooks/useHierarchyManagement';
 import { useFileUpload, useFileValidation } from './DropzoneTable/DropzoneTable.hooks';
-import { mockEntities, mockExistingEntities, mockComparisonResult } from '../shared/mocks/mockData';
 
 export function useImportState() {
-  console.log('🎭 Mock UI: useImportState initialized with mock data');
-  console.log('🎭 Mock entities:', mockEntities.length);
-  console.log('🎭 Mock existing entities:', mockExistingEntities.length);
+  console.log('🔄 Real UI: useImportState initialized');
   
   const [csvData, setCsvData] = useState<EntityData[]>([]);
   const [parseResult, setParseResult] = useState<CsvParseResult | null>(null);
-  const [isDataLoaded, setIsDataLoaded] = useState(true); // Initialize as loaded for mock
-  const [entities, setEntitiesState] = useState<Entity[]>(mockEntities); // Initialize with mock data
-  const [existingEntities, setExistingEntitiesState] = useState<Entity[]>(mockExistingEntities); // Initialize with mock data
-  const [comparisonResult, setComparisonResultState] = useState<ComparisonResult | null>(mockComparisonResult); // Initialize with mock data
-  const [isComparisonComplete, setIsComparisonComplete] = useState(true); // Initialize as complete for mock
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [entities, setEntitiesState] = useState<Entity[]>([]);
+  const [existingEntities, setExistingEntitiesState] = useState<Entity[]>([]);
+  const [comparisonResult, setComparisonResultState] = useState<ComparisonResult | null>(null);
+  const [isComparisonComplete, setIsComparisonComplete] = useState(false);
 
   const setCsvDataAndResult = useCallback((data: EntityData[], result: CsvParseResult) => {
     setCsvData(data);
