@@ -34,7 +34,7 @@ record LineageFeatures {
     "addToFilters": true,
     "filterNameOverride": "Has Asset-Level Lineage"
   }
-  hasAssetLevelLineage: boolean
+  hasAssetLevelLineage: optional boolean
 
   /**
    * Record of when and how lineage features were computed.
@@ -45,5 +45,5 @@ record LineageFeatures {
         "fieldType": "DATETIME"
       }
   }
-  computedAt: AuditStamp
+  computedAt: optional AuditStamp
 }

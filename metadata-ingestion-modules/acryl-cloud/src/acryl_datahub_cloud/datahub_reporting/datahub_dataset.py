@@ -396,7 +396,9 @@ class DataHubBasedS3Dataset:
                 assert dataset_profiles.fieldProfiles is not None
                 dataset_profiles.fieldProfiles.append(field_profile)
             logger.info("Generated dataset profile")
-            schema_metadata = self._generate_schema_metadata(columns)
+            schema_metadata = self._generate_schema_metadata(
+                [(col[0], col[1]) for col in columns]
+            )
         return dataset_profiles, schema_metadata
 
     def register_dataset(
