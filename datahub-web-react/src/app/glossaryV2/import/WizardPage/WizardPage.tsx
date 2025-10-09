@@ -1058,7 +1058,7 @@ const GlossaryImportList = ({
     ];
 
     return (
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
+        <>
             <div style={{ marginBottom: '16px', maxWidth: '400px' }}>
                 <SearchBar
                     placeholder="Search entities..."
@@ -1107,7 +1107,7 @@ const GlossaryImportList = ({
                     existingEntity={null}
                 />
             )}
-        </div>
+        </>
     );
 };
 
