@@ -24,6 +24,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.SearchTestUtils;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -65,7 +66,8 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
                 IndexConventionImpl.IndexConventionConfig.builder()
                     .prefix("es_browse_dao_test")
                     .hashIdAlgo("MD5")
-                    .build()));
+                    .build(),
+                SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION));
     browseDAO =
         new ESBrowseDAO(
             mockClient,

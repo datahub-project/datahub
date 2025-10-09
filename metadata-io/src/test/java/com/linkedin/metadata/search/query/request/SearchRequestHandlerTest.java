@@ -7,6 +7,7 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.*;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.mockito.Mockito.mock;
@@ -127,6 +128,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                     .wordGram(wordGramConfiguration)
                     .partial(partialConfiguration)
                     .build())
+            .entityIndex(
+                TEST_ES_SEARCH_CONFIG.getEntityIndex()) // Preserve entityIndex configuration
+            .bulkDelete(TEST_ES_SEARCH_CONFIG.getBulkDelete())
+            .bulkProcessor(TEST_ES_SEARCH_CONFIG.getBulkProcessor())
+            .buildIndices(TEST_ES_SEARCH_CONFIG.getBuildIndices())
+            .idHashAlgo(TEST_ES_SEARCH_CONFIG.getIdHashAlgo())
+            .index(TEST_ES_SEARCH_CONFIG.getIndex())
+            .scroll(TEST_ES_SEARCH_CONFIG.getScroll())
             .build();
   }
 
@@ -656,6 +665,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     BoolQueryBuilder test =
         SearchRequestHandler.getFilterQuery(
             operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            Collections.emptyList(),
             filter,
             new HashMap<>(),
             QueryFilterRewriteChain.EMPTY);
@@ -711,6 +721,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     BoolQueryBuilder test =
         SearchRequestHandler.getFilterQuery(
             mockRetrieverContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            Collections.emptyList(),
             filter,
             new HashMap<>(),
             QueryFilterRewriteChain.EMPTY);
@@ -1309,10 +1320,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     ScrollResult result =
         handler.extractScrollResult(operationContext, mockResponse, null, "5m", null, true);
 
-    // Should use the default from the service config default
-    assertEquals(
-        result.getPageSize().intValue(),
-        TEST_SEARCH_SERVICE_CONFIG.getLimit().getResults().getApiDefault());
+    // Should use the default from the service config default, but limited by total results
+    assertEquals(result.getPageSize().intValue(), 100); // Math.min(1000, 100) = 100
     assertEquals(result.getNumEntities().intValue(), 100);
   }
 

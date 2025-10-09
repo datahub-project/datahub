@@ -50,7 +50,6 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.NumberType;
@@ -124,8 +123,6 @@ public class UpdateIndicesHookTest {
     searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 1000);
     mockDataHubUpgradeKafkaListener = mock(DataHubUpgradeKafkaListener.class);
     mockConfigurationProvider = mock(ConfigurationProvider.class);
-
-    when(mockEntitySearchService.getIndexConvention()).thenReturn(IndexConventionImpl.noPrefix(""));
 
     SystemUpdateConfiguration systemUpdateConfiguration = new SystemUpdateConfiguration();
     systemUpdateConfiguration.setWaitForSystemUpdate(false);
@@ -866,7 +863,7 @@ public class UpdateIndicesHookTest {
         new StructuredPropertyDefinition(newValueOrigin.data().copy());
 
     updateIndicesService.updateIndexMappings(
-        UrnUtils.getUrn(TEST_DATASET_URN), entitySpec, aspectSpec, newValue, oldValue);
+        opContext, UrnUtils.getUrn(TEST_DATASET_URN), entitySpec, aspectSpec, newValue, oldValue);
 
     assertEquals(oldValue, oldValueOrigin, "Ensure no mutation to input objects");
     assertEquals(newValue, newValueOrigin, "Ensure no mutation to input objects");

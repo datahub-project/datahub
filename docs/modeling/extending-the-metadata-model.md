@@ -366,56 +366,114 @@ via the search APIs.
 
 It takes the following parameters:
 
-- **fieldType**: string - The settings for how each field is indexed is defined by the field type. Each field type is
-  associated with a set of analyzers Elasticsearch will use to tokenize the field. Such sets are defined in the
-  MappingsBuider, which generates the mappings for the index for each entity given the fields with the search
-  annotations. To customize the set of analyzers used to index a certain field, you must add a new field type and define
-  the set of mappings to be applied in the MappingsBuilder.
+- **fieldType**: string - The settings for how each field is indexed is defined by the field type. In general this defines how the field is indexed in the Elasticsearch document. **Note**: With the new search tier system, `fieldType` primarily determines the field's storage format and individual query capabilities. Fulltext search capabilities are now primarily handled by the common `_search.tier_{tier}` fields that consolidate fields from multiple aspects based on their tier assignments.
 
-  Thus far, we have implemented 11 fieldTypes:
+  **Available field types:**
 
-  1. _KEYWORD_ - Short text fields that only support exact matches, often used only for filtering
+  1. _KEYWORD_ - Short text fields that only support exact matches, often used only for filtering. **Default length limit**: 100 characters (tier fields), 255 characters (regular fields).
 
-  2. _TEXT_ - Text fields delimited by spaces/slashes/periods. Default field type for string variables.
+  2. _TEXT_ - Text fields delimited by spaces/slashes/periods. Default field type for string variables. **Default length limit**: 100 characters (tier fields), 255 characters (regular fields).
 
-  3. _TEXT_PARTIAL_ - Text fields delimited by spaces/slashes/periods with partial matching support. Note, partial
-     matching is expensive, so this field type should not be applied to fields with long values (like description)
+  3. _BOOLEAN_ - Boolean fields used for filtering.
 
-  4. _WORD_GRAM_ - Text fields delimited by spaces, slashes, periods, dashes, or underscores with partial matching AND
-     word gram support. That is, the text will be split by the delimiters and can be matched with delimited queries
-     matching two, three, or four length tokens in addition to single tokens. As with partial match, this type is
-     expensive, so should not be applied to fields with long values such as description.
+  4. _COUNT_ - Count fields used for filtering.
 
-  5. _BROWSE_PATH_ - Field type for browse paths. Applies specific mappings for slash delimited paths.
+  5. _DATETIME_ - Datetime fields used to represent timestamps.
 
-  6. _URN_ - Urn fields where each sub-component inside the urn is indexed. For instance, for a data platform urn like
-     "urn:li:dataplatform:kafka", it will index the platform name "kafka" and ignore the common components
+  6. _OBJECT_ - Each property in an object will become an extra column in Elasticsearch and can be referenced as
+     `field.property` in queries. **Default limits**: Maximum 1000 object keys, maximum 4096 characters per value. You should be careful to not use it on objects with many properties as it can cause a mapping explosion in Elasticsearch.
 
-  7. _URN_PARTIAL_ - Urn fields where each sub-component inside the urn is indexed with partial matching support.
+  7. _DOUBLE_ - Double precision numeric fields used for filtering and calculations.
 
-  8. _BOOLEAN_ - Boolean fields used for filtering.
+  8. _MAP_ARRAY_ - Array fields that are stored as maps in Elasticsearch. **Default limits**: Maximum 1000 array elements, maximum 4096 characters per value.
 
-  9. _COUNT_ - Count fields used for filtering.
+  **⚠️ Deprecated field types (avoid using in new code):**
 
-  10. _DATETIME_ - Datetime fields used to represent timestamps.
+  10. ~~_TEXT_PARTIAL_~~ - **DEPRECATED**: Text fields with partial matching support. This field type is expensive and should not be applied to fields with long values. Use TEXT instead.
 
-  11. _OBJECT_ - Each property in an object will become an extra column in Elasticsearch and can be referenced as
-      `field.property` in queries. You should be careful to not use it on objects with many properties as it can cause a
-      mapping explosion in Elasticsearch.
+  11. ~~_WORD_GRAM_~~ - **DEPRECATED**: Text fields with word gram support. This field type is expensive and should not be applied to fields with long values. Use TEXT instead.
+
+  12. ~~_BROWSE_PATH_~~ - **DEPRECATED**: Field type for browse paths. Browse paths are handled by name, use `browsePathV2` field name. There can only be one for a given entity.
+
+  13. ~~_URN_~~ - **DEPRECATED**: Urn fields where each sub-component is indexed. Use KEYWORD instead.
+
+  14. ~~_URN_PARTIAL_~~ - **DEPRECATED**: Urn fields with partial matching support. Use KEYWORD instead.
+
+**⚠️ Important Length Limitations:**
+
+- **Tier Fields**: Fields with `searchTier` are automatically limited to **100 characters** to optimize search performance
+- **Regular Fields**: Fields without `searchTier` are limited to **255 characters** for Elasticsearch compatibility
+- **Object Fields**: Maximum **1000 object keys** and **4096 characters per value** to prevent mapping explosion
+- **Array Fields**: Maximum **1000 array elements** and **4096 characters per value**
+- **Field Names**: Maximum **255 characters** for Elasticsearch field name compatibility
+
+**Configuration Overrides:**
+
+- **Environment Variables**: Some limits can be configured via environment variables:
+  - `SEARCH_DOCUMENT_MAX_VALUE_LENGTH`: Override default 4096 character limit for object/array values
+  - `SEARCH_DOCUMENT_MAX_ARRAY_LENGTH`: Override default 1000 element limit for arrays
+  - `SEARCH_DOCUMENT_MAX_OBJECT_KEYS`: Override default 1000 key limit for objects
+- **Special Fields**: Some system fields have different limits:
+  - **URN fields**: Automatically set to **512 characters** (`ignore_above: 512`)
+  - **Tier fields**: Hard-coded to **100 characters** for performance optimization
+
+**Note**: The `ignore_above` settings are automatically applied by the system. While some limits can be configured via environment variables, the tier field limits (100 characters) and regular field limits (255 characters) are hard-coded and cannot be overridden through annotations or configuration.
+
+**Important**: The ability to have longer keyword fields is limited to system-level configurations and special field types. Regular user-defined fields will always be subject to the default limits for performance and compatibility reasons.
 
 - **fieldName**: string (optional) - The name of the field in search index document. Defaults to the field name where
   the annotation resides.
-- **queryByDefault**: boolean (optional) - Whether we should match the field for the default search query. True by
-  default for text and urn fields.
-- **enableAutocomplete**: boolean (optional) - Whether we should use the field for autocomplete. Defaults to false
+
+- **queryByDefault**: boolean (optional) - **⚠️ DEPRECATED**: Whether we should match the field for the default search query. True by
+  default for text and urn fields. **Use `searchTier` instead for better search organization and performance.**
+
+- **enableAutocomplete**: boolean (optional) - **⚠️ DEPRECATED**: Whether we should use the field for autocomplete. Defaults to false. **Use `searchTier: 1` based on the fact that an autocomplete field would be very important for search relevance.**
+
 - **addToFilters**: boolean (optional) - Whether or not to add field to filters. Defaults to false
-- **boostScore**: double (optional) - Boost multiplier to the match score. Matches on fields with higher boost score
-  ranks higher.
+
+- **addHasValuesToFilters**: boolean (optional) - Whether or not to add the "has values" to filters. Defaults to true
+
+- **filterNameOverride**: string (optional) - Display name for the filter in the UI
+
+- **hasValuesFilterNameOverride**: string (optional) - Display name for the "has values" filter in the UI
+
+- **boostScore**: double (optional) - **⚠️ DEPRECATED**: Boost multiplier to the match score. Matches on fields with higher boost score
+  ranks higher. **Use `searchLabel` instead for more sophisticated ranking control.**
+
 - **hasValuesFieldName**: string (optional) - If set, add an index field of the given name that checks whether the field
   exists
+
 - **numValuesFieldName**: string (optional) - If set, add an index field of the given name that checks the number of
   elements
-- **weightsPerFieldValue**: map[object, double] (optional) - Weights to apply to score for a given value.
+
+- **weightsPerFieldValue**: map[object, double] (optional) - **⚠️ DEPRECATED**: Weights to apply to score for a given value. **Use `searchLabel` with `@SearchScore` annotations instead for value-based scoring.**
+
+- **fieldNameAliases**: array[string] (optional) - Aliases for this field that can be used for sorting and other operations. These aliases are created with the aspect name prefix (e.g., `metadata.aliasName`) and provide alternative names for accessing the same field data. Useful for creating multiple access paths to the same field.
+
+- **includeSystemModifiedAt**: boolean (optional) - **⚠️ DEPRECATED**: Whether to include a system-modified timestamp field for this searchable field. **This will be handled programmatically for all aspects in future versions.**
+
+- **systemModifiedAtFieldName**: string (optional) - **⚠️ DEPRECATED**: Custom name for the system-modified timestamp field. **This will be handled programmatically for all aspects in future versions.**
+
+- **includeQueryEmptyAggregation**: boolean (optional) - Whether to create a missing field aggregation when querying the corresponding field. Only affects query time, not mapping. Useful for analytics and reporting.
+
+- **searchTier**: integer (optional) - Search tier for the field (integer value >= 1). Creates a copy*to field that copies the field value to `\_search.tier*{tier}`. Fields with searchTier are automatically set to `index: false`unless`searchIndexed` is true. **Note**: searchTier can only be used with KEYWORD or TEXT field types.
+
+- **searchLabel**: string (optional) - Unified label for search operations. Creates a copy*to field that copies the field value to `\_search.{label}` (without prefixes). Replaces the previous `sortLabel` and `boostLabel` annotations. Fields with searchLabel are automatically set to `index: false`.
+
+- **searchIndexed**: boolean (optional) - When combined with `searchTier`, determines whether the field is indexed outside of `_search` for direct access. The field will be indexed using its actual field type (KEYWORD or TEXT), not forced to KEYWORD. **Note**: searchIndexed can only be true when searchTier is specified and can only be used with KEYWORD or TEXT field types. Defaults to false.
+
+- **entityFieldName**: string (optional) - If set, this field will be copied to `_search.{entityFieldName}` and the root alias will point there. This allows multiple aspects to consolidate into a single entity-level field.
+
+- **eagerGlobalOrdinals**: boolean (optional) - Whether to set `eager_global_ordinals` to true for this field. This improves aggregation performance for frequently aggregated keyword fields by pre-building ordinals at index time. **Note**: eagerGlobalOrdinals can only be true for KEYWORD, URN, or URN_PARTIAL field types. Defaults to false.
+
+**⚠️ Note on deprecated parameters:** Some parameters like `queryByDefault`, `enableAutocomplete`, `boostScore`, and `weightsPerFieldValue` are still functional when using search version 2 but will be replaced by newer features in future versions. Consider using the new tier-based and label-based annotations for more advanced search functionality.
+
+**Migration from deprecated parameters:**
+
+- **`queryByDefault`** → Use `searchTier: 1` through `searchTier: 4` to include fields in default search queries
+- **`enableAutocomplete`** → Use `searchTier: 1`
+- **`boostScore`** → Use `searchLabel` for more sophisticated ranking control
+- **`weightsPerFieldValue`** → Use `searchLabel` for value-based scoring control
 
 ##### Example
 
@@ -427,23 +485,62 @@ record DashboardInfo {
    * Title of the dashboard
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
-    "enableAutocomplete": true,
-    "boostScore": 10.0
+    "fieldType": "KEYWORD",
+    "searchTier": 1,
+    "entityFieldName": "name"
   }
   title: string
   ....
 }
 ```
 
-This annotation is saying that we want to index the title field in Elasticsearch. We want to support partial matches on
-the title, so queries for `Cust` should return a Dashboard with the title `Customers`. `enableAutocomplete` is set to
-true, meaning that we can autocomplete on this field when typing into the search bar. Finally, a boostScore of 10 is
-provided, meaning that we should prioritize matches to title over matches to other fields, such as description, when
-ranking.
+This annotation is saying that we want to index the title field in Elasticsearch. `searchTier: 1` ensures this field is included in default search queries with high relevancy. `entityFieldName: "name"` consolidates this field into the entity-level `_search.name` field, allowing other aspects to contribute to the same consolidated field.
 
-Now, when Datahub ingests Dashboards, it will index the Dashboard’s title in Elasticsearch. When a user searches for
-Dashboards, that query will be used to search on the title index and matching Dashboards will be returned.
+**Advanced Example with New Features:**
+
+```aidl
+record DashboardInfo {
+  /**
+   * Priority level for the dashboard
+   */
+  @Searchable = {
+    "fieldType": "COUNT",
+    "searchLabel": "priority",
+    "addToFilters": true
+  }
+  priority: int
+
+  /**
+   * Status of the dashboard
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "filterNameOverride": "Dashboard Status",
+    "eagerGlobalOrdinals": true
+  }
+  status: string
+
+  /**
+   * Owner URN for the dashboard
+   */
+  @Searchable = {
+    "fieldType": "URN",
+    "addToFilters": true,
+    "eagerGlobalOrdinals": true,
+    "searchLabel": "owner"
+  }
+  owner: string
+}
+```
+
+This example demonstrates several new features:
+
+- **Priority field**: `fieldType: "COUNT"` with `searchLabel: "priority"` creates a numeric field that copies to `_search.priority` for proper numeric sorting operations, and `addToFilters: true` makes it available as a filter
+- **Status field**: `addToFilters: true` makes it available as a filter, `filterNameOverride` provides a custom display name "Dashboard Status", and `eagerGlobalOrdinals: true` optimizes aggregation performance for this frequently filtered field
+- **Owner field**: `fieldType: "URN"` with `eagerGlobalOrdinals: true` optimizes aggregation performance for owner-based filtering, and `searchLabel: "owner"` copies the field to `_search.owner` for ranking operations
+
+Now, when Datahub ingests Dashboards, it will index the priority and status fields in Elasticsearch. The priority field will be available for sorting operations, and both fields will be available as filters in the UI.
 
 Note, when @Searchable annotation is applied to a map, it will convert it into a list with "key.toString()
 =value.toString()" as elements. This allows us to index map fields, while not increasing the number of columns indexed.
@@ -455,9 +552,137 @@ like `aMapField.key1:value1`. As this method will increase the number of columns
 cause a mapping explosion in Elasticsearch. You should _not_ use the object fieldType if you expect your maps to get
 large.
 
+#### @SearchScore ⚠️ DEPRECATED
+
+**⚠️ DEPRECATED**: This annotation is deprecated and should not be used in new code. Use `searchLabel` with the new search tier system instead for ranking functionality.
+
+#### Search Tier and Label System
+
+The new search tier and label system provides a powerful way to organize search fields and create specialized search experiences:
+
+**Search Tiers (`searchTier`):**
+
+- Fields with `searchTier` are automatically copied to `_search.tier_{tier}` fields
+- This creates a fundamental change in search architecture: **fulltext search capabilities are now determined by the tier, not the individual field type**
+- All fields assigned to the same tier (e.g., `_search.tier_1`) are consolidated into a single searchable field, regardless of their individual `fieldType`
+- This allows you to create tiered search experiences where different fields contribute to different search priorities
+- Use `searchIndexed: true` if you need direct access to the field for filtering/sorting while maintaining tier functionality
+
+**Search Labels (`searchLabel`):**
+
+- Fields with `searchLabel` are copied to `_search.{label}` fields (without prefixes)
+- Replaces the previous `sortLabel` and `boostLabel` annotations for a unified approach
+- Useful for creating specialized search, sorting, and ranking operations across multiple aspects
+- Automatically sets `index: false` to optimize storage
+
+**Entity Field Consolidation (`entityFieldName`):**
+
+- Allows multiple aspects to consolidate into a single entity-level field
+- Useful for creating unified search experiences across different aspect types
+- Fields are copied to `_search.{entityFieldName}` with root-level aliases
+
+**Benefits of the New System:**
+
+1. **Organized Search Fields**: All search-related fields are grouped under `_search.*`
+2. **Efficient Indexing**: Original fields are not indexed (index: false) but copied to search fields
+3. **Easy Access**: Aliases provide convenient access to fields at the root level
+4. **Flexible Querying**: Search queries can target specific tier, sort, or ranking fields
+5. **Performance**: Optimized storage and query patterns for complex search scenarios
+
+**Architectural Impact:**
+
+- **Before**: Each field's `fieldType` determined its individual search capabilities and analyzers
+- **After**: The `searchTier` determines fulltext search capabilities, while `fieldType` primarily affects storage format and individual field queries
+- **Search Consolidation**: Fields from different aspects with the same tier are automatically consolidated into unified search fields
+- **Simplified Search Logic**: Search queries can target entire tiers rather than individual fields, making complex search scenarios more manageable
+
+#### Migration Guide for Deprecated Features
+
+If you're currently using deprecated field types or parameters, here's how to migrate to the new system:
+
+**Field Type Migrations:**
+
+| Deprecated     | Recommended Replacement | Notes                                                        |
+| -------------- | ----------------------- | ------------------------------------------------------------ |
+| `TEXT_PARTIAL` | `TEXT`                  | Use TEXT with appropriate analyzers for partial matching     |
+| `WORD_GRAM`    | `TEXT`                  | Use TEXT with word delimited analyzers for word-based search |
+| `BROWSE_PATH`  | `BROWSE_PATH_V2`        | Use BROWSE_PATH_V2 for improved path hierarchy support       |
+| `URN`          | `TEXT`                  | Use TEXT with URN analyzers for component-based search       |
+| `URN_PARTIAL`  | `TEXT`                  | Use TEXT with URN analyzers and partial matching             |
+
+**Parameter Migrations:**
+
+| Deprecated Pattern                        | New Pattern     | Benefits                                                                  |
+| ----------------------------------------- | --------------- | ------------------------------------------------------------------------- |
+| `queryByDefault: true`                    | `searchTier: 1` | More explicit control over search behavior and better performance         |
+| `enableAutocomplete: true`                | `searchTier: 1` | Better performance and organization                                       |
+| `includeSystemModifiedAt: true`           | **Automatic**   | System modification tracking is now handled automatically for all aspects |
+| `systemModifiedAtFieldName: "customName"` | **Automatic**   | System modification field names are now standardized automatically        |
+
+**Example Migration:**
+
+```aidl
+// Old deprecated approach
+@Searchable = {
+  "fieldType": "TEXT_PARTIAL",
+  "queryByDefault": true,
+  "enableAutocomplete": true,
+  "boostScore": 10.0
+}
+title: string
+
+// New recommended approach
+@Searchable = {
+  "fieldType": "TEXT",
+  "searchTier": 1,
+  "entityFieldName": "name"
+}
+title: string
+```
+
+**Tier Consolidation Example:**
+
+```aidl
+// Multiple aspects can now contribute to the same search tier
+record DatasetInfo {
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "searchTier": 1,
+    "entityFieldName": "name"
+  }
+  name: string
+
+  @Searchable = {
+    "fieldType": "TEXT",
+    "searchTier": 1,
+    "entityFieldName": "description"
+  }
+  description: string
+}
+
+record ChartInfo {
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "searchTier": 1,
+    "entityFieldName": "name"
+  }
+  chartName: string
+}
+```
+
+In this example, all three fields (`name`, `description`, `chartName`) are automatically consolidated into `_search.tier_1`. A single search query against `_search.tier_1:*` will search across all these fields simultaneously, regardless of their individual aspect and field locations. The `fieldType` now primarily determines how each field is stored and accessed individually, while the tier determines how it participates in fulltext search.
+
+**Benefits of Migration:**
+
+- Better search performance through optimized indexing
+- More organized search field structure
+- Enhanced query capabilities with tier-based targeting
+- Future-proof annotations that won't be deprecated
+- Improved Elasticsearch mapping efficiency
+
 #### @Relationship
 
-This annotation is applied to fields inside an Aspect. This annotation creates edges between an Entity’s Urn and the
+This annotation is applied to fields inside an Aspect. This annotation creates edges between an Entity's Urn and the
 destination of the annotated field when the Entity is ingested. @Relationship annotations must be applied to fields of
 type Urn.
 
@@ -469,7 +694,7 @@ It takes the following parameters:
 
 ##### Example
 
-Let’s take a look at a real world example to see how this annotation is used. The `Owner.pdl` struct is referenced by
+Let's take a look at a real world example to see how this annotation is used. The `Owner.pdl` struct is referenced by
 the `Ownership.pdl` aspect. `Owned.pdl` contains a relationship to a CorpUser or CorpGroup:
 
 ```

@@ -1,12 +1,15 @@
 package io.datahubproject.test.fixtures.search;
 
 import static com.linkedin.metadata.Constants.*;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS_DISABLED;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.config.SearchTestContainerConfiguration.REFRESH_INTERVAL_SECONDS;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -16,6 +19,7 @@ import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
@@ -28,8 +32,9 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacyMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -44,6 +49,7 @@ import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.SearchTestUtils;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.io.IOException;
 import java.util.Collections;
@@ -97,7 +103,8 @@ public class SampleDataFixtureConfiguration {
         IndexConventionImpl.IndexConventionConfig.builder()
             .prefix(prefix)
             .hashIdAlgo("MD5")
-            .build());
+            .build(),
+        SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
   }
 
   @Bean(name = "longTailIndexConvention")
@@ -106,7 +113,8 @@ public class SampleDataFixtureConfiguration {
         IndexConventionImpl.IndexConventionConfig.builder()
             .prefix(prefix)
             .hashIdAlgo("MD5")
-            .build());
+            .build(),
+        SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
   }
 
   @Bean(name = "sampleDataFixtureName")
@@ -149,8 +157,21 @@ public class SampleDataFixtureConfiguration {
   @Bean("sampleDataESIndexBuilder")
   protected ESIndexBuilder esIndexBuilder() {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+
+    // Create a configuration with the test values
+    ElasticSearchConfiguration testConfig =
+        TEST_ES_SEARCH_CONFIG.toBuilder()
+            .index(
+                TEST_ES_SEARCH_CONFIG.getIndex().toBuilder()
+                    .numShards(1)
+                    .numReplicas(0)
+                    .numRetries(1)
+                    .refreshIntervalSeconds(1)
+                    .build())
+            .build();
+
     return new ESIndexBuilder(
-        _searchClient, 1, 0, 1, 1, Map.of(), true, false, false, TEST_OS_SEARCH_CONFIG, gitVersion);
+        _searchClient, testConfig, TEST_ES_STRUCT_PROPS_DISABLED, Map.of(), gitVersion);
   }
 
   protected ElasticSearchService entitySearchServiceHelper(
@@ -159,7 +180,10 @@ public class SampleDataFixtureConfiguration {
 
     IndexConfiguration indexConfiguration = new IndexConfiguration();
     indexConfiguration.setMinSearchFilterLength(3);
-    SettingsBuilder settingsBuilder = new SettingsBuilder(null, indexConfiguration);
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.isV2EntityIndex(anyString())).thenReturn(true);
+    LegacySettingsBuilder settingsBuilder =
+        new LegacySettingsBuilder(indexConfiguration, indexConvention);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             _searchClient,
@@ -179,10 +203,9 @@ public class SampleDataFixtureConfiguration {
 
     return new ElasticSearchService(
         indexBuilder,
-        opContext.getEntityRegistry(),
-        opContext.getSearchContext().getIndexConvention(),
-        settingsBuilder,
         TEST_SEARCH_SERVICE_CONFIG,
+        TEST_ES_SEARCH_CONFIG,
+        new LegacyMappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
         searchDAO,
         browseDAO,
         esWriteDAO);
@@ -206,7 +229,7 @@ public class SampleDataFixtureConfiguration {
                 _searchClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null),
             indexBuilder,
             indexConvention.getIdHashAlgo());
-    graphService.reindexAll(Collections.emptySet());
+    graphService.reindexAll(opContext, Collections.emptySet());
     return graphService;
   }
 
@@ -276,7 +299,7 @@ public class SampleDataFixtureConfiguration {
             TEST_SEARCH_SERVICE_CONFIG);
 
     // Build indices & write fixture data
-    entitySearchService.reindexAll(Collections.emptySet());
+    entitySearchService.reindexAll(opContext, Collections.emptySet());
 
     FixtureReader.builder()
         .bulkProcessor(_bulkProcessor)

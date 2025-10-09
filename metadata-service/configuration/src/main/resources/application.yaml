@@ -340,6 +340,16 @@ elasticsearch:
   opensearchUseAwsIamAuth: ${OPENSEARCH_USE_AWS_IAM_AUTH:false}
   region: ${AWS_REGION:#{null}}
   idHashAlgo: ${ELASTIC_ID_HASH_ALGO:MD5}
+  entityIndex:
+    v2:
+      enabled: ${ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED:true}
+      cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V2_CLEANUP:false}
+    v3:
+      enabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED:false}
+      cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V3_CLEANUP:false}
+      analyzerConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_ANALYZER_CONFIG:search_entity_analyzer_config.yaml}
+      mappingConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAPPING_CONFIG:search_entity_mapping_config.yaml}
+      maxFieldsLimit: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAX_FIELDS_LIMIT:5000}
   # Multi-client shim configuration
   shim:
     # Enable the search client shim (false = use legacy RestHighLevelClient)
@@ -383,7 +393,7 @@ elasticsearch:
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
     maxValueLength: ${SEARCH_DOCUMENT_MAX_VALUE_LENGTH:4096} # i.e. customProperty values
-    mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
+    mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:}
     enableMappingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX:false}
     enableSettingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX:false}
     maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:0} # <= 0 - no timeout

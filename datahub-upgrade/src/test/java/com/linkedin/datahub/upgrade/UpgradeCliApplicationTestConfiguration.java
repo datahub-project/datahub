@@ -18,6 +18,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.annotation.Nonnull;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
@@ -26,6 +27,7 @@ import org.springframework.context.annotation.Primary;
 
 @TestConfiguration
 @Import(value = {SystemAuthenticationFactory.class})
+@EnableConfigurationProperties
 public class UpgradeCliApplicationTestConfiguration {
 
   // TODO: We cannot remove the MockBean annotation here because with MockitoBean it is still trying

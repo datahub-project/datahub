@@ -1,21 +1,26 @@
-package com.linkedin.metadata.search.elasticsearch.indexbuilder;
+package com.linkedin.metadata.search.elasticsearch.index.entity.v2;
+
+import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 /** Builder for generating settings for elasticsearch indices */
-public class SettingsBuilder {
+public class LegacySettingsBuilder implements SettingsBuilder {
 
   // ElasticSearch Property Map Keys
   public static final String ALL = "all";
@@ -46,7 +51,6 @@ public class SettingsBuilder {
   public static final String STOPWORDS = "stopwords";
   public static final String SYNONYMS = "synonyms";
   public static final String TOKENIZER = "tokenizer";
-  public static final String TYPE = "type";
   public static final String TYPE_TABLE = "type_table";
   public static final String DELIMITER = "delimiter";
   public static final String UNIT_SEPARATOR_DELIMITER = "␟";
@@ -160,29 +164,38 @@ public class SettingsBuilder {
   public static final List<String> WORD_GRAM_TOKEN_FILTERS =
       ImmutableList.of(ASCII_FOLDING, LOWERCASE, TRIM, REMOVE_QUOTES);
 
-  public final Map<String, Object> settings;
-  private final IndexConfiguration indexConfiguration;
+  final String mainTokenizer;
+  @Nonnull private final IndexConvention indexConvention;
 
-  public SettingsBuilder(String mainTokenizer, IndexConfiguration indexConfiguration) {
+  public LegacySettingsBuilder(
+      @Nonnull IndexConfiguration indexConfiguration, @Nonnull IndexConvention indexConvention) {
+    this.mainTokenizer = indexConfiguration.getMainTokenizer();
+    this.indexConvention = indexConvention;
+  }
+
+  @Override
+  public Map<String, Object> getSettings(
+      @Nonnull IndexConfiguration indexConfiguration, @Nonnull String indexName) {
     try {
-      this.indexConfiguration = indexConfiguration;
-      settings = buildSettings(mainTokenizer);
+      // For v2, only apply settings to indices that match the v2 entity naming pattern
+      if (!indexConvention.isV2EntityIndex(indexName)) {
+        // Return empty settings if this is not a v2 entity index
+        return ImmutableMap.of();
+      }
+      return buildSettings(indexConfiguration);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
   }
 
-  public Map<String, Object> getSettings() {
-    return settings;
-  }
-
-  private Map<String, Object> buildSettings(String mainTokenizer) throws IOException {
+  private Map<String, Object> buildSettings(@Nonnull IndexConfiguration indexConfiguration)
+      throws IOException {
     ImmutableMap.Builder<String, Object> settings = ImmutableMap.builder();
     settings.put(MAX_NGRAM_DIFF, 17);
     settings.put(
         ANALYSIS,
         ImmutableMap.<String, Object>builder()
-            .put(FILTER, buildFilters())
+            .put(FILTER, buildFilters(indexConfiguration))
             .put(TOKENIZER, buildTokenizers())
             .put(NORMALIZER, buildNormalizers())
             .put(ANALYZER, buildAnalyzers(mainTokenizer))
@@ -190,7 +203,8 @@ public class SettingsBuilder {
     return settings.build();
   }
 
-  private Map<String, Object> buildFilters() throws IOException {
+  private Map<String, Object> buildFilters(@Nonnull IndexConfiguration indexConfiguration)
+      throws IOException {
     PathMatchingResourcePatternResolver resourceResolver =
         new PathMatchingResourcePatternResolver();
 
@@ -230,7 +244,7 @@ public class SettingsBuilder {
         MIN_LENGTH,
         ImmutableMap.<String, Object>builder()
             .put(TYPE, "length")
-            .put("min", this.indexConfiguration.getMinSearchFilterLength())
+            .put("min", indexConfiguration.getMinSearchFilterLength())
             .build());
 
     Resource stemOverride =

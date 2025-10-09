@@ -889,7 +889,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.plugin.name",
           "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.table.include.list",
           "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.database.server.id",
-          "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.database.include.list"
+          "mclProcessing.cdcSource.debeziumConfig.mysqlConfig.database.include.list",
+          "elasticsearch.entityIndex.v2.cleanup",
+          "elasticsearch.entityIndex.v3.analyzerConfig",
+          "elasticsearch.entityIndex.v3.mappingConfig",
+          "elasticsearch.entityIndex.v3.cleanup",
+          "elasticsearch.entityIndex.v3.maxFieldsLimit"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to

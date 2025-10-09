@@ -1,6 +1,7 @@
 package io.datahubproject.metadata.context;
 
 import com.linkedin.common.UrnArray;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -23,7 +24,9 @@ import lombok.Getter;
 public class SearchContext implements ContextInterface {
 
   public static SearchContext EMPTY =
-      SearchContext.builder().indexConvention(IndexConventionImpl.noPrefix("")).build();
+      SearchContext.builder()
+          .indexConvention(IndexConventionImpl.noPrefix("", new EntityIndexConfiguration()))
+          .build();
 
   public static SearchContext withFlagDefaults(
       @Nonnull SearchContext searchContext,
