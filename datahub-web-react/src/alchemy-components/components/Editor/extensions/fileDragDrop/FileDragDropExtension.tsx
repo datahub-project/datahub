@@ -17,11 +17,15 @@ import { EditorView } from 'prosemirror-view';
 import React, { ComponentType } from 'react';
 
 import { FileNodeView } from '@components/components/Editor/extensions/fileDragDrop/FileNodeView';
-import { 
-    FILE_ATTRS, 
-    FileNodeAttributes, 
-    SUPPORTED_FILE_TYPES, 
-    createFileNodeAttributes, 
+import {
+    FILE_ATTRS,
+    FileNodeAttributes,
+    SUPPORTED_FILE_TYPES,
+    createFileNodeAttributes,
+    generateFileId,
+    getFileTypeFromFilename,
+    getFileTypeFromUrl,
+    isFileUrl,
     validateFile,
 } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 
@@ -148,9 +152,11 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
 
         // Find the node by ID
         currentState.doc.descendants((descendantNode, descendantPos) => {
-            if (descendantNode.type === this.type && 
-                descendantNode.attrs.id === nodeId && 
-                descendantNode.attrs.url === '') {
+            if (
+                descendantNode.type === this.type &&
+                descendantNode.attrs.id === nodeId &&
+                descendantNode.attrs.url === ''
+            ) {
                 nodePos = descendantPos;
                 return false; // Stop searching
             }
@@ -201,6 +207,30 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                         return { ...extra.parse(node), url, name, type, size, id };
                     },
                 },
+                {
+                    tag: 'a',
+                    getAttrs: (node: string | Node) => {
+                        if (!isElementDomNode(node)) {
+                            return false;
+                        }
+
+                        const href = node.getAttribute('href');
+                        const text = node.textContent || '';
+
+                        // Check if this is a file link
+                        if (href && isFileUrl(href)) {
+                            // Extract file type and size from URL or filename if possible
+                            const type = getFileTypeFromUrl(href) || getFileTypeFromFilename(text) || '';
+                            const size = 0; // We don't store size in standard markdown
+                            const id = generateFileId();
+
+                            return { ...extra.parse(node), url: href, name: text, type, size, id };
+                        }
+
+                        return false;
+                    },
+                },
+                // can add tag: 'img', block here like above if we want to do something custom with images
                 ...(override.parseDOM ?? []),
             ],
             toDOM: (node) => {
@@ -214,19 +244,9 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                     [FILE_ATTRS.type]: type,
                     [FILE_ATTRS.size]: size.toString(),
                     [FILE_ATTRS.id]: id,
-                    style: 'padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 6px; margin: 8px 0; background: #fafafa; cursor: pointer; display: inline-block;',
-                    title: `${name} (${type}) - Click to download`,
                 };
 
-                // Create a more styled content for read-only mode
-                let icon = '📎';
-                if (type.startsWith('image/')) {
-                    icon = '🖼️';
-                } else if (type === 'application/pdf') {
-                    icon = '📄';
-                }
-
-                return ['div', attrs, `${icon} ${name}`];
+                return ['div', attrs, name];
             },
         };
     }

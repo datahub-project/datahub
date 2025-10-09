@@ -2,8 +2,8 @@ import { ErrorConstant, defaultImport, invariant, isElementDomNode } from '@remi
 import _TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 
-import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
 import { FILE_ATTRS } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
+import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
 import { ptToPx } from '@components/components/Editor/utils';
 
 const TurndownService = defaultImport(_TurndownService);
@@ -29,8 +29,8 @@ function extractFileAttributes(node: HTMLElement) {
  */
 function isValidMarkdownTable(element: HTMLElement): boolean {
     const invalidTags = ['ul', 'li', 'pre', 'table', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
-    
-    return !invalidTags.some(tag => element.getElementsByTagName(tag).length > 0);
+
+    return !invalidTags.some((tag) => element.getElementsByTagName(tag).length > 0);
 }
 
 const br = '<br />';
@@ -119,22 +119,26 @@ const turndownService = new TurndownService({
     .addRule('fileNodes', {
         filter: (node) => {
             // Check if node has file-node class or file-related attributes
-            return node.classList?.contains('file-node') || 
-                   (node.hasAttribute && (
-                       node.hasAttribute(FILE_ATTRS.name) || 
-                       node.hasAttribute('data-file-name')
-                   ));
+            return (
+                node.classList?.contains('file-node') ||
+                (node.hasAttribute && (node.hasAttribute(FILE_ATTRS.name) || node.hasAttribute('data-file-name')))
+            );
         },
         replacement: (_, node) => {
             invariant(isElementDomNode(node), {
                 code: ErrorConstant.EXTENSION,
                 message: `Invalid node \`${node.nodeName}\` encountered for file nodes when converting html to markdown.`,
             });
-            
-            const { url, name, type, size } = extractFileAttributes(node);
 
-            // Create our custom markdown syntax: [FILE:filename.ext|type|size|url]
-            return `\n\n[FILE:${name}|${type}|${size}|${url}]\n\n`;
+            const { url, name, type } = extractFileAttributes(node);
+
+            // Check if this is an image file
+            if (type.startsWith('image/')) {
+                // Create standard markdown image syntax: ![filename](url)
+                return `![${name}](${url})`;
+            }
+            // Create standard markdown link syntax: [filename](url)
+            return `[${name}](${url})`;
         },
     })
     /* Add support for underline */

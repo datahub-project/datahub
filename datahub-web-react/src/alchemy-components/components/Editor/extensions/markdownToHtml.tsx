@@ -1,7 +1,7 @@
 import { marked } from 'marked';
 
+import { FILE_ATTRS, isFileUrl } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
-import { FILE_ATTRS } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 
 marked.use({
     renderer: {
@@ -12,6 +12,11 @@ marked.use({
                 return `<span ${DATAHUB_MENTION_ATTRS.urn}="${href}">${text}</span>`;
             }
 
+            /* Check if this is a file link (URL points to our file storage) */
+            if (href && isFileUrl(href)) {
+                return `<div class="file-node" ${FILE_ATTRS.url}="${href}" ${FILE_ATTRS.name}="${text}"></div>`;
+            }
+
             /* Returning false allows marked to use the default link parser */
             return false;
         },
@@ -19,16 +24,7 @@ marked.use({
 });
 
 export function markdownToHtml(markdown: string, sanitizer?: (html: string) => string): string {
-    // Preprocess markdown to convert our custom file syntax to HTML
-    const processedMarkdown = markdown.replace(
-        /\[FILE:([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/g,
-        (match, name, type, size, url) => {
-            // Convert our file syntax to a div that matches our parseDOM rule
-            return `<div class="file-node" ${FILE_ATTRS.name}="${name}" ${FILE_ATTRS.type}="${type}" ${FILE_ATTRS.size}="${size}" ${FILE_ATTRS.url}="${url}"></div>`;
-        }
-    );
-
-    return marked(processedMarkdown, {
+    return marked(markdown, {
         gfm: true,
         smartLists: true,
         xhtml: true,

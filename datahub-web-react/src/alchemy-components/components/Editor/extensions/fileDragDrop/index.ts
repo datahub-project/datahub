@@ -9,4 +9,8 @@ export {
     getFileIconType, 
     handleFileDownload,
     validateFile,
+    isFileUrl,
+    getFileTypeFromUrl,
+    getFileTypeFromFilename,
+    generateFileId,
 } from './fileUtils';
