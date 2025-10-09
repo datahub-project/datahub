@@ -2,7 +2,8 @@
 Response Time Telemetry Utility
 
 A utility for recording and aggregating response time telemetry using
-t-digest algorithm for efficient percentile calculation.
+t-digest algorithm for efficient percentile calculation without storing all data.
+Beneficial for high-volume API calls usecases where we cannot store all response time data.
 """
 
 import threading
@@ -93,67 +94,53 @@ class ResponseTimeTelemetry:
         if self.count % self._compression_threshold == 0:
             self._tdigest.compress()
 
-    def get_custom_percentile(self, percentile: float) -> float:
-        """Calculate a custom percentile using t-digest."""
-        if self.count == 0:
-            return 0.0
-
-        return self._tdigest.percentile(percentile)
-
-    def get_context_stats(self) -> Dict[str, Any]:
-        """Get statistics about the context storage."""
-        return {
-            "total_calls": self.count,
-            "recent_contexts_count": len(self.recent_contexts),
-            "max_recent_contexts_count": self.max_recent_contexts_count,
-        }
-
     def configure_context_windows(
         self,
-        max_recent_contexts_count: Optional[int] = None,
-    ) -> None:
+        max_recent_contexts_count: Optional[int],
+    ) -> "ResponseTimeTelemetry":
         """Configure context window size."""
-        if max_recent_contexts_count is not None:
+        if self.count > 0:
+            raise ValueError(
+                "Context windows can only be configured before any data is added"
+            )
+
+        if max_recent_contexts_count:
             self.max_recent_contexts_count = max(1, max_recent_contexts_count)
 
-    def configure_percentiles(self, percentiles: List[int]) -> None:
+        return self
+
+    def configure_percentiles(self, percentiles: List[int]) -> "ResponseTimeTelemetry":
         """Configure which percentiles to calculate."""
-        if not percentiles:
-            raise ValueError("Percentiles list cannot be empty")
-
-        # Validate percentiles are between 0 and 100
-        for p in percentiles:
-            if not 0 <= p <= 100:
-                raise ValueError(f"Percentile {p} must be between 0 and 100")
-
-        self.percentiles_list = sorted(set(percentiles))  # Remove duplicates and sort
-        # Recalculate percentiles if we have data
         if self.count > 0:
-            self.percentiles = {
-                p: self._tdigest.percentile(p) for p in self.percentiles_list
-            }
+            raise ValueError(
+                "Percentiles can only be configured before any data is added"
+            )
 
-    def get_percentiles(self) -> Dict[int, float]:
-        """Get all calculated percentiles."""
-        return self.percentiles.copy()
+        if percentiles:
+            # Validate percentiles are between 0 and 100
+            for p in percentiles:
+                if not 0 <= p <= 100:
+                    raise ValueError(f"Percentile {p} must be between 0 and 100")
 
-    def get_percentile(self, percentile: int) -> float:
-        """Get a specific percentile value."""
-        return self.percentiles.get(percentile, 0.0)
+            self.percentiles_list = sorted(
+                set(percentiles)
+            )  # Remove duplicates and sort
 
-    def clear(self) -> None:
-        """Clear all data and reset to initial state."""
-        self.min_time = float("inf")
-        self.max_time = 0.0
-        self.mean_time = 0.0
-        self.count = 0
-        self.total_time = 0.0
-        self.max_time_context = None
-        self.min_time_context = None
-        self.recent_contexts.clear()
-        self.percentiles.clear()
-        # Reset t-digest
-        self._tdigest = TDigest()
+        return self
+
+    def configure_disable_recent_contexts(
+        self, disable_recent_contexts: Optional[bool]
+    ) -> "ResponseTimeTelemetry":
+        """Configure whether to disable recent context storage."""
+        if self.count > 0:
+            raise ValueError(
+                "Recent context storage can only be configured before any data is added"
+            )
+
+        if disable_recent_contexts is not None:
+            self.disable_recent_contexts = disable_recent_contexts
+
+        return self
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert telemetry to dictionary."""
@@ -186,12 +173,15 @@ class ResponseTimeMetrics:
     def __init__(
         self,
         config: TelemetryConfig,
-        disable_recent_contexts: bool = False,
+        percentiles: Optional[List[int]],
+        recent_contexts_window_size: Optional[int],
+        disable_recent_contexts: Optional[bool],
     ):
         self._stats: Dict[str, ResponseTimeTelemetry] = defaultdict(
-            lambda: ResponseTimeTelemetry(
-                disable_recent_contexts=disable_recent_contexts
-            )
+            lambda: ResponseTimeTelemetry()
+            .configure_percentiles(percentiles)
+            .configure_context_windows(recent_contexts_window_size)
+            .configure_disable_recent_contexts(disable_recent_contexts)
         )
         self._lock = threading.Lock()
         self._config = config
@@ -220,52 +210,6 @@ class ResponseTimeMetrics:
     def get_all_stats(self) -> Dict[str, Dict[str, Any]]:
         """Get all telemetry as dictionaries."""
         return {api_type: stats.to_dict() for api_type, stats in self._stats.items()}
-
-    def get_summary(self) -> Dict[str, Any]:
-        """Get a summary of all metrics."""
-        summary = {}
-        for api_type, stats in self._stats.items():
-            summary[api_type] = {
-                "min": stats.min_time,
-                "max": stats.max_time,
-                "mean": stats.mean_time,
-                "p99": stats.p99_time,
-                "p95": stats.p95_time,
-                "p90": stats.p90_time,
-                "p50": stats.p50_time,
-                "count": stats.count,
-            }
-        return summary
-
-    def reset_stats(self, api_type: Optional[str] = None) -> None:
-        """Reset telemetry for a specific API type or all types."""
-        with self._lock:
-            if api_type:
-                if api_type in self._stats:
-                    del self._stats[api_type]
-            else:
-                self._stats.clear()
-
-    def set_config(self, config: TelemetryConfig) -> None:
-        """Set the telemetry config for filtering API types."""
-        self._config = config
-
-    def configure_context_windows(
-        self,
-        max_recent_contexts_count: Optional[int] = None,
-    ) -> None:
-        """Configure context window size for all API types."""
-        with self._lock:
-            for stats in self._stats.values():
-                stats.configure_context_windows(
-                    max_recent_contexts_count=max_recent_contexts_count,
-                )
-
-    def configure_percentiles(self, percentiles: List[int]) -> None:
-        """Configure percentiles for all API types."""
-        with self._lock:
-            for stats in self._stats.values():
-                stats.configure_percentiles(percentiles)
 
     def track_response_time(
         self,
@@ -316,9 +260,14 @@ class ResponseTimeTracker:
 
 def create_response_time_metrics_instance(
     config: TelemetryConfig,
-    disable_recent_contexts: bool = False,
+    percentiles: Optional[List[int]] = None,
+    recent_contexts_window_size: Optional[int] = None,
+    disable_recent_contexts: Optional[bool] = None,
 ) -> ResponseTimeMetrics:
     """Create a new metrics instance."""
     return ResponseTimeMetrics(
-        config=config, disable_recent_contexts=disable_recent_contexts
+        config=config,
+        percentiles=percentiles,
+        recent_contexts_window_size=recent_contexts_window_size,
+        disable_recent_contexts=disable_recent_contexts,
     )
