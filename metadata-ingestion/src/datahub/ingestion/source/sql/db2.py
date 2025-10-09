@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import (
     Any,
     Dict,
@@ -9,7 +10,9 @@ from typing import (
 
 import ibm_db_sa
 import pydantic
+import sqlalchemy
 import sqlglot
+from sqlalchemy.engine import Row
 from sqlalchemy.engine.reflection import Inspector
 from sqlglot.dialects.dialect import NormalizationStrategy
 
@@ -59,22 +62,13 @@ class CustomDb2SqlAlchemyDialect(ibm_db_sa.dialect):
     def get_table_comment(self, connection, table_name, schema=None, **kwargs):
         # get_table_comment returns nothing for views
         # see: https://github.com/ibmdb/python-ibmdbsa/issues/171
-        comment = super().get_table_comment(
-            connection, table_name, schema=schema, **kwargs
-        )
-        if comment and comment.get("text"):
-            return comment
-
-        result = connection.execute(
-            """
-            select REMARKS
-            from SYSCAT.TABLES
-            where TABSCHEMA = ?
-            and TABNAME = ?
-        """,
-            (schema, table_name),
-        )
-        return {"text": result.scalar()}
+        # get_table_comment doesn't work on z/OS or i/AS400
+        # see: https://github.com/ibmdb/python-ibmdbsa/issues/174
+        return {
+            "text": _db2_get_table_comment(
+                sqlalchemy.inspect(connection), schema, table_name
+            )
+        }
 
 
 class Db2Config(BasicSQLAlchemyConfig):
@@ -145,6 +139,82 @@ class Db2Source(SQLAlchemySource):
     ) -> Tuple[Optional[str], str]:
         # Db2 views look up unqualified names in the schema from the session
         # when the view was created. Not the schema that the view itself lives in!
+        schema_name = _db2_get_view_qualifier_quoted(inspector, schema, view)
+        db_name = self.get_db_name(inspector)
+        return db_name, schema_name
+
+    def get_procedures_for_schema(
+        self, inspector: Inspector, schema: str, _db_name: str
+    ) -> Iterable[BaseProcedure]:
+        for row in _db2_get_procedures(inspector, schema):
+            if row["QUALIFIER"]:
+                # similar to views, stored procedures look up unqualified names in the
+                # schema from the session when they were created, not the schema of the
+                # proc itself. also quote the schema name so case-sensitive names make
+                # it through sqlglot without being normalized.
+                default_schema = _quote_identifier(row["QUALIFIER"].rstrip())
+            else:
+                default_schema = None
+
+            yield BaseProcedure(
+                name=row["ROUTINENAME"],
+                # language can have trailing spaces
+                language=row["LANGUAGE"].rstrip(),
+                procedure_definition=row["TEXT"],
+                comment=row["REMARKS"],
+                created=row["CREATE_TIME"],
+                last_altered=row["ALTER_TIME"],
+                default_schema=default_schema,
+                argument_signature=None,
+                return_type=None,
+                extra_properties={},
+            )
+
+
+def _db2_get_table_comment(inspector: Inspector, schema: str, table_name: str) -> str:
+    if inspector.has_table("TABLES", schema="SYSCAT"):
+        # Db2 LUW
+        query = """
+            select REMARKS
+            from SYSCAT.TABLES
+            where TABSCHEMA = ?
+            and TABNAME = ?
+        """
+
+    elif inspector.has_table("SYSTABLES", schema="SYSIBM"):
+        # Db2 z/OS
+        query = """
+            select REMARKS
+            from SYSIBM.SYSTABLES
+            where CREATOR = ?
+            and NAME = ?
+        """
+
+    elif inspector.has_table("SYSTABLES", schema="QSYS2"):
+        # Db2 for i/AS400
+        query = """
+            select LONG_COMMENT
+            from QSYS2.SYSTABLES
+            where TABLE_SCHEMA = ?
+            and TABLE_NAME = ?
+        """
+
+    else:
+        raise NotImplementedError(
+            "Couldn't find SYSCAT.TABLES, SYSIBM.SYSTABLES, or QSYS2.SYSTABLES"
+        )
+
+    return inspector.bind.execute(
+        query,
+        (schema, table_name),
+    ).scalar()
+
+
+def _db2_get_view_qualifier_quoted(
+    inspector: Inspector, schema: str, view: str
+) -> Optional[str]:
+    if inspector.has_table("VIEWS", schema="SYSCAT"):
+        # Db2 LUW
         result = inspector.bind.execute(
             """
             select QUALIFIER
@@ -152,18 +222,54 @@ class Db2Source(SQLAlchemySource):
             where VIEWSCHEMA = ?
             and VIEWNAME = ?
         """,
-            (schema, view),
+            (
+                schema,
+                view,
+            ),
         )
+
         # the schema name must be quoted so that case-sensitive names make it through
         # to the sqlglot lineage parser without being normalized.
-        schema_name = _quote_identifier(result.scalar().rstrip())
-        db_name = self.get_db_name(inspector)
-        return db_name, schema_name
+        return _quote_identifier(result.scalar().rstrip())
 
-    def get_procedures_for_schema(
-        self, inspector: Inspector, schema: str, _db_name: str
-    ) -> Iterable[BaseProcedure]:
+    elif inspector.has_table("SYSVIEWS", schema="SYSIBM"):
+        # Db2 z/OS
         result = inspector.bind.execute(
+            """
+                select PATHSCHEMAS
+                from SYSIBM.SYSVIEWS
+                where CREATOR = ?
+                and NAME = ?
+            """,
+            (
+                schema,
+                view,
+            ),
+        )
+        result = result.scalar().strip()
+        # format is like: "SYSIBM","SYSPROC","SMITH","SESSION_USER"
+        # split, ignoring commas inside double quotes
+        pathschemas = re.findall(r'([^",]+|"(?:[^"]|"")*")(?:,\s*|$)', result)
+        if len(pathschemas) > 1:
+            raise NotImplementedError(f"len(PATHSCHEMAS) > 1: {repr(pathschemas)}")
+        # already quoted, don't have to call _quote_identifier.
+        return pathschemas[0]
+
+    elif inspector.has_table("SYSVIEWS", schema="QSYS2"):
+        # Db2 i/AS400
+        # doesn't have this concept.
+        return None
+
+    else:
+        raise NotImplementedError(
+            "Couldn't find SYSCAT.VIEWS, SYSIBM.SYSVIEWS, or QSYS2.SYSVIEWS"
+        )
+
+
+def _db2_get_procedures(inspector: Inspector, schema: str) -> Iterable[Row]:
+    if inspector.has_table("ROUTINES", schema="SYSCAT"):
+        # Db2 LUW
+        yield from inspector.bind.execute(
             """
             select
                 ROUTINENAME,
@@ -179,21 +285,46 @@ class Db2Source(SQLAlchemySource):
         """,
             (schema,),
         )
-        for row in result:
-            yield BaseProcedure(
-                name=row["ROUTINENAME"],
-                # language can have trailing spaces
-                language=row["LANGUAGE"].rstrip(),
-                procedure_definition=row["TEXT"],
-                comment=row["REMARKS"],
-                created=row["CREATE_TIME"],
-                last_altered=row["ALTER_TIME"],
-                # similar to views, stored procedures look up unqualified names in the
-                # schema from the session when they were created, not the schema of the
-                # proc itself. also quote the schema name so case-sensitive names make
-                # it through sqlglot without being normalized.
-                default_schema=_quote_identifier(row["QUALIFIER"].rstrip()),
-                argument_signature=None,
-                return_type=None,
-                extra_properties={},
-            )
+
+    elif inspector.has_table("SYSROUTINES", schema="SYSIBM"):
+        # Db2 z/OS
+        yield from inspector.bind.execute(
+            """
+            select
+                NAME as ROUTINENAME,
+                LANGUAGE,
+                CREATEDTS as CREATE_TIME,
+                ALTEREDTS as ALTER_TIME,
+                NULL as QUALIFIER,
+                TEXT,
+                REMARKS
+            from SYSIBM.SYSROUTINES
+            where SCHEMA = ?
+            and ROUTINETYPE = 'P'
+        """,
+            (schema,),
+        )
+
+    elif inspector.has_table("SYSROUTINES", schema="QSYS2"):
+        # Db2 i/AS400
+        yield from inspector.bind.execute(
+            """
+            select
+                ROUTINE_NAME as ROUTINENAME,
+                ROUTINE_BODY as LANGUAGE,
+                ROUTINE_CREATED as CREATE_TIME,
+                LAST_ALTERED as ALTER_TIME,
+                SQL_PATH as QUALIFIER,
+                ROUTINE_DEFINITION as TEXT,
+                LONG_COMMENT as REMARKS
+            from QSYS2.SYSROUTINES
+            where ROUTINE_SCHEMA = ?
+            and ROUTINE_TYPE = 'PROCEDURE'
+        """,
+            (schema,),
+        )
+
+    else:
+        raise NotImplementedError(
+            "Couldn't find SYSCAT.ROUTINES, SYSIBM.SYSROUTINES, or QSYS2.SYSROUTINES"
+        )
