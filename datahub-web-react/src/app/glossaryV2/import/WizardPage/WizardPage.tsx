@@ -726,7 +726,7 @@ export const WizardPage = () => {
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             <BreadcrumbHeader
                 items={breadcrumbItems}
-                title="Import Glossary"
+                        title="Import Glossary"
                 subtitle="Import glossary terms from CSV files and manage their import status"
             />
             <PageContentContainer>
@@ -1059,26 +1059,33 @@ const GlossaryImportList = ({
 
     return (
         <>
-            <div style={{ marginBottom: '16px', maxWidth: '400px' }}>
-                <SearchBar
-                    placeholder="Search entities..."
-                    value={searchInput}
-                    onChange={handleSearchInputChange}
-                    ref={searchInputRef}
-                />
-            </div>
-            
-            <div style={{ marginBottom: '16px', maxWidth: '200px' }}>
-                <Select
-                    values={[statusFilter]}
-                    onUpdate={(values) => setStatusFilter(values[0] || '0')}
-                    options={[
-                        { label: 'All', value: '0' },
-                        { label: 'New', value: '1' },
-                        { label: 'Updated', value: '2' },
-                        { label: 'Conflict', value: '3' },
-                    ]}
-                />
+            <div style={{ 
+                marginBottom: '16px', 
+                display: 'flex', 
+                gap: '16px', 
+                alignItems: 'center' 
+            }}>
+                <div style={{ maxWidth: '400px', flex: '0 0 auto' }}>
+                    <SearchBar
+                        placeholder="Search entities..."
+                        value={searchInput}
+                        onChange={handleSearchInputChange}
+                        ref={searchInputRef}
+                    />
+                </div>
+                
+                <div style={{ maxWidth: '200px', flex: '0 0 auto' }}>
+                    <Select
+                        values={[statusFilter]}
+                        onUpdate={(values) => setStatusFilter(values[0] || '0')}
+                        options={[
+                            { label: 'All', value: '0' },
+                            { label: 'New', value: '1' },
+                            { label: 'Updated', value: '2' },
+                            { label: 'Conflict', value: '3' },
+                        ]}
+                    />
+                </div>
             </div>
 
             <Table
