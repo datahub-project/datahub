@@ -4,9 +4,8 @@ import { Button, Card, Image, Spin, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { FILE_ATTRS } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
-
-import { colors } from '@src/alchemy-components/theme';
+import colors from '@components/theme/foundations/colors';
+import { FILE_ATTRS, FileNodeAttributes, formatFileSize, getFileIconType, handleFileDownload } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 
 const { Text } = Typography;
 
@@ -94,59 +93,27 @@ const LoadingContainer = styled.div`
 
 interface FileNodeViewProps extends NodeViewComponentProps {
     node: {
-        attrs: {
-            url: string;
-            name: string;
-            type: string;
-            size: number;
-            id: string;
-        };
+        attrs: FileNodeAttributes;
     };
 }
 
-const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-};
-
 const getFileIcon = (type: string) => {
-    if (type.startsWith('image/')) {
-        return <FileImage size={24} color={colors.blue[600]} />;
-    }
-    if (type === 'application/pdf') {
-        return <FilePdf size={24} color={colors.red[600]} />;
-    }
-    return <File size={24} color={colors.gray[800]} />;
-};
-
-const handleDownload = (url: string, name: string) => {
-    if (!url) return;
-
-    // Use window.open to ensure it opens in a new tab
-    const newWindow = window.open(url, '_blank');
+    const iconType = getFileIconType(type);
     
-    // If window.open was blocked (popup blocker), fall back to direct download
-    if (!newWindow) {
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = name;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    switch (iconType) {
+        case 'image':
+            return <FileImage size={24} color={colors.blue[600]} />;
+        case 'pdf':
+            return <FilePdf size={24} color={colors.red[600]} />;
+        case 'document':
+            return <File size={24} color={colors.green[600]} />;
+        default:
+            return <File size={24} color={colors.gray[800]} />;
     }
 };
 
 export const FileNodeView: React.FC<FileNodeViewProps> = ({ node }) => {
     const { url, name, type, size, id } = node.attrs;
-
-    // Can add resolution to get real URL from backend here and have loading state while we ask for pre-signed URL to download given the file ID
-
-    console.log('🔥 FileNodeView rendering with attrs:', { url, name, type, size, id });
 
     // Create props with data attributes for markdown conversion
     // These must match exactly what toDOM creates in the extension
@@ -157,15 +124,7 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node }) => {
         [FILE_ATTRS.type]: type,
         [FILE_ATTRS.size]: size.toString(),
         [FILE_ATTRS.id]: id,
-        // Also add the standard data- attributes that HTML expects
-        'data-file-url': url,
-        'data-file-name': name,
-        'data-file-type': type,
-        'data-file-size': size.toString(),
-        'data-file-id': id,
     };
-
-    console.log('🔥 Container props:', containerProps);
 
     // Show loading state if no URL yet (file is being uploaded)
     if (!url) {
@@ -203,7 +162,7 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node }) => {
                         <Button
                             type="text"
                             icon={<DownloadSimple size={16} />}
-                            onClick={() => handleDownload(url, name)}
+                            onClick={() => handleFileDownload(url, name)}
                             title="Download file"
                         />
                     </FileInfo>
@@ -227,7 +186,7 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node }) => {
                         icon={<DownloadSimple size={16} />}
                         onClick={(e) => {
                             e.stopPropagation();
-                            handleDownload(url, name);
+                            handleFileDownload(url, name);
                         }}
                         title="Download file"
                     />

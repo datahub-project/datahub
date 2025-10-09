@@ -3,10 +3,24 @@ import _TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 
 import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
-import { FILE_ATTRS } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
+import { FILE_ATTRS } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { ptToPx } from '@components/components/Editor/utils';
 
 const TurndownService = defaultImport(_TurndownService);
+
+/**
+ * Extracts file attributes from a DOM node with fallback to data- attributes
+ * @param node - the DOM node containing file attributes
+ * @returns object with file attributes
+ */
+function extractFileAttributes(node: HTMLElement) {
+    return {
+        url: node.getAttribute(FILE_ATTRS.url) || node.getAttribute('data-file-url') || '',
+        name: node.getAttribute(FILE_ATTRS.name) || node.getAttribute('data-file-name') || '',
+        type: node.getAttribute(FILE_ATTRS.type) || node.getAttribute('data-file-type') || '',
+        size: node.getAttribute(FILE_ATTRS.size) || node.getAttribute('data-file-size') || '0',
+    };
+}
 
 /**
  * Checks if the input HTML table could be parsed into a markdown table
@@ -14,16 +28,9 @@ const TurndownService = defaultImport(_TurndownService);
  * @returns true if the table is a valid markdown table, false otherwise
  */
 function isValidMarkdownTable(element: HTMLElement): boolean {
-    let valid = true;
-
     const invalidTags = ['ul', 'li', 'pre', 'table', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
-    invalidTags.forEach((tag) => {
-        if (element.getElementsByTagName(tag).length > 0) {
-            valid = false;
-        }
-    });
-
-    return valid;
+    
+    return !invalidTags.some(tag => element.getElementsByTagName(tag).length > 0);
 }
 
 const br = '<br />';
@@ -111,48 +118,23 @@ const turndownService = new TurndownService({
     /* Formats HTML file nodes to Markdown - looks for React components with file-node class */
     .addRule('fileNodes', {
         filter: (node) => {
-            // Look for elements with file-node class (from React components)
-            const hasFileClass = node.classList && node.classList.contains('file-node');
-            const hasFileAttrs = node.hasAttribute && (
-                node.hasAttribute(FILE_ATTRS.name) || 
-                node.hasAttribute('data-file-name')
-            );
-            
-            console.log('🔥 Turndown filter checking node:', {
-                nodeName: node.nodeName,
-                className: node.className,
-                classList: node.classList,
-                hasFileClass,
-                hasFileAttrs,
-                hasAttribute: !!node.hasAttribute,
-                attributes: node.attributes ? Array.from(node.attributes).map(attr => `${attr.name}=${attr.value}`) : []
-            });
-            
-            return hasFileClass || hasFileAttrs;
+            // Check if node has file-node class or file-related attributes
+            return node.classList?.contains('file-node') || 
+                   (node.hasAttribute && (
+                       node.hasAttribute(FILE_ATTRS.name) || 
+                       node.hasAttribute('data-file-name')
+                   ));
         },
         replacement: (_, node) => {
-            console.log('🔥 Turndown converting file node to markdown:', node);
             invariant(isElementDomNode(node), {
                 code: ErrorConstant.EXTENSION,
                 message: `Invalid node \`${node.nodeName}\` encountered for file nodes when converting html to markdown.`,
             });
             
-            // Try multiple attribute patterns since React might use different ones
-            const url = node.getAttribute(FILE_ATTRS.url) || 
-                       node.getAttribute('data-file-url') || '';
-            const name = node.getAttribute(FILE_ATTRS.name) || 
-                        node.getAttribute('data-file-name') || '';
-            const type = node.getAttribute(FILE_ATTRS.type) || 
-                        node.getAttribute('data-file-type') || '';
-            const size = node.getAttribute(FILE_ATTRS.size) || 
-                        node.getAttribute('data-file-size') || '0';
-
-            console.log('🔥 Extracted file attributes:', { url, name, type, size });
+            const { url, name, type, size } = extractFileAttributes(node);
 
             // Create our custom markdown syntax: [FILE:filename.ext|type|size|url]
-            const fileMarker = `\n\n[FILE:${name}|${type}|${size}|${url}]\n\n`;
-            console.log('🔥 Generated file marker:', fileMarker);
-            return fileMarker;
+            return `\n\n[FILE:${name}|${type}|${size}|${url}]\n\n`;
         },
     })
     /* Add support for underline */

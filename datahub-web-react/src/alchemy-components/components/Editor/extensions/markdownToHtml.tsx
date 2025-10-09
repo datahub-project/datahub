@@ -1,7 +1,7 @@
 import { marked } from 'marked';
 
 import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
-import { FILE_ATTRS } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
+import { FILE_ATTRS } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 
 marked.use({
     renderer: {
