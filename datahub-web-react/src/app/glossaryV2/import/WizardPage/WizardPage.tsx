@@ -1,5 +1,5 @@
 import { Button, Checkbox, Input, PageTitle, Pill, SearchBar, Select, SimpleSelect, Table, ActionsBar } from '@components';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
@@ -13,14 +13,14 @@ import { Entity, EntityData } from '../glossary.types';
 import { EntityDetailsModal } from './EntityDetailsModal/EntityDetailsModal';
 import { DiffModal } from './DiffModal/DiffModal';
 import { ImportProgressModal } from './ImportProgressModal/ImportProgressModal';
-import { useMockImportProcessing } from '../shared/hooks/useMockImportProcessing';
-import { useMockCsvProcessing } from '../shared/hooks/useMockCsvProcessing';
-import { useMockEntityManagement } from '../shared/hooks/useMockEntityManagement';
-import { useMockGraphQLOperations } from '../shared/hooks/useMockGraphQLOperations';
-import { useMockEntityComparison } from '../shared/hooks/useMockEntityComparison';
+import { useImportProcessing } from '../shared/hooks/useImportProcessing';
+import { useCsvProcessing } from '../shared/hooks/useCsvProcessing';
+import { useEntityManagement } from '../shared/hooks/useEntityManagement';
+import { useGraphQLOperations } from '../shared/hooks/useGraphQLOperations';
+import { useEntityComparison } from '../shared/hooks/useEntityComparison';
 import { useApolloClient } from '@apollo/client';
 import DropzoneTable from './DropzoneTable/DropzoneTable';
-import { useImportState } from './WizardPage.hooks';
+// import { useImportState } from './WizardPage.hooks'; // Remove mock data usage
 import { BreadcrumbHeader } from '../shared/components/BreadcrumbHeader';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
@@ -276,1509 +276,101 @@ const wizardSteps = [
     },
 ];
 
-// Mock data for now - will be replaced with real data
-const mockEntities: Entity[] = [
-    {
-        id: '1',
-        name: 'Data Quality',
-        type: 'glossaryNode',
-        urn: 'urn:glossaryNode:data-quality',
-        parentNames: ['Root'],
-        parentUrns: ['urn:glossaryNode:root'],
-        level: 1,
-        data: {
-            entity_type: 'glossaryNode',
-            urn: 'urn:glossaryNode:data-quality',
-            name: 'Data Quality',
-            description: 'Terms related to data quality metrics and processes',
-            term_source: 'Internal',
-            source_ref: 'DQ-001',
-            source_url: 'https://example.com/dq',
-            ownership: 'Data Team',
-            parent_nodes: 'Root',
-            related_contains: 'Data Validation, Data Profiling',
-            related_inherits: 'Quality Standards',
-            domain_urn: 'urn:domain:data-quality',
-            domain_name: 'Data Quality',
-            custom_properties: '{"priority": "high"}',
-        },
-        status: 'new' as const,
-    },
-    {
-        id: '2',
-        name: 'Data Validation',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:data-validation',
-        parentNames: ['Data Quality'],
-        parentUrns: ['urn:glossaryNode:data-quality'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:data-validation',
-            name: 'Data Validation',
-            description: 'Process of checking data for accuracy and completeness',
-            term_source: 'Internal',
-            source_ref: 'DV-001',
-            source_url: 'https://example.com/validation',
-            ownership: 'Data Team',
-            parent_nodes: 'Data Quality',
-            related_contains: '',
-            related_inherits: 'Data Quality',
-            domain_urn: 'urn:domain:data-quality',
-            domain_name: 'Data Quality',
-            custom_properties: '{"type": "process"}',
-        },
-        status: 'updated' as const,
-    },
-    {
-        id: '3',
-        name: 'Data Profiling',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:data-profiling',
-        parentNames: ['Data Quality'],
-        parentUrns: ['urn:glossaryNode:data-quality'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:data-profiling',
-            name: 'Data Profiling',
-            description: 'Analysis of data to understand its structure and content',
-            term_source: 'Internal',
-            source_ref: 'DP-001',
-            source_url: 'https://example.com/profiling',
-            ownership: 'Data Team',
-            parent_nodes: 'Data Quality',
-            related_contains: '',
-            related_inherits: 'Data Quality',
-            domain_urn: 'urn:domain:data-quality',
-            domain_name: 'Data Quality',
-            custom_properties: '{"type": "analysis"}',
-        },
-        status: 'conflict' as const,
-    },
-    {
-        id: '4',
-        name: 'Data Governance',
-        type: 'glossaryNode',
-        urn: 'urn:glossaryNode:data-governance',
-        parentNames: ['Root'],
-        parentUrns: ['urn:glossaryNode:root'],
-        level: 1,
-        data: {
-            entity_type: 'glossaryNode',
-            urn: 'urn:glossaryNode:data-governance',
-            name: 'Data Governance',
-            description: 'Framework for managing data assets and ensuring compliance',
-            term_source: 'External',
-            source_ref: 'DG-001',
-            source_url: 'https://example.com/governance',
-            ownership: 'Governance Team',
-            parent_nodes: 'Root',
-            related_contains: 'Data Policies, Data Standards',
-            related_inherits: 'Compliance Framework',
-            domain_urn: 'urn:domain:governance',
-            domain_name: 'Data Governance',
-            custom_properties: '{"framework": "DAMA"}',
-        },
-        status: 'new' as const,
-    },
-    {
-        id: '5',
-        name: 'Data Policies',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:data-policies',
-        parentNames: ['Data Governance'],
-        parentUrns: ['urn:glossaryNode:data-governance'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:data-policies',
-            name: 'Data Policies',
-            description: 'Rules and guidelines for data management and usage',
-            term_source: 'External',
-            source_ref: 'DP-002',
-            source_url: 'https://example.com/policies',
-            ownership: 'Governance Team',
-            parent_nodes: 'Data Governance',
-            related_contains: '',
-            related_inherits: 'Data Governance',
-            domain_urn: 'urn:domain:governance',
-            domain_name: 'Data Governance',
-            custom_properties: '{"category": "compliance"}',
-        },
-        status: 'updated' as const,
-    },
-    {
-        id: '6',
-        name: 'Data Standards',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:data-standards',
-        parentNames: ['Data Governance'],
-        parentUrns: ['urn:glossaryNode:data-governance'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:data-standards',
-            name: 'Data Standards',
-            description: 'Technical specifications for data formats and structures',
-            term_source: 'Internal',
-            source_ref: 'DS-001',
-            source_url: 'https://example.com/standards',
-            ownership: 'Data Architecture Team',
-            parent_nodes: 'Data Governance',
-            related_contains: '',
-            related_inherits: 'Data Governance',
-            domain_urn: 'urn:domain:governance',
-            domain_name: 'Data Governance',
-            custom_properties: '{"version": "2.1"}',
-        },
-        status: 'conflict' as const,
-    },
-    {
-        id: '7',
-        name: 'Data Security',
-        type: 'glossaryNode',
-        urn: 'urn:glossaryNode:data-security',
-        parentNames: ['Root'],
-        parentUrns: ['urn:glossaryNode:root'],
-        level: 1,
-        data: {
-            entity_type: 'glossaryNode',
-            urn: 'urn:glossaryNode:data-security',
-            name: 'Data Security',
-            description: 'Measures to protect data from unauthorized access and breaches',
-            term_source: 'Internal',
-            source_ref: 'SEC-001',
-            source_url: 'https://example.com/security',
-            ownership: 'Security Team',
-            parent_nodes: 'Root',
-            related_contains: 'Encryption, Access Control',
-            related_inherits: 'Security Framework',
-            domain_urn: 'urn:domain:security',
-            domain_name: 'Data Security',
-            custom_properties: '{"level": "critical"}',
-        },
-        status: 'new' as const,
-    },
-    {
-        id: '8',
-        name: 'Encryption',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:encryption',
-        parentNames: ['Data Security'],
-        parentUrns: ['urn:glossaryNode:data-security'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:encryption',
-            name: 'Encryption',
-            description: 'Process of encoding data to prevent unauthorized access',
-            term_source: 'External',
-            source_ref: 'ENC-001',
-            source_url: 'https://example.com/encryption',
-            ownership: 'Security Team',
-            parent_nodes: 'Data Security',
-            related_contains: '',
-            related_inherits: 'Data Security',
-            domain_urn: 'urn:domain:security',
-            domain_name: 'Data Security',
-            custom_properties: '{"algorithm": "AES-256"}',
-        },
-        status: 'updated' as const,
-    },
-    {
-        id: '9',
-        name: 'Access Control',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:access-control',
-        parentNames: ['Data Security'],
-        parentUrns: ['urn:glossaryNode:data-security'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:access-control',
-            name: 'Access Control',
-            description: 'Mechanisms to control who can access data resources',
-            term_source: 'Internal',
-            source_ref: 'AC-001',
-            source_url: 'https://example.com/access-control',
-            ownership: 'Security Team',
-            parent_nodes: 'Data Security',
-            related_contains: '',
-            related_inherits: 'Data Security',
-            domain_urn: 'urn:domain:security',
-            domain_name: 'Data Security',
-            custom_properties: '{"model": "RBAC"}',
-        },
-        status: 'conflict' as const,
-    },
-    {
-        id: '10',
-        name: 'Data Analytics',
-        type: 'glossaryNode',
-        urn: 'urn:glossaryNode:data-analytics',
-        parentNames: ['Root'],
-        parentUrns: ['urn:glossaryNode:root'],
-        level: 1,
-        data: {
-            entity_type: 'glossaryNode',
-            urn: 'urn:glossaryNode:data-analytics',
-            name: 'Data Analytics',
-            description: 'Process of analyzing data to extract insights and patterns',
-            term_source: 'Internal',
-            source_ref: 'DA-001',
-            source_url: 'https://example.com/analytics',
-            ownership: 'Analytics Team',
-            parent_nodes: 'Root',
-            related_contains: 'Machine Learning, Statistical Analysis',
-            related_inherits: 'Analytics Framework',
-            domain_urn: 'urn:domain:analytics',
-            domain_name: 'Data Analytics',
-            custom_properties: '{"methodology": "CRISP-DM"}',
-        },
-        status: 'new' as const,
-    },
-    {
-        id: '11',
-        name: 'Machine Learning',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:machine-learning',
-        parentNames: ['Data Analytics'],
-        parentUrns: ['urn:glossaryNode:data-analytics'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:machine-learning',
-            name: 'Machine Learning',
-            description: 'Algorithm-based approach to data analysis and pattern recognition',
-            term_source: 'External',
-            source_ref: 'ML-001',
-            source_url: 'https://example.com/ml',
-            ownership: 'Analytics Team',
-            parent_nodes: 'Data Analytics',
-            related_contains: '',
-            related_inherits: 'Data Analytics',
-            domain_urn: 'urn:domain:analytics',
-            domain_name: 'Data Analytics',
-            custom_properties: '{"type": "supervised"}',
-        },
-        status: 'updated' as const,
-    },
-    {
-        id: '12',
-        name: 'Statistical Analysis',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:statistical-analysis',
-        parentNames: ['Data Analytics'],
-        parentUrns: ['urn:glossaryNode:data-analytics'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:statistical-analysis',
-            name: 'Statistical Analysis',
-            description: 'Mathematical methods for analyzing data patterns and relationships',
-            term_source: 'External',
-            source_ref: 'SA-001',
-            source_url: 'https://example.com/stats',
-            ownership: 'Analytics Team',
-            parent_nodes: 'Data Analytics',
-            related_contains: '',
-            related_inherits: 'Data Analytics',
-            domain_urn: 'urn:domain:analytics',
-            domain_name: 'Data Analytics',
-            custom_properties: '{"method": "regression"}',
-        },
-        status: 'conflict' as const,
-    },
-    {
-        id: '13',
-        name: 'Data Integration',
-        type: 'glossaryNode',
-        urn: 'urn:glossaryNode:data-integration',
-        parentNames: ['Root'],
-        parentUrns: ['urn:glossaryNode:root'],
-        level: 1,
-        data: {
-            entity_type: 'glossaryNode',
-            urn: 'urn:glossaryNode:data-integration',
-            name: 'Data Integration',
-            description: 'Process of combining data from multiple sources into a unified view',
-            term_source: 'Internal',
-            source_ref: 'DI-001',
-            source_url: 'https://example.com/integration',
-            ownership: 'Data Engineering Team',
-            parent_nodes: 'Root',
-            related_contains: 'ETL, Data Pipelines',
-            related_inherits: 'Integration Framework',
-            domain_urn: 'urn:domain:integration',
-            domain_name: 'Data Integration',
-            custom_properties: '{"pattern": "batch"}',
-        },
-        status: 'new' as const,
-    },
-    {
-        id: '14',
-        name: 'ETL',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:etl',
-        parentNames: ['Data Integration'],
-        parentUrns: ['urn:glossaryNode:data-integration'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:etl',
-            name: 'ETL',
-            description: 'Extract, Transform, Load - process for moving and transforming data',
-            term_source: 'External',
-            source_ref: 'ETL-001',
-            source_url: 'https://example.com/etl',
-            ownership: 'Data Engineering Team',
-            parent_nodes: 'Data Integration',
-            related_contains: '',
-            related_inherits: 'Data Integration',
-            domain_urn: 'urn:domain:integration',
-            domain_name: 'Data Integration',
-            custom_properties: '{"type": "batch"}',
-        },
-        status: 'updated' as const,
-    },
-    {
-        id: '15',
-        name: 'Data Pipelines',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:data-pipelines',
-        parentNames: ['Data Integration'],
-        parentUrns: ['urn:glossaryNode:data-integration'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:data-pipelines',
-            name: 'Data Pipelines',
-            description: 'Automated workflows for processing and moving data',
-            term_source: 'Internal',
-            source_ref: 'DP-003',
-            source_url: 'https://example.com/pipelines',
-            ownership: 'Data Engineering Team',
-            parent_nodes: 'Data Integration',
-            related_contains: '',
-            related_inherits: 'Data Integration',
-            domain_urn: 'urn:domain:integration',
-            domain_name: 'Data Integration',
-            custom_properties: '{"framework": "Apache Airflow"}',
-        },
-        status: 'conflict' as const,
-    },
-    {
-        id: '16',
-        name: 'Data Architecture',
-        type: 'glossaryNode',
-        urn: 'urn:glossaryNode:data-architecture',
-        parentNames: ['Root'],
-        parentUrns: ['urn:glossaryNode:root'],
-        level: 1,
-        data: {
-            entity_type: 'glossaryNode',
-            urn: 'urn:glossaryNode:data-architecture',
-            name: 'Data Architecture',
-            description: 'Design and structure of data systems and infrastructure',
-            term_source: 'Internal',
-            source_ref: 'ARCH-001',
-            source_url: 'https://example.com/architecture',
-            ownership: 'Data Architecture Team',
-            parent_nodes: 'Root',
-            related_contains: 'Data Models, Data Warehouses',
-            related_inherits: 'Architecture Framework',
-            domain_urn: 'urn:domain:architecture',
-            domain_name: 'Data Architecture',
-            custom_properties: '{"style": "layered"}',
-        },
-        status: 'new' as const,
-    },
-    {
-        id: '17',
-        name: 'Data Models',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:data-models',
-        parentNames: ['Data Architecture'],
-        parentUrns: ['urn:glossaryNode:data-architecture'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:data-models',
-            name: 'Data Models',
-            description: 'Conceptual representations of data structures and relationships',
-            term_source: 'External',
-            source_ref: 'DM-001',
-            source_url: 'https://example.com/models',
-            ownership: 'Data Architecture Team',
-            parent_nodes: 'Data Architecture',
-            related_contains: '',
-            related_inherits: 'Data Architecture',
-            domain_urn: 'urn:domain:architecture',
-            domain_name: 'Data Architecture',
-            custom_properties: '{"type": "conceptual"}',
-        },
-        status: 'updated' as const,
-    },
-    {
-        id: '18',
-        name: 'Data Warehouses',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:data-warehouses',
-        parentNames: ['Data Architecture'],
-        parentUrns: ['urn:glossaryNode:data-architecture'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:data-warehouses',
-            name: 'Data Warehouses',
-            description: 'Centralized repositories for storing and analyzing large datasets',
-            term_source: 'External',
-            source_ref: 'DW-001',
-            source_url: 'https://example.com/warehouses',
-            ownership: 'Data Architecture Team',
-            parent_nodes: 'Data Architecture',
-            related_contains: '',
-            related_inherits: 'Data Architecture',
-            domain_urn: 'urn:domain:architecture',
-            domain_name: 'Data Architecture',
-            custom_properties: '{"type": "OLAP"}',
-        },
-        status: 'conflict' as const,
-    },
-    {
-        id: '19',
-        name: 'Data Privacy',
-        type: 'glossaryNode',
-        urn: 'urn:glossaryNode:data-privacy',
-        parentNames: ['Root'],
-        parentUrns: ['urn:glossaryNode:root'],
-        level: 1,
-        data: {
-            entity_type: 'glossaryNode',
-            urn: 'urn:glossaryNode:data-privacy',
-            name: 'Data Privacy',
-            description: 'Protection of personal and sensitive data from unauthorized use',
-            term_source: 'External',
-            source_ref: 'PRIV-001',
-            source_url: 'https://example.com/privacy',
-            ownership: 'Privacy Team',
-            parent_nodes: 'Root',
-            related_contains: 'GDPR, Data Anonymization',
-            related_inherits: 'Privacy Framework',
-            domain_urn: 'urn:domain:privacy',
-            domain_name: 'Data Privacy',
-            custom_properties: '{"regulation": "GDPR"}',
-        },
-        status: 'new' as const,
-    },
-    {
-        id: '20',
-        name: 'GDPR',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:gdpr',
-        parentNames: ['Data Privacy'],
-        parentUrns: ['urn:glossaryNode:data-privacy'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:gdpr',
-            name: 'GDPR',
-            description: 'General Data Protection Regulation - EU privacy law',
-            term_source: 'External',
-            source_ref: 'GDPR-001',
-            source_url: 'https://example.com/gdpr',
-            ownership: 'Privacy Team',
-            parent_nodes: 'Data Privacy',
-            related_contains: '',
-            related_inherits: 'Data Privacy',
-            domain_urn: 'urn:domain:privacy',
-            domain_name: 'Data Privacy',
-            custom_properties: '{"jurisdiction": "EU"}',
-        },
-        status: 'updated' as const,
-    },
-    {
-        id: '21',
-        name: 'Data Anonymization',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:data-anonymization',
-        parentNames: ['Data Privacy'],
-        parentUrns: ['urn:glossaryNode:data-privacy'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:data-anonymization',
-            name: 'Data Anonymization',
-            description: 'Process of removing or masking personally identifiable information',
-            term_source: 'Internal',
-            source_ref: 'ANON-001',
-            source_url: 'https://example.com/anonymization',
-            ownership: 'Privacy Team',
-            parent_nodes: 'Data Privacy',
-            related_contains: '',
-            related_inherits: 'Data Privacy',
-            domain_urn: 'urn:domain:privacy',
-            domain_name: 'Data Privacy',
-            custom_properties: '{"method": "k-anonymity"}',
-        },
-        status: 'conflict' as const,
-    },
-    {
-        id: '22',
-        name: 'Data Lineage',
-        type: 'glossaryNode',
-        urn: 'urn:glossaryNode:data-lineage',
-        parentNames: ['Root'],
-        parentUrns: ['urn:glossaryNode:root'],
-        level: 1,
-        data: {
-            entity_type: 'glossaryNode',
-            urn: 'urn:glossaryNode:data-lineage',
-            name: 'Data Lineage',
-            description: 'Tracking the origin and transformation of data through systems',
-            term_source: 'Internal',
-            source_ref: 'LINE-001',
-            source_url: 'https://example.com/lineage',
-            ownership: 'Data Governance Team',
-            parent_nodes: 'Root',
-            related_contains: 'Data Provenance, Impact Analysis',
-            related_inherits: 'Lineage Framework',
-            domain_urn: 'urn:domain:lineage',
-            domain_name: 'Data Lineage',
-            custom_properties: '{"type": "technical"}',
-        },
-        status: 'new' as const,
-    },
-    {
-        id: '23',
-        name: 'Data Provenance',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:data-provenance',
-        parentNames: ['Data Lineage'],
-        parentUrns: ['urn:glossaryNode:data-lineage'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:data-provenance',
-            name: 'Data Provenance',
-            description: 'Documentation of the origin and history of data',
-            term_source: 'External',
-            source_ref: 'PROV-001',
-            source_url: 'https://example.com/provenance',
-            ownership: 'Data Governance Team',
-            parent_nodes: 'Data Lineage',
-            related_contains: '',
-            related_inherits: 'Data Lineage',
-            domain_urn: 'urn:domain:lineage',
-            domain_name: 'Data Lineage',
-            custom_properties: '{"standard": "W3C-PROV"}',
-        },
-        status: 'updated' as const,
-    },
-    {
-        id: '24',
-        name: 'Impact Analysis',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:impact-analysis',
-        parentNames: ['Data Lineage'],
-        parentUrns: ['urn:glossaryNode:data-lineage'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:impact-analysis',
-            name: 'Impact Analysis',
-            description: 'Assessment of how changes affect downstream data consumers',
-            term_source: 'Internal',
-            source_ref: 'IMP-001',
-            source_url: 'https://example.com/impact',
-            ownership: 'Data Governance Team',
-            parent_nodes: 'Data Lineage',
-            related_contains: '',
-            related_inherits: 'Data Lineage',
-            domain_urn: 'urn:domain:lineage',
-            domain_name: 'Data Lineage',
-            custom_properties: '{"scope": "downstream"}',
-        },
-        status: 'conflict' as const,
-    },
-    {
-        id: '25',
-        name: 'Data Catalog',
-        type: 'glossaryNode',
-        urn: 'urn:glossaryNode:data-catalog',
-        parentNames: ['Root'],
-        parentUrns: ['urn:glossaryNode:root'],
-        level: 1,
-        data: {
-            entity_type: 'glossaryNode',
-            urn: 'urn:glossaryNode:data-catalog',
-            name: 'Data Catalog',
-            description: 'Centralized inventory of data assets and their metadata',
-            term_source: 'Internal',
-            source_ref: 'CAT-001',
-            source_url: 'https://example.com/catalog',
-            ownership: 'Data Management Team',
-            parent_nodes: 'Root',
-            related_contains: 'Metadata Management, Data Discovery',
-            related_inherits: 'Catalog Framework',
-            domain_urn: 'urn:domain:catalog',
-            domain_name: 'Data Catalog',
-            custom_properties: '{"type": "automated"}',
-        },
-        status: 'new' as const,
-    },
-    {
-        id: '26',
-        name: 'Metadata Management',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:metadata-management',
-        parentNames: ['Data Catalog'],
-        parentUrns: ['urn:glossaryNode:data-catalog'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:metadata-management',
-            name: 'Metadata Management',
-            description: 'Process of collecting, storing, and maintaining data metadata',
-            term_source: 'External',
-            source_ref: 'META-001',
-            source_url: 'https://example.com/metadata',
-            ownership: 'Data Management Team',
-            parent_nodes: 'Data Catalog',
-            related_contains: '',
-            related_inherits: 'Data Catalog',
-            domain_urn: 'urn:domain:catalog',
-            domain_name: 'Data Catalog',
-            custom_properties: '{"standard": "Dublin Core"}',
-        },
-        status: 'updated' as const,
-    },
-    {
-        id: '27',
-        name: 'Data Discovery',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:data-discovery',
-        parentNames: ['Data Catalog'],
-        parentUrns: ['urn:glossaryNode:data-catalog'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:data-discovery',
-            name: 'Data Discovery',
-            description: 'Process of finding and identifying relevant data assets',
-            term_source: 'Internal',
-            source_ref: 'DISC-001',
-            source_url: 'https://example.com/discovery',
-            ownership: 'Data Management Team',
-            parent_nodes: 'Data Catalog',
-            related_contains: '',
-            related_inherits: 'Data Catalog',
-            domain_urn: 'urn:domain:catalog',
-            domain_name: 'Data Catalog',
-            custom_properties: '{"method": "search"}',
-        },
-        status: 'conflict' as const,
-    },
-    {
-        id: '28',
-        name: 'Data Stewardship',
-        type: 'glossaryNode',
-        urn: 'urn:glossaryNode:data-stewardship',
-        parentNames: ['Root'],
-        parentUrns: ['urn:glossaryNode:root'],
-        level: 1,
-        data: {
-            entity_type: 'glossaryNode',
-            urn: 'urn:glossaryNode:data-stewardship',
-            name: 'Data Stewardship',
-            description: 'Responsibility for data quality, governance, and lifecycle management',
-            term_source: 'External',
-            source_ref: 'STEW-001',
-            source_url: 'https://example.com/stewardship',
-            ownership: 'Data Stewards',
-            parent_nodes: 'Root',
-            related_contains: 'Data Ownership, Data Quality Management',
-            related_inherits: 'Stewardship Framework',
-            domain_urn: 'urn:domain:stewardship',
-            domain_name: 'Data Stewardship',
-            custom_properties: '{"role": "business"}',
-        },
-        status: 'new' as const,
-    },
-    {
-        id: '29',
-        name: 'Data Ownership',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:data-ownership',
-        parentNames: ['Data Stewardship'],
-        parentUrns: ['urn:glossaryNode:data-stewardship'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:data-ownership',
-            name: 'Data Ownership',
-            description: 'Assignment of responsibility and accountability for data assets',
-            term_source: 'Internal',
-            source_ref: 'OWN-001',
-            source_url: 'https://example.com/ownership',
-            ownership: 'Data Stewards',
-            parent_nodes: 'Data Stewardship',
-            related_contains: '',
-            related_inherits: 'Data Stewardship',
-            domain_urn: 'urn:domain:stewardship',
-            domain_name: 'Data Stewardship',
-            custom_properties: '{"type": "business"}',
-        },
-        status: 'updated' as const,
-    },
-    {
-        id: '30',
-        name: 'Data Quality Management',
-        type: 'glossaryTerm',
-        urn: 'urn:glossaryTerm:data-quality-management',
-        parentNames: ['Data Stewardship'],
-        parentUrns: ['urn:glossaryNode:data-stewardship'],
-        level: 2,
-        data: {
-            entity_type: 'glossaryTerm',
-            urn: 'urn:glossaryTerm:data-quality-management',
-            name: 'Data Quality Management',
-            description: 'Processes and practices for ensuring data accuracy and reliability',
-            term_source: 'External',
-            source_ref: 'DQM-001',
-            source_url: 'https://example.com/quality-management',
-            ownership: 'Data Stewards',
-            parent_nodes: 'Data Stewardship',
-            related_contains: '',
-            related_inherits: 'Data Stewardship',
-            domain_urn: 'urn:domain:stewardship',
-            domain_name: 'Data Stewardship',
-            custom_properties: '{"framework": "DMBOK"}',
-        },
-        status: 'conflict' as const,
-    },
-];
+// Mock data removed - real page loads actual data from GraphQL API
+
+// Function to load real data from GraphQL API
+const loadRealData = async (apolloClient: any, executeUnifiedGlossaryQuery: any) => {
+    try {
+        console.log('🔄 Loading real data from GraphQL API...');
+        
+        // Load existing glossary entities
+        const result = await executeUnifiedGlossaryQuery({
+            input: {
+                start: 0,
+                count: 1000,
+                query: '*',
+                filters: []
+            }
+        });
+        
+        console.log('📊 GraphQL result:', result);
+        
+        // Convert GraphQL entities to our format
+        const realEntities: Entity[] = result?.data?.search?.searchResults?.map((entity: any) => {
+            const isGlossaryTerm = entity.entity.__typename === 'GlossaryTerm';
+            const name = isGlossaryTerm 
+                ? entity.entity.hierarchicalName || entity.entity.properties?.name || ''
+                : entity.entity.properties?.name || '';
+
+            const parentNames = entity.entity.parentNodes?.nodes?.map((node: any) => node.properties.name) || [];
+
+            // Convert ownership from GraphQL format to CSV format
+            const ownershipUsers: string[] = [];
+            const ownershipGroups: string[] = [];
+            
+            if (entity.entity.ownership?.owners) {
+                entity.entity.ownership.owners.forEach((owner: any) => {
+                    const ownerType = owner.ownershipType?.info?.name || 'NONE';
+                    const ownerName = owner.owner.info?.displayName || owner.owner.username || owner.owner.name || '';
+                    const corpType = owner.owner.__typename === 'CorpGroup' ? 'CORP_GROUP' : 'CORP_USER';
+                    
+                    const ownershipEntry = `${ownerName}:${ownerType}`;
+                    
+                    if (corpType === 'CORP_GROUP') {
+                        ownershipGroups.push(ownershipEntry);
+        } else {
+                        ownershipUsers.push(ownershipEntry);
+                    }
+                });
+            }
+
+            return {
+                id: entity.entity.urn,
+                name,
+                type: isGlossaryTerm ? 'glossaryTerm' : 'glossaryNode',
+                urn: entity.entity.urn,
+                parentNames,
+                parentUrns: entity.entity.parentNodes?.nodes?.map((node: any) => node.urn) || [],
+                level: 0, // Will be calculated later
+                data: {
+                    entity_type: isGlossaryTerm ? 'glossaryTerm' : 'glossaryNode',
+                    urn: entity.entity.urn,
+                    name,
+                    description: entity.entity.properties?.description || '',
+                    term_source: entity.entity.properties?.termSource || '',
+                    source_ref: entity.entity.properties?.sourceRef || '',
+                    source_url: entity.entity.properties?.sourceUrl || '',
+                    ownership_users: ownershipUsers.join('|'),
+                    ownership_groups: ownershipGroups.join('|'),
+                    parent_nodes: parentNames.join(','),
+                    related_contains: '',
+                    related_inherits: '',
+                    domain_urn: entity.entity.domain?.domain.urn || '',
+                    domain_name: entity.entity.domain?.domain.properties.name || '',
+                    custom_properties: entity.entity.properties?.customProperties?.map((cp: any) => `${cp.key}:${cp.value}`).join(',') || ''
+                },
+                status: 'existing' as const
+            };
+        }) || [];
+        
+        console.log('✅ Loaded real entities:', realEntities.length);
+        return realEntities;
+        
+        } catch (error) {
+        console.error('❌ Error loading real data:', error);
+        return [];
+    }
+};
 
 const RefreshButton = ({ onClick }: { onClick?: () => void }) => {
-    return (
+                return (
         <Button variant="text" onClick={onClick} icon={{ icon: 'ArrowClockwise', source: 'phosphor' }}>
             Restart
-        </Button>
+                            </Button>
     );
 };
-
-// This is the main content component that replaces IngestionSourceList
-const GlossaryImportList = ({ 
-    entities, 
-    setEntities, 
-    onRestart, 
-    csvProcessing, 
-    entityManagement,
-    onStartImport,
-    isImportModalVisible,
-    setIsImportModalVisible,
-    progress,
-    isProcessing,
-    resetProgress,
-    retryFailed
-}: { 
-    entities: Entity[], 
-    setEntities: (entities: Entity[]) => void, 
-    onRestart: () => void,
-    csvProcessing: any,
-    entityManagement: any,
-    onStartImport: () => void,
-    isImportModalVisible: boolean,
-    setIsImportModalVisible: (visible: boolean) => void,
-    progress: any,
-    isProcessing: boolean,
-    resetProgress: () => void,
-    retryFailed: () => void
-}) => {
-    const [query, setQuery] = useState<undefined | string>(undefined);
-    const [searchInput, setSearchInput] = useState('');
-    const searchInputRef = useRef<any>(null);
-    const [statusFilter, setStatusFilter] = useState<number>(0); // 0 = All, 1 = New, 2 = Updated, 3 = Conflict
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    // const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]); // Hidden for now
-    const [editingCell, setEditingCell] = useState<{ rowId: string; field: string } | null>(null);
-    
-    // Entity Details Modal state
-    const [isModalVisible, setIsModalVisible] = useState(false);
-    const [isDiffModalVisible, setIsDiffModalVisible] = useState(false);
-    const [selectedEntity, setSelectedEntity] = useState<EntityData | null>(null);
-
-
-    // Initialize search input from URL parameter (if needed)
-    useEffect(() => {
-        if (query?.length) {
-            setSearchInput(query);
-            setTimeout(() => {
-                searchInputRef.current?.focus?.();
-            }, 0);
-        }
-    }, [query]);
-
-    const handleSearchInputChange = (value: string) => {
-        setSearchInput(value);
-    };
-
-    // Debounce the search query
-    useDebounce(
-        () => {
-            setQuery(searchInput);
-        },
-        300,
-        [searchInput],
-    );
-
-    const onChangeSort = useCallback((field: string, order: 'ascend' | 'descend' | undefined) => {
-        // Handle sorting logic here
-        console.log('Sort by:', field, order);
-    }, []);
-
-    const handleSortColumnChange = ({ sortColumn, sortOrder }) => {
-        onChangeSort(sortColumn, sortOrder);
-    };
-
-    const handleRefresh = () => {
-        onRestart();
-    };
-
-    // Checkbox handlers - Hidden for now
-    // const handleSelectAll = () => {
-    //     if (selectedRowKeys.length === totalItems) {
-    //         // Deselect all
-    //         setSelectedRowKeys([]);
-    //     } else {
-    //         // Select all
-    //         setSelectedRowKeys(entities.map(entity => entity.id));
-    //     }
-    // };
-
-    // const handleSelectRow = (entityId: string, checked: boolean) => {
-    //     if (checked) {
-    //         setSelectedRowKeys(prev => [...prev, entityId]);
-    //     } else {
-    //         setSelectedRowKeys(prev => prev.filter(id => id !== entityId));
-    //         // If we deselect any item, reset to manual selection mode
-    //         setSelectionMode('none');
-    //     }
-    // };
-
-    // Cell editing handlers
-    const handleCellEdit = (rowId: string, field: string) => {
-        setEditingCell({ rowId, field });
-    };
-
-    const handleCellSave = (rowId: string, field: string, value: string) => {
-        const updatedEntities = entities.map(entity => 
-            entity.id === rowId 
-                ? { ...entity, data: { ...entity.data, [field]: value } }
-                : entity
-        );
-        setEntities(updatedEntities);
-        setEditingCell(null);
-    };
-
-    const handleCellCancel = () => {
-        setEditingCell(null);
-    };
-
-    const isEditing = (rowId: string, field: string) => {
-        return editingCell?.rowId === rowId && editingCell?.field === field;
-    };
-
-    // Modal handlers
-
-    const handleCloseModal = useCallback(() => {
-        setIsModalVisible(false);
-        setSelectedEntity(null);
-    }, []);
-
-    const handleShowDiff = useCallback((entity: Entity) => {
-        setSelectedEntity(entity.data);
-        setIsDiffModalVisible(true);
-    }, []);
-
-    const handleCloseDiffModal = useCallback(() => {
-        setIsDiffModalVisible(false);
-        setSelectedEntity(null);
-    }, []);
-
-    const handleSaveEntity = useCallback((updatedData: EntityData) => {
-        if (selectedEntity) {
-            const updatedEntities = entities.map(entity => 
-                entity.data === selectedEntity 
-                    ? { ...entity, data: updatedData }
-                    : entity
-            );
-            setEntities(updatedEntities);
-        }
-        handleCloseModal();
-    }, [selectedEntity, handleCloseModal, entities, setEntities]);
-
-
-    const handleCloseImportModal = useCallback(() => {
-        setIsImportModalVisible(false);
-        if (!isProcessing) {
-            resetProgress();
-        }
-    }, [isProcessing, resetProgress]);
-
-    const handleRetryFailed = useCallback(async () => {
-        try {
-            await retryFailed();
-        } catch (error) {
-            console.error('Retry failed:', error);
-        }
-    }, [retryFailed]);
-
-    // Calculate total items for display
-    const totalItems = entities.length;
-
-    // Smart selection state logic - Hidden for now
-    // const isChecked = selectedRowKeys.length === totalItems && totalItems > 0;
-    // const isIndeterminate = selectedRowKeys.length > 0 && selectedRowKeys.length < totalItems;
-
-    const tableColumns: Column<Entity>[] = [
-        {
-            title: 'Diff',
-            key: 'diff',
-            render: (record) => (
-                <DiffButton
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        handleShowDiff(record);
-                    }}
-                >
-                    Diff
-                </DiffButton>
-            ),
-            width: '80px',
-            minWidth: '80px',
-            alignment: 'center',
-        },
-        {
-            title: 'Status',
-            key: 'status',
-            render: (record) => {
-                const getStatusColor = (status: string) => {
-                    switch (status) {
-                        case 'new':
-                            return 'green';
-                        case 'updated':
-                            return 'blue';
-                        case 'conflict':
-                            return 'red';
-                        default:
-                            return 'gray';
-                    }
-                };
-
-                const getStatusLabel = (status: string) => {
-                    return status.charAt(0).toUpperCase() + status.slice(1);
-                };
-
-                return (
-                    <Pill
-                        label={getStatusLabel(record.status)}
-                        color={getStatusColor(record.status)}
-                        size="sm"
-                        variant="filled"
-                    />
-                );
-            },
-            width: '100px',
-            minWidth: '100px',
-            alignment: 'left',
-            sorter: (a, b) => a.status.localeCompare(b.status),
-        },
-        {
-            title: 'Type',
-            key: 'type',
-            render: (record) => record.type === 'glossaryNode' ? 'Term Group' : 'Term',
-            width: '100px',
-            minWidth: '100px',
-            alignment: 'left',
-            sorter: (a, b) => a.type.localeCompare(b.type),
-        },
-        {
-            title: 'Name',
-            key: 'name',
-            render: (record) => {
-                if (isEditing(record.id, 'name')) {
-                    return (
-                        <EditableInputWrapper>
-                            <Input
-                                value={record.name}
-                                setValue={(value) => {
-                                    const stringValue = typeof value === 'function' ? value('') : value;
-                                    handleCellSave(record.id, 'name', stringValue);
-                                }}
-                                placeholder="Enter name"
-                                label=""
-                            />
-                        </EditableInputWrapper>
-                    );
-                }
-                return (
-                    <EditableCell onClick={() => handleCellEdit(record.id, 'name')}>
-                        {record.name}
-                    </EditableCell>
-                );
-            },
-            width: '200px',
-            minWidth: '200px',
-            alignment: 'left',
-            sorter: (a, b) => a.name.localeCompare(b.name),
-        },
-        {
-            title: 'Parent Node',
-            key: 'parentNode',
-            render: (record) => {
-                if (isEditing(record.id, 'parentNames')) {
-                    return (
-                        <EditableInputWrapper>
-                            <Input
-                                value={record.parentNames.join(' > ')}
-                                setValue={(value) => {
-                                    const stringValue = typeof value === 'function' ? value('') : value;
-                                    const newParentNames = stringValue.split(' > ').filter(name => name.trim());
-                                    const updatedEntities = entities.map(entity => 
-                                        entity.id === record.id 
-                                            ? { ...entity, parentNames: newParentNames }
-                                            : entity
-                                    );
-                                    setEntities(updatedEntities);
-                                }}
-                                placeholder="Enter parent path (e.g., Group > Subgroup)"
-                                label=""
-                            />
-                        </EditableInputWrapper>
-                    );
-                }
-                return (
-                    <EditableCell onClick={() => handleCellEdit(record.id, 'parentNames')}>
-                        {record.parentNames.join(' > ')}
-                    </EditableCell>
-                );
-            },
-            width: '150px',
-            minWidth: '150px',
-            alignment: 'left',
-            sorter: (a, b) => a.parentNames.join(' > ').localeCompare(b.parentNames.join(' > ')),
-        },
-        {
-            title: 'Description',
-            key: 'description',
-            render: (record) => {
-                if (isEditing(record.id, 'description')) {
-                    return (
-                        <EditableInputWrapper>
-                            <Input
-                                value={record.data.description}
-                                setValue={(value) => {
-                                    const stringValue = typeof value === 'function' ? value('') : value;
-                                    handleCellSave(record.id, 'description', stringValue);
-                                }}
-                                placeholder="Enter description"
-                                label=""
-                            />
-                        </EditableInputWrapper>
-                    );
-                }
-                return (
-                    <EditableCell onClick={() => handleCellEdit(record.id, 'description')}>
-                        {record.data.description}
-                    </EditableCell>
-                );
-            },
-            width: '250px',
-            minWidth: '250px',
-            alignment: 'left',
-            sorter: (a, b) => a.data.description.localeCompare(b.data.description),
-        },
-        {
-            title: 'Term Source',
-            key: 'termSource',
-            render: (record) => {
-                if (isEditing(record.id, 'term_source')) {
-                    return (
-                        <EditableInputWrapper>
-                            <Input
-                                value={record.data.term_source}
-                                setValue={(value) => {
-                                    const stringValue = typeof value === 'function' ? value('') : value;
-                                    handleCellSave(record.id, 'term_source', stringValue);
-                                }}
-                                placeholder="Enter term source"
-                                label=""
-                            />
-                        </EditableInputWrapper>
-                    );
-                }
-                return (
-                    <EditableCell onClick={() => handleCellEdit(record.id, 'term_source')}>
-                        {record.data.term_source}
-                    </EditableCell>
-                );
-            },
-            width: '140px',
-            minWidth: '140px',
-            alignment: 'left',
-            sorter: (a, b) => a.data.term_source.localeCompare(b.data.term_source),
-        },
-        {
-            title: 'Source Ref',
-            key: 'sourceRef',
-            render: (record) => {
-                if (isEditing(record.id, 'source_ref')) {
-                    return (
-                        <EditableInputWrapper>
-                            <Input
-                                value={record.data.source_ref}
-                                setValue={(value) => {
-                                    const stringValue = typeof value === 'function' ? value('') : value;
-                                    handleCellSave(record.id, 'source_ref', stringValue);
-                                }}
-                                placeholder="Enter source ref"
-                                label=""
-                            />
-                        </EditableInputWrapper>
-                    );
-                }
-                return (
-                    <EditableCell onClick={() => handleCellEdit(record.id, 'source_ref')}>
-                        {record.data.source_ref}
-                    </EditableCell>
-                );
-            },
-            width: '120px',
-            minWidth: '120px',
-            alignment: 'left',
-            sorter: (a, b) => a.data.source_ref.localeCompare(b.data.source_ref),
-        },
-        {
-            title: 'Source URL',
-            key: 'sourceUrl',
-            render: (record) => {
-                if (isEditing(record.id, 'source_url')) {
-                    return (
-                        <EditableInputWrapper>
-                            <Input
-                                value={record.data.source_url}
-                                setValue={(value) => {
-                                    const stringValue = typeof value === 'function' ? value('') : value;
-                                    handleCellSave(record.id, 'source_url', stringValue);
-                                }}
-                                placeholder="Enter source URL"
-                                label=""
-                            />
-                        </EditableInputWrapper>
-                    );
-                }
-                return (
-                    <EditableCell onClick={() => handleCellEdit(record.id, 'source_url')}>
-                        {record.data.source_url}
-                    </EditableCell>
-                );
-            },
-            width: '150px',
-            minWidth: '150px',
-            alignment: 'left',
-            sorter: (a, b) => a.data.source_url.localeCompare(b.data.source_url),
-        },
-        {
-            title: 'Ownership (Users)',
-            key: 'ownership_users',
-            render: (record) => {
-                if (isEditing(record.id, 'ownership_users')) {
-                    return (
-                        <EditableInputWrapper>
-                            <Input
-                                value={record.data.ownership_users}
-                                setValue={(value) => {
-                                    const stringValue = typeof value === 'function' ? value('') : value;
-                                    handleCellSave(record.id, 'ownership_users', stringValue);
-                                }}
-                                placeholder="Enter user ownership (e.g., admin:DEVELOPER)"
-                                label=""
-                            />
-                        </EditableInputWrapper>
-                    );
-                }
-                return (
-                    <EditableCell onClick={() => handleCellEdit(record.id, 'ownership_users')}>
-                        {record.data.ownership_users}
-                    </EditableCell>
-                );
-            },
-            width: '180px',
-            minWidth: '180px',
-            alignment: 'left',
-            sorter: (a, b) => a.data.ownership_users.localeCompare(b.data.ownership_users),
-        },
-        {
-            title: 'Ownership (Groups)',
-            key: 'ownership_groups',
-            render: (record) => {
-                if (isEditing(record.id, 'ownership_groups')) {
-                    return (
-                        <EditableInputWrapper>
-                            <Input
-                                value={record.data.ownership_groups}
-                                setValue={(value) => {
-                                    const stringValue = typeof value === 'function' ? value('') : value;
-                                    handleCellSave(record.id, 'ownership_groups', stringValue);
-                                }}
-                                placeholder="Enter group ownership (e.g., bfoo:Technical Owner)"
-                                label=""
-                            />
-                        </EditableInputWrapper>
-                    );
-                }
-                return (
-                    <EditableCell onClick={() => handleCellEdit(record.id, 'ownership_groups')}>
-                        {record.data.ownership_groups}
-                    </EditableCell>
-                );
-            },
-            width: '180px',
-            minWidth: '180px',
-            alignment: 'left',
-            sorter: (a, b) => a.data.ownership_groups.localeCompare(b.data.ownership_groups),
-        },
-        {
-            title: 'Related Contains',
-            key: 'relatedContains',
-            render: (record) => {
-                if (isEditing(record.id, 'related_contains')) {
-                    return (
-                        <EditableInputWrapper>
-                            <Input
-                                value={record.data.related_contains}
-                                setValue={(value) => {
-                                    const stringValue = typeof value === 'function' ? value('') : value;
-                                    handleCellSave(record.id, 'related_contains', stringValue);
-                                }}
-                                placeholder="Enter related contains"
-                                label=""
-                            />
-                        </EditableInputWrapper>
-                    );
-                }
-                return (
-                    <EditableCell onClick={() => handleCellEdit(record.id, 'related_contains')}>
-                        {record.data.related_contains}
-                    </EditableCell>
-                );
-            },
-            width: '150px',
-            minWidth: '150px',
-            alignment: 'left',
-            sorter: (a, b) => a.data.related_contains.localeCompare(b.data.related_contains),
-        },
-        {
-            title: 'Related Inherits',
-            key: 'relatedInherits',
-            render: (record) => {
-                if (isEditing(record.id, 'related_inherits')) {
-                    return (
-                        <EditableInputWrapper>
-                            <Input
-                                value={record.data.related_inherits}
-                                setValue={(value) => {
-                                    const stringValue = typeof value === 'function' ? value('') : value;
-                                    handleCellSave(record.id, 'related_inherits', stringValue);
-                                }}
-                                placeholder="Enter related inherits"
-                                label=""
-                            />
-                        </EditableInputWrapper>
-                    );
-                }
-                return (
-                    <EditableCell onClick={() => handleCellEdit(record.id, 'related_inherits')}>
-                        {record.data.related_inherits}
-                    </EditableCell>
-                );
-            },
-            width: '160px',
-            minWidth: '160px',
-            alignment: 'left',
-            sorter: (a, b) => a.data.related_inherits.localeCompare(b.data.related_inherits),
-        },
-        {
-            title: 'Domain Name',
-            key: 'domainName',
-            render: (record) => {
-                if (isEditing(record.id, 'domain_name')) {
-                    return (
-                        <EditableInputWrapper>
-                            <Input
-                                value={record.data.domain_name}
-                                setValue={(value) => {
-                                    const stringValue = typeof value === 'function' ? value('') : value;
-                                    handleCellSave(record.id, 'domain_name', stringValue);
-                                }}
-                                placeholder="Enter domain name"
-                                label=""
-                            />
-                        </EditableInputWrapper>
-                    );
-                }
-                return (
-                    <EditableCell onClick={() => handleCellEdit(record.id, 'domain_name')}>
-                        {record.data.domain_name}
-                    </EditableCell>
-                );
-            },
-            width: '140px',
-            minWidth: '140px',
-            alignment: 'left',
-            sorter: (a, b) => a.data.domain_name.localeCompare(b.data.domain_name),
-        },
-        {
-            title: 'Custom Properties',
-            key: 'customProperties',
-            render: (record) => {
-                if (isEditing(record.id, 'custom_properties')) {
-                    return (
-                        <EditableInputWrapper>
-                            <Input
-                                value={record.data.custom_properties}
-                                setValue={(value) => {
-                                    const stringValue = typeof value === 'function' ? value('') : value;
-                                    handleCellSave(record.id, 'custom_properties', stringValue);
-                                }}
-                                placeholder="Enter custom properties"
-                                label=""
-                            />
-                        </EditableInputWrapper>
-                    );
-                }
-                return (
-                    <EditableCell onClick={() => handleCellEdit(record.id, 'custom_properties')}>
-                        {record.data.custom_properties}
-                    </EditableCell>
-                );
-            },
-            width: '170px',
-            minWidth: '170px',
-            alignment: 'left',
-            sorter: (a, b) => a.data.custom_properties.localeCompare(b.data.custom_properties),
-        },
-    ];
-
-
-    return (
-        <>
-            {error && (
-                <Message type="error" content="Failed to load glossary import data! An unexpected error occurred." />
-            )}
-            <SourceContainer>
-                <HeaderContainer>
-                    <StyledTabToolbar>
-                        <SearchContainer>
-                            <StyledSearchBar
-                                placeholder="Search..."
-                                value={searchInput || ''}
-                                onChange={(value) => handleSearchInputChange(value)}
-                                ref={searchInputRef}
-                            />
-                            <StyledSimpleSelect
-                                options={[
-                                    { label: 'All', value: '0' },
-                                    { label: 'New', value: '1' },
-                                    { label: 'Updated', value: '2' },
-                                    { label: 'Conflict', value: '3' },
-                                ]}
-                                values={[statusFilter.toString()]}
-                                onUpdate={(values) => setStatusFilter(Number(values[0]))}
-                                showClear={false}
-                                isMultiSelect={false}
-                                width="fit-content"
-                                size="lg"
-                            />
-                        </SearchContainer>
-                        <FilterButtonsContainer>
-                            {/* Restart button moved to ActionsBar */}
-                        </FilterButtonsContainer>
-                    </StyledTabToolbar>
-                </HeaderContainer>
-                {/* Selection display - Hidden for now */}
-                {/* {selectedRowKeys.length > 0 && (
-                    <div style={{ 
-                        padding: '8px 16px', 
-                        backgroundColor: '#f0f8ff', 
-                        border: '1px solid #d1e7ff',
-                        borderRadius: '4px',
-                        margin: '0 0 16px 0',
-                        fontSize: '14px',
-                        color: '#0066cc'
-                    }}>
-                        {selectedRowKeys.length} of {totalItems} items selected
-                    </div>
-                )} */}
-                {!loading && entities.length === 0 ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
-                        <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#666' }}>
-                            No glossary terms to import yet!
-                        </div>
-                    </div>
-                ) : (
-                    <>
-                        <TableContainer>
-                            <Table
-                                columns={tableColumns}
-                                data={entities}
-                                rowKey="id"
-                                isScrollable
-                                handleSortColumnChange={handleSortColumnChange}
-                                isLoading={loading && entities.length === 0}
-                                pagination={false}
-                                scroll={{ y: 450 }}
-                            />
-                        </TableContainer>
-                        <PaginationContainer>
-                            {/* Actions moved to always visible ActionsBar */}
-                        </PaginationContainer>
-                    </>
-                )}
-            </SourceContainer>
-            
-            {/* Entity Details Modal */}
-            <EntityDetailsModal
-                visible={isModalVisible}
-                onClose={handleCloseModal}
-                entityData={selectedEntity}
-                onSave={handleSaveEntity}
-            />
-            
-            {/* Diff Modal */}
-            <DiffModal
-                visible={isDiffModalVisible}
-                onClose={handleCloseDiffModal}
-                entity={selectedEntity ? entities.find(e => e.data === selectedEntity) || null : null}
-                existingEntity={selectedEntity ? entities.find(e => e.data === selectedEntity)?.existingEntity || null : null}
-            />
-            
-            {/* Import Progress Modal */}
-            <ImportProgressModal
-                visible={isImportModalVisible}
-                onClose={handleCloseImportModal}
-                progress={progress}
-                isProcessing={isProcessing}
-            />
-        </>
-    );
-};
-
 export const WizardPage = () => {
-    console.log('🎭 Mock UI: WizardPage component rendering');
+    console.log('🔄 Real UI: WizardPage component rendering');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const history = useHistory();
     const [currentStep, setCurrentStep] = useState(1); // Start at step 1 for mock UI to show data
@@ -1796,7 +388,7 @@ export const WizardPage = () => {
         cancelImport,
         retryFailed,
         resetProgress,
-    } = useMockImportProcessing({
+    } = useImportProcessing({
         apolloClient,
         onProgress: (progress) => {
             // Progress updates are handled automatically
@@ -1804,26 +396,53 @@ export const WizardPage = () => {
     });
     
     // Import state management
-    const {
-        csvData,
-        parseResult,
-        isDataLoaded,
-        entities,
-        existingEntities,
-        comparisonResult,
-        isComparisonComplete,
-        setCsvDataAndResult,
-        setEntities,
-        setExistingEntities,
-        setComparisonResult,
-        clearData
-    } = useImportState();
+    // Real data state - no mock data
+    const [csvData, setCsvData] = useState<EntityData[]>([]);
+    const [parseResult, setParseResult] = useState<any>(null);
+    const [isDataLoaded, setIsDataLoaded] = useState(false);
+    const [entities, setEntities] = useState<Entity[]>([]);
+    const [existingEntities, setExistingEntities] = useState<Entity[]>([]);
+    const [comparisonResult, setComparisonResult] = useState<any>(null);
+    const [isComparisonComplete, setIsComparisonComplete] = useState(false);
+    
+    // Helper functions
+    const setCsvDataAndResult = useCallback((data: EntityData[], result: any) => {
+        setCsvData(data);
+        setParseResult(result);
+        setIsDataLoaded(true);
+    }, []);
+    
+    const clearData = useCallback(() => {
+        setCsvData([]);
+        setParseResult(null);
+        setIsDataLoaded(false);
+        setEntities([]);
+        setExistingEntities([]);
+        setComparisonResult(null);
+        setIsComparisonComplete(false);
+    }, []);
     
     // Initialize CSV processing hooks at component level
-    const csvProcessing = useMockCsvProcessing();
-    const entityManagement = useMockEntityManagement();
-    const { executeUnifiedGlossaryQuery } = useMockGraphQLOperations();
-    const { categorizeEntities } = useMockEntityComparison();
+    const csvProcessing = useCsvProcessing();
+    const entityManagement = useEntityManagement();
+    const { executeUnifiedGlossaryQuery } = useGraphQLOperations();
+    
+    // Load real data when component mounts
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                console.log('🔄 Loading real data from GraphQL API...');
+                const realEntities = await loadRealData(apolloClient, executeUnifiedGlossaryQuery);
+                setExistingEntities(realEntities);
+                console.log('✅ Loaded real entities:', realEntities.length);
+            } catch (error) {
+                console.error('❌ Error loading real data:', error);
+            }
+        };
+        
+        loadData();
+    }, [apolloClient, executeUnifiedGlossaryQuery]);
+    const { categorizeEntities } = useEntityComparison();
 
     // Import handlers
     const handleStartImport = useCallback(async () => {
@@ -2107,7 +726,7 @@ export const WizardPage = () => {
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             <BreadcrumbHeader
                 items={breadcrumbItems}
-                title="Import Glossary"
+                        title="Import Glossary"
                 subtitle="Import glossary terms from CSV files and manage their import status"
                 pillLabel="Mock"
                 pillColor="blue"
@@ -2177,6 +796,320 @@ export const WizardPage = () => {
                 )}
             </PageContentContainer>
         </PageContainer>
+    );
+};
+
+// This is the main content component that replaces IngestionSourceList
+const GlossaryImportList = ({ 
+    entities, 
+    setEntities, 
+    onRestart, 
+    csvProcessing, 
+    entityManagement, 
+    onStartImport, 
+    isImportModalVisible, 
+    setIsImportModalVisible, 
+    progress, 
+    isProcessing, 
+    resetProgress, 
+    retryFailed 
+}: {
+    entities: Entity[];
+    setEntities: (entities: Entity[]) => void;
+    onRestart: () => void;
+    csvProcessing: any;
+    entityManagement: any;
+    onStartImport: () => void;
+    isImportModalVisible: boolean;
+    setIsImportModalVisible: (visible: boolean) => void;
+    progress: any;
+    isProcessing: boolean;
+    resetProgress: () => void;
+    retryFailed: () => void;
+}) => {
+    const [query, setQuery] = useState<undefined | string>(undefined);
+    const [searchInput, setSearchInput] = useState('');
+    const searchInputRef = useRef<any>(null);
+    const [statusFilter, setStatusFilter] = useState<string>('0');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [editingCell, setEditingCell] = useState<{ rowId: string; field: string } | null>(null);
+    
+    // Entity Details Modal state
+    const [isModalVisible, setIsModalVisible] = useState(false);
+    const [isDiffModalVisible, setIsDiffModalVisible] = useState(false);
+    const [selectedEntity, setSelectedEntity] = useState<EntityData | null>(null);
+
+    // Initialize search input from URL parameter (if needed)
+    useEffect(() => {
+        if (query?.length) {
+            setSearchInput(query);
+            setTimeout(() => {
+                searchInputRef.current?.focus?.();
+            }, 0);
+        }
+    }, [query]);
+
+    const handleSearchInputChange = (value: string) => {
+        setSearchInput(value);
+    };
+
+    // Debounce the search query
+    useDebounce(
+        () => {
+            setQuery(searchInput);
+        },
+        300,
+        [searchInput]
+    );
+
+    // Filter entities based on search query and status
+    const filteredEntities = useMemo(() => {
+        let filtered = entities;
+
+        // Filter by search query
+        if (query) {
+            const searchLower = query.toLowerCase();
+            filtered = filtered.filter(entity => 
+                entity.name.toLowerCase().includes(searchLower) ||
+                entity.data.description.toLowerCase().includes(searchLower) ||
+                entity.data.term_source.toLowerCase().includes(searchLower)
+            );
+        }
+
+        // Filter by status
+        if (statusFilter !== '0') {
+            const statusMap = ['', 'new', 'updated', 'conflict'];
+            const targetStatus = statusMap[parseInt(statusFilter)];
+            filtered = filtered.filter(entity => entity.status === targetStatus);
+        }
+
+        return filtered;
+    }, [entities, query, statusFilter]);
+
+    const handleRestart = () => {
+        onRestart();
+    };
+
+    const handleStartImport = () => {
+        onStartImport();
+    };
+
+    const handleShowDiff = (entity: Entity) => {
+        setSelectedEntity(entity.data);
+        setIsDiffModalVisible(true);
+    };
+
+    const handleCloseDiff = () => {
+        setIsDiffModalVisible(false);
+        setSelectedEntity(null);
+    };
+
+    const handleShowDetails = (entity: Entity) => {
+        setSelectedEntity(entity.data);
+        setIsModalVisible(true);
+    };
+
+    const handleCloseDetails = () => {
+        setIsModalVisible(false);
+        setSelectedEntity(null);
+    };
+
+    const isEditing = (rowId: string, field: string) => {
+        return editingCell?.rowId === rowId && editingCell?.field === field;
+    };
+
+    const handleCellEdit = (rowId: string, field: string) => {
+        setEditingCell({ rowId, field });
+    };
+
+    const handleCellSave = (rowId: string, field: string, value: string) => {
+        setEntities(entities.map(entity => 
+            entity.id === rowId 
+                ? { ...entity, data: { ...entity.data, [field]: value } }
+                : entity
+        ));
+        setEditingCell(null);
+    };
+
+    const handleCellCancel = () => {
+        setEditingCell(null);
+    };
+
+    // Table columns
+    const tableColumns: Column<Entity>[] = [
+        {
+            title: 'Diff',
+            key: 'diff',
+            render: (record) => (
+                <Button
+                    variant="text"
+                    size="sm"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handleShowDiff(record);
+                    }}
+                >
+                    Diff
+                </Button>
+            ),
+            width: '80px',
+            minWidth: '80px',
+            alignment: 'center',
+        },
+        {
+            title: 'Status',
+            key: 'status',
+            render: (record) => {
+                const getStatusColor = (status: string) => {
+                    switch (status) {
+                        case 'new':
+                            return 'green';
+                        case 'updated':
+                            return 'blue';
+                        case 'conflict':
+                            return 'red';
+                        default:
+                            return 'gray';
+                    }
+                };
+
+                const getStatusLabel = (status: string) => {
+                    return status.charAt(0).toUpperCase() + status.slice(1);
+                };
+
+                return (
+                    <Pill
+                        label={getStatusLabel(record.status)}
+                        color={getStatusColor(record.status)}
+                        size="sm"
+                        variant="filled"
+                    />
+                );
+            },
+            width: '100px',
+            minWidth: '100px',
+            alignment: 'left',
+            sorter: (a, b) => a.status.localeCompare(b.status),
+        },
+        {
+            title: 'Type',
+            key: 'type',
+            render: (record) => record.type === 'glossaryNode' ? 'Term Group' : 'Term',
+            width: '100px',
+            minWidth: '100px',
+            alignment: 'left',
+            sorter: (a, b) => a.type.localeCompare(b.type),
+        },
+        {
+            title: 'Name',
+            key: 'name',
+            render: (record) => {
+                if (isEditing(record.id, 'name')) {
+                    return (
+                        <Input
+                            value={record.name}
+                            setValue={(value) => {
+                                const stringValue = typeof value === 'function' ? value('') : value;
+                                handleCellSave(record.id, 'name', stringValue);
+                            }}
+                            placeholder="Enter name"
+                            label=""
+                        />
+                    );
+                }
+                return (
+                    <div onClick={() => handleCellEdit(record.id, 'name')}>
+                        {record.name}
+                    </div>
+                );
+            },
+            width: '200px',
+            minWidth: '200px',
+            alignment: 'left',
+            sorter: (a, b) => a.name.localeCompare(b.name),
+        },
+        {
+            title: 'Description',
+            key: 'description',
+            render: (record) => {
+                if (isEditing(record.id, 'description')) {
+                    return (
+                        <Input
+                            value={record.data.description}
+                            setValue={(value) => {
+                                const stringValue = typeof value === 'function' ? value('') : value;
+                                handleCellSave(record.id, 'description', stringValue);
+                            }}
+                            placeholder="Enter description"
+                            label=""
+                        />
+                    );
+                }
+                return (
+                    <div onClick={() => handleCellEdit(record.id, 'description')}>
+                        {record.data.description}
+                    </div>
+                );
+            },
+            width: '250px',
+            minWidth: '250px',
+            alignment: 'left',
+            sorter: (a, b) => a.data.description.localeCompare(b.data.description),
+        },
+    ];
+
+    return (
+        <>
+            <div style={{ marginBottom: '16px' }}>
+                <SearchBar
+                    placeholder="Search entities..."
+                    value={searchInput}
+                    onChange={handleSearchInputChange}
+                    ref={searchInputRef}
+                />
+            </div>
+            
+            <div style={{ marginBottom: '16px' }}>
+                <Select
+                    values={[statusFilter]}
+                    onUpdate={(values) => setStatusFilter(values[0] || '0')}
+                    options={[
+                        { label: 'All', value: '0' },
+                        { label: 'New', value: '1' },
+                        { label: 'Updated', value: '2' },
+                        { label: 'Conflict', value: '3' },
+                    ]}
+                />
+            </div>
+
+            <Table
+                columns={tableColumns}
+                data={filteredEntities}
+                showHeader
+                isScrollable
+                rowKey="id"
+                isBorderless={false}
+            />
+
+            {isModalVisible && selectedEntity && (
+                <EntityDetailsModal
+                    visible={isModalVisible}
+                    onClose={handleCloseDetails}
+                    entityData={selectedEntity}
+                    onSave={() => {}}
+                />
+            )}
+
+            {isDiffModalVisible && selectedEntity && (
+                <DiffModal
+                    visible={isDiffModalVisible}
+                    onClose={handleCloseDiff}
+                    entity={selectedEntity as any}
+                    existingEntity={null}
+                />
+            )}
+        </>
     );
 };
 
