@@ -11,6 +11,7 @@ from ibm_db_sa import dialect as DB2Dialect
 from sqlalchemy.engine.reflection import Inspector
 from sqlglot.dialects.dialect import Dialect as SQLGlotDialect, NormalizationStrategy
 
+from datahub.configuration.common import HiddenFromDocs
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -22,7 +23,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
-from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 
 logger = logging.getLogger(__name__)
 
@@ -67,20 +67,11 @@ class DB2DialectWithoutNormalization(DB2Dialect):
 
 
 class Db2Config(BasicSQLAlchemyConfig):
+    database: str = pydantic.Field(description="The Db2 database to ingest from.")
+
     # Override defaults
     host_port: str = pydantic.Field(default="localhost:50000")
-    scheme: str = pydantic.Field(default="db2+ibm_db")  # TODO: hide this?
-    username: str
-    password: str
-    database: str
-
-    def get_sql_alchemy_url(self):
-        return make_sqlalchemy_uri(
-            self.scheme,
-            self.username,
-            self.password,
-            self.host_port,
-        )
+    scheme: HiddenFromDocs[str] = pydantic.Field(default="db2+ibm_db")
 
 
 @platform_name("IBM Db2", id="db2")
