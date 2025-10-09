@@ -4,11 +4,11 @@
 
 import { useState, useCallback } from 'react';
 import { EntityData, CsvParseResult, Entity, ComparisonResult } from '../glossary.types';
-import { useMockCsvProcessing } from '../shared/hooks/useMockCsvProcessing';
-import { useMockEntityManagement } from '../shared/hooks/useMockEntityManagement';
-import { useMockEntityComparison } from '../shared/hooks/useMockEntityComparison';
+import { useCsvProcessing } from '../shared/hooks/useCsvProcessing';
+import { useEntityManagement } from '../shared/hooks/useEntityManagement';
+import { useEntityComparison } from '../shared/hooks/useEntityComparison';
 import { useHierarchyManagement } from '../shared/hooks/useHierarchyManagement';
-import { useMockFileUpload, useMockFileValidation } from './DropzoneTable/useMockFileUpload';
+import { useFileUpload, useFileValidation } from './DropzoneTable/DropzoneTable.hooks';
 import { mockEntities, mockExistingEntities, mockComparisonResult } from '../shared/mocks/mockData';
 
 export function useImportState() {
@@ -100,9 +100,9 @@ export function useImportProgress() {
 }
 
 export function useFileUploadIntegration() {
-  const fileUpload = useMockFileUpload();
-  const fileValidation = useMockFileValidation();
-  const csvProcessing = useMockCsvProcessing();
+  const fileUpload = useFileUpload();
+  const fileValidation = useFileValidation();
+  const csvProcessing = useCsvProcessing();
 
   const handleFileSelect = useCallback(async (file: File) => {
     // Validate file first
@@ -163,8 +163,8 @@ export function useFileUploadIntegration() {
 }
 
 export function useEntityComparisonIntegration() {
-  const entityManagement = useMockEntityManagement();
-  const entityComparison = useMockEntityComparison();
+  const entityManagement = useEntityManagement();
+  const entityComparison = useEntityComparison();
   const hierarchyManagement = useHierarchyManagement();
 
   const processEntities = useCallback(async (
