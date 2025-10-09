@@ -7,6 +7,7 @@ from typing import (
 )
 
 import pydantic
+import sqlalchemy
 from ibm_db_sa import dialect as DB2Dialect
 from sqlalchemy.engine.reflection import Inspector
 from sqlglot.dialects.dialect import Dialect as SQLGlotDialect, NormalizationStrategy
@@ -32,8 +33,15 @@ class Db2(SQLGlotDialect):
     NORMALIZATION_STRATEGY = NormalizationStrategy.UPPERCASE
 
 
-class DB2DialectWithoutNormalization(DB2Dialect):
+class CustomDB2Dialect(DB2Dialect):
+    #
+    # see: https://github.com/ibmdb/python-ibmdbsa/issues/173
+    requires_name_normalize = False
+
     def initialize(self, connection):
+        # ibm_db_sa unconditionally lowercases names, making it impossible
+        # to distinguish tables with case-sensitive names (and thus impossible
+        # to get further metadata on them).
         # see:
         # - https://github.com/ibmdb/python-ibmdbsa/issues/153
         # - https://github.com/ibmdb/python-ibmdbsa/issues/170
@@ -42,6 +50,7 @@ class DB2DialectWithoutNormalization(DB2Dialect):
         self._reflector.denormalize_name = lambda s: s
 
     def get_table_comment(self, connection, table_name, schema=None, **kwargs):
+        # get_table_comment returns nothing for views
         # see: https://github.com/ibmdb/python-ibmdbsa/issues/171
         try:
             comment = super().get_table_comment(
@@ -120,16 +129,20 @@ class Db2Source(SQLAlchemySource):
             return None, result.scalar()
         except Exception as e:
             logger.warning(
-                f"Failed to get qualifier for unqualified names for view {schema}.{view}: {e}",
+                f"Failed to get qualifier schema for unqualified names in view {schema}.{view}: {e}",
                 exc_info=e,
             )  # TODO add to report
         return super().get_view_default_db_schema(inspector, schema, view)
 
     def get_inspectors(self) -> Iterable[Inspector]:
-        for inspector in super().get_inspectors():
-            inspector.dialect = DB2DialectWithoutNormalization()
-            inspector.dialect.initialize(inspector.bind)
-            yield inspector
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+        engine = sqlalchemy.create_engine(url, **self.config.options)
+
+        # use our custom SQLAlchemy dialect
+        engine.dialect = CustomDB2Dialect()
+        with engine.connect() as conn:
+            yield sqlalchemy.inspect(conn)
 
     def get_schema_names(self, inspector) -> Iterable[str]:
         for s in inspector.get_schema_names():
@@ -157,8 +170,6 @@ class Db2Source(SQLAlchemySource):
             (schema,),
         )
         for row in result:
-            # sometimes keys are uppercase, sometimes they are lowercase... just uppercase them all
-            row = {k.upper(): v for (k, v) in dict(row).items()}
             yield BaseProcedure(
                 name=row["ROUTINENAME"],
                 language=row["LANGUAGE"].rstrip(),  # can have trailing spaces

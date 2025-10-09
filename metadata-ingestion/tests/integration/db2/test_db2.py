@@ -110,6 +110,14 @@ def test_db2_ingest(
     )
 
     source = yaml.safe_load(open(config_file))
+    source.setdefault("config", {}).update(
+        {
+            "host_port": f"localhost:{DB2_PORT}",
+            "database": "testdb",
+            "username": "db2inst1",
+            "password": "password",
+        }
+    )
     config_dict = {
         "source": source,
         "sink": {
