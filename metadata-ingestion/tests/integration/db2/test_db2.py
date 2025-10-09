@@ -9,6 +9,7 @@ import yaml
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
+from tests.test_helpers.docker_helpers import wait_for_port
 
 logger = logging.getLogger(__name__)
 
@@ -55,32 +56,29 @@ def _split_statements(sql):
 
 @pytest.fixture(scope="module")
 def db2_runner(docker_compose_runner, pytestconfig, test_resources_dir):
-    # with docker_compose_runner(
-    #     test_resources_dir / "docker-compose.yml", "db2"
-    # ) as docker_services:
-    #     wait_for_port(
-    #         docker_services,
-    #         "testdb2",
-    #         DB2_PORT,
-    #         timeout=600,
-    #         checker=lambda: is_db2_up("testdb2"),
-    #     )
+    with docker_compose_runner(
+        test_resources_dir / "docker-compose.yml", "db2"
+    ) as docker_services:
+        wait_for_port(
+            docker_services,
+            "testdb2",
+            DB2_PORT,
+            timeout=600,
+            checker=lambda: is_db2_up("testdb2"),
+        )
 
-    with open(test_resources_dir / "setup" / "setup.sql") as setup_file:
-        statements = _split_statements(setup_file.read())
+        setup_filename = test_resources_dir / "setup" / "setup.sql"
+        statements = _split_statements(open(setup_filename).read())
 
-    engine = sqlalchemy.create_engine(
-        f"db2+ibm_db://db2inst1:password@localhost:{DB2_PORT}/testdb"
-    )
-    with engine.begin() as conn:
-        logger.warning(statements)
-        for statement in statements:
-            logger.warning(statement)
-            conn.execute(statement)
+        engine = sqlalchemy.create_engine(
+            f"db2+ibm_db://db2inst1:password@localhost:{DB2_PORT}/testdb"
+        )
+        with engine.begin() as conn:
+            for statement in statements:
+                logger.info("Executing SQL: " + statement)
+                conn.execute(statement)
 
-    yield None
-
-    # yield docker_services
+        yield docker_services
 
 
 @pytest.mark.parametrize(
