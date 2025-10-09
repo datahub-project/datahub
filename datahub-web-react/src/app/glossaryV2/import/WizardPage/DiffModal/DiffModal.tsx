@@ -240,14 +240,6 @@ export const DiffModal: React.FC<DiffModalProps> = ({
       open={visible}
             width="63%"
             maxWidth="840px"
-      buttons={[
-        {
-          text: 'Close',
-          variant: 'filled',
-          color: 'primary',
-          onClick: onClose,
-        },
-      ]}
       dataTestId="diff-modal"
     >
       {hasConflicts && (
