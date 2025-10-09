@@ -1,4 +1,4 @@
-import { Button, Checkbox, Input, PageTitle, Pill, SearchBar, Select, SimpleSelect, Table, ActionsBar } from '@components';
+import { Button, Input, Pill, SearchBar, SimpleSelect, Table, ActionsBar } from '@components';
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
@@ -20,9 +20,9 @@ import { useGraphQLOperations } from '../shared/hooks/useGraphQLOperations';
 import { useEntityComparison } from '../shared/hooks/useEntityComparison';
 import { useApolloClient } from '@apollo/client';
 import DropzoneTable from './DropzoneTable/DropzoneTable';
-// import { useImportState } from './WizardPage.hooks'; // Remove mock data usage
 import { BreadcrumbHeader } from '../shared/components/BreadcrumbHeader';
 
+// Minimal styled components following IngestionSourceList pattern
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
     background-color: white;
@@ -36,37 +36,6 @@ const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
         height: 100%;
     `}
-`;
-
-const PageContentContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    flex: 1;
-    margin: 0 20px 20px 20px;
-    height: calc(100% - 60px); /* Increased space for ActionsBar */
-    /* min-height: 0; Allow flex shrinking */
-`;
-
-const PageHeaderContainer = styled.div`
-    && {
-        padding-left: 20px;
-        padding-right: 20px;
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 16px;
-    }
-`;
-
-const TitleContainer = styled.div`
-    flex: 1;
-`;
-
-const HeaderActionsContainer = styled.div`
-    display: flex;
-    justify-content: flex-end;
 `;
 
 const SourceContainer = styled.div`
@@ -83,7 +52,7 @@ const HeaderContainer = styled.div`
 const StyledTabToolbar = styled.div`
     display: flex;
     justify-content: space-between;
-    padding: 1px 0 16px 0; // 1px at the top to prevent Select's border outline from cutting-off
+    padding: 1px 0 16px 0;
     height: auto;
     z-index: unset;
     box-shadow: none;
@@ -101,9 +70,9 @@ const FilterButtonsContainer = styled.div`
     gap: 8px;
 `;
 
-const StyledSearchBar = React.forwardRef<any, any>((props, ref) => (
-    <SearchBar {...props} ref={ref} style={{ ...props.style, width: '400px' }} />
-));
+const StyledSearchBar = styled(SearchBar)`
+    width: 400px;
+`;
 
 const StyledSimpleSelect = styled(SimpleSelect)`
     display: flex;
@@ -113,119 +82,13 @@ const StyledSimpleSelect = styled(SimpleSelect)`
 const TableContainer = styled.div`
     flex: 1;
     overflow: auto;
-    padding-bottom: 80px; /* Add space for ActionsBar */
 `;
 
-
-// Editable input styles for DataHub components
-const EditableInputWrapper = styled.div`
-    .InputWrapper {
-        margin: 0;
-    }
-    
-    .InputContainer {
-        border: none;
-        background: transparent;
-        box-shadow: none;
-        padding: 0;
-        
-        &:focus-within {
-            border: 1px solid #1890ff;
-            background: white;
-            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-        }
-    }
-    
-    .InputField {
-        border: none;
-        background: transparent;
-        padding: 4px 8px;
-        
-        &:focus {
-            border: none;
-            background: transparent;
-            box-shadow: none;
-        }
-    }
-    
-    .Label {
-        display: none;
-    }
+const PaginationContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    flex-shrink: 0;
 `;
-
-const EditableSelectWrapper = styled.div`
-    .SelectWrapper {
-        margin: 0;
-    }
-    
-    .SelectContainer {
-        border: none;
-        background: transparent;
-        box-shadow: none;
-        padding: 0;
-        
-        &:focus-within {
-            border: 1px solid #1890ff;
-            background: white;
-            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-        }
-    }
-    
-    .Label {
-        display: none;
-    }
-`;
-
-const LeftAlignedSimpleSelect = styled(SimpleSelect)`
-    .Container {
-        text-align: left;
-    }
-    
-    .SelectBase {
-        justify-content: flex-start;
-        text-align: left;
-    }
-    
-    .SelectLabelContainer {
-        justify-content: flex-start;
-        text-align: left;
-    }
-`;
-
-const EditableCell = styled.div`
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
-    
-    &:hover {
-        background-color: #f5f5f5;
-    }
-`;
-
-const DiffButton = styled.div`
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
-    text-align: center;
-    font-size: 12px;
-    font-weight: 500;
-    color: #0066cc;
-    background-color: transparent;
-    border: 1px solid #d9d9d9;
-    transition: all 0.2s ease;
-    
-    &:hover {
-        background-color: #f0f8ff;
-        border-color: #0066cc;
-        color: #0052a3;
-    }
-    
-    &:active {
-        background-color: #e6f3ff;
-        transform: translateY(1px);
-    }
-`;
-
 
 const StepActions = styled.div`
     display: flex;
@@ -357,13 +220,6 @@ const loadRealData = async (apolloClient: any, executeUnifiedGlossaryQuery: any)
     }
 };
 
-const RefreshButton = ({ onClick }: { onClick?: () => void }) => {
-                return (
-        <Button variant="text" onClick={onClick} icon={{ icon: 'ArrowClockwise', source: 'phosphor' }}>
-            Restart
-                            </Button>
-    );
-};
 export const WizardPage = () => {
     console.log('🔄 Real UI: WizardPage component rendering');
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -722,15 +578,16 @@ export const WizardPage = () => {
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             <BreadcrumbHeader
                 items={breadcrumbItems}
-                        title="Import Glossary"
+                title="Import Glossary"
                 subtitle="Import glossary terms from CSV files and manage their import status"
             />
-            <PageContentContainer>
-                {/* Step Content - Full Width, No Container */}
-                {renderStepContent()}
-
+            <SourceContainer>
+                <HeaderContainer>
+                    {renderStepContent()}
+                </HeaderContainer>
+                
                 {/* Actions Bar - Always visible */}
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
+                <PaginationContainer>
                     <ActionsBar>
                         {entities.length > 0 && (
                             <>
@@ -752,7 +609,7 @@ export const WizardPage = () => {
                             </>
                         )}
                     </ActionsBar>
-                </div>
+                </PaginationContainer>
 
                 {/* Step Actions - Only show if not on data preview step */}
                 {currentStep !== 1 && (
@@ -788,7 +645,7 @@ export const WizardPage = () => {
                         </StepButtons>
                     </StepActions>
                 )}
-            </PageContentContainer>
+            </SourceContainer>
         </PageContainer>
     );
 };
@@ -1057,23 +914,15 @@ const GlossaryImportList = ({
 
     return (
         <>
-            <div style={{ 
-                marginBottom: '16px', 
-                display: 'flex', 
-                gap: '12px', 
-                alignItems: 'center'
-            }}>
-                <div style={{ width: '300px', flexShrink: 0 }}>
-                    <SearchBar
+            <StyledTabToolbar>
+                <SearchContainer>
+                    <StyledSearchBar
                         placeholder="Search entities..."
                         value={searchInput}
                         onChange={handleSearchInputChange}
                         ref={searchInputRef}
                     />
-                </div>
-                
-                <div style={{ width: '200px', flexShrink: 0 }}>
-                    <SimpleSelect
+                    <StyledSimpleSelect
                         values={[statusFilter]}
                         isMultiSelect={false}
                         options={[
@@ -1083,18 +932,26 @@ const GlossaryImportList = ({
                             { label: 'Conflict', value: '3' },
                         ]}
                         onUpdate={(values) => setStatusFilter(values[0] || '0')}
+                        showClear={false}
+                        width="fit-content"
+                        size="lg"
                     />
-                </div>
-            </div>
-
-            <Table
-                columns={tableColumns}
-                data={filteredEntities}
-                showHeader
-                isScrollable
-                rowKey="id"
-                isBorderless={false}
-            />
+                </SearchContainer>
+                <FilterButtonsContainer>
+                    {/* Add refresh button or other actions here if needed */}
+                </FilterButtonsContainer>
+            </StyledTabToolbar>
+            
+            <TableContainer>
+                <Table
+                    columns={tableColumns}
+                    data={filteredEntities}
+                    showHeader
+                    isScrollable
+                    rowKey="id"
+                    isBorderless={false}
+                />
+            </TableContainer>
 
             {isModalVisible && selectedEntity && (
                 <EntityDetailsModal
