@@ -119,14 +119,6 @@ const TableContainer = styled.div`
     }
 `;
 
-const PaginationContainer = styled.div`
-    display: flex;
-    justify-content: center;
-    flex-shrink: 0;
-    padding: 16px 0;
-    margin-top: 16px;
-    border-top: 1px solid #e8e8e8;
-`;
 
 const StepActions = styled.div`
     display: flex;
@@ -625,7 +617,14 @@ export const WizardPage = () => {
                 </HeaderContainer>
                 
                 {/* Actions Bar - Always visible */}
-                <PaginationContainer>
+                <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    flexShrink: 0, 
+                    padding: '16px 0', 
+                    marginTop: '16px', 
+                    borderTop: '1px solid #e8e8e8' 
+                }}>
                     <ActionsBar>
                         {entities.length > 0 && (
                             <>
@@ -647,7 +646,7 @@ export const WizardPage = () => {
                             </>
                         )}
                     </ActionsBar>
-                </PaginationContainer>
+                </div>
 
                 {/* Step Actions - Only show if not on data preview step */}
                 {currentStep !== 1 && (
