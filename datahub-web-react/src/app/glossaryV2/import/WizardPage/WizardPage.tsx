@@ -1076,6 +1076,7 @@ const GlossaryImportList = ({
                     <Select
                         values={[statusFilter]}
                         onUpdate={(values) => setStatusFilter(values[0] || '0')}
+                        isMultiSelect={false}
                         options={[
                             { label: 'All', value: '0' },
                             { label: 'New', value: '1' },
