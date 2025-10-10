@@ -69,6 +69,7 @@ export default function StatsTabRowCountGraph(): JSX.Element {
                 </>
             )}
             moreInfoModalContent={<MoreInfoModalContent />}
+            dataTestId="row-count"
         />
     );
 }

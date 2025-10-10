@@ -10,6 +10,9 @@ import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/componen
 import StructuredPropertyValue from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
+import { useReloadableQuery } from '@app/sharedV2/reloadableContext/hooks/useReloadableQuery';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
 import {
@@ -76,12 +79,20 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
     };
 
     // Execute search
-    const { data } = useGetSearchResultsForMultipleQuery({
-        variables: {
-            input: inputs,
+
+    const { data } = useReloadableQuery(
+        useGetSearchResultsForMultipleQuery,
+        {
+            type: getReloadableKeyType(ReloadableKeyTypeNamespace.STRUCTURED_PROPERTY, 'EntitySummaryTabSidebar'),
+            id: `${entityType}-${isSchemaSidebar ? 'schema' : 'entity'}-sidebar`,
         },
-        fetchPolicy: 'cache-first',
-    });
+        {
+            variables: {
+                input: inputs,
+            },
+            fetchPolicy: 'cache-first',
+        },
+    );
 
     const entityTypeProperties = data?.searchAcrossEntities?.searchResults;
 
