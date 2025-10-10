@@ -22,26 +22,29 @@ Apache Airflow 3.0 introduced significant breaking changes. The DataHub Airflow 
 
 **The most significant change** is how lineage extraction works:
 
-| Aspect | Airflow 2.x | Airflow 3.x |
-|--------|------------|------------|
-| **Lineage Extraction** | Operator-specific extractors | Unified SQLParser patch |
-| **Customization Point** | Custom extractor per operator | Single SQL parser integration |
-| **Column Lineage** | Extractor-dependent | ✅ Consistent across all SQL operators |
-| **Maintenance** | Multiple extractors to maintain | Single integration point |
+| Aspect                  | Airflow 2.x                     | Airflow 3.x                            |
+| ----------------------- | ------------------------------- | -------------------------------------- |
+| **Lineage Extraction**  | Operator-specific extractors    | Unified SQLParser patch                |
+| **Customization Point** | Custom extractor per operator   | Single SQL parser integration          |
+| **Column Lineage**      | Extractor-dependent             | ✅ Consistent across all SQL operators |
+| **Maintenance**         | Multiple extractors to maintain | Single integration point               |
 
 **In Airflow 2.x**, we used operator-specific extractors:
+
 ```python
 # Different extractor for each SQL operator
 SnowflakeExtractor, PostgresExtractor, MySQLExtractor, etc.
 ```
 
 **In Airflow 3.x**, we use a **unified SQLParser patch**:
+
 ```python
 # Single patch point for ALL SQL operators
 SQLParser.generate_openlineage_metadata_from_sql = datahub_enhanced_version
 ```
 
 **Benefits:**
+
 - ✅ **Better consistency** - All SQL operators use the same lineage extraction logic
 - ✅ **Easier maintenance** - One integration point instead of many extractors
 - ✅ **Column-level lineage for all** - Works across all SQL operators uniformly
@@ -51,22 +54,22 @@ SQLParser.generate_openlineage_metadata_from_sql = datahub_enhanced_version
 
 Airflow 3.0 introduced `RuntimeTaskInstance` which has a different structure than Airflow 2.x's `TaskInstance`:
 
-| Attribute | Airflow 2.x | Airflow 3.0 RuntimeTaskInstance | Status |
-|-----------|-------------|----------------------------------|--------|
-| `run_id` | ✅ Database field | ✅ Base class | Available in both |
-| `start_date` | ✅ Database field | ✅ RuntimeTI field | Available in both |
-| `try_number` | ✅ Database field | ✅ Base class | Available in both |
-| `state` | ✅ Database field | ✅ RuntimeTI field | Available in both |
-| `task_id` | ✅ Database field | ✅ Base class | Available in both |
-| `dag_id` | ✅ Database field | ✅ Base class | Available in both |
-| `max_tries` | ✅ Database field | ✅ RuntimeTI field | Available in both |
-| `end_date` | ✅ Database field | ✅ RuntimeTI field | Available in both |
-| `log_url` | ✅ Property | ✅ RuntimeTI field | Available in both |
-| `execution_date` | ✅ Database field | ❌ Renamed | **Renamed to `logical_date`** |
-| `duration` | ✅ Database field | ❌ Not available | **Missing - must be calculated** |
-| `external_executor_id` | ✅ Database field | ❌ Not available | **Missing in Airflow 3.0** |
-| `operator` | ✅ Database field (string) | ⚠️ Different | **Has `task` (BaseOperator) instead** |
-| `priority_weight` | ✅ Database field | ❌ Not available | **Missing in Airflow 3.0** |
+| Attribute              | Airflow 2.x                | Airflow 3.0 RuntimeTaskInstance | Status                                |
+| ---------------------- | -------------------------- | ------------------------------- | ------------------------------------- |
+| `run_id`               | ✅ Database field          | ✅ Base class                   | Available in both                     |
+| `start_date`           | ✅ Database field          | ✅ RuntimeTI field              | Available in both                     |
+| `try_number`           | ✅ Database field          | ✅ Base class                   | Available in both                     |
+| `state`                | ✅ Database field          | ✅ RuntimeTI field              | Available in both                     |
+| `task_id`              | ✅ Database field          | ✅ Base class                   | Available in both                     |
+| `dag_id`               | ✅ Database field          | ✅ Base class                   | Available in both                     |
+| `max_tries`            | ✅ Database field          | ✅ RuntimeTI field              | Available in both                     |
+| `end_date`             | ✅ Database field          | ✅ RuntimeTI field              | Available in both                     |
+| `log_url`              | ✅ Property                | ✅ RuntimeTI field              | Available in both                     |
+| `execution_date`       | ✅ Database field          | ❌ Renamed                      | **Renamed to `logical_date`**         |
+| `duration`             | ✅ Database field          | ❌ Not available                | **Missing - must be calculated**      |
+| `external_executor_id` | ✅ Database field          | ❌ Not available                | **Missing in Airflow 3.0**            |
+| `operator`             | ✅ Database field (string) | ⚠️ Different                    | **Has `task` (BaseOperator) instead** |
+| `priority_weight`      | ✅ Database field          | ❌ Not available                | **Missing in Airflow 3.0**            |
 
 **Key Changes:**
 
@@ -104,6 +107,7 @@ def get_task_instance_attributes(ti: "TaskInstance") -> Dict[str, str]:
 This approach ensures the plugin works correctly with both Airflow 2.x and 3.x task instances.
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/_airflow_version_specific.py:21-74` - Version-compatible attribute extraction
 
 ### Other Major Changes
@@ -120,14 +124,14 @@ This approach ensures the plugin works correctly with both Airflow 2.x and 3.x t
 
 ### Compatibility Status
 
-| Feature | Airflow 2.x | Airflow 3.x | Status |
-|---------|------------|------------|--------|
-| Task lineage | ✅ | ✅ | Fully working |
-| Column lineage | ✅ | ✅ | Fully working |
-| DAG metadata | ✅ | ✅ | Fully working |
-| Execution tracking | ✅ | ✅ | Fully working |
-| Threading | ✅ | ✅ | Fully working |
-| SubDAG support | ✅ | ❌ | Removed in Airflow 3.x |
+| Feature            | Airflow 2.x | Airflow 3.x | Status                 |
+| ------------------ | ----------- | ----------- | ---------------------- |
+| Task lineage       | ✅          | ✅          | Fully working          |
+| Column lineage     | ✅          | ✅          | Fully working          |
+| DAG metadata       | ✅          | ✅          | Fully working          |
+| Execution tracking | ✅          | ✅          | Fully working          |
+| Threading          | ✅          | ✅          | Fully working          |
+| SubDAG support     | ✅          | ❌          | Removed in Airflow 3.x |
 
 ## Detailed Changes
 
@@ -138,6 +142,7 @@ This section provides in-depth information about each change made for Airflow 3.
 Airflow 3.x reorganized many modules under a new SDK structure. The plugin now uses conditional imports with fallbacks.
 
 #### BaseOperator
+
 ```python
 # Airflow 3.x (preferred)
 from airflow.sdk.bases.operator import BaseOperator
@@ -147,6 +152,7 @@ from airflow.models.baseoperator import BaseOperator
 ```
 
 #### Operator Type Alias
+
 ```python
 # Airflow 3.x (preferred)
 from airflow.sdk.types import Operator
@@ -156,6 +162,7 @@ from airflow.models.operator import Operator
 ```
 
 #### EmptyOperator
+
 ```python
 # Airflow 3.x (preferred)
 from airflow.providers.standard.operators.empty import EmptyOperator
@@ -168,6 +175,7 @@ from airflow.operators.dummy import DummyOperator
 ```
 
 #### ExternalTaskSensor
+
 ```python
 # Airflow 3.x (preferred)
 from airflow.providers.standard.sensors.external_task import ExternalTaskSensor
@@ -177,6 +185,7 @@ from airflow.sensors.external_task import ExternalTaskSensor
 ```
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/_airflow_shims.py` - Conditional import logic
 - `src/datahub_airflow_plugin/client/airflow_generator.py` - Import from shims
 
@@ -201,16 +210,17 @@ from openlineage.airflow.extractors.sql_extractor import SqlExtractor
 
 The native provider's `ExtractorManager` has a different API:
 
-| Feature | Old Package (< 2.7) | Native Provider (2.7+) |
-|---------|---------------------|------------------------|
-| Extractor registry | `self.task_to_extractor.extractors` | `self.extractors` |
-| Add extractor | Direct dict assignment | Direct dict assignment or `add_extractor()` |
-| SQL extractor | ✅ Included | ❌ Not included |
-| Task metadata type | `TaskMetadata` | `OperatorLineage` (aliased as `TaskMetadata`) |
+| Feature            | Old Package (< 2.7)                 | Native Provider (2.7+)                        |
+| ------------------ | ----------------------------------- | --------------------------------------------- |
+| Extractor registry | `self.task_to_extractor.extractors` | `self.extractors`                             |
+| Add extractor      | Direct dict assignment              | Direct dict assignment or `add_extractor()`   |
+| SQL extractor      | ✅ Included                         | ❌ Not included                               |
+| Task metadata type | `TaskMetadata`                      | `OperatorLineage` (aliased as `TaskMetadata`) |
 
 #### Compatibility Layer
 
 The plugin implements a compatibility layer that:
+
 1. Detects which OpenLineage implementation is available
 2. Uses the appropriate API for registering extractors
 3. Implements custom SQL extraction for Airflow 2.7+ (since native provider doesn't include `SqlExtractor`)
@@ -226,14 +236,17 @@ else:
 ```
 
 **Impact:**
+
 - The plugin automatically selects the correct OpenLineage implementation based on Airflow version
 - SQL lineage extraction works seamlessly across all supported Airflow versions
 - No user action required - the plugin handles version differences internally
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/_extractors.py` - Conditional OpenLineage imports and API compatibility layer
 
 **Known Limitations:**
+
 - The native provider (Airflow 2.7+) doesn't include SQL extractors, so the plugin provides its own implementation
 - Some advanced OpenLineage features from the old package may not be available in the native provider
 
@@ -257,6 +270,7 @@ DAG("my_dag", schedule_interval=None, ...)
 **Note:** The `schedule` parameter was introduced in Airflow 2.4.0, so test DAGs use `schedule=` which works in both Airflow 2.4+ and 3.x.
 
 **Files Updated:**
+
 - All test DAG files in `tests/integration/dags/*.py`
 
 #### 2b. Default View Parameter
@@ -272,11 +286,13 @@ DAG("my_dag", ...)  # default_view parameter no longer accepted
 ```
 
 **Reason for Removal:**
+
 - **User preferences are now persistent** - The Airflow UI remembers each user's preferred view per DAG
 - **Separation of concerns** - DAG definition (pipeline logic) should be separate from UI presentation
 - **Cleaner API** - Removes UI-specific parameters from the core DAG class
 
 **Valid `default_view` values in Airflow 2.x:**
+
 - `"tree"` - Tree view (hierarchical task structure)
 - `"graph"` - Graph view (visual DAG graph)
 - `"duration"` - Duration view
@@ -286,11 +302,13 @@ DAG("my_dag", ...)  # default_view parameter no longer accepted
 **Migration:** Simply remove the `default_view` parameter from DAG definitions when upgrading to Airflow 3.x.
 
 **Files Updated:**
+
 - `tests/integration/dags/airflow3/datahub_emitter_operator_jinja_template_dag.py` - Removed `default_view="tree"`
 
 ### 3. API Changes
 
 #### REST API Version
+
 Airflow 3.x removed the v1 API and only supports v2.
 
 ```python
@@ -302,6 +320,7 @@ api_version = "v1"
 ```
 
 #### API Authentication
+
 Airflow 3.x uses JWT token-based authentication instead of HTTP Basic Auth.
 
 ```python
@@ -318,6 +337,7 @@ session.auth = (username, password)
 ```
 
 #### Configuration
+
 Airflow 3.x moved some configuration options:
 
 ```bash
@@ -334,11 +354,11 @@ AIRFLOW__WEBSERVER__BASE_URL=http://airflow.example.com  # Used for log URLs
 
 Airflow 3.x changed the log URL format and configuration:
 
-| Aspect | Airflow 2.x | Airflow 3.x |
-|--------|------------|------------|
-| Config key | `webserver.base_url` | `api.base_url` |
+| Aspect     | Airflow 2.x                                                                                      | Airflow 3.x                                                                       |
+| ---------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| Config key | `webserver.base_url`                                                                             | `api.base_url`                                                                    |
 | URL format | `http://host/dags/{dag_id}/grid?dag_run_id={run_id}&task_id={task_id}&base_date={date}&tab=logs` | `http://host/dags/{dag_id}/runs/{run_id}/tasks/{task_id}?try_number={try_number}` |
-| Source | `TaskInstance.log_url` property | `TaskInstance.log_url` property |
+| Source     | `TaskInstance.log_url` property                                                                  | `TaskInstance.log_url` property                                                   |
 
 **Example Log URLs:**
 
@@ -351,17 +371,20 @@ Airflow 3.x changed the log URL format and configuration:
 ```
 
 **Impact on DataHub:**
+
 - The `log_url` in DataHub's DataProcessInstance will reflect the Airflow version's format
 - Both formats link correctly to the Airflow UI task logs
 - The plugin automatically uses the correct configuration key for each version
 
 **Files Updated:**
+
 - `tests/integration/test_plugin.py` - Authentication, API version logic, and base URL configuration
 - `src/datahub_airflow_plugin/_airflow_version_specific.py` - Task instance attribute extraction including log_url
 
 ### 4. CLI Command Changes
 
 #### DAG Trigger
+
 Airflow 3.x renamed the `--exec-date` parameter to `--logical-date`.
 
 ```bash
@@ -373,6 +396,7 @@ airflow dags trigger --exec-date "2023-09-27T21:34:38+00:00" my_dag
 ```
 
 **Files Updated:**
+
 - `tests/integration/test_plugin.py` - Conditional CLI parameter
 
 ### 5. Listener Hook Signature Changes
@@ -382,6 +406,7 @@ Airflow 3.x changed the signatures of listener hooks to remove the `session` par
 #### Task Instance Hooks
 
 **Airflow 3.x signatures:**
+
 ```python
 on_task_instance_running(previous_state, task_instance)
 on_task_instance_success(previous_state, task_instance)
@@ -389,6 +414,7 @@ on_task_instance_failed(previous_state, task_instance, error)
 ```
 
 **Airflow 2.x signatures:**
+
 ```python
 on_task_instance_running(previous_state, task_instance, session)
 on_task_instance_success(previous_state, task_instance, session)
@@ -416,6 +442,7 @@ def on_task_instance_failed(self, previous_state, task_instance, **kwargs):
 **Important:** Using default parameters like `session=None` in Airflow 3.0 causes pluggy to fail to match the hook spec, preventing hooks from being called.
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/datahub_listener.py:559-772` - Listener hook signatures
 
 ### 6. SubDAG Removal
@@ -423,12 +450,14 @@ def on_task_instance_failed(self, previous_state, task_instance, **kwargs):
 Airflow 3.x completely removed SubDAGs (deprecated since Airflow 2.0).
 
 #### Affected Attributes
+
 - `dag.is_subdag` - ❌ Removed
 - `dag.parent_dag` - ❌ Removed
 - `task.subdag` - ❌ Removed
 - `SubDagOperator` - ❌ Removed
 
 #### Compatibility Fix
+
 The plugin uses defensive attribute access:
 
 ```python
@@ -439,6 +468,7 @@ if getattr(dag, "is_subdag", False) and dag.parent_dag is not None:
 ```
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/client/airflow_generator.py:76` - SubDAG handling
 
 ### 7. Database Commit Restrictions in Listener Hooks
@@ -479,6 +509,7 @@ export AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER=true
 ```
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/datahub_listener.py:540-557` - Kill switch implementation
 
 ### 8. Threading Support in Airflow 3.x
@@ -517,11 +548,13 @@ export DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD=false
 ```
 
 **Benefits of Threading:**
+
 - Prevents slow lineage extraction from blocking task completion
 - Non-blocking metadata emission to DataHub
 - Better performance for complex SQL parsing and lineage extraction
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/datahub_listener.py:147-152` - Threading configuration
 
 ### 9. Template Rendering
@@ -561,6 +594,7 @@ def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
 **Impact:** Jinja-templated SQL queries are correctly parsed in both Airflow 2.x and 3.x.
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/datahub_listener.py:259-281` - Template rendering logic
 
 ### 10. SQL Parser Integration for Airflow 3.x
@@ -570,11 +604,13 @@ Airflow 3.x removed the extractor-based SQL parsing mechanism. SQL operators now
 #### Architecture Change
 
 **Airflow 2.x:**
+
 ```
 SQL Operator → OpenLineage Extractor → DataHub Extractor → DataHub SQL Parser → Lineage
 ```
 
 **Airflow 3.x:**
+
 ```
 SQL Operator → SQLParser.generate_openlineage_metadata_from_sql() → [Patched by DataHub] → DataHub SQL Parser → Lineage
 ```
@@ -599,6 +635,7 @@ def patch_sqlparser():
 ```
 
 The patched method:
+
 1. Calls DataHub's SQL parser to extract column-level lineage
 2. Converts DataHub URNs to OpenLineage Dataset objects
 3. Stores the SQL parsing result in `run_facets` for later retrieval
@@ -642,9 +679,11 @@ if DATAHUB_SQL_PARSING_RESULT_KEY in operator_lineage.run_facets:
 **Important:** `OperatorLineage` uses `@define` (attrs library) which creates a frozen dataclass. We cannot add arbitrary attributes to it, so we use the `run_facets` dictionary instead.
 
 **Supported Databases:** All databases supported by DataHub's SQL parser:
+
 - Snowflake, BigQuery, Redshift, PostgreSQL, MySQL, Oracle, SQL Server, Athena, Presto, Trino, etc.
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/_airflow3_sql_parser_patch.py` - SQLParser patch implementation
 - `src/datahub_airflow_plugin/datahub_listener.py:433-439` - Retrieve sql_parsing_result from run_facets
 - `src/datahub_airflow_plugin/_config.py` - Enable SQL parser patch for Airflow 3.x
@@ -664,6 +703,7 @@ FROM costs
 ```
 
 The plugin generates fine-grained lineage:
+
 - `costs.id → processed_costs.id`
 - `costs.month → processed_costs.month`
 - `costs.total_cost → processed_costs.total_cost`
@@ -737,11 +777,11 @@ AIRFLOW__API__PORT=8080
 
 The DataHub Airflow plugin tests are designed to work with:
 
-| Airflow Version | Test Support | Notes |
-|----------------|-------------|-------|
-| 2.3.x | ✅ Limited | Only v1 plugin tested |
-| 2.4.x - 2.9.x | ✅ Full | Both v1 and v2 plugins |
-| 3.0.x+ | ✅ Full | v2 plugin only |
+| Airflow Version | Test Support | Notes                  |
+| --------------- | ------------ | ---------------------- |
+| 2.3.x           | ✅ Limited   | Only v1 plugin tested  |
+| 2.4.x - 2.9.x   | ✅ Full      | Both v1 and v2 plugins |
+| 3.0.x+          | ✅ Full      | v2 plugin only         |
 
 **Note:** Airflow 3.x requires the v2 plugin (listener-based). The v1 plugin is not compatible.
 
@@ -780,6 +820,7 @@ The following checks are performed in tests:
 **Error:** `401 Unauthorized` when calling Airflow API
 
 **Solution:**
+
 - Airflow 3.x requires JWT authentication
 - Ensure the username/password are correct
 - Check that the `/auth/token` endpoint is accessible
@@ -832,14 +873,16 @@ For issues related to Airflow 3.x compatibility:
 
 ## Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | 2025-01-XX | Initial Airflow 3.x support added |
+| Version | Date       | Changes                           |
+| ------- | ---------- | --------------------------------- |
+| 1.0     | 2025-01-XX | Initial Airflow 3.x support added |
+
 ## macOS SIGSEGV Issue and Fix
 
 ### Problem Description
 
 When running Airflow 3.0 tests on macOS, the system experiences SIGSEGV (segmentation fault) crashes. This causes:
+
 - Hundreds of worker processes to spawn and crash repeatedly
 - Task execution failures
 - Tests timing out or failing
@@ -847,6 +890,7 @@ When running Airflow 3.0 tests on macOS, the system experiences SIGSEGV (segment
 ### Root Cause
 
 The issue is caused by the `setproctitle` Python package. According to upstream issues:
+
 - [Gunicorn issue #3021](https://github.com/benoitc/gunicorn/issues/3021)
 - [Gunicorn issue #2761](https://github.com/benoitc/gunicorn/issues/2761)
 - [Airflow issue #55838](https://github.com/apache/airflow/issues/55838)
@@ -862,6 +906,7 @@ A patch script has been provided to fix this issue:
 ```
 
 This script:
+
 1. Removes the `setproctitle` package from the tox environment
 2. Patches Airflow's LocalExecutor to make setproctitle import optional
 3. Patches Airflow's API server command to make setproctitle import optional
@@ -876,6 +921,7 @@ This script:
 ### Documentation
 
 See `AIRFLOW_3_MACOS_SIGSEGV_FIX.md` for:
+
 - Detailed problem description
 - Step-by-step manual fix instructions
 - Verification procedures
@@ -904,18 +950,21 @@ tox -e py311-airflow302 --recreate
 | **Maintenance** | Multiple extractors to maintain | Single integration point |
 
 **In Airflow 2.x**, we used operator-specific extractors:
+
 ```python
 # Different extractor for each SQL operator
 SnowflakeExtractor, PostgresExtractor, MySQLExtractor, etc.
 ```
 
 **In Airflow 3.x**, we use a **unified SQLParser patch**:
+
 ```python
 # Single patch point for ALL SQL operators
 SQLParser.generate_openlineage_metadata_from_sql = datahub_enhanced_version
 ```
 
 **Benefits:**
+
 - ✅ **Better consistency** - All SQL operators use the same lineage extraction logic
 - ✅ **Easier maintenance** - One integration point instead of many extractors
 - ✅ **Column-level lineage for all** - Works across all SQL operators uniformly
@@ -925,22 +974,22 @@ SQLParser.generate_openlineage_metadata_from_sql = datahub_enhanced_version
 
 Airflow 3.0 introduced `RuntimeTaskInstance` which has a different structure than Airflow 2.x's `TaskInstance`:
 
-| Attribute | Airflow 2.x | Airflow 3.0 RuntimeTaskInstance | Status |
-|-----------|-------------|----------------------------------|--------|
-| `run_id` | ✅ Database field | ✅ Base class | Available in both |
-| `start_date` | ✅ Database field | ✅ RuntimeTI field | Available in both |
-| `try_number` | ✅ Database field | ✅ Base class | Available in both |
-| `state` | ✅ Database field | ✅ RuntimeTI field | Available in both |
-| `task_id` | ✅ Database field | ✅ Base class | Available in both |
-| `dag_id` | ✅ Database field | ✅ Base class | Available in both |
-| `max_tries` | ✅ Database field | ✅ RuntimeTI field | Available in both |
-| `end_date` | ✅ Database field | ✅ RuntimeTI field | Available in both |
-| `log_url` | ✅ Property | ✅ RuntimeTI field | Available in both |
-| `execution_date` | ✅ Database field | ❌ Renamed | **Renamed to `logical_date`** |
-| `duration` | ✅ Database field | ❌ Not available | **Missing - must be calculated** |
-| `external_executor_id` | ✅ Database field | ❌ Not available | **Missing in Airflow 3.0** |
-| `operator` | ✅ Database field (string) | ⚠️ Different | **Has `task` (BaseOperator) instead** |
-| `priority_weight` | ✅ Database field | ❌ Not available | **Missing in Airflow 3.0** |
+| Attribute              | Airflow 2.x                | Airflow 3.0 RuntimeTaskInstance | Status                                |
+| ---------------------- | -------------------------- | ------------------------------- | ------------------------------------- |
+| `run_id`               | ✅ Database field          | ✅ Base class                   | Available in both                     |
+| `start_date`           | ✅ Database field          | ✅ RuntimeTI field              | Available in both                     |
+| `try_number`           | ✅ Database field          | ✅ Base class                   | Available in both                     |
+| `state`                | ✅ Database field          | ✅ RuntimeTI field              | Available in both                     |
+| `task_id`              | ✅ Database field          | ✅ Base class                   | Available in both                     |
+| `dag_id`               | ✅ Database field          | ✅ Base class                   | Available in both                     |
+| `max_tries`            | ✅ Database field          | ✅ RuntimeTI field              | Available in both                     |
+| `end_date`             | ✅ Database field          | ✅ RuntimeTI field              | Available in both                     |
+| `log_url`              | ✅ Property                | ✅ RuntimeTI field              | Available in both                     |
+| `execution_date`       | ✅ Database field          | ❌ Renamed                      | **Renamed to `logical_date`**         |
+| `duration`             | ✅ Database field          | ❌ Not available                | **Missing - must be calculated**      |
+| `external_executor_id` | ✅ Database field          | ❌ Not available                | **Missing in Airflow 3.0**            |
+| `operator`             | ✅ Database field (string) | ⚠️ Different                    | **Has `task` (BaseOperator) instead** |
+| `priority_weight`      | ✅ Database field          | ❌ Not available                | **Missing in Airflow 3.0**            |
 
 **Key Changes:**
 
@@ -978,6 +1027,7 @@ def get_task_instance_attributes(ti: "TaskInstance") -> Dict[str, str]:
 This approach ensures the plugin works correctly with both Airflow 2.x and 3.x task instances.
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/_airflow_version_specific.py:21-74` - Version-compatible attribute extraction
 
 ### Other Major Changes
@@ -994,14 +1044,14 @@ This approach ensures the plugin works correctly with both Airflow 2.x and 3.x t
 
 ### Compatibility Status
 
-| Feature | Airflow 2.x | Airflow 3.x | Status |
-|---------|------------|------------|--------|
-| Task lineage | ✅ | ✅ | Fully working |
-| Column lineage | ✅ | ✅ | Fully working |
-| DAG metadata | ✅ | ✅ | Fully working |
-| Execution tracking | ✅ | ✅ | Fully working |
-| Threading | ✅ | ✅ | Fully working |
-| SubDAG support | ✅ | ❌ | Removed in Airflow 3.x |
+| Feature            | Airflow 2.x | Airflow 3.x | Status                 |
+| ------------------ | ----------- | ----------- | ---------------------- |
+| Task lineage       | ✅          | ✅          | Fully working          |
+| Column lineage     | ✅          | ✅          | Fully working          |
+| DAG metadata       | ✅          | ✅          | Fully working          |
+| Execution tracking | ✅          | ✅          | Fully working          |
+| Threading          | ✅          | ✅          | Fully working          |
+| SubDAG support     | ✅          | ❌          | Removed in Airflow 3.x |
 
 ## Detailed Changes
 
@@ -1012,6 +1062,7 @@ This section provides in-depth information about each change made for Airflow 3.
 Airflow 3.x reorganized many modules under a new SDK structure. The plugin now uses conditional imports with fallbacks.
 
 #### BaseOperator
+
 ```python
 # Airflow 3.x (preferred)
 from airflow.sdk.bases.operator import BaseOperator
@@ -1021,6 +1072,7 @@ from airflow.models.baseoperator import BaseOperator
 ```
 
 #### Operator Type Alias
+
 ```python
 # Airflow 3.x (preferred)
 from airflow.sdk.types import Operator
@@ -1030,6 +1082,7 @@ from airflow.models.operator import Operator
 ```
 
 #### EmptyOperator
+
 ```python
 # Airflow 3.x (preferred)
 from airflow.providers.standard.operators.empty import EmptyOperator
@@ -1042,6 +1095,7 @@ from airflow.operators.dummy import DummyOperator
 ```
 
 #### ExternalTaskSensor
+
 ```python
 # Airflow 3.x (preferred)
 from airflow.providers.standard.sensors.external_task import ExternalTaskSensor
@@ -1051,6 +1105,7 @@ from airflow.sensors.external_task import ExternalTaskSensor
 ```
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/_airflow_shims.py` - Conditional import logic
 - `src/datahub_airflow_plugin/client/airflow_generator.py` - Import from shims
 
@@ -1075,16 +1130,17 @@ from openlineage.airflow.extractors.sql_extractor import SqlExtractor
 
 The native provider's `ExtractorManager` has a different API:
 
-| Feature | Old Package (< 2.7) | Native Provider (2.7+) |
-|---------|---------------------|------------------------|
-| Extractor registry | `self.task_to_extractor.extractors` | `self.extractors` |
-| Add extractor | Direct dict assignment | Direct dict assignment or `add_extractor()` |
-| SQL extractor | ✅ Included | ❌ Not included |
-| Task metadata type | `TaskMetadata` | `OperatorLineage` (aliased as `TaskMetadata`) |
+| Feature            | Old Package (< 2.7)                 | Native Provider (2.7+)                        |
+| ------------------ | ----------------------------------- | --------------------------------------------- |
+| Extractor registry | `self.task_to_extractor.extractors` | `self.extractors`                             |
+| Add extractor      | Direct dict assignment              | Direct dict assignment or `add_extractor()`   |
+| SQL extractor      | ✅ Included                         | ❌ Not included                               |
+| Task metadata type | `TaskMetadata`                      | `OperatorLineage` (aliased as `TaskMetadata`) |
 
 #### Compatibility Layer
 
 The plugin implements a compatibility layer that:
+
 1. Detects which OpenLineage implementation is available
 2. Uses the appropriate API for registering extractors
 3. Implements custom SQL extraction for Airflow 2.7+ (since native provider doesn't include `SqlExtractor`)
@@ -1100,14 +1156,17 @@ else:
 ```
 
 **Impact:**
+
 - The plugin automatically selects the correct OpenLineage implementation based on Airflow version
 - SQL lineage extraction works seamlessly across all supported Airflow versions
 - No user action required - the plugin handles version differences internally
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/_extractors.py` - Conditional OpenLineage imports and API compatibility layer
 
 **Known Limitations:**
+
 - The native provider (Airflow 2.7+) doesn't include SQL extractors, so the plugin provides its own implementation
 - Some advanced OpenLineage features from the old package may not be available in the native provider
 
@@ -1131,6 +1190,7 @@ DAG("my_dag", schedule_interval=None, ...)
 **Note:** The `schedule` parameter was introduced in Airflow 2.4.0, so test DAGs use `schedule=` which works in both Airflow 2.4+ and 3.x.
 
 **Files Updated:**
+
 - All test DAG files in `tests/integration/dags/*.py`
 
 #### 2b. Default View Parameter
@@ -1146,11 +1206,13 @@ DAG("my_dag", ...)  # default_view parameter no longer accepted
 ```
 
 **Reason for Removal:**
+
 - **User preferences are now persistent** - The Airflow UI remembers each user's preferred view per DAG
 - **Separation of concerns** - DAG definition (pipeline logic) should be separate from UI presentation
 - **Cleaner API** - Removes UI-specific parameters from the core DAG class
 
 **Valid `default_view` values in Airflow 2.x:**
+
 - `"tree"` - Tree view (hierarchical task structure)
 - `"graph"` - Graph view (visual DAG graph)
 - `"duration"` - Duration view
@@ -1160,11 +1222,13 @@ DAG("my_dag", ...)  # default_view parameter no longer accepted
 **Migration:** Simply remove the `default_view` parameter from DAG definitions when upgrading to Airflow 3.x.
 
 **Files Updated:**
+
 - `tests/integration/dags/airflow3/datahub_emitter_operator_jinja_template_dag.py` - Removed `default_view="tree"`
 
 ### 3. API Changes
 
 #### REST API Version
+
 Airflow 3.x removed the v1 API and only supports v2.
 
 ```python
@@ -1176,6 +1240,7 @@ api_version = "v1"
 ```
 
 #### API Authentication
+
 Airflow 3.x uses JWT token-based authentication instead of HTTP Basic Auth.
 
 ```python
@@ -1192,6 +1257,7 @@ session.auth = (username, password)
 ```
 
 #### Configuration
+
 Airflow 3.x moved some configuration options:
 
 ```bash
@@ -1208,11 +1274,11 @@ AIRFLOW__WEBSERVER__BASE_URL=http://airflow.example.com  # Used for log URLs
 
 Airflow 3.x changed the log URL format and configuration:
 
-| Aspect | Airflow 2.x | Airflow 3.x |
-|--------|------------|------------|
-| Config key | `webserver.base_url` | `api.base_url` |
+| Aspect     | Airflow 2.x                                                                                      | Airflow 3.x                                                                       |
+| ---------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| Config key | `webserver.base_url`                                                                             | `api.base_url`                                                                    |
 | URL format | `http://host/dags/{dag_id}/grid?dag_run_id={run_id}&task_id={task_id}&base_date={date}&tab=logs` | `http://host/dags/{dag_id}/runs/{run_id}/tasks/{task_id}?try_number={try_number}` |
-| Source | `TaskInstance.log_url` property | `TaskInstance.log_url` property |
+| Source     | `TaskInstance.log_url` property                                                                  | `TaskInstance.log_url` property                                                   |
 
 **Example Log URLs:**
 
@@ -1225,17 +1291,20 @@ Airflow 3.x changed the log URL format and configuration:
 ```
 
 **Impact on DataHub:**
+
 - The `log_url` in DataHub's DataProcessInstance will reflect the Airflow version's format
 - Both formats link correctly to the Airflow UI task logs
 - The plugin automatically uses the correct configuration key for each version
 
 **Files Updated:**
+
 - `tests/integration/test_plugin.py` - Authentication, API version logic, and base URL configuration
 - `src/datahub_airflow_plugin/_airflow_version_specific.py` - Task instance attribute extraction including log_url
 
 ### 4. CLI Command Changes
 
 #### DAG Trigger
+
 Airflow 3.x renamed the `--exec-date` parameter to `--logical-date`.
 
 ```bash
@@ -1247,6 +1316,7 @@ airflow dags trigger --exec-date "2023-09-27T21:34:38+00:00" my_dag
 ```
 
 **Files Updated:**
+
 - `tests/integration/test_plugin.py` - Conditional CLI parameter
 
 ### 5. Listener Hook Signature Changes
@@ -1256,6 +1326,7 @@ Airflow 3.x changed the signatures of listener hooks to remove the `session` par
 #### Task Instance Hooks
 
 **Airflow 3.x signatures:**
+
 ```python
 on_task_instance_running(previous_state, task_instance)
 on_task_instance_success(previous_state, task_instance)
@@ -1263,6 +1334,7 @@ on_task_instance_failed(previous_state, task_instance, error)
 ```
 
 **Airflow 2.x signatures:**
+
 ```python
 on_task_instance_running(previous_state, task_instance, session)
 on_task_instance_success(previous_state, task_instance, session)
@@ -1290,6 +1362,7 @@ def on_task_instance_failed(self, previous_state, task_instance, **kwargs):
 **Important:** Using default parameters like `session=None` in Airflow 3.0 causes pluggy to fail to match the hook spec, preventing hooks from being called.
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/datahub_listener.py:559-772` - Listener hook signatures
 
 ### 6. SubDAG Removal
@@ -1297,12 +1370,14 @@ def on_task_instance_failed(self, previous_state, task_instance, **kwargs):
 Airflow 3.x completely removed SubDAGs (deprecated since Airflow 2.0).
 
 #### Affected Attributes
+
 - `dag.is_subdag` - ❌ Removed
 - `dag.parent_dag` - ❌ Removed
 - `task.subdag` - ❌ Removed
 - `SubDagOperator` - ❌ Removed
 
 #### Compatibility Fix
+
 The plugin uses defensive attribute access:
 
 ```python
@@ -1313,6 +1388,7 @@ if getattr(dag, "is_subdag", False) and dag.parent_dag is not None:
 ```
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/client/airflow_generator.py:76` - SubDAG handling
 
 ### 7. Database Commit Restrictions in Listener Hooks
@@ -1353,6 +1429,7 @@ export AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER=true
 ```
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/datahub_listener.py:540-557` - Kill switch implementation
 
 ### 8. Threading Support in Airflow 3.x
@@ -1391,11 +1468,13 @@ export DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD=false
 ```
 
 **Benefits of Threading:**
+
 - Prevents slow lineage extraction from blocking task completion
 - Non-blocking metadata emission to DataHub
 - Better performance for complex SQL parsing and lineage extraction
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/datahub_listener.py:147-152` - Threading configuration
 
 ### 9. Template Rendering
@@ -1435,6 +1514,7 @@ def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
 **Impact:** Jinja-templated SQL queries are correctly parsed in both Airflow 2.x and 3.x.
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/datahub_listener.py:259-281` - Template rendering logic
 
 ### 10. SQL Parser Integration for Airflow 3.x
@@ -1444,11 +1524,13 @@ Airflow 3.x removed the extractor-based SQL parsing mechanism. SQL operators now
 #### Architecture Change
 
 **Airflow 2.x:**
+
 ```
 SQL Operator → OpenLineage Extractor → DataHub Extractor → DataHub SQL Parser → Lineage
 ```
 
 **Airflow 3.x:**
+
 ```
 SQL Operator → SQLParser.generate_openlineage_metadata_from_sql() → [Patched by DataHub] → DataHub SQL Parser → Lineage
 ```
@@ -1473,6 +1555,7 @@ def patch_sqlparser():
 ```
 
 The patched method:
+
 1. Calls DataHub's SQL parser to extract column-level lineage
 2. Converts DataHub URNs to OpenLineage Dataset objects
 3. Stores the SQL parsing result in `run_facets` for later retrieval
@@ -1516,9 +1599,11 @@ if DATAHUB_SQL_PARSING_RESULT_KEY in operator_lineage.run_facets:
 **Important:** `OperatorLineage` uses `@define` (attrs library) which creates a frozen dataclass. We cannot add arbitrary attributes to it, so we use the `run_facets` dictionary instead.
 
 **Supported Databases:** All databases supported by DataHub's SQL parser:
+
 - Snowflake, BigQuery, Redshift, PostgreSQL, MySQL, Oracle, SQL Server, Athena, Presto, Trino, etc.
 
 **Files Updated:**
+
 - `src/datahub_airflow_plugin/_airflow3_sql_parser_patch.py` - SQLParser patch implementation
 - `src/datahub_airflow_plugin/datahub_listener.py:433-439` - Retrieve sql_parsing_result from run_facets
 - `src/datahub_airflow_plugin/_config.py` - Enable SQL parser patch for Airflow 3.x
@@ -1538,6 +1623,7 @@ FROM costs
 ```
 
 The plugin generates fine-grained lineage:
+
 - `costs.id → processed_costs.id`
 - `costs.month → processed_costs.month`
 - `costs.total_cost → processed_costs.total_cost`
@@ -1611,11 +1697,11 @@ AIRFLOW__API__PORT=8080
 
 The DataHub Airflow plugin tests are designed to work with:
 
-| Airflow Version | Test Support | Notes |
-|----------------|-------------|-------|
-| 2.3.x | ✅ Limited | Only v1 plugin tested |
-| 2.4.x - 2.9.x | ✅ Full | Both v1 and v2 plugins |
-| 3.0.x+ | ✅ Full | v2 plugin only |
+| Airflow Version | Test Support | Notes                  |
+| --------------- | ------------ | ---------------------- |
+| 2.3.x           | ✅ Limited   | Only v1 plugin tested  |
+| 2.4.x - 2.9.x   | ✅ Full      | Both v1 and v2 plugins |
+| 3.0.x+          | ✅ Full      | v2 plugin only         |
 
 **Note:** Airflow 3.x requires the v2 plugin (listener-based). The v1 plugin is not compatible.
 
@@ -1654,6 +1740,7 @@ The following checks are performed in tests:
 **Error:** `401 Unauthorized` when calling Airflow API
 
 **Solution:**
+
 - Airflow 3.x requires JWT authentication
 - Ensure the username/password are correct
 - Check that the `/auth/token` endpoint is accessible
@@ -1706,14 +1793,16 @@ For issues related to Airflow 3.x compatibility:
 
 ## Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | 2025-01-XX | Initial Airflow 3.x support added |
+| Version | Date       | Changes                           |
+| ------- | ---------- | --------------------------------- |
+| 1.0     | 2025-01-XX | Initial Airflow 3.x support added |
+
 ## macOS SIGSEGV Issue and Fix
 
 ### Problem Description
 
 When running Airflow 3.0 tests on macOS, the system experiences SIGSEGV (segmentation fault) crashes. This causes:
+
 - Hundreds of worker processes to spawn and crash repeatedly
 - Task execution failures
 - Tests timing out or failing
@@ -1721,6 +1810,7 @@ When running Airflow 3.0 tests on macOS, the system experiences SIGSEGV (segment
 ### Root Cause
 
 The issue is caused by the `setproctitle` Python package. According to upstream issues:
+
 - [Gunicorn issue #3021](https://github.com/benoitc/gunicorn/issues/3021)
 - [Gunicorn issue #2761](https://github.com/benoitc/gunicorn/issues/2761)
 - [Airflow issue #55838](https://github.com/apache/airflow/issues/55838)
@@ -1736,6 +1826,7 @@ A patch script has been provided to fix this issue:
 ```
 
 This script:
+
 1. Removes the `setproctitle` package from the tox environment
 2. Patches Airflow's LocalExecutor to make setproctitle import optional
 3. Patches Airflow's API server command to make setproctitle import optional
@@ -1750,6 +1841,7 @@ This script:
 ### Documentation
 
 See `AIRFLOW_3_MACOS_SIGSEGV_FIX.md` for:
+
 - Detailed problem description
 - Step-by-step manual fix instructions
 - Verification procedures
