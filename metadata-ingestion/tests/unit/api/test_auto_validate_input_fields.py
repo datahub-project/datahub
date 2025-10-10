@@ -53,7 +53,9 @@ def test_valid_input_fields_pass_through():
     result_aspect = out[0].get_aspect_of_type(InputFieldsClass)
     assert result_aspect is not None
     assert len(result_aspect.fields) == 2
+    assert result_aspect.fields[0].schemaField is not None
     assert result_aspect.fields[0].schemaField.fieldPath == "valid_field_1"
+    assert result_aspect.fields[1].schemaField is not None
     assert result_aspect.fields[1].schemaField.fieldPath == "valid_field_2"
     assert len(report.warnings) == 0
 
@@ -104,6 +106,7 @@ def test_empty_field_paths_filtered():
     result_aspect = out[0].get_aspect_of_type(InputFieldsClass)
     assert result_aspect is not None
     assert len(result_aspect.fields) == 1
+    assert result_aspect.fields[0].schemaField is not None
     assert result_aspect.fields[0].schemaField.fieldPath == "valid_field"
 
     # Verify warning was reported
