@@ -13,11 +13,6 @@ import Loading from '@app/shared/Loading';
 
 const FileContainer = styled.div`
     max-width: 100%;
-
-    /* Ensure this container gets the data attributes for markdown conversion */
-    &.file-node {
-        /* This will help with debugging */
-    }
 `;
 
 const FileDetails = styled.div`

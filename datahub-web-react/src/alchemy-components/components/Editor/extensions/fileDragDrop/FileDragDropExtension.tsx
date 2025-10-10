@@ -139,21 +139,33 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                     const finalUrl = await this.options.onFileUpload(file);
                     this.updateNodeWithUrl(view, placeholderAttrs.id, finalUrl);
                 } catch (uploadError) {
-                    console.error('Upload failed:', uploadError);
+                    // Upload failed silently - placeholder node remains
                 }
             }
         } catch (error) {
-            console.error('Error processing file:', error);
+            // Error processing file - skip silently
         }
     }
 
     private updateNodeWithUrl(view: EditorView, nodeId: string, url: string): void {
-        const currentState = view.state;
+        const { nodePos, nodeToUpdate } = this.findNodeById(view.state, nodeId);
+        
+        if (!nodePos || !nodeToUpdate) return;
+
+        const { name, type } = nodeToUpdate.attrs;
+
+        if (type.startsWith('image/')) {
+            this.replaceWithImageNode(view, nodePos, nodeToUpdate, url, name);
+        } else {
+            this.updateFileNodeUrl(view, nodePos, nodeToUpdate, url);
+        }
+    }
+
+    private findNodeById(state: any, nodeId: string): { nodePos: number | null; nodeToUpdate: any } {
         let nodePos: number | null = null;
         let nodeToUpdate: any = null;
 
-        // Find the node by ID
-        currentState.doc.descendants((descendantNode, descendantPos) => {
+        state.doc.descendants((descendantNode: any, descendantPos: number) => {
             if (
                 descendantNode.type === this.type &&
                 descendantNode.attrs.id === nodeId &&
@@ -166,33 +178,64 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
             return true; // Continue searching
         });
 
-        if (nodePos !== null && nodeToUpdate) {
-            const { name, type } = nodeToUpdate.attrs;
+        return { nodePos, nodeToUpdate };
+    }
 
-            // Check if this is an image file
-            if (type.startsWith('image/')) {
-                // Replace the file node with an image node using the ImageExtension
-                const imageNode = currentState.schema.nodes.image?.create({
-                    src: url,
-                    alt: name,
-                    title: name,
-                });
+    private replaceWithImageNode(view: EditorView, nodePos: number, nodeToUpdate: any, url: string, name: string): void {
+        const imageNode = view.state.schema.nodes.image?.create({
+            src: url,
+            alt: name,
+            title: name,
+        });
 
-                if (imageNode) {
-                    const replaceTransaction = currentState.tr.replaceWith(
-                        nodePos,
-                        nodePos + nodeToUpdate.nodeSize,
-                        imageNode,
-                    );
-                    view.dispatch(replaceTransaction);
-                }
-            } else {
-                // For non-images, just update the URL
-                const updatedAttrs = { ...nodeToUpdate.attrs, url };
-                const updateTransaction = currentState.tr.setNodeMarkup(nodePos, null, updatedAttrs);
-                view.dispatch(updateTransaction);
-            }
+        if (imageNode) {
+            const replaceTransaction = view.state.tr.replaceWith(
+                nodePos,
+                nodePos + nodeToUpdate.nodeSize,
+                imageNode,
+            );
+            view.dispatch(replaceTransaction);
         }
+    }
+
+    private updateFileNodeUrl(view: EditorView, nodePos: number, nodeToUpdate: any, url: string): void {
+        const updatedAttrs = { ...nodeToUpdate.attrs, url };
+        const updateTransaction = view.state.tr.setNodeMarkup(nodePos, null, updatedAttrs);
+        view.dispatch(updateTransaction);
+    }
+
+    private parseFileNode(node: string | Node, extra: ApplySchemaAttributes): any {
+        if (!isElementDomNode(node)) {
+            return false;
+        }
+
+        const url = node.getAttribute(FILE_ATTRS.url) || '';
+        const name = node.getAttribute(FILE_ATTRS.name) || '';
+        const type = node.getAttribute(FILE_ATTRS.type) || '';
+        const size = parseInt(node.getAttribute(FILE_ATTRS.size) || '0', 10);
+        const id = node.getAttribute(FILE_ATTRS.id) || '';
+
+        return { ...extra.parse(node), url, name, type, size, id };
+    }
+
+    private parseFileLink(node: string | Node, extra: ApplySchemaAttributes): any {
+        if (!isElementDomNode(node)) {
+            return false;
+        }
+
+        const href = node.getAttribute('href');
+        const text = node.textContent || '';
+
+        // Check if this is a file link
+        if (href && isFileUrl(href)) {
+            const type = getFileTypeFromUrl(href) || getFileTypeFromFilename(text) || '';
+            const size = 0; // We don't store size in standard markdown
+            const id = generateFileId();
+
+            return { ...extra.parse(node), url: href, name: text, type, size, id };
+        }
+
+        return false;
     }
 
     createNodeSpec(extra: ApplySchemaAttributes, override: Partial<NodeSpecOverride>): NodeExtensionSpec {
@@ -215,44 +258,12 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
             parseDOM: [
                 {
                     tag: `div[${FILE_ATTRS.name}]`,
-                    getAttrs: (node: string | Node) => {
-                        if (!isElementDomNode(node)) {
-                            return false;
-                        }
-
-                        const url = node.getAttribute(FILE_ATTRS.url) || '';
-                        const name = node.getAttribute(FILE_ATTRS.name) || '';
-                        const type = node.getAttribute(FILE_ATTRS.type) || '';
-                        const size = parseInt(node.getAttribute(FILE_ATTRS.size) || '0', 10);
-                        const id = node.getAttribute(FILE_ATTRS.id) || '';
-
-                        return { ...extra.parse(node), url, name, type, size, id };
-                    },
+                    getAttrs: (node: string | Node) => this.parseFileNode(node, extra),
                 },
                 {
                     tag: 'a',
-                    getAttrs: (node: string | Node) => {
-                        if (!isElementDomNode(node)) {
-                            return false;
-                        }
-
-                        const href = node.getAttribute('href');
-                        const text = node.textContent || '';
-
-                        // Check if this is a file link
-                        if (href && isFileUrl(href)) {
-                            // Extract file type and size from URL or filename if possible
-                            const type = getFileTypeFromUrl(href) || getFileTypeFromFilename(text) || '';
-                            const size = 0; // We don't store size in standard markdown
-                            const id = generateFileId();
-
-                            return { ...extra.parse(node), url: href, name: text, type, size, id };
-                        }
-
-                        return false;
-                    },
+                    getAttrs: (node: string | Node) => this.parseFileLink(node, extra),
                 },
-                // can add tag: 'img', block here like above if we want to do something custom with images
                 ...(override.parseDOM ?? []),
             ],
             toDOM: (node) => {

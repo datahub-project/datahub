@@ -5,8 +5,6 @@ export {
     FileNodeAttributes, 
     SUPPORTED_FILE_TYPES, 
     createFileNodeAttributes, 
-    formatFileSize, 
-    getFileIconType, 
     handleFileDownload,
     validateFile,
     isFileUrl,

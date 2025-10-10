@@ -39,33 +39,10 @@ export const generateFileId = (): string => {
 };
 
 /**
- * Format file size in human-readable format
- */
-export const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
-};
-
-/**
  * Check if a file type is supported
  */
 export const isFileTypeSupported = (fileType: string, supportedTypes: string[] = SUPPORTED_FILE_TYPES): boolean => {
     return supportedTypes.includes(fileType);
-};
-
-/**
- * Get file icon based on file type
- */
-export const getFileIconType = (type: string): 'image' | 'pdf' | 'document' | 'other' => {
-    if (type.startsWith('image/')) return 'image';
-    if (type === 'application/pdf') return 'pdf';
-    if (type.includes('document') || type.includes('sheet')) return 'document';
-    return 'other';
 };
 
 /**
