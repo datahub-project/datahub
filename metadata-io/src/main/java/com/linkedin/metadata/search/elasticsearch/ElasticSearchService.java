@@ -65,7 +65,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @VisibleForTesting @Getter private final ESSearchDAO esSearchDAO;
   private final ESBrowseDAO esBrowseDAO;
-  private final ESWriteDAO esWriteDAO;
+  @Getter private final ESWriteDAO esWriteDAO;
 
   @Override
   public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
