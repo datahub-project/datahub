@@ -14,6 +14,7 @@ def test_ingestion_stage_context_records_duration():
         pass
     assert len(report.ingestion_stage_durations) == 1
     key = next(iter(report.ingestion_stage_durations.keys()))
+    assert "Ingestion" in key
     assert "Test Stage" in key
 
 
@@ -26,6 +27,7 @@ def test_ingestion_stage_context_handles_exceptions():
         pass
     assert len(report.ingestion_stage_durations) == 1
     key = next(iter(report.ingestion_stage_durations.keys()))
+    assert "Ingestion" in key
     assert "Test Stage" in key
 
 
@@ -95,5 +97,6 @@ def test_ingestion_stage_with_high_stage():
         time.sleep(0.1)
     assert len(report.ingestion_stage_durations) == 1
     key = next(iter(report.ingestion_stage_durations.keys()))
+    assert "Profiling" in key
     assert "Test Stage" in key
     assert report.ingestion_high_stage_seconds[IngestionHighStage.PROFILING] > 0

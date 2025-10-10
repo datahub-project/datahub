@@ -78,8 +78,9 @@ class IngestionStageContext(AbstractContextManager):
                 f"Time spent in stage <{self._ingestion_stage}>: {elapsed} seconds",
                 stacklevel=2,
             )
-            # Cannot add a tuple here as that will cause serialization errors
-            self._report.ingestion_stage_durations[self._ingestion_stage] = elapsed
+            # Store tuple as string to avoid serialization errors
+            key = f"({self._high_stage.value}, {self._ingestion_stage})"
+            self._report.ingestion_stage_durations[key] = elapsed
         else:
             logger.info(
                 f"Time spent in stage <{self._high_stage.value}>: {elapsed} seconds",
