@@ -12,7 +12,8 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from tdigest import TDigest
+# tdigest is not PEP 561 compliant stub package so we need to ignore the type checker (mypy)
+from tdigest import TDigest  # type: ignore
 
 from datahub.configuration.telemetry_config import TelemetryConfig
 
@@ -211,7 +212,7 @@ class ResponseTimeMetrics:
 
     def __init__(
         self,
-        config: TelemetryConfig,
+        config: Optional[TelemetryConfig],
         percentiles: Optional[List[int]],
         recent_contexts_window_size: Optional[int],
         disable_recent_contexts: Optional[bool],
@@ -231,7 +232,7 @@ class ResponseTimeMetrics:
             .configure_disable_recent_contexts(disable_recent_contexts)
         )
         self._lock = threading.Lock()
-        self._config = config
+        self._config = config or TelemetryConfig()
 
     def record_time(
         self,
@@ -347,7 +348,7 @@ class ResponseTimeTracker:
 
 
 def create_response_time_metrics_instance(
-    config: TelemetryConfig,
+    config: Optional[TelemetryConfig] = None,
     percentiles: Optional[List[int]] = None,
     recent_contexts_window_size: Optional[int] = None,
     disable_recent_contexts: Optional[bool] = None,
