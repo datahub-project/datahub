@@ -14,6 +14,7 @@ from datahub_integrations.gen_ai.description_context import ShellEntityError
 from datahub_integrations.gen_ai.router import SuggestedTerms
 from datahub_integrations.gen_ai.term_suggestion_action import (
     _TERMS_ALGO_VERSION,
+    AutomationApplyType,
     BulkTermSuggester,
     TermSuggestionActionConfig,
 )
@@ -26,7 +27,7 @@ def mock_config() -> TermSuggestionActionConfig:
         entity_types_enabled=["SCHEMA_FIELD"],
         platforms=["test"],
         glossary_term_urns=["urn:li:glossaryTerm:TestTerm"],
-        recommendation_action="PROPOSE",
+        recommendation_action=AutomationApplyType.PROPOSE,
     )
 
 

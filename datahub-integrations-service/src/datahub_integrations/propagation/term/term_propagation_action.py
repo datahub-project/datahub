@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 class TermPropagationDirective(PropagationDirective):
     term: str
     actor: Optional[str] = Field(
-        None,
+        default=None,
         description="Actor that triggered the term propagation through the original term association.",
     )
 

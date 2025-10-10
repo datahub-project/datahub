@@ -113,7 +113,7 @@ class DataHubExecutorGraph(DataHubGraph):
             entity, DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME, "systemMetadata"
         ).get("lastObserved", 0)
 
-        ers = ExecutionRequestStatus.parse_obj(
+        ers = ExecutionRequestStatus.model_validate(
             {
                 "execution_request_urn": entity.get("urn"),
                 "execution_request_id": key.get("id"),

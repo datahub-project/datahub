@@ -9,8 +9,6 @@ ext {
   venv_name = 'venv'
 }
 
-def pip_install_command = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip install -e ../../metadata-ingestion"
-
 task checkPythonVersion(type: Exec) {
   commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 10)'
 }
@@ -22,25 +20,34 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   commandLine 'bash', '-c',
       "${python_executable} -m venv ${venv_name} && " +
       "${venv_name}/bin/python -m pip install --upgrade uv && " +
+      // Install minimal dependencies required by codegen script
+      "source ${venv_name}/bin/activate && ${venv_name}/bin/uv pip install 'avro>=1.11.3,<1.13' 'click>=7.1.2,!=8.2.0' 'pydantic>=2' PyYAML avro-gen3==0.7.16 && " +
       "touch ${sentinel_file}"
 }
 
-task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
-  def sentinel_file = "${venv_name}/.build_install_codegen_deps_sentinel"
-  outputs.file(sentinel_file)
+task codegen(type: Exec, dependsOn: [environmentSetup, ':metadata-events:mxe-schemas:build']) {
+  inputs.files(
+    project.fileTree(dir: "../../metadata-events/mxe-schemas/src/", include: "**/*.avsc"),
+    project.fileTree(dir: "scripts"),
+  )
+  outputs.dir('src/acryl_datahub_cloud/metadata')
   commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
-    "${pip_install_command} && " +
-    "touch ${sentinel_file}"
-}
-
-task codegen(type: Exec, dependsOn: [installPackage]) {
-  commandLine 'bash', '-c', 
     "source ${venv_name}/bin/activate && set -x && " +
     "./scripts/codegen.sh"
 }
 
-task install(dependsOn: [codegen])
+task installPackage(type: Exec, dependsOn: [environmentSetup, codegen]) {
+  def sentinel_file = "${venv_name}/.build_install_package_sentinel"
+  inputs.file file('setup.py')
+  inputs.file file('src/acryl_datahub_cloud/_codegen_config.json')
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "${venv_name}/bin/uv pip install -e . && " +
+    "touch ${sentinel_file}"
+}
+
+task install(dependsOn: [installPackage])
 
 task installPackageDev(type: Exec, dependsOn: [install]) {
   def sentinel_file = "${venv_name}/.build_install_cloud_package_sentinel"
@@ -50,25 +57,25 @@ task installPackageDev(type: Exec, dependsOn: [install]) {
 
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x &&" +
-    "${pip_install_command} -e .[dev] && " +
+    "${venv_name}/bin/uv pip install -e .[dev] && " +
     "touch ${sentinel_file}"
 }
 
-task installDev(dependsOn: [installPackageDev, ':metadata-ingestion:installDev'])
+task installDev(dependsOn: [installPackageDev])
 
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "ruff check --diff src/ tests/ && " +
     "ruff format --check --diff src/ tests/ && " +
-    "mypy --show-traceback --show-error-codes src/ tests/"
+    "mypy --config-file=mypy.ini --show-traceback --show-error-codes src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "ruff check --fix src/ tests/ && " +
     "ruff format src/ tests/ && " +
-    "mypy --show-traceback --show-error-codes src/ tests/"
+    "mypy --config-file=mypy.ini --show-traceback --show-error-codes src/ tests/"
 }
 
 task test(type: Exec, dependsOn: installDev) {

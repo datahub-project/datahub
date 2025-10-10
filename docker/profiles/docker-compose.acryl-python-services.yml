@@ -88,11 +88,9 @@ x-datahub-executor-dev: &datahub-executor-dev
     - ${DATAHUB_MAPPED_EXECUTOR_DEBUG_PORT:-5005}:5005
   environment: &datahub-executor-dev-env
     <<: *datahub-executor-env
-    PYTHONPATH: "/metadata-ingestion/src:/datahub-executor/src/datahub_executor:$${PYTHONPATH}"
   volumes:
     - ./datahub-executor/start.sh:/start_datahub_executor.sh
     - ./datahub-executor/ingestion-pipeline-config.yaml:/etc/datahub-executor/ingestion-pipeline-config.yaml
-    - ../../metadata-ingestion/src:/metadata-ingestion/src
     - ../../datahub-executor:/datahub-executor
 
 x-datahub-executor-dev-head: &datahub-executor-dev-head

@@ -2724,7 +2724,7 @@ def test_sql_assertion_input_create_assertion_info(
     assert assertion_info.changeType is None
     assert assertion_info.operator == models.AssertionStdOperatorClass.LESS_THAN
     assert assertion_info.parameters.value is not None
-    assert assertion_info.parameters.value.value == "500.0"
+    assert assertion_info.parameters.value.value == "500"
 
 
 def test_sql_assertion_input_create_assertion_info_with_change_type(
@@ -2754,8 +2754,8 @@ def test_sql_assertion_input_create_assertion_info_with_change_type(
     assert assertion_info.operator == models.AssertionStdOperatorClass.BETWEEN
     assert assertion_info.parameters.minValue is not None
     assert assertion_info.parameters.maxValue is not None
-    assert assertion_info.parameters.minValue.value == "5.0"  # min is first element
-    assert assertion_info.parameters.maxValue.value == "50.0"  # max is second element
+    assert assertion_info.parameters.minValue.value == "5"  # min is first element
+    assert assertion_info.parameters.maxValue.value == "50"  # max is second element
 
 
 def test_sql_assertion_input_create_monitor_info(

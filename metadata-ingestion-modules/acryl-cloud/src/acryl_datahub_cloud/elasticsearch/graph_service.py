@@ -32,15 +32,31 @@ class BaseModelRow(BaseModel):
         else:
             raise ValueError(f"No mapping for type {type_}")
 
+    @staticmethod
+    def string_to_pyarrow_type(type_string: str) -> pa.DataType:
+        """Convert string representation back to pyarrow type by converting to Python type first."""
+        # Mapping of pyarrow string representations to Python types
+        type_mapping = {
+            "string": str,
+            "int64": int,
+            "float64": float,
+            "bool": bool,
+            "timestamp[ns]": datetime.datetime,
+            "date32[day]": datetime.date,
+        }
+
+        python_type = type_mapping.get(
+            type_string, str
+        )  # Default to str for unknown types
+        return BaseModelRow.pydantic_type_to_pyarrow(python_type)
+
     @classmethod
     def arrow_schema(cls) -> pa.Schema:
         fields = []
-        for field_name, field_model in cls.__fields__.items():
-            pyarrow_type = BaseModelRow.pydantic_type_to_pyarrow(
-                field_model.outer_type_
-            )
+        for field_name, field_model in cls.model_fields.items():
+            pyarrow_type = BaseModelRow.pydantic_type_to_pyarrow(field_model.annotation)
             pyarrow_field = pa.field(field_name, pyarrow_type)
-            if not field_model.required:
+            if not field_model.is_required():
                 pyarrow_field = pyarrow_field.with_nullable(True)
             else:
                 pyarrow_field = pyarrow_field.with_nullable(False)
@@ -50,10 +66,8 @@ class BaseModelRow(BaseModel):
     @classmethod
     def datahub_schema(cls) -> List[SchemaField]:
         fields = []
-        for field_name, field_model in cls.__fields__.items():
-            pyarrow_type = BaseModelRow.pydantic_type_to_pyarrow(
-                field_model.outer_type_
-            )
+        for field_name, field_model in cls.model_fields.items():
+            pyarrow_type = BaseModelRow.pydantic_type_to_pyarrow(field_model.annotation)
             fields.append(SchemaField(name=field_name, type=str(pyarrow_type)))
         return fields
 

@@ -50,7 +50,7 @@ task environmentSetup(type: Exec, dependsOn: installUv) {
         "touch ${sentinel_file}"
 }
 
-task codegenPython(dependsOn: [":metadata-ingestion:codegen"])
+task codegenPython(dependsOn: [':metadata-ingestion-modules:acryl-cloud:codegen'])
 
 task installPackage(type: Exec, dependsOn: [environmentSetup, codegenPython]) {
     inputs.files(
@@ -63,20 +63,33 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, codegenPython]) {
 
     commandLine 'bash', '-c',
         "set +x && source ${venv_name}/bin/activate && set -x && " +
-        "./scripts/sync.sh && " +
+        "./scripts/sync.sh --no-dev && " +
         "touch ${venv_name}/.build_install_sentinel"
 }
 
 task install(dependsOn: [installPackage])
 
-task installDev(dependsOn: [install])
+task installDev(type: Exec, dependsOn: [install]) {
+    inputs.files(
+            file('pyproject.toml'),
+            file('scripts/sync.sh'),
+            file('requirements.txt'),
+            file('requirements-dev.txt'),
+    )
+    outputs.file("${venv_name}/.build_installdev_sentinel")
 
-task lockfileUpdate(type: Exec, dependsOn: environmentSetup) {
+    commandLine 'bash', '-c',
+            "set +x && source ${venv_name}/bin/activate && set -x && " +
+                    "./scripts/sync.sh && " +
+                    "touch ${venv_name}/.build_installdev_sentinel"
+}
+
+task lockfileUpdate(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion-modules:acryl-cloud:codegen']) {
     commandLine 'bash', '-c',
         "set +x && source ${venv_name}/bin/activate && set -x && " +
         "./scripts/lockfile.sh"
 }
-task lockfileCheck(type: Exec, dependsOn: environmentSetup) {
+task lockfileCheck(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion-modules:acryl-cloud:codegen']) {
     commandLine 'bash', '-c',
         "set +x && source ${venv_name}/bin/activate && set -x && " +
         "./scripts/lockfile-check.sh"
@@ -91,7 +104,7 @@ task lint(type: Exec, dependsOn: installDev) {
         "set +x && source ${venv_name}/bin/activate && set -x && " +
         "ruff check ${lintDirs} ${excludeRouterArgs} && " +
         "ruff format --check ${lintDirs} ${excludeRouterArgs} && " +
-        "mypy ${typeCheckDirs}"
+        "mypy --config-file=mypy.ini ${typeCheckDirs}"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
@@ -165,7 +178,7 @@ docker {
         include "datahub-integrations-service/static/**"
         include "datahub-integrations-service/pyproject.toml"
         include "datahub-integrations-service/requirements*"
-        include "metadata-ingestion/**"
+        include "metadata-ingestion-modules/acryl-cloud/**"
         include "datahub-actions/**"
         include "python-build/**"
     }.exclude {

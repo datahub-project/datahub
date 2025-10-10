@@ -385,7 +385,7 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
         """
         Rebuild an assertion with updated info.
         """
-        return Assertion.parse_obj(
+        return Assertion.model_validate(
             dict(
                 **dict(assertion_info.to_obj()),
                 urn=original_assertion.urn,

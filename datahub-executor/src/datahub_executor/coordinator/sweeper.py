@@ -130,7 +130,7 @@ class SweeperJob:
         status: RemoteExecutorStatusClass,
         action: str,
     ) -> SweeperAction:
-        return SweeperAction.parse_obj(
+        return SweeperAction.model_validate(
             {
                 "action": action,
                 "description": f"Processing stale remote executor status record: {urn}; executorId = {status.executorPoolId}",
@@ -143,7 +143,7 @@ class SweeperJob:
 
     def _build_aborted_action(self, ingestion: ExecutionRequestStatus) -> SweeperAction:
         elapsed = self._get_elapsed_seconds(ingestion.last_observed)
-        return SweeperAction.parse_obj(
+        return SweeperAction.model_validate(
             {
                 "action": "ABORTED",
                 "description": f"Ingestion {ingestion.execution_request_id} has been inactive for {elapsed} seconds",
@@ -163,7 +163,7 @@ class SweeperJob:
         if dup_of is not None:
             action_message = f"{action_message} of {dup_of}"
 
-        return SweeperAction.parse_obj(
+        return SweeperAction.model_validate(
             {
                 "action": "DUPLICATE",
                 "description": action_message,
@@ -177,7 +177,7 @@ class SweeperJob:
     def _build_cancelled_action(
         self, ingestion: ExecutionRequestStatus, reason: str
     ) -> SweeperAction:
-        return SweeperAction.parse_obj(
+        return SweeperAction.model_validate(
             {
                 "action": "CANCELLED",
                 "description": f"Ingestion {ingestion.execution_request_id} cancelled due to {reason}",
@@ -190,7 +190,7 @@ class SweeperJob:
 
     def _build_restart_action(self, ingestion: ExecutionRequestStatus) -> SweeperAction:
         self._get_elapsed_seconds(ingestion.last_observed)
-        return SweeperAction.parse_obj(
+        return SweeperAction.model_validate(
             {
                 "action": "RESTART",
                 "description": "Presiously aborted ingestion {ingestion.execution_request_id} has been restarted",

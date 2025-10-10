@@ -105,6 +105,10 @@ class MonitorClient:
         anomalies = []
         for anomaly in latest_anomaly_events:
             if anomaly.state != "REJECTED":
+                assert (
+                    anomaly.source is not None
+                    and anomaly.source.sourceEventTimestampMillis is not None
+                )
                 anomalies.append(
                     Anomaly(
                         timestamp_ms=anomaly.source.sourceEventTimestampMillis,

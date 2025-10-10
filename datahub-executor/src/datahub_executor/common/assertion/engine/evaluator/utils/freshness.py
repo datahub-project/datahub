@@ -21,7 +21,7 @@ def get_filter_parameters(assertion: Assertion) -> Optional[Dict]:
     """
     freshness_assertion = assertion.freshness_assertion
     if freshness_assertion is not None and freshness_assertion.filter is not None:
-        return freshness_assertion.filter.__dict__
+        return freshness_assertion.filter.model_dump()
     return None
 
 
@@ -46,7 +46,7 @@ def get_event_type_parameters_from_parameters(
         if source_type == DatasetFreshnessSourceType.FIELD_VALUE:
             entity_event_type = EntityEventType.FIELD_UPDATE
             if dataset_freshness_parameters.field:
-                params.update(dataset_freshness_parameters.field.__dict__)
+                params.update(dataset_freshness_parameters.field.model_dump())
             filter_params = get_filter_parameters(assertion)
             if filter_params:
                 params["filter"] = filter_params
@@ -60,12 +60,14 @@ def get_event_type_parameters_from_parameters(
         elif source_type == DatasetFreshnessSourceType.AUDIT_LOG:
             entity_event_type = EntityEventType.AUDIT_LOG_OPERATION
             if dataset_freshness_parameters.audit_log:
-                params.update(dataset_freshness_parameters.audit_log.__dict__)
+                params.update(dataset_freshness_parameters.audit_log.model_dump())
             return (entity_event_type, params)
         elif source_type == DatasetFreshnessSourceType.DATAHUB_OPERATION:
             entity_event_type = EntityEventType.DATAHUB_OPERATION
             if dataset_freshness_parameters.datahub_operation:
-                params.update(dataset_freshness_parameters.datahub_operation.__dict__)
+                params.update(
+                    dataset_freshness_parameters.datahub_operation.model_dump()
+                )
             return (entity_event_type, params)
         else:
             raise InvalidSourceTypeException(
@@ -75,5 +77,5 @@ def get_event_type_parameters_from_parameters(
 
     raise InvalidParametersException(
         message="Failed to extract EntityEventType & Parameters from Dataset FRESHNESS Assertion. Malformed assertion type found. Missing dataset_freshness_parameters.",
-        parameters=parameters.__dict__,
+        parameters=parameters.model_dump(),
     )

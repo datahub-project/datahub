@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import pydantic
 from acryl.executor.request.execution_request import ExecutionRequest
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
 from datahub_executor.common.metric.types import (
     Metric,
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class PermissiveBaseModel(BaseModel):
     class Config:
         extra = "allow"
-        allow_population_by_field_name = (
+        populate_by_name = (  # allow_population_by_field_name in pydantic v1
             True  # Allow parsing via both field name and alias
         )
 
@@ -337,7 +337,9 @@ class FreshnessCronSchedule(PermissiveBaseModel):
     timezone: str
 
     # An optional start time offset from the cron schedule. If not provided, the boundary will be computed between the evaluation time and previous evaluation time.
-    window_start_offset_ms: Optional[int] = Field(alias="windowStartOffsetMs")
+    window_start_offset_ms: Optional[int] = Field(
+        alias="windowStartOffsetMs", default=None
+    )
 
 
 class FixedIntervalSchedule(PermissiveBaseModel):
@@ -355,7 +357,9 @@ class FreshnessAssertionSchedule(PermissiveBaseModel):
 
     cron: Optional[FreshnessCronSchedule] = None
 
-    fixed_interval: Optional[FixedIntervalSchedule] = Field(alias="fixedInterval")
+    fixed_interval: Optional[FixedIntervalSchedule] = Field(
+        alias="fixedInterval", default=None
+    )
 
 
 class SchemaFieldSpec(PermissiveBaseModel):
@@ -370,29 +374,31 @@ class SchemaFieldSpec(PermissiveBaseModel):
     # The native type of the field collected from source
     native_type: str = Field(alias="nativeType")
 
-    kind: Optional[FreshnessFieldKind]
+    kind: Optional[FreshnessFieldKind] = None
 
 
 class AuditLogSpec(PermissiveBaseModel):
     """The type of operation. If not provided all operations will be considered."""
 
-    operation_types: Optional[List[str]] = Field(alias="operationTypes")
+    operation_types: Optional[List[str]] = Field(alias="operationTypes", default=None)
 
-    user_name: Optional[str] = Field(alias="userName")
+    user_name: Optional[str] = Field(alias="userName", default=None)
 
 
 class DataHubOperationSpec(PermissiveBaseModel):
     """Information about the DataHub Operation aspect used to evaluate an assertion"""
 
     # The list of operation types that should be monitored. If not provided, a default set will be used.
-    operation_types: Optional[List[str]] = Field(alias="operationTypes")
+    operation_types: Optional[List[str]] = Field(alias="operationTypes", default=None)
 
     # The list of custom operation types that should be monitored. If not provided, no custom operation types will be used.
-    custom_operation_types: Optional[List[str]] = Field(alias="customOperationTypes")
+    custom_operation_types: Optional[List[str]] = Field(
+        alias="customOperationTypes", default=None
+    )
 
 
 class FreshnessFieldSpec(SchemaFieldSpec):
-    kind: Optional[FreshnessFieldKind]
+    kind: Optional[FreshnessFieldKind] = None
 
 
 class DatasetFreshnessAssertionParameters(PermissiveBaseModel):
@@ -404,10 +410,12 @@ class DatasetFreshnessAssertionParameters(PermissiveBaseModel):
     field: Optional[FreshnessFieldSpec] = None
 
     # A descriptor for a Dataset Column to use. Present when source_type is AUDIT_LOG_OPERATION
-    audit_log: Optional[AuditLogSpec] = Field(alias="auditLog")
+    audit_log: Optional[AuditLogSpec] = Field(alias="auditLog", default=None)
 
     # A descriptor for a DataHub operation to use. Present when source_type is DATAHUB_OPERATION
-    datahub_operation: Optional[DataHubOperationSpec] = Field(alias="dataHubOperation")
+    datahub_operation: Optional[DataHubOperationSpec] = Field(
+        alias="dataHubOperation", default=None
+    )
 
 
 class DatasetVolumeAssertionParameters(PermissiveBaseModel):
@@ -421,7 +429,9 @@ class DatasetSchemaAssertionParameters(PermissiveBaseModel):
 class DatasetFieldAssertionParameters(PermissiveBaseModel):
     source_type: DatasetFieldSourceType = Field(alias="sourceType")
 
-    changed_rows_field: Optional[FreshnessFieldSpec] = Field(alias="changedRowsField")
+    changed_rows_field: Optional[FreshnessFieldSpec] = Field(
+        alias="changedRowsField", default=None
+    )
 
 
 class FreshnessAssertion(PermissiveBaseModel):
@@ -429,7 +439,7 @@ class FreshnessAssertion(PermissiveBaseModel):
 
     type: FreshnessAssertionType
 
-    schedule: Optional[FreshnessAssertionSchedule]
+    schedule: Optional[FreshnessAssertionSchedule] = None
 
     filter: Optional[DatasetFilter] = None
 
@@ -444,13 +454,13 @@ class AssertionStdParameter(PermissiveBaseModel):
 
 class AssertionStdParameters(PermissiveBaseModel):
     # The value parameter of an assertion
-    value: Optional[AssertionStdParameter]
+    value: Optional[AssertionStdParameter] = Field(default=None)
 
     # The maxValue parameter of an assertion
-    max_value: Optional[AssertionStdParameter] = Field(alias="maxValue")
+    max_value: Optional[AssertionStdParameter] = Field(alias="maxValue", default=None)
 
     # The minValue parameter of an assertion
-    min_value: Optional[AssertionStdParameter] = Field(alias="minValue")
+    min_value: Optional[AssertionStdParameter] = Field(alias="minValue", default=None)
 
 
 class RowCountTotal(PermissiveBaseModel):
@@ -493,7 +503,7 @@ class IncrementingSegmentFieldTransformer(PermissiveBaseModel):
     type: IncrementingSegmentFieldTransformerType
 
     # The 'native' transformer type, useful as a back door if a custom transformer is required.
-    native_type: Optional[str] = Field(alias="nativeType")
+    native_type: Optional[str] = Field(alias="nativeType", default=None)
 
 
 class IncrementingSegmentSpec(PermissiveBaseModel):
@@ -503,7 +513,7 @@ class IncrementingSegmentSpec(PermissiveBaseModel):
     field: SchemaFieldSpec
 
     # Optional transformer function to apply to the field in order to obtain the final segment or bucket identifier.
-    transformer: Optional[IncrementingSegmentFieldTransformer]
+    transformer: Optional[IncrementingSegmentFieldTransformer] = None
 
 
 class IncrementingSegmentRowCountTotal(PermissiveBaseModel):
@@ -537,16 +547,20 @@ class IncrementingSegmentRowCountChange(PermissiveBaseModel):
 class VolumeAssertion(PermissiveBaseModel):
     type: VolumeAssertionType
 
-    row_count_total: Optional[RowCountTotal] = Field(alias="rowCountTotal")
+    row_count_total: Optional[RowCountTotal] = Field(
+        alias="rowCountTotal", default=None
+    )
 
-    row_count_change: Optional[RowCountChange] = Field(alias="rowCountChange")
+    row_count_change: Optional[RowCountChange] = Field(
+        alias="rowCountChange", default=None
+    )
 
     incrementing_row_count_total: Optional[IncrementingSegmentRowCountTotal] = Field(
-        alias="incrementingSegmentRowCountTotal"
+        alias="incrementingSegmentRowCountTotal", default=None
     )
 
     incrementing_row_count_change: Optional[IncrementingSegmentRowCountChange] = Field(
-        alias="incrementingSegmentRowCountChange"
+        alias="incrementingSegmentRowCountChange", default=None
     )
 
     filter: Optional[DatasetFilter] = None
@@ -557,7 +571,9 @@ class SQLAssertion(PermissiveBaseModel):
 
     statement: str
 
-    change_type: Optional[AssertionValueChangeType] = Field(alias="changeType")
+    change_type: Optional[AssertionValueChangeType] = Field(
+        alias="changeType", default=None
+    )
 
     # The operator GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, etc being applied to the assertion
     operator: AssertionStdOperator
@@ -587,17 +603,18 @@ class FieldValuesAssertion(PermissiveBaseModel):
 
     operator: AssertionStdOperator
 
-    parameters: Optional[AssertionStdParameters]
+    parameters: Optional[AssertionStdParameters] = None
 
-    transform: Optional[FieldTransform]
+    transform: Optional[FieldTransform] = None
 
     fail_threshold: FieldValuesFailThreshold = Field(alias="failThreshold")
 
     exclude_nulls: bool = Field(alias="excludeNulls")
 
-    @validator("parameters", pre=True, always=True)
+    @field_validator("parameters", mode="before")
+    @classmethod
     def validate_parameters(
-        cls, parameters: Union[dict, AssertionStdParameters], values: dict
+        cls, parameters: Union[dict, AssertionStdParameters], info: ValidationInfo
     ) -> Union[dict, AssertionStdParameters]:
         # Handle None case
         if parameters is None:
@@ -607,11 +624,11 @@ class FieldValuesAssertion(PermissiveBaseModel):
         params_dict = {}
         if isinstance(parameters, AssertionStdParameters):
             # Convert to dict for validation only
-            params_dict = parameters.dict()
+            params_dict = parameters.model_dump()
         else:
             params_dict = parameters
 
-        operator = values.get("operator")
+        operator = info.data.get("operator")
         # validate that the operator type is valid for the parameter type
         if operator in [
             AssertionStdOperator.LESS_THAN,
@@ -653,13 +670,14 @@ class FieldValuesAssertion(PermissiveBaseModel):
         # Return the original parameters
         return parameters
 
-    @validator("transform", pre=True, always=True)
+    @field_validator("transform", mode="before")
+    @classmethod
     def validate_transform(
-        cls, transform: Optional[FieldTransform], values: Dict[str, Any]
+        cls, transform: Optional[FieldTransform], info: ValidationInfo
     ) -> Optional[FieldTransform]:
         if transform:
-            parameters = values.get("parameters")
-            field = values.get("field")
+            parameters = info.data.get("parameters")
+            field = info.data.get("field")
             if parameters and field:
                 if not field.type == "STRING":
                     raise ValueError(
@@ -717,11 +735,11 @@ class FieldAssertion(PermissiveBaseModel):
     type: FieldAssertionType
 
     field_values_assertion: Optional[FieldValuesAssertion] = Field(
-        alias="fieldValuesAssertion"
+        alias="fieldValuesAssertion", default=None
     )
 
     field_metric_assertion: Optional[FieldMetricAssertion] = Field(
-        alias="fieldMetricAssertion"
+        alias="fieldMetricAssertion", default=None
     )
 
     filter: Optional[DatasetFilter] = None
@@ -802,7 +820,7 @@ class SchemaAssertionField(PermissiveBaseModel):
 
     type: SchemaFieldDataType
 
-    nativeType: Optional[str]
+    nativeType: Optional[str] = None
 
 
 class SchemaAssertion(PermissiveBaseModel):
@@ -832,19 +850,19 @@ class AssertionEntity(PermissiveBaseModel):
     platform_urn: str = Field(alias="platformUrn")
 
     # Platform instance id
-    platform_instance: Optional[str] = Field(alias="platformInstance")
+    platform_instance: Optional[str] = Field(alias="platformInstance", default=None)
 
     # A list of sub-types for the entity, inside the platform
-    sub_types: Optional[List[str]] = Field(alias="subTypes")
+    sub_types: Optional[List[str]] = Field(alias="subTypes", default=None)
 
     # The entity/dataset's shortname
-    table_name: Optional[str]
+    table_name: Optional[str] = None
 
     # The entity/dataset's fully qualified name
-    qualified_name: Optional[str] = Field(alias="qualifiedName")
+    qualified_name: Optional[str] = Field(alias="qualifiedName", default=None)
 
     # Whether the entity exists (is soft deleted or not)
-    exists: Optional[bool]
+    exists: Optional[bool] = None
 
 
 class PartitionKeyFieldSpec(PermissiveBaseModel):
@@ -856,7 +874,7 @@ class PartitionKeyFieldSpec(PermissiveBaseModel):
     source_field_name: str
 
     # The transform to apply to the source field to compute the partition key field
-    source_field_transform: Optional[PartitionKeyFieldTransform]
+    source_field_transform: Optional[PartitionKeyFieldTransform] = None
 
     def __init__(
         self,
@@ -900,7 +918,7 @@ class PartitionSpec(PermissiveBaseModel):
     partition_key_spec: PartitionKeySpec
 
     # A filter for a particular partition. If not provided, all partitions of the spec will be considered.
-    partition_key: Optional[PartitionKey]
+    partition_key: Optional[PartitionKey] = None
 
     def __init__(
         self,
@@ -923,29 +941,35 @@ class AssertionInfo(PermissiveBaseModel):
 
     # An FRESHNESS Assertion Object
     freshness_assertion: Optional[FreshnessAssertion] = Field(
-        alias="freshnessAssertion"
+        alias="freshnessAssertion", default=None
     )
 
     # Volume Assertion Object
-    volume_assertion: Optional[VolumeAssertion] = Field(alias="volumeAssertion")
+    volume_assertion: Optional[VolumeAssertion] = Field(
+        alias="volumeAssertion", default=None
+    )
 
     # SQL Assertion Object
-    sql_assertion: Optional[SQLAssertion] = Field(alias="sqlAssertion")
+    sql_assertion: Optional[SQLAssertion] = Field(alias="sqlAssertion", default=None)
 
     # Field Assertion Object
-    field_assertion: Optional[FieldAssertion] = Field(alias="fieldAssertion")
+    field_assertion: Optional[FieldAssertion] = Field(
+        alias="fieldAssertion", default=None
+    )
 
     # Schema Assertion Object
-    schema_assertion: Optional[SchemaAssertion] = Field(alias="schemaAssertion")
+    schema_assertion: Optional[SchemaAssertion] = Field(
+        alias="schemaAssertion", default=None
+    )
 
     # How the assertion was sourced
-    source_type: Optional[AssertionSourceType] = Field(alias="sourceType")
+    source_type: Optional[AssertionSourceType] = Field(alias="sourceType", default=None)
 
     # The time at which the assertion was initially created
-    source_created_time: Optional[int] = Field(alias="sourceCreatedTime")
+    source_created_time: Optional[int] = Field(alias="sourceCreatedTime", default=None)
 
     # Description for the assertion
-    description: Optional[str]
+    description: Optional[str] = None
 
     @property
     def is_inferred(self) -> bool:
@@ -967,7 +991,8 @@ class AssertionInfo(PermissiveBaseModel):
             and self.field_assertion.type == FieldAssertionType.FIELD_METRIC
         )
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def extract_assertion_info(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         if "info" in values and "type" in values["info"]:
             values["type"] = values["info"]["type"]
@@ -1094,11 +1119,12 @@ class AbsoluteTimeWindow(PermissiveBaseModel):
     startTimeMillis: int
     endTimeMillis: int
 
-    @validator("startTimeMillis", "endTimeMillis", pre=True)
+    @field_validator("startTimeMillis", "endTimeMillis", mode="before")
+    @classmethod
     def coerce_datetime_objects(cls, v: Any) -> int:
         # This exists purely to make it easier to pass datetime objects / strings in when testing.
         if not isinstance(v, int):
-            dt = pydantic.parse_obj_as(datetime, v)
+            dt = pydantic.TypeAdapter(datetime).validate_python(v)
             assert dt.tzinfo is not None, "datetime must be timezone-aware"
             return int(dt.timestamp() * 1000)
         return v
@@ -1127,16 +1153,16 @@ class AssertionAdjustmentSettings(PermissiveBaseModel):
     This is mainly applied against inferred assertions
     """
 
-    algorithm: Optional[AssertionAdjustmentAlgorithm]
-    algorithmName: Optional[str]
-    context: Optional[Dict[str, str]]
+    algorithm: Optional[AssertionAdjustmentAlgorithm] = None
+    algorithmName: Optional[str] = None
+    context: Optional[Dict[str, str]] = None
     exclusion_windows: Optional[List[AssertionExclusionWindow]] = Field(
-        alias="exclusionWindows"
+        alias="exclusionWindows", default=None
     )
     training_data_lookback_window_days: Optional[int] = Field(
-        alias="trainingDataLookbackWindowDays"
+        alias="trainingDataLookbackWindowDays", default=None
     )
-    sensitivity: Optional[AssertionMonitorSensitivity]
+    sensitivity: Optional[AssertionMonitorSensitivity] = None
 
 
 class Assertion(AssertionInfo):
@@ -1147,7 +1173,7 @@ class Assertion(AssertionInfo):
     entity: AssertionEntity
 
     # The urn of the connection required to evaluate the assertion. If there is no connection urn we are limited in terms of what we can do
-    connection_urn: Optional[str] = Field(alias="connectionUrn")
+    connection_urn: Optional[str] = Field(alias="connectionUrn", default=None)
 
     # We need "AssertionInfo" aspect in its original form when creating AssertionRunEvent aspect.
     # Ideally, we can write a complete mapper from "Assertion" type here to "AssertionInfo" aspect
@@ -1156,13 +1182,14 @@ class Assertion(AssertionInfo):
     # that seems more maintenance-heavy as compared to this workaround. In future, we may revisit this.
 
     # raw assertionInfo aspect
-    raw_info_aspect: Optional[RawAspect]
+    raw_info_aspect: Optional[RawAspect] = None
 
     # It's not possible to define circular dependency due to how python parsing works, so
     # if provided, monitor is stored as json string and then parsed into pydantic model separately
-    monitor: Optional[Dict]
+    monitor: Optional[Dict] = None
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def extract_assertion(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         # Attempt to extract the entity field from the "relationships"
         # response object provided by the GraphQL API.
@@ -1190,22 +1217,22 @@ class AssertionEvaluationParameters(PermissiveBaseModel):
 
     # Dataset FRESHNESS Parameters. Present if the type is DATASET_FRESHNESS
     dataset_freshness_parameters: Optional[DatasetFreshnessAssertionParameters] = Field(
-        alias="datasetFreshnessParameters"
+        alias="datasetFreshnessParameters", default=None
     )
 
     # Dataset VOLUME Parameters. Present if the type is DATASET_VOLUME
     dataset_volume_parameters: Optional[DatasetVolumeAssertionParameters] = Field(
-        alias="datasetVolumeParameters"
+        alias="datasetVolumeParameters", default=None
     )
 
     # Dataset FIELD Parameters. Present if the type is DATASET_FIELD
     dataset_field_parameters: Optional[DatasetFieldAssertionParameters] = Field(
-        alias="datasetFieldParameters"
+        alias="datasetFieldParameters", default=None
     )
 
     # Dataset DATA_SCHEMA Parameters. Present if the type is DATASET_SCHEMA
     dataset_schema_parameters: Optional[DatasetSchemaAssertionParameters] = Field(
-        alias="datasetSchemaParameters"
+        alias="datasetSchemaParameters", default=None
     )
 
 
@@ -1223,7 +1250,7 @@ class EmbeddedAssertion(PermissiveBaseModel):
 
     # Validity period of the assertion, ie the window of time where it should be used in evaluation
     evaluation_time_window: Optional[EvaluationTimeWindow] = Field(
-        alias="evaluationTimeWindow"
+        alias="evaluationTimeWindow", default=None
     )
 
     # JSON string containing AssertionInfo GMS aspect's payload
@@ -1237,7 +1264,7 @@ class AssertionInferenceDetails(PermissiveBaseModel):
     #
     # This is used to determine whether we have generated a valid prediction for
     # a given smart assertion.
-    generated_at: Optional[int] = Field(alias="generatedAt")
+    generated_at: Optional[int] = Field(alias="generatedAt", default=None)
 
 
 class AssertionEvaluationSpecContext(PermissiveBaseModel):
@@ -1245,15 +1272,15 @@ class AssertionEvaluationSpecContext(PermissiveBaseModel):
     # An embedded copy of the assertion used to evaluate which will overwrite the referenced assertion
     # if present and if the EmbeddedAssertion's evaluationTimeWindow period is valid
     embedded_assertions: Optional[List[EmbeddedAssertion]] = Field(
-        alias="embeddedAssertions"
+        alias="embeddedAssertions", default=None
     )
 
     # Deprecated: A legacy way to adjust the assertion using a standard deviation calculated offline.
-    std_dev: Optional[float] = Field(alias="stdDev")
+    std_dev: Optional[float] = Field(alias="stdDev", default=None)
 
     # Currently used for Smart Assertion: Details about the last inference generated for a smart assertion.
     inference_details: Optional[AssertionInferenceDetails] = Field(
-        alias="inferenceDetails"
+        alias="inferenceDetails", default=None
     )
 
     @property
@@ -1278,17 +1305,17 @@ class AssertionEvaluationSpec(PermissiveBaseModel):
     parameters: AssertionEvaluationParameters
 
     # Additional context about assertion being evaluated.
-    context: Optional[AssertionEvaluationSpecContext]
+    context: Optional[AssertionEvaluationSpecContext] = None
 
     # JSON string containing payload of AssertionEvaluationParameters GMS model
-    raw_parameters: Optional[str] = Field(alias="rawParameters")
+    raw_parameters: Optional[str] = Field(alias="rawParameters", default=None)
 
 
 class AssertionMonitorSettings(PermissiveBaseModel):
     """Assertion Monitor Settings"""
 
     inference_settings: Optional[AssertionAdjustmentSettings] = Field(
-        alias="inferenceSettings"
+        alias="inferenceSettings", default=None
     )
 
 
@@ -1305,9 +1332,10 @@ class AssertionMonitorMetricsCubeBootstrapStatus(PermissiveBaseModel):
 
     state: AssertionMonitorMetricsCubeBootstrapState
 
-    message: Optional[str]
+    message: Optional[str] = None
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def extract_info(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         if "state" in values:
             values["state"] = AssertionMonitorMetricsCubeBootstrapState(values["state"])
@@ -1319,7 +1347,7 @@ class AssertionMonitorBootstrapStatus(PermissiveBaseModel):
 
     metrics_cube_bootstrap_status: Optional[
         AssertionMonitorMetricsCubeBootstrapStatus
-    ] = Field(alias="metricsCubeBootstrapStatus")
+    ] = Field(alias="metricsCubeBootstrapStatus", default=None)
 
 
 class AssertionMonitor(PermissiveBaseModel):
@@ -1327,10 +1355,10 @@ class AssertionMonitor(PermissiveBaseModel):
 
     assertions: List[AssertionEvaluationSpec]
 
-    settings: Optional[AssertionMonitorSettings]
+    settings: Optional[AssertionMonitorSettings] = None
 
     bootstrap_status: Optional[AssertionMonitorBootstrapStatus] = Field(
-        alias="bootstrapStatus"
+        alias="bootstrapStatus", default=None
     )
 
 
@@ -1341,13 +1369,14 @@ class Monitor(PermissiveBaseModel):
 
     type: MonitorType
 
-    assertion_monitor: Optional[AssertionMonitor]
+    assertion_monitor: Optional[AssertionMonitor] = None
 
     mode: MonitorMode
 
-    executor_id: Optional[str] = Field(alias="executorId")
+    executor_id: Optional[str] = Field(alias="executorId", default=None)
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def extract_info(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         graphql_entity = (
             values["entity"] if "entity" in values else None
@@ -1419,7 +1448,7 @@ class AssertionEvaluationContext:
 
     online_smart_assertions: Optional[bool] = False
 
-    monitor_urn: Optional[str] = Field(alias="monitorUrn")
+    monitor_urn: Optional[str] = Field(alias="monitorUrn", default=None)
 
     evaluation_spec: Optional[AssertionEvaluationSpec] = None
 
@@ -1505,7 +1534,7 @@ class ExecutorConfig(PermissiveBaseModel):
     access_key: str = Field(alias="accessKeyId")
     secret_key: str = Field(alias="secretKeyId")
     session_token: str = Field(alias="sessionToken")
-    expiration: Optional[datetime]
+    expiration: Optional[datetime] = None
 
 
 class ExecutionRequestSchedule:
@@ -1568,7 +1597,7 @@ class Anomaly(PermissiveBaseModel):
     """
 
     timestamp_ms: int
-    metric: Optional[Metric]
+    metric: Optional[Metric] = None
 
     def timestamp(self) -> datetime:
         """Convert timestamp_ms to a datetime object."""

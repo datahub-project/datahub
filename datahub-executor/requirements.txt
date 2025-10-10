@@ -2,13 +2,15 @@
 #    uv pip compile --universal --python-version 3.10 -o requirements.txt requirements-local.in
 -e .
     # via -r requirements-local.in
--e ../metadata-ingestion
+-e ../metadata-ingestion-modules/acryl-cloud
+    # via -r requirements-local.in
+acryl-datahub==1.3.0
     # via
-    #   -r requirements-local.in
     #   acryl-datahub-actions
+    #   acryl-datahub-cloud
     #   acryl-datahub-executor
     #   acryl-executor
-acryl-datahub-actions==0.2.1
+acryl-datahub-actions==1.3.0
     # via acryl-datahub-executor
 acryl-datahub-classify==0.0.11
     # via acryl-datahub
@@ -28,6 +30,8 @@ altair==4.2.0
     # via acryl-great-expectations
 amqp==5.3.1
     # via kombu
+annotated-types==0.7.0
+    # via pydantic
 anyio==4.7.0
     # via
     #   acryl-executor
@@ -69,13 +73,19 @@ avro==1.11.3
     #   avro-gen3
     #   confluent-kafka
 avro-gen3==0.7.16
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   acryl-datahub-cloud
 aws-msk-iam-sasl-signer-python==1.0.2
-    # via acryl-datahub-executor
+    # via
+    #   acryl-datahub-actions
+    #   acryl-datahub-executor
 azure-core==1.33.0
     # via azure-identity
 azure-identity==1.21.0
-    # via acryl-datahub-executor
+    # via
+    #   acryl-datahub-actions
+    #   acryl-datahub-executor
 beautifulsoup4==4.12.3
     # via
     #   nbconvert
@@ -125,6 +135,7 @@ celery==5.4.0
     # via acryl-datahub-executor
 certifi==2024.8.30
     # via
+    #   httpcore
     #   requests
     #   sentry-sdk
     #   snowflake-connector-python
@@ -191,7 +202,9 @@ confluent-kafka==2.6.1
 contourpy==1.3.1
     # via matplotlib
 croniter==1.3.15
-    # via acryl-datahub-executor
+    # via
+    #   acryl-datahub-cloud
+    #   acryl-datahub-executor
 cryptography==44.0.0
     # via
     #   acryl-datahub
@@ -227,8 +240,6 @@ defusedxml==0.7.1
     # via nbconvert
 deprecated==1.2.15
     # via acryl-datahub
-dictdiffer==0.9.0
-    # via acryl-datahub-actions
 docker==7.1.0
     # via acryl-datahub
 entrypoints==0.4
@@ -246,7 +257,7 @@ executing==2.1.0
     # via stack-data
 expandvars==0.12.0
     # via acryl-datahub
-fastapi==0.95.2
+fastapi==0.118.0
     # via acryl-datahub-executor
 fastavro==1.9.7
     # via
@@ -335,10 +346,14 @@ grpcio-status==1.62.3
     # via google-api-core
 h11==0.16.0
     # via
+    #   acryl-datahub-actions
     #   acryl-datahub-executor
+    #   httpcore
     #   uvicorn
 holidays==0.68
     # via prophet
+httpcore==1.0.9
+    # via acryl-datahub-actions
 httptools==0.6.4
     # via uvicorn
 humanfriendly==10.0
@@ -520,7 +535,6 @@ mypy==1.13.0
     # via sqlalchemy-stubs
 mypy-extensions==1.0.0
     # via
-    #   acryl-datahub-actions
     #   acryl-executor
     #   mypy
     #   typing-inspect
@@ -708,7 +722,7 @@ pycurl==7.45.3
     #   acryl-datahub-executor
     #   celery
     #   kombu
-pydantic==1.10.19
+pydantic==2.11.9
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
@@ -720,6 +734,8 @@ pydantic==1.10.19
     #   spacy
     #   thinc
     #   weasel
+pydantic-core==2.33.2
+    # via pydantic
 pydeequ==1.1.1
     # via acryl-datahub
 pygments==2.18.0
@@ -767,6 +783,7 @@ python-utils==3.9.1
     # via progressbar2
 pytz==2024.1
     # via
+    #   acryl-datahub-cloud
     #   acryl-datahub-executor
     #   acryl-great-expectations
     #   apscheduler
@@ -960,7 +977,7 @@ stackprinter==0.2.12
     # via acryl-datahub-actions
 stanio==0.5.1
     # via cmdstanpy
-starlette==0.27.0
+starlette==0.48.0
     # via fastapi
 tableschema==1.21.0
     # via acryl-datahub
@@ -1027,7 +1044,9 @@ typer==0.15.1
     #   spacy
     #   weasel
 types-croniter==1.4.0.1
-    # via acryl-datahub-executor
+    # via
+    #   acryl-datahub-cloud
+    #   acryl-datahub-executor
 types-python-dateutil==2.9.0.20250822
     # via arrow
 typing-extensions==4.12.2
@@ -1040,21 +1059,27 @@ typing-extensions==4.12.2
     #   azure-core
     #   azure-identity
     #   cloudpathlib
+    #   fastapi
     #   multidict
     #   mypy
     #   pydantic
+    #   pydantic-core
     #   python-utils
     #   rich
     #   schwifty
     #   snowflake-connector-python
     #   sqlalchemy-stubs
+    #   starlette
     #   typer
     #   typing-inspect
+    #   typing-inspection
     #   uvicorn
 typing-inspect==0.9.0
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
+typing-inspection==0.4.1
+    # via pydantic
 tzdata==2024.2
     # via
     #   celery
@@ -1062,6 +1087,7 @@ tzdata==2024.2
     #   tzlocal
 tzlocal==5.2
     # via
+    #   acryl-datahub-cloud
     #   acryl-great-expectations
     #   apscheduler
 ujson==5.10.0

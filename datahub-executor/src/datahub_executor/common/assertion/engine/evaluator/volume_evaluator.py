@@ -291,7 +291,7 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
             )
             raise InvalidParametersException(
                 message=f"Failed to evaluate VOLUME Assertion. Unsupported VOLUME Assertion Type {volume_assertion.type} provided.",
-                parameters=volume_assertion.__dict__,
+                parameters=volume_assertion.model_dump(),
             )
 
     def _evaluate_internal(

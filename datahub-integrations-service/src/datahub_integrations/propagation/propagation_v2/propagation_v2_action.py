@@ -2,6 +2,8 @@ import logging
 from collections import defaultdict
 from typing import Self
 
+# Import _Aspect directly from codegen - importing from schema_classes does not work for mypy
+from datahub._codegen.aspect import _Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.api.common import (
@@ -24,7 +26,6 @@ from datahub.metadata.schema_classes import (
     RelationshipChangeEventClass,
     RelationshipChangeOperationClass,
     SchemaMetadataClass,
-    _Aspect,
 )
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub_actions.event.event_envelope import EventEnvelope

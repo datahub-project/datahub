@@ -60,7 +60,7 @@ class DbtSyncBackConfig(GitHubRepoConfig, DbtOperationExtractConfig):
     # When enabled, we'll create a venv and use `dbt ls` to locate nodes.
     # This generally shouldn't be required.
     require_runtime_dbt_resolver: bool = pydantic.Field(
-        False, json_schema_extra={"hidden_from_docs": True}
+        default=False, json_schema_extra={"hidden_from_docs": True}
     )
 
     open_draft_prs: bool = False
@@ -659,7 +659,7 @@ if __name__ == "__main__":
     config = DbtSyncBackConfig(
         github_repo_org="acryldata",
         github_repo_name="harshal-sample-dbt-tests",
-        auth=GITHUB_TOKEN,
+        auth=pydantic.SecretStr(GITHUB_TOKEN),
         subdir=DBT_SUBDIR,
     )
 

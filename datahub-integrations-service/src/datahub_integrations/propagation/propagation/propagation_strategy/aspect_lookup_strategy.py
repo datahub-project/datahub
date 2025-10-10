@@ -79,14 +79,14 @@ def get_urns_from_aspect(
     else:
         parent_urn = entity_urn
 
-    if aspect_lookup.aspect_name not in models.__SCHEMA_TYPES:
+    if aspect_lookup.aspect_name not in models.__SCHEMA_TYPES:  # type: ignore[attr-defined]  # Private attribute exists at runtime
         logger.warning(f"Aspect {aspect_lookup.aspect_name} not found.")
         return []
 
     logger.debug(f"Looking for aspect {aspect_lookup.aspect_name} in {parent_urn}")
     aspect = graph.graph.get_aspect(
         parent_urn,
-        models.__SCHEMA_TYPES.get(aspect_lookup.aspect_name),
+        models.__SCHEMA_TYPES.get(aspect_lookup.aspect_name),  # type: ignore[attr-defined]  # Private attribute exists at runtime
     )
 
     if not aspect:

@@ -88,7 +88,7 @@ class PropertyPropagationConfig(AutomationActionConfig, PropagationConfig):
     """
 
     enabled: bool = Field(
-        True, description="Indicates whether property propagation is enabled."
+        default=True, description="Indicates whether property propagation is enabled."
     )
 
     propagation_rule: PropagationRule = Field(

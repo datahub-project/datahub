@@ -39,6 +39,13 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
     chown -R datahub:datahub $HOME && \
     chmod g-s $HOME
 
+# Debug: Show actual datahub user info
+RUN echo "=== DataHub User Debug Info ===" && \
+    date && \
+    getent passwd datahub && \
+    getent group datahub && \
+    id datahub
+
 # Setup the PPA for alternative Python versions.
 # TODO: Eventually we should switch to using uv's support for python-build-standalone.
 RUN apt-get update && apt-get install -y \
@@ -153,7 +160,7 @@ COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
 # RUN ln -svT "/usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture)" /usr/lib/jvm/default-jvm
 # ENV JAVA_HOME=/usr/lib/jvm/default-jvm
 
-# Install external deps in a cacheble layer
+# Install external deps in a cacheable layer
 USER datahub
 COPY ./datahub-executor/requirements.txt /datahub-executor/
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor \
@@ -161,8 +168,8 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-execu
 USER 0
 
 COPY --chown=datahub ./datahub-executor /datahub-executor
-COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
-COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /acryl-cloud
+# copy to match requirements.txt entry: ../metadata-ingestion-modules/acryl-cloud (relative to /datahub-executor)
+COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
 COPY --chown=datahub ./docker/datahub-executor/start.sh /start_datahub_executor.sh
 COPY --chown=datahub ./docker/datahub-executor/health_status.py /health_status
 COPY --chown=datahub ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
@@ -176,8 +183,7 @@ ARG RELEASE_VERSION
 
 RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
-    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 \
-    && python /version_updater.py --directory /datahub-executor/ --version "$RELEASE_VERSION" --expected-update-count 2
+    python /version_updater.py --directory /datahub-executor/ --version "$RELEASE_VERSION" --expected-update-count 2
 
 
 # Embed build info into the image
@@ -186,6 +192,10 @@ RUN jq -n '{"docker_version": env.DOCKER_VERSION, "release_version": env.RELEASE
 USER datahub
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor \
   uv pip install -r requirements.txt
+
+RUN echo "Debug output:" && \
+  uv pip list && \
+  uv pip show acryl-datahub
 
 
 # =============================================================================
@@ -239,17 +249,13 @@ FROM build AS dev-install
 # Dummy stage for development. Assumes most of the code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
 
-ENV PYTHONPATH="/metadata-ingestion/src:/datahub-executor/src/datahub_executor:${PYTHONPATH}"
-ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-executor/src/datahub_executor --reload-dir /metadata-ingestion/src"
+ENV PYTHONPATH="/metadata-ingestion-modules/acryl-cloud/src:/datahub-executor/src/datahub_executor:${PYTHONPATH}"
+ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-executor/src/datahub_executor --reload-dir /metadata-ingestion-modules/acryl-cloud/src"
 ENV DEBUGPY_ENABLED=true
 
 FROM ${APP_ENV}-install AS final
 
-# Workaround for the issue created by renaming _schema_classes.py to _internal_schema_classes:
-RUN ln -s \
-  /metadata-ingestion/src/datahub/metadata/_internal_schema_classes.py \
-  /metadata-ingestion/src/datahub/metadata/_schema_classes.py
-
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9004/health || exit 1
 ENTRYPOINT []
 CMD exec dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_executor.sh
+

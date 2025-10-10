@@ -54,21 +54,20 @@ def test_polars_to_arrow_schema() -> None:
     }
 
     # Expected Arrow schema
-    expected_arrow_schema = pa.schema(
-        [
-            pa.field("column1", pa.int32()),
-            pa.field("column2", pa.float64()),
-            pa.field("column3", pa.string()),
-            pa.field("column4", pa.string()),
-            pa.field(
-                "column5",
-                pa.struct(
-                    [pa.field("field1", pa.int32()), pa.field("field2", pa.string())]
-                ),
+    fields: list[pa.Field] = [
+        pa.field("column1", pa.int32()),
+        pa.field("column2", pa.float64()),
+        pa.field("column3", pa.string()),
+        pa.field("column4", pa.string()),
+        pa.field(
+            "column5",
+            pa.struct(
+                [pa.field("field1", pa.int32()), pa.field("field2", pa.string())]
             ),
-            pa.field("column6", pa.list_(pa.int32())),
-        ]
-    )
+        ),
+        pa.field("column6", pa.list_(pa.int32())),
+    ]
+    expected_arrow_schema = pa.schema(fields)
 
     # Call the method
     arrow_schema = DataHubUsageFeatureReportingSource.polars_to_arrow_schema(

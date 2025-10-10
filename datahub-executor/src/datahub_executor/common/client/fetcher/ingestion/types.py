@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, root_validator, validator
+from pydantic import Field, field_validator, model_validator
 
 from datahub_executor.common.types import PermissiveBaseModel
 
@@ -16,17 +16,19 @@ class IngestionSourceConfig(PermissiveBaseModel):
 
     executor_id: str = Field(alias="executorId")
 
-    version: Optional[str]
+    version: Optional[str] = None
 
-    debug_mode: Optional[str] = Field(alias="debugMode")
+    debug_mode: Optional[str] = Field(alias="debugMode", default=None)
 
     extra_args: Dict[str, Any] = {}
 
-    @validator("debug_mode", pre=True, always=True)
+    @field_validator("debug_mode", mode="before")
+    @classmethod
     def validate_debug_mode(cls, debug_mode: Optional[str]) -> str:
         return debug_mode or "False"
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def extract_info(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         if "extraArgs" not in values or not isinstance(values["extraArgs"], List):
             return values
@@ -56,8 +58,8 @@ class IngestionSource(PermissiveBaseModel):
 
     type: str
 
-    platform: Optional[str]
+    platform: Optional[str] = None
 
-    schedule: Optional[IngestionSourceSchedule]
+    schedule: Optional[IngestionSourceSchedule] = None
 
     config: IngestionSourceConfig
