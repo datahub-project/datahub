@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLWorkerPoolThreadFactory;
+import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
@@ -66,7 +67,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import software.amazon.awssdk.services.sts.StsClient;
 
 @Configuration
 @Import({
@@ -218,6 +218,10 @@ public class GraphQLEngineFactory {
   @Qualifier("pageModuleService")
   private PageModuleService pageModuleService;
 
+  @Autowired
+  @Qualifier("s3Util")
+  private S3Util s3Util;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -283,12 +287,7 @@ public class GraphQLEngineFactory {
     args.setConnectionService(_connectionService);
     args.setAssertionService(assertionService);
     args.setMetricUtils(metricUtils);
-
-    try {
-      StsClient stsClient = StsClient.create();
-      args.setStsClient(stsClient);
-    } catch (Exception e) {
-    }
+    args.setS3Util(s3Util);
 
     return new GmsGraphQLEngine(args).builder().build();
   }

@@ -374,7 +374,6 @@ import org.apache.commons.io.IOUtils;
 import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderOptions;
-import software.amazon.awssdk.services.sts.StsClient;
 
 /**
  * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the GMS
@@ -492,7 +491,6 @@ public class GmsGraphQLEngine {
   private final GraphQLConfiguration graphQLConfiguration;
   private final MetricUtils metricUtils;
 
-  private final StsClient stsClient;
   private final S3Util s3Util;
 
   private final BusinessAttributeType businessAttributeType;
@@ -627,15 +625,7 @@ public class GmsGraphQLEngine {
     this.dataHubPageModuleType = new PageModuleType(entityClient);
     this.graphQLConfiguration = args.graphQLConfiguration;
     this.metricUtils = args.metricUtils;
-    this.stsClient = args.stsClient;
-
-    String gmsRoleArn = System.getenv("DATAHUB_ROLE_ARN");
-    if (gmsRoleArn == null || gmsRoleArn.trim().isEmpty() || this.stsClient == null) {
-      log.info("GMS role ARN is not set or STS client is not available, not creating S3Util");
-      this.s3Util = null;
-    } else {
-      this.s3Util = new S3Util(this.entityClient, this.stsClient, gmsRoleArn);
-    }
+    this.s3Util = args.s3Util;
 
     this.businessAttributeType = new BusinessAttributeType(entityClient);
     // Init Lists

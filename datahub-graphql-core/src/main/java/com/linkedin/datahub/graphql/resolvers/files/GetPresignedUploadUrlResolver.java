@@ -33,7 +33,7 @@ public class GetPresignedUploadUrlResolver
       new HashSet<>(
           Arrays.asList(
               "pdf", "jpeg", "jpg", "png", "pptx", "docx", "xls", "xml", "ppt", "gif", "xlsx",
-              "bmp", "doc", "rtf", "gz", "zip", "mp4", "mp3", "wmv", "tiff"));
+              "bmp", "doc", "rtf", "gz", "zip", "mp4", "mp3", "wmv", "tiff", "txt", "md", "csv"));
 
   private final S3Util s3Util;
   private final String bucketName;
