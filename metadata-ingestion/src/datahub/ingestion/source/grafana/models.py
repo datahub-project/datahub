@@ -92,6 +92,7 @@ class Dashboard(_GrafanaBaseModel):
         """Custom parsing to handle nested panel extraction."""
         dashboard_data = data.get("dashboard", {})
         _panel_data = dashboard_data.get("panels", [])
+        panels = []
         try:
             panels = cls.extract_panels(_panel_data)
         except Exception as e:
@@ -107,6 +108,10 @@ class Dashboard(_GrafanaBaseModel):
         dashboard_dict = {**dashboard_data, "panels": panels, "folder_id": folder_id}
         if "meta" in dashboard_dict:
             del dashboard_dict["meta"]
+
+        # Handle refresh field type mismatch - convert boolean to string
+        if "refresh" in dashboard_dict and isinstance(dashboard_dict["refresh"], bool):
+            dashboard_dict["refresh"] = str(dashboard_dict["refresh"])
 
         return super().parse_obj(dashboard_dict)
 
