@@ -19,6 +19,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +40,8 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
   @Getter private final SearchClientShim<?> client;
 
+  final ExecutorService pitExecutor;
+
   public GraphQueryPITDAO(
       SearchClientShim<?> client,
       GraphServiceConfiguration graphServiceConfig,
@@ -43,6 +49,46 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       MetricUtils metricUtils) {
     super(graphServiceConfig, config, metricUtils);
     this.client = client;
+
+    // Create dedicated thread pool for PIT operations
+    int maxThreads = config.getSearch().getGraph().getMaxThreads();
+    this.pitExecutor =
+        new ThreadPoolExecutor(
+            maxThreads, // core pool size
+            maxThreads, // maximum pool size
+            60L,
+            TimeUnit.SECONDS, // keep alive time
+            new LinkedBlockingQueue<>(maxThreads), // bounded queue for backpressure
+            r -> {
+              Thread t = new Thread(r, "pit-worker-" + System.currentTimeMillis());
+              t.setDaemon(true);
+              return t;
+            },
+            new ThreadPoolExecutor.CallerRunsPolicy() // backpressure: caller runs when queue full
+            );
+
+    log.info("Initialized PIT thread pool with {} threads and bounded queue", maxThreads);
+  }
+
+  /** Shutdown the PIT executor service gracefully. */
+  public void shutdown() {
+    if (pitExecutor != null && !pitExecutor.isShutdown()) {
+      log.info("Shutting down PIT thread pool");
+      pitExecutor.shutdown();
+      try {
+        if (!pitExecutor.awaitTermination(30, TimeUnit.SECONDS)) {
+          log.warn("PIT thread pool did not terminate gracefully, forcing shutdown");
+          pitExecutor.shutdownNow();
+          if (!pitExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
+            log.error("PIT thread pool did not terminate after forced shutdown");
+          }
+        }
+      } catch (InterruptedException e) {
+        log.warn("Interrupted while waiting for PIT thread pool shutdown", e);
+        pitExecutor.shutdownNow();
+        Thread.currentThread().interrupt();
+      }
+    }
   }
 
   /**
@@ -73,6 +119,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
     for (int sliceId = 0; sliceId < slices; sliceId++) {
       final int currentSliceId = sliceId;
+
       CompletableFuture<List<LineageRelationship>> sliceFuture =
           CompletableFuture.supplyAsync(
               () -> {
@@ -91,7 +138,8 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                     slices,
                     remainingTime,
                     entityUrns);
-              });
+              },
+              pitExecutor); // Use dedicated thread pool with CallerRunsPolicy for backpressure
       sliceFutures.add(sliceFuture);
     }
 
@@ -135,6 +183,12 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
               opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME));
 
       while (sliceRelationships.size() < maxRelations) {
+        // Check for thread interruption (from future.cancel(true))
+        if (Thread.currentThread().isInterrupted()) {
+          log.warn("Slice {} was interrupted, cleaning up PIT and stopping", sliceId);
+          throw new RuntimeException("Slice " + sliceId + " was interrupted");
+        }
+
         // Check timeout before processing
         if (remainingTime <= 0) {
           log.warn("Slice {} timed out, stopping PIT search", sliceId);
