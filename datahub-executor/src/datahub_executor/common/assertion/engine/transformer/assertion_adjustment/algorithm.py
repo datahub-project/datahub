@@ -1,7 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 
-from pydantic.v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 
 from datahub_executor.common.types import (
     Assertion,

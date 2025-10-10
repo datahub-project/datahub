@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from enum import Enum
 
-from pydantic.v1 import BaseModel
+from pydantic import BaseModel
 
 
 class MetricSourceType(str, Enum):

@@ -1,7 +1,7 @@
 from typing import Any, Dict
 
 import pytest
-from pydantic.v1 import ValidationError
+from pydantic import ValidationError
 
 from datahub_executor.common.types import FieldValuesAssertion
 

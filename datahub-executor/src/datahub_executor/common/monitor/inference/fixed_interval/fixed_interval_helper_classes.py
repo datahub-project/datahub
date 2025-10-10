@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 # import numpy
-from pydantic.v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 
 
 class ConsistencyScoreInfo(BaseModel):
