@@ -46,7 +46,8 @@ def get_task_instance_attributes(ti: "TaskInstance") -> Dict[str, str]:  # noqa:
 
     # Airflow 2.x has duration as a direct attribute
     # Airflow 3.x doesn't have it, so we calculate it from end_date - start_date
-    if hasattr(ti, "duration") and ti.duration is not None:
+    # Always include duration (even if None) for backward compatibility
+    if hasattr(ti, "duration"):
         attributes["duration"] = str(ti.duration)
     elif (
         hasattr(ti, "end_date")
@@ -62,7 +63,8 @@ def get_task_instance_attributes(ti: "TaskInstance") -> Dict[str, str]:  # noqa:
             logger.debug(f"Could not calculate duration: {e}")
 
     # end_date is available in both versions (when task is complete)
-    if hasattr(ti, "end_date") and ti.end_date:
+    # Always include end_date (even if None) for backward compatibility
+    if hasattr(ti, "end_date"):
         attributes["end_date"] = str(ti.end_date)
 
     # execution_date was renamed to logical_date in Airflow 3.0
@@ -74,7 +76,8 @@ def get_task_instance_attributes(ti: "TaskInstance") -> Dict[str, str]:  # noqa:
     if hasattr(ti, "max_tries"):
         attributes["max_tries"] = str(ti.max_tries)
 
-    if hasattr(ti, "external_executor_id") and ti.external_executor_id:
+    # Always include external_executor_id (even if None) for backward compatibility
+    if hasattr(ti, "external_executor_id"):
         attributes["external_executor_id"] = str(ti.external_executor_id)
 
     # operator field: In Airflow 2.x it's a direct attribute
