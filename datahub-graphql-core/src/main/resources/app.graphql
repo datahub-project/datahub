@@ -27,13 +27,6 @@ extend type Query {
   Global settings related to the home page for an instance
   """
   globalHomePageSettings: GlobalHomePageSettings
-
-  """
-  Generates a presigned url to upload files
-  """
-  getPresignedUploadUrl(
-    input: GetPresignedUploadUrlInput!
-  ): GetPresignedUploadUrl!
 }
 
 extend type Mutation {
@@ -900,43 +893,4 @@ type GlobalHomePageSettings {
   The default page template for the home page for this instance
   """
   defaultTemplate: DataHubPageTemplate
-}
-
-"""
-Input for the getUploadPresignedUrl query.
-"""
-input GetPresignedUploadUrlInput {
-  """
-  Original name of the file to upload
-  """
-  fileName: String!
-
-  """
-  The scenario for the upload (e.g., ASSET_DOCUMENTATION, PROFILE_IMAGE).
-  """
-  scenario: UploadDownloadScenario!
-  """
-  The URN of the asset associated with the upload (required when scenario is ASSET_DOCUMENTATION).
-  """
-  assetUrn: String
-
-  """
-  Optional content type of file e.g. "application/pdf"
-  """
-  contentType: String
-}
-
-"""
-Enum to specify the context of the upload.
-"""
-enum UploadDownloadScenario {
-  """
-  Upload for asset documentation.
-  """
-  ASSET_DOCUMENTATION
-}
-
-type GetPresignedUploadUrl {
-  url: String!
-  fileId: String!
 }
