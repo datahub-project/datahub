@@ -106,6 +106,46 @@ public class GetPresignedUploadUrlResolverTest {
 
     assertNotNull(result);
     assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
+    assertNotNull(result.getFileId());
+    assertTrue(result.getFileId().contains("document.pdf"));
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlReturnsFileId() throws Exception {
+    String testFileName = "my_test_file.pdf"; // Changed to an allowed extension
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            TEST_CONTENT_TYPE,
+            testFileName);
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockS3Util.generatePresignedUploadUrl(
+            eq(TEST_BUCKET_NAME), s3KeyCaptor.capture(), anyInt(), eq(TEST_CONTENT_TYPE)))
+        .thenReturn(MOCKED_PRESIGNED_URL);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+    CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
+    GetPresignedUploadUrl result = future.get();
+
+    assertNotNull(result);
+    assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
+    assertNotNull(result.getFileId());
+
+    String capturedS3Key = s3KeyCaptor.getValue();
+    assertTrue(capturedS3Key.startsWith(TEST_BUCKET_NAME + "/product-assets/"));
+
+    // Extract fileId from s3Key
+    String expectedFileIdPrefix = TEST_BUCKET_NAME + "/product-assets/";
+    String extractedFileId = capturedS3Key.substring(expectedFileIdPrefix.length());
+
+    assertEquals(result.getFileId(), extractedFileId);
+    assertTrue(result.getFileId().contains(testFileName));
   }
 
   @Test

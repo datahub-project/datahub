@@ -629,9 +629,7 @@ public class GmsGraphQLEngine {
     this.metricUtils = args.metricUtils;
     this.stsClient = args.stsClient;
 
-    // TODO: Add logic to get real role
-    // String gmsRoleArn = "arn:aws:iam::000000000000:root";
-    String gmsRoleArn = null;
+    String gmsRoleArn = System.getenv("DATAHUB_ROLE_ARN");
     if (gmsRoleArn == null || gmsRoleArn.trim().isEmpty() || this.stsClient == null) {
       log.info("GMS role ARN is not set or STS client is not available, not creating S3Util");
       this.s3Util = null;
