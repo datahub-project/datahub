@@ -1,4 +1,4 @@
-from typing import ClassVar, Dict, List, TypeAlias, Union
+from typing import Dict, List, TypeAlias, Union
 
 from datahub.configuration.common import ConfigModel
 from pydantic import Field, StrictBool, StrictFloat, StrictInt
@@ -38,10 +38,8 @@ class MetricProjectorConfig(ConfigModel):
         4  # Minimum number of samples required to get the predictions. (>4)
     )
     MIN_SAMPLES_FOR_TUNING: int = 10  # Minimum number of samples required to consider hyperparameter tuning. (>10)
-    DEFAULT_PARAMS: Dict[str, _Param] = pydantic.Field(default_factory=_default_parms)
-    PARAM_GRID: Dict[str, List[_Param]] = pydantic.Field(
-        default_factory=_default_param_grid
-    )
+    DEFAULT_PARAMS: Dict[str, _Param] = Field(default_factory=_default_parms)
+    PARAM_GRID: Dict[str, List[_Param]] = Field(default_factory=_default_param_grid)
     VALID_INTERVALS: List[str] = ["H", "D", "W", "M"]
     INTERVAL_THRESHOLDS: Dict[str, float] = {
         "30T": 0.2,
