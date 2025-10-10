@@ -295,6 +295,7 @@
                 "state": "TaskInstanceState.RUNNING",
                 "task_id": "transform_cost_table",
                 "dag_id": "snowflake_operator",
+                "end_date": "<end_date>",
                 "max_tries": "0",
                 "operator": "SQLExecuteQueryOperator",
                 "log_url": "http://airflow.example.com/dags/snowflake_operator/runs/manual_run_test/tasks/transform_cost_table?try_number=1",
@@ -304,7 +305,7 @@
             "name": "snowflake_operator_transform_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1759914644283,
+                "time": 1760087574666,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -381,7 +382,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1759914644283,
+            "timestampMillis": 1760087574666,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -398,14 +399,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1759914659520,
+            "timestampMillis": 1760087576749,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1759914659520
+            "lastUpdatedTimestamp": 1760087576749
         }
     }
 },
@@ -648,7 +649,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1759914659524,
+            "timestampMillis": 1760087576752,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

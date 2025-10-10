@@ -305,6 +305,7 @@
                 "state": "TaskInstanceState.RUNNING",
                 "task_id": "task_1",
                 "dag_id": "simple_dag",
+                "end_date": "<end_date>",
                 "max_tries": "0",
                 "operator": "BashOperator",
                 "log_url": "http://airflow.example.com/dags/simple_dag/runs/manual_run_test/tasks/task_1?try_number=1",
@@ -314,7 +315,7 @@
             "name": "simple_dag_task_1_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1759914493539,
+                "time": 1760086863225,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -417,7 +418,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1759914493539,
+            "timestampMillis": 1760086863225,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -434,14 +435,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1759914496079,
+            "timestampMillis": 1760086864711,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1759914496079
+            "lastUpdatedTimestamp": 1760086864711
         }
     }
 },
@@ -598,7 +599,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1759914496131,
+            "timestampMillis": 1760086864732,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -727,6 +728,7 @@
                 "state": "TaskInstanceState.RUNNING",
                 "task_id": "run_another_data_task",
                 "dag_id": "simple_dag",
+                "end_date": "<end_date>",
                 "max_tries": "0",
                 "operator": "BashOperator",
                 "log_url": "http://airflow.example.com/dags/simple_dag/runs/manual_run_test/tasks/run_another_data_task?try_number=1",
@@ -736,7 +738,7 @@
             "name": "simple_dag_run_another_data_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1759914496934,
+                "time": 1760086865036,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -773,7 +775,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1759914496934,
+            "timestampMillis": 1760086865036,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -892,7 +894,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1759914498877,
+            "timestampMillis": 1760086865826,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

@@ -207,6 +207,7 @@
                 "state": "TaskInstanceState.RUNNING",
                 "task_id": "transform_cost_table",
                 "dag_id": "custom_operator_sql_parsing",
+                "end_date": "<end_date>",
                 "max_tries": "0",
                 "operator": "CustomOperator",
                 "log_url": "http://airflow.example.com/dags/custom_operator_sql_parsing/runs/manual_run_test/tasks/transform_cost_table?try_number=1",
@@ -216,7 +217,7 @@
             "name": "custom_operator_sql_parsing_transform_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1759914858186,
+                "time": 1760087469233,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -241,7 +242,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1759914858186,
+            "timestampMillis": 1760087469233,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -376,7 +377,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1759914860542,
+            "timestampMillis": 1760087470641,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

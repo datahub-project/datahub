@@ -335,6 +335,7 @@
                 "state": "TaskInstanceState.RUNNING",
                 "task_id": "run_data_task",
                 "dag_id": "basic_iolets",
+                "end_date": "<end_date>",
                 "max_tries": "0",
                 "operator": "BashOperator",
                 "log_url": "http://airflow.example.com/dags/basic_iolets/runs/manual_run_test/tasks/run_data_task?try_number=1",
@@ -344,7 +345,7 @@
             "name": "basic_iolets_run_data_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1759914578086,
+                "time": 1760086959255,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -489,7 +490,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1759914578086,
+            "timestampMillis": 1760086959255,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -506,14 +507,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1759914580101,
+            "timestampMillis": 1760086960526,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1759914580101
+            "lastUpdatedTimestamp": 1760086960526
         }
     }
 },
@@ -524,14 +525,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1759914580105,
+            "timestampMillis": 1760086960530,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1759914580105
+            "lastUpdatedTimestamp": 1760086960530
         }
     }
 },
@@ -730,7 +731,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1759914580162,
+            "timestampMillis": 1760086960545,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
