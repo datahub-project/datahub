@@ -458,7 +458,7 @@ It takes the following parameters:
 
 - **searchTier**: integer (optional) - Search tier for the field (integer value >= 1). Creates a copy*to field that copies the field value to `\_search.tier*{tier}`. Fields with searchTier are automatically set to `index: false`unless`searchIndexed` is true. **Note**: searchTier can only be used with KEYWORD or TEXT field types.
 
-- **searchLabel**: string (optional) - Unified label for search operations. Creates a copy*to field that copies the field value to `\_search.{label}` (without prefixes). Replaces the previous `sortLabel` and `boostLabel` annotations. Fields with searchLabel are automatically set to `index: false`.
+- **searchLabel**: string (optional) - Unified label for search operations. Creates a copy\*to field that copies the field value to `\_search.{label}` (without prefixes). Replaces the previous `sortLabel` and `boostLabel` annotations. Fields with searchLabel are automatically set to `index: false`.
 
 - **searchIndexed**: boolean (optional) - When combined with `searchTier`, determines whether the field is indexed outside of `_search` for direct access. The field will be indexed using its actual field type (KEYWORD or TEXT), not forced to KEYWORD. **Note**: searchIndexed can only be true when searchTier is specified and can only be used with KEYWORD or TEXT field types. Defaults to false.
 
