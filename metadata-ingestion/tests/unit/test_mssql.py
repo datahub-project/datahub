@@ -44,25 +44,104 @@ def test_is_temp_table(mssql_source):
 def test_detect_rds_environment_on_premises(mssql_source):
     """Test environment detection for on-premises SQL Server"""
     mock_conn = MagicMock()
-    # Mock successful query execution (on-premises)
-    mock_conn.execute.return_value = True
+    # Mock server name query result (on-premises)
+    mock_result = MagicMock()
+    mock_result.fetchone.return_value = {"server_name": "SQLSERVER01"}
+    mock_conn.execute.return_value = mock_result
 
     result = mssql_source._detect_rds_environment(mock_conn)
 
     assert result is False
-    mock_conn.execute.assert_called_once_with("SELECT TOP 1 * FROM msdb.dbo.sysjobs")
+    mock_conn.execute.assert_called_once_with("SELECT @@servername AS server_name")
 
 
 def test_detect_rds_environment_rds(mssql_source):
     """Test environment detection for RDS/managed SQL Server"""
     mock_conn = MagicMock()
-    # Mock failed query execution (RDS)
-    mock_conn.execute.side_effect = Exception("Access denied")
+    # Mock server name query result (RDS)
+    mock_result = MagicMock()
+    mock_result.fetchone.return_value = {"server_name": "EC2AMAZ-FOUTLJN"}
+    mock_conn.execute.return_value = mock_result
 
     result = mssql_source._detect_rds_environment(mock_conn)
 
     assert result is True
-    mock_conn.execute.assert_called_once_with("SELECT TOP 1 * FROM msdb.dbo.sysjobs")
+    mock_conn.execute.assert_called_once_with("SELECT @@servername AS server_name")
+
+
+def test_detect_rds_environment_explicit_config_true(mssql_source):
+    """Test environment detection with explicit is_aws_rds=True configuration"""
+    mssql_source.config.is_aws_rds = True
+    mock_conn = MagicMock()
+
+    result = mssql_source._detect_rds_environment(mock_conn)
+
+    assert result is True
+    # Should not execute any queries when explicit config is provided
+    mock_conn.execute.assert_not_called()
+
+
+def test_detect_rds_environment_explicit_config_false(mssql_source):
+    """Test environment detection with explicit is_aws_rds=False configuration"""
+    mssql_source.config.is_aws_rds = False
+    mock_conn = MagicMock()
+
+    result = mssql_source._detect_rds_environment(mock_conn)
+
+    assert result is False
+    # Should not execute any queries when explicit config is provided
+    mock_conn.execute.assert_not_called()
+
+
+def test_detect_rds_environment_query_failure(mssql_source):
+    """Test environment detection when server name query fails"""
+    mock_conn = MagicMock()
+    mock_conn.execute.side_effect = Exception("Permission denied")
+
+    result = mssql_source._detect_rds_environment(mock_conn)
+
+    assert result is False
+    mock_conn.execute.assert_called_once_with("SELECT @@servername AS server_name")
+
+
+def test_detect_rds_environment_no_result(mssql_source):
+    """Test environment detection when server name query returns no result"""
+    mock_conn = MagicMock()
+    mock_result = MagicMock()
+    mock_result.fetchone.return_value = None
+    mock_conn.execute.return_value = mock_result
+
+    result = mssql_source._detect_rds_environment(mock_conn)
+
+    assert result is False
+    mock_conn.execute.assert_called_once_with("SELECT @@servername AS server_name")
+
+
+@pytest.mark.parametrize(
+    "server_name,expected_rds",
+    [
+        ("server.amazon.com", True),
+        ("server.amzn.com", True),
+        ("server.amaz.com", True),
+        ("server.ec2.internal", True),
+        ("mydb.xyz123.rds.amazonaws.com", True),
+        ("SQLSERVER01", False),
+        ("sql.corporate.com", False),
+        ("database.local", False),
+    ],
+)
+def test_detect_rds_environment_various_aws_indicators(
+    mssql_source, server_name, expected_rds
+):
+    """Test environment detection with various AWS server name patterns"""
+    mock_conn = MagicMock()
+    mock_result = MagicMock()
+    mock_result.fetchone.return_value = {"server_name": server_name}
+    mock_conn.execute.return_value = mock_result
+
+    result = mssql_source._detect_rds_environment(mock_conn)
+
+    assert result is expected_rds
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.logger")
