@@ -117,4 +117,30 @@ public class EbeanAspectDaoTest {
     assertTrue(
         sql.get(0).contains("FOR UPDATE;"), String.format("Did not find `for update` in %s ", sql));
   }
+
+  @Test
+  public void testStreamAspectBatchesWithIsolationLevel() {
+    // Test the new overloaded method with isolation level parameter
+    var args = new com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs();
+    args.limit = 10;
+
+    // Test with READ_UNCOMMITTED isolation level
+    var stream =
+        testDao.streamAspectBatches(args, io.ebean.annotation.TxIsolation.READ_UNCOMMITTED);
+    assertTrue(stream != null);
+
+    // Test with null isolation level (should use default)
+    var defaultStream = testDao.streamAspectBatches(args, null);
+    assertTrue(defaultStream != null);
+  }
+
+  @Test
+  public void testStreamAspectBatchesDefault() {
+    // Test the original method still works
+    var args = new com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs();
+    args.limit = 5;
+
+    var stream = testDao.streamAspectBatches(args);
+    assertTrue(stream != null);
+  }
 }
