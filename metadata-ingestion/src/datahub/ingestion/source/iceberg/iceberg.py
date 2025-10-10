@@ -889,3 +889,26 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
             "type": "bytes",
             "native_data_type": str(binary_type),
         }
+
+    def visit_timestamp_ns(self, timestamp_ns_type: Any) -> Dict[str, Any]:
+        # Handle nanosecond precision timestamps
+        return {
+            "type": "long",
+            "logicalType": "timestamp-micros",
+            "native_data_type": str(timestamp_ns_type),
+        }
+
+    def visit_timestamptz_ns(self, timestamptz_ns_type: Any) -> Dict[str, Any]:
+        # Handle nanosecond precision timestamps with timezone
+        return {
+            "type": "long",
+            "logicalType": "timestamp-micros",
+            "native_data_type": str(timestamptz_ns_type),
+        }
+
+    def visit_unknown(self, unknown_type: Any) -> Dict[str, Any]:
+        # Handle unknown types
+        return {
+            "type": "string",
+            "native_data_type": str(unknown_type),
+        }
