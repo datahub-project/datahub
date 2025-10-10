@@ -15,6 +15,9 @@ from datahub.metadata.schema_classes import DataProcessTypeClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
+from datahub_airflow_plugin._airflow_version_specific import (
+    get_task_instance_attributes,
+)
 from datahub_airflow_plugin._config import DatahubLineageConfig, DatajobUrl
 
 assert AIRFLOW_PATCHED
@@ -466,11 +469,6 @@ class AirflowGenerator:
             clone_outlets=True,
         )
 
-        # Extract task instance attributes in a version-compatible way
-        from datahub_airflow_plugin._airflow_version_specific import (
-            get_task_instance_attributes,
-        )
-
         job_property_bag = get_task_instance_attributes(ti)
 
         # Add orchestrator and DAG/task IDs
@@ -575,6 +573,24 @@ class AirflowGenerator:
             clone_inlets=True,
             clone_outlets=True,
         )
+
+        job_property_bag = get_task_instance_attributes(ti)
+
+        # Add orchestrator and DAG/task IDs
+        job_property_bag["orchestrator"] = "airflow"
+        if "dag_id" not in job_property_bag:
+            job_property_bag["dag_id"] = str(dag.dag_id)
+        if "task_id" not in job_property_bag:
+            job_property_bag["task_id"] = str(ti.task_id)
+        if "run_id" not in job_property_bag:
+            job_property_bag["run_id"] = str(dag_run.run_id)
+
+        dpi.properties.update(job_property_bag)
+
+        # Set URL if log_url is available
+        if "log_url" in job_property_bag:
+            dpi.url = job_property_bag["log_url"]
+
         dpi.emit_process_end(
             emitter=emitter,
             end_timestamp_millis=end_timestamp_millis,
