@@ -1,5 +1,4 @@
-import { Icon, Text, colors, typography } from '@components';
-import { Dropdown } from 'antd';
+import { Icon, Menu, Text, colors } from '@components';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { useHistory } from 'react-router';
@@ -44,15 +43,6 @@ const ColumnContainer = styled.div`
     flex-direction: column;
     max-width: 300px;
     width: 100%;
-`;
-
-const MenuItem = styled.div`
-    display: flex;
-    padding: 5px 70px 5px 5px;
-    font-size: 14px;
-    font-weight: 400;
-    color: ${colors.gray[600]};
-    font-family: ${typography.fonts.body};
 `;
 
 const ColorDotContainer = styled.div`
@@ -248,40 +238,34 @@ export const TagActionsColumn = React.memo(
         onDelete: () => void;
         canManageTags: boolean;
     }) => {
-        const items = [
+        const menuItems = [
             {
-                key: '0',
-                label: (
-                    <MenuItem onClick={onEdit} data-testid="action-edit">
-                        Edit
-                    </MenuItem>
-                ),
+                type: 'item' as const,
+                key: 'edit',
+                title: 'Edit',
+                icon: 'Edit' as const,
+                onClick: onEdit,
+                'data-testid': 'action-edit',
             },
             {
-                key: '1',
-                label: (
-                    <MenuItem
-                        onClick={() => {
-                            navigator.clipboard.writeText(tagUrn);
-                        }}
-                    >
-                        Copy Urn
-                    </MenuItem>
-                ),
+                type: 'item' as const,
+                key: 'copy-urn',
+                title: 'Copy URN',
+                icon: 'ContentCopy' as const,
+                onClick: () => {
+                    navigator.clipboard.writeText(tagUrn);
+                },
             },
             ...(canManageTags
                 ? [
                       {
-                          key: '2',
-                          label: (
-                              <MenuItem
-                                  onClick={onDelete}
-                                  data-testid="action-delete"
-                                  style={{ color: colors.red[500] }}
-                              >
-                                  Delete
-                              </MenuItem>
-                          ),
+                          type: 'item' as const,
+                          key: 'delete',
+                          title: 'Delete',
+                          icon: 'Delete' as const,
+                          danger: true,
+                          onClick: onDelete,
+                          'data-testid': 'action-delete',
                       },
                   ]
                 : []),
@@ -289,9 +273,9 @@ export const TagActionsColumn = React.memo(
 
         return (
             <CardIcons>
-                <Dropdown menu={{ items }} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
+                <Menu items={menuItems} trigger={['click']} data-testid={`${tagUrn}-actions-dropdown`}>
                     <Icon icon="MoreVert" size="md" data-testid={`${tagUrn}-actions`} />
-                </Dropdown>
+                </Menu>
             </CardIcons>
         );
     },
