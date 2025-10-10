@@ -907,6 +907,11 @@ Input for the getUploadPresignedUrl query.
 """
 input GetPresignedUploadUrlInput {
   """
+  Original name of the file to upload
+  """
+  fileName: String!
+
+  """
   The scenario for the upload (e.g., ASSET_DOCUMENTATION, PROFILE_IMAGE).
   """
   scenario: UploadDownloadScenario!

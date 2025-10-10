@@ -21,6 +21,7 @@ import com.linkedin.datahub.graphql.generated.UploadDownloadScenario;
 import com.linkedin.datahub.graphql.util.S3Util;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -74,18 +75,115 @@ public class GetPresignedUploadUrlResolverTest {
   }
 
   private GetPresignedUploadUrlInput createInput(
-      UploadDownloadScenario scenario, String assetUrn, String contentType) {
+      UploadDownloadScenario scenario, String assetUrn, String contentType, String fileName) {
     GetPresignedUploadUrlInput input = new GetPresignedUploadUrlInput();
     input.setScenario(scenario);
     input.setAssetUrn(assetUrn);
     input.setContentType(contentType);
+    input.setFileName(fileName);
     return input;
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithAllowedFileExtension() throws Exception {
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            TEST_CONTENT_TYPE,
+            "document.pdf");
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+    when(mockS3Util.generatePresignedUploadUrl(
+            eq(TEST_BUCKET_NAME), any(String.class), anyInt(), eq(TEST_CONTENT_TYPE)))
+        .thenReturn(MOCKED_PRESIGNED_URL);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+    CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
+    GetPresignedUploadUrl result = future.get();
+
+    assertNotNull(result);
+    assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithDisallowedFileExtension() throws Exception {
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            TEST_CONTENT_TYPE,
+            "document.exe");
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+    assertThrows(
+        "Unsupported file extension: exe",
+        IllegalArgumentException.class,
+        () -> resolver.get(mockEnv).get());
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithNoFileExtension() throws Exception {
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            TEST_CONTENT_TYPE,
+            "document");
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+    assertThrows(
+        "Unsupported file extension: ",
+        IllegalArgumentException.class,
+        () -> resolver.get(mockEnv).get());
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlGeneratesCorrectS3Key() throws Exception {
+    String testFileName = "my_document.pdf";
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            TEST_CONTENT_TYPE,
+            testFileName);
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    ArgumentCaptor<String> s3KeyCaptor = ArgumentCaptor.forClass(String.class);
+    when(mockS3Util.generatePresignedUploadUrl(
+            eq(TEST_BUCKET_NAME), s3KeyCaptor.capture(), anyInt(), eq(TEST_CONTENT_TYPE)))
+        .thenReturn(MOCKED_PRESIGNED_URL);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+    CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
+    future.get(); // Execute the resolver to capture the argument
+
+    String capturedS3Key = s3KeyCaptor.getValue();
+    assertTrue(capturedS3Key.startsWith(TEST_BUCKET_NAME + "/product-assets/"));
+    assertTrue(capturedS3Key.contains(testFileName));
   }
 
   @Test
   public void testGetPresignedUploadUrlWithNullS3Util() throws Exception {
     GetPresignedUploadUrlInput input =
-        createInput(UploadDownloadScenario.ASSET_DOCUMENTATION, TEST_ASSET_URN, TEST_CONTENT_TYPE);
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            TEST_CONTENT_TYPE,
+            "test.png");
 
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
@@ -99,7 +197,11 @@ public class GetPresignedUploadUrlResolverTest {
   @Test
   public void testGetPresignedUploadUrlWithBucketName() throws Exception {
     GetPresignedUploadUrlInput input =
-        createInput(UploadDownloadScenario.ASSET_DOCUMENTATION, TEST_ASSET_URN, TEST_CONTENT_TYPE);
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            TEST_CONTENT_TYPE,
+            "test.png");
 
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
@@ -123,7 +225,11 @@ public class GetPresignedUploadUrlResolverTest {
   @Test
   public void testGetPresignedUploadUrlWithNullBucketName() throws Exception {
     GetPresignedUploadUrlInput input =
-        createInput(UploadDownloadScenario.ASSET_DOCUMENTATION, TEST_ASSET_URN, TEST_CONTENT_TYPE);
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            TEST_CONTENT_TYPE,
+            "test.png");
 
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
@@ -138,7 +244,11 @@ public class GetPresignedUploadUrlResolverTest {
   @Test
   public void testGetPresignedUploadUrlWithEmptyBucketName() throws Exception {
     GetPresignedUploadUrlInput input =
-        createInput(UploadDownloadScenario.ASSET_DOCUMENTATION, TEST_ASSET_URN, TEST_CONTENT_TYPE);
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            TEST_CONTENT_TYPE,
+            "test.png");
 
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);
@@ -153,7 +263,8 @@ public class GetPresignedUploadUrlResolverTest {
   @Test
   public void testGetPresignedUploadUrlWithNullAssetUrnForAssetDocumentation() throws Exception {
     GetPresignedUploadUrlInput input =
-        createInput(UploadDownloadScenario.ASSET_DOCUMENTATION, null, TEST_CONTENT_TYPE);
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION, null, TEST_CONTENT_TYPE, "test.png");
 
     when(mockEnv.getArgument("input")).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockQueryContext);

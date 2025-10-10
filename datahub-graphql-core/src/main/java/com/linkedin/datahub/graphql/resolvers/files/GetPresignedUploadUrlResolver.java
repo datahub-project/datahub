@@ -13,7 +13,9 @@ import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
 import com.linkedin.datahub.graphql.util.S3Util;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.Objects;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,11 @@ public class GetPresignedUploadUrlResolver
     implements DataFetcher<CompletableFuture<GetPresignedUploadUrl>> {
 
   private static final int EXPIRATION_SECONDS = 60 * 60; // 60 minutes
+  private static final Set<String> ALLOWED_FILE_EXTENSIONS =
+      new HashSet<>(
+          Arrays.asList(
+              "pdf", "jpeg", "jpg", "png", "pptx", "docx", "xls", "xml", "ppt", "gif", "xlsx",
+              "bmp", "doc", "rtf", "gz", "zip", "mp4", "mp3", "wmv", "tiff"));
 
   private final S3Util s3Util;
   private final String bucketName;
@@ -49,8 +56,7 @@ public class GetPresignedUploadUrlResolver
 
     validateInput(context, input);
 
-    String newFileId = UUID.randomUUID().toString();
-
+    String newFileId = generateNewFileId(input);
     String s3Key = getS3Key(input, newFileId, bucketName);
     String contentType = input.getContentType();
 
@@ -70,8 +76,23 @@ public class GetPresignedUploadUrlResolver
   private void validateInput(final QueryContext context, final GetPresignedUploadUrlInput input) {
     UploadDownloadScenario scenario = input.getScenario();
 
-    if (Objects.requireNonNull(scenario) == UploadDownloadScenario.ASSET_DOCUMENTATION) {
+    validateFileName(input.getFileName());
+
+    if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION) {
       validateInputForAssetDocumentationScenario(context, input);
+    }
+  }
+
+  private void validateFileName(final String fileName) {
+    String fileExtension = "";
+    int i = fileName.lastIndexOf('.');
+    if (i > 0) {
+      fileExtension = fileName.substring(i + 1);
+    }
+
+    if (!ALLOWED_FILE_EXTENSIONS.contains(fileExtension.toLowerCase())) {
+      throw new IllegalArgumentException(
+          String.format("Unsupported file extension: %s", fileExtension));
     }
   }
 
@@ -88,12 +109,16 @@ public class GetPresignedUploadUrlResolver
     }
   }
 
+  private String generateNewFileId(final GetPresignedUploadUrlInput input) {
+    return String.format("%s-%s", UUID.randomUUID().toString(), input.getFileName());
+  }
+
   private String getS3Key(
       final GetPresignedUploadUrlInput input, final String fileId, final String bucketName) {
     UploadDownloadScenario scenario = input.getScenario();
 
     if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION) {
-      return String.format("%s/%s", bucketName, fileId);
+      return String.format("%s/product-assets/%s", bucketName, fileId);
     } else {
       throw new IllegalArgumentException("Unsupported upload scenario: " + scenario);
     }
