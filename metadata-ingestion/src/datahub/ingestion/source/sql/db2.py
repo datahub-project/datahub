@@ -38,31 +38,30 @@ class CustomDb2SqlGlotDialect(sqlglot.Dialect):
 
 class CustomDb2SqlAlchemyDialect(ibm_db_sa.dialect):
     # ibm_db_sa result column names have inconsistent casing
-    # see: https://github.com/ibmdb/python-ibmdbsa/issues/173
+    # https://github.com/ibmdb/python-ibmdbsa/issues/173
     requires_name_normalize = False
 
     def initialize(self, connection):
         # ibm_db_sa unconditionally lowercases names, making it impossible
         # to distinguish tables with case-sensitive names (and thus impossible
         # to get further metadata on them).
-        # see:
-        # - https://github.com/ibmdb/python-ibmdbsa/issues/153
-        # - https://github.com/ibmdb/python-ibmdbsa/issues/170
+        # https://github.com/ibmdb/python-ibmdbsa/issues/153
+        # https://github.com/ibmdb/python-ibmdbsa/issues/170
         super().initialize(connection)
         self._reflector.normalize_name = lambda s: s
         self._reflector.denormalize_name = lambda s: s
 
     def get_schema_names(self, connection, **kwargs):
         for s in super().get_schema_names(connection, **kwargs):
+            # TODO: remove this once ibm_db_sa v0.4.3 is released
             # get_schema_names() can return schema names with extra space on the end
-            # see https://github.com/ibmdb/python-ibmdbsa/issues/172
+            # https://github.com/ibmdb/python-ibmdbsa/issues/172
             yield s.rstrip()
 
     def get_table_comment(self, connection, table_name, schema=None, **kwargs):
-        # get_table_comment returns nothing for views
-        # see: https://github.com/ibmdb/python-ibmdbsa/issues/171
-        # get_table_comment doesn't work on z/OS or i/AS400
-        # see: https://github.com/ibmdb/python-ibmdbsa/issues/174
+        # TODO: remove the custom SQL once ibm_db_sa v0.4.3 is released
+        # get_table_comment returns nothing for views: https://github.com/ibmdb/python-ibmdbsa/issues/171
+        # get_table_comment doesn't work on z/OS or i/AS400: https://github.com/ibmdb/python-ibmdbsa/issues/174
         return {
             "text": _db2_get_table_comment(
                 sqlalchemy.inspect(connection), schema, table_name
@@ -228,10 +227,12 @@ def _db2_get_view_qualifier_quoted(
                 view,
             ),
         ).scalar()
+        if not result:
+            return None
 
         # the schema name must be quoted so that case-sensitive names make it through
         # to the sqlglot lineage parser without being normalized.
-        return _quote_identifier(result.rstrip()) if result else None
+        return _quote_identifier(result.rstrip())
 
     elif inspector.has_table("SYSVIEWS", schema="SYSIBM"):
         # Db2 z/OS
@@ -249,8 +250,10 @@ def _db2_get_view_qualifier_quoted(
         ).scalar()
         if not result:
             return None
+
         # format is like: "SYSIBM","SYSPROC","SMITH","SESSION_USER"
         # split, ignoring commas inside double quotes
+        logger.debug(f"Got PATHSCHEMAS={repr(result)} view {repr(schema)}.{repr(view)}")
         pathschemas = re.findall(r'([^",]+|"(?:[^"]|"")*")(?:,\s*|$)', result.strip())
         if len(pathschemas) > 1:
             raise NotImplementedError(f"len(PATHSCHEMAS) > 1: {repr(pathschemas)}")
