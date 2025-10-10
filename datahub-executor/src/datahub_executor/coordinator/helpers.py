@@ -1,7 +1,8 @@
 import asyncio
 import logging
+import os
 from threading import Thread
-from typing import Callable, List
+from typing import Any, Callable, Dict, List
 
 from datahub.configuration.config_loader import load_config_file
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
@@ -42,6 +43,63 @@ logger = logging.getLogger(__name__)
 manager = None
 
 
+def _build_oauth_consumer_config() -> Dict[str, Any]:
+    """
+    Build OAuth consumer configuration based on environment variables.
+
+    Supports:
+    - AWS MSK IAM authentication (OAUTHBEARER)
+    - Azure Event Hubs OAuth (OAUTHBEARER)
+    - SASL PLAIN authentication (username/password)
+
+    Returns:
+        Dict with OAuth-specific Kafka consumer configuration
+    """
+    sasl_mechanism = os.environ.get("KAFKA_PROPERTIES_SASL_MECHANISM")
+
+    if not sasl_mechanism:
+        return {}
+
+    # For OAUTHBEARER (MSK IAM or Azure Event Hubs)
+    if sasl_mechanism == "OAUTHBEARER":
+        oauth_callback = os.environ.get(
+            "KAFKA_PROPERTIES_OAUTH_CALLBACK",
+            "datahub_executor.common.kafka_msk_iam:oauth_cb",
+        )
+
+        config = {
+            "sasl.mechanism": "OAUTHBEARER",
+            "sasl.oauthbearer.method": os.environ.get(
+                "KAFKA_PROPERTIES_SASL_OAUTHBEARER_METHOD", "default"
+            ),
+            "oauth_cb": oauth_callback,
+        }
+
+        logger.info(
+            f"Configured OAUTHBEARER authentication with callback: {oauth_callback}"
+        )
+        return config
+
+    # For PLAIN mechanism (username/password)
+    sasl_username = os.environ.get("KAFKA_PROPERTIES_SASL_USERNAME")
+    sasl_password = os.environ.get("KAFKA_PROPERTIES_SASL_PASSWORD")
+
+    if sasl_username and sasl_password:
+        logger.info("Configured SASL PLAIN authentication")
+        return {
+            "sasl.mechanism": sasl_mechanism,
+            "sasl.username": sasl_username,
+            "sasl.password": sasl_password,
+        }
+
+    # If SASL mechanism is set but credentials are missing
+    logger.warning(
+        f"SASL mechanism '{sasl_mechanism}' is set but credentials are missing. "
+        "Set KAFKA_PROPERTIES_SASL_USERNAME and KAFKA_PROPERTIES_SASL_PASSWORD."
+    )
+    return {"sasl.mechanism": sasl_mechanism}
+
+
 def start_ingestion_pipeline(
     graph: DataHubGraph,
     discovery: DatahubExecutorDiscovery,
@@ -50,14 +108,39 @@ def start_ingestion_pipeline(
     config_dict = load_config_file(DATAHUB_EXECUTOR_INGESTION_PIPELINE_CONFIG_PATH)
     connection = config_dict.get("connection", {})
 
+    # Get base consumer config from file
+    consumer_config = connection.get("consumer_config", {}).copy()
+
+    # Override with environment variables if set
+    security_protocol = os.environ.get("KAFKA_PROPERTIES_SECURITY_PROTOCOL")
+    if security_protocol:
+        consumer_config["security.protocol"] = security_protocol
+        logger.info(f"Using security protocol from env: {security_protocol}")
+
+    # Add OAuth configuration if SASL mechanism is configured
+    oauth_config = _build_oauth_consumer_config()
+    if oauth_config:
+        consumer_config.update(oauth_config)
+        logger.info("OAuth configuration added to Kafka consumer config")
+
+    # Override bootstrap and schema registry from environment if set
+    bootstrap = os.environ.get(
+        "KAFKA_BOOTSTRAP_SERVER", connection.get("bootstrap", "broker:9092")
+    )
+    schema_registry_url = os.environ.get(
+        "SCHEMA_REGISTRY_URL",
+        connection.get("schema_registry_url", "http://schema-registry:8081"),
+    )
+
+    logger.info(f"Kafka bootstrap: {bootstrap}")
+    logger.info(f"Schema registry URL: {schema_registry_url}")
+
     source = KafkaEventSource(
         config=KafkaEventSourceConfig(
             connection=KafkaConsumerConnectionConfig(
-                bootstrap=connection.get("bootstrap", "broker:9092"),
-                schema_registry_url=connection.get(
-                    "schema_registry_url", "http://schema-registry:8081"
-                ),
-                consumer_config=connection.get("consumer_config", {}),
+                bootstrap=bootstrap,
+                schema_registry_url=schema_registry_url,
+                consumer_config=consumer_config,
             ),
             topic_routes=config_dict.get("topic_routes", None),
             async_commit_enabled=True,
