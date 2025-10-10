@@ -523,95 +523,48 @@ else:
         else:
             return value
 
-    # Check if we're running under Airflow 3.0.6 with Pydantic 2.11.7
-    # which has a bug with nested Annotated+Discriminator
-    # See: https://github.com/pydantic/pydantic/issues/8799
-    _is_airflow_30_pydantic_bug = False
-    try:
-        import airflow
-        from packaging.version import Version
-
-        airflow_version = Version(airflow.__version__)
-        pydantic_version = Version(pydantic.VERSION)
-
-        # Only apply workaround for Airflow 3.0.x with Pydantic 2.11.7 (used in constraints-3.0.6)
-        if (
-            airflow_version >= Version("3.0.0")
-            and airflow_version < Version("3.1.0")
-            and pydantic_version >= Version("2.11.7")
-            and pydantic_version < Version("2.11.8")
-        ):
-            _is_airflow_30_pydantic_bug = True
-    except (ImportError, AttributeError):
-        pass
-
-    if _is_airflow_30_pydantic_bug:
-        # Workaround: Use simpler Union without Discriminator for Airflow 3.0.6 + Pydantic 2.11.7
-        # This avoids the nested Annotated bug but loses some validation performance
-        Filter = Union[
-            _And,
-            _Or,
-            _Not,
-            _EntityTypeFilter,
-            _EntitySubtypeFilter,
-            _StatusFilter,
-            _PlatformFilter,
-            _DomainFilter,
-            _ContainerFilter,
-            _EnvFilter,
-            _OwnerFilter,
-            _GlossaryTermFilter,
-            _TagFilter,
-            _CustomCondition,
-        ]
-
-        _And.model_rebuild()  # type: ignore
-        _Or.model_rebuild()  # type: ignore
-        _Not.model_rebuild()  # type: ignore
-    else:
-        # Normal path: Use discriminated union for better performance
-        # TODO: Once we're fully on pydantic 2, we can use a RootModel here.
-        # That way we'd be able to attach methods to the Filter type.
-        # e.g. replace load_filters(...) with Filter.load(...)
-        Filter = Annotated[
-            Annotated[
-                Union[
-                    Annotated[_And, Tag(_And._field_discriminator())],
-                    Annotated[_Or, Tag(_Or._field_discriminator())],
-                    Annotated[_Not, Tag(_Not._field_discriminator())],
-                    Annotated[
-                        _EntityTypeFilter, Tag(_EntityTypeFilter._field_discriminator())
-                    ],
-                    Annotated[
-                        _EntitySubtypeFilter,
-                        Tag(_EntitySubtypeFilter._field_discriminator()),
-                    ],
-                    Annotated[_StatusFilter, Tag(_StatusFilter._field_discriminator())],
-                    Annotated[_PlatformFilter, Tag(_PlatformFilter._field_discriminator())],
-                    Annotated[_DomainFilter, Tag(_DomainFilter._field_discriminator())],
-                    Annotated[
-                        _ContainerFilter, Tag(_ContainerFilter._field_discriminator())
-                    ],
-                    Annotated[_EnvFilter, Tag(_EnvFilter._field_discriminator())],
-                    Annotated[_OwnerFilter, Tag(_OwnerFilter._field_discriminator())],
-                    Annotated[
-                        _GlossaryTermFilter, Tag(_GlossaryTermFilter._field_discriminator())
-                    ],
-                    Annotated[_TagFilter, Tag(_TagFilter._field_discriminator())],
-                    Annotated[
-                        _CustomCondition, Tag(_CustomCondition._field_discriminator())
-                    ],
+    # TODO: Once we're fully on pydantic 2, we can use a RootModel here.
+    # That way we'd be able to attach methods to the Filter type.
+    # e.g. replace load_filters(...) with Filter.load(...)
+    Filter = Annotated[
+        Annotated[
+            Union[
+                Annotated[_And, Tag(_And._field_discriminator())],
+                Annotated[_Or, Tag(_Or._field_discriminator())],
+                Annotated[_Not, Tag(_Not._field_discriminator())],
+                Annotated[
+                    _EntityTypeFilter, Tag(_EntityTypeFilter._field_discriminator())
                 ],
-                Discriminator(_filter_discriminator),
+                Annotated[
+                    _EntitySubtypeFilter,
+                    Tag(_EntitySubtypeFilter._field_discriminator()),
+                ],
+                Annotated[_StatusFilter, Tag(_StatusFilter._field_discriminator())],
+                Annotated[_PlatformFilter, Tag(_PlatformFilter._field_discriminator())],
+                Annotated[_DomainFilter, Tag(_DomainFilter._field_discriminator())],
+                Annotated[
+                    _ContainerFilter, Tag(_ContainerFilter._field_discriminator())
+                ],
+                Annotated[_EnvFilter, Tag(_EnvFilter._field_discriminator())],
+                Annotated[_OwnerFilter, Tag(_OwnerFilter._field_discriminator())],
+                Annotated[
+                    _GlossaryTermFilter, Tag(_GlossaryTermFilter._field_discriminator())
+                ],
+                Annotated[_TagFilter, Tag(_TagFilter._field_discriminator())],
+                Annotated[
+                    _CustomCondition, Tag(_CustomCondition._field_discriminator())
+                ],
             ],
-            pydantic.BeforeValidator(_parse_and_like_filter),
-            pydantic.BeforeValidator(_parse_json_from_string),
-        ]
+            Discriminator(_filter_discriminator),
+        ],
+        pydantic.BeforeValidator(_parse_and_like_filter),
+        pydantic.BeforeValidator(_parse_json_from_string),
+    ]
 
-        # Required to resolve forward references to "Filter"
-        _And.model_rebuild()  # type: ignore
-        _Or.model_rebuild()  # type: ignore
-        _Not.model_rebuild()  # type: ignore
+    # Required to resolve forward references to "Filter"
+    _And.model_rebuild()  # type: ignore
+    _Or.model_rebuild()  # type: ignore
+    _Not.model_rebuild()  # type: ignore
 
 
 def load_filters(obj: Any) -> Filter:
