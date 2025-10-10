@@ -81,7 +81,7 @@ IS_LOCAL = os.environ.get("CI", "false") == "false"
 # Base DAGs folder - specific folders are selected at runtime based on Airflow version
 # This allows us to have different DAG implementations for operators that changed between versions
 _BASE_DAGS_FOLDER = pathlib.Path(__file__).parent / "dags"
-DAGS_FOLDER_AIRFLOW2 = _BASE_DAGS_FOLDER
+DAGS_FOLDER_AIRFLOW2 = _BASE_DAGS_FOLDER / "airflow2"
 DAGS_FOLDER_AIRFLOW3 = _BASE_DAGS_FOLDER / "airflow3"
 
 # For backward compatibility, keep DAGS_FOLDER pointing to the current environment's folder
@@ -849,7 +849,7 @@ def test_airflow_plugin(
 
     # Select the appropriate DAGs folder based on the Airflow version being tested
     # For Airflow 3.0+ tests, use the airflow3 subfolder
-    # For Airflow 2.x tests, use the base dags folder
+    # For Airflow 2.x tests, use the airflow2 subfolder
     if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
         dags_folder = DAGS_FOLDER_AIRFLOW3
     else:
