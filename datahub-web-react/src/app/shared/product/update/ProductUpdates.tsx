@@ -109,6 +109,15 @@ export default function ProductUpdates() {
         });
     };
 
+    // Debug logging
+    console.log('[ProductUpdates] Debug:', {
+        isFeatureEnabled,
+        isLocallyVisible,
+        visible,
+        enabled: latestUpdate.enabled,
+        updateId: latestUpdate.id,
+    });
+
     if (!isFeatureEnabled || !isLocallyVisible || !latestUpdate.enabled) return null;
 
     return (
