@@ -80,10 +80,16 @@ def get_task_instance_attributes(ti: "TaskInstance") -> Dict[str, str]:  # noqa:
     if hasattr(ti, "external_executor_id"):
         attributes["external_executor_id"] = str(ti.external_executor_id)
 
-    # operator field: In Airflow 2.x it's a direct attribute
-    # In Airflow 3.x, we can get it from ti.task.__class__.__name__
+    # operator field: In Airflow 2.x it's a database column attribute
+    # In Airflow 3.x (RuntimeTaskInstance), we get it from ti.task.__class__.__name__
     if hasattr(ti, "operator"):
-        attributes["operator"] = str(ti.operator)
+        operator_from_db = str(ti.operator)
+        logger.debug(
+            f"Operator from ti.operator (DB): {operator_from_db}, "
+            f"hasattr task: {hasattr(ti, 'task')}, "
+            f"task class: {ti.task.__class__.__name__ if hasattr(ti, 'task') and ti.task else 'N/A'}"
+        )
+        attributes["operator"] = operator_from_db
     elif hasattr(ti, "task") and ti.task is not None:
         try:
             attributes["operator"] = ti.task.__class__.__name__

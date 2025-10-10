@@ -78,13 +78,18 @@ pytestmark = pytest.mark.integration
 logger = logging.getLogger(__name__)
 IS_LOCAL = os.environ.get("CI", "false") == "false"
 
-# Use Airflow 3-specific DAGs folder for Airflow 3.0+
+# Base DAGs folder - specific folders are selected at runtime based on Airflow version
 # This allows us to have different DAG implementations for operators that changed between versions
-_base_dags_folder = pathlib.Path(__file__).parent / "dags"
+_BASE_DAGS_FOLDER = pathlib.Path(__file__).parent / "dags"
+DAGS_FOLDER_AIRFLOW2 = _BASE_DAGS_FOLDER
+DAGS_FOLDER_AIRFLOW3 = _BASE_DAGS_FOLDER / "airflow3"
+
+# For backward compatibility, keep DAGS_FOLDER pointing to the current environment's folder
+# Note: This is only used when running the test script directly (if __name__ == "__main__")
 if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
-    DAGS_FOLDER = _base_dags_folder / "airflow3"
+    DAGS_FOLDER = DAGS_FOLDER_AIRFLOW3
 else:
-    DAGS_FOLDER = _base_dags_folder
+    DAGS_FOLDER = DAGS_FOLDER_AIRFLOW2
 
 GOLDENS_FOLDER = pathlib.Path(__file__).parent / "goldens"
 
@@ -842,9 +847,17 @@ def test_airflow_plugin(
     golden_path = GOLDENS_FOLDER / f"{golden_filename}.json"
     dag_id = test_case.dag_id
 
+    # Select the appropriate DAGs folder based on the Airflow version being tested
+    # For Airflow 3.0+ tests, use the airflow3 subfolder
+    # For Airflow 2.x tests, use the base dags folder
+    if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
+        dags_folder = DAGS_FOLDER_AIRFLOW3
+    else:
+        dags_folder = DAGS_FOLDER_AIRFLOW2
+
     with _run_airflow(
         tmp_path,
-        dags_folder=DAGS_FOLDER,
+        dags_folder=dags_folder,
         is_v1=is_v1,
         multiple_connections=test_case.multiple_connections,
         platform_instance=test_case.platform_instance,
