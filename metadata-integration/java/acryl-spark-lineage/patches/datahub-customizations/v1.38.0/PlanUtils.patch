@@ -1,0 +1,75 @@
+# Patch for DataHub customizations in PlanUtils.java
+# Upstream version: OpenLineage 1.38.0
+# Generated: 2025-10-02 12:57:22 UTC
+#
+# To apply this patch to a new upstream version:
+#   patch -p0 < datahub-customizations/PlanUtils.patch
+#
+--- /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/patches/upstream-1.38.0/spark/agent/util/PlanUtils.java	2025-10-02 14:47:50.292757088 +0200
++++ /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/src/main/java/io/openlineage/spark/agent/util/PlanUtils.java	2025-10-02 14:55:47.403520416 +0200
+@@ -7,11 +7,16 @@
+ 
+ import static io.openlineage.spark.agent.util.ScalaConversionUtils.asJavaOptional;
+ 
++import com.typesafe.config.Config;
++import com.typesafe.config.ConfigFactory;
++import datahub.spark.conf.SparkLineageConf;
++import io.datahubproject.openlineage.dataset.HdfsPathDataset;
+ import io.openlineage.client.OpenLineage;
+ import io.openlineage.spark.agent.Versions;
+ import io.openlineage.spark.api.naming.NameNormalizer;
+ import java.io.IOException;
+ import java.net.URI;
++import java.net.URISyntaxException;
+ import java.util.ArrayList;
+ import java.util.Arrays;
+ import java.util.Collection;
+@@ -25,6 +30,8 @@
+ import lombok.extern.slf4j.Slf4j;
+ import org.apache.hadoop.conf.Configuration;
+ import org.apache.hadoop.fs.Path;
++import org.apache.spark.SparkConf;
++import org.apache.spark.SparkEnv;
+ import org.apache.spark.rdd.RDD;
+ import org.apache.spark.sql.catalyst.expressions.Attribute;
+ import org.apache.spark.sql.types.ArrayType;
+@@ -274,7 +281,7 @@
+     return new ArrayList<>(normalizedPaths);
+   }
+ 
+-  private static Path getDirectoryPath(Path p, Configuration hadoopConf) {
++  public static Path getDirectoryPathOl(Path p, Configuration hadoopConf) {
+     try {
+       if (p.getFileSystem(hadoopConf).getFileStatus(p).isFile()) {
+         return p.getParent();
+@@ -282,7 +289,29 @@
+         return p;
+       }
+     } catch (IOException e) {
+-      log.warn("Unable to get file system for path: {}", e.getMessage());
++      log.warn("Unable to get file system for path ", e);
++      return p;
++    }
++  }
++
++  // This method was replaced to support Datahub PathSpecs
++  public static Path getDirectoryPath(Path p, Configuration hadoopConf) {
++    SparkConf conf = SparkEnv.get().conf();
++    String propertiesString =
++        Arrays.stream(conf.getAllWithPrefix("spark.datahub."))
++            .map(tup -> tup._1 + "= \"" + tup._2 + "\"")
++            .collect(Collectors.joining("\n"));
++    Config datahubConfig = ConfigFactory.parseString(propertiesString);
++    SparkLineageConf sparkLineageConf =
++        SparkLineageConf.toSparkLineageConf(datahubConfig, null, null);
++    HdfsPathDataset hdfsPath = null;
++    try {
++      URI uri = new URI(p.toString());
++      hdfsPath = HdfsPathDataset.create(uri, sparkLineageConf.getOpenLineageConf());
++      log.debug("Path {} transformed to {}", p, hdfsPath.getDatasetPath());
++      return new Path(hdfsPath.getDatasetPath());
++    } catch (InstantiationException | URISyntaxException e) {
++      log.warn("Unable to convert path to hdfs path {} the exception was {}", p, e.getMessage());
+       return p;
+     }
+   }
