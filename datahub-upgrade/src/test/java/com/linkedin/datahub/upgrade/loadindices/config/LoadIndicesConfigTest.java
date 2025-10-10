@@ -12,7 +12,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.client.RestHighLevelClient;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

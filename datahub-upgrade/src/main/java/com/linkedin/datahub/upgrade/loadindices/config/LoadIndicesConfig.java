@@ -17,7 +17,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

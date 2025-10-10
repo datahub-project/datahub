@@ -85,9 +85,9 @@ public class ESIndexBuilder {
   // "indices.memory.index_buffer_size";
   private static final String INDEX_TRANSLOG_FLUSH_THRESHOLD_SIZE =
       "index.translog.flush_threshold_size";
-  private static final String REFRESH_INTERVAL = "refresh_interval";
+  public static final String REFRESH_INTERVAL = "refresh_interval";
   private static final String INDEX_REFRESH_INTERVAL = "index." + REFRESH_INTERVAL;
-  private static final String NUMBER_OF_REPLICAS = "number_of_replicas";
+  public static final String NUMBER_OF_REPLICAS = "number_of_replicas";
   private static final String INDEX_NUMBER_OF_REPLICAS = "index." + NUMBER_OF_REPLICAS;
   private static final String NUMBER_OF_SHARDS = "number_of_shards";
   private static final String ORIGINALPREFIX = "original";
@@ -1072,28 +1072,6 @@ public class ESIndexBuilder {
     Settings settings = Settings.builder().put(setting, value).build();
     request.settings(settings);
     searchClient.updateIndexSettings(request, RequestOptions.DEFAULT);
-  }
-
-  /**
-   * Sets the refresh interval for an index.
-   *
-   * @param indexName the name of the index
-   * @param refreshInterval the refresh interval value (e.g., "1s", "-1" for disabled)
-   * @throws IOException if there's an error communicating with Elasticsearch
-   */
-  public void setIndexRefreshInterval(String indexName, String refreshInterval) throws IOException {
-    setIndexSetting(indexName, refreshInterval, INDEX_REFRESH_INTERVAL);
-  }
-
-  /**
-   * Sets the replica count for an index.
-   *
-   * @param indexName the name of the index
-   * @param replicaCount the number of replicas
-   * @throws IOException if there's an error communicating with Elasticsearch
-   */
-  public void setIndexReplicaCount(String indexName, int replicaCount) throws IOException {
-    setIndexSetting(indexName, String.valueOf(replicaCount), INDEX_NUMBER_OF_REPLICAS);
   }
 
   /**

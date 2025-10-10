@@ -46,7 +46,6 @@ public class ESBulkProcessor implements Closeable {
   @Builder.Default private Long retryInterval = 1L;
   @Builder.Default private Integer threadCount = 1; // Default to single processor
   @Builder.Default private TimeValue defaultTimeout = TimeValue.timeValueMinutes(1);
-  @Builder.Default private Integer threadCount = 1; // Default to single processor
   @Getter private final WriteRequest.RefreshPolicy writeRequestRefreshPolicy;
 
   private final MetricUtils metricUtils;
@@ -61,7 +60,6 @@ public class ESBulkProcessor implements Closeable {
       Long retryInterval,
       Integer threadCount,
       TimeValue defaultTimeout,
-      Integer threadCount,
       WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
       MetricUtils metricUtils) {
     this.searchClient = searchClient;
@@ -73,7 +71,6 @@ public class ESBulkProcessor implements Closeable {
     this.retryInterval = retryInterval;
     this.threadCount = threadCount;
     this.defaultTimeout = defaultTimeout;
-    this.threadCount = threadCount;
     this.writeRequestRefreshPolicy = writeRequestRefreshPolicy;
     if (async) {
       searchClient.generateAsyncBulkProcessor(
@@ -95,20 +92,6 @@ public class ESBulkProcessor implements Closeable {
           threadCount);
     }
     this.metricUtils = metricUtils;
-    // Set fields passed from builder
-    this.bulkProcessors = bulkProcessors != null ? bulkProcessors : new BulkProcessor[threadCount];
-    this.roundRobinCounter = roundRobinCounter != null ? roundRobinCounter : new AtomicInteger(0);
-
-    // Initialize BulkProcessors if they weren't passed from builder
-    if (this.bulkProcessors.length == 0 || this.bulkProcessors[0] == null) {
-      this.bulkProcessors = new BulkProcessor[threadCount];
-      for (int i = 0; i < threadCount; i++) {
-        this.bulkProcessors[i] = async ? toAsyncBulkProcessor(i) : toBulkProcessor(i);
-      }
-      log.info(
-          "Initialized ESBulkProcessor with {} BulkProcessor instances for parallel execution",
-          threadCount);
-    }
   }
 
   public ESBulkProcessor add(DocWriteRequest<?> request) {
@@ -134,31 +117,6 @@ public class ESBulkProcessor implements Closeable {
   public ESBulkProcessor add(@Nonnull String urn, @Nonnull DocWriteRequest<?> request) {
     if (metricUtils != null) metricUtils.increment(this.getClass(), ES_WRITES_METRIC, 1);
     searchClient.addBulk(urn, request);
-    log.debug(
-        "Added URN-aware request urn: {}, id: {}, operation type: {}, index: {}",
-        urn,
-        request.id(),
-        request.opType(),
-        request.index());
-    return this;
-  }
-
-  /**
-   * Add a request with URN-based routing for entity document consistency. This method routes all
-   * operations for the same URN to the same BulkProcessor to ensure consistent ordering and avoid
-   * conflicts when updating the same entity.
-   *
-   * @param urn the URN of the entity being updated
-   * @param request the document write request
-   * @return this ESBulkProcessor instance
-   */
-  public ESBulkProcessor add(@NonNull String urn, @NonNull DocWriteRequest<?> request) {
-    if (metricUtils != null) metricUtils.increment(this.getClass(), ES_WRITES_METRIC, 1);
-
-    // URN-based consistent hashing for entity document consistency
-    int index = Math.abs(urn.hashCode()) % threadCount;
-    bulkProcessors[index].add(request);
-
     log.debug(
         "Added URN-aware request urn: {}, id: {}, operation type: {}, index: {}",
         urn,
