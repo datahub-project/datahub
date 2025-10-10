@@ -98,7 +98,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -226,15 +226,13 @@ import org.opensearch.search.suggest.SuggestionBuilder;
  * this, since we always use the default this is likely not a concern, but something to keep in mind
  */
 @Slf4j
-public class Es8SearchClientShim implements ElasticSearchClientShim<ElasticsearchClient> {
+public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<?>>
+    implements ElasticSearchClientShim<ElasticsearchClient> {
 
   @Getter private final ShimConfiguration shimConfiguration;
   private final SearchEngineType engineType;
   private final ElasticsearchClient client;
   private final ObjectMapper objectMapper;
-  private BulkIngester<?>[] bulkProcessors;
-  private AtomicInteger roundRobinCounter;
-  private int threadCount = 1;
   private final JacksonJsonpMapper jacksonJsonpMapper;
 
   static {
@@ -1581,43 +1579,40 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
       long retryInterval,
       int numRetries,
       int threadCount) {
-    this.threadCount = threadCount;
-    this.bulkProcessors = new BulkIngester[threadCount];
-    this.roundRobinCounter = new AtomicInteger(0);
+    Supplier<BulkIngester<?>> processorSupplier =
+        () -> {
+          co.elastic.clients.elasticsearch._helpers.bulk.BulkListener<Object> esBulkListener =
+              new Es8BulkListener(metricUtils);
 
-    co.elastic.clients.elasticsearch._helpers.bulk.BulkListener<Object> esBulkListener =
-        new Es8BulkListener(metricUtils);
+          final Refresh refresh;
+          switch (writeRequestRefreshPolicy) {
+            case NONE:
+              refresh = Refresh.False;
+              break;
+            case IMMEDIATE:
+              refresh = Refresh.True;
+              break;
+            case WAIT_UNTIL:
+              refresh = Refresh.WaitFor;
+              break;
+            default:
+              refresh = null;
+          }
 
-    final Refresh refresh;
-    switch (writeRequestRefreshPolicy) {
-      case NONE:
-        refresh = Refresh.False;
-        break;
-      case IMMEDIATE:
-        refresh = Refresh.True;
-        break;
-      case WAIT_UNTIL:
-        refresh = Refresh.WaitFor;
-        break;
-      default:
-        refresh = null;
-    }
+          BulkIngester.Builder<Object> builder =
+              new BulkIngester.Builder<>()
+                  .client(client)
+                  .flushInterval(bulkFlushPeriod, TimeUnit.SECONDS)
+                  .maxOperations(bulkRequestsLimit)
+                  .listener(esBulkListener);
 
-    for (int i = 0; i < threadCount; i++) {
-      BulkIngester.Builder<Object> builder =
-          new BulkIngester.Builder<>()
-              .client(client)
-              .flushInterval(bulkFlushPeriod, TimeUnit.SECONDS)
-              .maxOperations(bulkRequestsLimit)
-              .listener(esBulkListener);
+          builder.globalSettings(new BulkRequest.Builder().refresh(refresh));
+          return builder.build();
+        };
 
-      builder.globalSettings(new BulkRequest.Builder().refresh(refresh));
-      this.bulkProcessors[i] = builder.build();
-    }
+    initBulkProcessors(threadCount, processorSupplier);
 
-    log.info(
-        "Initialized Es8SearchClientShim with {} BulkIngester instances for parallel execution",
-        threadCount);
+    log.info("Initialized {} async bulk processors for parallel execution", threadCount);
   }
 
   @Override
@@ -1629,6 +1624,7 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
       long retryInterval,
       int numRetries,
       int threadCount) {
+    // ES8 uses async processors for both sync and async operations
     generateAsyncBulkProcessor(
         writeRequestRefreshPolicy,
         metricUtils,
@@ -1640,7 +1636,7 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
   }
 
   @Override
-  public void addBulk(DocWriteRequest<?> writeRequest) {
+  protected void addToProcessor(BulkIngester<?> processor, DocWriteRequest<?> writeRequest) {
     BulkOperation operation;
     if (writeRequest instanceof UpdateRequest) {
       UpdateRequest update = (UpdateRequest) writeRequest;
@@ -1694,85 +1690,17 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
                           .v2())
                   .build());
     }
-    // Round-robin distribution across processors
-    int index = roundRobinCounter.getAndIncrement() % threadCount;
-    bulkProcessors[index].add(operation);
+    processor.add(operation);
   }
 
   @Override
-  public void addBulk(String urn, DocWriteRequest<?> writeRequest) {
-    BulkOperation operation;
-    if (writeRequest instanceof UpdateRequest) {
-      UpdateRequest update = (UpdateRequest) writeRequest;
-      Script script = convertScript(update.script());
-      operation =
-          new BulkOperation(
-              new UpdateOperation.Builder<>()
-                  .id(writeRequest.id())
-                  .ifSeqNo(writeRequest.ifSeqNo())
-                  .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
-                  .retryOnConflict(((UpdateRequest) writeRequest).retryOnConflict())
-                  .requireAlias(writeRequest.isRequireAlias())
-                  .index(writeRequest.index())
-                  .routing(writeRequest.routing())
-                  .action(
-                      new UpdateAction.Builder<>()
-                          .doc(
-                              XContentHelper.convertToMap(
-                                      update.doc().source(), true, XContentType.JSON)
-                                  .v2())
-                          .detectNoop(update.detectNoop())
-                          .docAsUpsert(update.docAsUpsert())
-                          .script(script)
-                          .upsert(update.upsert())
-                          .build())
-                  .build());
-    } else if (writeRequest instanceof DeleteRequest) {
-      DeleteRequest deleteRequest = (DeleteRequest) writeRequest;
-      operation =
-          new BulkOperation(
-              new DeleteOperation.Builder()
-                  .id(deleteRequest.id())
-                  .ifSeqNo(deleteRequest.ifSeqNo())
-                  .ifPrimaryTerm(deleteRequest.ifPrimaryTerm())
-                  .index(deleteRequest.index())
-                  .routing(deleteRequest.routing())
-                  .build());
-    } else {
-      IndexRequest indexRequest = (IndexRequest) writeRequest;
-      operation =
-          new BulkOperation(
-              new IndexOperation.Builder<>()
-                  .ifSeqNo(indexRequest.ifSeqNo())
-                  .ifPrimaryTerm(indexRequest.ifPrimaryTerm())
-                  .requireAlias(indexRequest.isRequireAlias())
-                  .index(indexRequest.index())
-                  .routing(indexRequest.routing())
-                  .id(indexRequest.id())
-                  .document(
-                      XContentHelper.convertToMap(indexRequest.source(), true, XContentType.JSON)
-                          .v2())
-                  .build());
-    }
-    // URN-based consistent hashing for entity document consistency
-    int index = Math.abs(urn.hashCode()) % threadCount;
-    bulkProcessors[index].add(operation);
+  protected void flushProcessor(BulkIngester<?> processor) {
+    processor.flush();
   }
 
   @Override
-  public void flushBulkProcessor() {
-    // Flush all processors
-    for (BulkIngester<?> processor : bulkProcessors) {
-      processor.flush();
-    }
-  }
-
-  @Override
-  public void closeBulkProcessor() {
-    // Close all processors
-    for (BulkIngester<?> processor : bulkProcessors) {
-      processor.close();
-    }
+  protected void closeProcessor(BulkIngester<?> processor) {
+    processor.close();
   }
 
   @Override

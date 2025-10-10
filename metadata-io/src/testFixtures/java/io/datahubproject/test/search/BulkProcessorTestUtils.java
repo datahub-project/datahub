@@ -2,6 +2,7 @@ package io.datahubproject.test.search;
 
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkListener;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.AbstractBulkProcessorShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
@@ -22,11 +23,12 @@ public class BulkProcessorTestUtils {
       throws InterruptedException, IOException {
     bulkProcessor.flush();
     final SearchClientShim<?> searchClient = getRestHighLevelClient(bulkProcessor);
+
     // if the bulks are big it takes time for Elastic/OpenSearch to process these bulk requests
     if (searchClient instanceof OpenSearch2SearchClientShim) {
-      getBulkProcessorListener(bulkProcessor).waitForBulkProcessed();
+      getBulkProcessorListener((AbstractBulkProcessorShim<?>) searchClient).waitForBulkProcessed();
     } else if (searchClient instanceof Es8SearchClientShim) {
-      getBulkListener(bulkProcessor).waitForBulkProcessed();
+      getBulkListener((AbstractBulkProcessorShim<?>) searchClient).waitForBulkProcessed();
     }
     waitForCompletion(searchClient);
     // some tasks might have refresh = false, so we need to refresh manually
@@ -55,42 +57,31 @@ public class BulkProcessorTestUtils {
   }
 
   private static BulkProcessorProxyListener getBulkProcessorListener(
-      ESBulkProcessor esBulkProcessor) {
-    var searchClient =
-        (SearchClientShim<?>) ReflectionTestUtils.getField(esBulkProcessor, "searchClient");
-    var bulkProcessors = ReflectionTestUtils.getField(searchClient, "bulkProcessors");
-    if (bulkProcessors instanceof BulkProcessor[]) {
-      // For multiple BulkProcessors, get the first one for testing purposes
-      BulkProcessor[] processors = (BulkProcessor[]) bulkProcessors;
-      if (processors.length > 0) {
-        var bulkRequestHandler = ReflectionTestUtils.getField(processors[0], "bulkRequestHandler");
+      AbstractBulkProcessorShim<?> abstractShim) {
+    var bulkProcessors = ReflectionTestUtils.getField(abstractShim, "bulkProcessors");
+
+    if (bulkProcessors instanceof Object[]) {
+      Object[] processors = (Object[]) bulkProcessors;
+      if (processors.length > 0 && processors[0] instanceof BulkProcessor) {
+        BulkProcessor processor = (BulkProcessor) processors[0];
+        var bulkRequestHandler = ReflectionTestUtils.getField(processor, "bulkRequestHandler");
         return (BulkProcessorProxyListener)
             ReflectionTestUtils.getField(bulkRequestHandler, "listener");
       }
-    } else if (bulkProcessors instanceof BulkProcessor) {
-      // Fallback for single BulkProcessor (backward compatibility)
-      var bulkRequestHandler = ReflectionTestUtils.getField(bulkProcessors, "bulkRequestHandler");
-      return (BulkProcessorProxyListener)
-          ReflectionTestUtils.getField(bulkRequestHandler, "listener");
     }
     return null;
   }
 
-  private static ESBulkProcessorProxyListener getBulkListener(ESBulkProcessor esBulkProcessor) {
-    var searchClient =
-        (SearchClientShim<?>) ReflectionTestUtils.getField(esBulkProcessor, "searchClient");
-    var bulkProcessors = ReflectionTestUtils.getField(searchClient, "bulkProcessors");
-    if (bulkProcessors instanceof BulkIngester<?>[]) {
-      // For multiple BulkIngesters, get the first one for testing purposes
-      BulkIngester<?>[] processors = (BulkIngester<?>[]) bulkProcessors;
-      if (processors.length > 0) {
-        return (ESBulkProcessorProxyListener)
-            ReflectionTestUtils.getField(processors[0], "listener");
+  private static ESBulkProcessorProxyListener getBulkListener(
+      AbstractBulkProcessorShim<?> abstractShim) {
+    var bulkProcessors = ReflectionTestUtils.getField(abstractShim, "bulkProcessors");
+
+    if (bulkProcessors instanceof Object[]) {
+      Object[] processors = (Object[]) bulkProcessors;
+      if (processors.length > 0 && processors[0] instanceof BulkIngester<?>) {
+        BulkIngester<?> processor = (BulkIngester<?>) processors[0];
+        return (ESBulkProcessorProxyListener) ReflectionTestUtils.getField(processor, "listener");
       }
-    } else if (bulkProcessors instanceof BulkIngester<?>) {
-      // Fallback for single BulkIngester (backward compatibility)
-      return (ESBulkProcessorProxyListener)
-          ReflectionTestUtils.getField(bulkProcessors, "listener");
     }
     return null;
   }
@@ -98,40 +89,37 @@ public class BulkProcessorTestUtils {
   public static void replaceBulkProcessorListener(ESBulkProcessor esBulkProcessor) {
     var searchClient =
         (SearchClientShim<?>) ReflectionTestUtils.getField(esBulkProcessor, "searchClient");
-    var bulkProcessors = ReflectionTestUtils.getField(searchClient, "bulkProcessors");
 
-    if (bulkProcessors instanceof BulkProcessor[]) {
-      // Handle multiple BulkProcessors
-      BulkProcessor[] processors = (BulkProcessor[]) bulkProcessors;
-      for (BulkProcessor processor : processors) {
-        var bulkRequestHandler = ReflectionTestUtils.getField(processor, "bulkRequestHandler");
-        var bulkProcessorListener =
-            (BulkProcessor.Listener) ReflectionTestUtils.getField(bulkRequestHandler, "listener");
-        ReflectionTestUtils.setField(
-            bulkRequestHandler, "listener", new BulkProcessorProxyListener(bulkProcessorListener));
+    // Cast to AbstractBulkProcessorShim to access bulkProcessors field
+    if (searchClient instanceof AbstractBulkProcessorShim<?>) {
+      replaceBulkProcessorListener((AbstractBulkProcessorShim<?>) searchClient);
+      return;
+    }
+
+    throw new IllegalStateException("Failed to replaceBulkProcessorListener");
+  }
+
+  public static void replaceBulkProcessorListener(AbstractBulkProcessorShim<?> abstractShim) {
+    var bulkProcessors = ReflectionTestUtils.getField(abstractShim, "bulkProcessors");
+
+    if (bulkProcessors instanceof Object[]) {
+      Object[] processors = (Object[]) bulkProcessors;
+      for (Object processor : processors) {
+        if (processor instanceof BulkProcessor) {
+          var bulkRequestHandler = ReflectionTestUtils.getField(processor, "bulkRequestHandler");
+          var bulkProcessorListener =
+              (BulkProcessor.Listener) ReflectionTestUtils.getField(bulkRequestHandler, "listener");
+          ReflectionTestUtils.setField(
+              bulkRequestHandler,
+              "listener",
+              new BulkProcessorProxyListener(bulkProcessorListener));
+        } else if (processor instanceof BulkIngester<?>) {
+          var bulkProcessorListener =
+              (BulkListener<Object>) ReflectionTestUtils.getField(processor, "listener");
+          ReflectionTestUtils.setField(
+              processor, "listener", new ESBulkProcessorProxyListener(bulkProcessorListener));
+        }
       }
-    } else if (bulkProcessors instanceof BulkIngester<?>[]) {
-      // Handle multiple BulkIngesters (ES8)
-      BulkIngester<?>[] processors = (BulkIngester<?>[]) bulkProcessors;
-      for (BulkIngester<?> processor : processors) {
-        var bulkProcessorListener =
-            (BulkListener<Object>) ReflectionTestUtils.getField(processor, "listener");
-        ReflectionTestUtils.setField(
-            processor, "listener", new ESBulkProcessorProxyListener(bulkProcessorListener));
-      }
-    } else if (bulkProcessors instanceof BulkProcessor) {
-      // Fallback for single BulkProcessor (backward compatibility)
-      var bulkRequestHandler = ReflectionTestUtils.getField(bulkProcessors, "bulkRequestHandler");
-      var bulkProcessorListener =
-          (BulkProcessor.Listener) ReflectionTestUtils.getField(bulkRequestHandler, "listener");
-      ReflectionTestUtils.setField(
-          bulkRequestHandler, "listener", new BulkProcessorProxyListener(bulkProcessorListener));
-    } else if (bulkProcessors instanceof BulkIngester<?>) {
-      // Fallback for single BulkIngester (backward compatibility)
-      var bulkProcessorListener =
-          (BulkListener<Object>) ReflectionTestUtils.getField(bulkProcessors, "listener");
-      ReflectionTestUtils.setField(
-          bulkProcessors, "listener", new ESBulkProcessorProxyListener(bulkProcessorListener));
     }
   }
 }
