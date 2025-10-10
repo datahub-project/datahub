@@ -40,7 +40,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
   @Getter private final SearchClientShim<?> client;
 
-  private final ExecutorService pitExecutor;
+  final ExecutorService pitExecutor;
 
   public GraphQueryPITDAO(
       SearchClientShim<?> client,
@@ -68,6 +68,27 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
             );
 
     log.info("Initialized PIT thread pool with {} threads and bounded queue", maxThreads);
+  }
+
+  /** Shutdown the PIT executor service gracefully. */
+  public void shutdown() {
+    if (pitExecutor != null && !pitExecutor.isShutdown()) {
+      log.info("Shutting down PIT thread pool");
+      pitExecutor.shutdown();
+      try {
+        if (!pitExecutor.awaitTermination(30, TimeUnit.SECONDS)) {
+          log.warn("PIT thread pool did not terminate gracefully, forcing shutdown");
+          pitExecutor.shutdownNow();
+          if (!pitExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
+            log.error("PIT thread pool did not terminate after forced shutdown");
+          }
+        }
+      } catch (InterruptedException e) {
+        log.warn("Interrupted while waiting for PIT thread pool shutdown", e);
+        pitExecutor.shutdownNow();
+        Thread.currentThread().interrupt();
+      }
+    }
   }
 
   /**
