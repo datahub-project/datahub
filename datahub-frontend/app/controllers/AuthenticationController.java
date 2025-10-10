@@ -14,6 +14,7 @@ import auth.CookieConfigs;
 import auth.GuestAuthenticationConfigs;
 import auth.JAASConfigs;
 import auth.NativeAuthenticationConfigs;
+import auth.ldap.LdapProvisioningLogic;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -21,8 +22,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.utils.BasePathUtils;
 import com.typesafe.config.Config;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
@@ -72,6 +75,7 @@ public class AuthenticationController extends Controller {
   private final Config config;
 
   private final String basePath;
+  private LdapProvisioningLogic ldapProvisioningLogic;
 
   @Inject private org.pac4j.core.config.Config ssoConfig;
 
@@ -82,12 +86,17 @@ public class AuthenticationController extends Controller {
   @Inject AuthServiceClient authClient;
 
   @Inject
-  public AuthenticationController(@Nonnull Config configs) {
+  public AuthenticationController(
+      @Nonnull Config configs,
+      @Nonnull SystemEntityClient systemEntityClient,
+      @javax.inject.Named("systemOperationContext") @Nonnull
+          OperationContext systemOperationContext) {
     this.config = configs;
     cookieConfigs = new CookieConfigs(configs);
     jaasConfigs = new JAASConfigs(configs);
     nativeAuthenticationConfigs = new NativeAuthenticationConfigs(configs);
     guestAuthenticationConfigs = new GuestAuthenticationConfigs(configs);
+    ldapProvisioningLogic = new LdapProvisioningLogic(systemEntityClient, systemOperationContext);
     verbose = configs.hasPath(AUTH_VERBOSE_LOGGING) && configs.getBoolean(AUTH_VERBOSE_LOGGING);
     basePath = getBasePath();
   }
@@ -450,9 +459,16 @@ public class AuthenticationController extends Controller {
     if (jaasConfigs.isJAASEnabled()) {
       try {
         logger.debug("Attempting JAAS authentication for user: {}", username);
-        AuthenticationManager.authenticateJaasUser(username, password);
+        // Use the new AuthResult to get groups, userDN, and ldapOptions
+        security.AuthenticationManager.AuthResult authResult =
+            AuthenticationManager.authenticateAndGetGroupsAndSubject(username, password);
         logger.debug("JAAS authentication successful. Login succeeded");
         loginSucceeded = true;
+
+        // After successful authentication, provision user and groups in DataHub
+        ldapProvisioningLogic.provisionUser(
+            username, password, authResult.groups, authResult.userDN, authResult.ldapOptions);
+
       } catch (Exception e) {
         if (verbose) {
           logger.debug("JAAS authentication error. Login failed", e);
