@@ -18,12 +18,9 @@ acryl-datahub==1.3.0
     #   acryl-executor
 acryl-datahub-actions==1.3.0
     # via
-    #   -r requirements-local.in
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
-    #   acryl-datahub-actions
     #   acryl-datahub-executor
-    #   acryl-executor
 acryl-datahub-classify==0.0.11
     # via
     #   -r requirements.txt
