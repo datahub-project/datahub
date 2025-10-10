@@ -121,20 +121,34 @@ fragment assertionDetailsForSearch on Assertion {
             entity {
                 urn
                 type
+                ... on SchemaFieldEntity {
+                    parent {
+                        ... on Dataset {
+                            ...assertionDatasetFields
+                        }
+                    }
+                }
                 ... on Dataset {
-                    name
-                    platform {
-                        ...platformFields
-                    }
-                    properties {
-                        name
-                        description
-                        qualifiedName
-                        externalUrl
-                    }
+                    ...assertionDatasetFields
                 }
             }
         }
+    }
+}
+
+fragment assertionDatasetFields on Dataset {
+    urn
+    name
+    platform {
+        ...platformFields
+        __typename
+    }
+    properties {
+        name
+        description
+        qualifiedName
+        externalUrl
+        __typename
     }
 }
 
