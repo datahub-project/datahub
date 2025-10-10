@@ -125,7 +125,9 @@ class ResponseTimeTelemetry:
 
         return self
 
-    def configure_percentiles(self, percentiles: List[int]) -> "ResponseTimeTelemetry":
+    def configure_percentiles(
+        self, percentiles: Optional[List[int]]
+    ) -> "ResponseTimeTelemetry":
         """Configure which percentiles to calculate.
 
         Args:
