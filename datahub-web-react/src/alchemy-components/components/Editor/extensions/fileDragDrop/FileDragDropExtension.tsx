@@ -108,6 +108,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
         const processPromises = fileArray.map(async (file) => {
             const validation = validateFile(file, { allowedTypes: supportedTypes });
             if (!validation.isValid) {
+                console.error(validation.error);
                 return; // Skip invalid files
             }
 
@@ -149,6 +150,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
     private updateNodeWithUrl(view: EditorView, nodeId: string, url: string): void {
         const currentState = view.state;
         let nodePos: number | null = null;
+        let nodeToUpdate: any = null;
 
         // Find the node by ID
         currentState.doc.descendants((descendantNode, descendantPos) => {
@@ -158,15 +160,35 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                 descendantNode.attrs.url === ''
             ) {
                 nodePos = descendantPos;
+                nodeToUpdate = descendantNode;
                 return false; // Stop searching
             }
             return true; // Continue searching
         });
 
-        if (nodePos !== null) {
-            const node = currentState.doc.nodeAt(nodePos);
-            if (node) {
-                const updatedAttrs = { ...node.attrs, url };
+        if (nodePos !== null && nodeToUpdate) {
+            const { name, type } = nodeToUpdate.attrs;
+
+            // Check if this is an image file
+            if (type.startsWith('image/')) {
+                // Replace the file node with an image node using the ImageExtension
+                const imageNode = currentState.schema.nodes.image?.create({
+                    src: url,
+                    alt: name,
+                    title: name,
+                });
+
+                if (imageNode) {
+                    const replaceTransaction = currentState.tr.replaceWith(
+                        nodePos,
+                        nodePos + nodeToUpdate.nodeSize,
+                        imageNode,
+                    );
+                    view.dispatch(replaceTransaction);
+                }
+            } else {
+                // For non-images, just update the URL
+                const updatedAttrs = { ...nodeToUpdate.attrs, url };
                 const updateTransaction = currentState.tr.setNodeMarkup(nodePos, null, updatedAttrs);
                 view.dispatch(updateTransaction);
             }

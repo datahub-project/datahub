@@ -25,6 +25,8 @@ export const SUPPORTED_FILE_TYPES = [
     'image/webp',
     'application/pdf',
     'text/plain',
+    'text/csv',
+    'video/quicktime',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ];
