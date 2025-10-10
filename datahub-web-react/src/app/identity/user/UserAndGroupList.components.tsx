@@ -16,6 +16,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import {
     Avatar,
     Button,
+    Icon,
     Pagination,
     Pill,
     SearchBar,
@@ -147,9 +148,36 @@ export const BulkActionsContainer = styled.div`
         background-color: white;
         border-radius: 8px;
         padding: 4px;
-        border: 1px solid ${colors.gray[200]};
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 12px 0 rgba(9, 1, 61, 0.12);
+
         width: fit-content;
+    }
+`;
+
+const SelectedCountContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    background: white;
+    border: 1px solid ${colors.gray[100]};
+    color: ${colors.gray[1700]};
+    border-radius: 8px;
+`;
+
+const ClearButton = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: ${colors.gray[1800]};
+    transition: color 0.2s;
+
+    &:hover {
+        background: ${colors.gray[1500]};
     }
 `;
 
@@ -157,9 +185,17 @@ type BulkActionsWidgetProps = {
     selectRoleOptions: DataHubRole[];
     onBulkInvite: (role: DataHubRole) => Promise<void>;
     onBulkDismiss: () => Promise<void>;
+    selectedCount?: number;
+    onClearSelection?: () => void;
 };
 
-export const BulkActionsWidget = ({ selectRoleOptions, onBulkInvite, onBulkDismiss }: BulkActionsWidgetProps) => {
+export const BulkActionsWidget = ({
+    selectRoleOptions,
+    onBulkInvite,
+    onBulkDismiss,
+    selectedCount,
+    onClearSelection,
+}: BulkActionsWidgetProps) => {
     // Set default role to "Reader"
     const readerRole = selectRoleOptions.find((role) => role.name === 'Reader');
     const [selectedRole, setSelectedRole] = useState<DataHubRole | undefined>(readerRole);
@@ -175,16 +211,28 @@ export const BulkActionsWidget = ({ selectRoleOptions, onBulkInvite, onBulkDismi
     return (
         <BulkActionsContainer>
             <div>
+                {selectedCount !== undefined && selectedCount > 0 && (
+                    <SelectedCountContainer>
+                        <Text size="md" weight="semiBold">
+                            {selectedCount} selected
+                        </Text>
+                        {onClearSelection && (
+                            <ClearButton onClick={onClearSelection} aria-label="Clear selection">
+                                <Icon icon="X" size="sm" color="gray" source="phosphor" />
+                            </ClearButton>
+                        )}
+                    </SelectedCountContainer>
+                )}
                 <SimpleSelectRole
                     selectedRole={selectedRole}
                     onRoleSelect={setSelectedRole}
                     size="md"
                     width="fit-content"
                 />
-                <Button variant="filled" size="md" onClick={onBulkDismiss} color="red">
+                <Button variant="text" size="md" onClick={onBulkDismiss} color="gray">
                     Dismiss All
                 </Button>
-                <Button variant="filled" size="md" onClick={handleInviteAll} color="green">
+                <Button variant="secondary" size="md" onClick={handleInviteAll}>
                     Invite All
                 </Button>
             </div>

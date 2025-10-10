@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components/macro';
 
 import { Platform } from '@app/identity/user/useAvailablePlatforms';
-import { SimpleSelect, Text } from '@src/alchemy-components';
+import { Pill, SimpleSelect, Text } from '@src/alchemy-components';
 
 const PlatformIcon = styled.img`
     width: 16px;
@@ -14,6 +14,13 @@ const PlatformIcon = styled.img`
 const PlatformOption = styled.div`
     display: flex;
     align-items: center;
+`;
+
+const CompactSelectWrapper = styled.div`
+    & > div {
+        max-height: 40px;
+        height: 40px;
+    }
 `;
 
 type PlatformSelectOption = {
@@ -45,16 +52,10 @@ export const PlatformFilter: React.FC<PlatformFilterProps> = ({
         }));
     }, [platforms]);
 
-    const getDisplayText = () => {
-        if (selectedPlatforms.length === 0) return 'Platform';
-        if (selectedPlatforms.length === 1) return 'Platform';
-        return 'Platforms';
-    };
-
     return (
-        <div className={className}>
+        <CompactSelectWrapper className={className}>
             <SimpleSelect
-                placeholder={getDisplayText()}
+                placeholder="Platform"
                 position="end"
                 options={options}
                 values={selectedPlatforms}
@@ -62,8 +63,11 @@ export const PlatformFilter: React.FC<PlatformFilterProps> = ({
                 showSearch
                 isMultiSelect
                 onUpdate={onPlatformChange}
-                width="fit-content"
                 size="lg"
+                width="fit-content"
+                selectLabelProps={{
+                    variant: 'custom',
+                }}
                 renderCustomOptionText={(option) => {
                     const platformOption = option as PlatformSelectOption;
                     const iconUrl = getPlatformIconUrl(platformOption.platform.urn);
@@ -80,7 +84,20 @@ export const PlatformFilter: React.FC<PlatformFilterProps> = ({
                         </PlatformOption>
                     );
                 }}
+                renderCustomSelectedValue={(option) => {
+                    const platformOption = option as PlatformSelectOption;
+                    // Only render the count display for the first selected option
+                    const isFirstSelected = selectedPlatforms[0] === platformOption.value;
+                    if (!isFirstSelected) return null;
+
+                    return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Text size="md">Platforms</Text>
+                            <Pill label={selectedPlatforms.length.toString()} color="gray" size="sm" />
+                        </div>
+                    );
+                }}
             />
-        </div>
+        </CompactSelectWrapper>
     );
 };

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { buildRecommendedUsersFilters } from '@app/identity/user/buildRecommendedUsersFilters';
 import { getGlobalInvitedUsers, subscribeToInvitedUsers } from '@app/identity/user/inviteUsersGlobalState';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { CorpUser, EntityType, FacetFilterInput, FilterOperator, SearchSortInput, SortOrder } from '@types';
+import { CorpUser, EntityType, SearchSortInput, SortOrder } from '@types';
 
 // Default limit for user recommendations
 const DEFAULT_LIMIT = 20;
@@ -33,90 +34,7 @@ export function useUserRecommendations(options?: UseUserRecommendationsOptions) 
         skip = false,
     } = options || {};
 
-    // Build filters from selected platforms for searchAcrossEntities
-    const orFilters = useMemo(() => {
-        // Common filters that apply to all user recommendations
-        const commonFilters: FacetFilterInput[] = [
-            // Exclude users with invitation status (server-side filtering)
-            {
-                field: 'invitationStatus',
-                values: [''],
-                condition: FilterOperator.Exists,
-                negated: true,
-            },
-            // Only include users with usage data (greater than 0)
-            {
-                field: 'userUsageTotalPast30DaysFeature',
-                values: ['0'],
-                condition: FilterOperator.GreaterThan,
-            },
-        ];
-
-        // Create two OR branches for inactive users:
-        // 1. Users where active field doesn't exist (legacy users)
-        // 2. Users where active=false (new users)
-        const inactiveUsersOrFilters = [
-            {
-                and: [
-                    ...commonFilters,
-                    {
-                        field: 'active',
-                        values: [''],
-                        condition: FilterOperator.Exists,
-                        negated: true,
-                    },
-                ],
-            },
-            {
-                and: [
-                    ...commonFilters,
-                    {
-                        field: 'active',
-                        values: ['false'],
-                        condition: FilterOperator.Equal,
-                    },
-                ],
-            },
-        ];
-
-        // If no platform filters, just use the inactive users OR filters
-        if (selectedPlatforms.length === 0) {
-            return inactiveUsersOrFilters;
-        }
-
-        // Platform filters - if multiple platforms selected, use OR logic
-        const platformFilters: FacetFilterInput[] = selectedPlatforms.map((platform) => {
-            const platformField = `platformUsageTotal.${platform}`;
-            return {
-                field: platformField,
-                values: ['0'],
-                condition: FilterOperator.GreaterThan,
-            };
-        });
-
-        // Combine inactive users filters with platform filters
-        // We need to create a cross-product: (inactive_branch_1 OR inactive_branch_2) AND (platform_1 OR platform_2 OR ...)
-        // This becomes: (inactive_1 AND platform_1) OR (inactive_1 AND platform_2) OR (inactive_2 AND platform_1) OR ...
-        if (selectedPlatforms.length > 0) {
-            const result: Array<{ and: FacetFilterInput[] }> = [];
-
-            // For each inactive user filter branch
-            inactiveUsersOrFilters.forEach((inactiveFilter) => {
-                // For each platform filter
-                platformFilters.forEach((platformFilter) => {
-                    // Create a new OR branch combining this inactive filter with this platform filter
-                    result.push({
-                        and: [...(inactiveFilter.and || []), platformFilter],
-                    });
-                });
-            });
-
-            return result;
-        }
-
-        // No platform filters - return the inactive users OR filters as-is
-        return inactiveUsersOrFilters;
-    }, [selectedPlatforms]);
+    const orFilters = useMemo(() => buildRecommendedUsersFilters({ selectedPlatforms }), [selectedPlatforms]);
 
     // Use searchAcrossEntities
     const searchInput = {

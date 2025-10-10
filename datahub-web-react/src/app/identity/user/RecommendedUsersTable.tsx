@@ -305,6 +305,7 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
             dataIndex: 'actions',
             key: 'actions',
             minWidth: '15%',
+            alignment: 'right' as const,
             render: (user: CorpUser) => {
                 const invitationState = invitationStates[user.urn];
                 const dismissalState = dismissalStates[user.urn];
@@ -347,8 +348,8 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
                         );
                     default:
                         return (
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <Button variant="link" size="sm" onClick={() => handleDismissUser(user)}>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                <Button variant="text" color="gray" size="sm" onClick={() => handleDismissUser(user)}>
                                     Dismiss
                                 </Button>
                                 <Button variant="secondary" size="sm" onClick={() => handleInviteUser(user)}>
@@ -472,6 +473,11 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
                     selectRoleOptions={selectRoleOptions}
                     onBulkInvite={handleBulkInviteAll}
                     onBulkDismiss={handleBulkDismissAllUsers}
+                    selectedCount={selectedRowKeys.length}
+                    onClearSelection={() => {
+                        setSelectedRowKeys([]);
+                        setSelectedUsers([]);
+                    }}
                 />
             )}
         </RecommendedUsersContainer>

@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { Avatar, Pill, Text } from '@src/alchemy-components';
+import { Avatar, Pill, Text, Tooltip } from '@src/alchemy-components';
 import { ResizablePills } from '@src/alchemy-components/components/ResizablePills';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { pluralize } from '@src/app/shared/textUtil';
@@ -266,15 +266,30 @@ export const PlatformPills = ({ user, getPlatformIconUrl }: PlatformPillsProps) 
                     const platformName = getPlatformNameFromUrn(platformUsage.key);
                     const iconUrl = getPlatformIconUrl(platformUsage.key);
                     return (
-                        <Pill
-                            variant="outline"
-                            label={platformName}
-                            customIconRenderer={
-                                iconUrl
-                                    ? () => <PlatformIcon src={iconUrl} alt={platformName} title={platformName} />
-                                    : undefined
+                        <Tooltip
+                            title={
+                                <UserUsageTooltip
+                                    user={user}
+                                    platformUsages={platformUsages}
+                                    getPlatformIconUrl={getPlatformIconUrl}
+                                />
                             }
-                        />
+                            placement="top"
+                        >
+                            <span>
+                                <Pill
+                                    variant="outline"
+                                    label={platformName}
+                                    customIconRenderer={
+                                        iconUrl
+                                            ? () => (
+                                                  <PlatformIcon src={iconUrl} alt={platformName} title={platformName} />
+                                              )
+                                            : undefined
+                                    }
+                                />
+                            </span>
+                        </Tooltip>
                     );
                 }}
                 overflowTooltipContent={() => (

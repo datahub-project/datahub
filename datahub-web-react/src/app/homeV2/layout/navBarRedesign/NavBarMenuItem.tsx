@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import { getColor } from '@components/theme/utils';
 
 import { NavBarMenuBaseItem } from '@app/homeV2/layout/navBarRedesign/types';
-import { Badge, Text, colors } from '@src/alchemy-components';
+import { Badge, Pill, Text, colors } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 
 const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
@@ -150,14 +150,25 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, iconSize
                     </Icon>
                 ) : null}
                 {isCollapsed ? (
-                    <>{item?.badge?.show && <PillDot />}</>
+                    <>{item?.badge?.show && item?.badge?.showDot !== false && <PillDot $isSelected={isSelected} />}</>
                 ) : (
-                    <ItemTitleContentWrapper>
-                        <StyledText size="md" type="div" weight="semiBold" $isSelected={isSelected}>
-                            {item.title}
-                        </StyledText>
-                        {item?.badge?.show && <Badge count={item.badge.count} clickable={false} color="primary" />}
-                    </ItemTitleContentWrapper>
+                    <>
+                        {/* Show blue dot alongside label when expanded (only if showDot is enabled) */}
+                        {item?.badge?.show && item.badge.label && item?.badge?.showDot && (
+                            <PillDot $isSelected={isSelected} />
+                        )}
+                        <ItemTitleContentWrapper>
+                            <StyledText size="md" type="div" weight="semiBold" $isSelected={isSelected}>
+                                {item.title}
+                            </StyledText>
+                            {item?.badge?.show &&
+                                (item.badge.label ? (
+                                    <Pill size="sm" color="blue" label={item.badge.label} clickable={false} />
+                                ) : (
+                                    <Badge count={item.badge.count || 0} clickable={false} color="primary" />
+                                ))}
+                        </ItemTitleContentWrapper>
+                    </>
                 )}
             </StyledMenuItem>
         </Tooltip>

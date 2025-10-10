@@ -440,9 +440,11 @@ export const UserAndGroupList = ({ hasSsoBanner }: Props) => {
                         },
                     ]}
                 />
-                <TabPillWrapper>
-                    <Pill size="sm" color="blue" label="New" />
-                </TabPillWrapper>
+                {activeSubTab !== SubTabType.Recommended && (
+                    <TabPillWrapper>
+                        <Pill size="sm" color="blue" label="New" />
+                    </TabPillWrapper>
+                )}
             </SubTabsContainer>
 
             {resetTokenUser && (

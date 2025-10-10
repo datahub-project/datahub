@@ -36,6 +36,8 @@ import {
 } from '@app/homeV2/layout/navBarRedesign/types';
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
+import { hasSeenRecommendedUsers } from '@app/identity/user/recommendedUsersLocalStorage';
+import { useRecommendedUsersCount } from '@app/identity/user/useRecommendedUsersCount';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { ZendeskWidget } from '@app/shared/ZendeskWidget';
@@ -157,6 +159,13 @@ export const NavSidebar = () => {
     const {
         state: { unfinishedTaskCount },
     } = userContext;
+
+    // Check for recommended users to show "New" badge on Settings
+    // Only query if user has identity management permissions
+    const canManageIdentities = me?.platformPrivileges?.manageIdentities || false;
+    const { recommendedUsersCount } = useRecommendedUsersCount({ skip: !canManageIdentities });
+    const hasSeenRecommendations = hasSeenRecommendedUsers();
+    const showSettingsBadge = recommendedUsersCount > 0 && !hasSeenRecommendations;
 
     const HelpContentMenuItems = themeConfig.content.menu.items.map((value) => ({
         title: value.label,
@@ -352,6 +361,11 @@ export const NavSidebar = () => {
                 selectedIcon: <Gear weight="fill" />,
                 key: 'settings',
                 link: '/settings',
+                badge: {
+                    label: 'New',
+                    show: showSettingsBadge,
+                    showDot: true, // Show blue dot in left nav
+                },
             },
             {
                 type: NavBarMenuItemTypes.Dropdown,
