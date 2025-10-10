@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade;
 
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
+import com.linkedin.datahub.upgrade.loadindices.LoadIndices;
 import com.linkedin.datahub.upgrade.removeunknownaspects.RemoveUnknownAspects;
 import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
@@ -12,7 +13,6 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.ReindexDebug;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
-import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,15 +34,19 @@ public class UpgradeCli implements CommandLineRunner {
 
   private final UpgradeManager _upgradeManager = new DefaultUpgradeManager();
 
-  @Inject
+  @Autowired(required = false)
+  @Named("loadIndices")
+  private LoadIndices loadIndices;
+
+  @Autowired(required = false)
   @Named("restoreIndices")
   private RestoreIndices restoreIndices;
 
-  @Inject
+  @Autowired(required = false)
   @Named("restoreBackup")
   private RestoreBackup restoreBackup;
 
-  @Inject
+  @Autowired(required = false)
   @Named("removeUnknownAspects")
   private RemoveUnknownAspects removeUnknownAspects;
 
@@ -66,29 +70,65 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("systemUpdateCron")
   private SystemUpdateCron systemUpdateCron;
 
-  @Autowired
+  @Autowired(required = false)
   @Named("reindexDebug")
   private ReindexDebug reindexDebug;
 
   @Override
   public void run(String... cmdLineArgs) {
-    _upgradeManager.register(restoreIndices);
-    _upgradeManager.register(restoreBackup);
-    _upgradeManager.register(removeUnknownAspects);
+    // Register upgrades with null checks and warnings
+    if (restoreIndices != null) {
+      _upgradeManager.register(restoreIndices);
+    } else {
+      log.warn("RestoreIndices upgrade not available - bean not found");
+    }
+
+    if (restoreBackup != null) {
+      _upgradeManager.register(restoreBackup);
+    } else {
+      log.warn("RestoreBackup upgrade not available - bean not found");
+    }
+
+    if (removeUnknownAspects != null) {
+      _upgradeManager.register(removeUnknownAspects);
+    } else {
+      log.warn("RemoveUnknownAspects upgrade not available - bean not found");
+    }
+
+    if (loadIndices != null) {
+      _upgradeManager.register(loadIndices);
+    } else {
+      log.warn("LoadIndices upgrade not available - bean not found");
+    }
+
     if (systemUpdate != null) {
       _upgradeManager.register(systemUpdate);
+    } else {
+      log.warn("SystemUpdate upgrade not available - bean not found");
     }
+
     if (systemUpdateBlocking != null) {
       _upgradeManager.register(systemUpdateBlocking);
+    } else {
+      log.warn("SystemUpdateBlocking upgrade not available - bean not found");
     }
+
     if (systemUpdateNonBlocking != null) {
       _upgradeManager.register(systemUpdateNonBlocking);
+    } else {
+      log.warn("SystemUpdateNonBlocking upgrade not available - bean not found");
     }
+
     if (systemUpdateCron != null) {
       _upgradeManager.register(systemUpdateCron);
+    } else {
+      log.warn("SystemUpdateCron upgrade not available - bean not found");
     }
+
     if (reindexDebug != null) {
       _upgradeManager.register(reindexDebug);
+    } else {
+      log.warn("ReindexDebug upgrade not available - bean not found");
     }
 
     final Args args = new Args();

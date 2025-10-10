@@ -40,6 +40,9 @@ public class ElasticSearchBulkProcessorFactory {
   @Value("${elasticsearch.bulkProcessor.refreshPolicy}")
   private String refreshPolicy;
 
+  @Value("${elasticsearch.threadCount}")
+  private Integer threadCount;
+
   @Bean(name = "elasticSearchBulkProcessor")
   @Nonnull
   protected ESBulkProcessor getInstance(MetricUtils metricUtils) {
@@ -49,6 +52,7 @@ public class ElasticSearchBulkProcessorFactory {
         .bulkRequestsLimit(bulkRequestsLimit)
         .retryInterval(retryInterval)
         .numRetries(numRetries)
+        .threadCount(threadCount)
         .batchDelete(enableBatchDelete)
         .writeRequestRefreshPolicy(WriteRequest.RefreshPolicy.valueOf(refreshPolicy))
         .build();
