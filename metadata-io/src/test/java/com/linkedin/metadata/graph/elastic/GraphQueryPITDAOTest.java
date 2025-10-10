@@ -1941,4 +1941,119 @@ public class GraphQueryPITDAOTest {
       Assert.assertFalse(hasMessageInChain(e, "Point-in-Time creation is required"));
     }
   }
+
+  @Test
+  public void testSearchSingleSliceWithPitThreadInterruption() throws Exception {
+    // Test that thread interruption is properly handled in searchSingleSliceWithPit
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+
+    // Mock PIT creation
+    CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
+    when(mockPitResponse.getId()).thenReturn("test_pit_id");
+    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockPitResponse);
+
+    // Create a thread that will be interrupted
+    Thread testThread =
+        new Thread(
+            () -> {
+              try {
+                Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
+                LineageGraphFilters filters =
+                    LineageGraphFilters.forEntityType(
+                        operationContext.getLineageRegistry(),
+                        DATASET_ENTITY_NAME,
+                        LineageDirection.DOWNSTREAM);
+
+                // Start the search operation
+                dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+              } catch (Exception e) {
+                // Expected to throw exception due to interruption
+              }
+            });
+
+    // Start the thread and then interrupt it
+    testThread.start();
+
+    // Give the thread a moment to start, then interrupt it
+    Thread.sleep(100);
+    testThread.interrupt();
+
+    // Wait for the thread to complete
+    testThread.join(5000);
+
+    // Verify that the thread completed (either successfully or with exception)
+    Assert.assertFalse(testThread.isAlive(), "Test thread should have completed");
+  }
+
+  @Test
+  public void testSearchSingleSliceWithPitThreadInterruptionException() throws Exception {
+    // Test that the specific RuntimeException is thrown when thread is interrupted
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    GraphQueryPITDAO dao =
+        new GraphQueryPITDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null);
+
+    // Mock PIT creation
+    CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
+    when(mockPitResponse.getId()).thenReturn("test_pit_id");
+    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockPitResponse);
+
+    // Create a mock search response that will cause the method to enter the loop
+    SearchHit[] hits = createFakeLineageHits(1, "urn:li:dataset:test-urn", "dest", "DownstreamOf");
+    SearchResponse searchResponse = createFakeSearchResponse(hits, 1);
+
+    // Mock search to return the response, then throw interruption exception
+    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenAnswer(
+            invocation -> {
+              // Simulate thread interruption by checking Thread.currentThread().isInterrupted()
+              if (Thread.currentThread().isInterrupted()) {
+                throw new RuntimeException("Slice 0 was interrupted");
+              }
+              return searchResponse;
+            });
+
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(),
+            DATASET_ENTITY_NAME,
+            LineageDirection.DOWNSTREAM);
+
+    // Create a thread that will be interrupted
+    final RuntimeException[] caughtException = new RuntimeException[1];
+    Thread testThread =
+        new Thread(
+            () -> {
+              try {
+                dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+              } catch (RuntimeException e) {
+                caughtException[0] = e;
+              }
+            });
+
+    // Start the thread and then interrupt it
+    testThread.start();
+
+    // Give the thread a moment to start, then interrupt it
+    Thread.sleep(100);
+    testThread.interrupt();
+
+    // Wait for the thread to complete
+    testThread.join(5000);
+
+    // Verify that the specific interruption exception was caught
+    Assert.assertNotNull(
+        caughtException[0], "Expected RuntimeException to be thrown due to interruption");
+    Assert.assertTrue(
+        caughtException[0].getMessage().contains("Failed to execute slice-based search"),
+        "Expected slice-based search failure message, got: " + caughtException[0].getMessage());
+  }
 }
