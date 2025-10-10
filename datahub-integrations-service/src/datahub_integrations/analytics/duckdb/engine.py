@@ -94,7 +94,9 @@ class DuckDBAnalyticsEngine(AnalyticsEngine):
         return {x[0]: x[1] for x in result.description} if result.description else {}  # type: ignore
 
     def _get_rows_from_result(self, result: duckdb.DuckDBPyConnection) -> Iterator[Row]:
-        schema = [str(x[0]) for x in result.description] if result.description else []
+        schema: List[Optional[str]] = (
+            [str(x[0]) for x in result.description] if result.description else []
+        )
         logger.info(schema)
         yield Row(type=RowType.HEADER, values=schema)
         for row in result.fetchall():

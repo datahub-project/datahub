@@ -532,7 +532,7 @@ class DocPropagationAction(Action):
                 context = SourceDetails(
                     origin=doc_propagation_directive.origin,
                     via=doc_propagation_directive.via,
-                    propagated=True,
+                    propagated=True,  # type: ignore[arg-type]  # bool->str conversion handled by field validator
                     actor=doc_propagation_directive.actor,
                 )
                 assert self.ctx.graph

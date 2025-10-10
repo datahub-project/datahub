@@ -1060,14 +1060,14 @@ async def store_user_teams_settings(
         # Import required models
         import time
 
-        from datahub.metadata._internal_schema_classes import (
-            NotificationSettingsClass,
-            TeamsNotificationSettingsClass,
-            TeamsUserClass,
-        )
         from datahub.metadata.com.linkedin.pegasus2avro.identity import (
             CorpUserAppearanceSettingsClass,
             CorpUserSettingsClass,
+        )
+        from datahub.metadata.schema_classes import (
+            NotificationSettingsClass,
+            TeamsNotificationSettingsClass,
+            TeamsUserClass,
         )
 
         # Get existing CorpUserSettings

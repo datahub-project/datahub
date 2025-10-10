@@ -42,7 +42,7 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
         "${venv_name}/bin/python -m pip install --upgrade uv"
 }
 
-task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
+task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion-modules:acryl-cloud:codegen']) {
     inputs.file file('pyproject.toml')
     outputs.file("${venv_name}/.build_install_sentinel")
     commandLine 'bash', '-x', '-c',
@@ -63,12 +63,12 @@ task installDev(type: Exec, dependsOn: [install]) {
         "touch ${venv_name}/.build_install_dev_sentinel"
 }
 
-task lockfileUpdate(type: Exec, dependsOn: environmentSetup) {
+task lockfileUpdate(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion-modules:acryl-cloud:codegen']) {
     commandLine 'bash', '-c',
         "set +x && source ${venv_name}/bin/activate && set -x && " +
         "./scripts/lockfile.sh"
 }
-task lockfileCheck(type: Exec, dependsOn: environmentSetup) {
+task lockfileCheck(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion-modules:acryl-cloud:codegen']) {
     commandLine 'bash', '-c',
         "set +x && source ${venv_name}/bin/activate && set -x && " +
         "./scripts/lockfile-check.sh"
@@ -79,7 +79,7 @@ task lint(type: Exec, dependsOn: installDev) {
         "set +x && source ${venv_name}/bin/activate &&  set -x &&" +
         "ruff check src/ tests/ scripts/ && " +
         "ruff format --check src/ tests/ scripts/ && " +
-        "mypy src/ tests/"
+        "mypy --config-file=mypy.ini src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
@@ -126,7 +126,6 @@ docker {
         include "datahub-executor/scripts/smoke-test-helper.py"
         include "datahub-executor/pyproject.toml"
         include "datahub-executor/requirements*"
-        include "metadata-ingestion/**"
         include "metadata-ingestion-modules/acryl-cloud/**"
         include "python-build/**"
 

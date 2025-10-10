@@ -3,6 +3,7 @@ This file contains the AssertionInput class and related classes, which are used 
 validate and represent the input for creating an Assertion in DataHub.
 """
 
+import inspect
 import random
 import string
 from abc import ABC, abstractmethod
@@ -315,7 +316,9 @@ class DetectionMechanism:
             return_value = getattr(
                 DetectionMechanism, detection_mechanism_config.upper()
             )
-            if isinstance(return_value, pydantic.main.ModelMetaclass):
+            if inspect.isclass(return_value) and issubclass(
+                return_value, pydantic.BaseModel
+            ):
                 try:
                     # We try to instantiate here to let pydantic raise a helpful error
                     # about which parameters are missing

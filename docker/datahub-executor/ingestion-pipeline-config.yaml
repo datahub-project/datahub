@@ -8,18 +8,76 @@ connection:
   consumer_config:
     group.id: datahub-executor-consumer-job-client
     auto.offset.reset: latest
-    #security.protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-PLAINTEXT}
-    #sasl.mechanism: ${KAFKA_PROPERTIES_SASL_MECHANISM:-PLAIN}
-    #sasl.username: ${KAFKA_PROPERTIES_SASL_USERNAME:-""}
-    #sasl.password: ${KAFKA_PROPERTIES_SASL_PASSWORD:-""}
-    #ssl.keystore.location: ${KAFKA_PROPERTIES_SSL_KEYSTORE_LOCATION:-/mnt/certs/keystore}
-    #ssl.truststore.location: ${KAFKA_PROPERTIES_SSL_TRUSTSTORE_LOCATION:-/mnt/certs/truststore}
-    #ssl.keystore.password: ${KAFKA_PROPERTIES_SSL_KEYSTORE_PASSWORD:-keystore_password}
-    #ssl.key.password: ${KAFKA_PROPERTIES_SSL_KEY_PASSWORD:-keystore_password}
-    #ssl.truststore.password: ${KAFKA_PROPERTIES_SSL_TRUSTSTORE_PASSWORD:-truststore_password}
-    # for AWS MSK IAM (SASL/OAUTHBEARER) Use Helm or env to set these when enabling IAM.
-    # set sasl.oauthbearer.method to default and oauth_cb to "datahub_executor.common.kafka_msk_iam:oauth_cb"
-    #sasl.oauthbearer.method: ${KAFKA_PROPERTIES_SASL_OAUTHBEARER_METHOD:-""}
-    #oauth_cb: ${KAFKA_PROPERTIES_OAUTH_CB:-""}
-    #security.protocol: SASL_SSL
+    
+    # Basic SASL/SSL Configuration
+    # These can be overridden by setting environment variables:
+    # - KAFKA_PROPERTIES_SECURITY_PROTOCOL
+    # - KAFKA_PROPERTIES_SASL_MECHANISM
+    #security.protocol: PLAINTEXT
+    
+    # ============================================================================
+    # SASL PLAIN Authentication (username/password)
+    # ============================================================================
+    # For Azure Event Hubs with connection string or basic auth:
+    # Set environment variables:
+    #   KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
+    #   KAFKA_PROPERTIES_SASL_MECHANISM=PLAIN
+    #   KAFKA_PROPERTIES_SASL_USERNAME=$ConnectionString (or username)
+    #   KAFKA_PROPERTIES_SASL_PASSWORD=<connection-string> (or password)
+    #
+    # Example (these will be read from environment variables):
+    #sasl.mechanism: PLAIN
+    #sasl.username: ""
+    #sasl.password: ""
+    
+    # ============================================================================
+    # AWS MSK IAM Authentication (OAUTHBEARER)
+    # ============================================================================
+    # For AWS MSK with IAM authentication:
+    # Set environment variables:
+    #   KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
+    #   KAFKA_PROPERTIES_SASL_MECHANISM=OAUTHBEARER
+    #   KAFKA_PROPERTIES_SASL_OAUTHBEARER_METHOD=default
+    #   KAFKA_PROPERTIES_OAUTH_CALLBACK=datahub_executor.common.kafka_msk_iam:oauth_cb
+    #   AWS_REGION=<your-aws-region>
+    #
+    # The IAM credentials will be picked up from:
+    # - IAM role (if running in EKS with IRSA)
+    # - Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+    # - AWS credentials file
+    # - Instance profile (if running on EC2)
+    #
+    # Example (these will be read from environment variables):
     #sasl.mechanism: OAUTHBEARER
+    #sasl.oauthbearer.method: default
+    #oauth_cb: datahub_executor.common.kafka_msk_iam:oauth_cb
+    
+    # ============================================================================
+    # Azure Event Hubs OAuth Authentication (OAUTHBEARER)
+    # ============================================================================
+    # For Azure Event Hubs with Azure AD OAuth:
+    # Set environment variables:
+    #   KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
+    #   KAFKA_PROPERTIES_SASL_MECHANISM=OAUTHBEARER
+    #   KAFKA_PROPERTIES_SASL_OAUTHBEARER_METHOD=default
+    #   KAFKA_PROPERTIES_OAUTH_CALLBACK=datahub_executor.common.kafka_eventhubs_auth:oauth_cb
+    #   AZURE_EVENT_HUBS_NAMESPACE=<namespace>.servicebus.windows.net
+    #
+    # The Azure credentials will be picked up from:
+    # - Environment variables (AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_CLIENT_SECRET)
+    # - Managed Identity (if running in AKS)
+    # - Azure CLI credentials
+    #
+    # Example (these will be read from environment variables):
+    #sasl.mechanism: OAUTHBEARER
+    #sasl.oauthbearer.method: default
+    #oauth_cb: datahub_executor.common.kafka_eventhubs_auth:oauth_cb
+    
+    # ============================================================================
+    # SSL Configuration (if using SSL with certificates)
+    # ============================================================================
+    #ssl.keystore.location: /mnt/certs/keystore
+    #ssl.truststore.location: /mnt/certs/truststore
+    #ssl.keystore.password: keystore_password
+    #ssl.key.password: keystore_password
+    #ssl.truststore.password: truststore_password

@@ -45,7 +45,7 @@ def apply_remote_assertion_request(
         if not update_celery_credentials(app, False, executor_id):
             return execution_request.args["urn"]
 
-        message_size = len(execution_request.json())
+        message_size = len(execution_request.model_dump_json())
         if message_size > DATAHUB_EXECUTOR_SQS_MESSAGE_MAX_LENGTH:
             METRIC("SCHEDULER_MESSAGE_SIZE_EXCEEDED").inc()
             logger.warning(
@@ -114,7 +114,7 @@ def apply_remote_monitor_training_request(
         if not update_celery_credentials(app, False, executor_id):
             return execution_request.args["urn"]
 
-        message_size = len(execution_request.json())
+        message_size = len(execution_request.model_dump_json())
         if message_size > DATAHUB_EXECUTOR_SQS_MESSAGE_MAX_LENGTH:
             METRIC("SCHEDULER_MESSAGE_SIZE_EXCEEDED").inc()
             logger.warning(

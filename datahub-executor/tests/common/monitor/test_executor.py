@@ -54,7 +54,7 @@ def test_execution_request(test_monitor: Monitor) -> ExecutionRequest:
     return ExecutionRequest(
         exec_id="test-exec-id",
         name=RUN_MONITOR_TRAINING_TASK_NAME,
-        args={"monitor": test_monitor.dict()},
+        args={"monitor": test_monitor.model_dump()},
     )
 
 

@@ -110,7 +110,7 @@ class ExecutorConfigResolver:
         executor_configs = []
         for credential in result["listExecutorConfigs"]["executorConfigs"]:
             try:
-                executor_configs.append(ExecutorConfig.parse_obj(credential))
+                executor_configs.append(ExecutorConfig.model_validate(credential))
             except Exception:
                 METRIC("WORKER_CONFIG_FETCHER_ERRORS", exception="ParseError").inc()
                 raise Exception(

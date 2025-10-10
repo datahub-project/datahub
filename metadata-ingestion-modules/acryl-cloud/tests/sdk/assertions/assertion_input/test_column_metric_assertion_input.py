@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Optional, Tuple, Union
 
 import pytest
-from conftest import StubEntityClient
 
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     AssertionIncidentBehavior,
@@ -28,6 +27,7 @@ from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn
 from datahub.sdk.entity_client import EntityClient
+from tests.sdk.assertions.conftest import StubEntityClient
 
 
 @dataclass

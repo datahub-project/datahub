@@ -220,7 +220,7 @@ def assertion_request(execution_request: ExecutionRequest) -> None:
     if execution_request.name == RUN_ASSERTION_TASK_NAME:
         METRIC("WORKER_ASSERTION_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_ID).inc()
 
-        dump_event(execution_request.json())
+        dump_event(execution_request.model_dump_json())
 
         global assertion_executor
         assertion_executor.execute(execution_request)

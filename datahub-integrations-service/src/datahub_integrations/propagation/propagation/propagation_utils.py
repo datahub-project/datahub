@@ -66,15 +66,15 @@ class PropagationDirective(BaseModel):
         description="Origin entity for the association. This is the entity that triggered the propagation.",
     )
     via: Optional[str] = Field(
-        None,
+        default=None,
         description="Via entity for the association. This is the direct entity that the propagation came through.",
     )
     actor: Optional[str] = Field(
-        None,
+        default=None,
         description="Actor that triggered the propagation through the original association.",
     )
     propagation_started_at: Optional[int] = Field(
-        None,
+        default=None,
         description="Timestamp (in millis) when the original propagation event happened.",
     )
     propagation_depth: Optional[int] = Field(
@@ -122,23 +122,23 @@ class PropertyPropagationDirective(PropagationDirective):
 
 class SourceDetails(BaseModel):
     origin: Optional[str] = Field(
-        None,
+        default=None,
         description="Origin entity for the documentation. This is the entity that triggered the documentation propagation.",
     )
     via: Optional[str] = Field(
-        None,
+        default=None,
         description="Via entity for the documentation. This is the direct entity that the documentation was propagated through.",
     )
     propagated: Optional[bool] = Field(
-        None,
+        default=None,
         description="Indicates whether the metadata element was propagated.",
     )
     actor: Optional[str] = Field(
-        None,
+        default=None,
         description="Actor that triggered the metadata propagation.",
     )
     propagation_started_at: Optional[int] = Field(
-        None,
+        default=None,
         description="Timestamp when the metadata propagation event happened.",
     )
     propagation_depth: Optional[int] = Field(
@@ -146,11 +146,11 @@ class SourceDetails(BaseModel):
         description="Depth of metadata propagation.",
     )
     propagation_relationship: Optional[RelationshipType] = Field(
-        None,
+        default=None,
         description="The relationship that the metadata was propagated through.",
     )
     propagation_direction: Optional[DirectionType] = Field(
-        None,
+        default=None,
         description="The direction that the metadata was propagated through.",
     )
 

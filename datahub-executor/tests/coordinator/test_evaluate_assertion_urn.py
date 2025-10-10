@@ -22,7 +22,7 @@ from datahub_executor.coordinator.types import (
 
 class TestEvaluateAssertionUrnHandler:
     def setup_method(self) -> None:
-        self.assertion = Assertion.parse_obj(
+        self.assertion = Assertion.model_validate(
             {
                 "urn": "urn:li:testAssertion",
                 "type": "ASSERTION",
@@ -48,12 +48,12 @@ class TestEvaluateAssertionUrnHandler:
                 },
             }
         )
-        self.input_data = EvaluateAssertionUrnInputSchema.parse_obj(
+        self.input_data = EvaluateAssertionUrnInputSchema.model_validate(
             {
                 "assertionUrn": "urn:li:testAssertion",
                 "parameters": {
                     "type": "DATASET_FRESHNESS",
-                    "datasetFreshnessParameters": FreshnessAssertionParametersSchema.parse_obj(
+                    "datasetFreshnessParameters": FreshnessAssertionParametersSchema.model_validate(
                         {
                             "sourceType": "FIELD_VALUE",
                             "field": {

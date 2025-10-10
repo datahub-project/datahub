@@ -1,3 +1,2 @@
--e ../metadata-ingestion
--e ../datahub-actions
+-e ../metadata-ingestion-modules/acryl-cloud
 -e .

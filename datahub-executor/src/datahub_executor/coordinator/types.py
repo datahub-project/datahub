@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 
-from pydantic.v1 import BaseModel, Field, validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from datahub_executor.common.types import (
     AssertionEvaluationParameters,
@@ -18,6 +18,7 @@ from datahub_executor.common.types import (
     FieldAssertion,
     FreshnessAssertion,
     FreshnessFieldKind,
+    FreshnessFieldSpec,
     SchemaAssertion,
     SQLAssertion,
     VolumeAssertion,
@@ -28,27 +29,28 @@ class SchemaFieldSpecSchema(BaseModel):
     path: str
     type: str
     native_type: str = Field(alias="nativeType")
-    kind: Optional[FreshnessFieldKind]
+    kind: Optional[FreshnessFieldKind] = None
 
 
 class FreshnessFieldSpecSchema(BaseModel):
     path: str
     type: str
     native_type: str = Field(alias="nativeType")
-    kind: Optional[FreshnessFieldKind]
+    kind: Optional[FreshnessFieldKind] = None
 
 
 class FreshnessAssertionParametersSchema(BaseModel):
     source_type: DatasetFreshnessSourceType = Field(alias="sourceType")
     field: Optional[SchemaFieldSpecSchema] = None
-    audit_log: Optional[AuditLogSpec] = Field(alias="auditLog")
+    audit_log: Optional[AuditLogSpec] = Field(alias="auditLog", default=None)
 
-    @validator("field", always=True)
+    @field_validator("field")
+    @classmethod
     def validate_field(
-        cls, field: Optional[SchemaFieldSpecSchema], values: dict
+        cls, field: Optional[SchemaFieldSpecSchema], info: ValidationInfo
     ) -> Optional[SchemaFieldSpecSchema]:
         if (
-            values.get("source_type") == DatasetFreshnessSourceType.FIELD_VALUE
+            info.data.get("source_type") == DatasetFreshnessSourceType.FIELD_VALUE
             and field is None
         ):
             raise ValueError(
@@ -57,9 +59,17 @@ class FreshnessAssertionParametersSchema(BaseModel):
         return field
 
     def to_internal_params(self) -> DatasetFreshnessAssertionParameters:
+        # FreshnessFieldSpec is expected but we have SchemaFieldSpecSchema
+        # Convert SchemaFieldSpecSchema to FreshnessFieldSpec using model_validate
+        freshness_field_spec: Optional[FreshnessFieldSpec] = (
+            FreshnessFieldSpec.model_validate(self.field.model_dump())
+            if self.field
+            else None
+        )
+
         return DatasetFreshnessAssertionParameters(
             source_type=self.source_type,
-            field=self.field,
+            field=freshness_field_spec,
             audit_log=self.audit_log,
         )
 
@@ -75,12 +85,20 @@ class FieldAssertionParametersSchema(BaseModel):
     source_type: DatasetFieldSourceType = Field(alias="sourceType")
 
     changed_rows_field: Optional[FreshnessFieldSpecSchema] = Field(
-        alias="changedRowsField"
+        alias="changedRowsField", default=None
     )
 
     def to_internal_params(self) -> DatasetFieldAssertionParameters:
+        # FreshnessFieldSpec is expected but we have FreshnessFieldSpecSchema
+        # Convert FreshnessFieldSpecSchema to FreshnessFieldSpec using model_validate
+        changed_rows_field_spec: Optional[FreshnessFieldSpec] = (
+            FreshnessFieldSpec.model_validate(self.changed_rows_field.model_dump())
+            if self.changed_rows_field
+            else None
+        )
+
         return DatasetFieldAssertionParameters(
-            source_type=self.source_type, changed_rows_field=self.changed_rows_field
+            source_type=self.source_type, changed_rows_field=changed_rows_field_spec
         )
 
 
@@ -93,66 +111,73 @@ class SchemaAssertionParametersSchema(BaseModel):
 
 class AssertionInfoSchema(BaseModel):
     freshness_assertion: Optional[FreshnessAssertion] = Field(
-        alias="freshnessAssertion"
+        alias="freshnessAssertion", default=None
     )
-    volume_assertion: Optional[VolumeAssertion] = Field(alias="volumeAssertion")
-    sql_assertion: Optional[SQLAssertion] = Field(alias="sqlAssertion")
-    field_assertion: Optional[FieldAssertion] = Field(alias="fieldAssertion")
-    schema_assertion: Optional[SchemaAssertion] = Field(alias="schemaAssertion")
+    volume_assertion: Optional[VolumeAssertion] = Field(
+        alias="volumeAssertion", default=None
+    )
+    sql_assertion: Optional[SQLAssertion] = Field(alias="sqlAssertion", default=None)
+    field_assertion: Optional[FieldAssertion] = Field(
+        alias="fieldAssertion", default=None
+    )
+    schema_assertion: Optional[SchemaAssertion] = Field(
+        alias="schemaAssertion", default=None
+    )
 
 
 class AssertionEvaluationParametersSchema(BaseModel):
     # Dataset FRESHNESS Parameters. Present if the type is DATASET_FRESHNESS
     dataset_freshness_parameters: Optional[FreshnessAssertionParametersSchema] = Field(
-        alias="datasetFreshnessParameters"
+        alias="datasetFreshnessParameters", default=None
     )
 
     # Dataset VOLUME Parameters. Present if the type is DATASET_VOLUME
     dataset_volume_parameters: Optional[VolumeAssertionParametersSchema] = Field(
-        alias="datasetVolumeParameters"
+        alias="datasetVolumeParameters", default=None
     )
 
     # Dataset FIELD Parameters. Present if the type is DATASET_FIELD
     dataset_field_parameters: Optional[FieldAssertionParametersSchema] = Field(
-        alias="datasetFieldParameters"
+        alias="datasetFieldParameters", default=None
     )
 
     # Dataset SCHEMA Parameters. Present if the type is DATASET_FIELD
     dataset_schema_parameters: Optional[SchemaAssertionParametersSchema] = Field(
-        alias="datasetSchemaParameters"
+        alias="datasetSchemaParameters", default=None
     )
 
     # The type of the parameters"""
     type: AssertionEvaluationParametersType
 
-    @validator("type", always=True)
+    @field_validator("type")
+    @classmethod
     def validate_type(
-        cls, type: AssertionEvaluationParametersType, values: dict
+        cls, type: AssertionEvaluationParametersType, info: ValidationInfo
     ) -> AssertionEvaluationParametersType:
         if (
             type == AssertionEvaluationParametersType.DATASET_FRESHNESS
-            and values.get("dataset_freshness_parameters") is None
+            and info.data.get("dataset_freshness_parameters") is None
         ):
             raise ValueError(
                 f"datasetFreshnessParameters is required when type is {AssertionEvaluationParametersType.DATASET_FRESHNESS.value}"
             )
         if (
             type == AssertionEvaluationParametersType.DATASET_VOLUME
-            and values.get("dataset_volume_parameters") is None
+            and info.data.get("dataset_volume_parameters") is None
         ):
             raise ValueError(
                 f"datasetVolumeParameters is required when type is {AssertionEvaluationParametersType.DATASET_VOLUME.value}"
             )
         if (
             type == AssertionEvaluationParametersType.DATASET_FIELD
-            and values.get("dataset_field_parameters") is None
+            and info.data.get("dataset_field_parameters") is None
         ):
             raise ValueError(
                 f"datasetFieldParameters is required when type is {AssertionEvaluationParametersType.DATASET_FIELD.value}"
             )
         if (
             type == AssertionEvaluationParametersType.DATASET_SCHEMA
-            and values.get("dataset_schema_parameters") is None
+            and info.data.get("dataset_schema_parameters") is None
         ):
             raise ValueError(
                 f"datasetSchemaParameters is required when type is {AssertionEvaluationParametersType.DATASET_SCHEMA.value}"
@@ -194,7 +219,8 @@ class EvaluateAssertionInputSchema(BaseModel):
     parameters: AssertionEvaluationParametersSchema
     dryRun: bool = True
 
-    @validator("dryRun", pre=True, always=True)
+    @field_validator("dryRun", mode="before")
+    @classmethod
     def validate_dry_run(cls, dry_run: Optional[bool]) -> bool:
         if dry_run is None:
             return True
@@ -204,10 +230,11 @@ class EvaluateAssertionInputSchema(BaseModel):
 class EvaluateAssertionUrnsInputSchema(BaseModel):
     urns: List[str]
     dryRun: bool = True
-    parameters: Optional[Dict]
+    parameters: Optional[Dict] = None
     asyncFlag: bool = Field(alias="async", default=False)
 
-    @validator("dryRun", pre=True, always=True)
+    @field_validator("dryRun", mode="before")
+    @classmethod
     def validate_dry_run(cls, dry_run: Optional[bool]) -> bool:
         if dry_run is None:
             return True
@@ -216,10 +243,11 @@ class EvaluateAssertionUrnsInputSchema(BaseModel):
 
 class EvaluateAssertionUrnInputSchema(BaseModel):
     assertionUrn: str
-    parameters: Optional[AssertionEvaluationParametersSchema]
+    parameters: Optional[AssertionEvaluationParametersSchema] = None
     dryRun: bool = True
 
-    @validator("dryRun", pre=True, always=True)
+    @field_validator("dryRun", mode="before")
+    @classmethod
     def validate_dry_run(cls, dry_run: Optional[bool]) -> bool:
         if dry_run is None:
             return True
@@ -232,24 +260,26 @@ class TrainAssertionMonitorInputSchema(BaseModel):
 
 class AssertionResultErrorSchema(BaseModel):
     type: str
-    properties: Optional[Dict[str, str]]
+    properties: Optional[Dict[str, str]] = None
 
     class Config:
-        orm_mode = True
+        # orm_mode = True in pydantic v1, renamed to from_attributes in v2
+        from_attributes = True
 
 
 class AssertionResultSchema(BaseModel):
     type: str
-    rowCount: Optional[int]
-    missingCount: Optional[int]
-    unexpectedCount: Optional[int]
-    actualAggValue: Optional[float]
-    nativeResults: Optional[Dict[str, str]]
-    externalUrl: Optional[str]
-    error: Optional[AssertionResultErrorSchema]
+    rowCount: Optional[int] = None
+    missingCount: Optional[int] = None
+    unexpectedCount: Optional[int] = None
+    actualAggValue: Optional[float] = None
+    nativeResults: Optional[Dict[str, str]] = None
+    externalUrl: Optional[str] = None
+    error: Optional[AssertionResultErrorSchema] = None
 
     class Config:
-        orm_mode = True
+        # orm_mode = True in pydantic v1, renamed to from_attributes in v2
+        from_attributes = True
 
 
 class AssertionsResultItemSchema(BaseModel):

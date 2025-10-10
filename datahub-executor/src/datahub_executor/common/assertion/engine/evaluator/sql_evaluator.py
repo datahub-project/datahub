@@ -184,5 +184,5 @@ class SQLAssertionEvaluator(AssertionEvaluator):
         else:
             raise InvalidParametersException(
                 message=f"Failed to evaluate SQL Assertion. Unsupported SQL Assertion Type {assertion.sql_assertion.type} provided.",
-                parameters=sql_assertion.__dict__,
+                parameters=sql_assertion.model_dump(),
             )

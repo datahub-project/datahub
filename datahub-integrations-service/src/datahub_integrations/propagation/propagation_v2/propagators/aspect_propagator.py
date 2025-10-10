@@ -3,12 +3,13 @@ import time
 from abc import ABC, abstractmethod
 from typing import Generic, Iterator, Self, Sequence, TypeVar, TypeVarTuple, cast
 
+# Import _Aspect directly from codegen - importing from schema_classes does not work for mypy
+from datahub._codegen.aspect import _Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     MetadataAttributionClass,
     MetadataChangeProposalClass,
-    _Aspect,
 )
 from datahub_actions.event.event_registry import EntityChangeEvent
 from datahub_actions.pipeline.pipeline_context import PipelineContext

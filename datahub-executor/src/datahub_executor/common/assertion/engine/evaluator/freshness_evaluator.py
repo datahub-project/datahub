@@ -609,7 +609,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         else:
             raise InvalidParametersException(
                 message=f"Failed to evaluate FRESHNESS Assertion. Unsupported FRESHNESS Schedule Type {freshness_assertion.schedule.type} provided.",
-                parameters=parameters.__dict__,
+                parameters=parameters.model_dump(),
             )
         if internal_result.next_assertion_state and context.monitor_urn:
             self.state_provider.save_state(

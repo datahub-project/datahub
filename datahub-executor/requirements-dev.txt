@@ -4,13 +4,19 @@
     # via
     #   -r requirements-local.in
     #   -r requirements.txt
--e ../datahub-actions
+-e ../metadata-ingestion-modules/acryl-cloud
     # via
     #   -r requirements-local.in
     #   -r requirements.txt
+acryl-datahub==1.3.0
+    # via
+    #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
+    #   acryl-datahub-actions
+    #   acryl-datahub-cloud
     #   acryl-datahub-executor
--e ../metadata-ingestion
+    #   acryl-executor
+acryl-datahub-actions==1.3.0
     # via
     #   -r requirements-local.in
     #   -r requirements.txt
@@ -121,6 +127,7 @@ avro-gen3==0.7.16
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-datahub-cloud
 aws-msk-iam-sasl-signer-python==1.0.2
     # via
     #   -r requirements.txt
@@ -178,6 +185,8 @@ botocore==1.35.76
     #   moto
     #   redshift-connector
     #   s3transfer
+botocore-types==0.2.2
+    # via acryl-datahub-executor (pyproject.toml)
 bracex==2.5.post1
     # via
     #   -r requirements.txt
@@ -204,6 +213,8 @@ celery==5.4.0
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub-executor
+celery-types==0.23.0
+    # via acryl-datahub-executor (pyproject.toml)
 certifi==2024.8.30
     # via
     #   -r requirements.txt
@@ -307,6 +318,7 @@ croniter==1.3.15
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
+    #   acryl-datahub-cloud
     #   acryl-datahub-executor
 cryptography==44.0.0
     # via
@@ -632,6 +644,8 @@ joblib==1.4.2
     #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub-executor
     #   scikit-learn
+joblib-stubs==1.5.2.0.20250831
+    # via acryl-datahub-executor (pyproject.toml)
 jsonlines==4.0.0
     # via
     #   -r requirements.txt
@@ -876,7 +890,10 @@ numpy==1.26.4
     #   databricks-sql-connector
     #   db-dtypes
     #   matplotlib
+    #   numpy-typing-compat
+    #   optype
     #   pandas
+    #   pandas-stubs
     #   prophet
     #   pydeck
     #   pydeequ
@@ -886,6 +903,8 @@ numpy==1.26.4
     #   stanio
     #   streamlit
     #   thinc
+numpy-typing-compat==20250818.1.25 ; python_full_version >= '3.11'
+    # via optype
 oauthlib==3.2.2
     # via
     #   -r requirements.txt
@@ -895,6 +914,10 @@ openpyxl==3.1.5
     #   -r requirements.txt
     #   databricks-sql-connector
     #   dataflows-tabulator
+optype==0.9.3 ; python_full_version < '3.11'
+    # via scipy-stubs
+optype==0.13.4 ; python_full_version >= '3.11'
+    # via scipy-stubs
 oscrypto @ git+https://github.com/wbond/oscrypto.git@1547f535001ba568b239b8797465536759c742a3
     # via
     #   -r requirements.txt
@@ -943,6 +966,8 @@ pandas==2.1.4
     #   prophet
     #   pydeequ
     #   streamlit
+pandas-stubs==2.3.2.250926
+    # via acryl-datahub-executor (pyproject.toml)
 pandocfilters==1.5.1
     # via
     #   -r requirements.txt
@@ -1094,7 +1119,7 @@ pycurl==7.45.3
     #   acryl-datahub-executor
     #   celery
     #   kombu
-pydantic==2.11.10
+pydantic==2.11.9
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
@@ -1193,6 +1218,7 @@ pytz==2024.1
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
+    #   acryl-datahub-cloud
     #   acryl-datahub-executor
     #   acryl-great-expectations
     #   apscheduler
@@ -1336,6 +1362,10 @@ scipy==1.14.1
     #   acryl-datahub
     #   acryl-great-expectations
     #   scikit-learn
+scipy-stubs==1.15.3.0 ; python_full_version < '3.11'
+    # via acryl-datahub-executor (pyproject.toml)
+scipy-stubs==1.16.2.0 ; python_full_version >= '3.11'
+    # via acryl-datahub-executor (pyproject.toml)
 scramp==1.4.5
     # via
     #   -r requirements.txt
@@ -1583,18 +1613,27 @@ types-croniter==1.4.0.1
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
+    #   acryl-datahub-cloud
     #   acryl-datahub-executor
+types-psutil==7.0.0.20250822
+    # via acryl-datahub-executor (pyproject.toml)
 types-python-dateutil==2.9.0.20250822
     # via
     #   -r requirements.txt
     #   arrow
 types-pytz==2024.2.0.20241003
-    # via acryl-datahub-executor (pyproject.toml)
+    # via
+    #   acryl-datahub-executor (pyproject.toml)
+    #   pandas-stubs
 types-pyyaml==6.0.12.20240917
     # via acryl-datahub-executor (pyproject.toml)
 types-requests==2.31.0.6
-    # via acryl-datahub-executor (pyproject.toml)
+    # via
+    #   acryl-datahub-executor (pyproject.toml)
+    #   types-tqdm
 types-setuptools==75.6.0.20241126
+    # via acryl-datahub-executor (pyproject.toml)
+types-tqdm==4.67.0.20250809
     # via acryl-datahub-executor (pyproject.toml)
 types-urllib3==1.26.25.14
     # via types-requests
@@ -1608,11 +1647,14 @@ typing-extensions==4.12.2
     #   anyio
     #   azure-core
     #   azure-identity
+    #   celery-types
     #   cloudpathlib
     #   faker
     #   fastapi
+    #   joblib-stubs
     #   multidict
     #   mypy
+    #   optype
     #   pydantic
     #   pydantic-core
     #   python-utils
@@ -1631,7 +1673,7 @@ typing-inspect==0.9.0
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-actions
-typing-inspection==0.4.2
+typing-inspection==0.4.1
     # via
     #   -r requirements.txt
     #   pydantic
@@ -1644,6 +1686,7 @@ tzdata==2024.2
 tzlocal==5.2
     # via
     #   -r requirements.txt
+    #   acryl-datahub-cloud
     #   acryl-great-expectations
     #   apscheduler
 ujson==5.10.0

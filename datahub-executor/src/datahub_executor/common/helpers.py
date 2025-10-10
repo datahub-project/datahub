@@ -101,7 +101,7 @@ def fetch_cloud_logging_config(graph: DataHubGraph) -> CloudLoggingConfig:
         )
 
     try:
-        cloud_logging_config = CloudLoggingConfig.parse_obj(
+        cloud_logging_config = CloudLoggingConfig.model_validate(
             result["cloudLoggingConfigsResolver"]
         )
     except Exception:

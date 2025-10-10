@@ -8,7 +8,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.filters import SearchFilterRule
-from datahub.metadata._internal_schema_classes import MetadataChangeProposalClass
+from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.utilities.urns.urn import Urn
 from datahub_actions.api.action_graph import AcrylDataHubGraph
 from datahub_actions.event.event_envelope import EventEnvelope
@@ -39,7 +39,7 @@ class EntityPropagatorConfig(BaseModel):
         extra = "forbid"
 
     enabled: bool = Field(
-        True, description="Indicates whether entity propagation is enabled."
+        default=True, description="Indicates whether entity propagation is enabled."
     )
 
     propagation_rule: PropagationRule = Field(
@@ -52,7 +52,7 @@ class EntityPropagatorConfig(BaseModel):
     )
 
     propagation_relationships: List[PropagationRelationships] = Field(
-        [
+        default=[
             PropagationRelationships.DOWNSTREAM,
             PropagationRelationships.UPSTREAM,
         ],

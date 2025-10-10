@@ -223,7 +223,9 @@ class TestVolumeEvaluator:
             row_count_total=RowCountTotal(
                 operator=AssertionStdOperator.EQUAL_TO,
                 parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(value="999", type="NUMBER"),
+                    value=AssertionStdParameter(
+                        value="999", type=AssertionStdParameterType.NUMBER
+                    ),
                 ),
             ),
         )
@@ -251,7 +253,9 @@ class TestVolumeEvaluator:
             row_count_total=RowCountTotal(
                 operator=AssertionStdOperator.EQUAL_TO,
                 parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(value="1000", type="NUMBER"),
+                    value=AssertionStdParameter(
+                        value="1000", type=AssertionStdParameterType.NUMBER
+                    ),
                 ),
             ),
         )
@@ -273,7 +277,9 @@ class TestVolumeEvaluator:
                 type=AssertionValueChangeType.ABSOLUTE,
                 operator=AssertionStdOperator.EQUAL_TO,
                 parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(value="100", type="NUMBER"),
+                    value=AssertionStdParameter(
+                        value="100", type=AssertionStdParameterType.NUMBER
+                    ),
                 ),
             ),
         )
@@ -304,8 +310,12 @@ class TestVolumeEvaluator:
                 type=AssertionValueChangeType.ABSOLUTE,
                 operator=AssertionStdOperator.BETWEEN,
                 parameters=AssertionStdParameters(
-                    min_value=AssertionStdParameter(value="100", type="NUMBER"),
-                    max_value=AssertionStdParameter(value="200", type="NUMBER"),
+                    min_value=AssertionStdParameter(
+                        value="100", type=AssertionStdParameterType.NUMBER
+                    ),
+                    max_value=AssertionStdParameter(
+                        value="200", type=AssertionStdParameterType.NUMBER
+                    ),
                 ),
             ),
         )
@@ -336,7 +346,9 @@ class TestVolumeEvaluator:
                 type=AssertionValueChangeType.ABSOLUTE,
                 operator=AssertionStdOperator.EQUAL_TO,
                 parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(value="200", type="NUMBER"),
+                    value=AssertionStdParameter(
+                        value="200", type=AssertionStdParameterType.NUMBER
+                    ),
                 ),
             ),
         )
@@ -366,7 +378,9 @@ class TestVolumeEvaluator:
                 type=AssertionValueChangeType.PERCENTAGE,
                 operator=AssertionStdOperator.EQUAL_TO,
                 parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(value="10", type="NUMBER"),
+                    value=AssertionStdParameter(
+                        value="10", type=AssertionStdParameterType.NUMBER
+                    ),
                 ),
             ),
         )
@@ -397,8 +411,12 @@ class TestVolumeEvaluator:
                 type=AssertionValueChangeType.PERCENTAGE,
                 operator=AssertionStdOperator.BETWEEN,
                 parameters=AssertionStdParameters(
-                    min_value=AssertionStdParameter(value="10", type="NUMBER"),
-                    max_value=AssertionStdParameter(value="15", type="NUMBER"),
+                    min_value=AssertionStdParameter(
+                        value="10", type=AssertionStdParameterType.NUMBER
+                    ),
+                    max_value=AssertionStdParameter(
+                        value="15", type=AssertionStdParameterType.NUMBER
+                    ),
                 ),
             ),
         )
@@ -429,7 +447,9 @@ class TestVolumeEvaluator:
                 type=AssertionValueChangeType.ABSOLUTE,
                 operator=AssertionStdOperator.EQUAL_TO,
                 parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(value="10", type="NUMBER"),
+                    value=AssertionStdParameter(
+                        value="10", type=AssertionStdParameterType.NUMBER
+                    ),
                 ),
             ),
         )
@@ -459,7 +479,9 @@ class TestVolumeEvaluator:
                 type=AssertionValueChangeType.ABSOLUTE,
                 operator=AssertionStdOperator.EQUAL_TO,
                 parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(value="10", type="NUMBER"),
+                    value=AssertionStdParameter(
+                        value="10", type=AssertionStdParameterType.NUMBER
+                    ),
                 ),
             ),
         )
@@ -483,7 +505,9 @@ class TestVolumeEvaluator:
                 type=AssertionValueChangeType.ABSOLUTE,
                 operator=AssertionStdOperator.EQUAL_TO,
                 parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(value="10", type="NUMBER"),
+                    value=AssertionStdParameter(
+                        value="10", type=AssertionStdParameterType.NUMBER
+                    ),
                 ),
             ),
         )
@@ -516,7 +540,9 @@ class TestVolumeEvaluator:
             row_count_total=RowCountTotal(
                 operator=AssertionStdOperator.EQUAL_TO,
                 parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(value="999", type="NUMBER"),
+                    value=AssertionStdParameter(
+                        value="999", type=AssertionStdParameterType.NUMBER
+                    ),
                 ),
             ),
         )
@@ -551,7 +577,9 @@ class TestVolumeEvaluator:
                 type=AssertionValueChangeType.ABSOLUTE,
                 operator=AssertionStdOperator.EQUAL_TO,
                 parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(value="10", type="NUMBER"),
+                    value=AssertionStdParameter(
+                        value="10", type=AssertionStdParameterType.NUMBER
+                    ),
                 ),
             ),
         )
@@ -581,7 +609,9 @@ class TestVolumeEvaluator:
                 type=AssertionValueChangeType.ABSOLUTE,
                 operator=AssertionStdOperator.EQUAL_TO,
                 parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(value="100", type="NUMBER"),
+                    value=AssertionStdParameter(
+                        value="100", type=AssertionStdParameterType.NUMBER
+                    ),
                 ),
             ),
         )
@@ -612,7 +642,9 @@ class TestVolumeEvaluator:
                 type=AssertionValueChangeType.ABSOLUTE,
                 operator=AssertionStdOperator.EQUAL_TO,
                 parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(value="10", type="NUMBER"),
+                    value=AssertionStdParameter(
+                        value="10", type=AssertionStdParameterType.NUMBER
+                    ),
                 ),
             ),
         )

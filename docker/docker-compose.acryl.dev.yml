@@ -14,9 +14,7 @@ services:
       PYTHONPATH: "/metadata-ingestion/src:/datahub-integrations-service/src:$${PYTHONPATH}"
     volumes:
       - ./datahub-integrations-service/start.sh:/start_datahub_integrations_service.sh
-      - ../metadata-ingestion/src:/metadata-ingestion/src
       - ../datahub-integrations-service:/datahub-integrations-service
-      # - ../datahub-actions:/datahub-actions
   datahub-executor-coordinator:
     container_name: datahub-executor-coordinator
     image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-executor:debug

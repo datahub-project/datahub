@@ -2,7 +2,8 @@ import logging
 from typing import Any, Dict
 
 import boto3
-import botocore
+import botocore.credentials
+import botocore.session
 from botocore.client import BaseClient, Config
 from kombu.transport.SQS import Channel
 
@@ -55,7 +56,7 @@ def patched_handle_sts_session(
     )
 
     botocore_session = botocore.session.get_session()
-    botocore_session._credentials = credentials
+    botocore_session._credentials = credentials  # type: ignore[attr-defined]
     botocore_session.set_config_variable("region", metadata.get("region"))
     session = boto3.session.Session(botocore_session=botocore_session)
 

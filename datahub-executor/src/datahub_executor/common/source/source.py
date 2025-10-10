@@ -338,7 +338,7 @@ class Source:
 
         raise InvalidParametersException(
             message=f"Unsupported source type {volume_parameters.source_type} provided. {self.source_name} connector does not support retrieving these events.",
-            parameters=volume_parameters.__dict__,
+            parameters=volume_parameters.model_dump(),
         )
 
     def get_row_count(
@@ -531,7 +531,7 @@ class Source:
         changed_rows_field: Optional[FreshnessFieldSpec],
     ) -> int:
         database_params = self._get_database_params(entity_urn, database_parameters)
-        filter_sql = FilterBuilder(filter.__dict__).get_sql() if filter else None
+        filter_sql = FilterBuilder(filter.model_dump()).get_sql() if filter else None
 
         return self._get_field_values_count(
             database_params,
@@ -600,7 +600,7 @@ class Source:
         changed_rows_field: Optional[SchemaFieldSpec],
     ) -> float:
         database_params = self._get_database_params(entity_urn, database_parameters)
-        filter_sql = FilterBuilder(filter.__dict__).get_sql() if filter else None
+        filter_sql = FilterBuilder(filter.model_dump()).get_sql() if filter else None
 
         return self._get_field_metric_value(
             database_params,
