@@ -59,21 +59,25 @@ public class LoadIndicesIndexManager {
   public List<ReindexConfig> discoverDataHubIndexConfigs() throws IOException {
     List<ReindexConfig> configs = new ArrayList<>();
 
-    // Get entity indices using IndexConvention pattern
-    String entityPattern = indexConvention.getAllEntityIndicesPattern();
-    log.debug("Querying entity indices with pattern: {}", entityPattern);
-    GetIndexRequest entityRequest = new GetIndexRequest(entityPattern);
-    GetIndexResponse entityResponse = searchClient.getIndex(entityRequest, RequestOptions.DEFAULT);
-    String[] entityIndices = entityResponse.getIndices();
+    // Get entity indices using IndexConvention patterns
+    List<String> entityPatterns = indexConvention.getAllEntityIndicesPatterns();
+    log.debug("Querying entity indices with patterns: {}", entityPatterns);
 
-    for (String indexName : entityIndices) {
-      try {
-        ReindexConfig config = indexBuilder.buildReindexState(indexName, Map.of(), Map.of());
-        configs.add(config);
-        log.debug("Added entity index config: {}", indexName);
-      } catch (IOException e) {
-        log.warn(
-            "Failed to build reindex config for entity index {}: {}", indexName, e.getMessage());
+    for (String entityPattern : entityPatterns) {
+      GetIndexRequest entityRequest = new GetIndexRequest(entityPattern);
+      GetIndexResponse entityResponse =
+          searchClient.getIndex(entityRequest, RequestOptions.DEFAULT);
+      String[] entityIndices = entityResponse.getIndices();
+
+      for (String indexName : entityIndices) {
+        try {
+          ReindexConfig config = indexBuilder.buildReindexState(indexName, Map.of(), Map.of());
+          configs.add(config);
+          log.debug("Added entity index config: {}", indexName);
+        } catch (IOException e) {
+          log.warn(
+              "Failed to build reindex config for entity index {}: {}", indexName, e.getMessage());
+        }
       }
     }
 

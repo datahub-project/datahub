@@ -59,6 +59,7 @@ import com.linkedin.timeseries.TimeWindowSize;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.SearchTestUtils;
 import java.net.URISyntaxException;
 import java.util.Calendar;
 import java.util.Collections;
@@ -133,10 +134,11 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
                 IndexConventionImpl.IndexConventionConfig.builder()
                     .prefix("es_timeseries_aspect_service_test")
                     .hashIdAlgo("MD5")
-                    .build()));
+                    .build(),
+                SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION));
 
     elasticSearchTimeseriesAspectService = buildService();
-    elasticSearchTimeseriesAspectService.reindexAll(Collections.emptySet());
+    elasticSearchTimeseriesAspectService.reindexAll(opContext, Collections.emptySet());
     EntitySpec entitySpec = entityRegistry.getEntitySpec(ENTITY_NAME);
     aspectSpec = entitySpec.getAspectSpec(ASPECT_NAME);
   }

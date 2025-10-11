@@ -130,6 +130,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
 
   public SearchRequest getSearchRequest(
       @Nonnull OperationContext opContext,
+      @Nullable String entityName,
       @Nonnull String input,
       @Nullable String field,
       @Nullable Filter filter,
@@ -165,7 +166,11 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
 
     // Apply default filters
     BoolQueryBuilder queryWithDefaultFilters =
-        applyDefaultSearchFilters(opContext, filter, baseQuery);
+        applyDefaultSearchFilters(
+            opContext,
+            entityName != null ? List.of(entityName) : Collections.emptyList(),
+            filter,
+            baseQuery);
 
     // Apply scoring
     FunctionScoreQueryBuilder functionScoreQueryBuilder =

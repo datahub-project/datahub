@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.SystemMetadataServiceConfig;
 import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
@@ -20,8 +21,11 @@ import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.config.search.ImpactConfiguration;
+import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
@@ -56,6 +60,9 @@ public class SearchTestUtils {
 
   public static SearchServiceConfiguration TEST_SEARCH_SERVICE_CONFIG =
       SearchServiceConfiguration.builder().limit(TEST_1K_LIMIT_CONFIG).build();
+
+  public static StructuredPropertiesConfiguration TEST_ES_STRUCT_PROPS_DISABLED =
+      StructuredPropertiesConfiguration.builder().enabled(false).systemUpdateEnabled(false).build();
 
   // Base configuration for tests
   private static final ElasticSearchConfiguration BASE_TEST_CONFIG =
@@ -93,8 +100,32 @@ public class SearchTestUtils {
                   .pollInterval(1)
                   .pollIntervalUnit("SECONDS")
                   .build())
+          .index(
+              IndexConfiguration.builder()
+                  .prefix("")
+                  .numShards(1)
+                  .numReplicas(1)
+                  .numRetries(3)
+                  .refreshIntervalSeconds(3)
+                  .maxArrayLength(1000)
+                  .maxObjectKeys(1000)
+                  .maxValueLength(4096)
+                  .enableMappingsReindex(true)
+                  .enableSettingsReindex(true)
+                  .maxReindexHours(0)
+                  .minSearchFilterLength(3)
+                  .build())
           .buildIndices(
               BuildIndicesConfiguration.builder().reindexOptimizationEnabled(true).build())
+          .entityIndex(
+              EntityIndexConfiguration.builder()
+                  .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(true).build())
+                  .v3(
+                      EntityIndexVersionConfiguration.builder()
+                          .enabled(false)
+                          .cleanup(false)
+                          .build())
+                  .build())
           .build();
 
   public static ElasticSearchConfiguration TEST_OS_SEARCH_CONFIG = BASE_TEST_CONFIG;
@@ -152,6 +183,35 @@ public class SearchTestUtils {
             .distinct()
             .collect(Collectors.toList());
   }
+
+  /**
+   * Default EntityIndexConfiguration for testing with V2 enabled and V3 disabled. This is the most
+   * common configuration used in tests.
+   */
+  public static final EntityIndexConfiguration DEFAULT_ENTITY_INDEX_CONFIGURATION =
+      EntityIndexConfiguration.builder()
+          .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(true).build())
+          .v3(EntityIndexVersionConfiguration.builder().enabled(false).cleanup(false).build())
+          .build();
+
+  /**
+   * EntityIndexConfiguration for testing with both V2 and V3 enabled. This configuration matches
+   * the default values from application.yaml: - V2: enabled=true, cleanup=false - V3: enabled=true,
+   * cleanup=false, analyzerConfig=search_entity_analyzer_config.yaml,
+   * mappingConfig=search_entity_mapping_config.yaml, maxFieldsLimit=5000
+   */
+  public static final EntityIndexConfiguration V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION =
+      EntityIndexConfiguration.builder()
+          .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(true).build())
+          .v3(
+              EntityIndexVersionConfiguration.builder()
+                  .enabled(true)
+                  .cleanup(true)
+                  .analyzerConfig("search_entity_analyzer_config.yaml")
+                  .mappingConfig("search_entity_mapping_config.yaml")
+                  .maxFieldsLimit(5000)
+                  .build())
+          .build();
 
   public static SearchResult facetAcrossEntities(
       OperationContext opContext,

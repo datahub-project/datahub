@@ -1,14 +1,13 @@
 package com.linkedin.gms.factory.search;
 
-import static com.linkedin.metadata.Constants.*;
-
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -91,10 +90,9 @@ public class ElasticSearchServiceFactory {
 
     return new ElasticSearchService(
         components.getIndexBuilder(),
-        entityRegistry,
-        components.getIndexConvention(),
-        settingsBuilder,
         configurationProvider.getSearchService(),
+        configurationProvider.getElasticSearch(),
+        new DelegatingMappingsBuilder(elasticSearchConfiguration.getEntityIndex()),
         esSearchDAO,
         new ESBrowseDAO(
             components.getSearchClient(),

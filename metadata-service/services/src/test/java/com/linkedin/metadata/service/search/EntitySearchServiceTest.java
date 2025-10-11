@@ -24,7 +24,6 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -341,11 +340,6 @@ public class EntitySearchServiceTest {
         String keepAlive,
         @Nullable Integer size,
         @Nonnull List<String> facets) {
-      return null;
-    }
-
-    @Override
-    public IndexConvention getIndexConvention() {
       return null;
     }
 

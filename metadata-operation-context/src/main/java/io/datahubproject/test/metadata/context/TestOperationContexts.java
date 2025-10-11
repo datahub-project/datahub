@@ -13,6 +13,8 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -289,7 +291,7 @@ public class TestOperationContexts {
     IndexConvention indexConvention =
         Optional.ofNullable(indexConventionSupplier)
             .map(Supplier::get)
-            .orElse(IndexConventionImpl.noPrefix("MD5"));
+            .orElse(IndexConventionImpl.noPrefix("MD5", createDefaultEntityIndexConfiguration()));
 
     ServicesRegistryContext servicesRegistryContext =
         Optional.ofNullable(servicesRegistrySupplier).orElse(() -> null).get();
@@ -417,4 +419,21 @@ public class TestOperationContexts {
   }
 
   private TestOperationContexts() {}
+
+  private static EntityIndexConfiguration createDefaultEntityIndexConfiguration() {
+    EntityIndexConfiguration config = new EntityIndexConfiguration();
+    // Enable V2 by default for backward compatibility
+    EntityIndexVersionConfiguration v2Config = new EntityIndexVersionConfiguration();
+    v2Config.setEnabled(true);
+    v2Config.setCleanup(true);
+    config.setV2(v2Config);
+
+    // Disable V3 by default for backward compatibility
+    EntityIndexVersionConfiguration v3Config = new EntityIndexVersionConfiguration();
+    v3Config.setEnabled(false);
+    v3Config.setCleanup(false);
+    config.setV3(v3Config);
+
+    return config;
+  }
 }

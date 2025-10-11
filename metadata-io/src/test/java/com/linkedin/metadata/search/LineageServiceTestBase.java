@@ -2,12 +2,14 @@ package com.linkedin.metadata.search;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
@@ -54,8 +56,9 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacyMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -63,12 +66,14 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.SearchTestUtils;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -108,7 +113,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   @Nonnull
   protected abstract SearchConfiguration getSearchConfiguration();
 
-  private SettingsBuilder settingsBuilder;
+  private LegacySettingsBuilder settingsBuilder;
   private ElasticSearchService elasticSearchService;
   private GraphService graphService;
   private CacheManager cacheManager;
@@ -136,13 +141,16 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
                     IndexConventionImpl.IndexConventionConfig.builder()
                         .prefix("lineage_search_service_test")
                         .hashIdAlgo("MD5")
-                        .build()))
+                        .build(),
+                    SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION))
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
     IndexConfiguration indexConfiguration = new IndexConfiguration();
     indexConfiguration.setMinSearchFilterLength(3);
-    settingsBuilder = new SettingsBuilder(null, indexConfiguration);
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.isV2EntityIndex(anyString())).thenReturn(true);
+    settingsBuilder = new LegacySettingsBuilder(indexConfiguration, indexConvention);
     elasticSearchService = buildEntitySearchService();
-    elasticSearchService.reindexAll(Collections.emptySet());
+    elasticSearchService.reindexAll(operationContext, Collections.emptySet());
     cacheManager = new ConcurrentMapCacheManager();
     graphService = mock(GraphService.class);
     DOWNSTREAM_FILTERS =
@@ -231,10 +239,9 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),
-            operationContext.getEntityRegistry(),
-            operationContext.getSearchContext().getIndexConvention(),
-            settingsBuilder,
             TEST_SEARCH_SERVICE_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
+            new LegacyMappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
             searchDAO,
             browseDAO,
             writeDAO);

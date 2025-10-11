@@ -31,6 +31,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.SearchTestUtils;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -70,7 +71,7 @@ public class ElasticSearchGraphServiceTest {
         new ElasticSearchGraphService(
             new LineageRegistry(entityRegistry),
             mockESBulkProcessor,
-            IndexConventionImpl.noPrefix("md5"),
+            IndexConventionImpl.noPrefix("md5", SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION),
             mockWriteDAO,
             mockReadDAO,
             mock(ESIndexBuilder.class),

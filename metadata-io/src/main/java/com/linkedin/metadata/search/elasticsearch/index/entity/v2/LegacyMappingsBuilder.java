@@ -1,13 +1,18 @@
-package com.linkedin.metadata.search.elasticsearch.indexbuilder;
+package com.linkedin.metadata.search.elasticsearch.index.entity.v2;
 
 import static com.linkedin.metadata.Constants.ENTITY_TYPE_URN_PREFIX;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder.*;
+import static com.linkedin.metadata.search.utils.ESUtils.ALIAS_FIELD_TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.PATH;
+import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
+import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchScoreFieldSpec;
@@ -15,11 +20,15 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +39,7 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class MappingsBuilder {
+public class LegacyMappingsBuilder implements MappingsBuilder {
 
   private static final Map<String, String> PARTIAL_NGRAM_CONFIG =
       ImmutableMap.of(
@@ -38,7 +47,7 @@ public class MappingsBuilder {
           MAX_SHINGLE_SIZE, "4",
           DOC_VALUES, "false");
 
-  public static Map<String, String> getPartialNgramConfigWithOverrides(
+  private static Map<String, String> getPartialNgramConfigWithOverrides(
       Map<String, String> overrides) {
     return Stream.concat(PARTIAL_NGRAM_CONFIG.entrySet().stream(), overrides.entrySet().stream())
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -64,14 +73,61 @@ public class MappingsBuilder {
           WORD_GRAMS_LENGTH_3,
           WORD_GRAMS_LENGTH_4);
 
-  // Alias field mappings constants
-  public static final String ALIAS_FIELD_TYPE = "alias";
-  public static final String PATH = "path";
+  private final EntityIndexConfiguration entityIndexConfiguration;
 
-  public static final String PROPERTIES = "properties";
-  public static final String DYNAMIC_TEMPLATES = "dynamic_templates";
+  public LegacyMappingsBuilder(@Nonnull EntityIndexConfiguration entityIndexConfiguration) {
+    this.entityIndexConfiguration = entityIndexConfiguration;
+  }
 
-  private MappingsBuilder() {}
+  @Override
+  public Collection<IndexMapping> getMappings(@Nonnull OperationContext opContext) {
+    return getIndexMappings(opContext, null);
+  }
+
+  @Override
+  public Collection<IndexMapping> getIndexMappings(
+      @Nonnull OperationContext opContext,
+      Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
+
+    return opContext.getEntityRegistry().getEntitySpecs().values().stream()
+        .map(
+            entitySpec -> {
+              Map<String, Object> mappings =
+                  getMappings(opContext.getEntityRegistry(), entitySpec, structuredProperties);
+              return IndexMapping.builder()
+                  .indexName(
+                      opContext.getSearchContext().getIndexConvention().getIndexName(entitySpec))
+                  .mappings(mappings)
+                  .build();
+            })
+        .collect(Collectors.toList());
+  }
+
+  @Override
+  public Collection<IndexMapping> getIndexMappingsWithNewStructuredProperty(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull StructuredPropertyDefinition property) {
+    List<IndexMapping> result = new ArrayList<>(1);
+
+    if (entityIndexConfiguration.getV2().isEnabled()) {
+      EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
+      if (entitySpec != null) {
+        Map<String, Object> mappings =
+            getMappings(opContext.getEntityRegistry(), entitySpec, List.of(Pair.of(urn, property)));
+        result.add(
+            IndexMapping.builder()
+                .indexName(
+                    opContext.getSearchContext().getIndexConvention().getIndexName(entitySpec))
+                .mappings(mappings)
+                .build());
+      } else {
+        log.warn("Missing entitySpec for {}", urn.getEntityType());
+      }
+    }
+
+    return result;
+  }
 
   /**
    * Builds mappings from entity spec and a collection of structured properties for the entity.
@@ -80,28 +136,32 @@ public class MappingsBuilder {
    * @param structuredProperties structured properties for the entity
    * @return mappings
    */
-  public static Map<String, Object> getMappings(
+  public Map<String, Object> getMappings(
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull final EntitySpec entitySpec,
       Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
     Map<String, Object> mappings = getMappings(entityRegistry, entitySpec);
 
     String entityName = entitySpec.getEntityAnnotation().getName();
-    Map<String, Object> structuredPropertiesForEntity =
-        getMappingsForStructuredProperty(
-            structuredProperties.stream()
-                .filter(
-                    urnProp -> {
-                      try {
-                        return urnProp
-                            .getSecond()
-                            .getEntityTypes()
-                            .contains(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + entityName));
-                      } catch (URISyntaxException e) {
-                        return false;
-                      }
-                    })
-                .collect(Collectors.toSet()));
+    Map<String, Object> structuredPropertiesForEntity = Collections.emptyMap();
+
+    if (structuredProperties != null && !structuredProperties.isEmpty()) {
+      structuredPropertiesForEntity =
+          getMappingsForStructuredProperty(
+              structuredProperties.stream()
+                  .filter(
+                      urnProp -> {
+                        try {
+                          return urnProp
+                              .getSecond()
+                              .getEntityTypes()
+                              .contains(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + entityName));
+                        } catch (URISyntaxException e) {
+                          return false;
+                        }
+                      })
+                  .collect(Collectors.toSet()));
+    }
 
     if (!structuredPropertiesForEntity.isEmpty()) {
       HashMap<String, Map<String, Object>> props =
@@ -124,8 +184,16 @@ public class MappingsBuilder {
     return mappings;
   }
 
-  public static Map<String, Object> getMappings(
-      @Nonnull EntityRegistry entityRegistry, @Nonnull final EntitySpec entitySpec) {
+  /**
+   * Method to get mappings for a single entity spec. This method is used by
+   * ESUtils.buildSearchableFieldTypes to extract field types from mappings.
+   *
+   * @param entityRegistry entity registry
+   * @param entitySpec entity spec to get mappings for
+   * @return mappings for the entity spec
+   */
+  public Map<String, Object> getMappings(
+      @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec) {
     Map<String, Object> mappings = new HashMap<>();
 
     entitySpec
@@ -179,7 +247,8 @@ public class MappingsBuilder {
     return ImmutableMap.<String, Object>builder().put(TYPE, ESUtils.DATE_FIELD_TYPE).build();
   }
 
-  public static Map<String, Object> getMappingsForStructuredProperty(
+  @Override
+  public Map<String, Object> getMappingsForStructuredProperty(
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     return properties.stream()
         .map(
@@ -342,7 +411,7 @@ public class MappingsBuilder {
   private static Map<String, Object> getMappingForSearchableRefField(
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull final SearchableRefFieldSpec searchableRefFieldSpec,
-      @Nonnull final int depth) {
+      final int depth) {
     Map<String, Object> mappings = new HashMap<>();
     Map<String, Object> mappingForField = new HashMap<>();
     Map<String, Object> mappingForProperty = new HashMap<>();

@@ -2,8 +2,8 @@ package com.linkedin.metadata.search.query.request;
 
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.AUTO_COMPLETE_ENTITY_TYPES;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TEXT_SEARCH_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.URN_SEARCH_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder.TEXT_SEARCH_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder.URN_SEARCH_ANALYZER;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -41,6 +41,7 @@ import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -455,16 +456,21 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         true,
                         false,
                         false,
-                        Optional.empty(),
-                        Optional.empty(),
+                        Optional.<String>empty(),
+                        Optional.<String>empty(),
                         13.0,
-                        Optional.empty(),
-                        Optional.empty(),
-                        Map.of(),
-                        List.of(),
+                        Optional.<String>empty(),
+                        Optional.<String>empty(),
+                        Collections.<Object, Double>emptyMap(),
+                        Collections.<String>emptyList(),
                         false,
                         false,
-                        Optional.empty()),
+                        Optional.<String>empty(),
+                        Optional.<Integer>empty(),
+                        Optional.<String>empty(),
+                        Optional.<Boolean>empty(),
+                        Optional.<String>empty(),
+                        Optional.<Boolean>empty()),
                     mock(DataSchema.class)),
                 new SearchableFieldSpec(
                     mock(PathSpec.class),
@@ -475,16 +481,21 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         true,
                         false,
                         false,
-                        Optional.empty(),
-                        Optional.empty(),
+                        Optional.<String>empty(),
+                        Optional.<String>empty(),
                         20.0,
-                        Optional.empty(),
-                        Optional.empty(),
-                        Map.of(),
-                        List.of(),
+                        Optional.<String>empty(),
+                        Optional.<String>empty(),
+                        Collections.<Object, Double>emptyMap(),
+                        Collections.<String>emptyList(),
                         false,
                         false,
-                        Optional.empty()),
+                        Optional.<String>empty(),
+                        Optional.<Integer>empty(),
+                        Optional.<String>empty(),
+                        Optional.<Boolean>empty(),
+                        Optional.<String>empty(),
+                        Optional.<Boolean>empty()),
                     mock(DataSchema.class)),
                 new SearchableFieldSpec(
                     mock(PathSpec.class),
@@ -495,16 +506,21 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
                         true,
                         false,
                         false,
-                        Optional.empty(),
-                        Optional.empty(),
+                        Optional.<String>empty(),
+                        Optional.<String>empty(),
                         3.0,
-                        Optional.empty(),
-                        Optional.empty(),
-                        Map.of(),
-                        List.of(),
+                        Optional.<String>empty(),
+                        Optional.<String>empty(),
+                        Collections.<Object, Double>emptyMap(),
+                        Collections.<String>emptyList(),
                         false,
                         false,
-                        Optional.empty()),
+                        Optional.<String>empty(),
+                        Optional.<Integer>empty(),
+                        Optional.<String>empty(),
+                        Optional.<Boolean>empty(),
+                        Optional.<String>empty(),
+                        Optional.<Boolean>empty()),
                     mock(DataSchema.class))));
 
     fieldConfigs =

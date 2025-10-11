@@ -1,7 +1,7 @@
 package com.datahub.gms.servlet;
 
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.KEYWORD_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder.KEYWORD_ANALYZER;
 
 import com.datahub.gms.util.CSVWriter;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
