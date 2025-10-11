@@ -1574,3 +1574,22 @@ NATURAL JOIN my_table2 t2
         },
         expected_file=RESOURCE_DIR / "test_natural_join.json",
     )
+
+
+def test_dremio_quoted_identifiers() -> None:
+    # Test that Dremio SQL with quoted identifiers parses correctly.
+    # This is a regression test for the issue where Dremio was mapped to the
+    # "drill" dialect, which didn't support quoted identifiers properly.
+    assert_sql_result(
+        """\
+WITH "cte_orders" AS (
+    SELECT * FROM "MySource"."sales"."orders"
+    WHERE "status" = 'completed'
+)
+SELECT "cte_orders"."order_id", "customers"."customer_name"
+FROM "cte_orders"
+JOIN "MySource"."sales"."customers" ON "cte_orders"."customer_id" = "customers"."customer_id"
+""",
+        dialect="dremio",
+        expected_file=RESOURCE_DIR / "test_dremio_quoted_identifiers.json",
+    )
