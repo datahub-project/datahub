@@ -135,6 +135,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         default=False,
         description="Represent a schema identifiers combined with quoting preferences. See [sqlalchemy quoted_name docs](https://docs.sqlalchemy.org/en/20/core/sqlelement.html#sqlalchemy.sql.expression.quoted_name).",
     )
+    is_aws_rds: Optional[bool] = Field(
+        default=None,
+        description="Indicates if the SQL Server instance is running on AWS RDS. When None (default), automatic detection will be attempted using server name analysis.",
+    )
 
     @pydantic.validator("uri_args")
     def passwords_match(cls, v, values, **kwargs):
@@ -361,18 +365,42 @@ class SQLServerSource(SQLAlchemySource):
     def _detect_rds_environment(self, conn: Connection) -> bool:
         """
         Detect if we're running in an RDS/managed environment vs on-premises.
+        Uses explicit configuration if provided, otherwise attempts automatic detection.
         Returns True if RDS/managed, False if on-premises.
         """
+        if self.config.is_aws_rds is not None:
+            logger.info(
+                f"Using explicit is_aws_rds configuration: {self.config.is_aws_rds}"
+            )
+            return self.config.is_aws_rds
+
         try:
-            # Try to access system tables directly - this typically fails in RDS
-            conn.execute("SELECT TOP 1 * FROM msdb.dbo.sysjobs")
-            logger.debug(
-                "Direct table access successful - likely on-premises environment"
+            result = conn.execute("SELECT @@servername AS server_name")
+            server_name_row = result.fetchone()
+            if server_name_row:
+                server_name = server_name_row["server_name"].lower()
+
+                aws_indicators = ["amazon", "amzn", "amaz", "ec2", "rds.amazonaws.com"]
+                is_rds = any(indicator in server_name for indicator in aws_indicators)
+                if is_rds:
+                    logger.info(f"AWS RDS detected based on server name: {server_name}")
+                else:
+                    logger.info(
+                        f"Non-RDS environment detected based on server name: {server_name}"
+                    )
+
+                return is_rds
+            else:
+                logger.warning(
+                    "Could not retrieve server name, assuming non-RDS environment"
+                )
+                return False
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to detect RDS/managed vs on-prem env, assuming non-RDS environment ({e})"
             )
             return False
-        except Exception:
-            logger.debug("Direct table access failed - likely RDS/managed environment")
-            return True
 
     def _get_jobs(self, conn: Connection, db_name: str) -> Dict[str, Dict[str, Any]]:
         """
