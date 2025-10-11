@@ -4,6 +4,7 @@ import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
 import usePropertyMenuItems from '@app/entityV2/summary/properties/menuProperty/usePropertyMenuItems';
+import { filterCurrentItemInReplaceMenu } from '@app/entityV2/summary/properties/property/properties/utils';
 import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 
@@ -85,6 +86,8 @@ export default function BaseProperty<T>({
 
     const menuItems = usePropertyMenuItems(position, property.type);
 
+    const filteredItems = filterCurrentItemInReplaceMenu(menuItems, property);
+
     const valuesToShow = useMemo(() => values.slice(0, maxValues ?? DEFAULT_MAX_ITEMS), [values, maxValues]);
     const valuesToShowInPopover = useMemo(() => values.slice(maxValues ?? DEFAULT_MAX_ITEMS), [values, maxValues]);
 
@@ -124,7 +127,7 @@ export default function BaseProperty<T>({
 
     return (
         <PropertyWrapper>
-            <Menu items={menuItems} trigger={['click']} disabled={!isTemplateEditable}>
+            <Menu items={filteredItems} trigger={['click']} disabled={!isTemplateEditable}>
                 <Title weight="bold" color="gray" size="sm" colorLevel={600} $clickable={isTemplateEditable} type="div">
                     {property.name}
                 </Title>
