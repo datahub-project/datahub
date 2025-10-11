@@ -2,6 +2,7 @@ package com.linkedin.metadata;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -99,7 +100,7 @@ public final class EventSchemaConstants {
     // Validation: Ensure all SchemaIdOrdinal enum values are mapped to schemas
     validateAllOrdinalsMapped(map);
 
-    SCHEMA_ID_TO_SCHEMA_MAP = Map.copyOf(map);
+    SCHEMA_ID_TO_SCHEMA_MAP = Collections.unmodifiableMap(new HashMap<>(map));
   }
 
   // Schema compatibility constants
