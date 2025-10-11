@@ -16,7 +16,9 @@ import io.ebean.Database;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.annotation.Nonnull;
+import jakarta.annotation.PostConstruct;
 import java.util.UUID;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -43,6 +45,13 @@ public class UpgradeCliApplicationTestConfiguration {
   @MockBean public ConfigEntityRegistry configEntityRegistry;
 
   @MockBean public SearchClientShim<?> searchClientShim;
+
+  @PostConstruct
+  public void configureMocks() {
+    // Configure SearchClientShim mock to return a valid engine type
+    Mockito.when(searchClientShim.getEngineType())
+        .thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+  }
 
   @Primary
   @Bean
