@@ -2,7 +2,9 @@
 # APP_ENV can be prod or dev
 ARG APP_ENV=prod
 ARG PYTHON_VERSION=3.10
+# BASE_IMAGE can be full or slim
 
+ARG BASE_IMAGE=full
 # INLINE-BEGIN @/docker/snippets/ingestion_base
 # This is the "base" image workflow.
 # While it has a bunch of intermediate stages, it "exports" a couple
@@ -139,7 +141,58 @@ RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/o
 USER datahub
 # INLINE-END
 
-FROM ingestion-base-full AS build
+
+# =============================================================================
+# PRE-BUILD BUNDLED INGESTION VENVS (optional; default off)
+# =============================================================================
+FROM ingestion-base-slim AS bundled-vEnvs
+
+USER 0
+
+# Control whether to build venvs in this image (default: is to build)
+ARG BUILD_BUNDLED_VENVS=true
+
+# Set up bundled venv configuration
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_CLI_VERSION
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+
+# Create venv directory and ensure ownership
+RUN mkdir -p $DATAHUB_BUNDLED_VENV_PATH && \
+    chown -R datahub:datahub $DATAHUB_BUNDLED_VENV_PATH
+
+# Copy the self-contained venv build scripts into a stable location for reuse
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /usr/local/bin/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /usr/local/bin/
+
+# Make scripts executable
+RUN chmod +x /usr/local/bin/build_bundled_venvs_unified.sh && \
+    chmod +x /usr/local/bin/build_bundled_venvs_unified.py
+
+USER datahub
+
+# Optionally build bundled venvs (keeps scripts in image regardless)
+RUN if [ "${BUILD_BUNDLED_VENVS}" = "true" ]; then \
+      /usr/local/bin/build_bundled_venvs_unified.sh ; \
+    else \
+      echo "Skipping bundled venv build (BUILD_BUNDLED_VENVS=${BUILD_BUNDLED_VENVS})" ; \
+    fi
+
+# =============================================================================
+# END DEFAULT VENVS SECTION
+# =============================================================================
+
+
+FROM ingestion-base-${BASE_IMAGE} AS build
+
+USER root
+
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+
+COPY --from=bundled-vEnvs $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
+COPY --from=bundled-vEnvs /usr/local/bin/build_bundled_venvs_unified.sh /usr/local/bin/build_bundled_venvs_unified.sh
 
 USER 0
 # Install Microsoft SQL Server ODBC driver
@@ -196,48 +249,6 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-execu
 RUN echo "Debug output:" && \
   uv pip list && \
   uv pip show acryl-datahub
-
-
-# =============================================================================
-# PRE-BUILD BUNDLED INGESTION VENVS (optional; default off)
-# =============================================================================
-
-USER 0
-
-# Control whether to build venvs in this image (default: is to build)
-ARG BUILD_BUNDLED_VENVS=true
-
-# Set up bundled venv configuration
-ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
-ARG BUNDLED_CLI_VERSION
-ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
-ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
-ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
-
-# Create venv directory and ensure ownership
-RUN mkdir -p $DATAHUB_BUNDLED_VENV_PATH && \
-    chown -R datahub:datahub $DATAHUB_BUNDLED_VENV_PATH
-
-# Copy the self-contained venv build scripts into a stable location for reuse
-COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /usr/local/bin/
-COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /usr/local/bin/
-
-# Make scripts executable
-RUN chmod +x /usr/local/bin/build_bundled_venvs_unified.sh && \
-    chmod +x /usr/local/bin/build_bundled_venvs_unified.py
-
-USER datahub
-
-# Optionally build bundled venvs (keeps scripts in image regardless)
-RUN if [ "${BUILD_BUNDLED_VENVS}" = "true" ]; then \
-      /usr/local/bin/build_bundled_venvs_unified.sh ; \
-    else \
-      echo "Skipping bundled venv build (BUILD_BUNDLED_VENVS=${BUILD_BUNDLED_VENVS})" ; \
-    fi
-
-# =============================================================================
-# END DEFAULT VENVS SECTION
-# =============================================================================
 
 ## Production Image Built From Build Image
 FROM build AS prod-install
