@@ -214,6 +214,10 @@ class ModeConfig(
         description="Number of items per page for paginated API requests.",
     )
 
+    exclude_archived: bool = Field(
+        default=False, description="Exclude archived reports"
+    )
+
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
@@ -1473,6 +1477,15 @@ class ModeSource(StatefulIngestionSourceBase):
                     logger.debug(
                         f"Read {len(reports_page)} reports records from workspace {self.workspace_uri} space {space_token}"
                     )
+                    if self.config.exclude_archived:
+                        logger.debug(
+                            f"Excluding archived reports since exclude_archived: {self.config.exclude_archived}"
+                        )
+                        reports_page = [
+                            report
+                            for report in reports_page
+                            if report["archived"] is False
+                        ]
                     yield reports_page
         except ModeRequestError as e:
             if isinstance(e, HTTPError) and e.response.status_code == 404:
