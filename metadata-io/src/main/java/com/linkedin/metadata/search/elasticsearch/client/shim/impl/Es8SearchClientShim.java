@@ -117,7 +117,6 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
-import org.jetbrains.annotations.NotNull;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.OriginalIndices;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
@@ -758,10 +757,10 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
         Optional.ofNullable(esDeleteByQueryResponse.timedOut()).orElse(false));
   }
 
-  @NotNull
+  @Nonnull
   @Override
   public CreatePitResponse createPit(
-      @NotNull CreatePitRequest createPitRequest, @NotNull RequestOptions options)
+      @Nonnull CreatePitRequest createPitRequest, @Nonnull RequestOptions options)
       throws IOException {
     OpenPointInTimeRequest esCreatePitRequest =
         new OpenPointInTimeRequest.Builder()
@@ -795,10 +794,10 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
         searchFailures);
   }
 
-  @NotNull
+  @Nonnull
   @Override
   public DeletePitResponse deletePit(
-      @NotNull DeletePitRequest deletePitRequest, @NotNull RequestOptions options)
+      @Nonnull DeletePitRequest deletePitRequest, @Nonnull RequestOptions options)
       throws IOException {
     List<String> pitIds = deletePitRequest.getPitIds();
     List<DeletePitInfo> deletePitInfos = new ArrayList<>();
@@ -1187,7 +1186,7 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
     }
   }
 
-  @NotNull
+  @Nonnull
   @Override
   public AnalyzeResponse analyzeIndex(AnalyzeRequest request, RequestOptions options)
       throws IOException {

@@ -35,7 +35,6 @@ import org.apache.http.nio.conn.ssl.SSLIOSessionStrategy;
 import org.apache.http.nio.reactor.IOReactorException;
 import org.apache.http.nio.reactor.IOReactorExceptionHandler;
 import org.apache.http.ssl.SSLContexts;
-import org.jetbrains.annotations.NotNull;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
@@ -316,18 +315,18 @@ public class OpenSearch2SearchClientShim implements OpenSearchClientShim<RestHig
     return client.deleteByQuery(deleteByQueryRequest, options);
   }
 
-  @NotNull
+  @Nonnull
   @Override
   public CreatePitResponse createPit(
-      @NotNull CreatePitRequest createPitRequest, @NotNull RequestOptions options)
+      @Nonnull CreatePitRequest createPitRequest, @Nonnull RequestOptions options)
       throws IOException {
     return client.createPit(createPitRequest, options);
   }
 
-  @NotNull
+  @Nonnull
   @Override
   public DeletePitResponse deletePit(
-      @NotNull DeletePitRequest deletePitRequest, @NotNull RequestOptions options)
+      @Nonnull DeletePitRequest deletePitRequest, @Nonnull RequestOptions options)
       throws IOException {
     return client.deletePit(deletePitRequest, options);
   }
