@@ -579,3 +579,219 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **b25748eda1** - feat(web): UI pagination for Assertion List page  (#14859)
   *by Adrian Machado on 2025-09-30*
 
+
+## Upstream Merge Session - 2025-10-11 19:18:34
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-oct-10-2025`
+- **Merge Base**: `b25748eda18cc4d82c76eb42ff773682447bcd21`
+- **End Commit**: `ef0b4a71ce77ec1b7ba7ef35ec9854998be6524c`
+- **Total Commits**: 67
+- **Strategy**: stacked
+- **Started**: Sat Oct 11 19:18:34 UTC 2025
+
+### Commits Included in This Merge
+- **8248999758** - chore(model): remove unused model (#14887)
+  *by Aseem Bansal on 2025-10-01*
+
+- **00caa38adf** - feat(ingestion/sqlglot): preserve CTEs when extracting SELECT from INSERT statements and add corresponding unit test (#14898)
+  *by Anush Kumar on 2025-10-01*
+
+- **04d0a50118** - feat(): Basepath support (#14866)
+  *by david-leifker on 2025-10-01*
+
+- **0f5d5fd358** - fix(protobuf): use DynamicMessage for MESSAGE-type extension defaults (#14900)
+  *by Abe on 2025-10-01*
+
+- **660a4efa5f** - MCL Generation via CDC (#14824)
+  *by Chakru on 2025-10-02*
+
+- **f7ea7f033d** - chore(devenv): upgrade of opensearch to 2.17 and stability improvements (#14895)
+  *by Alex on 2025-10-01*
+
+- **5da54bf14d** - feat(s3/ingest): performance improvements for get_dir_to_process and get_folder_info (#14709)
+  *by Michael Maltese on 2025-10-02*
+
+- **28b866a721** - feat: ConnectionModel and DataHubGraph:get_urns_by_filter and StructuredProperties from saas (#14912)
+  *by Sergio Gómez Villamor on 2025-10-02*
+
+- **5b4a082c03** - fix(ingest/snowflake): Fixed the Snowflake external URL generation issue for privatelink connections. (#14905)
+  *by Tamas Nemeth on 2025-10-02*
+
+- **9f4ec9b220** - ci(nightly): add more profiles to nightly tests (#14907)
+  *by Chakru on 2025-10-03*
+
+- **1d46fc7fb0** - ci(cloudflare): fix workflow check for secret (#14906)
+  *by Chakru on 2025-10-03*
+
+- **9b6ad2263f** - chore(): bump grpc-protobuf (#14915)
+  *by david-leifker on 2025-10-02*
+
+- **78d258383f** - fix(ingest/snowflake): Skip sql parsing if all the features disable in config where it is needed (#14908)
+  *by Tamas Nemeth on 2025-10-03*
+
+- **cecb91b615** - feat(ingest): add high level stage for ingestion (#14862)
+  *by Aseem Bansal on 2025-10-03*
+
+- **1d0e3778a5** - fix(ingest/grafana): add exception handling (#14921)
+  *by Aseem Bansal on 2025-10-03*
+
+- **c88a4a5a48** - config(gms): enable some features by default (#14889)
+  *by Aseem Bansal on 2025-10-03*
+
+- **c7ea813a6e** - ci(reviewers): add petemango to pr-labeller (#14922)
+  *by Peter Wang on 2025-10-03*
+
+- **e244fc56ee** - fix(ci): bump metadata-ingestion runner (#14924)
+  *by david-leifker on 2025-10-03*
+
+- **6cf03160ba** - test(searchBarAutocomplete): add cypress tests (#13333)
+  *by v-tarasevich-blitz-brain on 2025-10-03*
+
+- **e58061c81d** - feat(structuredProperties): add new property to hide properties with emty value (#14870)
+  *by v-tarasevich-blitz-brain on 2025-10-03*
+
+- **37c9ed8564** - feat(structuredProperties): add option to hide properties with empty values (#14872)
+  *by v-tarasevich-blitz-brain on 2025-10-03*
+
+- **d0e0e20cff** - fix(ui) Fix re-expanding entity name after sidebar opens/closes (#14925)
+  *by Chris Collins on 2025-10-03*
+
+- **b4d6877746** - tests(structuredProperties): add cypress tests (#14888)
+  *by v-tarasevich-blitz-brain on 2025-10-03*
+
+- **2d7c009b81** - docs(release-notes): disclaimers for 0.3.14 (#14812)
+  *by Jay on 2025-10-03*
+
+- **eea46700f6** - chore(doc): Fix json schema generation after pydantic v2 move (#14926)
+  *by skrydal on 2025-10-04*
+
+- **0613f8d471** - feat(quickstart): bump min docker req and add validation (#14927)
+  *by Deepak Garg on 2025-10-06*
+
+- **a043d15193** - docs: fix datajob docs inline code format (#14933)
+  *by Hyejin Yoon on 2025-10-07*
+
+- **40b51ac2da** - feat(ingestion): Added Databricks support to Fivetran source (#14897)
+  *by Anush Kumar on 2025-10-06*
+
+- **e847b58472** - feat(ingest): ensure payload size constraints for queryProperties, querySubjects and upstreamLineage aspects (#14919)
+  *by Sergio Gómez Villamor on 2025-10-06*
+
+- **3eac7fab5b** - feat(search): implement multi-client search engine shim for ES8 support (#14904)
+  *by RyanHolstien on 2025-10-06*
+
+- **5d007f04c4** - fix(build): fix "grep: invalid option -- P" error in quickstart (#14916)
+  *by Peter Wang on 2025-10-06*
+
+- **335290dfec** - feat: RelationshipChangeEvent model + attribution action graph + kafka msk iam (all from SaaS) (#14938)
+  *by Sergio Gómez Villamor on 2025-10-07*
+
+- **c092e91223** - feat(ui/ingest): add source errors, warnings (#14939)
+  *by Aseem Bansal on 2025-10-07*
+
+- **5d28c2fd14** - fix(smoke-tests): smoke test fixes for postgres profile (#14940)
+  *by Chakru on 2025-10-07*
+
+- **9c22a4ae62** - fix(web): embedded search list responsiveness (#14913)
+  *by Jay on 2025-10-07*
+
+- **d87f46d686** - fix(entity controller) Fix case sensitivity in entity controller (#14902)
+  *by Jesse Jia on 2025-10-07*
+
+- **f2d3380226** - improvement(summary-tab): hide current property in replace dropdown of property header (#14842)
+  *by purnimagarg1 on 2025-10-07*
+
+- **86e5c13f29** - test(customLinks): add cypress tests (#274) (#14834)
+  *by v-tarasevich-blitz-brain on 2025-10-07*
+
+- **61ab5a8a17** - fix(ui/LineChart): adjust scaling of the line chart for the data with a small difference (#14836)
+  *by v-tarasevich-blitz-brain on 2025-10-07*
+
+- **91b17a7f5b** - feat(customLinks): add upsert link endpoint (#291) (#14854)
+  *by v-tarasevich-blitz-brain on 2025-10-07*
+
+- **d14ccdf57c** - feat(analytics) Support google tag tracking only with ID supplied (#14946)
+  *by Chris Collins on 2025-10-07*
+
+- **b7b4f1c9a5** - feat(uplodaFiles): add feature flag (#14951)
+  *by v-tarasevich-blitz-brain on 2025-10-08*
+
+- **136e4dc0d4** - test(ingestion): add cypress tests for redesigned ingestion flow (#14844)
+  *by purnimagarg1 on 2025-10-08*
+
+- **9e69b3f881** - test(cypress/statsTabV2): add cypress tests (#13495)
+  *by v-tarasevich-blitz-brain on 2025-10-08*
+
+- **0032384342** - test(customLinks): add integration tests (#275) (#14835)
+  *by v-tarasevich-blitz-brain on 2025-10-08*
+
+- **9992722e63** - feat(structuredProperties): refresh structured properties on update (#14910)
+  *by v-tarasevich-blitz-brain on 2025-10-08*
+
+- **5cdb7e2594** - docs(ingestion): Updating breaking changes for LookML and Looker sources (#14947)
+  *by Anush Kumar on 2025-10-08*
+
+- **3caa781540** - chore: add 'askumar27' to PR labeler configuration (#14949)
+  *by Sergio Gómez Villamor on 2025-10-08*
+
+- **0a0fcef047** - fix(protobuf): skip MESSAGE-type options in PropertyVisitor (#14957)
+  *by Abe on 2025-10-08*
+
+- **b6ff38d1c3** - bugfix(setup): pin pydantic version due to incompatibility with pyiceberg (#14959)
+  *by Anush Kumar on 2025-10-08*
+
+- **2a4f57791b** - bugfix(fivetran/unity): move UnityCatalogConnectionConfig import to avoid circular deps with ge_profiler (#14956)
+  *by Anush Kumar on 2025-10-08*
+
+- **cfda03cf6f** - docs(snowflake): use_queries_v2 + some minor fixes (#14944)
+  *by Sergio Gómez Villamor on 2025-10-09*
+
+- **4803e9e9b6** - fix(fivetran/setup): updated fivetran databricks dependencies (#14962)
+  *by Anush Kumar on 2025-10-09*
+
+- **b23571c16f** - Update release notes for v0.3.14.1-acryl (#14958)
+  *by Gabe Lyons on 2025-10-09*
+
+- **d98abe877e** - fix(smoke-test):cleanup existing token and add wait (#14965)
+  *by Deepak Garg on 2025-10-09*
+
+- **26685cba6c** - chore(deps): bump tar-fs from 2.1.3 to 2.1.4 in /docs-website (#14875)
+  *by dependabot[bot] on 2025-10-09*
+
+- **82f1e1d035** - doc(smoke test): add some guideline for smoke test (#14967)
+  *by Aseem Bansal on 2025-10-09*
+
+- **3d210ae34c** - chore(): bump grpc-netty (#14969)
+  *by david-leifker on 2025-10-09*
+
+- **e72f76b536** - ci(): metadata-io instance size (#14876)
+  *by david-leifker on 2025-10-09*
+
+- **06aebfe86f** - fix(ui): Proper url encoding in Impact view filters  (#14963)
+  *by Saketh Varma on 2025-10-10*
+
+- **be7cc44670** - fix(ui): Fix overlapping Modals  (#14964)
+  *by Saketh Varma on 2025-10-10*
+
+- **602f40d01d** - fix: change deprecated filename key to path in example recipe (#14950)
+  *by Túlio Lima on 2025-10-10*
+
+- **7b5680efbc** - fix(ingest): serialisation of structured report (#14973)
+  *by Aseem Bansal on 2025-10-10*
+
+- **c94ea28140** - refactor(policy): Update policy check for get invite token and create invite token (#14941)
+  *by DucNgoQuang on 2025-10-10*
+
+- **a3fae8d1e2** - fix(log): do not consider error if not strict (#14977)
+  *by Aseem Bansal on 2025-10-10*
+
+- **c5d70914cd** - feat(loadIndices): loadIndices upgrade (#14928)
+  *by david-leifker on 2025-10-10*
+
+- **ef0b4a71ce** - fix(impact): add missing executor pool (#14976)
+  *by david-leifker on 2025-10-10*
+
