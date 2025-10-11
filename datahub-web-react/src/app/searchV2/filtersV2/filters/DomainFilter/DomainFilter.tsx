@@ -27,6 +27,7 @@ export default function DomainFilter(props: FilterComponentProps) {
             renderEntity={renderEntity}
             entityTypes={[EntityType.Domain]}
             filterName="Domains"
+            dataTestId="filter-domain"
         />
     );
 }
