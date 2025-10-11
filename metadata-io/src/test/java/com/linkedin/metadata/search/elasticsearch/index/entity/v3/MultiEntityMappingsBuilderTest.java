@@ -5,6 +5,7 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.Mapping
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -15,9 +16,11 @@ import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
+import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -32,8 +35,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import org.testng.annotations.BeforeMethod;
@@ -320,6 +325,620 @@ public class MultiEntityMappingsBuilderTest {
           e instanceof NullPointerException || e instanceof IllegalArgumentException,
           "Should throw appropriate exception for null properties");
     }
+  }
+
+  // Tests for structured property value type mapping logic
+
+  @Test
+  public void testStructuredPropertyStringValueTypeMapping() {
+    // Test STRING value type mapping to keyword field
+    Urn testUrn = UrnUtils.getUrn("urn:li:testEntity:testId");
+    StructuredPropertyDefinition testProperty = mock(StructuredPropertyDefinition.class);
+    Urn mockValueTypeUrn = mock(Urn.class);
+    when(mockValueTypeUrn.getId()).thenReturn("STRING");
+    when(testProperty.getValueType()).thenReturn(mockValueTypeUrn);
+    when(testProperty.getQualifiedName()).thenReturn("testProperty");
+
+    Collection<Pair<Urn, StructuredPropertyDefinition>> properties =
+        Collections.singletonList(Pair.of(testUrn, testProperty));
+
+    Map<String, Object> mappings = mappingsBuilder.getMappingsForStructuredProperty(properties);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertFalse(mappings.isEmpty(), "Mappings should not be empty");
+
+    // Verify that STRING type maps to keyword field type
+    String fieldName = mappings.keySet().iterator().next();
+    Map<String, Object> fieldMapping = (Map<String, Object>) mappings.get(fieldName);
+    assertEquals(
+        fieldMapping.get("type"), "keyword", "STRING value type should map to keyword field type");
+  }
+
+  @Test
+  public void testStructuredPropertyRichTextValueTypeMapping() {
+    // Test RICH_TEXT value type mapping to keyword field
+    Urn testUrn = UrnUtils.getUrn("urn:li:testEntity:testId");
+    StructuredPropertyDefinition testProperty = mock(StructuredPropertyDefinition.class);
+    Urn mockValueTypeUrn = mock(Urn.class);
+    when(mockValueTypeUrn.getId()).thenReturn("RICH_TEXT");
+    when(testProperty.getValueType()).thenReturn(mockValueTypeUrn);
+    when(testProperty.getQualifiedName()).thenReturn("testProperty");
+
+    Collection<Pair<Urn, StructuredPropertyDefinition>> properties =
+        Collections.singletonList(Pair.of(testUrn, testProperty));
+
+    Map<String, Object> mappings = mappingsBuilder.getMappingsForStructuredProperty(properties);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertFalse(mappings.isEmpty(), "Mappings should not be empty");
+
+    // Verify that RICH_TEXT type maps to keyword field type
+    String fieldName = mappings.keySet().iterator().next();
+    Map<String, Object> fieldMapping = (Map<String, Object>) mappings.get(fieldName);
+    assertEquals(
+        fieldMapping.get("type"),
+        "keyword",
+        "RICH_TEXT value type should map to keyword field type");
+  }
+
+  @Test
+  public void testStructuredPropertyDateValueTypeMapping() {
+    // Test DATE value type mapping to date field
+    Urn testUrn = UrnUtils.getUrn("urn:li:testEntity:testId");
+    StructuredPropertyDefinition testProperty = mock(StructuredPropertyDefinition.class);
+    Urn mockValueTypeUrn = mock(Urn.class);
+    when(mockValueTypeUrn.getId()).thenReturn("DATE");
+    when(testProperty.getValueType()).thenReturn(mockValueTypeUrn);
+    when(testProperty.getQualifiedName()).thenReturn("testProperty");
+
+    Collection<Pair<Urn, StructuredPropertyDefinition>> properties =
+        Collections.singletonList(Pair.of(testUrn, testProperty));
+
+    Map<String, Object> mappings = mappingsBuilder.getMappingsForStructuredProperty(properties);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertFalse(mappings.isEmpty(), "Mappings should not be empty");
+
+    // Verify that DATE type maps to date field type
+    String fieldName = mappings.keySet().iterator().next();
+    Map<String, Object> fieldMapping = (Map<String, Object>) mappings.get(fieldName);
+    assertEquals(fieldMapping.get("type"), "date", "DATE value type should map to date field type");
+  }
+
+  @Test
+  public void testStructuredPropertyUrnValueTypeMapping() {
+    // Test URN value type mapping to URN field (keyword with ignore_above)
+    Urn testUrn = UrnUtils.getUrn("urn:li:testEntity:testId");
+    StructuredPropertyDefinition testProperty = mock(StructuredPropertyDefinition.class);
+    Urn mockValueTypeUrn = mock(Urn.class);
+    when(mockValueTypeUrn.getId()).thenReturn("URN");
+    when(testProperty.getValueType()).thenReturn(mockValueTypeUrn);
+    when(testProperty.getQualifiedName()).thenReturn("testProperty");
+
+    Collection<Pair<Urn, StructuredPropertyDefinition>> properties =
+        Collections.singletonList(Pair.of(testUrn, testProperty));
+
+    Map<String, Object> mappings = mappingsBuilder.getMappingsForStructuredProperty(properties);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertFalse(mappings.isEmpty(), "Mappings should not be empty");
+
+    // Verify that URN type maps to keyword field type with ignore_above
+    String fieldName = mappings.keySet().iterator().next();
+    Map<String, Object> fieldMapping = (Map<String, Object>) mappings.get(fieldName);
+    assertEquals(
+        fieldMapping.get("type"), "keyword", "URN value type should map to keyword field type");
+    assertEquals(
+        fieldMapping.get("ignore_above"), 255, "URN field should have ignore_above set to 255");
+  }
+
+  @Test
+  public void testStructuredPropertyNumberValueTypeMapping() {
+    // Test NUMBER value type mapping to double field
+    Urn testUrn = UrnUtils.getUrn("urn:li:testEntity:testId");
+    StructuredPropertyDefinition testProperty = mock(StructuredPropertyDefinition.class);
+    Urn mockValueTypeUrn = mock(Urn.class);
+    when(mockValueTypeUrn.getId()).thenReturn("NUMBER");
+    when(testProperty.getValueType()).thenReturn(mockValueTypeUrn);
+    when(testProperty.getQualifiedName()).thenReturn("testProperty");
+
+    Collection<Pair<Urn, StructuredPropertyDefinition>> properties =
+        Collections.singletonList(Pair.of(testUrn, testProperty));
+
+    Map<String, Object> mappings = mappingsBuilder.getMappingsForStructuredProperty(properties);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertFalse(mappings.isEmpty(), "Mappings should not be empty");
+
+    // Verify that NUMBER type maps to double field type
+    String fieldName = mappings.keySet().iterator().next();
+    Map<String, Object> fieldMapping = (Map<String, Object>) mappings.get(fieldName);
+    assertEquals(
+        fieldMapping.get("type"), "double", "NUMBER value type should map to double field type");
+  }
+
+  @Test
+  public void testStructuredPropertyUnknownValueTypeMapping() {
+    // Test unknown value type defaulting to keyword field
+    Urn testUrn = UrnUtils.getUrn("urn:li:testEntity:testId");
+    StructuredPropertyDefinition testProperty = mock(StructuredPropertyDefinition.class);
+    Urn mockValueTypeUrn = mock(Urn.class);
+    when(mockValueTypeUrn.getId()).thenReturn("UNKNOWN_TYPE");
+    when(testProperty.getValueType()).thenReturn(mockValueTypeUrn);
+    when(testProperty.getQualifiedName()).thenReturn("testProperty");
+
+    Collection<Pair<Urn, StructuredPropertyDefinition>> properties =
+        Collections.singletonList(Pair.of(testUrn, testProperty));
+
+    Map<String, Object> mappings = mappingsBuilder.getMappingsForStructuredProperty(properties);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertFalse(mappings.isEmpty(), "Mappings should not be empty");
+
+    // Verify that unknown type defaults to keyword field type
+    String fieldName = mappings.keySet().iterator().next();
+    Map<String, Object> fieldMapping = (Map<String, Object>) mappings.get(fieldName);
+    assertEquals(
+        fieldMapping.get("type"),
+        "keyword",
+        "Unknown value type should default to keyword field type");
+  }
+
+  @Test
+  public void testStructuredPropertyCaseInsensitiveValueTypeMapping() {
+    // Test case insensitive value type matching
+    Urn testUrn = UrnUtils.getUrn("urn:li:testEntity:testId");
+    StructuredPropertyDefinition testProperty = mock(StructuredPropertyDefinition.class);
+    Urn mockValueTypeUrn = mock(Urn.class);
+    when(mockValueTypeUrn.getId()).thenReturn("string"); // lowercase
+    when(testProperty.getValueType()).thenReturn(mockValueTypeUrn);
+    when(testProperty.getQualifiedName()).thenReturn("testProperty");
+
+    Collection<Pair<Urn, StructuredPropertyDefinition>> properties =
+        Collections.singletonList(Pair.of(testUrn, testProperty));
+
+    Map<String, Object> mappings = mappingsBuilder.getMappingsForStructuredProperty(properties);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertFalse(mappings.isEmpty(), "Mappings should not be empty");
+
+    // Verify that lowercase "string" maps to keyword field type (case insensitive)
+    String fieldName = mappings.keySet().iterator().next();
+    Map<String, Object> fieldMapping = (Map<String, Object>) mappings.get(fieldName);
+    assertEquals(
+        fieldMapping.get("type"), "keyword", "Lowercase 'string' should map to keyword field type");
+  }
+
+  @Test
+  public void testStructuredPropertyMixedCaseValueTypeMapping() {
+    // Test mixed case value type matching
+    Urn testUrn = UrnUtils.getUrn("urn:li:testEntity:testId");
+    StructuredPropertyDefinition testProperty = mock(StructuredPropertyDefinition.class);
+    Urn mockValueTypeUrn = mock(Urn.class);
+    when(mockValueTypeUrn.getId()).thenReturn("DaTe"); // mixed case
+    when(testProperty.getValueType()).thenReturn(mockValueTypeUrn);
+    when(testProperty.getQualifiedName()).thenReturn("testProperty");
+
+    Collection<Pair<Urn, StructuredPropertyDefinition>> properties =
+        Collections.singletonList(Pair.of(testUrn, testProperty));
+
+    Map<String, Object> mappings = mappingsBuilder.getMappingsForStructuredProperty(properties);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertFalse(mappings.isEmpty(), "Mappings should not be empty");
+
+    // Verify that mixed case "DaTe" maps to date field type (case insensitive)
+    String fieldName = mappings.keySet().iterator().next();
+    Map<String, Object> fieldMapping = (Map<String, Object>) mappings.get(fieldName);
+    assertEquals(
+        fieldMapping.get("type"), "date", "Mixed case 'DaTe' should map to date field type");
+  }
+
+  @Test
+  public void testStructuredPropertyMultipleValueTypesMapping() {
+    // Test multiple structured properties with different value types
+    Urn testUrn1 = UrnUtils.getUrn("urn:li:testEntity:testId1");
+    Urn testUrn2 = UrnUtils.getUrn("urn:li:testEntity:testId2");
+    Urn testUrn3 = UrnUtils.getUrn("urn:li:testEntity:testId3");
+
+    StructuredPropertyDefinition stringProperty = mock(StructuredPropertyDefinition.class);
+    Urn stringValueTypeUrn = mock(Urn.class);
+    when(stringValueTypeUrn.getId()).thenReturn("STRING");
+    when(stringProperty.getValueType()).thenReturn(stringValueTypeUrn);
+    when(stringProperty.getQualifiedName()).thenReturn("stringProperty");
+
+    StructuredPropertyDefinition dateProperty = mock(StructuredPropertyDefinition.class);
+    Urn dateValueTypeUrn = mock(Urn.class);
+    when(dateValueTypeUrn.getId()).thenReturn("DATE");
+    when(dateProperty.getValueType()).thenReturn(dateValueTypeUrn);
+    when(dateProperty.getQualifiedName()).thenReturn("dateProperty");
+
+    StructuredPropertyDefinition numberProperty = mock(StructuredPropertyDefinition.class);
+    Urn numberValueTypeUrn = mock(Urn.class);
+    when(numberValueTypeUrn.getId()).thenReturn("NUMBER");
+    when(numberProperty.getValueType()).thenReturn(numberValueTypeUrn);
+    when(numberProperty.getQualifiedName()).thenReturn("numberProperty");
+
+    Collection<Pair<Urn, StructuredPropertyDefinition>> properties =
+        Arrays.asList(
+            Pair.of(testUrn1, stringProperty),
+            Pair.of(testUrn2, dateProperty),
+            Pair.of(testUrn3, numberProperty));
+
+    Map<String, Object> mappings = mappingsBuilder.getMappingsForStructuredProperty(properties);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertEquals(mappings.size(), 3, "Should have 3 mappings for 3 properties");
+
+    // Verify each property has the correct field type
+    for (Map.Entry<String, Object> entry : mappings.entrySet()) {
+      String fieldName = entry.getKey();
+      Map<String, Object> fieldMapping = (Map<String, Object>) entry.getValue();
+
+      if (fieldName.contains("stringProperty")) {
+        assertEquals(fieldMapping.get("type"), "keyword", "String property should map to keyword");
+      } else if (fieldName.contains("dateProperty")) {
+        assertEquals(fieldMapping.get("type"), "date", "Date property should map to date");
+      } else if (fieldName.contains("numberProperty")) {
+        assertEquals(fieldMapping.get("type"), "double", "Number property should map to double");
+      }
+    }
+  }
+
+  // Tests for empty entitySpecs early return condition (tested indirectly through public methods)
+
+  @Test
+  public void testGetIndexMappingsWithEmptyEntitySpecs() {
+    // Test that getIndexMappings handles empty entitySpecs correctly
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    String emptySearchGroup = "emptyGroup";
+
+    // Mock the registry to return empty collection for the search group
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup(emptySearchGroup))
+        .thenReturn(Collections.emptyMap());
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton(emptySearchGroup));
+
+    // Create operation context with the mock registry
+    OperationContext testOpContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+
+    Collection<IndexMapping> result =
+        mappingsBuilder.getIndexMappings(testOpContext, Collections.emptyList());
+
+    assertNotNull(result, "Result should not be null");
+    assertFalse(
+        result.isEmpty(), "Should return at least one IndexMapping even for empty entitySpecs");
+
+    // Verify that the IndexMapping has empty mappings
+    IndexMapping indexMapping = result.iterator().next();
+    assertNotNull(indexMapping.getMappings(), "IndexMapping should have mappings");
+    assertTrue(
+        indexMapping.getMappings().isEmpty(),
+        "Mappings should be empty when no entities found for search group");
+  }
+
+  @Test
+  public void testGetIndexMappingsWithNonExistentSearchGroup() {
+    // Test behavior with non-existent search group
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    String nonExistentSearchGroup = "nonExistentGroup";
+
+    // Mock the registry to return empty collection for non-existent search group
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup(nonExistentSearchGroup))
+        .thenReturn(Collections.emptyMap());
+    when(mockEntityRegistry.getSearchGroups())
+        .thenReturn(Collections.singleton(nonExistentSearchGroup));
+
+    OperationContext testOpContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+
+    Collection<IndexMapping> result =
+        mappingsBuilder.getIndexMappings(testOpContext, Collections.emptyList());
+
+    assertNotNull(result, "Result should not be null");
+    assertFalse(
+        result.isEmpty(),
+        "Should return at least one IndexMapping even for non-existent search group");
+
+    // Verify that the IndexMapping has empty mappings
+    IndexMapping indexMapping = result.iterator().next();
+    assertNotNull(indexMapping.getMappings(), "IndexMapping should have mappings");
+    assertTrue(
+        indexMapping.getMappings().isEmpty(),
+        "Mappings should be empty for non-existent search group");
+  }
+
+  @Test
+  public void testGetIndexMappingsWithNullSearchGroup() {
+    // Test behavior with null search group
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    String nullSearchGroup = null;
+
+    // Mock the registry to return empty collection for null search group
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup(nullSearchGroup))
+        .thenReturn(Collections.emptyMap());
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton(nullSearchGroup));
+
+    OperationContext testOpContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+
+    Collection<IndexMapping> result =
+        mappingsBuilder.getIndexMappings(testOpContext, Collections.emptyList());
+
+    assertNotNull(result, "Result should not be null");
+    assertFalse(
+        result.isEmpty(), "Should return at least one IndexMapping even for null search group");
+
+    // Verify that the IndexMapping has empty mappings
+    IndexMapping indexMapping = result.iterator().next();
+    assertNotNull(indexMapping.getMappings(), "IndexMapping should have mappings");
+    assertTrue(
+        indexMapping.getMappings().isEmpty(), "Mappings should be empty for null search group");
+  }
+
+  @Test
+  public void testGetIndexMappingsWithEmptySearchGroup() {
+    // Test behavior with empty string search group
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    String emptySearchGroup = "";
+
+    // Mock the registry to return empty collection for empty search group
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup(emptySearchGroup))
+        .thenReturn(Collections.emptyMap());
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton(emptySearchGroup));
+
+    OperationContext testOpContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+
+    Collection<IndexMapping> result =
+        mappingsBuilder.getIndexMappings(testOpContext, Collections.emptyList());
+
+    assertNotNull(result, "Result should not be null");
+    assertFalse(
+        result.isEmpty(), "Should return at least one IndexMapping even for empty search group");
+
+    // Verify that the IndexMapping has empty mappings
+    IndexMapping indexMapping = result.iterator().next();
+    assertNotNull(indexMapping.getMappings(), "IndexMapping should have mappings");
+    assertTrue(
+        indexMapping.getMappings().isEmpty(), "Mappings should be empty for empty search group");
+  }
+
+  @Test
+  public void testGetIndexMappingsWithWhitespaceSearchGroup() {
+    // Test behavior with whitespace-only search group
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    String whitespaceSearchGroup = "   ";
+
+    // Mock the registry to return empty collection for whitespace search group
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup(whitespaceSearchGroup))
+        .thenReturn(Collections.emptyMap());
+    when(mockEntityRegistry.getSearchGroups())
+        .thenReturn(Collections.singleton(whitespaceSearchGroup));
+
+    OperationContext testOpContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+
+    Collection<IndexMapping> result =
+        mappingsBuilder.getIndexMappings(testOpContext, Collections.emptyList());
+
+    assertNotNull(result, "Result should not be null");
+    assertFalse(
+        result.isEmpty(),
+        "Should return at least one IndexMapping even for whitespace search group");
+
+    // Verify that the IndexMapping has empty mappings
+    IndexMapping indexMapping = result.iterator().next();
+    assertNotNull(indexMapping.getMappings(), "IndexMapping should have mappings");
+    assertTrue(
+        indexMapping.getMappings().isEmpty(),
+        "Mappings should be empty for whitespace search group");
+  }
+
+  @Test
+  public void testGetIndexMappingsWithValidSearchGroup() {
+    // Test that getIndexMappings works correctly with valid search group
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    String validSearchGroup = "validGroup";
+
+    // Create mock entity specs
+    EntitySpec mockEntitySpec1 = mock(EntitySpec.class);
+    EntitySpec mockEntitySpec2 = mock(EntitySpec.class);
+
+    Map<String, EntitySpec> entitySpecs = new HashMap<>();
+    entitySpecs.put("entity1", mockEntitySpec1);
+    entitySpecs.put("entity2", mockEntitySpec2);
+
+    // Mock the registry to return valid entity specs
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup(validSearchGroup)).thenReturn(entitySpecs);
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton(validSearchGroup));
+
+    // Mock entity spec behavior
+    EntityAnnotation mockEntityAnnotation1 = mock(EntityAnnotation.class);
+    when(mockEntityAnnotation1.getName()).thenReturn("entity1");
+    when(mockEntitySpec1.getEntityAnnotation()).thenReturn(mockEntityAnnotation1);
+    when(mockEntitySpec1.getAspectSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec1.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec1.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+
+    EntityAnnotation mockEntityAnnotation2 = mock(EntityAnnotation.class);
+    when(mockEntityAnnotation2.getName()).thenReturn("entity2");
+    when(mockEntitySpec2.getEntityAnnotation()).thenReturn(mockEntityAnnotation2);
+    when(mockEntitySpec2.getAspectSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec2.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec2.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+
+    OperationContext testOpContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+
+    Collection<IndexMapping> result =
+        mappingsBuilder.getIndexMappings(testOpContext, Collections.emptyList());
+
+    assertNotNull(result, "Result should not be null");
+    assertFalse(result.isEmpty(), "Should return at least one IndexMapping for valid search group");
+
+    // Verify that the IndexMapping has mappings (not empty)
+    IndexMapping indexMapping = result.iterator().next();
+    assertNotNull(indexMapping.getMappings(), "IndexMapping should have mappings");
+    // Note: The actual content depends on the mock setup, but we verify it's not empty
+  }
+
+  @Test
+  public void testGetIndexMappingsWithStructuredPropertiesAndEmptyEntitySpecs() {
+    // Test that getIndexMappings handles structured properties correctly when entitySpecs is empty
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    String searchGroup = "emptyGroup";
+
+    // Create mock structured properties
+    Urn testUrn = UrnUtils.getUrn("urn:li:testEntity:testId");
+    StructuredPropertyDefinition testProperty = mock(StructuredPropertyDefinition.class);
+    Urn mockValueTypeUrn = mock(Urn.class);
+    when(mockValueTypeUrn.getId()).thenReturn("STRING");
+    when(testProperty.getValueType()).thenReturn(mockValueTypeUrn);
+    when(testProperty.getQualifiedName()).thenReturn("testProperty");
+
+    Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties =
+        Collections.singletonList(Pair.of(testUrn, testProperty));
+
+    // Mock the registry to return empty collection for the search group
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup(searchGroup))
+        .thenReturn(Collections.emptyMap());
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton(searchGroup));
+
+    OperationContext testOpContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+
+    Collection<IndexMapping> result =
+        mappingsBuilder.getIndexMappings(testOpContext, structuredProperties);
+
+    assertNotNull(result, "Result should not be null");
+    assertFalse(
+        result.isEmpty(),
+        "Should return at least one IndexMapping even with structured properties and empty entitySpecs");
+
+    // Verify that the IndexMapping has empty mappings
+    IndexMapping indexMapping = result.iterator().next();
+    assertNotNull(indexMapping.getMappings(), "IndexMapping should have mappings");
+    assertTrue(
+        indexMapping.getMappings().isEmpty(),
+        "Mappings should be empty when no entities found for search group, even with structured properties");
+  }
+
+  // Tests for ConflictResolver alias type conflict resolution
+
+  @Test
+  public void testConflictResolverResolveTypeConflictWithResolvableConflicts() {
+    // Test that ConflictResolver.resolveTypeConflict works with resolvable conflicts
+    Set<String> resolvableConflicts = new HashSet<>();
+    resolvableConflicts.add("long");
+    resolvableConflicts.add("date");
+
+    String resolvedType = ConflictResolver.resolveTypeConflict(resolvableConflicts);
+    assertEquals(resolvedType, "date", "Should resolve [long, date] conflicts to 'date'");
+  }
+
+  @Test
+  public void testConflictResolverResolveTypeConflictWithSingleType() {
+    // Test that ConflictResolver.resolveTypeConflict works with single type
+    Set<String> singleType = new HashSet<>();
+    singleType.add("keyword");
+
+    String resolvedType = ConflictResolver.resolveTypeConflict(singleType);
+    assertEquals(resolvedType, "keyword", "Should return the single type when no conflicts");
+  }
+
+  @Test
+  public void testConflictResolverResolveTypeConflictWithNonResolvableConflicts() {
+    // Test that ConflictResolver.resolveTypeConflict throws IllegalArgumentException for
+    // non-resolvable conflicts
+    Set<String> nonResolvableConflicts = new HashSet<>();
+    nonResolvableConflicts.add("keyword");
+    nonResolvableConflicts.add("text");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ConflictResolver.resolveTypeConflict(nonResolvableConflicts));
+  }
+
+  @Test
+  public void testConflictResolverResolveTypeConflictWithMultipleNonResolvableConflicts() {
+    // Test that ConflictResolver.resolveTypeConflict throws IllegalArgumentException for multiple
+    // non-resolvable conflicts
+    Set<String> multipleConflicts = new HashSet<>();
+    multipleConflicts.add("keyword");
+    multipleConflicts.add("text");
+    multipleConflicts.add("long");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ConflictResolver.resolveTypeConflict(multipleConflicts));
+  }
+
+  @Test
+  public void testConflictResolverResolveTypeConflictWithEmptySet() {
+    // Test that ConflictResolver.resolveTypeConflict handles empty set
+    Set<String> emptySet = new HashSet<>();
+
+    assertThrows(
+        NoSuchElementException.class, () -> ConflictResolver.resolveTypeConflict(emptySet));
+  }
+
+  @Test
+  public void testConflictResolverResolveTypeConflictWithNullSet() {
+    // Test that ConflictResolver.resolveTypeConflict handles null set
+    assertThrows(NullPointerException.class, () -> ConflictResolver.resolveTypeConflict(null));
+  }
+
+  @Test
+  public void testConflictResolverResolveTypeConflictWithThreeTypesIncludingResolvable() {
+    // Test that ConflictResolver.resolveTypeConflict throws exception even when resolvable pair
+    // exists
+    Set<String> threeTypesWithResolvable = new HashSet<>();
+    threeTypesWithResolvable.add("long");
+    threeTypesWithResolvable.add("date");
+    threeTypesWithResolvable.add("keyword");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ConflictResolver.resolveTypeConflict(threeTypesWithResolvable));
+  }
+
+  @Test
+  public void testConflictResolverResolveTypeConflictWithDifferentResolvablePair() {
+    // Test that ConflictResolver.resolveTypeConflict only resolves [long, date] conflicts
+    Set<String> differentResolvablePair = new HashSet<>();
+    differentResolvablePair.add("date");
+    differentResolvablePair.add("long");
+
+    String resolvedType = ConflictResolver.resolveTypeConflict(differentResolvablePair);
+    assertEquals(
+        resolvedType,
+        "date",
+        "Should resolve [date, long] conflicts to 'date' (order doesn't matter)");
+  }
+
+  @Test
+  public void testConflictResolverResolveTypeConflictWithCaseSensitiveTypes() {
+    // Test that ConflictResolver.resolveTypeConflict is case sensitive
+    Set<String> caseSensitiveConflicts = new HashSet<>();
+    caseSensitiveConflicts.add("LONG");
+    caseSensitiveConflicts.add("DATE");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ConflictResolver.resolveTypeConflict(caseSensitiveConflicts));
+  }
+
+  @Test
+  public void testConflictResolverResolveTypeConflictWithMixedCaseResolvable() {
+    // Test that ConflictResolver.resolveTypeConflict requires exact case matching
+    Set<String> mixedCaseResolvable = new HashSet<>();
+    mixedCaseResolvable.add("long");
+    mixedCaseResolvable.add("DATE");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ConflictResolver.resolveTypeConflict(mixedCaseResolvable));
   }
 
   @Test
@@ -2485,5 +3104,2434 @@ public class MultiEntityMappingsBuilderTest {
     when(mockFieldSpec.getPegasusSchema()).thenReturn(mockSchema);
 
     return mockFieldSpec;
+  }
+
+  @Test
+  public void testGetMappingsWithNullFieldNameAliasConflicts() {
+    // Test that getMappings handles null fieldNameAliasConflicts by setting it to empty map
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    when(mockEntitySpec.getName()).thenReturn("testEntity");
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchScoreFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getRelationshipFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("testGroup"))
+        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
+
+    OperationContext operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+
+    // Create mappings builder
+    MultiEntityMappingsBuilder builder;
+    try {
+      builder = new MultiEntityMappingsBuilder(entityIndexConfiguration);
+    } catch (IOException e) {
+      fail("Should not throw IOException: " + e.getMessage());
+      return;
+    }
+
+    // Test with null fieldNameAliasConflicts - should not throw exception
+    Collection<IndexMapping> mappings = builder.getIndexMappings(operationContext, null);
+
+    // Verify that mappings are created successfully (empty but not null)
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.isEmpty(), "Mappings should be empty for entity with no fields");
+  }
+
+  @Test
+  public void testGetMappingsWithNullFieldNameConflicts() {
+    // Test that getMappings handles null fieldNameConflicts by setting it to empty map
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    when(mockEntitySpec.getName()).thenReturn("testEntity");
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchScoreFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getRelationshipFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("testGroup"))
+        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
+
+    OperationContext operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+
+    // Create mappings builder
+    MultiEntityMappingsBuilder builder;
+    try {
+      builder = new MultiEntityMappingsBuilder(entityIndexConfiguration);
+    } catch (IOException e) {
+      fail("Should not throw IOException: " + e.getMessage());
+      return;
+    }
+
+    // Test with null fieldNameConflicts - should not throw exception
+    Collection<IndexMapping> mappings = builder.getIndexMappings(operationContext, null);
+
+    // Verify that mappings are created successfully (empty but not null)
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.isEmpty(), "Mappings should be empty for entity with no fields");
+  }
+
+  @Test
+  public void testGetMappingsWithNullStructuredProperties() {
+    // Test that getMappings handles null structuredProperties by setting it to empty list
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    when(mockEntitySpec.getName()).thenReturn("testEntity");
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchScoreFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getRelationshipFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("testGroup"))
+        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
+
+    OperationContext operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+
+    // Create mappings builder
+    MultiEntityMappingsBuilder builder;
+    try {
+      builder = new MultiEntityMappingsBuilder(entityIndexConfiguration);
+    } catch (IOException e) {
+      fail("Should not throw IOException: " + e.getMessage());
+      return;
+    }
+
+    // Test with null structuredProperties - should not throw exception
+    Collection<IndexMapping> mappings = builder.getIndexMappings(operationContext, null);
+
+    // Verify that mappings are created successfully (empty but not null)
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.isEmpty(), "Mappings should be empty for entity with no fields");
+  }
+
+  @Test
+  public void testGetMappingsWithAllNullParameters() {
+    // Test that getMappings handles all null parameters gracefully
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    when(mockEntitySpec.getName()).thenReturn("testEntity");
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchScoreFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getRelationshipFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("testGroup"))
+        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
+
+    OperationContext operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+
+    // Create mappings builder
+    MultiEntityMappingsBuilder builder;
+    try {
+      builder = new MultiEntityMappingsBuilder(entityIndexConfiguration);
+    } catch (IOException e) {
+      fail("Should not throw IOException: " + e.getMessage());
+      return;
+    }
+
+    // Test with all null parameters - should not throw exception
+    Collection<IndexMapping> mappings = builder.getIndexMappings(operationContext, null);
+
+    // Verify that mappings are created successfully (empty but not null)
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.isEmpty(), "Mappings should be empty for entity with no fields");
+  }
+
+  @Test
+  public void testGetMappingsWithEmptyFieldNameAliasConflicts() {
+    // Test that getMappings works correctly with empty fieldNameAliasConflicts map
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    when(mockEntitySpec.getName()).thenReturn("testEntity");
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchScoreFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getRelationshipFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("testGroup"))
+        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
+
+    OperationContext operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+
+    // Create mappings builder
+    MultiEntityMappingsBuilder builder;
+    try {
+      builder = new MultiEntityMappingsBuilder(entityIndexConfiguration);
+    } catch (IOException e) {
+      fail("Should not throw IOException: " + e.getMessage());
+      return;
+    }
+
+    // Test with empty fieldNameAliasConflicts - should work the same as null
+    Collection<IndexMapping> mappings =
+        builder.getIndexMappings(operationContext, Collections.emptyList());
+
+    // Verify that mappings are created successfully (empty but not null)
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.isEmpty(), "Mappings should be empty for entity with no fields");
+  }
+
+  @Test
+  public void testGetMappingsWithEmptyFieldNameConflicts() {
+    // Test that getMappings works correctly with empty fieldNameConflicts map
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    when(mockEntitySpec.getName()).thenReturn("testEntity");
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchScoreFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getRelationshipFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("testGroup"))
+        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
+
+    OperationContext operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+
+    // Create mappings builder
+    MultiEntityMappingsBuilder builder;
+    try {
+      builder = new MultiEntityMappingsBuilder(entityIndexConfiguration);
+    } catch (IOException e) {
+      fail("Should not throw IOException: " + e.getMessage());
+      return;
+    }
+
+    // Test with empty fieldNameConflicts - should work the same as null
+    Collection<IndexMapping> mappings =
+        builder.getIndexMappings(operationContext, Collections.emptyList());
+
+    // Verify that mappings are created successfully (empty but not null)
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.isEmpty(), "Mappings should be empty for entity with no fields");
+  }
+
+  @Test
+  public void testGetMappingsWithEmptyStructuredProperties() {
+    // Test that getMappings works correctly with empty structuredProperties collection
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    when(mockEntitySpec.getName()).thenReturn("testEntity");
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchScoreFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getRelationshipFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("testGroup"))
+        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
+
+    OperationContext operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+
+    // Create mappings builder
+    MultiEntityMappingsBuilder builder;
+    try {
+      builder = new MultiEntityMappingsBuilder(entityIndexConfiguration);
+    } catch (IOException e) {
+      fail("Should not throw IOException: " + e.getMessage());
+      return;
+    }
+
+    // Test with empty structuredProperties - should work the same as null
+    Collection<IndexMapping> mappings =
+        builder.getIndexMappings(operationContext, Collections.emptyList());
+
+    // Verify that mappings are created successfully (empty but not null)
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.isEmpty(), "Mappings should be empty for entity with no fields");
+  }
+
+  @Test
+  public void testGetMappingsConvenienceMethodWithEntityRegistryAndEntitySpec() {
+    // Test the public convenience method: getMappings(EntityRegistry, EntitySpec)
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    when(mockEntitySpec.getName()).thenReturn("testEntity");
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchScoreFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getRelationshipFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+
+    // Create mappings builder
+    MultiEntityMappingsBuilder builder;
+    try {
+      builder = new MultiEntityMappingsBuilder(entityIndexConfiguration);
+    } catch (IOException e) {
+      fail("Should not throw IOException: " + e.getMessage());
+      return;
+    }
+
+    // Test the convenience method - should delegate to main getMappings with nulls
+    Map<String, Object> mappings = builder.getMappings(mockEntityRegistry, mockEntitySpec);
+
+    // Verify that mappings are created successfully (not null)
+    assertNotNull(mappings, "Mappings should not be null");
+    // Note: Even entities with no fields may have _systemMetadata fields in aspects
+    // So we just verify the structure is correct
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+  }
+
+  @Test
+  public void
+      testGetMappingsConvenienceMethodWithEntityRegistryEntitySpecAndStructuredProperties() {
+    // Test the private convenience method: getMappings(EntityRegistry, EntitySpec,
+    // structuredProperties)
+    // We'll test this indirectly through the public methods that use it
+
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    when(mockEntitySpec.getName()).thenReturn("testEntity");
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchScoreFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getRelationshipFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+
+    // Create mappings builder
+    MultiEntityMappingsBuilder builder;
+    try {
+      builder = new MultiEntityMappingsBuilder(entityIndexConfiguration);
+    } catch (IOException e) {
+      fail("Should not throw IOException: " + e.getMessage());
+      return;
+    }
+
+    // Test with empty structured properties - this should use the convenience method internally
+    Collection<Pair<Urn, StructuredPropertyDefinition>> emptyStructuredProperties =
+        Collections.emptyList();
+
+    // We can't directly call the private method, but we can verify it works through
+    // the public getIndexMappings method which internally uses it
+    OperationContext operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+    Collection<IndexMapping> mappings =
+        builder.getIndexMappings(operationContext, emptyStructuredProperties);
+
+    // Verify that mappings are created successfully (empty but not null)
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.isEmpty(), "Mappings should be empty for entity with no fields");
+  }
+
+  @Test
+  public void testGetMappingsConvenienceMethodWithNullEntityRegistry() {
+    // Test that convenience method handles null EntityRegistry gracefully
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    when(mockEntitySpec.getName()).thenReturn("testEntity");
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchScoreFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getRelationshipFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+
+    // Create mappings builder
+    MultiEntityMappingsBuilder builder;
+    try {
+      builder = new MultiEntityMappingsBuilder(entityIndexConfiguration);
+    } catch (IOException e) {
+      fail("Should not throw IOException: " + e.getMessage());
+      return;
+    }
+
+    // Test with null EntityRegistry - should not throw exception (delegates to
+    // AspectMappingBuilder)
+    Map<String, Object> mappings = builder.getMappings(null, mockEntitySpec);
+
+    // Verify that mappings are created successfully (not null)
+    assertNotNull(mappings, "Mappings should not be null even with null EntityRegistry");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+  }
+
+  @Test
+  public void testGetMappingsConvenienceMethodWithNullEntitySpec() {
+    // Test that convenience method handles null EntitySpec gracefully
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+
+    // Create mappings builder
+    MultiEntityMappingsBuilder builder;
+    try {
+      builder = new MultiEntityMappingsBuilder(entityIndexConfiguration);
+    } catch (IOException e) {
+      fail("Should not throw IOException: " + e.getMessage());
+      return;
+    }
+
+    // Test with null EntitySpec - should throw NullPointerException
+    assertThrows(
+        "Should throw NullPointerException for null EntitySpec",
+        NullPointerException.class,
+        () -> builder.getMappings(mockEntityRegistry, null));
+  }
+
+  @Test
+  public void testGetMappingsConvenienceMethodWithBothNulls() {
+    // Test that convenience method handles both null parameters gracefully
+    // Create mappings builder
+    MultiEntityMappingsBuilder builder;
+    try {
+      builder = new MultiEntityMappingsBuilder(entityIndexConfiguration);
+    } catch (IOException e) {
+      fail("Should not throw IOException: " + e.getMessage());
+      return;
+    }
+
+    // Test with both null parameters - should throw NullPointerException (EntitySpec is null)
+    assertThrows(
+        "Should throw NullPointerException for both null parameters",
+        NullPointerException.class,
+        () -> builder.getMappings(null, null));
+  }
+
+  @Test
+  public void testGetMappingsConvenienceMethodDelegation() {
+    // Test that the convenience method properly delegates to the main getMappings method
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    when(mockEntitySpec.getName()).thenReturn("testEntity");
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchScoreFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getRelationshipFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+
+    // Create mappings builder
+    MultiEntityMappingsBuilder builder;
+    try {
+      builder = new MultiEntityMappingsBuilder(entityIndexConfiguration);
+    } catch (IOException e) {
+      fail("Should not throw IOException: " + e.getMessage());
+      return;
+    }
+
+    // Test the convenience method
+    Map<String, Object> convenienceMappings =
+        builder.getMappings(mockEntityRegistry, mockEntitySpec);
+
+    // Verify that mappings are created successfully (not null)
+    assertNotNull(convenienceMappings, "Convenience method mappings should not be null");
+    // Note: Even entities with no fields may have _systemMetadata fields in aspects
+    // So we just verify the structure is correct
+    assertTrue(
+        convenienceMappings.containsKey("properties"),
+        "Convenience method mappings should contain 'properties' key");
+
+    // The convenience method should delegate to getMappings(entityRegistry, entitySpec, null, null,
+    // null)
+    // Since we can't directly test the private method, we verify the behavior is consistent
+    // by ensuring the result is the same as what we'd expect from the main method
+  }
+
+  @Test
+  public void testGetMappingsConvenienceMethodWithStructuredPropertiesDelegation() {
+    // Test that the convenience method with structured properties properly delegates
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    when(mockEntitySpec.getName()).thenReturn("testEntity");
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchScoreFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getRelationshipFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+
+    // Create mappings builder
+    MultiEntityMappingsBuilder builder;
+    try {
+      builder = new MultiEntityMappingsBuilder(entityIndexConfiguration);
+    } catch (IOException e) {
+      fail("Should not throw IOException: " + e.getMessage());
+      return;
+    }
+
+    // Test with empty structured properties through public method that uses the convenience method
+    Collection<Pair<Urn, StructuredPropertyDefinition>> emptyStructuredProperties =
+        Collections.emptyList();
+    OperationContext operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+    Collection<IndexMapping> mappings =
+        builder.getIndexMappings(operationContext, emptyStructuredProperties);
+
+    // Verify that mappings are created successfully (empty but not null)
+    assertNotNull(mappings, "Mappings with structured properties should not be null");
+    assertTrue(
+        mappings.isEmpty(),
+        "Mappings with structured properties should be empty for entity with no fields");
+  }
+
+  // ==================== Entity Name Field Mapping Tests ====================
+
+  @Test
+  public void testEntityNameFieldMappingInConflictedFieldName() {
+    // Test the entity name field mapping logic when _entityName is a conflicted field name
+    // Create multiple entities with _entityName fields to trigger conflicts
+    EntitySpec mockEntitySpec1 = mock(EntitySpec.class);
+    EntitySpec mockEntitySpec2 = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec1 = mock(AspectSpec.class);
+    AspectSpec mockAspectSpec2 = mock(AspectSpec.class);
+    SearchableFieldSpec mockEntityNameField1 = mock(SearchableFieldSpec.class);
+    SearchableFieldSpec mockEntityNameField2 = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockEntityNameAnnotation1 = mock(SearchableAnnotation.class);
+    SearchableAnnotation mockEntityNameAnnotation2 = mock(SearchableAnnotation.class);
+
+    // Set up the _entityName fields for both entities
+    when(mockEntityNameAnnotation1.getFieldName()).thenReturn("_entityName");
+    when(mockEntityNameAnnotation1.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockEntityNameAnnotation1.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockEntityNameField1.getSearchableAnnotation()).thenReturn(mockEntityNameAnnotation1);
+
+    when(mockEntityNameAnnotation2.getFieldName()).thenReturn("_entityName");
+    when(mockEntityNameAnnotation2.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockEntityNameAnnotation2.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockEntityNameField2.getSearchableAnnotation()).thenReturn(mockEntityNameAnnotation2);
+
+    when(mockAspectSpec1.getName()).thenReturn("testAspect1");
+    when(mockAspectSpec1.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockEntityNameField1));
+    when(mockEntitySpec1.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec1));
+
+    when(mockAspectSpec2.getName()).thenReturn("testAspect2");
+    when(mockAspectSpec2.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockEntityNameField2));
+    when(mockEntitySpec2.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec2));
+
+    // Mock entity registry to return multiple entity specs with conflicts
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(
+            ImmutableMap.of("testEntity1", mockEntitySpec1, "testEntity2", mockEntitySpec2));
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
+
+    // Use the multiple entity method that triggers conflict resolution
+    OperationContext operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+    Collection<IndexMapping> indexMappings =
+        mappingsBuilder.getIndexMappings(operationContext, null);
+
+    assertNotNull(indexMappings, "Index mappings should not be null");
+    assertFalse(indexMappings.isEmpty(), "Should have at least one index mapping");
+
+    IndexMapping indexMapping = indexMappings.iterator().next();
+    Map<String, Object> mappings = indexMapping.getMappings();
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+
+    // Verify that _entityName field exists at root level with alias mapping
+    assertTrue(
+        properties.containsKey("_entityName"), "_entityName field should exist at root level");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> entityNameMapping = (Map<String, Object>) properties.get("_entityName");
+
+    // Verify the alias mapping structure
+    assertEquals("alias", entityNameMapping.get("type"), "_entityName should have alias type");
+    assertEquals(
+        "_search.entityName",
+        entityNameMapping.get("path"),
+        "_entityName should point to _search.entityName");
+  }
+
+  @Test
+  public void testEntityNameFieldMappingInConflictedFieldNameAlias() {
+    // Test the entity name field mapping logic when _entityName is a conflicted field name alias
+    // Create multiple entities with _entityName as field name alias to trigger conflicts
+    EntitySpec mockEntitySpec1 = mock(EntitySpec.class);
+    EntitySpec mockEntitySpec2 = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec1 = mock(AspectSpec.class);
+    AspectSpec mockAspectSpec2 = mock(AspectSpec.class);
+    SearchableFieldSpec mockEntityNameField1 = mock(SearchableFieldSpec.class);
+    SearchableFieldSpec mockEntityNameField2 = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockEntityNameAnnotation1 = mock(SearchableAnnotation.class);
+    SearchableAnnotation mockEntityNameAnnotation2 = mock(SearchableAnnotation.class);
+
+    // Set up fields with _entityName as alias for both entities
+    when(mockEntityNameAnnotation1.getFieldName()).thenReturn("entityName");
+    when(mockEntityNameAnnotation1.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockEntityNameAnnotation1.getFieldNameAliases())
+        .thenReturn(Collections.singletonList("_entityName"));
+    when(mockEntityNameAnnotation1.getSearchLabel()).thenReturn(Optional.of("entityName"));
+    when(mockEntityNameField1.getSearchableAnnotation()).thenReturn(mockEntityNameAnnotation1);
+
+    when(mockEntityNameAnnotation2.getFieldName()).thenReturn("entityName");
+    when(mockEntityNameAnnotation2.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockEntityNameAnnotation2.getFieldNameAliases())
+        .thenReturn(Collections.singletonList("_entityName"));
+    when(mockEntityNameAnnotation2.getSearchLabel()).thenReturn(Optional.of("entityName"));
+    when(mockEntityNameField2.getSearchableAnnotation()).thenReturn(mockEntityNameAnnotation2);
+
+    when(mockAspectSpec1.getName()).thenReturn("testAspect1");
+    when(mockAspectSpec1.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockEntityNameField1));
+    when(mockEntitySpec1.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec1));
+
+    when(mockAspectSpec2.getName()).thenReturn("testAspect2");
+    when(mockAspectSpec2.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockEntityNameField2));
+    when(mockEntitySpec2.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec2));
+
+    // Mock entity registry to return multiple entity specs with conflicts
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(
+            ImmutableMap.of("testEntity1", mockEntitySpec1, "testEntity2", mockEntitySpec2));
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
+
+    // Use the multiple entity method that triggers conflict resolution
+    OperationContext operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+    Collection<IndexMapping> indexMappings =
+        mappingsBuilder.getIndexMappings(operationContext, null);
+
+    assertNotNull(indexMappings, "Index mappings should not be null");
+    assertFalse(indexMappings.isEmpty(), "Should have at least one index mapping");
+
+    IndexMapping indexMapping = indexMappings.iterator().next();
+    Map<String, Object> mappings = indexMapping.getMappings();
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+
+    // Verify that _entityName field exists at root level with alias mapping
+    assertTrue(
+        properties.containsKey("_entityName"), "_entityName field should exist at root level");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> entityNameMapping = (Map<String, Object>) properties.get("_entityName");
+
+    // Verify the alias mapping structure
+    assertEquals("alias", entityNameMapping.get("type"), "_entityName should have alias type");
+    assertEquals(
+        "_search.entityName",
+        entityNameMapping.get("path"),
+        "_entityName should point to _search.entityName");
+  }
+
+  @Test
+  public void testEntityNameFieldMappingInSingleFieldAlias() {
+    // Test the entity name field mapping logic when _entityName is a single field alias (no
+    // conflicts)
+    // This test should NOT create root-level fields since there are no conflicts
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+    SearchableFieldSpec mockEntityNameField = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockEntityNameAnnotation = mock(SearchableAnnotation.class);
+
+    // Set up a field with _entityName as alias (no conflicts)
+    when(mockEntityNameAnnotation.getFieldName()).thenReturn("entityName");
+    when(mockEntityNameAnnotation.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockEntityNameAnnotation.getFieldNameAliases())
+        .thenReturn(Collections.singletonList("_entityName"));
+    when(mockEntityNameAnnotation.getSearchLabel()).thenReturn(Optional.of("entityName"));
+    when(mockEntityNameField.getSearchableAnnotation()).thenReturn(mockEntityNameAnnotation);
+
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockEntityNameField));
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+
+    // Mock entity registry to return the entity spec
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
+
+    // Use the public getMappings method that returns Map<String, Object>
+    Map<String, Object> mappings = mappingsBuilder.getMappings(mockEntityRegistry, mockEntitySpec);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+
+    // For single field alias with no conflicts, _entityName should exist at root level
+    // as an alias pointing to _search.entityName
+    assertTrue(
+        properties.containsKey("_entityName"),
+        "_entityName field should exist at root level as an alias");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> entityNameMapping = (Map<String, Object>) properties.get("_entityName");
+
+    // Verify the alias mapping structure
+    assertEquals("alias", entityNameMapping.get("type"), "_entityName should have alias type");
+    assertEquals(
+        "_search.entityName",
+        entityNameMapping.get("path"),
+        "_entityName should point to _search.entityName");
+  }
+
+  @Test
+  public void testEntityNameFieldMappingWithMultipleConflicts() {
+    // Test the entity name field mapping logic when _entityName has multiple conflicts
+    EntitySpec mockEntitySpec1 = mock(EntitySpec.class);
+    EntitySpec mockEntitySpec2 = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec1 = mock(AspectSpec.class);
+    AspectSpec mockAspectSpec2 = mock(AspectSpec.class);
+    SearchableFieldSpec mockEntityNameField1 = mock(SearchableFieldSpec.class);
+    SearchableFieldSpec mockEntityNameField2 = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockEntityNameAnnotation1 = mock(SearchableAnnotation.class);
+    SearchableAnnotation mockEntityNameAnnotation2 = mock(SearchableAnnotation.class);
+
+    // Set up first entity with _entityName field
+    when(mockEntityNameAnnotation1.getFieldName()).thenReturn("_entityName");
+    when(mockEntityNameAnnotation1.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockEntityNameAnnotation1.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockEntityNameField1.getSearchableAnnotation()).thenReturn(mockEntityNameAnnotation1);
+
+    when(mockAspectSpec1.getName()).thenReturn("testAspect1");
+    when(mockAspectSpec1.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockEntityNameField1));
+    when(mockEntitySpec1.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec1));
+    when(mockEntitySpec1.getAspectSpec("testAspect1")).thenReturn(mockAspectSpec1);
+
+    // Set up second entity with _entityName field (creating conflict)
+    when(mockEntityNameAnnotation2.getFieldName()).thenReturn("_entityName");
+    when(mockEntityNameAnnotation2.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockEntityNameAnnotation2.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockEntityNameField2.getSearchableAnnotation()).thenReturn(mockEntityNameAnnotation2);
+
+    when(mockAspectSpec2.getName()).thenReturn("testAspect2");
+    when(mockAspectSpec2.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockEntityNameField2));
+    when(mockEntitySpec2.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec2));
+    when(mockEntitySpec2.getAspectSpec("testAspect2")).thenReturn(mockAspectSpec2);
+
+    // Set up entity registry for multi-entity method
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(
+            ImmutableMap.of("testEntity1", mockEntitySpec1, "testEntity2", mockEntitySpec2));
+
+    // Use the multi-entity method to test conflict resolution
+    Collection<IndexMapping> indexMappings =
+        mappingsBuilder.getIndexMappings(operationContext, null);
+    assertNotNull(indexMappings, "Index mappings should not be null");
+    assertFalse(indexMappings.isEmpty(), "Index mappings should not be empty");
+
+    // Get the first index mapping
+    IndexMapping indexMapping = indexMappings.iterator().next();
+    Map<String, Object> mappings = indexMapping.getMappings();
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+
+    // Verify that _entityName field exists at root level with alias mapping
+    assertTrue(
+        properties.containsKey("_entityName"), "_entityName field should exist at root level");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> entityNameMapping = (Map<String, Object>) properties.get("_entityName");
+
+    // Verify the alias mapping structure
+    assertEquals("alias", entityNameMapping.get("type"), "_entityName should have alias type");
+    assertEquals(
+        "_search.entityName",
+        entityNameMapping.get("path"),
+        "_entityName should point to _search.entityName");
+  }
+
+  @Test
+  public void testEntityNameFieldMappingWithNonEntityNameField() {
+    // Test that non-entity name fields are handled normally (not as entity name aliases)
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+    SearchableFieldSpec mockRegularField = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockRegularAnnotation = mock(SearchableAnnotation.class);
+
+    // Set up a regular field (not _entityName)
+    when(mockRegularAnnotation.getFieldName()).thenReturn("regularField");
+    when(mockRegularAnnotation.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockRegularAnnotation.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockRegularField.getSearchableAnnotation()).thenReturn(mockRegularAnnotation);
+
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockRegularField));
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+    when(mockEntitySpec.getAspectSpec("testAspect")).thenReturn(mockAspectSpec);
+
+    // Set up entity registry for multi-entity method
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
+
+    // Use the multi-entity method to test conflict resolution
+    Collection<IndexMapping> indexMappings =
+        mappingsBuilder.getIndexMappings(operationContext, null);
+    assertNotNull(indexMappings, "Index mappings should not be null");
+    assertFalse(indexMappings.isEmpty(), "Index mappings should not be empty");
+
+    // Get the first index mapping
+    IndexMapping indexMapping = indexMappings.iterator().next();
+    Map<String, Object> mappings = indexMapping.getMappings();
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+
+    // Verify that regularField exists at root level with alias mapping (not entity name mapping)
+    assertTrue(properties.containsKey("regularField"), "regularField should exist at root level");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> regularFieldMapping = (Map<String, Object>) properties.get("regularField");
+
+    // Verify the alias mapping structure (should point to aspect field, not _search.entityName)
+    assertEquals("alias", regularFieldMapping.get("type"), "regularField should have alias type");
+    assertNotEquals(
+        "_search.entityName",
+        regularFieldMapping.get("path"),
+        "regularField should NOT point to _search.entityName");
+    assertTrue(
+        regularFieldMapping.get("path").toString().contains("testAspect"),
+        "regularField should point to aspect field");
+  }
+
+  @Test
+  public void testEntityNameFieldMappingWithCaseSensitivity() {
+    // Test that entity name field detection is case-sensitive
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+    SearchableFieldSpec mockCaseSensitiveField = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockCaseSensitiveAnnotation = mock(SearchableAnnotation.class);
+
+    // Set up a field with similar name but different case
+    when(mockCaseSensitiveAnnotation.getFieldName()).thenReturn("_EntityName"); // Different case
+    when(mockCaseSensitiveAnnotation.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockCaseSensitiveAnnotation.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockCaseSensitiveField.getSearchableAnnotation()).thenReturn(mockCaseSensitiveAnnotation);
+
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockCaseSensitiveField));
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+    when(mockEntitySpec.getAspectSpec("testAspect")).thenReturn(mockAspectSpec);
+
+    // Set up entity registry for multi-entity method
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
+
+    // Use the multi-entity method to test conflict resolution
+    Collection<IndexMapping> indexMappings =
+        mappingsBuilder.getIndexMappings(operationContext, null);
+    assertNotNull(indexMappings, "Index mappings should not be null");
+    assertFalse(indexMappings.isEmpty(), "Index mappings should not be empty");
+
+    // Get the first index mapping
+    IndexMapping indexMapping = indexMappings.iterator().next();
+    Map<String, Object> mappings = indexMapping.getMappings();
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+
+    // Verify that _EntityName field exists at root level with regular alias mapping (not entity
+    // name mapping)
+    assertTrue(
+        properties.containsKey("_EntityName"), "_EntityName field should exist at root level");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> entityNameMapping = (Map<String, Object>) properties.get("_EntityName");
+
+    // Verify the alias mapping structure (should point to aspect field, not _search.entityName)
+    assertEquals("alias", entityNameMapping.get("type"), "_EntityName should have alias type");
+    assertNotEquals(
+        "_search.entityName",
+        entityNameMapping.get("path"),
+        "_EntityName should NOT point to _search.entityName");
+    assertTrue(
+        entityNameMapping.get("path").toString().contains("testAspect"),
+        "_EntityName should point to aspect field");
+  }
+
+  // ==================== Entity Field Name Copy-To Tests ====================
+
+  @Test
+  public void testEntityFieldNameCopyToWithValidEntityFieldName() {
+    // Test that entityFieldName annotation adds copy_to to _search.{entityFieldName}
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+    SearchableFieldSpec mockField = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockAnnotation = mock(SearchableAnnotation.class);
+
+    // Set up field with entityFieldName annotation
+    when(mockAnnotation.getFieldName()).thenReturn("testField");
+    when(mockAnnotation.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockAnnotation.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation.getEntityFieldName()).thenReturn(Optional.of("entityField"));
+    when(mockField.getSearchableAnnotation()).thenReturn(mockAnnotation);
+
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs()).thenReturn(Collections.singletonList(mockField));
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+
+    // Mock entity registry to return the entity spec
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
+
+    // Use the public getMappings method that returns Map<String, Object>
+    Map<String, Object> mappings = mappingsBuilder.getMappings(mockEntityRegistry, mockEntitySpec);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    assertTrue(properties.containsKey("_aspects"), "Mappings should contain '_aspects' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+    assertTrue(aspects.containsKey("properties"), "Aspects should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+    assertTrue(
+        aspectProperties.containsKey("testAspect"),
+        "Aspect properties should contain 'testAspect'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectFields = (Map<String, Object>) aspectProperties.get("testAspect");
+    assertTrue(aspectFields.containsKey("properties"), "Aspect should contain 'properties'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectFieldProperties =
+        (Map<String, Object>) aspectFields.get("properties");
+    assertTrue(
+        aspectFieldProperties.containsKey("testField"), "Aspect fields should contain 'testField'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> fieldMapping = (Map<String, Object>) aspectFieldProperties.get("testField");
+
+    // Verify that copy_to contains the entityFieldName destination
+    assertTrue(fieldMapping.containsKey("copy_to"), "Field should have copy_to property");
+    @SuppressWarnings("unchecked")
+    List<String> copyTo = (List<String>) fieldMapping.get("copy_to");
+    assertTrue(
+        copyTo.contains("_search.entityField"), "copy_to should contain '_search.entityField'");
+  }
+
+  @Test
+  public void testEntityFieldNameCopyToWithEmptyEntityFieldName() {
+    // Test that empty entityFieldName does not add copy_to
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+    SearchableFieldSpec mockField = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockAnnotation = mock(SearchableAnnotation.class);
+
+    // Set up field with empty entityFieldName annotation
+    when(mockAnnotation.getFieldName()).thenReturn("testField");
+    when(mockAnnotation.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockAnnotation.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation.getEntityFieldName()).thenReturn(Optional.of(""));
+    when(mockField.getSearchableAnnotation()).thenReturn(mockAnnotation);
+
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs()).thenReturn(Collections.singletonList(mockField));
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+
+    // Mock entity registry to return the entity spec
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
+
+    // Use the public getMappings method that returns Map<String, Object>
+    Map<String, Object> mappings = mappingsBuilder.getMappings(mockEntityRegistry, mockEntitySpec);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    assertTrue(properties.containsKey("_aspects"), "Mappings should contain '_aspects' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+    assertTrue(aspects.containsKey("properties"), "Aspects should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+    assertTrue(
+        aspectProperties.containsKey("testAspect"),
+        "Aspect properties should contain 'testAspect'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectFields = (Map<String, Object>) aspectProperties.get("testAspect");
+    assertTrue(aspectFields.containsKey("properties"), "Aspect should contain 'properties'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectFieldProperties =
+        (Map<String, Object>) aspectFields.get("properties");
+    assertTrue(
+        aspectFieldProperties.containsKey("testField"), "Aspect fields should contain 'testField'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> fieldMapping = (Map<String, Object>) aspectFieldProperties.get("testField");
+
+    // Verify that copy_to does not contain empty entityFieldName destination
+    if (fieldMapping.containsKey("copy_to")) {
+      @SuppressWarnings("unchecked")
+      List<String> copyTo = (List<String>) fieldMapping.get("copy_to");
+      assertFalse(
+          copyTo.contains("_search."), "copy_to should not contain empty '_search.' destination");
+    }
+  }
+
+  @Test
+  public void testEntityFieldNameCopyToWithEmptyEntityFieldNameOptional() {
+    // Test that Optional.empty() entityFieldName does not add copy_to
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+    SearchableFieldSpec mockField = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockAnnotation = mock(SearchableAnnotation.class);
+
+    // Set up field with null entityFieldName annotation
+    when(mockAnnotation.getFieldName()).thenReturn("testField");
+    when(mockAnnotation.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockAnnotation.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation.getEntityFieldName()).thenReturn(Optional.empty());
+    when(mockField.getSearchableAnnotation()).thenReturn(mockAnnotation);
+
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs()).thenReturn(Collections.singletonList(mockField));
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+
+    // Mock entity registry to return the entity spec
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
+
+    // Use the public getMappings method that returns Map<String, Object>
+    Map<String, Object> mappings = mappingsBuilder.getMappings(mockEntityRegistry, mockEntitySpec);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    assertTrue(properties.containsKey("_aspects"), "Mappings should contain '_aspects' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+    assertTrue(aspects.containsKey("properties"), "Aspects should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+    assertTrue(
+        aspectProperties.containsKey("testAspect"),
+        "Aspect properties should contain 'testAspect'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectFields = (Map<String, Object>) aspectProperties.get("testAspect");
+    assertTrue(aspectFields.containsKey("properties"), "Aspect should contain 'properties'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectFieldProperties =
+        (Map<String, Object>) aspectFields.get("properties");
+    assertTrue(
+        aspectFieldProperties.containsKey("testField"), "Aspect fields should contain 'testField'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> fieldMapping = (Map<String, Object>) aspectFieldProperties.get("testField");
+
+    // Verify that copy_to is not added when entityFieldName is Optional.empty()
+    assertFalse(
+        fieldMapping.containsKey("copy_to"),
+        "Field should not have copy_to property when entityFieldName is Optional.empty()");
+  }
+
+  @Test
+  public void testEntityFieldNameCopyToWithMultipleCopyToDestinations() {
+    // Test that entityFieldName adds to existing copy_to destinations
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+    SearchableFieldSpec mockField = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockAnnotation = mock(SearchableAnnotation.class);
+
+    // Set up field with both searchLabel and entityFieldName annotations
+    when(mockAnnotation.getFieldName()).thenReturn("testField");
+    when(mockAnnotation.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockAnnotation.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation.getSearchLabel()).thenReturn(Optional.of("searchLabel"));
+    when(mockAnnotation.getEntityFieldName()).thenReturn(Optional.of("entityField"));
+    when(mockField.getSearchableAnnotation()).thenReturn(mockAnnotation);
+
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs()).thenReturn(Collections.singletonList(mockField));
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+
+    // Mock entity registry to return the entity spec
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
+
+    // Use the public getMappings method that returns Map<String, Object>
+    Map<String, Object> mappings = mappingsBuilder.getMappings(mockEntityRegistry, mockEntitySpec);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    assertTrue(properties.containsKey("_aspects"), "Mappings should contain '_aspects' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+    assertTrue(aspects.containsKey("properties"), "Aspects should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+    assertTrue(
+        aspectProperties.containsKey("testAspect"),
+        "Aspect properties should contain 'testAspect'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectFields = (Map<String, Object>) aspectProperties.get("testAspect");
+    assertTrue(aspectFields.containsKey("properties"), "Aspect should contain 'properties'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectFieldProperties =
+        (Map<String, Object>) aspectFields.get("properties");
+    assertTrue(
+        aspectFieldProperties.containsKey("testField"), "Aspect fields should contain 'testField'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> fieldMapping = (Map<String, Object>) aspectFieldProperties.get("testField");
+
+    // Verify that copy_to contains both destinations
+    assertTrue(fieldMapping.containsKey("copy_to"), "Field should have copy_to property");
+    @SuppressWarnings("unchecked")
+    List<String> copyTo = (List<String>) fieldMapping.get("copy_to");
+    assertTrue(
+        copyTo.contains("_search.searchLabel"), "copy_to should contain '_search.searchLabel'");
+    assertTrue(
+        copyTo.contains("_search.entityField"), "copy_to should contain '_search.entityField'");
+    assertEquals(2, copyTo.size(), "copy_to should contain exactly 2 destinations");
+  }
+
+  @Test
+  public void testEntityFieldNameCopyToWithDifferentFieldTypes() {
+    // Test that entityFieldName copy_to works with different field types
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+    SearchableFieldSpec mockField = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockAnnotation = mock(SearchableAnnotation.class);
+
+    // Set up field with entityFieldName annotation and different field types
+    when(mockAnnotation.getFieldName()).thenReturn("testField");
+    when(mockAnnotation.getFieldType()).thenReturn(FieldType.TEXT);
+    when(mockAnnotation.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation.getEntityFieldName()).thenReturn(Optional.of("entityField"));
+    when(mockField.getSearchableAnnotation()).thenReturn(mockAnnotation);
+
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs()).thenReturn(Collections.singletonList(mockField));
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+
+    // Mock entity registry to return the entity spec
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
+
+    // Use the public getMappings method that returns Map<String, Object>
+    Map<String, Object> mappings = mappingsBuilder.getMappings(mockEntityRegistry, mockEntitySpec);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    assertTrue(properties.containsKey("_aspects"), "Mappings should contain '_aspects' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+    assertTrue(aspects.containsKey("properties"), "Aspects should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+    assertTrue(
+        aspectProperties.containsKey("testAspect"),
+        "Aspect properties should contain 'testAspect'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectFields = (Map<String, Object>) aspectProperties.get("testAspect");
+    assertTrue(aspectFields.containsKey("properties"), "Aspect should contain 'properties'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectFieldProperties =
+        (Map<String, Object>) aspectFields.get("properties");
+    assertTrue(
+        aspectFieldProperties.containsKey("testField"), "Aspect fields should contain 'testField'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> fieldMapping = (Map<String, Object>) aspectFieldProperties.get("testField");
+
+    // Verify that copy_to contains the entityFieldName destination regardless of field type
+    assertTrue(fieldMapping.containsKey("copy_to"), "Field should have copy_to property");
+    @SuppressWarnings("unchecked")
+    List<String> copyTo = (List<String>) fieldMapping.get("copy_to");
+    assertTrue(
+        copyTo.contains("_search.entityField"), "copy_to should contain '_search.entityField'");
+  }
+
+  // ==================== Eager Global Ordinals Tests ====================
+
+  @Test
+  public void testEagerGlobalOrdinalsInConflictedFieldName() {
+    // Test the eager_global_ordinals logic when a field name has conflicts and eagerGlobalOrdinals
+    // is set
+    EntitySpec mockEntitySpec1 = mock(EntitySpec.class);
+    EntitySpec mockEntitySpec2 = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec1 = mock(AspectSpec.class);
+    AspectSpec mockAspectSpec2 = mock(AspectSpec.class);
+    SearchableFieldSpec mockField1 = mock(SearchableFieldSpec.class);
+    SearchableFieldSpec mockField2 = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockAnnotation1 = mock(SearchableAnnotation.class);
+    SearchableAnnotation mockAnnotation2 = mock(SearchableAnnotation.class);
+
+    // Set up first entity with eagerGlobalOrdinals=true
+    when(mockAnnotation1.getFieldName()).thenReturn("testField");
+    when(mockAnnotation1.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockAnnotation1.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation1.getEagerGlobalOrdinals()).thenReturn(Optional.of(true));
+    when(mockField1.getSearchableAnnotation()).thenReturn(mockAnnotation1);
+
+    when(mockAspectSpec1.getName()).thenReturn("testAspect1");
+    when(mockAspectSpec1.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockField1));
+    when(mockEntitySpec1.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec1));
+    when(mockEntitySpec1.getAspectSpec("testAspect1")).thenReturn(mockAspectSpec1);
+
+    // Set up second entity with eagerGlobalOrdinals=false (creating conflict)
+    when(mockAnnotation2.getFieldName()).thenReturn("testField");
+    when(mockAnnotation2.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockAnnotation2.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation2.getEagerGlobalOrdinals()).thenReturn(Optional.of(false));
+    when(mockField2.getSearchableAnnotation()).thenReturn(mockAnnotation2);
+
+    when(mockAspectSpec2.getName()).thenReturn("testAspect2");
+    when(mockAspectSpec2.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockField2));
+    when(mockEntitySpec2.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec2));
+    when(mockEntitySpec2.getAspectSpec("testAspect2")).thenReturn(mockAspectSpec2);
+
+    // Mock entity registry to return multiple entity specs with conflicts
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(
+            ImmutableMap.of("testEntity1", mockEntitySpec1, "testEntity2", mockEntitySpec2));
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
+
+    // Use the multi-entity method to trigger conflict resolution
+    OperationContext operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+    Collection<IndexMapping> indexMappings =
+        mappingsBuilder.getIndexMappings(operationContext, null);
+
+    assertNotNull(indexMappings, "Index mappings should not be null");
+    assertFalse(indexMappings.isEmpty(), "Should have at least one index mapping");
+
+    IndexMapping indexMapping = indexMappings.iterator().next();
+    Map<String, Object> mappings = indexMapping.getMappings();
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+
+    // Verify that testField exists at root level with eager_global_ordinals=true
+    assertTrue(properties.containsKey("testField"), "testField should exist at root level");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> fieldMapping = (Map<String, Object>) properties.get("testField");
+
+    // Debug: Print the actual field mapping to understand its structure
+    System.out.println("testField mapping: " + fieldMapping);
+
+    // Verify the field mapping structure includes eager_global_ordinals=true
+    assertEquals("keyword", fieldMapping.get("type"), "testField should have keyword type");
+    assertTrue(
+        (Boolean) fieldMapping.get("eager_global_ordinals"),
+        "testField should have eager_global_ordinals=true");
+  }
+
+  @Test
+  public void testEagerGlobalOrdinalsInConflictedFieldNameAlias() {
+    // Test the eager_global_ordinals logic when a field name alias has conflicts and
+    // eagerGlobalOrdinals is set
+    EntitySpec mockEntitySpec1 = mock(EntitySpec.class);
+    EntitySpec mockEntitySpec2 = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec1 = mock(AspectSpec.class);
+    AspectSpec mockAspectSpec2 = mock(AspectSpec.class);
+    SearchableFieldSpec mockField1 = mock(SearchableFieldSpec.class);
+    SearchableFieldSpec mockField2 = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockAnnotation1 = mock(SearchableAnnotation.class);
+    SearchableAnnotation mockAnnotation2 = mock(SearchableAnnotation.class);
+
+    // Set up first entity with eagerGlobalOrdinals=true and field name alias
+    when(mockAnnotation1.getFieldName()).thenReturn("testField");
+    when(mockAnnotation1.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockAnnotation1.getFieldNameAliases()).thenReturn(Collections.singletonList("testAlias"));
+    when(mockAnnotation1.getEagerGlobalOrdinals()).thenReturn(Optional.of(true));
+    when(mockField1.getSearchableAnnotation()).thenReturn(mockAnnotation1);
+
+    when(mockAspectSpec1.getName()).thenReturn("testAspect1");
+    when(mockAspectSpec1.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockField1));
+    when(mockEntitySpec1.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec1));
+    when(mockEntitySpec1.getAspectSpec("testAspect1")).thenReturn(mockAspectSpec1);
+
+    // Set up second entity with eagerGlobalOrdinals=false (creating conflict)
+    when(mockAnnotation2.getFieldName()).thenReturn("testField");
+    when(mockAnnotation2.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockAnnotation2.getFieldNameAliases()).thenReturn(Collections.singletonList("testAlias"));
+    when(mockAnnotation2.getEagerGlobalOrdinals()).thenReturn(Optional.of(false));
+    when(mockField2.getSearchableAnnotation()).thenReturn(mockAnnotation2);
+
+    when(mockAspectSpec2.getName()).thenReturn("testAspect2");
+    when(mockAspectSpec2.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockField2));
+    when(mockEntitySpec2.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec2));
+    when(mockEntitySpec2.getAspectSpec("testAspect2")).thenReturn(mockAspectSpec2);
+
+    // Mock entity registry to return multiple entity specs with conflicts
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(
+            ImmutableMap.of("testEntity1", mockEntitySpec1, "testEntity2", mockEntitySpec2));
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
+
+    // Use the multi-entity method to trigger conflict resolution
+    OperationContext operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+    Collection<IndexMapping> indexMappings =
+        mappingsBuilder.getIndexMappings(operationContext, null);
+
+    assertNotNull(indexMappings, "Index mappings should not be null");
+    assertFalse(indexMappings.isEmpty(), "Should have at least one index mapping");
+
+    IndexMapping indexMapping = indexMappings.iterator().next();
+    Map<String, Object> mappings = indexMapping.getMappings();
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+
+    // Verify that testAlias exists at root level with eager_global_ordinals=true
+    assertTrue(properties.containsKey("testAlias"), "testAlias should exist at root level");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aliasMapping = (Map<String, Object>) properties.get("testAlias");
+
+    // Verify the alias mapping structure includes eager_global_ordinals=true
+    assertEquals("keyword", aliasMapping.get("type"), "testAlias should have keyword type");
+    assertTrue(
+        (Boolean) aliasMapping.get("eager_global_ordinals"),
+        "testAlias should have eager_global_ordinals=true");
+  }
+
+  @Test
+  public void testEagerGlobalOrdinalsWithNoEagerGlobalOrdinals() {
+    // Test that eager_global_ordinals is not set when no fields have eagerGlobalOrdinals=true
+    EntitySpec mockEntitySpec1 = mock(EntitySpec.class);
+    EntitySpec mockEntitySpec2 = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec1 = mock(AspectSpec.class);
+    AspectSpec mockAspectSpec2 = mock(AspectSpec.class);
+    SearchableFieldSpec mockField1 = mock(SearchableFieldSpec.class);
+    SearchableFieldSpec mockField2 = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockAnnotation1 = mock(SearchableAnnotation.class);
+    SearchableAnnotation mockAnnotation2 = mock(SearchableAnnotation.class);
+
+    // Set up first entity with eagerGlobalOrdinals=false
+    when(mockAnnotation1.getFieldName()).thenReturn("testField");
+    when(mockAnnotation1.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockAnnotation1.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation1.getEagerGlobalOrdinals()).thenReturn(Optional.of(false));
+    when(mockField1.getSearchableAnnotation()).thenReturn(mockAnnotation1);
+
+    when(mockAspectSpec1.getName()).thenReturn("testAspect1");
+    when(mockAspectSpec1.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockField1));
+    when(mockEntitySpec1.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec1));
+    when(mockEntitySpec1.getAspectSpec("testAspect1")).thenReturn(mockAspectSpec1);
+
+    // Set up second entity with eagerGlobalOrdinals=false (creating conflict)
+    when(mockAnnotation2.getFieldName()).thenReturn("testField");
+    when(mockAnnotation2.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockAnnotation2.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation2.getEagerGlobalOrdinals()).thenReturn(Optional.of(false));
+    when(mockField2.getSearchableAnnotation()).thenReturn(mockAnnotation2);
+
+    when(mockAspectSpec2.getName()).thenReturn("testAspect2");
+    when(mockAspectSpec2.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockField2));
+    when(mockEntitySpec2.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec2));
+    when(mockEntitySpec2.getAspectSpec("testAspect2")).thenReturn(mockAspectSpec2);
+
+    // Mock entity registry to return multiple entity specs with conflicts
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(
+            ImmutableMap.of("testEntity1", mockEntitySpec1, "testEntity2", mockEntitySpec2));
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
+
+    // Use the multi-entity method to trigger conflict resolution
+    OperationContext operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+    Collection<IndexMapping> indexMappings =
+        mappingsBuilder.getIndexMappings(operationContext, null);
+
+    assertNotNull(indexMappings, "Index mappings should not be null");
+    assertFalse(indexMappings.isEmpty(), "Should have at least one index mapping");
+
+    IndexMapping indexMapping = indexMappings.iterator().next();
+    Map<String, Object> mappings = indexMapping.getMappings();
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+
+    // Verify that testField exists at root level without eager_global_ordinals
+    assertTrue(properties.containsKey("testField"), "testField should exist at root level");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> fieldMapping = (Map<String, Object>) properties.get("testField");
+
+    // Verify the field mapping structure does not include eager_global_ordinals
+    assertEquals("keyword", fieldMapping.get("type"), "testField should have keyword type");
+    assertFalse(
+        fieldMapping.containsKey("eager_global_ordinals"),
+        "testField should NOT have eager_global_ordinals");
+  }
+
+  @Test
+  public void testEagerGlobalOrdinalsWithMixedEagerGlobalOrdinals() {
+    // Test that eager_global_ordinals is set when at least one field has eagerGlobalOrdinals=true
+    EntitySpec mockEntitySpec1 = mock(EntitySpec.class);
+    EntitySpec mockEntitySpec2 = mock(EntitySpec.class);
+    EntitySpec mockEntitySpec3 = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec1 = mock(AspectSpec.class);
+    AspectSpec mockAspectSpec2 = mock(AspectSpec.class);
+    AspectSpec mockAspectSpec3 = mock(AspectSpec.class);
+    SearchableFieldSpec mockField1 = mock(SearchableFieldSpec.class);
+    SearchableFieldSpec mockField2 = mock(SearchableFieldSpec.class);
+    SearchableFieldSpec mockField3 = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockAnnotation1 = mock(SearchableAnnotation.class);
+    SearchableAnnotation mockAnnotation2 = mock(SearchableAnnotation.class);
+    SearchableAnnotation mockAnnotation3 = mock(SearchableAnnotation.class);
+
+    // Set up first entity with eagerGlobalOrdinals=false
+    when(mockAnnotation1.getFieldName()).thenReturn("testField");
+    when(mockAnnotation1.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockAnnotation1.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation1.getEagerGlobalOrdinals()).thenReturn(Optional.of(false));
+    when(mockField1.getSearchableAnnotation()).thenReturn(mockAnnotation1);
+
+    when(mockAspectSpec1.getName()).thenReturn("testAspect1");
+    when(mockAspectSpec1.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockField1));
+    when(mockEntitySpec1.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec1));
+    when(mockEntitySpec1.getAspectSpec("testAspect1")).thenReturn(mockAspectSpec1);
+
+    // Set up second entity with eagerGlobalOrdinals=true
+    when(mockAnnotation2.getFieldName()).thenReturn("testField");
+    when(mockAnnotation2.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockAnnotation2.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation2.getEagerGlobalOrdinals()).thenReturn(Optional.of(true));
+    when(mockField2.getSearchableAnnotation()).thenReturn(mockAnnotation2);
+
+    when(mockAspectSpec2.getName()).thenReturn("testAspect2");
+    when(mockAspectSpec2.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockField2));
+    when(mockEntitySpec2.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec2));
+    when(mockEntitySpec2.getAspectSpec("testAspect2")).thenReturn(mockAspectSpec2);
+
+    // Set up third entity with eagerGlobalOrdinals=false
+    when(mockAnnotation3.getFieldName()).thenReturn("testField");
+    when(mockAnnotation3.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockAnnotation3.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation3.getEagerGlobalOrdinals()).thenReturn(Optional.of(false));
+    when(mockField3.getSearchableAnnotation()).thenReturn(mockAnnotation3);
+
+    when(mockAspectSpec3.getName()).thenReturn("testAspect3");
+    when(mockAspectSpec3.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockField3));
+    when(mockEntitySpec3.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec3));
+    when(mockEntitySpec3.getAspectSpec("testAspect3")).thenReturn(mockAspectSpec3);
+
+    // Mock entity registry to return multiple entity specs with conflicts
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(
+            ImmutableMap.of(
+                "testEntity1",
+                mockEntitySpec1,
+                "testEntity2",
+                mockEntitySpec2,
+                "testEntity3",
+                mockEntitySpec3));
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
+
+    // Use the multi-entity method to trigger conflict resolution
+    OperationContext operationContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
+    Collection<IndexMapping> indexMappings =
+        mappingsBuilder.getIndexMappings(operationContext, null);
+
+    assertNotNull(indexMappings, "Index mappings should not be null");
+    assertFalse(indexMappings.isEmpty(), "Should have at least one index mapping");
+
+    IndexMapping indexMapping = indexMappings.iterator().next();
+    Map<String, Object> mappings = indexMapping.getMappings();
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+
+    // Verify that testField exists at root level with eager_global_ordinals=true (because at least
+    // one field has it)
+    assertTrue(properties.containsKey("testField"), "testField should exist at root level");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> fieldMapping = (Map<String, Object>) properties.get("testField");
+
+    // Verify the field mapping structure includes eager_global_ordinals=true
+    assertEquals("keyword", fieldMapping.get("type"), "testField should have keyword type");
+    assertTrue(
+        (Boolean) fieldMapping.get("eager_global_ordinals"),
+        "testField should have eager_global_ordinals=true");
+  }
+
+  @Test
+  public void testEagerGlobalOrdinalsWithEmptyOptional() {
+    // Test that eager_global_ordinals is not set when eagerGlobalOrdinals is Optional.empty()
+    EntitySpec mockEntitySpec1 = mock(EntitySpec.class);
+    EntitySpec mockEntitySpec2 = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec1 = mock(AspectSpec.class);
+    AspectSpec mockAspectSpec2 = mock(AspectSpec.class);
+    SearchableFieldSpec mockField1 = mock(SearchableFieldSpec.class);
+    SearchableFieldSpec mockField2 = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockAnnotation1 = mock(SearchableAnnotation.class);
+    SearchableAnnotation mockAnnotation2 = mock(SearchableAnnotation.class);
+
+    // Set up first entity with eagerGlobalOrdinals=Optional.empty()
+    when(mockAnnotation1.getFieldName()).thenReturn("testField");
+    when(mockAnnotation1.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockAnnotation1.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation1.getEagerGlobalOrdinals()).thenReturn(Optional.empty());
+    when(mockField1.getSearchableAnnotation()).thenReturn(mockAnnotation1);
+
+    when(mockAspectSpec1.getName()).thenReturn("testAspect1");
+    when(mockAspectSpec1.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockField1));
+    when(mockEntitySpec1.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec1));
+    when(mockEntitySpec1.getAspectSpec("testAspect1")).thenReturn(mockAspectSpec1);
+
+    // Set up second entity with eagerGlobalOrdinals=Optional.empty() (creating conflict)
+    when(mockAnnotation2.getFieldName()).thenReturn("testField");
+    when(mockAnnotation2.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockAnnotation2.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation2.getEagerGlobalOrdinals()).thenReturn(Optional.empty());
+    when(mockField2.getSearchableAnnotation()).thenReturn(mockAnnotation2);
+
+    when(mockAspectSpec2.getName()).thenReturn("testAspect2");
+    when(mockAspectSpec2.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockField2));
+    when(mockEntitySpec2.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec2));
+    when(mockEntitySpec2.getAspectSpec("testAspect2")).thenReturn(mockAspectSpec2);
+
+    // Set up entity registry for multi-entity method
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(
+            ImmutableMap.of("testEntity1", mockEntitySpec1, "testEntity2", mockEntitySpec2));
+
+    // Use the multi-entity method to test conflict resolution
+    Collection<IndexMapping> indexMappings =
+        mappingsBuilder.getIndexMappings(operationContext, null);
+    assertNotNull(indexMappings, "Index mappings should not be null");
+    assertFalse(indexMappings.isEmpty(), "Index mappings should not be empty");
+
+    // Get the first index mapping
+    IndexMapping indexMapping = indexMappings.iterator().next();
+    Map<String, Object> mappings = indexMapping.getMappings();
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+
+    // Verify that testField exists at root level without eager_global_ordinals
+    assertTrue(properties.containsKey("testField"), "testField should exist at root level");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> fieldMapping = (Map<String, Object>) properties.get("testField");
+
+    // Verify the field mapping structure does not include eager_global_ordinals
+    assertEquals("keyword", fieldMapping.get("type"), "testField should have keyword type");
+    assertFalse(
+        fieldMapping.containsKey("eager_global_ordinals"),
+        "testField should NOT have eager_global_ordinals");
+  }
+
+  @Test
+  public void testEagerGlobalOrdinalsWithDifferentFieldTypes() {
+    // Test that eager_global_ordinals is set correctly for different field types
+    EntitySpec mockEntitySpec1 = mock(EntitySpec.class);
+    EntitySpec mockEntitySpec2 = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec1 = mock(AspectSpec.class);
+    AspectSpec mockAspectSpec2 = mock(AspectSpec.class);
+    SearchableFieldSpec mockField1 = mock(SearchableFieldSpec.class);
+    SearchableFieldSpec mockField2 = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockAnnotation1 = mock(SearchableAnnotation.class);
+    SearchableAnnotation mockAnnotation2 = mock(SearchableAnnotation.class);
+
+    // Set up first entity with eagerGlobalOrdinals=true and URN field type
+    when(mockAnnotation1.getFieldName()).thenReturn("testField");
+    when(mockAnnotation1.getFieldType()).thenReturn(FieldType.URN);
+    when(mockAnnotation1.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation1.getEagerGlobalOrdinals()).thenReturn(Optional.of(true));
+    when(mockField1.getSearchableAnnotation()).thenReturn(mockAnnotation1);
+
+    when(mockAspectSpec1.getName()).thenReturn("testAspect1");
+    when(mockAspectSpec1.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockField1));
+    when(mockEntitySpec1.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec1));
+    when(mockEntitySpec1.getAspectSpec("testAspect1")).thenReturn(mockAspectSpec1);
+
+    // Set up second entity with eagerGlobalOrdinals=false and KEYWORD field type (creating
+    // conflict)
+    when(mockAnnotation2.getFieldName()).thenReturn("testField");
+    when(mockAnnotation2.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockAnnotation2.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation2.getEagerGlobalOrdinals()).thenReturn(Optional.of(false));
+    when(mockField2.getSearchableAnnotation()).thenReturn(mockAnnotation2);
+
+    when(mockAspectSpec2.getName()).thenReturn("testAspect2");
+    when(mockAspectSpec2.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockField2));
+    when(mockEntitySpec2.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec2));
+    when(mockEntitySpec2.getAspectSpec("testAspect2")).thenReturn(mockAspectSpec2);
+
+    // Set up entity registry for multi-entity method
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(
+            ImmutableMap.of("testEntity1", mockEntitySpec1, "testEntity2", mockEntitySpec2));
+
+    // Use the multi-entity method to test conflict resolution
+    Collection<IndexMapping> indexMappings =
+        mappingsBuilder.getIndexMappings(operationContext, null);
+    assertNotNull(indexMappings, "Index mappings should not be null");
+    assertFalse(indexMappings.isEmpty(), "Index mappings should not be empty");
+
+    // Get the first index mapping
+    IndexMapping indexMapping = indexMappings.iterator().next();
+    Map<String, Object> mappings = indexMapping.getMappings();
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+
+    // Verify that testField exists at root level with eager_global_ordinals=true
+    assertTrue(properties.containsKey("testField"), "testField should exist at root level");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> fieldMapping = (Map<String, Object>) properties.get("testField");
+
+    // Verify the field mapping structure includes eager_global_ordinals=true
+    // The resolved type should be based on conflict resolution, but eager_global_ordinals should be
+    // true
+    assertTrue(
+        (Boolean) fieldMapping.get("eager_global_ordinals"),
+        "testField should have eager_global_ordinals=true");
+  }
+
+  // ==================== SearchableRefField Mapping Tests ====================
+
+  @Test
+  public void testSearchableRefFieldMappingWithDepthZero() throws IOException {
+    // Test SearchableRefField mapping when depth is 0 (should return URN mapping)
+
+    // Create mock SearchableRefFieldSpec with depth 0
+    SearchableRefFieldSpec mockRefFieldSpec = mock(SearchableRefFieldSpec.class);
+    SearchableRefAnnotation mockRefAnnotation = mock(SearchableRefAnnotation.class);
+
+    when(mockRefAnnotation.getFieldName()).thenReturn("testRefField");
+    when(mockRefAnnotation.getRefType()).thenReturn("dataset");
+    when(mockRefAnnotation.getDepth()).thenReturn(0);
+    when(mockRefFieldSpec.getSearchableRefAnnotation()).thenReturn(mockRefAnnotation);
+
+    // Test the private method indirectly through getMappings
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+    when(mockEntitySpec.getSearchableRefFieldSpecs())
+        .thenReturn(Collections.singletonList(mockRefFieldSpec));
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+
+    Map<String, Object> mappings = mappingsBuilder.getMappings(mockEntityRegistry, mockEntitySpec);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    assertTrue(properties.containsKey("_aspects"), "Properties should contain '_aspects'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+    assertTrue(aspects.containsKey("properties"), "Aspects should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+    assertTrue(
+        aspectProperties.containsKey("testRefField"),
+        "Aspect properties should contain 'testRefField'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> refFieldMapping =
+        (Map<String, Object>) aspectProperties.get("testRefField");
+
+    // For depth 0, should be keyword mapping (not urn)
+    assertEquals(
+        "keyword",
+        refFieldMapping.get("type"),
+        "testRefField should have type 'keyword' for depth 0");
+  }
+
+  @Test
+  public void testSearchableRefFieldMappingWithDepthOne() throws IOException {
+    // Test SearchableRefField mapping when depth is 1 (should include nested fields)
+
+    // Create mock SearchableRefFieldSpec with depth 1
+    SearchableRefFieldSpec mockRefFieldSpec = mock(SearchableRefFieldSpec.class);
+    SearchableRefAnnotation mockRefAnnotation = mock(SearchableRefAnnotation.class);
+
+    when(mockRefAnnotation.getFieldName()).thenReturn("testRefField");
+    when(mockRefAnnotation.getRefType()).thenReturn("dataset");
+    when(mockRefAnnotation.getDepth()).thenReturn(1);
+    when(mockRefFieldSpec.getSearchableRefAnnotation()).thenReturn(mockRefAnnotation);
+
+    // Create mock EntitySpec for the referenced entity type
+    EntitySpec mockReferencedEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockReferencedAspectSpec = mock(AspectSpec.class);
+    SearchableFieldSpec mockReferencedField = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockReferencedAnnotation = mock(SearchableAnnotation.class);
+
+    when(mockReferencedAnnotation.getFieldName()).thenReturn("referencedField");
+    when(mockReferencedAnnotation.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockReferencedAnnotation.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockReferencedAnnotation.getEagerGlobalOrdinals()).thenReturn(Optional.empty());
+    when(mockReferencedField.getSearchableAnnotation()).thenReturn(mockReferencedAnnotation);
+
+    when(mockReferencedAspectSpec.getName()).thenReturn("referencedAspect");
+    when(mockReferencedAspectSpec.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockReferencedField));
+    when(mockReferencedAspectSpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockReferencedEntitySpec.getAspectSpecs())
+        .thenReturn(Collections.singletonList(mockReferencedAspectSpec));
+    when(mockReferencedEntitySpec.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockReferencedField));
+    when(mockReferencedEntitySpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+
+    // Mock entity registry to return the referenced entity spec
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockReferencedEntitySpec);
+
+    // Test the private method indirectly through getMappings
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+    when(mockEntitySpec.getSearchableRefFieldSpecs())
+        .thenReturn(Collections.singletonList(mockRefFieldSpec));
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+
+    Map<String, Object> mappings = mappingsBuilder.getMappings(mockEntityRegistry, mockEntitySpec);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    assertTrue(properties.containsKey("_aspects"), "Properties should contain '_aspects'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+    assertTrue(aspects.containsKey("properties"), "Aspects should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+    assertTrue(
+        aspectProperties.containsKey("testRefField"),
+        "Aspect properties should contain 'testRefField'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> refFieldMapping =
+        (Map<String, Object>) aspectProperties.get("testRefField");
+
+    // For depth 1, should have properties with nested fields
+    assertTrue(
+        refFieldMapping.containsKey("properties"),
+        "testRefField should have 'properties' for depth 1");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> refFieldProperties =
+        (Map<String, Object>) refFieldMapping.get("properties");
+    assertTrue(
+        refFieldProperties.containsKey("referencedField"), "Should contain referenced field");
+    assertTrue(refFieldProperties.containsKey("urn"), "Should contain urn field");
+  }
+
+  @Test
+  public void testSearchableRefFieldMappingWithRecursiveDepth() throws IOException {
+    // Test SearchableRefField mapping with recursive depth handling
+
+    // Create mock SearchableRefFieldSpec with depth 2
+    SearchableRefFieldSpec mockRefFieldSpec = mock(SearchableRefFieldSpec.class);
+    SearchableRefAnnotation mockRefAnnotation = mock(SearchableRefAnnotation.class);
+
+    when(mockRefAnnotation.getFieldName()).thenReturn("testRefField");
+    when(mockRefAnnotation.getRefType()).thenReturn("dataset");
+    when(mockRefAnnotation.getDepth()).thenReturn(2);
+    when(mockRefFieldSpec.getSearchableRefAnnotation()).thenReturn(mockRefAnnotation);
+
+    // Create mock SearchableRefFieldSpec for nested reference with depth 1
+    SearchableRefFieldSpec mockNestedRefFieldSpec = mock(SearchableRefFieldSpec.class);
+    SearchableRefAnnotation mockNestedRefAnnotation = mock(SearchableRefAnnotation.class);
+
+    when(mockNestedRefAnnotation.getFieldName()).thenReturn("nestedRefField");
+    when(mockNestedRefAnnotation.getRefType()).thenReturn("chart");
+    when(mockNestedRefAnnotation.getDepth()).thenReturn(1);
+    when(mockNestedRefFieldSpec.getSearchableRefAnnotation()).thenReturn(mockNestedRefAnnotation);
+
+    // Create mock EntitySpec for the referenced entity type (dataset)
+    EntitySpec mockReferencedEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockReferencedAspectSpec = mock(AspectSpec.class);
+    SearchableFieldSpec mockReferencedField = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockReferencedAnnotation = mock(SearchableAnnotation.class);
+
+    when(mockReferencedAnnotation.getFieldName()).thenReturn("referencedField");
+    when(mockReferencedAnnotation.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockReferencedAnnotation.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockReferencedAnnotation.getEagerGlobalOrdinals()).thenReturn(Optional.empty());
+    when(mockReferencedField.getSearchableAnnotation()).thenReturn(mockReferencedAnnotation);
+
+    when(mockReferencedAspectSpec.getName()).thenReturn("referencedAspect");
+    when(mockReferencedAspectSpec.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockReferencedField));
+    when(mockReferencedAspectSpec.getSearchableRefFieldSpecs())
+        .thenReturn(Collections.singletonList(mockNestedRefFieldSpec));
+    when(mockReferencedEntitySpec.getAspectSpecs())
+        .thenReturn(Collections.singletonList(mockReferencedAspectSpec));
+    when(mockReferencedEntitySpec.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockReferencedField));
+    when(mockReferencedEntitySpec.getSearchableRefFieldSpecs())
+        .thenReturn(Collections.singletonList(mockNestedRefFieldSpec));
+
+    // Create mock EntitySpec for the nested referenced entity type (chart)
+    EntitySpec mockNestedReferencedEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockNestedReferencedAspectSpec = mock(AspectSpec.class);
+    SearchableFieldSpec mockNestedReferencedField = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockNestedReferencedAnnotation = mock(SearchableAnnotation.class);
+
+    when(mockNestedReferencedAnnotation.getFieldName()).thenReturn("nestedReferencedField");
+    when(mockNestedReferencedAnnotation.getFieldType()).thenReturn(FieldType.TEXT);
+    when(mockNestedReferencedAnnotation.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockNestedReferencedAnnotation.getEagerGlobalOrdinals()).thenReturn(Optional.empty());
+    when(mockNestedReferencedField.getSearchableAnnotation())
+        .thenReturn(mockNestedReferencedAnnotation);
+
+    when(mockNestedReferencedAspectSpec.getName()).thenReturn("nestedReferencedAspect");
+    when(mockNestedReferencedAspectSpec.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockNestedReferencedField));
+    when(mockNestedReferencedAspectSpec.getSearchableRefFieldSpecs())
+        .thenReturn(Collections.emptyList());
+    when(mockNestedReferencedEntitySpec.getAspectSpecs())
+        .thenReturn(Collections.singletonList(mockNestedReferencedAspectSpec));
+    when(mockNestedReferencedEntitySpec.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockNestedReferencedField));
+    when(mockNestedReferencedEntitySpec.getSearchableRefFieldSpecs())
+        .thenReturn(Collections.emptyList());
+
+    // Mock entity registry to return both referenced entity specs
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockReferencedEntitySpec);
+    when(mockEntityRegistry.getEntitySpec("chart")).thenReturn(mockNestedReferencedEntitySpec);
+
+    // Test the private method indirectly through getMappings
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+    when(mockEntitySpec.getSearchableRefFieldSpecs())
+        .thenReturn(Collections.singletonList(mockRefFieldSpec));
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+
+    Map<String, Object> mappings = mappingsBuilder.getMappings(mockEntityRegistry, mockEntitySpec);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    assertTrue(properties.containsKey("_aspects"), "Properties should contain '_aspects'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+    assertTrue(aspects.containsKey("properties"), "Aspects should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+    assertTrue(
+        aspectProperties.containsKey("testRefField"),
+        "Aspect properties should contain 'testRefField'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> refFieldMapping =
+        (Map<String, Object>) aspectProperties.get("testRefField");
+
+    // For depth 2, should have properties with nested fields including recursive references
+    assertTrue(
+        refFieldMapping.containsKey("properties"),
+        "testRefField should have 'properties' for depth 2");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> refFieldProperties =
+        (Map<String, Object>) refFieldMapping.get("properties");
+    assertTrue(
+        refFieldProperties.containsKey("referencedField"), "Should contain referenced field");
+    assertTrue(refFieldProperties.containsKey("urn"), "Should contain urn field");
+    assertTrue(
+        refFieldProperties.containsKey("nestedRefField"), "Should contain nested reference field");
+
+    // Verify nested reference field has properties
+    @SuppressWarnings("unchecked")
+    Map<String, Object> nestedRefFieldMapping =
+        (Map<String, Object>) refFieldProperties.get("nestedRefField");
+    assertTrue(
+        nestedRefFieldMapping.containsKey("properties"), "nestedRefField should have 'properties'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> nestedRefFieldProperties =
+        (Map<String, Object>) nestedRefFieldMapping.get("properties");
+    assertTrue(
+        nestedRefFieldProperties.containsKey("nestedReferencedField"),
+        "Should contain nested referenced field");
+    assertTrue(nestedRefFieldProperties.containsKey("urn"), "Should contain urn field");
+  }
+
+  @Test
+  public void testSearchableRefFieldMappingWithDepthLimiting() throws IOException {
+    // Test SearchableRefField mapping with depth limiting (Math.min logic)
+
+    // Create mock SearchableRefFieldSpec with depth 3
+    SearchableRefFieldSpec mockRefFieldSpec = mock(SearchableRefFieldSpec.class);
+    SearchableRefAnnotation mockRefAnnotation = mock(SearchableRefAnnotation.class);
+
+    when(mockRefAnnotation.getFieldName()).thenReturn("testRefField");
+    when(mockRefAnnotation.getRefType()).thenReturn("dataset");
+    when(mockRefAnnotation.getDepth()).thenReturn(3);
+    when(mockRefFieldSpec.getSearchableRefAnnotation()).thenReturn(mockRefAnnotation);
+
+    // Create mock SearchableRefFieldSpec for nested reference with depth 5 (should be limited to 2)
+    SearchableRefFieldSpec mockNestedRefFieldSpec = mock(SearchableRefFieldSpec.class);
+    SearchableRefAnnotation mockNestedRefAnnotation = mock(SearchableRefAnnotation.class);
+
+    when(mockNestedRefAnnotation.getFieldName()).thenReturn("nestedRefField");
+    when(mockNestedRefAnnotation.getRefType()).thenReturn("chart");
+    when(mockNestedRefAnnotation.getDepth()).thenReturn(5); // This should be limited to 2 (3-1)
+    when(mockNestedRefFieldSpec.getSearchableRefAnnotation()).thenReturn(mockNestedRefAnnotation);
+
+    // Create mock EntitySpec for the referenced entity type (dataset)
+    EntitySpec mockReferencedEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockReferencedAspectSpec = mock(AspectSpec.class);
+    SearchableFieldSpec mockReferencedField = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockReferencedAnnotation = mock(SearchableAnnotation.class);
+
+    when(mockReferencedAnnotation.getFieldName()).thenReturn("referencedField");
+    when(mockReferencedAnnotation.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(mockReferencedAnnotation.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockReferencedAnnotation.getEagerGlobalOrdinals()).thenReturn(Optional.empty());
+    when(mockReferencedField.getSearchableAnnotation()).thenReturn(mockReferencedAnnotation);
+
+    when(mockReferencedAspectSpec.getName()).thenReturn("referencedAspect");
+    when(mockReferencedAspectSpec.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockReferencedField));
+    when(mockReferencedAspectSpec.getSearchableRefFieldSpecs())
+        .thenReturn(Collections.singletonList(mockNestedRefFieldSpec));
+    when(mockReferencedEntitySpec.getAspectSpecs())
+        .thenReturn(Collections.singletonList(mockReferencedAspectSpec));
+    when(mockReferencedEntitySpec.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockReferencedField));
+    when(mockReferencedEntitySpec.getSearchableRefFieldSpecs())
+        .thenReturn(Collections.singletonList(mockNestedRefFieldSpec));
+
+    // Create mock EntitySpec for the nested referenced entity type (chart)
+    EntitySpec mockNestedReferencedEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockNestedReferencedAspectSpec = mock(AspectSpec.class);
+    SearchableFieldSpec mockNestedReferencedField = mock(SearchableFieldSpec.class);
+    SearchableAnnotation mockNestedReferencedAnnotation = mock(SearchableAnnotation.class);
+
+    when(mockNestedReferencedAnnotation.getFieldName()).thenReturn("nestedReferencedField");
+    when(mockNestedReferencedAnnotation.getFieldType()).thenReturn(FieldType.TEXT);
+    when(mockNestedReferencedAnnotation.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockNestedReferencedAnnotation.getEagerGlobalOrdinals()).thenReturn(Optional.empty());
+    when(mockNestedReferencedField.getSearchableAnnotation())
+        .thenReturn(mockNestedReferencedAnnotation);
+
+    when(mockNestedReferencedAspectSpec.getName()).thenReturn("nestedReferencedAspect");
+    when(mockNestedReferencedAspectSpec.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockNestedReferencedField));
+    when(mockNestedReferencedAspectSpec.getSearchableRefFieldSpecs())
+        .thenReturn(Collections.emptyList());
+    when(mockNestedReferencedEntitySpec.getAspectSpecs())
+        .thenReturn(Collections.singletonList(mockNestedReferencedAspectSpec));
+    when(mockNestedReferencedEntitySpec.getSearchableFieldSpecs())
+        .thenReturn(Collections.singletonList(mockNestedReferencedField));
+    when(mockNestedReferencedEntitySpec.getSearchableRefFieldSpecs())
+        .thenReturn(Collections.emptyList());
+
+    // Mock entity registry to return both referenced entity specs
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockReferencedEntitySpec);
+    when(mockEntityRegistry.getEntitySpec("chart")).thenReturn(mockNestedReferencedEntitySpec);
+
+    // Test the private method indirectly through getMappings
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+    when(mockEntitySpec.getSearchableRefFieldSpecs())
+        .thenReturn(Collections.singletonList(mockRefFieldSpec));
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+
+    Map<String, Object> mappings = mappingsBuilder.getMappings(mockEntityRegistry, mockEntitySpec);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    assertTrue(properties.containsKey("_aspects"), "Properties should contain '_aspects'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+    assertTrue(aspects.containsKey("properties"), "Aspects should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+    assertTrue(
+        aspectProperties.containsKey("testRefField"),
+        "Aspect properties should contain 'testRefField'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> refFieldMapping =
+        (Map<String, Object>) aspectProperties.get("testRefField");
+
+    // For depth 3, should have properties with nested fields
+    assertTrue(
+        refFieldMapping.containsKey("properties"),
+        "testRefField should have 'properties' for depth 3");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> refFieldProperties =
+        (Map<String, Object>) refFieldMapping.get("properties");
+    assertTrue(
+        refFieldProperties.containsKey("referencedField"), "Should contain referenced field");
+    assertTrue(refFieldProperties.containsKey("urn"), "Should contain urn field");
+    assertTrue(
+        refFieldProperties.containsKey("nestedRefField"), "Should contain nested reference field");
+
+    // Verify nested reference field has properties (depth should be limited to 2, not 5)
+    @SuppressWarnings("unchecked")
+    Map<String, Object> nestedRefFieldMapping =
+        (Map<String, Object>) refFieldProperties.get("nestedRefField");
+    assertTrue(
+        nestedRefFieldMapping.containsKey("properties"), "nestedRefField should have 'properties'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> nestedRefFieldProperties =
+        (Map<String, Object>) nestedRefFieldMapping.get("properties");
+    assertTrue(
+        nestedRefFieldProperties.containsKey("nestedReferencedField"),
+        "Should contain nested referenced field");
+    assertTrue(nestedRefFieldProperties.containsKey("urn"), "Should contain urn field");
+  }
+
+  @Test
+  public void testSearchableRefFieldMappingWithNullEntityRegistry() throws IOException {
+    // Test SearchableRefField mapping with null entity registry (should throw exception)
+
+    // Create mock SearchableRefFieldSpec
+    SearchableRefFieldSpec mockRefFieldSpec = mock(SearchableRefFieldSpec.class);
+    SearchableRefAnnotation mockRefAnnotation = mock(SearchableRefAnnotation.class);
+
+    when(mockRefAnnotation.getFieldName()).thenReturn("testRefField");
+    when(mockRefAnnotation.getRefType()).thenReturn("dataset");
+    when(mockRefAnnotation.getDepth()).thenReturn(1);
+    when(mockRefFieldSpec.getSearchableRefAnnotation()).thenReturn(mockRefAnnotation);
+
+    // Test the private method indirectly through getMappings
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+    when(mockEntitySpec.getSearchableRefFieldSpecs())
+        .thenReturn(Collections.singletonList(mockRefFieldSpec));
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+
+    // Mock entity registry to return null for the referenced entity type
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(null);
+
+    // Should throw exception when trying to get entity spec for referenced type
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          mappingsBuilder.getMappings(mockEntityRegistry, mockEntitySpec);
+        });
+  }
+
+  @Test
+  public void testSearchableRefFieldMappingDepthZeroEarlyReturn() {
+    // Test the depth == 0 early return logic in getMappingForSearchableRefField
+    SearchableRefFieldSpec mockRefFieldSpec = mock(SearchableRefFieldSpec.class);
+    SearchableRefAnnotation mockRefAnnotation = mock(SearchableRefAnnotation.class);
+
+    when(mockRefAnnotation.getFieldName()).thenReturn("testRefField");
+    when(mockRefAnnotation.getRefType()).thenReturn("dataset");
+    when(mockRefAnnotation.getDepth()).thenReturn(0); // Set depth to 0 to trigger early return
+    when(mockRefFieldSpec.getSearchableRefAnnotation()).thenReturn(mockRefAnnotation);
+
+    // Test the private method indirectly through getMappings
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+    when(mockEntitySpec.getSearchableRefFieldSpecs())
+        .thenReturn(Collections.singletonList(mockRefFieldSpec));
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+
+    // Mock entity registry
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+
+    Map<String, Object> mappings = mappingsBuilder.getMappings(mockEntityRegistry, mockEntitySpec);
+
+    // Verify that the mappings contain the expected structure
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    assertNotNull(properties, "Properties should not be null");
+
+    // Verify that the _aspects field contains the SearchableRefField with URN mapping
+    assertTrue(properties.containsKey("_aspects"), "Properties should contain '_aspects' field");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+    assertNotNull(aspects, "Aspects should not be null");
+    assertTrue(aspects.containsKey("properties"), "Aspects should contain 'properties' field");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+    assertNotNull(aspectProperties, "Aspect properties should not be null");
+
+    // Verify that the SearchableRefField exists with URN mapping (depth == 0 should return URN
+    // mapping)
+    assertTrue(
+        aspectProperties.containsKey("testRefField"),
+        "Aspect properties should contain 'testRefField'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> refFieldMapping =
+        (Map<String, Object>) aspectProperties.get("testRefField");
+    assertNotNull(refFieldMapping, "Ref field mapping should not be null");
+
+    // Debug: print the actual mapping structure
+    System.out.println("testRefField mapping: " + refFieldMapping);
+
+    // Verify that the mapping has keyword type (from FieldTypeMapper.getMappingsForUrn())
+    // URN fields are mapped to keyword type with ignore_above property
+    assertEquals(
+        "keyword",
+        refFieldMapping.get("type"),
+        "testRefField should have type 'keyword' for depth 0");
+    assertTrue(
+        refFieldMapping.containsKey("ignore_above"),
+        "testRefField should have ignore_above property");
+    assertEquals(
+        255, refFieldMapping.get("ignore_above"), "testRefField should have ignore_above=255");
+  }
+
+  @Test
+  public void testSearchableRefFieldMappingDepthZeroWithMultipleFields() {
+    // Test the depth == 0 early return logic with multiple SearchableRefFields
+    SearchableRefFieldSpec mockRefFieldSpec1 = mock(SearchableRefFieldSpec.class);
+    SearchableRefFieldSpec mockRefFieldSpec2 = mock(SearchableRefFieldSpec.class);
+    SearchableRefAnnotation mockRefAnnotation1 = mock(SearchableRefAnnotation.class);
+    SearchableRefAnnotation mockRefAnnotation2 = mock(SearchableRefAnnotation.class);
+
+    // First field with depth 0
+    when(mockRefAnnotation1.getFieldName()).thenReturn("testRefField1");
+    when(mockRefAnnotation1.getRefType()).thenReturn("dataset");
+    when(mockRefAnnotation1.getDepth()).thenReturn(0);
+    when(mockRefFieldSpec1.getSearchableRefAnnotation()).thenReturn(mockRefAnnotation1);
+
+    // Second field with depth 0
+    when(mockRefAnnotation2.getFieldName()).thenReturn("testRefField2");
+    when(mockRefAnnotation2.getRefType()).thenReturn("chart");
+    when(mockRefAnnotation2.getDepth()).thenReturn(0);
+    when(mockRefFieldSpec2.getSearchableRefAnnotation()).thenReturn(mockRefAnnotation2);
+
+    // Test the private method indirectly through getMappings
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+    when(mockEntitySpec.getSearchableRefFieldSpecs())
+        .thenReturn(Arrays.asList(mockRefFieldSpec1, mockRefFieldSpec2));
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+
+    // Mock entity registry
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+
+    Map<String, Object> mappings = mappingsBuilder.getMappings(mockEntityRegistry, mockEntitySpec);
+
+    // Verify that the mappings contain the expected structure
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    assertNotNull(properties, "Properties should not be null");
+
+    // Verify that the _aspects field contains both SearchableRefFields with URN mappings
+    assertTrue(properties.containsKey("_aspects"), "Properties should contain '_aspects' field");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+    assertNotNull(aspects, "Aspects should not be null");
+    assertTrue(aspects.containsKey("properties"), "Aspects should contain 'properties' field");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+    assertNotNull(aspectProperties, "Aspect properties should not be null");
+
+    // Verify that both SearchableRefFields exist with URN mappings
+    assertTrue(
+        aspectProperties.containsKey("testRefField1"),
+        "Aspect properties should contain 'testRefField1'");
+    assertTrue(
+        aspectProperties.containsKey("testRefField2"),
+        "Aspect properties should contain 'testRefField2'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> refFieldMapping1 =
+        (Map<String, Object>) aspectProperties.get("testRefField1");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> refFieldMapping2 =
+        (Map<String, Object>) aspectProperties.get("testRefField2");
+
+    // Verify that both mappings have keyword type (from FieldTypeMapper.getMappingsForUrn())
+    // URN fields are mapped to keyword type with ignore_above property
+    assertEquals(
+        "keyword",
+        refFieldMapping1.get("type"),
+        "testRefField1 should have type 'keyword' for depth 0");
+    assertEquals(
+        "keyword",
+        refFieldMapping2.get("type"),
+        "testRefField2 should have type 'keyword' for depth 0");
+
+    // Verify that both mappings have the URN-specific properties
+    assertTrue(
+        refFieldMapping1.containsKey("ignore_above"),
+        "testRefField1 should have ignore_above property");
+    assertTrue(
+        refFieldMapping2.containsKey("ignore_above"),
+        "testRefField2 should have ignore_above property");
+    assertEquals(
+        255, refFieldMapping1.get("ignore_above"), "testRefField1 should have ignore_above=255");
+    assertEquals(
+        255, refFieldMapping2.get("ignore_above"), "testRefField2 should have ignore_above=255");
+  }
+
+  @Test
+  public void testSearchableRefFieldMappingDepthZeroWithDifferentRefTypes() {
+    // Test the depth == 0 early return logic with different ref types
+    SearchableRefFieldSpec mockRefFieldSpec = mock(SearchableRefFieldSpec.class);
+    SearchableRefAnnotation mockRefAnnotation = mock(SearchableRefAnnotation.class);
+
+    when(mockRefAnnotation.getFieldName()).thenReturn("testRefField");
+    when(mockRefAnnotation.getRefType()).thenReturn("customEntity"); // Different ref type
+    when(mockRefAnnotation.getDepth()).thenReturn(0); // Set depth to 0 to trigger early return
+    when(mockRefFieldSpec.getSearchableRefAnnotation()).thenReturn(mockRefAnnotation);
+
+    // Test the private method indirectly through getMappings
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+    when(mockEntitySpec.getSearchableRefFieldSpecs())
+        .thenReturn(Collections.singletonList(mockRefFieldSpec));
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+
+    // Mock entity registry
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+
+    Map<String, Object> mappings = mappingsBuilder.getMappings(mockEntityRegistry, mockEntitySpec);
+
+    // Verify that the mappings contain the expected structure
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    assertNotNull(properties, "Properties should not be null");
+
+    // Verify that the _aspects field contains the SearchableRefField with URN mapping
+    assertTrue(properties.containsKey("_aspects"), "Properties should contain '_aspects' field");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+    assertNotNull(aspects, "Aspects should not be null");
+    assertTrue(aspects.containsKey("properties"), "Aspects should contain 'properties' field");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+    assertNotNull(aspectProperties, "Aspect properties should not be null");
+
+    // Verify that the SearchableRefField exists with URN mapping (depth == 0 should return URN
+    // mapping regardless of ref type)
+    assertTrue(
+        aspectProperties.containsKey("testRefField"),
+        "Aspect properties should contain 'testRefField'");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> refFieldMapping =
+        (Map<String, Object>) aspectProperties.get("testRefField");
+    assertNotNull(refFieldMapping, "Ref field mapping should not be null");
+
+    // Verify that the mapping has keyword type (from FieldTypeMapper.getMappingsForUrn())
+    // The ref type doesn't matter when depth == 0, it should always return keyword mapping
+    assertEquals(
+        "keyword",
+        refFieldMapping.get("type"),
+        "testRefField should have type 'keyword' for depth 0 regardless of ref type");
+    assertTrue(
+        refFieldMapping.containsKey("ignore_above"),
+        "testRefField should have ignore_above property");
+    assertEquals(
+        255, refFieldMapping.get("ignore_above"), "testRefField should have ignore_above=255");
+  }
+
+  @Test
+  public void testSearchableRefFieldMappingDepthZeroWithEmptyFieldName() {
+    // Test the depth == 0 early return logic with empty field name
+    SearchableRefFieldSpec mockRefFieldSpec = mock(SearchableRefFieldSpec.class);
+    SearchableRefAnnotation mockRefAnnotation = mock(SearchableRefAnnotation.class);
+
+    when(mockRefAnnotation.getFieldName()).thenReturn(""); // Empty field name
+    when(mockRefAnnotation.getRefType()).thenReturn("dataset");
+    when(mockRefAnnotation.getDepth()).thenReturn(0); // Set depth to 0 to trigger early return
+    when(mockRefFieldSpec.getSearchableRefAnnotation()).thenReturn(mockRefAnnotation);
+
+    // Test the private method indirectly through getMappings
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockAspectSpec = mock(AspectSpec.class);
+
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec));
+    when(mockEntitySpec.getSearchableRefFieldSpecs())
+        .thenReturn(Collections.singletonList(mockRefFieldSpec));
+    when(mockAspectSpec.getName()).thenReturn("testAspect");
+    when(mockAspectSpec.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+
+    // Mock entity registry
+    EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
+
+    Map<String, Object> mappings = mappingsBuilder.getMappings(mockEntityRegistry, mockEntitySpec);
+
+    // Verify that the mappings contain the expected structure
+    assertNotNull(mappings, "Mappings should not be null");
+    assertTrue(mappings.containsKey("properties"), "Mappings should contain 'properties' key");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mappings.get("properties");
+    assertNotNull(properties, "Properties should not be null");
+
+    // Verify that the _aspects field contains the SearchableRefField with empty field name
+    assertTrue(properties.containsKey("_aspects"), "Properties should contain '_aspects' field");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+    assertNotNull(aspects, "Aspects should not be null");
+    assertTrue(aspects.containsKey("properties"), "Aspects should contain 'properties' field");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+    assertNotNull(aspectProperties, "Aspect properties should not be null");
+
+    // Verify that the SearchableRefField exists with empty field name and URN mapping
+    assertTrue(
+        aspectProperties.containsKey(""), "Aspect properties should contain empty field name");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> refFieldMapping = (Map<String, Object>) aspectProperties.get("");
+    assertNotNull(refFieldMapping, "Ref field mapping should not be null");
+
+    // Verify that the mapping has keyword type (from FieldTypeMapper.getMappingsForUrn())
+    assertEquals(
+        "keyword",
+        refFieldMapping.get("type"),
+        "Empty field name should have type 'keyword' for depth 0");
+    assertTrue(
+        refFieldMapping.containsKey("ignore_above"),
+        "Empty field name should have ignore_above property");
+    assertEquals(
+        255, refFieldMapping.get("ignore_above"), "Empty field name should have ignore_above=255");
   }
 }

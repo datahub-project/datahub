@@ -9,11 +9,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -29,13 +32,16 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -58,6 +64,7 @@ public class UpdateIndicesV3StrategyTest {
   @Mock private RecordTemplate mockAspect;
   @Mock private SystemMetadata mockSystemMetadata;
   @Mock private AuditStamp mockAuditStamp;
+  @Mock private ESIndexBuilder mockIndexBuilder;
   private ObjectNode mockSearchDocument;
   @Mock private ReindexConfig mockReindexConfig;
 
@@ -92,6 +99,9 @@ public class UpdateIndicesV3StrategyTest {
     mockSearchDocument = JsonNodeFactory.instance.objectNode();
     mockSearchDocument.put("urn", testUrn.toString());
     mockSearchDocument.put("_entityType", "dataset");
+
+    // Setup mock index builder
+    when(elasticSearchService.getIndexBuilder()).thenReturn(mockIndexBuilder);
 
     // Create strategy with V2 disabled (testing V3-only scenario)
     strategy =
@@ -321,5 +331,366 @@ public class UpdateIndicesV3StrategyTest {
 
     // Verify - should return empty collection (stub implementation)
     assertTrue(mappings.isEmpty());
+  }
+
+  @Test
+  public void testConstructor_IOExceptionWhenMappingConfigResourceNotFound() {
+    // Setup v3Config to use a non-existent mapping configuration resource
+    when(v3Config.getMappingConfig()).thenReturn("non-existent-mapping-config.yaml");
+
+    // Execute and verify that RuntimeException is thrown with IOException as cause
+    RuntimeException exception =
+        expectThrows(
+            RuntimeException.class,
+            () ->
+                new UpdateIndicesV3Strategy(
+                    v3Config,
+                    elasticSearchService,
+                    searchDocumentTransformer,
+                    timeseriesAspectService,
+                    "MD5",
+                    false));
+
+    // Verify the exception message and cause
+    assertTrue(exception.getMessage().contains("Failed to initialize V3 mappings builder"));
+    assertTrue(exception.getCause() instanceof IOException);
+    assertTrue(exception.getCause().getMessage().contains("Configuration resource not found"));
+  }
+
+  @Test
+  public void testConstructor_IOExceptionWhenMappingConfigHasInvalidFormat() {
+    // Setup v3Config to use a mapping configuration with invalid format
+    when(v3Config.getMappingConfig()).thenReturn("invalid-format-mapping-config.yaml");
+
+    // Execute and verify that RuntimeException is thrown with IOException as cause
+    RuntimeException exception =
+        expectThrows(
+            RuntimeException.class,
+            () ->
+                new UpdateIndicesV3Strategy(
+                    v3Config,
+                    elasticSearchService,
+                    searchDocumentTransformer,
+                    timeseriesAspectService,
+                    "MD5",
+                    false));
+
+    // Verify the exception message and cause
+    assertTrue(exception.getMessage().contains("Failed to initialize V3 mappings builder"));
+    assertTrue(exception.getCause() instanceof IOException);
+  }
+
+  @Test
+  public void testConstructor_IOExceptionWhenMappingConfigMissingRequiredSections() {
+    // Setup v3Config to use a mapping configuration missing required sections
+    when(v3Config.getMappingConfig()).thenReturn("missing-sections-mapping-config.yaml");
+
+    // Execute and verify that RuntimeException is thrown with IOException as cause
+    RuntimeException exception =
+        expectThrows(
+            RuntimeException.class,
+            () ->
+                new UpdateIndicesV3Strategy(
+                    v3Config,
+                    elasticSearchService,
+                    searchDocumentTransformer,
+                    timeseriesAspectService,
+                    "MD5",
+                    false));
+
+    // Verify the exception message and cause
+    assertTrue(exception.getMessage().contains("Failed to initialize V3 mappings builder"));
+    assertTrue(exception.getCause() instanceof IOException);
+    // Note: The specific error message may vary depending on the actual file content
+    // We just verify that an IOException is thrown
+  }
+
+  @Test
+  public void testConstructor_SuccessWhenMappingConfigIsNull() {
+    // Setup v3Config with null mapping configuration (should not throw exception)
+    when(v3Config.getMappingConfig()).thenReturn(null);
+
+    // Execute - should not throw exception
+    UpdateIndicesV3Strategy strategyWithNullConfig =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            false);
+
+    // Verify strategy was created successfully
+    assertTrue(strategyWithNullConfig.isEnabled());
+  }
+
+  @Test
+  public void testConstructor_SuccessWhenMappingConfigIsEmpty() {
+    // Setup v3Config with empty mapping configuration (should not throw exception)
+    when(v3Config.getMappingConfig()).thenReturn("");
+
+    // Execute - should not throw exception
+    UpdateIndicesV3Strategy strategyWithEmptyConfig =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            false);
+
+    // Verify strategy was created successfully
+    assertTrue(strategyWithEmptyConfig.isEnabled());
+  }
+
+  @Test
+  public void testConstructor_SuccessWhenMappingConfigIsWhitespace() {
+    // Setup v3Config with whitespace-only mapping configuration (should not throw exception)
+    when(v3Config.getMappingConfig()).thenReturn("   ");
+
+    // Execute - should not throw exception
+    UpdateIndicesV3Strategy strategyWithWhitespaceConfig =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            false);
+
+    // Verify strategy was created successfully
+    assertTrue(strategyWithWhitespaceConfig.isEnabled());
+  }
+
+  @Test
+  public void testUpdateIndexMappings_IOExceptionFromApplyMappings() throws Exception {
+    // Setup for structured property
+    when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
+    when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+
+    StructuredPropertyDefinition mockStructuredProperty = new StructuredPropertyDefinition();
+    mockStructuredProperty.setEntityTypes(
+        new UrnArray(UrnUtils.getUrn("urn:li:entityType:dataset")));
+
+    when(mockAspect.data()).thenReturn(mockStructuredProperty.data());
+
+    // Mock the reindex configs
+    when(elasticSearchService.buildReindexConfigsWithNewStructProp(
+            any(OperationContext.class), any(Urn.class), any(StructuredPropertyDefinition.class)))
+        .thenReturn(Collections.singletonList(mockReindexConfig));
+    when(mockReindexConfig.name()).thenReturn("test-index");
+
+    // Mock applyMappings to throw IOException
+    doThrow(new IOException("Elasticsearch communication error"))
+        .when(mockIndexBuilder)
+        .applyMappings(any(ReindexConfig.class), anyBoolean());
+
+    // Execute - the method catches the RuntimeException and logs it, so no exception is thrown
+    strategy.updateIndexMappings(
+        operationContext, testUrn, mockEntitySpec, mockAspectSpec, mockAspect, null);
+
+    // Verify that applyMappings was called (which would have thrown the IOException)
+    verify(mockIndexBuilder).applyMappings(any(ReindexConfig.class), eq(false));
+  }
+
+  @Test
+  public void testProcessBatch_ExceptionInKeyAspectDeletionCheck() throws Exception {
+    // Setup for DELETE event
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(mockEvent.getAspectName()).thenReturn("datasetKey");
+
+    Map<Urn, List<MCLItem>> groupedEvents =
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+
+    // Mock UpdateIndicesUtil.extractSpecPair to throw RuntimeException
+    try (var mockedStatic = mockStatic(UpdateIndicesUtil.class)) {
+      mockedStatic
+          .when(() -> UpdateIndicesUtil.extractSpecPair(any(MCLItem.class)))
+          .thenThrow(new RuntimeException("Failed to retrieve Aspect Spec"));
+
+      // Execute - the method should handle the exception gracefully
+      strategy.processBatch(operationContext, groupedEvents);
+
+      // Verify that no document operations were performed due to the exception
+      verify(elasticSearchService, never())
+          .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+      verify(elasticSearchService, never()).deleteDocument(any(), anyString(), anyString());
+    }
+  }
+
+  @Test
+  public void testProcessBatch_KeyAspectDeletion_Success() throws Exception {
+    // Setup for DELETE event with key aspect
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(mockEvent.getAspectName()).thenReturn("datasetKey"); // This is the key aspect
+    when(mockEntitySpec.getKeyAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec.getSearchGroup()).thenReturn("dataset");
+
+    Map<Urn, List<MCLItem>> groupedEvents =
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+
+    // Mock UpdateIndicesUtil methods to return successful results
+    try (var mockedStatic = mockStatic(UpdateIndicesUtil.class)) {
+      mockedStatic
+          .when(() -> UpdateIndicesUtil.extractSpecPair(any(MCLItem.class)))
+          .thenReturn(Pair.of(mockEntitySpec, mockAspectSpec));
+      mockedStatic.when(() -> UpdateIndicesUtil.isDeletingKey(any(Pair.class))).thenReturn(true);
+
+      // Execute
+      strategy.processBatch(operationContext, groupedEvents);
+
+      // Verify that deleteDocumentBySearchGroup was called
+      verify(elasticSearchService)
+          .deleteDocumentBySearchGroup(eq(operationContext), eq("dataset"), anyString());
+    }
+  }
+
+  @Test
+  public void testProcessBatch_KeyAspectDeletion_NullSearchGroup() throws Exception {
+    // Setup for DELETE event with key aspect but null search group
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(mockEvent.getAspectName()).thenReturn("datasetKey"); // This is the key aspect
+    when(mockEntitySpec.getKeyAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec.getSearchGroup()).thenReturn(null); // Null search group
+
+    Map<Urn, List<MCLItem>> groupedEvents =
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+
+    // Mock UpdateIndicesUtil methods to return successful results
+    try (var mockedStatic = mockStatic(UpdateIndicesUtil.class)) {
+      mockedStatic
+          .when(() -> UpdateIndicesUtil.extractSpecPair(any(MCLItem.class)))
+          .thenReturn(Pair.of(mockEntitySpec, mockAspectSpec));
+      mockedStatic.when(() -> UpdateIndicesUtil.isDeletingKey(any(Pair.class))).thenReturn(true);
+
+      // Execute - should handle null search group gracefully
+      strategy.processBatch(operationContext, groupedEvents);
+
+      // Verify that no delete operation was performed due to null search group
+      verify(elasticSearchService, never())
+          .deleteDocumentBySearchGroup(any(), anyString(), anyString());
+    }
+  }
+
+  @Test
+  public void testProcessBatch_EmptyEventsListForUrn() throws Exception {
+    // Setup for URN with empty events list (different from empty groupedEvents map)
+    Map<Urn, List<MCLItem>> groupedEvents =
+        Collections.singletonMap(testUrn, Collections.emptyList());
+
+    // Execute and verify that IndexOutOfBoundsException is thrown due to bug in
+    // buildV3SearchDocument
+    // This test documents the current behavior - the code crashes when events list is empty
+    // because buildV3SearchDocument tries to access events.get(0) without checking if events is
+    // empty
+    IndexOutOfBoundsException exception =
+        expectThrows(
+            IndexOutOfBoundsException.class,
+            () -> strategy.processBatch(operationContext, groupedEvents));
+
+    // Verify the exception message indicates the issue
+    assertTrue(exception.getMessage().contains("Index: 0"));
+  }
+
+  @Test
+  public void testProcessBatch_UpsertWithNullSearchGroup() throws Exception {
+    // Setup for UPSERT event with null search group
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockEvent.getAspectName()).thenReturn("datasetProperties");
+    when(mockEntitySpec.getKeyAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec.getSearchGroup()).thenReturn(null); // Null search group
+
+    Map<Urn, List<MCLItem>> groupedEvents =
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+
+    // Mock search document transformer to return a document
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    // Execute - should handle null search group gracefully
+    strategy.processBatch(operationContext, groupedEvents);
+
+    // Verify that no upsert operation was performed due to null search group
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testProcessBatch_ExceptionInAspectProcessing() throws Exception {
+    // Setup for UPSERT event that will cause an exception during aspect processing
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockEvent.getAspectName()).thenReturn("datasetProperties");
+    when(mockEntitySpec.getKeyAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec.getSearchGroup()).thenReturn("dataset");
+
+    // Mock getAspectSpec to throw an exception
+    when(mockEvent.getAspectSpec()).thenThrow(new RuntimeException("Aspect spec error"));
+
+    Map<Urn, List<MCLItem>> groupedEvents =
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+
+    // Execute - should handle the exception gracefully and continue processing
+    strategy.processBatch(operationContext, groupedEvents);
+
+    // Verify that no upsert operation was performed due to the exception
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testProcessBatch_ExceptionInTransformAspect() throws Exception {
+    // Setup for UPSERT event that will cause an exception during aspect transformation
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockEvent.getAspectName()).thenReturn("datasetProperties");
+    when(mockEntitySpec.getKeyAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec.getSearchGroup()).thenReturn("dataset");
+
+    // Mock searchDocumentTransformer.transformAspect to throw an exception
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenThrow(new RuntimeException("Transform aspect error"));
+
+    Map<Urn, List<MCLItem>> groupedEvents =
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+
+    // Execute - should handle the exception gracefully and continue processing
+    strategy.processBatch(operationContext, groupedEvents);
+
+    // Verify that no upsert operation was performed due to the exception
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testProcessBatch_ExceptionInStructuredPropertiesProcessing() throws Exception {
+    // Setup for UPSERT event with structured properties aspect that will cause an exception
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockEvent.getAspectName()).thenReturn(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEntitySpec.getKeyAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec.getSearchGroup()).thenReturn("dataset");
+
+    // Mock getAspectSpec to throw an exception during structured properties processing
+    when(mockEvent.getAspectSpec()).thenThrow(new RuntimeException("Aspect spec error"));
+
+    Map<Urn, List<MCLItem>> groupedEvents =
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+
+    // Execute - should handle the exception gracefully and continue processing
+    strategy.processBatch(operationContext, groupedEvents);
+
+    // Verify that no upsert operation was performed due to the exception
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
   }
 }

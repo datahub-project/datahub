@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models.annotation;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -516,6 +517,496 @@ public class SearchableAnnotationExtensionTest {
           () ->
               SearchableAnnotation.fromPegasusAnnotationObject(
                   annotationMap, "testField", DataSchema.Type.STRING, "test context"));
+    }
+  }
+
+  @Test
+  public void testInvalidValueTypeProvided() {
+    // Test that non-Map objects throw ModelValidationException with updated error message format
+    String testContext = "testField";
+
+    // Test with String instead of Map
+    assertThrows(
+        ModelValidationException.class,
+        () -> {
+          SearchableAnnotation.fromPegasusAnnotationObject(
+              "invalidString", "testField", DataSchema.Type.STRING, testContext);
+        });
+
+    // Test with Integer instead of Map
+    assertThrows(
+        ModelValidationException.class,
+        () -> {
+          SearchableAnnotation.fromPegasusAnnotationObject(
+              123, "testField", DataSchema.Type.STRING, testContext);
+        });
+
+    // Test with List instead of Map
+    assertThrows(
+        ModelValidationException.class,
+        () -> {
+          SearchableAnnotation.fromPegasusAnnotationObject(
+              java.util.List.of("item1", "item2"),
+              "testField",
+              DataSchema.Type.STRING,
+              testContext);
+        });
+  }
+
+  @Test
+  public void testInvalidValueTypeErrorMessageFormat() {
+    // Test that the error message includes the actual class type in the format:
+    // "Failed to validate @Searchable annotation declared at {context}: Invalid value type
+    // {actualType} provided (Expected Map)"
+    String testContext = "testField";
+
+    try {
+      SearchableAnnotation.fromPegasusAnnotationObject(
+          "invalidString", "testField", DataSchema.Type.STRING, testContext);
+      assert false : "Expected ModelValidationException to be thrown";
+    } catch (ModelValidationException e) {
+      String expectedMessage =
+          String.format(
+              "Failed to validate @%s annotation declared at %s: Invalid value type %s provided (Expected Map)",
+              "Searchable", testContext, String.class);
+      assert e.getMessage().contains(expectedMessage)
+          : "Error message should contain the actual class type. Expected: "
+              + expectedMessage
+              + ", Actual: "
+              + e.getMessage();
+    }
+
+    try {
+      SearchableAnnotation.fromPegasusAnnotationObject(
+          123, "testField", DataSchema.Type.STRING, testContext);
+      assert false : "Expected ModelValidationException to be thrown";
+    } catch (ModelValidationException e) {
+      String expectedMessage =
+          String.format(
+              "Failed to validate @%s annotation declared at %s: Invalid value type %s provided (Expected Map)",
+              "Searchable", testContext, Integer.class);
+      assert e.getMessage().contains(expectedMessage)
+          : "Error message should contain the actual class type. Expected: "
+              + expectedMessage
+              + ", Actual: "
+              + e.getMessage();
+    }
+  }
+
+  @Test
+  public void testSearchIndexedWithoutSearchTier() {
+    // Test that searchIndexed=true without searchTier throws ModelValidationException
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "TEXT");
+    annotationMap.put("searchIndexed", true);
+    // No searchTier specified
+
+    assertThrows(
+        ModelValidationException.class,
+        () -> {
+          SearchableAnnotation.fromPegasusAnnotationObject(
+              annotationMap, "testField", DataSchema.Type.STRING, "test context");
+        });
+  }
+
+  @Test
+  public void testSearchIndexedWithInvalidFieldType() {
+    // Test that searchIndexed=true with invalid field types throws ModelValidationException
+    String[] invalidFieldTypes = {
+      "COUNT",
+      "BOOLEAN",
+      "DATETIME",
+      "DOUBLE",
+      "OBJECT",
+      "BROWSE_PATH",
+      "URN",
+      "URN_PARTIAL",
+      "TEXT_PARTIAL",
+      "WORD_GRAM"
+    };
+
+    for (String invalidFieldType : invalidFieldTypes) {
+      DataMap annotationMap = new DataMap();
+      annotationMap.put("fieldType", invalidFieldType);
+      annotationMap.put("searchTier", 1);
+      annotationMap.put("searchIndexed", true);
+
+      assertThrows(
+          ModelValidationException.class,
+          () -> {
+            SearchableAnnotation.fromPegasusAnnotationObject(
+                annotationMap, "testField", DataSchema.Type.STRING, "test context");
+          });
+    }
+  }
+
+  @Test
+  public void testSearchIndexedWithValidFieldTypes() {
+    // Test that searchIndexed=true with valid field types (KEYWORD and TEXT) works correctly
+    String[] validFieldTypes = {"KEYWORD", "TEXT"};
+
+    for (String validFieldType : validFieldTypes) {
+      DataMap annotationMap = new DataMap();
+      annotationMap.put("fieldType", validFieldType);
+      annotationMap.put("searchTier", 1);
+      annotationMap.put("searchIndexed", true);
+
+      // Should not throw exception
+      SearchableAnnotation annotation =
+          SearchableAnnotation.fromPegasusAnnotationObject(
+              annotationMap, "testField", DataSchema.Type.STRING, "test context");
+
+      assertTrue(annotation.getSearchIndexed().isPresent());
+      assertTrue(annotation.getSearchIndexed().get());
+      assertTrue(annotation.getSearchTier().isPresent());
+      assertEquals(annotation.getSearchTier().get(), Integer.valueOf(1));
+    }
+  }
+
+  @Test
+  public void testSearchIndexedFalseWithSearchTier() {
+    // Test that searchIndexed=false with searchTier works correctly
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "TEXT");
+    annotationMap.put("searchTier", 1);
+    annotationMap.put("searchIndexed", false);
+
+    // Should not throw exception
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "testField", DataSchema.Type.STRING, "test context");
+
+    assertTrue(annotation.getSearchIndexed().isPresent());
+    assertFalse(annotation.getSearchIndexed().get());
+    assertTrue(annotation.getSearchTier().isPresent());
+    assertEquals(annotation.getSearchTier().get(), Integer.valueOf(1));
+  }
+
+  @Test
+  public void testSearchIndexedErrorMessageFormat() {
+    // Test the specific error message format for searchIndexed validation
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "TEXT");
+    annotationMap.put("searchIndexed", true);
+    // No searchTier specified
+
+    try {
+      SearchableAnnotation.fromPegasusAnnotationObject(
+          annotationMap, "testField", DataSchema.Type.STRING, "testField");
+      assert false : "Expected ModelValidationException to be thrown";
+    } catch (ModelValidationException e) {
+      String expectedMessage =
+          String.format(
+              "Failed to validate @%s annotation declared at %s: searchIndexed can only be true when searchTier is specified",
+              "Searchable", "testField");
+      assert e.getMessage().contains(expectedMessage)
+          : "Error message should match expected format. Expected: "
+              + expectedMessage
+              + ", Actual: "
+              + e.getMessage();
+    }
+
+    // Test error message for invalid field type
+    // Use TEXT_PARTIAL which is valid for searchTier but invalid for searchIndexed
+    DataMap invalidFieldTypeMap = new DataMap();
+    invalidFieldTypeMap.put("fieldType", "TEXT_PARTIAL");
+    invalidFieldTypeMap.put("searchTier", 1);
+    invalidFieldTypeMap.put("searchIndexed", true);
+
+    try {
+      SearchableAnnotation.fromPegasusAnnotationObject(
+          invalidFieldTypeMap, "testField", DataSchema.Type.STRING, "testField");
+      assert false : "Expected ModelValidationException to be thrown";
+    } catch (ModelValidationException e) {
+      String expectedMessage =
+          String.format(
+              "Failed to validate @%s annotation declared at %s: searchIndexed can only be used with KEYWORD or TEXT field types, but was %s",
+              "Searchable", "testField", SearchableAnnotation.FieldType.TEXT_PARTIAL);
+      assert e.getMessage().contains(expectedMessage)
+          : "Error message should match expected format. Expected: "
+              + expectedMessage
+              + ", Actual: "
+              + e.getMessage();
+    }
+  }
+
+  @Test
+  public void testEntityFieldNameLengthValidation() {
+    // Test that entityFieldName longer than 255 characters throws ModelValidationException
+    String longFieldName = "a".repeat(256); // 256 characters
+
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "TEXT");
+    annotationMap.put("entityFieldName", longFieldName);
+
+    assertThrows(
+        ModelValidationException.class,
+        () -> {
+          SearchableAnnotation.fromPegasusAnnotationObject(
+              annotationMap, "testField", DataSchema.Type.STRING, "test context");
+        });
+  }
+
+  @Test
+  public void testEntityFieldNameReservedFieldValidation() {
+    // Test that reserved Elasticsearch field names are rejected
+    String[] reservedFields = {
+      "_id",
+      "_index",
+      "_type",
+      "_source",
+      "_all",
+      "_routing",
+      "_parent",
+      "_timestamp",
+      "_ttl",
+      "_version",
+      "_score",
+      "_explanation",
+      "_shards",
+      "_nodes",
+      "_cluster_name",
+      "_cluster_uuid",
+      "_name",
+      "_uuid",
+      "_version_type",
+      "_seq_no",
+      "_primary_term"
+    };
+
+    for (String reservedField : reservedFields) {
+      DataMap annotationMap = new DataMap();
+      annotationMap.put("fieldType", "TEXT");
+      annotationMap.put("entityFieldName", reservedField);
+
+      assertThrows(
+          ModelValidationException.class,
+          () -> {
+            SearchableAnnotation.fromPegasusAnnotationObject(
+                annotationMap, "testField", DataSchema.Type.STRING, "test context");
+          });
+    }
+  }
+
+  @Test
+  public void testEntityFieldNameDotPatternValidation() {
+    // Test that entityFieldName with problematic dot patterns are rejected
+    String[] invalidDotPatterns = {
+      ".field", // starts with dot
+      "field.", // ends with dot
+      "field..name", // consecutive dots
+      "field...name", // multiple consecutive dots
+      ".field.name.", // starts and ends with dots
+      "field..name..test" // multiple consecutive dots
+    };
+
+    for (String invalidPattern : invalidDotPatterns) {
+      DataMap annotationMap = new DataMap();
+      annotationMap.put("fieldType", "TEXT");
+      annotationMap.put("entityFieldName", invalidPattern);
+
+      assertThrows(
+          ModelValidationException.class,
+          () -> {
+            SearchableAnnotation.fromPegasusAnnotationObject(
+                annotationMap, "testField", DataSchema.Type.STRING, "test context");
+          });
+    }
+  }
+
+  @Test
+  public void testEntityFieldNameLowercaseValidation() {
+    // Test that entityFieldName with uppercase letters are rejected
+    String[] invalidUppercaseNames = {
+      "FieldName", // mixed case
+      "FIELDNAME", // all uppercase
+      "fieldName", // camelCase
+      "Field_Name", // mixed case with underscore
+      "field-Name", // mixed case with hyphen
+      "Field.name" // mixed case with dot
+    };
+
+    for (String invalidName : invalidUppercaseNames) {
+      DataMap annotationMap = new DataMap();
+      annotationMap.put("fieldType", "TEXT");
+      annotationMap.put("entityFieldName", invalidName);
+
+      assertThrows(
+          ModelValidationException.class,
+          () -> {
+            SearchableAnnotation.fromPegasusAnnotationObject(
+                annotationMap, "testField", DataSchema.Type.STRING, "test context");
+          });
+    }
+  }
+
+  @Test
+  public void testEntityFieldNameValidValues() {
+    // Test that valid entityFieldName values work correctly
+    String[] validNames = {
+      "fieldname", // simple lowercase
+      "field_name", // lowercase with underscore
+      "field-name", // lowercase with hyphen
+      "field.name", // lowercase with dot
+      "field_name123", // lowercase with numbers
+      "field-name.test", // multiple valid separators
+      "a", // single character
+      "field_name_test", // multiple underscores
+      "field-name-test" // multiple hyphens
+    };
+
+    for (String validName : validNames) {
+      DataMap annotationMap = new DataMap();
+      annotationMap.put("fieldType", "TEXT");
+      annotationMap.put("entityFieldName", validName);
+
+      // Should not throw exception
+      SearchableAnnotation annotation =
+          SearchableAnnotation.fromPegasusAnnotationObject(
+              annotationMap, "testField", DataSchema.Type.STRING, "test context");
+
+      assertTrue(annotation.getEntityFieldName().isPresent());
+      assertEquals(annotation.getEntityFieldName().get(), validName);
+    }
+  }
+
+  @Test
+  public void testEntityFieldNameMaxLengthBoundary() {
+    // Test the boundary case - exactly 255 characters should be valid
+    String maxLengthFieldName = "a".repeat(255); // exactly 255 characters
+
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "TEXT");
+    annotationMap.put("entityFieldName", maxLengthFieldName);
+
+    // Should not throw exception
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "testField", DataSchema.Type.STRING, "test context");
+
+    assertTrue(annotation.getEntityFieldName().isPresent());
+    assertEquals(annotation.getEntityFieldName().get(), maxLengthFieldName);
+  }
+
+  @Test
+  public void testEagerGlobalOrdinalsWithInvalidFieldTypes() {
+    // Test that eagerGlobalOrdinals=true with invalid field types throws ModelValidationException
+    String[] invalidFieldTypes = {
+      "TEXT",
+      "TEXT_PARTIAL",
+      "BROWSE_PATH",
+      "BOOLEAN",
+      "COUNT",
+      "DATETIME",
+      "OBJECT",
+      "BROWSE_PATH_V2",
+      "WORD_GRAM",
+      "DOUBLE",
+      "MAP_ARRAY"
+    };
+
+    for (String invalidFieldType : invalidFieldTypes) {
+      DataMap annotationMap = new DataMap();
+      annotationMap.put("fieldType", invalidFieldType);
+      annotationMap.put("eagerGlobalOrdinals", true);
+
+      assertThrows(
+          ModelValidationException.class,
+          () -> {
+            SearchableAnnotation.fromPegasusAnnotationObject(
+                annotationMap, "testField", DataSchema.Type.STRING, "test context");
+          });
+    }
+  }
+
+  @Test
+  public void testEagerGlobalOrdinalsWithValidFieldTypes() {
+    // Test that eagerGlobalOrdinals=true with valid field types works correctly
+    String[] validFieldTypes = {"KEYWORD", "URN", "URN_PARTIAL"};
+
+    for (String validFieldType : validFieldTypes) {
+      DataMap annotationMap = new DataMap();
+      annotationMap.put("fieldType", validFieldType);
+      annotationMap.put("eagerGlobalOrdinals", true);
+
+      // Should not throw exception
+      SearchableAnnotation annotation =
+          SearchableAnnotation.fromPegasusAnnotationObject(
+              annotationMap, "testField", DataSchema.Type.STRING, "test context");
+
+      assertTrue(annotation.getEagerGlobalOrdinals().isPresent());
+      assertTrue(annotation.getEagerGlobalOrdinals().get());
+    }
+  }
+
+  @Test
+  public void testEagerGlobalOrdinalsFalse() {
+    // Test that eagerGlobalOrdinals=false works with any field type
+    String[] fieldTypes = {
+      "KEYWORD", "TEXT", "TEXT_PARTIAL", "BROWSE_PATH", "URN", "URN_PARTIAL",
+      "BOOLEAN", "COUNT", "DATETIME", "OBJECT", "BROWSE_PATH_V2", "WORD_GRAM",
+      "DOUBLE", "MAP_ARRAY"
+    };
+
+    for (String fieldType : fieldTypes) {
+      DataMap annotationMap = new DataMap();
+      annotationMap.put("fieldType", fieldType);
+      annotationMap.put("eagerGlobalOrdinals", false);
+
+      // Should not throw exception
+      SearchableAnnotation annotation =
+          SearchableAnnotation.fromPegasusAnnotationObject(
+              annotationMap, "testField", DataSchema.Type.STRING, "test context");
+
+      assertTrue(annotation.getEagerGlobalOrdinals().isPresent());
+      assertFalse(annotation.getEagerGlobalOrdinals().get());
+    }
+  }
+
+  @Test
+  public void testEagerGlobalOrdinalsNotSpecified() {
+    // Test that when eagerGlobalOrdinals is not specified, it works with any field type
+    String[] fieldTypes = {
+      "KEYWORD", "TEXT", "TEXT_PARTIAL", "BROWSE_PATH", "URN", "URN_PARTIAL",
+      "BOOLEAN", "COUNT", "DATETIME", "OBJECT", "BROWSE_PATH_V2", "WORD_GRAM",
+      "DOUBLE", "MAP_ARRAY"
+    };
+
+    for (String fieldType : fieldTypes) {
+      DataMap annotationMap = new DataMap();
+      annotationMap.put("fieldType", fieldType);
+      // No eagerGlobalOrdinals specified
+
+      // Should not throw exception
+      SearchableAnnotation annotation =
+          SearchableAnnotation.fromPegasusAnnotationObject(
+              annotationMap, "testField", DataSchema.Type.STRING, "test context");
+
+      assertFalse(annotation.getEagerGlobalOrdinals().isPresent());
+    }
+  }
+
+  @Test
+  public void testEagerGlobalOrdinalsErrorMessageFormat() {
+    // Test the specific error message format for eagerGlobalOrdinals validation
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "TEXT");
+    annotationMap.put("eagerGlobalOrdinals", true);
+
+    try {
+      SearchableAnnotation.fromPegasusAnnotationObject(
+          annotationMap, "testField", DataSchema.Type.STRING, "testField");
+      assert false : "Expected ModelValidationException to be thrown";
+    } catch (ModelValidationException e) {
+      String expectedMessage =
+          String.format(
+              "Failed to validate @%s annotation declared at %s: eagerGlobalOrdinals can only be true for KEYWORD, URN, or URN_PARTIAL field types, but was %s",
+              "Searchable", "testField", SearchableAnnotation.FieldType.TEXT);
+      assert e.getMessage().contains(expectedMessage)
+          : "Error message should match expected format. Expected: "
+              + expectedMessage
+              + ", Actual: "
+              + e.getMessage();
     }
   }
 }
