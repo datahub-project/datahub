@@ -1,7 +1,9 @@
-import { Empty } from 'antd';
+import { Table, Text } from '@components';
 import React from 'react';
 
-import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
+import { AlignmentOptions } from '@components/theme/config';
+
+import { EmptyContainer } from '@app/entityV2/view/ViewsList';
 import {
     ActionsColumn,
     DescriptionColumn,
@@ -13,7 +15,7 @@ import { DataHubView } from '@types';
 
 type ViewsTableProps = {
     views: DataHubView[];
-    onEditView: (urn) => void;
+    onEditView?: (urn) => void;
 };
 
 /**
@@ -25,24 +27,28 @@ export const ViewsTable = ({ views, onEditView }: ViewsTableProps) => {
             title: 'Name',
             dataIndex: 'name',
             key: 'name',
-            render: (name, record) => <NameColumn name={name} record={record} onEditView={onEditView} />,
+            width: '25%',
+            render: (record) => <NameColumn name={record.name} record={record} onEditView={onEditView} />,
         },
         {
             title: 'Description',
             dataIndex: 'description',
             key: 'description',
-            render: (description) => <DescriptionColumn description={description} />,
+            render: (record) => <DescriptionColumn description={record.description} />,
         },
         {
             title: 'Type',
             dataIndex: 'viewType',
             key: 'viewType',
-            render: (viewType) => <ViewTypeColumn viewType={viewType} />,
+            width: '10%',
+            render: (record) => <ViewTypeColumn viewType={record.viewType} />,
         },
         {
             title: '',
             dataIndex: '',
             key: 'x',
+            width: '5%',
+            alignment: 'right' as AlignmentOptions,
             render: (record) => <ActionsColumn record={record} />,
         },
     ];
@@ -50,19 +56,20 @@ export const ViewsTable = ({ views, onEditView }: ViewsTableProps) => {
     /**
      * The data for the Views List.
      */
-    const tableData = views.map((view) => ({
-        ...view,
-    }));
+    const tableData =
+        views.map((view) => ({
+            ...view,
+        })) || [];
 
-    return (
-        <StyledTable
-            columns={tableColumns}
-            dataSource={tableData}
-            rowKey="urn"
-            locale={{
-                emptyText: <Empty description="No Views found!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-            }}
-            pagination={false}
-        />
-    );
+    if (!views.length) {
+        return (
+            <EmptyContainer>
+                <Text size="md" color="gray" weight="bold">
+                    No results!
+                </Text>
+            </EmptyContainer>
+        );
+    }
+
+    return <Table columns={tableColumns} data={tableData} isScrollable />;
 };
