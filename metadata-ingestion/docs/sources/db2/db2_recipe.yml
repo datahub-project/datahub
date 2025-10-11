@@ -1,0 +1,13 @@
+source:
+  type: db2
+  config:
+    # Coordinates
+    host_port: localhost:50000
+    database: dbname
+
+    # Credentials
+    username: db2inst1
+    password: password
+
+sink:
+  # sink configs

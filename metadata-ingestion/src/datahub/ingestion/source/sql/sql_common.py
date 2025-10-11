@@ -1155,6 +1155,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         except NotImplementedError:
             return ""
 
+    def get_view_default_db_schema(
+        self, dataset_name: str, _inspector: Inspector, _schema: str, _view: str
+    ) -> Tuple[Optional[str], Optional[str]]:
+        # Some databases use different implicit databases/schemas for unqualified
+        # names in view definitions than the database/schema of the view itself.
+        return None, None
+
     def _process_view(
         self,
         dataset_name: str,
@@ -1201,9 +1208,22 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             default_db = None
             default_schema = None
             try:
-                default_db, default_schema = self.get_db_schema(dataset_name)
+                default_db, default_schema = self.get_view_default_db_schema(
+                    dataset_name, inspector, schema, view
+                )
+            except Exception as e:
+                self.report.warning(
+                    "Failed to get default db and schema names for view",
+                    context=dataset_name,
+                    exc=e,
+                )
+            try:
+                dataset_db, dataset_schema = self.get_db_schema(dataset_name)
+                default_db = default_db or dataset_db
+                default_schema = default_schema or dataset_schema
             except ValueError:
                 logger.warning(f"Invalid view identifier: {dataset_name}")
+
             self.aggregator.add_view_definition(
                 view_urn=dataset_urn,
                 view_definition=view_definition,
@@ -1489,8 +1509,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self, inspector: Inspector, schema: str, db_name: str
     ) -> List[BaseProcedure]:
         try:
-            raw_procedures: List[BaseProcedure] = self.get_procedures_for_schema(
-                inspector, schema, db_name
+            raw_procedures = list(
+                self.get_procedures_for_schema(inspector, schema, db_name)
             )
             procedures: List[BaseProcedure] = []
             for procedure in raw_procedures:
@@ -1521,7 +1541,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
-    ) -> List[BaseProcedure]:
+    ) -> Iterable[BaseProcedure]:
         raise NotImplementedError(
             "Subclasses must implement the 'get_procedures_for_schema' method."
         )
