@@ -2,7 +2,7 @@ import unittest
 from typing import Any, Dict, Optional
 
 import pytest
-from pydantic.error_wrappers import ValidationError
+from pydantic import ValidationError
 
 from datahub_executor.common.types import (
     AssertionEvaluationParameters,

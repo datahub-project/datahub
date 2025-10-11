@@ -3,7 +3,7 @@ import { InputRef, message } from 'antd';
 import { X } from 'phosphor-react';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useHistory, useLocation } from 'react-router';
+import { useLocation } from 'react-router';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -144,6 +144,7 @@ const removeExecutionsFromIngestionSource = (source) => {
             type: source.type,
             schedule: source.schedule,
             config: source.config,
+            source: source.source,
         };
     }
     return undefined;
@@ -157,6 +158,10 @@ interface Props {
     setHideSystemSources: (show: boolean) => void;
     selectedTab: TabType | undefined | null;
     setSelectedTab: (selectedTab: TabType | null | undefined) => void;
+    sourceFilter?: number;
+    setSourceFilter: (sourceFilter: number | undefined) => void;
+    searchQuery?: string;
+    setSearchQuery: (query: string) => void;
 }
 
 export const IngestionSourceList = ({
@@ -167,35 +172,37 @@ export const IngestionSourceList = ({
     setHideSystemSources,
     selectedTab,
     setSelectedTab,
+    sourceFilter: sourceFilterFromUrl,
+    setSourceFilter: setSourceFilterFromUrl,
+    searchQuery: searchQueryFromUrl,
+    setSearchQuery: setSearchQueryFromUrl,
 }: Props) => {
     const location = useLocation();
     const me = useUserContext();
 
     const params = useMemo(() => QueryString.parse(location.search, { arrayFormat: 'comma' }), [location]);
-    const paramsQuery = useMemo(() => (params?.query as string) || undefined, [params]);
     const paramsPoolFilter = useMemo(
         () => (params?.[INGESTION_TAB_QUERY_PARAMS.pool] as string) || undefined,
         [params],
     ); // SaaS only
-    const history = useHistory();
 
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [searchInput, setSearchInput] = useState('');
     const searchInputRef = useRef<InputRef>(null);
 
+    // Initialize search input from URL parameter
+    useEffect(() => {
+        if (searchQueryFromUrl?.length) {
+            setQuery(searchQueryFromUrl);
+            setSearchInput(searchQueryFromUrl);
+            setTimeout(() => {
+                searchInputRef.current?.focus?.();
+            }, 0);
+        }
+    }, [searchQueryFromUrl]);
+
     const handleSearchInputChange = (value: string) => {
         setSearchInput(value);
-
-        // Clear query param if user changes the search input
-        if (paramsQuery && value !== paramsQuery) {
-            const newParams = { ...params };
-            delete newParams.query;
-
-            history.replace({
-                pathname: location.pathname,
-                search: QueryString.stringify(newParams, { arrayFormat: 'comma' }),
-            });
-        }
     };
 
     const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
@@ -214,39 +221,26 @@ export const IngestionSourceList = ({
 
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
-    const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
     const [sort, setSort] = useState<SortCriterion>();
 
-    // highlight search input if user arrives with a query preset for salience
-    useEffect(() => {
-        if (paramsQuery?.length) {
-            setQuery(paramsQuery);
-            setSearchInput(paramsQuery);
-            setTimeout(() => {
-                searchInputRef.current?.focus?.();
-            }, 0);
-        }
-    }, [paramsQuery]);
+    const sourceFilter = sourceFilterFromUrl ?? IngestionSourceType.ALL;
 
-    // Reset the source type filter in the case of applying filters by links from another tabs
-    // Query params should be changed
+    // SaaS only: Reset the source type filter and search when pool filter is applied
     useEffect(() => {
-        if (paramsQuery?.length || paramsPoolFilter) {
-            setSourceFilter(IngestionSourceType.ALL);
-
-            // Saas only (reset query in the search input additionally)
-            if (paramsPoolFilter) {
-                setQuery('');
-                setSearchInput('');
-            }
+        if (paramsPoolFilter) {
+            setSourceFilterFromUrl(IngestionSourceType.ALL);
+            setQuery('');
+            setSearchInput('');
+            setSearchQueryFromUrl('');
         }
-    }, [paramsQuery, paramsPoolFilter]);
+    }, [paramsPoolFilter, setSourceFilterFromUrl, setSearchQueryFromUrl]);
 
     // Debounce the search query
     useDebounce(
         () => {
             setPage(1);
             setQuery(searchInput);
+            setSearchQueryFromUrl(searchInput);
         },
         300,
         [searchInput],
@@ -485,6 +479,7 @@ export const IngestionSourceList = ({
                             canView: true,
                         },
                         executions: null,
+                        source: input.source || null,
                         ownership: {
                             owners: buildOwnerEntities(newUrn, owners, defaultOwnerType),
                             lastModified: {
@@ -600,6 +595,12 @@ export const IngestionSourceList = ({
                     interval: recipeBuilderState.schedule?.interval as string,
                     timezone: recipeBuilderState.schedule?.timezone as string,
                 },
+                // Preserve source field when editing existing sources (especially system sources)
+                source: focusSource?.source
+                    ? {
+                          type: focusSource.source.type,
+                      }
+                    : undefined,
             },
             resetState,
             shouldRun,
@@ -691,7 +692,7 @@ export const IngestionSourceList = ({
                                     { label: 'CLI', value: '2' },
                                 ]}
                                 values={[sourceFilter.toString()]}
-                                onUpdate={(values) => setSourceFilter(Number(values[0]))}
+                                onUpdate={(values) => setSourceFilterFromUrl(Number(values[0]))}
                                 showClear={false}
                                 width="fit-content"
                                 size="lg"

@@ -919,6 +919,9 @@ fragment searchResultsWithoutSchemaField on Entity {
                 ...structuredPropertiesFields
             }
         }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on Domain {
         properties {

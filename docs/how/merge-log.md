@@ -375,3 +375,207 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **da885c6196** - refactor(ingestion): lookml source migration to use SDKv2 entities (#14710)
   *by Anush Kumar on 2025-09-17*
 
+
+## Upstream Merge Session - 2025-10-06 16:40:08
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-sep-30-2025`
+- **Merge Base**: `da885c61963c9af37be85265ad103dd049f6b26d`
+- **End Commit**: `b25748eda18cc4d82c76eb42ff773682447bcd21`
+- **Total Commits**: 63
+- **Strategy**: stacked
+- **Started**: Mon Oct  6 16:40:08 UTC 2025
+
+### Commits Included in This Merge
+- **5efad7bdd2** - fix(summaryTab):  UI fixes (#14778)
+  *by v-tarasevich-blitz-brain on 2025-09-18*
+
+- **60dcd8ce21** - Revert "Revert "docs(release): Add release notes for version 0.3.14"" (#14789)
+  *by Gabe Lyons on 2025-09-18*
+
+- **5be17c6444** - feat(ingestion/tableau): parameter to have entity owners as email address of owner (#14724)
+  *by Jonny Dixon on 2025-09-18*
+
+- **478cd97db4** - improvement(ui/summary-tab): handle deleted structured properties in properties header of asset summary (#14805)
+  *by purnimagarg1 on 2025-09-18*
+
+- **8d3e2fa433** - docs(slack): Update Slack setup instructions for token generation (#14745)
+  *by Gabe Lyons on 2025-09-18*
+
+- **7768abc6eb** - Update menu on structured props table to new component (#14655)
+  *by Anna Everhart on 2025-09-18*
+
+- **d268d14ee2** - feat(ui): add summary page feature flag to local storage and make it generic (#14807)
+  *by purnimagarg1 on 2025-09-19*
+
+- **8560c19241** - chore(): bump spring (#14811)
+  *by david-leifker on 2025-09-18*
+
+- **7c1200c704** - refactor(ingestion): looker source migration to use SDKv2 entities (#14693)
+  *by Anush Kumar on 2025-09-18*
+
+- **50a231cd1a** - Update Entity Dropdown to Menu Component (#14656)
+  *by Anna Everhart on 2025-09-18*
+
+- **6bf511d8a8** - fix(ingestion/looker): handle potential None values in explore dataset entity (#14813)
+  *by Anush Kumar on 2025-09-18*
+
+- **109a419969** - feat(ui) Add ability to add links to asset header (#14770)
+  *by Chris Collins on 2025-09-18*
+
+- **5c79114cb2** - feat(ingestion/superset): add HTTP retry configuration to prevent infinite loops (#14818)
+  *by Sergio Gómez Villamor on 2025-09-19*
+
+- **23389d0344** - fix(summary-tab): show correct feedback when trying to add duplicate link (#14817)
+  *by purnimagarg1 on 2025-09-19*
+
+- **d26b335b59** - fix(summaryTab): follow ups from reloading modules PR (#14779)
+  *by v-tarasevich-blitz-brain on 2025-09-19*
+
+- **04b76b5664** - docs(): Update saas vs. oss docs for v0.3.14 (#14814)
+  *by John Joyce on 2025-09-19*
+
+- **01b3ef27d4** - feat(ui): Add context paths for Data Products (#14802)
+  *by Saketh Varma on 2025-09-19*
+
+- **beb93f1dc8** - ci: add username pr-labeler (#14828)
+  *by Deepak Garg on 2025-09-22*
+
+- **082719b197** - docs(bigquery): improve docs about strategies for lineage/usage extraction (#14806)
+  *by Sergio Gómez Villamor on 2025-09-22*
+
+- **3b18fd2369** - chore(deps): fix (org.postgresql:postgresql) (#14831)
+  *by rahul MALAWADKAR on 2025-09-22*
+
+- **9778c10b1b** - test: bring cypress tests for structured properties to OSS (#14832)
+  *by purnimagarg1 on 2025-09-22*
+
+- **b654d93962** - fix(ui): fix link in entity header flashing infinitely (#14820)
+  *by purnimagarg1 on 2025-09-22*
+
+- **d68b86c5d6** - docs(teams): removing stale teams docs (#14810)
+  *by Gabe Lyons on 2025-09-22*
+
+- **c130241c2a** - fix(tests): removing flakey v1 test (#14676)
+  *by Gabe Lyons on 2025-09-22*
+
+- **00bc0db68c** - feat(quickstart): bump min docker req (#14827)
+  *by Deepak Garg on 2025-09-23*
+
+- **a17fc4e0a8** - chore(python): drop pydantic v1 support (#14014)
+  *by Harshal Sheth on 2025-09-23*
+
+- **77fa969b76** - fix(ingestion): avoid pyarrow CVE-2023-47248 (#14819)
+  *by Sergio Gómez Villamor on 2025-09-23*
+
+- **a379f21089** - feat(ui/ingest): bring back exact start time in run history (#14837)
+  *by Adrian Machado on 2025-09-23*
+
+- **ddaebfbde1** - doc(datahub cloud): update recommended versions for cli, helm (#14841)
+  *by Aseem Bansal on 2025-09-23*
+
+- **6a97baeee4** - feat(ingestion/snaplogic): Add snaplogic as a source for metadata ingestion (#14231)
+  *by sabdul on 2025-09-23*
+
+- **9be65bd971** - feat(ingest/tableau): enable extract_lineage_from_unsupported_custom_sql_queries by default (#14717)
+  *by Michael Maltese on 2025-09-23*
+
+- **0f69e96078** - feat(sdk): Added support for Change Audit Stamps in Dashboard and Chart entities (#14815)
+  *by Anush Kumar on 2025-09-23*
+
+- **ec166abade** - tests(snaplogic): fix tests (#14848)
+  *by Sergio Gómez Villamor on 2025-09-23*
+
+- **b0c9662be7** - feature(transformers): Introduce Set browsePathsV2 transformer (#14825)
+  *by skrydal on 2025-09-23*
+
+- **30c16d2e6f** - Update react readme instructions (#14839)
+  *by Adrian Machado on 2025-09-23*
+
+- **b6eab24406** - refactor(ui): Fix typo in onboarding "Quality" pop-up message (#14816)
+  *by Fabio Serragnoli on 2025-09-24*
+
+- **7e868493fe** - fix(ingest/redshift): Fix for missing schema containers during ingestion (#14845)
+  *by Tamas Nemeth on 2025-09-24*
+
+- **6677f7d7ea** - fix(ui/ingest): system source save (#14847)
+  *by Aseem Bansal on 2025-09-24*
+
+- **60d888412f** - feat(ui/ingest): filter for status on run history (#14851)
+  *by Aseem Bansal on 2025-09-24*
+
+- **dac35550cc** - feat(alchemy): updating input with maxSize and Helper Text (#14856)
+  *by Gabe Lyons on 2025-09-24*
+
+- **bd0379b8cb** - fix(security): disable akka dns (#14858)
+  *by david-leifker on 2025-09-24*
+
+- **a1abac5250** - feat(ui/ingest): make filter params part of url for navigation (#14852)
+  *by Aseem Bansal on 2025-09-25*
+
+- **0fa4639857** - fix(sdk): fixes imports for some SaaS classes (#14843)
+  *by Sergio Gómez Villamor on 2025-09-25*
+
+- **941b3c725a** - feat(ingest): add lowercase urn config option to metabase source (#14850)
+  *by Kevin Karch on 2025-09-25*
+
+- **72ee770ae3** - feat(ui) Update summary page editability (#14822)
+  *by Chris Collins on 2025-09-25*
+
+- **55d714e0cd** - fix(ingest/mssql): don't split_statements on keywords inside bracketed identifiers (#14863)
+  *by Michael Maltese on 2025-09-25*
+
+- **a85f83d556** - fix(): fix config value (#14865)
+  *by david-leifker on 2025-09-25*
+
+- **eb066dcf1e** - fix(ingest/gcs): fix a number of issues and add integration tests (#14857)
+  *by Michael Maltese on 2025-09-25*
+
+- **4bf3f0e66d** - feat(Plugin Loader) Add config to control plugin loader when failure happens (#14769)
+  *by Jesse Jia on 2025-09-26*
+
+- **7e9c525448** - fix(ingestion): Fix for module level variable caching in sqllite check (#14861)
+  *by Tamas Nemeth on 2025-09-26*
+
+- **50c5841b50** - fix(schema-registry): fix v1.2.0.1 schema registry bug (#14846)
+  *by david-leifker on 2025-09-26*
+
+- **c18b125a05** - feat(ingestion): Enhanced column lineage extraction for Looker/LookML (#14826)
+  *by Anush Kumar on 2025-09-26*
+
+- **900d7fe244** - docs: hide pydantic_removed_field marked fields from documentation (#14829)
+  *by Sergio Gómez Villamor on 2025-09-28*
+
+- **0b75674ab3** - free up disk space in quickstart verification CI (#14879)
+  *by Chakru on 2025-09-29*
+
+- **8d13b03e85** - feat(sdk/search): add owner filter (#14649)
+  *by Mayuri Nehate on 2025-09-29*
+
+- **e698f0bf1d** - feat(sdk/search): add tags, glossary terms filter (#14873)
+  *by Mayuri Nehate on 2025-09-29*
+
+- **1e749d0c55** - docs(ingest): decode strings for easier getting started (#14830)
+  *by Aseem Bansal on 2025-09-29*
+
+- **795a6828e8** - feat(identity): only suggest users that are active or have displayName (#14867)
+  *by Ben Blazke on 2025-09-29*
+
+- **e9e18e4705** - feat(secret): FileSecretStore and EnvironmentSecretStore (#14882)
+  *by Sergio Gómez Villamor on 2025-09-30*
+
+- **af12c2be37** - docs(snaplogic): Add snaplogic to integration page (#14881)
+  *by sabdul on 2025-09-30*
+
+- **ba56bc9e29** - docs(cli): add details on parameters (#14886)
+  *by Aseem Bansal on 2025-09-30*
+
+- **ddffb85e14** - fix(auth): include dataProcessInstance in policies UI (#14880)
+  *by Chakru on 2025-09-30*
+
+- **b25748eda1** - feat(web): UI pagination for Assertion List page  (#14859)
+  *by Adrian Machado on 2025-09-30*
+

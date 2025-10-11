@@ -3,9 +3,15 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-import pydantic
 from acryl.executor.request.execution_request import ExecutionRequest
-from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    TypeAdapter,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 from datahub_executor.common.metric.types import (
     Metric,
@@ -1124,7 +1130,7 @@ class AbsoluteTimeWindow(PermissiveBaseModel):
     def coerce_datetime_objects(cls, v: Any) -> int:
         # This exists purely to make it easier to pass datetime objects / strings in when testing.
         if not isinstance(v, int):
-            dt = pydantic.TypeAdapter(datetime).validate_python(v)
+            dt = TypeAdapter(datetime).validate_python(v)
             assert dt.tzinfo is not None, "datetime must be timezone-aware"
             return int(dt.timestamp() * 1000)
         return v

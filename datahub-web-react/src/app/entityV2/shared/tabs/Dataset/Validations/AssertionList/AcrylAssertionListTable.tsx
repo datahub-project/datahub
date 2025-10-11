@@ -4,7 +4,10 @@ import styled from 'styled-components';
 
 import { StyledTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTable';
 import { useAssertionsTableColumns } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/hooks';
-import { AssertionTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import {
+    AssertionListTableRow,
+    AssertionTable,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
 import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
@@ -95,15 +98,15 @@ export const AcrylAssertionListTable = ({
             };
         },
         [setFocusAssertionUrn],
-    ); // Only recreate if setFocusAssertionUrn changes
+    );
 
     return (
         <TableContainer>
             <ResizeObserver
                 onResize={(dimensions) => setTableHeight(dimensions.height - HEADER_AND_PAGINATION_HEIGHT_PX)}
             >
-                <StyledTable
-                    columns={assertionsTableCols as any}
+                <StyledTable<AssertionListTableRow>
+                    columns={assertionsTableCols}
                     showSelect
                     dataSource={memoizedData}
                     showHeader
@@ -121,7 +124,6 @@ export const AcrylAssertionListTable = ({
                     tableLayout="fixed"
                 />
             </ResizeObserver>
-
             {focusAssertionUrn && focusedAssertionEntity && (
                 <AssertionProfileDrawer
                     urn={focusAssertionUrn}

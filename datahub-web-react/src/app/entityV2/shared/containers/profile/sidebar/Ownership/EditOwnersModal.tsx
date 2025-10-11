@@ -25,7 +25,7 @@ import useAutoFocusInModal from '@utils/focus/useFocusInModal';
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
 import { useListOwnershipTypesQuery, useProposeOwnersMutation } from '@graphql/ownership.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
-import { CorpUser, DataHubPageModuleType, Entity, EntityType, FacetFilterInput, OwnerEntityType } from '@types';
+import { CorpUser, DataHubPageModuleType, Entity, EntityType, OwnerEntityType } from '@types';
 
 const SelectInput = styled(Select)`
     width: 480px;
@@ -167,15 +167,14 @@ export const EditOwnersModal = ({
     const { config } = useAppConfig();
     const { showTaskCenterRedesign } = config.featureFlags;
 
-    // Invokes the search API as the owner types with optional filters
-    const handleSearch = (type: EntityType, text: string, searchQuery: any, filters?: FacetFilterInput[]) => {
+    // Invokes the search API as the owner types
+    const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
         if (text) {
             const input = addUserFiltersToAutoCompleteInput(
                 {
                     type,
                     query: text,
                     limit: 10,
-                    ...(filters && filters.length > 0 && { filters }),
                 },
                 type,
             );

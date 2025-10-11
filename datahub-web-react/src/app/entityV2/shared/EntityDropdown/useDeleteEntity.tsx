@@ -77,6 +77,19 @@ function useDeleteEntity(
                         if (type === EntityType.DataProduct) {
                             reloadModules([DataHubPageModuleType.DataProducts]);
                         }
+                        // ChildHierarchy - as listed term in contents module in glossary node could be removed
+                        // RelatedTerms - as listed term in related terms could be removed
+                        if (type === EntityType.GlossaryTerm) {
+                            reloadModules([DataHubPageModuleType.ChildHierarchy, DataHubPageModuleType.RelatedTerms]);
+                        }
+                        // ChildHierarchy - as listed node in contents module in glossary node could be removed
+                        if (type === EntityType.GlossaryNode) {
+                            reloadModules([DataHubPageModuleType.ChildHierarchy]);
+                        }
+                        // ChildHierarchy - as listed domain in child domains module could be removed
+                        if (type === EntityType.Domain) {
+                            reloadModules([DataHubPageModuleType.ChildHierarchy]);
+                        }
                     },
                     skipWait ? 0 : 2000,
                 );

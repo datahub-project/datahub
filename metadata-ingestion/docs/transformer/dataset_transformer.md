@@ -539,6 +539,8 @@ Finally, you can install and use your custom transformer as [shown here](#instal
 
 ## Set Dataset browsePath
 
+> **⚠️ DEPRECATED:** This transformer will be removed in v1.3.0. Use [set browse_path](./universal_transformers.md#set-browsepaths) instead.
+
 ### Config Details
 
 | Field              | Required | Type         | Default     | Description                                                        |

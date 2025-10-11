@@ -5,7 +5,10 @@ import { useUserContext } from '@app/context/useUserContext';
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { mapSummaryElement } from '@app/entityV2/summary/properties/utils';
 import { filterOutNonExistentModulesFromTemplate } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
-import { getDefaultSummaryPageTemplate } from '@app/homeV3/context/hooks/utils/utils';
+import {
+    filterNonExistentStructuredProperties,
+    getDefaultSummaryPageTemplate,
+} from '@app/homeV3/context/hooks/utils/utils';
 import { DEFAULT_TEMPLATE } from '@app/homeV3/modules/constants';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
@@ -73,7 +76,10 @@ export function useTemplateState(templateType: PageTemplateSurfaceType) {
     };
 
     const summaryElements = useMemo(
-        () => template?.properties.assetSummary?.summaryElements?.map((el) => mapSummaryElement(el, entityRegistry)),
+        () =>
+            filterNonExistentStructuredProperties(template?.properties.assetSummary?.summaryElements || []).map((el) =>
+                mapSummaryElement(el, entityRegistry),
+            ),
         [template, entityRegistry],
     );
 

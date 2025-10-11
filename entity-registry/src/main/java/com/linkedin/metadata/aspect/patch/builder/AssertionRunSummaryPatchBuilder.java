@@ -11,7 +11,7 @@ import lombok.ToString;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 @ToString
-@EqualsAndHashCode
+@EqualsAndHashCode(callSuper = false)
 public class AssertionRunSummaryPatchBuilder
     extends AbstractMultiFieldPatchBuilder<AssertionRunSummaryPatchBuilder> {
 

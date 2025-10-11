@@ -68,7 +68,11 @@ class CheckpointStateBase(ConfigModel):
 
     @staticmethod
     def _to_bytes_utf8(model: ConfigModel) -> bytes:
-        return model.json(exclude={"version", "serde"}).encode("utf-8")
+        pydantic_json = model.model_dump_json(exclude={"version", "serde"})
+        # We decode and re-encode so that Python's default whitespace is included.
+        # This is purely to keep tests consistent as we migrate to pydantic v2,
+        # and can be removed once we're fully migrated.
+        return json.dumps(json.loads(pydantic_json)).encode("utf-8")
 
     @staticmethod
     def _to_bytes_base85_json(

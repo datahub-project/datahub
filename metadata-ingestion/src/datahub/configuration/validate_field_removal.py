@@ -1,15 +1,18 @@
 import warnings
-from typing import Type
+from typing import TYPE_CHECKING, Type
 
 import pydantic
 
 from datahub.configuration.common import ConfigurationWarning
 
+if TYPE_CHECKING:
+    from pydantic.deprecated.class_validators import V1RootValidator
+
 
 def pydantic_removed_field(
     field: str,
     print_warning: bool = True,
-) -> classmethod:
+) -> "V1RootValidator":
     def _validate_field_removal(cls: Type, values: dict) -> dict:
         if field in values:
             if print_warning:
@@ -20,6 +23,9 @@ def pydantic_removed_field(
                 )
             values.pop(field)
         return values
+
+    # Mark the function as handling a removed field for doc generation
+    _validate_field_removal._doc_removed_field = field  # type: ignore[attr-defined]
 
     # Hack: Pydantic maintains unique list of validators by referring its __name__.
     # https://github.com/pydantic/pydantic/blob/v1.10.9/pydantic/main.py#L264

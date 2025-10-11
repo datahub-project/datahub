@@ -37,10 +37,10 @@ import { useIngestionSourceForEntityQuery } from '@graphql/ingestion.generated';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '@graphql/monitor.generated';
 
 const AssertionListContainer = styled.div`
-    margin: 0px 20px;
-    height: 100%;
     display: flex;
+    height: 100%;
     flex-direction: column;
+    margin: 16px;
     flex: 1;
     overflow: hidden;
 `;
@@ -152,11 +152,12 @@ export const AcrylAssertionList = () => {
 
     return (
         <>
-            <AssertionListTitleContainer
-                privileges={privileges as EntityPrivileges}
-                onCreateAssertion={(params: EntityStagedForAssertion) => setAuthorAssertionForEntity(params)}
-            />
             <AssertionListContainer>
+                <AssertionListTitleContainer
+                    privileges={privileges as EntityPrivileges}
+                    onCreateAssertion={(params: EntityStagedForAssertion) => setAuthorAssertionForEntity(params)}
+                />
+
                 {assertionMonitorData?.length > 0 && (
                     <AcrylAssertionListFilters
                         filterOptions={visibleAssertions?.filterOptions}

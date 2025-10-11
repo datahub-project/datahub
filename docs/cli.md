@@ -88,6 +88,27 @@ We've ordered them roughly in the order we expect you to interact with these com
 
 The `docker` command allows you to start up a local DataHub instance using `datahub docker quickstart`. You can also check if the docker cluster is healthy using `datahub docker check`.
 
+### version
+
+The `version` command allows you to get version number of CLI that you are using.
+
+```console
+datahub version
+DataHub CLI version: 1.2.0.9
+Models: bundled
+Python version: 3.11.11 (main, Mar 17 2025, 21:33:08) [Clang 20.1.0 ]
+```
+
+You can pass `--include-server` flag to include server information too. This is helpful to share cli and server version at once for debugging purposes. This does require `datahub init` to be run before that so there is a server that CLI is able to connect to.
+
+```console
+datahub version --include-server
+DataHub CLI version: 1.2.0.9
+Models: bundled
+Python version: 3.11.11 (main, Mar 17 2025, 21:33:08) [Clang 20.1.0 ]
+Server config: {'models': {}, 'managedIngestion': {'defaultCliVersion': '1.2.0.9', 'enabled': True}, 'timeZone': 'GMT', 'datasetUrnNameCasing': False, 'datahub': {'serverEnv': 'cloud', 'serverType': 'prod'}, 'baseUrl': 'https://xyz.acryl.io', 'patchCapable': True, 'versions': {'acryldata/datahub': {'version': 'v0.3.14rc0', 'commit': '464d94926bb21a596f3d9d81164b272c74872ce7'}}, 'statefulIngestionCapable': True, 'remoteExecutorBackend': {'revision': 2}, 'supportsImpactAnalysis': True, 'telemetry': {'enabledCli': False, 'enabledMixpanel': False, 'enabledServer': True, 'enabledIngestion': True}, 'retention': 'true', 'noCode': 'true'}
+```
+
 ### ingest
 
 The `ingest` command allows you to ingest metadata from your sources using ingestion configuration files, which we call recipes.
@@ -331,6 +352,8 @@ Configure which datahub instance to connect to
 Enter your DataHub host [http://localhost:8080]: https://<your-instance-id>.acryl.io/gms
 Enter your DataHub access token []: <token generated from https://<your-instance-id>.acryl.io/settings/tokens>
 ```
+
+You can pass `--use-password` flag to use user/password to generate the token automatically.
 
 #### Environment variables supported
 

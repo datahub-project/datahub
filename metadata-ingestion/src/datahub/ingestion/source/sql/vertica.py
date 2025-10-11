@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tupl
 
 import pydantic
 import pytest
-from pydantic.class_validators import validator
+from pydantic import validator
 from vertica_sqlalchemy_dialect.base import VerticaInspector
 
 from datahub.configuration.common import AllowDenyPattern
