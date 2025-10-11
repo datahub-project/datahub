@@ -183,6 +183,9 @@ task yarnBuildStoryBook(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) 
 }
 
 task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  // Pass DataHub version via environment variable to vite build
+  environment.put('DATAHUB_APP_VERSION', project.version)
+
   args = ['run', project.hasProperty('sourcemap') ? 'buildWithSourceMap-only' :'build-only']
 
   outputs.cacheIf { true }

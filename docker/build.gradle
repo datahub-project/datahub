@@ -55,34 +55,6 @@ ext {
         return envVars
     }
 
-    // Load environment variables from file if DATAHUB_LOCAL_COMMON_ENV is set
-    loadCommonEnvFile = {
-        def envFile = System.getenv("DATAHUB_LOCAL_COMMON_ENV")
-        def envVars = [:]
-
-        if (envFile && new File(envFile).exists()) {
-            logger.lifecycle("Loading environment variables from: ${envFile}")
-            new File(envFile).eachLine { line ->
-                line = line.trim()
-                if (line && !line.startsWith("#") && line.contains("=")) {
-                    def parts = line.split("=", 2)
-                    if (parts.length == 2) {
-                        envVars[parts[0].trim()] = parts[1].trim()
-                    }
-                }
-            }
-        }
-
-        // Also load any environment variables that start with DATAHUB_
-        System.getenv().each { key, value ->
-            if (key.startsWith("DATAHUB_")) {
-                envVars[key] = value
-            }
-        }
-
-        return envVars
-    }
-
     // Common configuration for all tasks
     common_config = [
             captureContainersOutput: true,
