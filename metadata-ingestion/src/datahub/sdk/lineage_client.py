@@ -30,8 +30,6 @@ from datahub.sdk._shared import (
 )
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
-from datahub.sdk.search_client import compile_filters
-from datahub.sdk.search_filters import Filter, FilterDsl
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.datajob import DataJobPatchBuilder
@@ -42,6 +40,7 @@ from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
+    from datahub.sdk.search_filters import Filter
 
 
 _empty_audit_stamp = models.AuditStampClass(
@@ -710,7 +709,7 @@ class LineageClient:
         source_column: Optional[str] = None,
         direction: Literal["upstream", "downstream"] = "upstream",
         max_hops: int = 1,
-        filter: Optional[Filter] = None,
+        filter: Optional["Filter"] = None,
         count: int = 500,
     ) -> List[LineageResult]:
         """
@@ -742,7 +741,7 @@ class LineageClient:
         self,
         source_urn: Urn,
         source_column: Optional[str] = None,
-        filters: Optional[Filter] = None,
+        filters: Optional["Filter"] = None,
         direction: Literal["upstream", "downstream"] = "upstream",
         max_hops: int = 1,
         count: int = 500,
@@ -764,6 +763,10 @@ class LineageClient:
         Raises:
             SdkUsageError for invalid filter values
         """
+        # Lazy import to avoid pydantic 2.11.7 bug (affects Airflow 3.0.6)
+        # See: https://github.com/pydantic/pydantic/issues/10963
+        from datahub.sdk.search_client import compile_filters
+        from datahub.sdk.search_filters import FilterDsl
 
         # print warning if max_hops is greater than 2
         if max_hops > 2:
