@@ -1,5 +1,5 @@
 import { Typography, message } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
@@ -11,6 +11,8 @@ import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContex
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import CompactContext from '@app/shared/CompactContext';
+import usePrevious from '@app/shared/usePrevious';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
@@ -53,6 +55,7 @@ interface Props {
 
 function EntityName(props: Props) {
     const { isNameEditable } = props;
+    const { isClosed: isSidebarClosed } = useContext(EntitySidebarContext);
     const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
@@ -128,8 +131,19 @@ function EntityName(props: Props) {
             });
     };
 
-    // Note: Bug with editable + ellipsis, if text is compressed, it never grows back
-    // imo we should just get rid of this editing feature, it looks bad
+    // The following handles bug where sidebar opening causes ellipses and closing it doesn't show full name again
+    const [key, setKey] = useState(0);
+
+    const previousIsSidebarClosed = usePrevious(isSidebarClosed);
+    useEffect(() => {
+        if (isSidebarClosed !== previousIsSidebarClosed) {
+            // timeout to wait for sidebar to fully re-open
+            setTimeout(() => {
+                setKey((prev) => prev + 1);
+            }, 200);
+        }
+    }, [isSidebarClosed, previousIsSidebarClosed]);
+
     const Title = isNameEditable ? (
         <EntityTitle
             disabled={isMutatingName}
@@ -142,7 +156,7 @@ function EntityName(props: Props) {
             ellipsis={{
                 tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: colors.gray[1700] } },
             }}
-            key={updatedName}
+            key={`${updatedName}-${key}`}
         >
             {updatedName}
         </EntityTitle>
@@ -152,6 +166,7 @@ function EntityName(props: Props) {
             ellipsis={{
                 tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: colors.gray[1700] } },
             }}
+            key={`${entityName}-${key}`}
         >
             {entityName}
         </EntityTitle>

@@ -243,7 +243,9 @@ def create_plugin_from_capability_data(
         if hasattr(source_type, "get_config_class"):
             source_config_class: ConfigModel = source_type.get_config_class()
 
-            plugin.config_json_schema = source_config_class.schema_json(indent=2)
+            plugin.config_json_schema = json.dumps(
+                source_config_class.model_json_schema(), indent=2
+            )
             plugin.config_md = gen_md_table_from_pydantic(
                 source_config_class, current_source=plugin_name
             )

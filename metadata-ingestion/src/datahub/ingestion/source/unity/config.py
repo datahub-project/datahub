@@ -132,14 +132,13 @@ class UnityCatalogGEProfilerConfig(UnityCatalogProfilerConfig, GEProfilingConfig
     )
 
 
-class UnityCatalogSourceConfig(
-    SQLCommonConfig,
-    StatefulIngestionConfigBase,
-    BaseUsageConfig,
-    DatasetSourceConfigMixin,
-    StatefulProfilingConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
-):
+class UnityCatalogConnectionConfig(ConfigModel):
+    """
+    Configuration for connecting to Databricks Unity Catalog.
+    Contains only connection-related fields that can be reused across different sources.
+    """
+
+    scheme: str = DATABRICKS
     token: str = pydantic.Field(description="Databricks personal access token")
     workspace_url: str = pydantic.Field(
         description="Databricks workspace url. e.g. https://my-workspace.cloud.databricks.com"
@@ -156,15 +155,41 @@ class UnityCatalogSourceConfig(
             "When warehouse_id is missing, these features will be automatically disabled (with warnings) to allow ingestion to continue."
         ),
     )
-    include_hive_metastore: bool = pydantic.Field(
-        default=INCLUDE_HIVE_METASTORE_DEFAULT,
-        description="Whether to ingest legacy `hive_metastore` catalog. This requires executing queries on SQL warehouse.",
-    )
-    workspace_name: Optional[str] = pydantic.Field(
-        default=None,
-        description="Name of the workspace. Default to deployment name present in workspace_url",
+
+    extra_client_options: Dict[str, Any] = Field(
+        default={},
+        description="Additional options to pass to Databricks SQLAlchemy client.",
     )
 
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+
+    def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
+        uri_opts = {"http_path": f"/sql/1.0/warehouses/{self.warehouse_id}"}
+        if database:
+            uri_opts["catalog"] = database
+        return make_sqlalchemy_uri(
+            scheme=self.scheme,
+            username="token",
+            password=self.token,
+            at=urlparse(self.workspace_url).netloc,
+            db=database,
+            uri_opts=uri_opts,
+        )
+
+    def get_options(self) -> dict:
+        return self.extra_client_options
+
+
+class UnityCatalogSourceConfig(
+    UnityCatalogConnectionConfig,
+    SQLCommonConfig,
+    StatefulIngestionConfigBase,
+    BaseUsageConfig,
+    DatasetSourceConfigMixin,
+    StatefulProfilingConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+):
     include_metastore: bool = pydantic.Field(
         default=False,
         description=(
@@ -344,7 +369,15 @@ class UnityCatalogSourceConfig(
     _forced_disable_tag_extraction: bool = pydantic.PrivateAttr(default=False)
     _forced_disable_hive_metastore_extraction = pydantic.PrivateAttr(default=False)
 
-    scheme: str = DATABRICKS
+    include_hive_metastore: bool = pydantic.Field(
+        default=INCLUDE_HIVE_METASTORE_DEFAULT,
+        description="Whether to ingest legacy `hive_metastore` catalog. This requires executing queries on SQL warehouse.",
+    )
+
+    workspace_name: Optional[str] = pydantic.Field(
+        default=None,
+        description="Name of the workspace. Default to deployment name present in workspace_url",
+    )
 
     def __init__(self, **data):
         # First, let the parent handle the root validators and field processing
@@ -384,19 +417,6 @@ class UnityCatalogSourceConfig(
         self._forced_disable_tag_extraction = forced_disable_tag_extraction
         self._forced_disable_hive_metastore_extraction = (
             forced_disable_hive_metastore_extraction
-        )
-
-    def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
-        uri_opts = {"http_path": f"/sql/1.0/warehouses/{self.warehouse_id}"}
-        if database:
-            uri_opts["catalog"] = database
-        return make_sqlalchemy_uri(
-            scheme=self.scheme,
-            username="token",
-            password=self.token,
-            at=urlparse(self.workspace_url).netloc,
-            db=database,
-            uri_opts=uri_opts,
         )
 
     def is_profiling_enabled(self) -> bool:
