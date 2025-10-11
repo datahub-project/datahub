@@ -51,6 +51,7 @@ public class Application extends Controller {
   private final Environment environment;
 
   private final String basePath;
+  private final String gaTrackingId;
 
   @Inject
   public Application(HttpClient httpClient, Environment environment, @Nonnull Config config) {
@@ -58,6 +59,10 @@ public class Application extends Controller {
     this.config = config;
     this.environment = environment;
     this.basePath = config.getString("datahub.basePath");
+    this.gaTrackingId =
+        config.hasPath("analytics.google.tracking.id")
+            ? config.getString("analytics.google.tracking.id")
+            : null;
   }
 
   /**
@@ -83,6 +88,17 @@ public class Application extends Controller {
       }
       // Inject <base href="..."/> right after <head> for use in the frontend.
       String modifiedHtml = html.replace("@basePath", basePath);
+
+      // Inject google tracking if it exists, should only be enabled for demo site
+      if (gaTrackingId != null && !gaTrackingId.isEmpty()) {
+        String gaScript =
+            String.format(
+                "<script async src=\"https://www.googletagmanager.com/gtag/js?id=%s\"></script>"
+                    + "<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}"
+                    + "gtag('js',new Date());gtag('config','%s');</script>",
+                gaTrackingId, gaTrackingId);
+        modifiedHtml = modifiedHtml.replace("</head>", gaScript + "</head>");
+      }
 
       return ok(modifiedHtml).withHeader("Cache-Control", "no-cache").as("text/html");
     } catch (Exception e) {
