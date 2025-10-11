@@ -201,7 +201,8 @@ public class UpdateStructuredPropertyResolverTest {
             null,
             null,
             null,
-            settingsInput);
+            settingsInput,
+            null);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -250,7 +251,8 @@ public class UpdateStructuredPropertyResolverTest {
             null,
             null,
             null,
-            settingsInput);
+            settingsInput,
+            null);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();

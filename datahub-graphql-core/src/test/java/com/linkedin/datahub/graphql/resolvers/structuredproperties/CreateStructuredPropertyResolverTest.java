@@ -238,7 +238,8 @@ public class CreateStructuredPropertyResolverTest {
             null,
             null,
             new ArrayList<>(),
-            settingsInput);
+            settingsInput,
+            null);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -289,7 +290,8 @@ public class CreateStructuredPropertyResolverTest {
             null,
             null,
             new ArrayList<>(),
-            settingsInput);
+            settingsInput,
+            null);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
