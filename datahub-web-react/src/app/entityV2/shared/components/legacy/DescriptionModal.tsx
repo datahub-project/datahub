@@ -107,7 +107,12 @@ export default function UpdateDescriptionModal({
                     </OriginalDocumentation>
                 )}
                 <Form.Item>
-                    <StyledEditor key={editorKey} content={updatedDesc} onChange={setDesc} />
+                    <StyledEditor
+                        key={editorKey}
+                        content={updatedDesc}
+                        onChange={setDesc}
+                        dataTestId="description-editor"
+                    />
                 </Form.Item>
 
                 {(fieldPath || isEmbeddedProfile) && (
