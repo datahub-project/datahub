@@ -1278,6 +1278,7 @@ public class ESUtils {
             // succeeded
             log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
           }
+          break;
         case ELASTICSEARCH_7:
           {
             // For Elasticsearch, use the low-level client to delete PIT
@@ -1295,6 +1296,7 @@ public class ESUtils {
                   response.getStatusLine().getStatusCode());
             }
           }
+          break;
       }
     } catch (Exception e) {
       log.warn("Error cleaning up PIT {} for {}: {}", pitId, context, e.getMessage());
