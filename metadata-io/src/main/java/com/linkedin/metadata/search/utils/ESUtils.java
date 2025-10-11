@@ -1437,6 +1437,7 @@ public class ESUtils {
             // exception, it
             // succeeded
             log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
+            break;
           }
         case ELASTICSEARCH_7:
           {
