@@ -46,7 +46,18 @@ export function useIsProductAnnouncementVisible(update: ProductUpdate): ProductA
         fetchPolicy: 'cache-first',
     });
 
+    // Debug logging
+    console.log('[useIsProductAnnouncementVisible] Debug:', {
+        userUrn,
+        productUpdateStepId,
+        loading,
+        error: error?.message,
+        data: data?.batchGetStepStates?.results,
+        stepStateExists: data?.batchGetStepStates?.results?.some((result) => result?.id === productUpdateStepId),
+    });
+
     if (loading || error) {
+        console.log('[useIsProductAnnouncementVisible] Returning false due to loading or error');
         return {
             visible: false,
             refetch,
@@ -57,6 +68,8 @@ export function useIsProductAnnouncementVisible(update: ProductUpdate): ProductA
         (data?.batchGetStepStates?.results &&
             !data?.batchGetStepStates?.results?.some((result) => result?.id === productUpdateStepId)) ||
         false;
+
+    console.log('[useIsProductAnnouncementVisible] Final visible:', visible);
 
     return {
         visible,
