@@ -67,6 +67,15 @@ Each Python module has a gradle setup similar to `metadata-ingestion/` (document
 - **MCE/MCL**: Metadata Change Events/Logs for updates
 - **Entity Registry**: YAML config defining entity-aspect relationships (`metadata-models/src/main/resources/entity-registry.yml`)
 
+### Validation Architecture
+
+**IMPORTANT**: Validation must work across all APIs (GraphQL, OpenAPI, RestLI).
+
+- **Never add validation in API-specific layers** (GraphQL resolvers, REST controllers) - this only protects one API
+- **Always implement AspectPayloadValidators** in `metadata-io/src/main/java/com/linkedin/metadata/aspect/validation/`
+- **Register as Spring beans** in `SpringStandardPluginConfiguration.java`
+- **Follow existing patterns**: See `SystemPolicyValidator.java` and `PolicyFieldTypeValidator.java` as examples
+
 ## Development Flow
 
 1. **Schema changes** in `metadata-models/` trigger code generation across all languages
