@@ -40,7 +40,7 @@ const AssertionListContainer = styled.div`
     display: flex;
     height: 100%;
     flex-direction: column;
-    margin: 0px 20px;
+    margin: 16px;
     flex: 1;
     overflow: hidden;
 `;
@@ -152,11 +152,12 @@ export const AcrylAssertionList = () => {
 
     return (
         <>
-            <AssertionListTitleContainer
-                privileges={privileges as EntityPrivileges}
-                onCreateAssertion={(params: EntityStagedForAssertion) => setAuthorAssertionForEntity(params)}
-            />
             <AssertionListContainer>
+                <AssertionListTitleContainer
+                    privileges={privileges as EntityPrivileges}
+                    onCreateAssertion={(params: EntityStagedForAssertion) => setAuthorAssertionForEntity(params)}
+                />
+
                 {assertionMonitorData?.length > 0 && (
                     <AcrylAssertionListFilters
                         filterOptions={visibleAssertions?.filterOptions}
