@@ -170,6 +170,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @VisibleForTesting @Getter private final EventProducer producer;
   private RetentionService<ChangeItemImpl> retentionService;
   private final Boolean alwaysEmitChangeLog;
+  private final Boolean cdcModeChangeLog;
   @Nullable @Getter private SearchIndicesService updateIndicesService;
   private final PreProcessHooks preProcessHooks;
   protected static final int MAX_KEYS_PER_QUERY = 500;
@@ -203,6 +204,24 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull final AspectDao aspectDao,
       @Nonnull final EventProducer producer,
       final boolean alwaysEmitChangeLog,
+      final boolean cdcModeChangeLog,
+      final PreProcessHooks preProcessHooks,
+      final boolean enableBrowsePathV2) {
+    this(
+        aspectDao,
+        producer,
+        alwaysEmitChangeLog,
+        cdcModeChangeLog,
+        preProcessHooks,
+        DEFAULT_MAX_TRANSACTION_RETRY,
+        enableBrowsePathV2,
+        EntityServiceConfiguration.EMPTY);
+  }
+
+  public EntityServiceImpl(
+      @Nonnull final AspectDao aspectDao,
+      @Nonnull final EventProducer producer,
+      final boolean alwaysEmitChangeLog,
       final PreProcessHooks preProcessHooks,
       @Nullable final Integer retry,
       final boolean enableBrowsePathV2) {
@@ -220,6 +239,45 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull final AspectDao aspectDao,
       @Nonnull final EventProducer producer,
       final boolean alwaysEmitChangeLog,
+      final boolean cdcModeChangeLog,
+      final PreProcessHooks preProcessHooks,
+      @Nullable final Integer retry,
+      final boolean enableBrowsePathV2) {
+    this(
+        aspectDao,
+        producer,
+        alwaysEmitChangeLog,
+        cdcModeChangeLog,
+        preProcessHooks,
+        retry,
+        enableBrowsePathV2,
+        EntityServiceConfiguration.EMPTY);
+  }
+
+  public EntityServiceImpl(
+      @Nonnull final AspectDao aspectDao,
+      @Nonnull final EventProducer producer,
+      final boolean alwaysEmitChangeLog,
+      final PreProcessHooks preProcessHooks,
+      @Nullable final Integer retry,
+      final boolean enableBrowseV2,
+      @Nonnull final EntityServiceConfiguration entityServiceConfiguration) {
+    this(
+        aspectDao,
+        producer,
+        alwaysEmitChangeLog,
+        false,
+        preProcessHooks,
+        retry,
+        enableBrowseV2,
+        entityServiceConfiguration);
+  }
+
+  public EntityServiceImpl(
+      @Nonnull final AspectDao aspectDao,
+      @Nonnull final EventProducer producer,
+      final boolean alwaysEmitChangeLog,
+      final boolean cdcModeChangeLog,
       final PreProcessHooks preProcessHooks,
       @Nullable final Integer retry,
       final boolean enableBrowseV2,
@@ -228,6 +286,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     this.aspectDao = aspectDao;
     this.producer = producer;
     this.alwaysEmitChangeLog = alwaysEmitChangeLog;
+    this.cdcModeChangeLog = cdcModeChangeLog;
     this.preProcessHooks = preProcessHooks;
     ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
     this.enableBrowseV2 = enableBrowseV2;
@@ -238,6 +297,65 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     } else {
       this.applySyncMclForSources = Collections.emptyMap();
     }
+
+    log.info("EntityService cdcModeChangeLog is {}", this.cdcModeChangeLog);
+  }
+
+  public MCLEmitResult produceMCLAsync(@Nonnull OperationContext opContext, MetadataChangeLog mcl) {
+    List<MCLEmitResult> mclResults = produceMCLAsync(opContext, List.of(mcl));
+    // On failure, a Runtime exception is thrown.
+    return mclResults.get(0);
+  }
+
+  @Nonnull
+  public List<MCLEmitResult> produceMCLAsync(
+      @Nonnull OperationContext opContext, List<MetadataChangeLog> mcls) {
+
+    return opContext.withSpan(
+        "produceMCLAsync",
+        () -> {
+          List<MCLEmitResult> mclResults = conditionallyProduceMCLAsync(opContext, mcls);
+
+          // This is now a common function and called from timeseries MCLs as well as versioned
+          // MCLs. postCommitSideEffects are not applicable for timeseries MCLs. Calling this
+          // here also enables  side effects to be executed for messages that were published
+          // even if a failure interrupts the flow.
+          processPostCommitMCLSideEffects(
+              opContext,
+              mclResults.stream()
+                  .filter(
+                      result -> result.getMclFuture() != null) // Only those that actually got sent
+                  .filter(
+                      result -> { // only versioned MCLs
+                        MetadataChangeLog mcl = result.getMetadataChangeLog();
+                        return !opContext
+                            .getEntityRegistry()
+                            .getEntitySpec(mcl.getEntityType())
+                            .getAspectSpec(mcl.getAspectName())
+                            .isTimeseries();
+                      })
+                  .map(MCLEmitResult::getMetadataChangeLog)
+                  .collect(Collectors.toList()));
+          // join futures messages, capture error state
+          List<MCLEmitResult> failedMCLs =
+              mclResults.stream()
+                  .filter(result -> result.isEmitted() && !result.isProduced())
+                  .collect(Collectors.toList());
+
+          if (!failedMCLs.isEmpty()) {
+            log.error(
+                "Failed to produce MCLs: {}",
+                failedMCLs.stream()
+                    .map(result -> result.getMetadataChangeLog().getEntityUrn())
+                    .collect(Collectors.toList()));
+            // TODO restoreIndices?
+            throw new RuntimeException("Failed to produce MCLs");
+          }
+
+          return mclResults;
+        },
+        BATCH_SIZE_ATTR,
+        String.valueOf(mcls.size()));
   }
 
   /**
@@ -2200,6 +2318,78 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         || ChangeType.UPDATE.equals(changeType);
   }
 
+  public List<MCLEmitResult> conditionallyProduceMCLAsync(
+      @Nonnull OperationContext opContext, List<MetadataChangeLog> mcls) {
+    return mcls.stream()
+        .map(
+            mcl -> {
+              Urn entityUrn = mcl.getEntityUrn();
+              AspectSpec aspectSpec =
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec(mcl.getEntityType())
+                      .getAspectSpec(mcl.getAspectName());
+              return conditionallyProduceMCLAsync(opContext, aspectSpec, mcl);
+            })
+        .collect(Collectors.toList());
+  }
+
+  public MCLEmitResult conditionallyProduceMCLAsync(
+      @Nonnull OperationContext opContext,
+      AspectSpec aspectSpec,
+      MetadataChangeLog metadataChangeLog) {
+    SystemMetadata newSystemMetadata = metadataChangeLog.getSystemMetadata();
+    Urn entityUrn = metadataChangeLog.getEntityUrn();
+
+    boolean isNoOp = isNoOp(aspectSpec, metadataChangeLog);
+    if (!isNoOp || alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
+      log.info("Producing MCL for ingested aspect {}, urn {}", aspectSpec.getName(), entityUrn);
+
+      log.debug("Serialized MCL event: {}", metadataChangeLog);
+      Pair<Future<?>, Boolean> emissionStatus =
+          alwaysProduceMCLAsync(opContext, entityUrn, aspectSpec, metadataChangeLog);
+
+      // for tracing propagate properties to system meta
+      if (newSystemMetadata != null && metadataChangeLog.getSystemMetadata().hasProperties()) {
+        if (!newSystemMetadata.hasProperties()) {
+          newSystemMetadata.setProperties(
+              metadataChangeLog.getSystemMetadata().getProperties(), SetMode.IGNORE_NULL);
+        } else {
+          newSystemMetadata
+              .getProperties()
+              .putAll(metadataChangeLog.getSystemMetadata().getProperties());
+        }
+      }
+
+      return MCLEmitResult.builder()
+          .metadataChangeLog(metadataChangeLog)
+          .mclFuture(emissionStatus.getFirst())
+          .processedMCL(emissionStatus.getSecond())
+          .emitted(emissionStatus.getFirst() != null)
+          .build();
+    } else {
+      log.info(
+          "Skipped producing MCL for no-op ingested aspect {}, urn {}",
+          aspectSpec.getName(),
+          entityUrn);
+      return MCLEmitResult.builder()
+          .metadataChangeLog(metadataChangeLog)
+          .processedMCL(true)
+          .emitted(false)
+          .build();
+    }
+  }
+
+  private boolean isNoOp(AspectSpec aspectSpec, MetadataChangeLog metadataChangeLog) {
+    return SystemMetadataUtils.isNoOp(metadataChangeLog.getSystemMetadata())
+        || (metadataChangeLog.getPreviousAspectValue() != null
+            && metadataChangeLog.getAspect() != null
+            && metadataChangeLog
+                .getPreviousAspectValue()
+                .data()
+                .equals(metadataChangeLog.getAspect().data()));
+  }
+
   public Optional<Pair<Future<?>, Boolean>> conditionallyProduceMCLAsync(
       @Nonnull OperationContext opContext,
       @Nullable RecordTemplate oldAspect,
@@ -2826,7 +3016,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     if (isKeyAspect) {
                       if (hardDelete) {
                         // If this is the key aspect, delete the entity entirely.
-                        additionalRowsDeleted = aspectDao.deleteUrn(txContext, urn);
+                        additionalRowsDeleted = aspectDao.deleteUrn(opContext, txContext, urn);
                       } else if (deleteItem
                           .getEntitySpec()
                           .hasAspect(Constants.STATUS_ASPECT_NAME)) {

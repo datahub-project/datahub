@@ -1,6 +1,12 @@
 name: Docker Build, Scan, Test
 on:
   workflow_dispatch:
+    inputs:
+      profileName:
+        description: "Profile name for the smoke-test. Defaults to quickstart-consumers if not specified"
+        required: false
+        default: "quickstart-consumers"
+        type: string
   push:
     branches:
       - acryl-main
@@ -23,6 +29,7 @@ env:
   DOCKER_REGISTRY: "795586375822.dkr.ecr.us-west-2.amazonaws.com"
   ACRYLIO_DOCKER_REGISTRY: "acrylio"
   CLOUDSMITH_REGISTRY: "docker.cloudsmith.io/datahub/enterprise"
+  PROFILE_NAME: "${{ github.event.inputs.profileName || 'quickstart-consumers' }}"
 
   DATAHUB_INGESTION_BASE_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion-base"
 
@@ -290,8 +297,16 @@ jobs:
       - name: Build all Images (For Smoke tests)
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.acrylio_publish != 'true' && needs.setup.outputs.cloudsmith_publish != 'true'}}
         # If not publishing, just a subset of images required for smoke tests is sufficient.
+        # Use buildImagesAll for workflow_dispatch, otherwise buildImagesQuickStartDebugConsumers
         run: |
-          ./gradlew :docker:buildImagesQuickStartDebugConsumers  -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # if triggered via workflow_dispatch, this can run other quickstart variants, so lets build all images to allow that.
+            # we still dont need matrixed builds since this is for smoke test only.
+            BUILD_TASK=":docker:buildImagesAll"
+          else
+            BUILD_TASK=":docker:buildImagesQuickstart"
+          fi
+          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
 
       - name: Login to AWS ECR
         uses: docker/login-action@v3
@@ -544,6 +559,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.REMOTE_EXECUTOR_AWS_ACCESS_KEY_ID }}
           AWS_REGION: us-west-2
         run: |
+          # Quickstart uses PROFILE_NAME env if defined to start the profile specified. Defaults to quickstart-consumers
           ./smoke-test/run-quickstart.sh
 
       - name: Disk Check

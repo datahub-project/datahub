@@ -116,6 +116,9 @@ public class DataHubAppConfiguration {
   /** EntityService configuration */
   private EntityServiceConfiguration entityService;
 
+  /** MCL Processing configurations */
+  private MCLProcessingConfiguration mclProcessing;
+
   // SaaS Only Config
 
   /** AWS Integration Configuration */

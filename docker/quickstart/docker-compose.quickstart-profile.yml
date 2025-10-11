@@ -215,12 +215,14 @@ services:
     - quickstart-frontend
     - quickstart-storage
     - quickstart-consumers
+    - quickstart-consumers-cdc
     - debug
     - debug-min
     - debug-datahub-actions
     - debug-frontend
     - debug-backend
     - debug-consumers
+    - debug-consumers-cdc
     - debug-neo4j
     - debug-elasticsearch
     - debug-backend-aws
@@ -270,10 +272,14 @@ services:
         condition: service_healthy
         required: true
     environment:
+      CDC_MCL_PROCESSING_ENABLED: 'false'
+      CDC_PASSWORD: datahub_cdc
+      CDC_USER: datahub_cdc
       DATAHUB_DB_NAME: datahub
       MYSQL_HOST: mysql
       MYSQL_PASSWORD: datahub
       MYSQL_PORT: '3306'
+      MYSQL_ROOT_PASSWORD: datahub
       MYSQL_USERNAME: datahub
     hostname: mysql-setup
     image: acryldata/datahub-mysql-setup:${DATAHUB_VERSION}
@@ -290,15 +296,19 @@ services:
     - quickstart-storage
     - quickstart-cassandra
     - quickstart-postgres
+    - quickstart-postgres-cdc
     - quickstart-consumers
+    - quickstart-consumers-cdc
     - debug
     - debug-min
     - debug-datahub-actions
     - debug-frontend
     - debug-backend
     - debug-postgres
+    - debug-postgres-cdc
     - debug-cassandra
     - debug-consumers
+    - debug-consumers-cdc
     - debug-neo4j
     - debug-backend-aws
     - debug-aws
@@ -342,7 +352,9 @@ services:
     - quickstart-storage
     - quickstart-cassandra
     - quickstart-postgres
+    - quickstart-postgres-cdc
     - quickstart-consumers
+    - quickstart-consumers-cdc
     depends_on:
       opensearch:
         condition: service_healthy
@@ -388,7 +400,7 @@ services:
       DATAHUB_GMS_BASE_PATH: /
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: '8080'
-      DATAHUB_PRECREATE_TOPICS: 'false'
+      DATAHUB_PRECREATE_TOPICS: 'true'
       EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
       EBEAN_DATASOURCE_HOST: mysql:3306
       EBEAN_DATASOURCE_PASSWORD: datahub

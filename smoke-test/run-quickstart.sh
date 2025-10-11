@@ -42,4 +42,4 @@ DATAHUB_EXECUTOR_ROLE_ARN="arn:aws:iam::795586375822:role/ci-smoke-test" \
 DATAHUB_EXECUTOR_VERSION=${DATAHUB_EXECUTOR_VERSION:=${DATAHUB_VERSION}} \
 DATAHUB_REMOTE_EXECUTOR_VERSION=${DATAHUB_REMOTE_EXECUTOR_VERSION:=${DATAHUB_VERSION}} \
 DATAHUB_SMOKETEST_EXECUTOR_ID=${DATAHUB_SMOKETEST_EXECUTOR_ID:=remote-ci} \
-docker compose --project-directory ../docker/profiles --profile quickstart-consumers up -d --quiet-pull --wait --wait-timeout 900
+docker compose --project-directory ../docker/profiles --profile ${PROFILE_NAME:-quickstart-consumers} up -d --quiet-pull --wait --wait-timeout 900
