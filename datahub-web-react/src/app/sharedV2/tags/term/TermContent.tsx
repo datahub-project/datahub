@@ -8,8 +8,10 @@ import styled from 'styled-components';
 
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveTermMutation } from '@graphql/mutations.generated';
@@ -139,7 +141,7 @@ export default function TermContent({
     showOneAndCount,
 }: Props) {
     const entityRegistry = useEntityRegistry();
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
     const [removeTermMutation] = useRemoveTermMutation();
     const { parentNodes, urn, type } = term.term;
     const generateColor = useGenerateGlossaryColorFromPalette();
@@ -174,8 +176,17 @@ export default function TermContent({
                                 // Reload modules
                                 // RelatedTerms - to update related terms in case some of them was removed
                                 // ChildHierarchy - to update contents module in glossary node
-                                reloadModules(
-                                    [DataHubPageModuleType.RelatedTerms, DataHubPageModuleType.ChildHierarchy],
+                                reloadByKeyType(
+                                    [
+                                        getReloadableKeyType(
+                                            ReloadableKeyTypeNamespace.MODULE,
+                                            DataHubPageModuleType.RelatedTerms,
+                                        ),
+                                        getReloadableKeyType(
+                                            ReloadableKeyTypeNamespace.MODULE,
+                                            DataHubPageModuleType.ChildHierarchy,
+                                        ),
+                                    ],
                                     3000,
                                 );
                             }

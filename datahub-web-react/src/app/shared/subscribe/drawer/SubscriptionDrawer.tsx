@@ -2,7 +2,6 @@ import { Alert, Drawer, Typography } from 'antd';
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
 
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '@app/settings/personal/notifications/constants';
 import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK, TEAMS_SINK } from '@app/settings/platform/types';
 import { isSinkEnabled } from '@app/settings/utils';
@@ -38,6 +37,7 @@ import {
     getTeamsSettingsChannelName,
     getTeamsSubscriptionChannel,
 } from '@app/shared/subscribe/drawer/utils';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useGetLineageCountsQuery } from '@graphql/lineage.generated';
@@ -108,7 +108,7 @@ const SubscriptionDrawerContent = ({
 }: Props) => {
     const { config } = useAppConfig();
     const { data: globalSettings } = useGetGlobalSettingsQuery();
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
 
     const globallyEnabledSinks = NOTIFICATION_SINKS.filter((sink) =>
         isSinkEnabled(sink.id, globalSettings?.globalSettings, config),
@@ -227,7 +227,7 @@ const SubscriptionDrawerContent = ({
         upsertSubscription();
         // Reload modules
         // SubscribedAssets - update module after adding subscription
-        reloadModules([DataHubPageModuleType.SubscribedAssets], 3000);
+        reloadByKeyType([DataHubPageModuleType.SubscribedAssets], 3000);
 
         const shouldUpdateNotificationSettings =
             slackSaveAsDefault ||
@@ -284,7 +284,7 @@ const SubscriptionDrawerContent = ({
             onDeleteSubscription?.();
             // Reload modules
             // SubscribedAssets - update module after removing subscription
-            reloadModules([DataHubPageModuleType.SubscribedAssets], 3000);
+            reloadByKeyType([DataHubPageModuleType.SubscribedAssets], 3000);
         }
         onClose();
     };

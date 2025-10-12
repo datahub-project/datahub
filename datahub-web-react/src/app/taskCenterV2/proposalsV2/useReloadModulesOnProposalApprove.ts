@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 
 import { ActionRequest, ActionRequestType, DataHubPageModuleType } from '@types';
 
@@ -9,7 +9,7 @@ const DELAY_MS = 3000;
 export type MinimalActionRequest = Pick<ActionRequest, 'urn' | 'type' | 'params'>;
 
 export function useReloadModuleOnProposalApprove() {
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
 
     const getModuleTypesToReload = useCallback((actionRequest: MinimalActionRequest) => {
         if (
@@ -52,10 +52,10 @@ export function useReloadModuleOnProposalApprove() {
             const moduleTypesToReload = Array.from(new Set(actionRequests.map(getModuleTypesToReload).flat()));
 
             if (moduleTypesToReload.length) {
-                reloadModules(moduleTypesToReload, DELAY_MS);
+                reloadByKeyType(moduleTypesToReload, DELAY_MS);
             }
         },
-        [reloadModules, getModuleTypesToReload],
+        [reloadByKeyType, getModuleTypesToReload],
     );
 
     return onProposalApproved;

@@ -8,7 +8,6 @@ import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '@app/entity/shared/utils';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import ParentEntities from '@app/search/filters/ParentEntities';
 import { getParentEntities } from '@app/search/filters/utils';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -17,6 +16,9 @@ import { useGetRecommendations } from '@app/shared/recommendation';
 import CreateTagModal from '@app/shared/tags/CreateTagModal';
 import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
 import { ModalButton } from '@src/alchemy-components/components/Modal/Modal';
@@ -154,7 +156,7 @@ export default function EditTagTermsModal({
 }: EditTagsModalProps) {
     const entityRegistry = useEntityRegistry();
     const { isInFormContext } = useEntityFormContext();
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
     const [inputValue, setInputValue] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [disableAction, setDisableAction] = useState(false);
@@ -475,7 +477,10 @@ export default function EditTagTermsModal({
                     sendAnalytics();
                     // Reload modules
                     // Assets - to updated assets on terms summary tab
-                    reloadModules([DataHubPageModuleType.Assets], 3000);
+                    reloadByKeyType(
+                        [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)],
+                        3000,
+                    );
                 }
             })
             .catch((e) => {
@@ -538,7 +543,10 @@ export default function EditTagTermsModal({
                     });
                     // Reload modules
                     // Assets - to updated assets on terms summary tab
-                    reloadModules([DataHubPageModuleType.Assets], 3000);
+                    reloadByKeyType(
+                        [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)],
+                        3000,
+                    );
                 }
             })
             .catch((e) => {
