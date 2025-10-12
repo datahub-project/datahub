@@ -1746,6 +1746,11 @@ type FeatureFlagsConfig {
   Whether creating support tickets is enabled or not
   """
   supportTicketsEnabled: Boolean!
+
+  """
+  If enabled, allows uploading of files for documentation.
+  """
+  documentationFileUploadV1: Boolean!
 }
 
 """

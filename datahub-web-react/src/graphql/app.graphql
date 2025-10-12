@@ -165,6 +165,7 @@ query appConfig {
             actionWorkflowsEnabled
             inviteUsersEnabled
             teamsNotificationsEnabled
+            documentationFileUploadV1
         }
         chromeExtensionConfig {
             enabled

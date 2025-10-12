@@ -1078,6 +1078,7 @@ featureFlags:
   # If enabled, the invite users feature will be available in the UI
   supportTicketsEnabled: ${SUPPORT_TICKETS_ENABLED:false}
   # If enabled, the support tickets feature will be available in the UI
+  documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

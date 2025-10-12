@@ -85,4 +85,5 @@ public class FeatureFlags {
   private boolean assetSummaryPageV1 = false;
   private boolean inviteUsersEnabled = false;
   private boolean supportTicketsEnabled = false;
+  private boolean documentationFileUploadV1 = false;
 }
