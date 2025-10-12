@@ -684,6 +684,7 @@ export const IngestionSourceList = ({
                                 value={searchInput || ''}
                                 onChange={(value) => handleSearchInputChange(value)}
                                 ref={searchInputRef}
+                                data-testid="ingestion-sources-search"
                             />
                             <StyledSimpleSelect
                                 options={[
@@ -696,6 +697,7 @@ export const IngestionSourceList = ({
                                 showClear={false}
                                 width="fit-content"
                                 size="lg"
+                                data-testid="ingestions-type-filter"
                             />
                         </SearchContainer>
                         <FilterButtonsContainer>

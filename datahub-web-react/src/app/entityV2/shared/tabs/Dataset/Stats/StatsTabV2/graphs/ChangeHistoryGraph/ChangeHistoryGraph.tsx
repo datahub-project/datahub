@@ -122,6 +122,7 @@ export default function ChangeHistoryGraph() {
         <>
             <GraphCard
                 title={chartName}
+                dataTestId="change-history-card"
                 subTitle={
                     <Subtitle
                         summary={summary}
@@ -147,6 +148,11 @@ export default function ChangeHistoryGraph() {
                 renderGraph={() => (
                     <CalendarChart
                         data={buckets}
+                        dataTestId={
+                            (buckets.length === 0 || !canViewDatasetOperations) && !loading
+                                ? 'change-history-chart-empty'
+                                : 'change-history-chart'
+                        }
                         startDate={calendarStartDay}
                         endDate={calendarEndDay}
                         colorAccessor={colorAccessors.day}
