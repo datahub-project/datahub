@@ -29,9 +29,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
-from datahub.ingestion.source.unity.config import (
-    UnityCatalogConnectionConfig,
-)
+from datahub.ingestion.source.unity.connection import UnityCatalogConnectionConfig
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 

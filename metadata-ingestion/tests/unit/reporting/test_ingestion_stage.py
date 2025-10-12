@@ -14,8 +14,8 @@ def test_ingestion_stage_context_records_duration():
         pass
     assert len(report.ingestion_stage_durations) == 1
     key = next(iter(report.ingestion_stage_durations.keys()))
-    assert key[0] == IngestionHighStage._UNDEFINED
-    assert "Test Stage" in key[1]
+    assert "Ingestion" in key
+    assert "Test Stage" in key
 
 
 def test_ingestion_stage_context_handles_exceptions():
@@ -27,7 +27,8 @@ def test_ingestion_stage_context_handles_exceptions():
         pass
     assert len(report.ingestion_stage_durations) == 1
     key = next(iter(report.ingestion_stage_durations.keys()))
-    assert "Test Stage" in key[1]
+    assert "Ingestion" in key
+    assert "Test Stage" in key
 
 
 def test_ingestion_stage_context_report_handles_multiple_stages():
@@ -45,9 +46,9 @@ def test_ingestion_stage_context_report_handles_multiple_stages():
     )
 
     sorted_stages = list(sorted(report.ingestion_stage_durations.keys()))
-    assert "Test Stage 1" in sorted_stages[0][1]
-    assert "Test Stage 2" in sorted_stages[1][1]
-    assert "Test Stage 3" in sorted_stages[2][1]
+    assert "Test Stage 1" in sorted_stages[0]
+    assert "Test Stage 2" in sorted_stages[1]
+    assert "Test Stage 3" in sorted_stages[2]
 
 
 def test_ingestion_stage_context_report_handles_nested_stages():
@@ -64,14 +65,14 @@ def test_ingestion_stage_context_report_handles_nested_stages():
         for duration in report.ingestion_stage_durations.values()
     )
     sorted_stages = list(sorted(report.ingestion_stage_durations.keys()))
-    assert "Inner1" in sorted_stages[0][1]
-    assert "Inner2" in sorted_stages[1][1]
-    assert "Outer" in sorted_stages[2][1]
+    assert "Inner1" in sorted_stages[0]
+    assert "Inner2" in sorted_stages[1]
+    assert "Outer" in sorted_stages[2]
 
     # Check that outer stage duration >= sum of inner stage durations
-    outer_key = [k for k in report.ingestion_stage_durations if "Outer" in k[1]][0]
-    inner1_key = [k for k in report.ingestion_stage_durations if "Inner1" in k[1]][0]
-    inner2_key = [k for k in report.ingestion_stage_durations if "Inner2" in k[1]][0]
+    outer_key = [k for k in report.ingestion_stage_durations if "Outer" in k][0]
+    inner1_key = [k for k in report.ingestion_stage_durations if "Inner1" in k][0]
+    inner2_key = [k for k in report.ingestion_stage_durations if "Inner2" in k][0]
 
     outer_duration = report.ingestion_stage_durations[outer_key]
     inner1_duration = report.ingestion_stage_durations[inner1_key]
@@ -96,6 +97,6 @@ def test_ingestion_stage_with_high_stage():
         time.sleep(0.1)
     assert len(report.ingestion_stage_durations) == 1
     key = next(iter(report.ingestion_stage_durations.keys()))
-    assert key[0] == IngestionHighStage.PROFILING
-    assert "Test Stage" in key[1]
+    assert "Profiling" in key
+    assert "Test Stage" in key
     assert report.ingestion_high_stage_seconds[IngestionHighStage.PROFILING] > 0

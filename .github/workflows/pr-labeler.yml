@@ -61,7 +61,8 @@ jobs:
           "alexsku",
           "benjiaming",
           "deepgarg760",
-          "petemango"
+          "petemango",
+          "askumar27"
           ]'),
           github.actor
           )
