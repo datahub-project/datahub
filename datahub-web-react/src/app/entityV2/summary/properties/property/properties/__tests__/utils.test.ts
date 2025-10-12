@@ -6,7 +6,7 @@ import { filterCurrentItemInReplaceMenu } from '@app/entityV2/summary/properties
 import type { AssetProperty } from '@app/entityV2/summary/properties/types';
 
 import { StructuredPropertyFieldsFragment } from '@graphql/fragments.generated';
-import { EntityType, StdDataType, SummaryElementType } from '@types';
+import { EntityType, StdDataType, StructuredPropertyFilterStatus, SummaryElementType } from '@types';
 
 function isItemType(item: ItemType): item is Extract<ItemType, { children?: unknown }> {
     return 'children' in item;
@@ -89,6 +89,7 @@ describe('filterCurrentItemInReplaceMenu', () => {
             definition: {
                 qualifiedName: 'testQualifiedName',
                 immutable: false,
+                filterStatus: StructuredPropertyFilterStatus.Enabled,
                 entityTypes: [
                     {
                         type: EntityType.Dataset,
@@ -138,6 +139,7 @@ describe('filterCurrentItemInReplaceMenu', () => {
             definition: {
                 qualifiedName: 'testQualifiedName',
                 immutable: false,
+                filterStatus: StructuredPropertyFilterStatus.Enabled,
                 entityTypes: [
                     {
                         type: EntityType.Dataset,
