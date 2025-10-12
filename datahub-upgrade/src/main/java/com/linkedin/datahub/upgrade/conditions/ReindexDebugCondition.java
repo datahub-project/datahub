@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.config;
+package com.linkedin.datahub.upgrade.conditions;
 
 import java.util.Objects;
 import org.springframework.boot.ApplicationArguments;

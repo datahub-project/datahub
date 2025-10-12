@@ -1,21 +1,14 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch;
 
-import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
-
-import com.datahub.util.RecordUtils;
-import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.shared.ElasticSearchUpgradeUtils;
 import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesPostStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesPreStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesStep;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
-import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -27,8 +20,6 @@ import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class BuildIndices implements BlockingSystemUpgrade {
 
@@ -45,10 +36,8 @@ public class BuildIndices implements BlockingSystemUpgrade {
       final AspectDao aspectDao) {
 
     List<ElasticSearchIndexed> indexedServices =
-        Stream.of(graphService, entitySearchService, systemMetadataService, timeseriesAspectService)
-            .filter(service -> service instanceof ElasticSearchIndexed)
-            .map(service -> (ElasticSearchIndexed) service)
-            .collect(Collectors.toList());
+        ElasticSearchUpgradeUtils.createElasticSearchIndexedServices(
+            graphService, entitySearchService, systemMetadataService, timeseriesAspectService);
 
     _steps =
         buildSteps(indexedServices, baseElasticSearchComponents, configurationProvider, aspectDao);
@@ -73,7 +62,8 @@ public class BuildIndices implements BlockingSystemUpgrade {
 
     final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
     if (configurationProvider.getStructuredProperties().isSystemUpdateEnabled()) {
-      structuredProperties = getActiveStructuredPropertiesDefinitions(aspectDao);
+      structuredProperties =
+          ElasticSearchUpgradeUtils.getActiveStructuredPropertiesDefinitions(aspectDao);
     } else {
       structuredProperties = Set.of();
     }
@@ -94,38 +84,5 @@ public class BuildIndices implements BlockingSystemUpgrade {
         new BuildIndicesPostStep(
             baseElasticSearchComponents, indexedServices, structuredProperties));
     return steps;
-  }
-
-  static Set<Pair<Urn, StructuredPropertyDefinition>> getActiveStructuredPropertiesDefinitions(
-      AspectDao aspectDao) {
-    Set<String> removedStructuredPropertyUrns;
-    try (Stream<EntityAspect> stream =
-        aspectDao.streamAspects(STRUCTURED_PROPERTY_ENTITY_NAME, STATUS_ASPECT_NAME)) {
-      removedStructuredPropertyUrns =
-          stream
-              .map(
-                  entityAspect ->
-                      Pair.of(
-                          entityAspect.getUrn(),
-                          RecordUtils.toRecordTemplate(Status.class, entityAspect.getMetadata())))
-              .filter(status -> status.getSecond().isRemoved())
-              .map(Pair::getFirst)
-              .collect(Collectors.toSet());
-    }
-
-    try (Stream<EntityAspect> stream =
-        aspectDao.streamAspects(
-            STRUCTURED_PROPERTY_ENTITY_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)) {
-      return stream
-          .map(
-              entityAspect ->
-                  Pair.of(
-                      UrnUtils.getUrn(entityAspect.getUrn()),
-                      RecordUtils.toRecordTemplate(
-                          StructuredPropertyDefinition.class, entityAspect.getMetadata())))
-          .filter(
-              definition -> !removedStructuredPropertyUrns.contains(definition.getKey().toString()))
-          .collect(Collectors.toSet());
-    }
   }
 }

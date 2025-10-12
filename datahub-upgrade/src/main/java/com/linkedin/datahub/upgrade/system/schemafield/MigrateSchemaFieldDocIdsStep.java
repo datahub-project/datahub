@@ -92,7 +92,8 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
         batchSize,
         1L,
         1,
-        3);
+        3,
+        1); // threadCount
     log.info("MigrateSchemaFieldDocIdsStep initialized");
   }
 

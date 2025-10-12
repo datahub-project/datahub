@@ -1,6 +1,6 @@
 package com.linkedin.datahub.upgrade.config.restoreindices;
 
-import com.linkedin.datahub.upgrade.config.SystemUpdateCondition;
+import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.restoreindices.posts.ReindexPostTypes;
 import com.linkedin.metadata.entity.AspectDao;

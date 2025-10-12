@@ -98,6 +98,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -112,9 +113,22 @@ import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.ssl.DefaultHostnameVerifier;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.util.PublicSuffixMatcherLoader;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.apache.http.impl.nio.conn.PoolingNHttpClientConnectionManager;
+import org.apache.http.impl.nio.reactor.DefaultConnectingIOReactor;
+import org.apache.http.impl.nio.reactor.IOReactorConfig;
+import org.apache.http.nio.conn.NHttpClientConnectionManager;
+import org.apache.http.nio.conn.NoopIOSessionStrategy;
+import org.apache.http.nio.conn.SchemeIOSessionStrategy;
+import org.apache.http.nio.conn.ssl.SSLIOSessionStrategy;
+import org.apache.http.nio.reactor.IOReactorException;
+import org.apache.http.nio.reactor.IOReactorExceptionHandler;
+import org.apache.http.ssl.SSLContexts;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.opensearch.action.DocWriteRequest;
@@ -212,13 +226,13 @@ import org.opensearch.search.suggest.SuggestionBuilder;
  * this, since we always use the default this is likely not a concern, but something to keep in mind
  */
 @Slf4j
-public class Es8SearchClientShim implements ElasticSearchClientShim<ElasticsearchClient> {
+public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<?>>
+    implements ElasticSearchClientShim<ElasticsearchClient> {
 
   @Getter private final ShimConfiguration shimConfiguration;
   private final SearchEngineType engineType;
   private final ElasticsearchClient client;
   private final ObjectMapper objectMapper;
-  private BulkIngester<?> bulkProcessor;
   private final JacksonJsonpMapper jacksonJsonpMapper;
 
   static {
@@ -261,6 +275,20 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
             }
           }
 
+          // Connection manager configuration
+          try {
+            httpAsyncClientBuilder.setConnectionManager(createConnectionManager(config));
+          } catch (IOReactorException e) {
+            throw new IllegalStateException(
+                "Unable to start ElasticSearch client. Please verify connection configuration.");
+          }
+
+          // IO Reactor configuration
+          log.info(
+              "Configuring Elasticsearch client with threadCount: {}", config.getThreadCount());
+          httpAsyncClientBuilder.setDefaultIOReactorConfig(
+              IOReactorConfig.custom().setIoThreadCount(config.getThreadCount()).build());
+
           // Authentication
           configureAuthentication(httpAsyncClientBuilder, config);
 
@@ -288,6 +316,58 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
             requestConfigBuilder.setConnectionRequestTimeout(config.getConnectionRequestTimeout()));
 
     return builder;
+  }
+
+  /**
+   * Create connection manager with proper thread count and connection pool configuration. This
+   * ensures optimal performance by matching connection pool size to thread count.
+   */
+  private NHttpClientConnectionManager createConnectionManager(ShimConfiguration config)
+      throws IOReactorException {
+    SSLContext sslContext = SSLContexts.createDefault();
+    javax.net.ssl.HostnameVerifier hostnameVerifier =
+        new DefaultHostnameVerifier(PublicSuffixMatcherLoader.getDefault());
+    SchemeIOSessionStrategy sslStrategy =
+        new SSLIOSessionStrategy(sslContext, null, null, hostnameVerifier);
+
+    log.info("Creating IOReactorConfig with threadCount: {}", config.getThreadCount());
+    IOReactorConfig ioReactorConfig =
+        IOReactorConfig.custom().setIoThreadCount(config.getThreadCount()).build();
+    DefaultConnectingIOReactor ioReactor = new DefaultConnectingIOReactor(ioReactorConfig);
+    IOReactorExceptionHandler ioReactorExceptionHandler =
+        new IOReactorExceptionHandler() {
+          @Override
+          public boolean handle(java.io.IOException ex) {
+            log.error("IO Exception caught during ElasticSearch connection.", ex);
+            return true;
+          }
+
+          @Override
+          public boolean handle(RuntimeException ex) {
+            log.error("Runtime Exception caught during ElasticSearch connection.", ex);
+            return true;
+          }
+        };
+    ioReactor.setExceptionHandler(ioReactorExceptionHandler);
+
+    PoolingNHttpClientConnectionManager connectionManager =
+        new PoolingNHttpClientConnectionManager(
+            ioReactor,
+            RegistryBuilder.<SchemeIOSessionStrategy>create()
+                .register("http", NoopIOSessionStrategy.INSTANCE)
+                .register("https", sslStrategy)
+                .build());
+
+    // Set maxConnectionsPerRoute to match threadCount (minimum 2)
+    int maxConnectionsPerRoute = Math.max(2, config.getThreadCount());
+    connectionManager.setDefaultMaxPerRoute(maxConnectionsPerRoute);
+
+    log.info(
+        "Configured connection pool: maxPerRoute={} (threadCount={})",
+        maxConnectionsPerRoute,
+        config.getThreadCount());
+
+    return connectionManager;
   }
 
   private void configureAuthentication(
@@ -1497,31 +1577,42 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
       int bulkRequestsLimit,
       long bulkFlushPeriod,
       long retryInterval,
-      int numRetries) {
-    co.elastic.clients.elasticsearch._helpers.bulk.BulkListener<Object> esBulkListener =
-        new Es8BulkListener(metricUtils);
-    BulkIngester.Builder<Object> builder =
-        new BulkIngester.Builder<>()
-            .client(client)
-            .flushInterval(bulkFlushPeriod, TimeUnit.SECONDS)
-            .maxOperations(bulkRequestsLimit)
-            .listener(esBulkListener);
-    final Refresh refresh;
-    switch (writeRequestRefreshPolicy) {
-      case NONE:
-        refresh = Refresh.False;
-        break;
-      case IMMEDIATE:
-        refresh = Refresh.True;
-        break;
-      case WAIT_UNTIL:
-        refresh = Refresh.WaitFor;
-        break;
-      default:
-        refresh = null;
-    }
-    builder.globalSettings(new BulkRequest.Builder().refresh(refresh));
-    this.bulkProcessor = builder.build();
+      int numRetries,
+      int threadCount) {
+    Supplier<BulkIngester<?>> processorSupplier =
+        () -> {
+          co.elastic.clients.elasticsearch._helpers.bulk.BulkListener<Object> esBulkListener =
+              new Es8BulkListener(metricUtils);
+
+          final Refresh refresh;
+          switch (writeRequestRefreshPolicy) {
+            case NONE:
+              refresh = Refresh.False;
+              break;
+            case IMMEDIATE:
+              refresh = Refresh.True;
+              break;
+            case WAIT_UNTIL:
+              refresh = Refresh.WaitFor;
+              break;
+            default:
+              refresh = null;
+          }
+
+          BulkIngester.Builder<Object> builder =
+              new BulkIngester.Builder<>()
+                  .client(client)
+                  .flushInterval(bulkFlushPeriod, TimeUnit.SECONDS)
+                  .maxOperations(bulkRequestsLimit)
+                  .listener(esBulkListener);
+
+          builder.globalSettings(new BulkRequest.Builder().refresh(refresh));
+          return builder.build();
+        };
+
+    initBulkProcessors(threadCount, processorSupplier);
+
+    log.info("Initialized {} async bulk processors for parallel execution", threadCount);
   }
 
   @Override
@@ -1531,18 +1622,21 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
       int bulkRequestsLimit,
       long bulkFlushPeriod,
       long retryInterval,
-      int numRetries) {
+      int numRetries,
+      int threadCount) {
+    // ES8 uses async processors for both sync and async operations
     generateAsyncBulkProcessor(
         writeRequestRefreshPolicy,
         metricUtils,
         bulkRequestsLimit,
         bulkFlushPeriod,
         retryInterval,
-        numRetries);
+        numRetries,
+        threadCount);
   }
 
   @Override
-  public void addBulk(DocWriteRequest<?> writeRequest) {
+  protected void addToProcessor(BulkIngester<?> processor, DocWriteRequest<?> writeRequest) {
     BulkOperation operation;
     if (writeRequest instanceof UpdateRequest) {
       UpdateRequest update = (UpdateRequest) writeRequest;
@@ -1596,17 +1690,17 @@ public class Es8SearchClientShim implements ElasticSearchClientShim<Elasticsearc
                           .v2())
                   .build());
     }
-    bulkProcessor.add(operation);
+    processor.add(operation);
   }
 
   @Override
-  public void flushBulkProcessor() {
-    bulkProcessor.flush();
+  protected void flushProcessor(BulkIngester<?> processor) {
+    processor.flush();
   }
 
   @Override
-  public void closeBulkProcessor() {
-    bulkProcessor.close();
+  protected void closeProcessor(BulkIngester<?> processor) {
+    processor.close();
   }
 
   @Override

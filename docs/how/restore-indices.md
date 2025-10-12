@@ -279,7 +279,9 @@ Implementing these expanded best practices should help ensure a smoother, more e
 minimizing impact on your DataHub environment.
 
 This operation can be I/O intensive from the read-side from SQL and on the Elasticsearch write side. If you're able to leverage
-provisioned I/O. or throughput, you might want to monitor your infrastructure for a possible.
+provisioned I/O or throughput, you might want to monitor your infrastructure for a possible bottleneck.
+
+> 💡 **Performance Tip**: For bulk loading scenarios during initial deployment or major data migrations, consider using [LoadIndices](./load-indices.md) instead, which is optimized for high throughput rather than precise event replay.
 
 #### Elasticsearch/Opensearch Optimization
 
