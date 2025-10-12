@@ -204,7 +204,7 @@ ext {
     ]
 
     // only for debug variants of quickstart to enable <variant>Reload tasks.
-    // The actual service name needs the profile to be appended,  <container-name>-<profile>
+    // The name here is the service name prefix. The suffix doesnt follow a fixed convention across all profiles.
     // This list only contains modules that can be reloaded via the reloadTask. If other modules need to be reloaded, quickstart* needs to be used.
     moduleToContainer = [
         ':metadata-service:war': 'datahub-gms',
@@ -212,6 +212,51 @@ ext {
         ':metadata-jobs:mce-consumer-job': 'datahub-mce-consumer',
         ':metadata-jobs:mae-consumer-job': 'datahub-mae-consumer',
     ]
+
+    // Helper function to read the captured profile name from file
+    readCapturedProfile = {
+        def composeFileName = new File(compose_base).getName()
+        def profileStatusFileName = composeFileName.replace('.yml', '-profile.txt')
+        def profileFile = new File(rootProject.buildDir, profileStatusFileName)
+
+        if (!profileFile.exists()) {
+            throw new GradleException("Profile file not found at ${profileFile.absolutePath}. Please run a ComposeUp task first to capture the active profile.")
+        }
+
+        def activeProfile = profileFile.text.trim()
+        logger.lifecycle("Using captured profile: ${activeProfile}")
+        return activeProfile
+    }
+
+    // Helper function to get running container service names by matching prefixes from moduleToContainer
+    // Returns a map of [modulePath: actualServiceName] for only the running containers
+    getRunningContainers = { composeFilePath, projectName ->
+        // Run docker compose ps to get running services
+        def psCmd = "docker compose -p ${projectName} -f docker/${composeFilePath} ps --services --filter status=running"
+        def process = psCmd.execute()
+        process.waitFor()
+
+        if (process.exitValue() != 0) {
+            throw new GradleException("Failed to list running containers: ${process.err.text}")
+        }
+
+        def runningServices = process.text.trim().split('\n').collect { it.trim() }.findAll { it }
+        logger.lifecycle("Running services: ${runningServices}")
+
+        // Match prefixes from moduleToContainer to find actual service names
+        def runningModuleToContainer = [:]
+        moduleToContainer.each { modulePath, servicePrefix ->
+            def matched = runningServices.find { service -> service.startsWith(servicePrefix) }
+            if (matched) {
+                runningModuleToContainer[modulePath] = matched
+                logger.lifecycle("Matched module '${modulePath}' (prefix: '${servicePrefix}') to running service '${matched}'")
+            } else {
+                logger.info("Module '${modulePath}' (prefix: '${servicePrefix}') is not running, skipping")
+            }
+        }
+
+        return runningModuleToContainer
+    }
 }
 
 // Register all quickstart tasks
@@ -437,38 +482,62 @@ tasks.register('quickstartDown') {
 tasks.withType(ComposeUp).configureEach {
     shouldRunAfter('quickstartNuke')
     dependsOn tasks.named("minDockerCompose2.20")
+
+    // Capture profile information to a file based on compose file name when ComposeUp runs
+    doFirst {
+        // Only capture profile if the task is being directly executed (not just accessed/configured)
+        // Extract task name to find corresponding config (e.g., "quickstartDebugComposeUp" -> "quickstartDebug")
+        def taskBaseName = name.replaceAll('ComposeUp$', '')
+        def config = quickstart_configs[taskBaseName]
+
+        if (config?.profile) {
+            // Get the compose file name and derive the profile tracking filename
+            def composeFileName = new File(compose_base).getName()
+            def profileStatusFileName = composeFileName.replace('.yml', '-profile.txt')
+            def profileFile = new File(rootProject.buildDir, profileStatusFileName)
+
+            // Ensure build directory exists
+            profileFile.getParentFile().mkdirs()
+
+            // Write the profile name
+            profileFile.text = config.profile
+
+            logger.lifecycle("Captured profile '${config.profile}' to ${profileFile.absolutePath}")
+        }
+    }
 }
 
 // Register all quickstart Reload tasks. For quickstartDebug, the reload task is DebugReload. (Taskname without quickstart prefix)
 quickstart_configs.each { taskName, config ->
-    if (config.isDebug) {
+  if (config.isDebug) {
         def reloadTaskName = taskName.replaceFirst(/^quickstart/, "")
         tasks.register("${reloadTaskName}Reload", Exec) {
             dependsOn tasks.named("prepareAll${taskName}")
             group = 'quickstart'
             description = "Build and reload only changed containers for the ${taskName} task"
             doFirst {
+                // Read the captured profile name from file
+                def activeProfile = readCapturedProfile.call()
+
+                // Get running containers by matching prefixes
+                def actualProjectName = config.additionalConfig?.projectName ?: project_name
+                def runningModuleToContainer = getRunningContainers.call(compose_base, actualProjectName)
+
                 def executedTasks = project.gradle.taskGraph.allTasks.findAll { it.state.executed }
                 def containersToRestart = []
 
-                moduleToContainer.each { modulePath, containerName ->
+                runningModuleToContainer.each { modulePath, actualServiceName ->
                     def moduleProject = project.project(modulePath)
                     def dockerPrepareTask = moduleProject.tasks.findByName('dockerPrepare')
 
                     if (dockerPrepareTask && executedTasks.contains(dockerPrepareTask) && !dockerPrepareTask.state.upToDate) {
-                        containersToRestart << "${containerName}-${config.profile}"
+                        containersToRestart << actualServiceName
                     }
                 }
 
                 // Only restart containers that had their modules rebuilt
                 if (containersToRestart) {
-                    def composeFiles = dockerCompose."${taskName}".useComposeFiles.get()
-                    def composeFileArgs = composeFiles.collectMany { ['-f', it] }
-
-                    // Use the actual project name from config, fallback to default
-                    def actualProjectName = config.additionalConfig?.projectName ?: project_name
-
-                    def cmd = ["docker compose -p ${actualProjectName} --profile ${config.profile}"] + composeFileArgs + ['restart'] + containersToRestart
+                    def cmd = ["docker compose -p ${actualProjectName} --profile ${activeProfile} -f ${compose_base} restart"] + containersToRestart
                     println(cmd.join(" "))
                     commandLine 'bash', '-c', cmd.join(" ")
                 } else {
@@ -482,20 +551,22 @@ quickstart_configs.each { taskName, config ->
             group = 'quickstart'
             description = "Build changed containers but recreate all services for the ${taskName} task"
             doFirst {
+                // Read the captured profile name from file
+                def activeProfile = readCapturedProfile.call()
+
+                // Get running containers by matching prefixes
+                def actualProjectName = config.additionalConfig?.projectName ?: project_name
+                def runningModuleToContainer = getRunningContainers.call(compose_base, actualProjectName)
+
                 def containersToRestart = []
-                moduleToContainer.each { modulePath, containerName ->
-                    // Find which of of the reloadable modules are in used in this task
+                runningModuleToContainer.each { modulePath, actualServiceName ->
+                    // Find which of the reloadable modules are used in this task
                     if (config.modules.contains(modulePath)) {
-                        containersToRestart << "${containerName}-${config.profile}"
+                        containersToRestart << actualServiceName
                     }
                 }
-                def composeFiles = dockerCompose."${taskName}".useComposeFiles.get()
-                def composeFileArgs = composeFiles.collectMany { ['-f', it] }
 
-                // Use the actual project name from config, fallback to default
-                def actualProjectName = config.additionalConfig?.projectName ?: project_name
-
-                def cmd = ["docker compose -p ${actualProjectName} --profile ${config.profile}"] + composeFileArgs + ['up', '-d', '--no-deps'] + containersToRestart
+                def cmd = ["docker compose -p ${actualProjectName} --profile ${activeProfile} -f ${compose_base} up -d --no-deps"] + containersToRestart
                 println(cmd.join(" "))
                 commandLine 'bash', '-c', cmd.join(" ")
             }
