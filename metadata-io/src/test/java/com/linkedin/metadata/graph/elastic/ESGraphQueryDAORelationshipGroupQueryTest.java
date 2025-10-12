@@ -33,6 +33,10 @@ import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
+import org.opensearch.action.search.CreatePitRequest;
+import org.opensearch.action.search.CreatePitResponse;
+import org.opensearch.action.search.DeletePitRequest;
+import org.opensearch.action.search.DeletePitResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
@@ -57,6 +61,24 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
     mockClient = mock(SearchClientShim.class);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
+    // Mock PIT operations
+    CreatePitResponse mockCreatePitResponse = mock(CreatePitResponse.class);
+    when(mockCreatePitResponse.getId()).thenReturn("test-pit-id");
+    try {
+      when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+          .thenReturn(mockCreatePitResponse);
+    } catch (IOException e) {
+      // This should not happen in tests
+    }
+
+    DeletePitResponse mockDeletePitResponse = mock(DeletePitResponse.class);
+    try {
+      when(mockClient.deletePit(any(DeletePitRequest.class), eq(RequestOptions.DEFAULT)))
+          .thenReturn(mockDeletePitResponse);
+    } catch (IOException e) {
+      // This should not happen in tests
+    }
+
     // Create configuration with timeout and batch settings
     GraphQueryConfiguration graphConfig =
         GraphQueryConfiguration.builder()
@@ -64,6 +86,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             .batchSize(25)
             .enableMultiPathSearch(true)
             .boostViaNodes(true)
+            .maxThreads(1) // Ensure valid thread count for GraphQueryPITDAO
             .build();
 
     LimitConfig limitConfig =
@@ -575,6 +598,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             .batchSize(25)
             .enableMultiPathSearch(true) // Enable multiple paths
             .queryOptimization(true)
+            .maxThreads(1) // Ensure valid thread count for GraphQueryPITDAO
             .build();
 
     ElasticSearchConfiguration testESConfig =
@@ -604,6 +628,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             .timeoutSeconds(10)
             .batchSize(25)
             .enableMultiPathSearch(false) // Disable multiple paths
+            .maxThreads(1) // Ensure valid thread count for GraphQueryPITDAO
             .build();
 
     ElasticSearchConfiguration testSinglePathConfig =
@@ -1079,7 +1104,13 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             .batchSize(25)
             .enableMultiPathSearch(true)
             .pointInTimeCreationEnabled(true)
-            .impact(ImpactConfiguration.builder().maxRelations(1000).maxHops(10).build())
+            .maxThreads(1) // Ensure valid thread count for GraphQueryPITDAO
+            .impact(
+                ImpactConfiguration.builder()
+                    .maxRelations(1000)
+                    .maxHops(10)
+                    .keepAlive("5m")
+                    .build())
             .build();
 
     ElasticSearchConfiguration testESConfig =
@@ -1143,7 +1174,13 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             .batchSize(25)
             .enableMultiPathSearch(true)
             .pointInTimeCreationEnabled(true)
-            .impact(ImpactConfiguration.builder().maxRelations(1000).maxHops(10).build())
+            .maxThreads(1) // Ensure valid thread count for GraphQueryPITDAO
+            .impact(
+                ImpactConfiguration.builder()
+                    .maxRelations(1000)
+                    .maxHops(10)
+                    .keepAlive("5m")
+                    .build())
             .build();
 
     ElasticSearchConfiguration testESConfig =

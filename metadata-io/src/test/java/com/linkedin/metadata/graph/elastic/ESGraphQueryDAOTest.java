@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -14,6 +15,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.GraphQueryConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -58,6 +61,16 @@ public class ESGraphQueryDAOTest {
     mockSortCriteria = Arrays.asList(mock(SortCriterion.class));
     mockSearchRequest = mock(SearchRequest.class);
     mockSearchResponse = mock(SearchResponse.class);
+
+    // Configure nested mock objects for ElasticSearchConfiguration
+    SearchConfiguration mockSearchConfig = mock(SearchConfiguration.class);
+    GraphQueryConfiguration mockGraphQueryConfig = mock(GraphQueryConfiguration.class);
+
+    when(mockElasticSearchConfig.getSearch()).thenReturn(mockSearchConfig);
+    when(mockSearchConfig.getGraph()).thenReturn(mockGraphQueryConfig);
+
+    // Configure GraphQueryConfiguration with valid values for thread pool creation
+    when(mockGraphQueryConfig.getMaxThreads()).thenReturn(1);
   }
 
   @Test
@@ -396,5 +409,80 @@ public class ESGraphQueryDAOTest {
     verify(mockDelegate)
         .getSearchResponse(
             mockOperationContext, mockGraphFilters, mockSortCriteria, "scroll123", "5m", null);
+  }
+
+  @Test
+  public void testDestroyWithGraphQueryPITDAO() throws Exception {
+    // Test destroy() method when delegate is GraphQueryPITDAO
+    SearchClientShim<?> testClient = mock(SearchClientShim.class);
+    when(testClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    // Create a real GraphQueryPITDAO as delegate
+    GraphQueryPITDAO pitDAO =
+        new GraphQueryPITDAO(testClient, mockGraphServiceConfig, mockElasticSearchConfig, null);
+
+    // Create ESGraphQueryDAO with GraphQueryPITDAO as delegate
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(testClient, mockGraphServiceConfig, mockElasticSearchConfig, null);
+
+    // Use reflection to set the delegate to our GraphQueryPITDAO
+    java.lang.reflect.Field delegateField = ESGraphQueryDAO.class.getDeclaredField("delegate");
+    delegateField.setAccessible(true);
+    delegateField.set(dao, pitDAO);
+
+    // Verify the delegate is a GraphQueryPITDAO
+    GraphQueryBaseDAO actualDelegate = (GraphQueryBaseDAO) delegateField.get(dao);
+    assertTrue(actualDelegate instanceof GraphQueryPITDAO);
+
+    // Call destroy()
+    dao.destroy();
+
+    // Verify that the pitExecutor is shutdown
+    assertTrue(pitDAO.pitExecutor.isShutdown(), "PIT executor should be shutdown after destroy()");
+    assertTrue(
+        pitDAO.pitExecutor.isTerminated(), "PIT executor should be terminated after destroy()");
+  }
+
+  @Test
+  public void testDestroyWithNonGraphQueryPITDAO() throws Exception {
+    // Test destroy() method when delegate is NOT GraphQueryPITDAO
+    SearchClientShim<?> testClient = mock(SearchClientShim.class);
+    when(testClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_7);
+
+    // Create ESGraphQueryDAO (which will have GraphQueryElasticsearch7DAO as delegate)
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(testClient, mockGraphServiceConfig, mockElasticSearchConfig, null);
+
+    // Verify the delegate is NOT a GraphQueryPITDAO
+    java.lang.reflect.Field delegateField = ESGraphQueryDAO.class.getDeclaredField("delegate");
+    delegateField.setAccessible(true);
+    GraphQueryBaseDAO actualDelegate = (GraphQueryBaseDAO) delegateField.get(dao);
+    assertFalse(actualDelegate instanceof GraphQueryPITDAO);
+
+    // Call destroy() - should not throw exception
+    dao.destroy();
+
+    // Test passes if no exception is thrown
+  }
+
+  @Test
+  public void testDestroyWithNullDelegate() throws Exception {
+    // Test destroy() method when delegate is null
+    SearchClientShim<?> testClient = mock(SearchClientShim.class);
+    when(testClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    // Create ESGraphQueryDAO
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(testClient, mockGraphServiceConfig, mockElasticSearchConfig, null);
+
+    // Use reflection to set the delegate to null
+    java.lang.reflect.Field delegateField = ESGraphQueryDAO.class.getDeclaredField("delegate");
+    delegateField.setAccessible(true);
+    delegateField.set(dao, null);
+
+    // Call destroy() - should not throw exception
+    dao.destroy();
+
+    // Test passes if no exception is thrown
   }
 }
