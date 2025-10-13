@@ -37,6 +37,7 @@ export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
     rowRefs?: React.MutableRefObject<HTMLTableRowElement[]>;
     headerRef?: React.RefObject<HTMLTableSectionElement>;
     footer?: React.ReactNode;
+    renderScrollObserver?: () => React.ReactNode;
 }
 
 export interface RowSelectionProps<T> {

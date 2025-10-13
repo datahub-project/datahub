@@ -3,10 +3,10 @@ import { useMemo } from 'react';
 
 import { StructuredProp, getEntityTypeUrn, valueTypes } from '@app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { EntityType, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
+import { EntityType, PropertyCardinality, StructuredPropertyEntity } from '@src/types.generated';
 
 interface Props {
-    selectedProperty?: SearchResult;
+    selectedProperty?: StructuredPropertyEntity;
     form: FormInstance;
     setFormValues: React.Dispatch<React.SetStateAction<StructuredProp | undefined>>;
     setCardinality: React.Dispatch<React.SetStateAction<PropertyCardinality>>;
@@ -55,7 +55,7 @@ export default function useStructuredProp({
     };
 
     const handleSelectUpdateChange = (field, values) => {
-        const entity = selectedProperty?.entity as StructuredPropertyEntity;
+        const entity = selectedProperty as StructuredPropertyEntity;
         let initialValues: string[] = [];
 
         if (field === 'entityTypes') initialValues = entity.definition.entityTypes.map((type) => type.urn);
@@ -126,13 +126,11 @@ export default function useStructuredProp({
     };
 
     const disabledEntityTypeValues = useMemo(() => {
-        return (selectedProperty?.entity as StructuredPropertyEntity)?.definition?.entityTypes?.map((type) => type.urn);
+        return selectedProperty?.definition?.entityTypes?.map((type) => type.urn);
     }, [selectedProperty]);
 
     const disabledTypeQualifierValues = useMemo(() => {
-        return (selectedProperty?.entity as StructuredPropertyEntity)?.definition?.typeQualifier?.allowedTypes?.map(
-            (type) => type.urn,
-        );
+        return selectedProperty?.definition?.typeQualifier?.allowedTypes?.map((type) => type.urn);
     }, [selectedProperty]);
 
     return {

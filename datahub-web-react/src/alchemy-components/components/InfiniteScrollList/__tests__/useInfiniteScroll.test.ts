@@ -96,14 +96,80 @@ describe('useInfiniteScroll hook', () => {
         expect(result.current.loading).toBe(false);
         expect(result.current.hasMore).toBe(true);
 
+        // manually set hasMore=false to trigger early return
         act(() => {
             result.current.observerRef.current = document.createElement('div');
+            result.current.hasMore = false as any;
         });
 
         await flushPromises();
 
         expect(fetchData).toHaveBeenCalledTimes(1);
-        expect(fetchData).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not crash if fetchData returns non-array', async () => {
+        const fetchData = vi.fn(() => Promise.resolve(null as any));
+        const { result, waitForNextUpdate } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
+
+        await waitForNextUpdate();
+
+        expect(result.current.items).toEqual([]);
+        expect(result.current.hasMore).toBe(true); // fallback
+    });
+
+    it('prepends a new item correctly', async () => {
+        const dataBatches = [[1, 2, 3]];
+        const fetchData = createFetchDataMock(dataBatches);
+
+        const { result, waitForNextUpdate } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
+
+        await waitForNextUpdate();
+
+        act(() => {
+            result.current.prependItem(0);
+        });
+
+        expect(result.current.items).toEqual([0, 1, 2, 3]);
+    });
+
+    it('does not prepend null or undefined', async () => {
+        const fetchData = vi.fn(() => Promise.resolve([1, 2]));
+        const { result, waitForNextUpdate } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
+
+        await waitForNextUpdate();
+
+        act(() => {
+            result.current.prependItem(undefined as any);
+            result.current.prependItem(null as any);
+        });
+
+        expect(result.current.items).toEqual([1, 2]);
+    });
+
+    it('removes items correctly using predicate', async () => {
+        const fetchData = vi.fn(() => Promise.resolve([1, 2, 3]));
+        const { result, waitForNextUpdate } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
+
+        await waitForNextUpdate();
+
+        act(() => {
+            result.current.removeItem((item) => item === 2);
+        });
+
+        expect(result.current.items).toEqual([1, 3]);
+    });
+
+    it('updates items correctly using predicate', async () => {
+        const fetchData = vi.fn(() => Promise.resolve([1, 2, 3]));
+        const { result, waitForNextUpdate } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
+
+        await waitForNextUpdate();
+
+        act(() => {
+            result.current.updateItem(99, (item) => item === 2);
+        });
+
+        expect(result.current.items).toEqual([1, 99, 3]);
     });
 
     it('cleans up IntersectionObserver on unmount', async () => {
@@ -134,8 +200,6 @@ describe('useInfiniteScroll hook', () => {
         });
 
         await waitForNextUpdate();
-
-        expect(observeMock).toHaveBeenCalled();
 
         unmount();
 

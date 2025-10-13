@@ -17,7 +17,10 @@ record StructuredPropertyDefinition {
     /**
     * The display name of the property. This is the name that will be shown in the UI and can be used to look up the property id.
     */
-    @Searchable = {}
+    @Searchable = {
+      "enableAutocomplete": true,
+      "boostScore": 10.0
+      }
     displayName: optional string
 
     /**
