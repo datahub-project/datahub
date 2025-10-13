@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 @ComponentScan(
     basePackages = {
       "com.datahub.graphql",
+      "com.datahub.files",
       "com.linkedin.gms.factory.graphql",
       "com.linkedin.gms.factory.timeline",
       "com.linkedin.gms.factory.usage",
@@ -17,7 +18,8 @@ import org.springframework.context.annotation.Configuration;
       "com.linkedin.gms.factory.ermodelrelation",
       "com.linkedin.gms.factory.dataproduct",
       "com.linkedin.gms.factory.businessattribute",
-      "com.linkedin.gms.factory.connection"
+      "com.linkedin.gms.factory.connection",
+      "com.linkedin.gms.factory.s3"
     })
 @Configuration
 public class GraphQLServletConfig {}
