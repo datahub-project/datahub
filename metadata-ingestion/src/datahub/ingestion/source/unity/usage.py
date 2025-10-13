@@ -167,8 +167,22 @@ class UnityCatalogUsageExtractor:
                     aspect=operation_aspect,
                 ).as_workunit()
 
+    def _validate_usage_data_source_config(self) -> None:
+        """Validate usage data source configuration before execution."""
+        usage_data_source = self.config.usage_data_source
+
+        if (
+            usage_data_source == UsageDataSource.SYSTEM_TABLES
+            and not self.proxy.warehouse_id
+        ):
+            raise ValueError(
+                "usage_data_source is set to SYSTEM_TABLES but warehouse_id is not configured. "
+                "Either set warehouse_id or use AUTO/API mode."
+            )
+
     def _get_queries(self) -> Iterable[Query]:
         try:
+            self._validate_usage_data_source_config()
             usage_data_source = self.config.usage_data_source
 
             if usage_data_source == UsageDataSource.AUTO:
@@ -196,8 +210,6 @@ class UnityCatalogUsageExtractor:
                 yield from self.proxy.query_history(
                     self.config.start_time, self.config.end_time
                 )
-            else:
-                raise ValueError(f"Unsupported usage_data_source: {usage_data_source}")
 
         except Exception as e:
             logger.warning("Error getting queries", exc_info=True)

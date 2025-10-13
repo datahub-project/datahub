@@ -295,9 +295,10 @@ class UnityCatalogSourceConfig(
         default=UsageDataSource.AUTO,
         description=(
             "Source for usage/query history data extraction. Options: "
-            f"'{UsageDataSource.AUTO.value}' - Use system tables when SQL warehouse is available, fallback to API; "
-            f"'{UsageDataSource.SYSTEM_TABLES.value}' - Force use of system.query.history table (requires SQL warehouse); "
-            f"'{UsageDataSource.API.value}' - Force use of REST API endpoints for query history"
+            f"'{UsageDataSource.AUTO.value}' (default) - Automatically use system.query.history table when SQL warehouse is configured, otherwise fall back to REST API. "
+            "This provides better performance for multi-workspace setups and large query volumes when warehouse_id is set. "
+            f"'{UsageDataSource.SYSTEM_TABLES.value}' - Force use of system.query.history table (requires SQL warehouse and SELECT permission on system.query.history). "
+            f"'{UsageDataSource.API.value}' - Force use of REST API endpoints for query history (legacy method, may have limitations with multiple workspaces)."
         ),
     )
 

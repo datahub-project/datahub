@@ -446,7 +446,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             for row in rows:
                 try:
                     yield Query(
-                        query_id=row.statement_id if row.statement_id else None,
+                        query_id=row.statement_id,
                         query_text=row.statement_text,
                         statement_type=(
                             QueryStatementType(row.statement_type)
@@ -456,13 +456,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         start_time=row.start_time,
                         end_time=row.end_time,
                         user_id=row.executed_by_user_id,
-                        user_name=row.executed_by if row.executed_by else None,
-                        executed_as_user_id=(
-                            row.executed_as_user_id if row.executed_as_user_id else None
-                        ),
-                        executed_as_user_name=(
-                            row.executed_as if row.executed_as else None
-                        ),
+                        user_name=row.executed_by,
+                        executed_as_user_id=row.executed_as_user_id,
+                        executed_as_user_name=row.executed_as,
                     )
                 except Exception as e:
                     logger.warning(f"Error parsing query from system table: {e}")
@@ -471,7 +467,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             logger.error(
                 f"Error fetching query history from system tables: {e}", exc_info=True
             )
-            self.report.report_warning("get-query-history-system-tables", str(e))
+            self.report.report_failure(
+                title="Failed to fetch query history from system tables",
+                message=f"Error querying system.query.history table: {e}",
+                context=f"Query period: {start_time} to {end_time}",
+            )
 
     def _build_datetime_where_conditions(
         self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None

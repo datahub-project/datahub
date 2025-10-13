@@ -1288,3 +1288,219 @@ class TestUnityCatalogProxyAuthentication:
             assert any(
                 "databricks-sql proxy authentication fix" in msg for msg in log_calls
             )
+
+
+class TestUnityCatalogProxyUsageSystemTables:
+    """Test suite for system tables query history functionality."""
+
+    @pytest.fixture
+    def mock_proxy(self):
+        """Create a mock UnityCatalogApiProxy for testing."""
+        with patch("datahub.ingestion.source.unity.proxy.WorkspaceClient"):
+            proxy = UnityCatalogApiProxy(
+                workspace_url="https://test.databricks.com",
+                personal_access_token="test_token",
+                warehouse_id="test_warehouse",
+                report=UnityCatalogReport(),
+            )
+            return proxy
+
+    @patch(
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+    )
+    def test_get_query_history_via_system_tables_empty(self, mock_execute, mock_proxy):
+        """Test get_query_history_via_system_tables with no results."""
+        mock_execute.return_value = []
+        start_time = datetime(2023, 1, 1)
+        end_time = datetime(2023, 1, 31)
+
+        result = list(
+            mock_proxy.get_query_history_via_system_tables(start_time, end_time)
+        )
+
+        assert len(result) == 0
+        mock_execute.assert_called_once()
+        call_args = mock_execute.call_args
+        query = call_args[0][0]
+        assert "system.query.history" in query
+        assert "execution_status = 'FINISHED'" in query
+
+    @patch(
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+    )
+    def test_get_query_history_via_system_tables_with_data(
+        self, mock_execute, mock_proxy
+    ):
+        """Test get_query_history_via_system_tables with sample data."""
+        from databricks.sql.types import Row
+
+        mock_data = [
+            Row(
+                statement_id="query_123",
+                statement_text="SELECT * FROM test_table",
+                statement_type="SELECT",
+                start_time=datetime(2023, 1, 1, 10, 0, 0),
+                end_time=datetime(2023, 1, 1, 10, 0, 30),
+                executed_by="user@example.com",
+                executed_as="user@example.com",
+                executed_by_user_id=123,
+                executed_as_user_id=123,
+            ),
+            Row(
+                statement_id="query_124",
+                statement_text="INSERT INTO target_table SELECT * FROM source_table",
+                statement_type="INSERT",
+                start_time=datetime(2023, 1, 1, 11, 0, 0),
+                end_time=datetime(2023, 1, 1, 11, 0, 45),
+                executed_by="service@example.com",
+                executed_as="service@example.com",
+                executed_by_user_id=456,
+                executed_as_user_id=456,
+            ),
+        ]
+        mock_execute.return_value = mock_data
+
+        start_time = datetime(2023, 1, 1)
+        end_time = datetime(2023, 1, 31)
+        result = list(
+            mock_proxy.get_query_history_via_system_tables(start_time, end_time)
+        )
+
+        assert len(result) == 2
+        assert result[0].query_id == "query_123"
+        assert result[0].query_text == "SELECT * FROM test_table"
+        assert result[0].user_name == "user@example.com"
+        assert result[0].user_id == 123
+        assert result[1].query_id == "query_124"
+        assert "INSERT INTO target_table" in result[1].query_text
+
+    @patch(
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+    )
+    def test_get_query_history_via_system_tables_filters_statement_types(
+        self, mock_execute, mock_proxy
+    ):
+        """Test that query includes proper statement type filtering."""
+        mock_execute.return_value = []
+        start_time = datetime(2023, 1, 1)
+        end_time = datetime(2023, 1, 31)
+
+        list(mock_proxy.get_query_history_via_system_tables(start_time, end_time))
+
+        call_args = mock_execute.call_args
+        query = call_args[0][0]
+        assert "statement_type IN (" in query
+        assert "'SELECT'" in query
+        assert "'INSERT'" in query
+        assert "'UPDATE'" in query
+        assert "'DELETE'" in query
+        assert "'MERGE'" in query
+        assert "'CREATE'" in query
+        assert "'OTHER'" in query
+
+    @patch(
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+    )
+    def test_get_query_history_via_system_tables_handles_null_values(
+        self, mock_execute, mock_proxy
+    ):
+        """Test handling of NULL values in query results."""
+        from databricks.sql.types import Row
+
+        mock_data = [
+            Row(
+                statement_id="query_125",
+                statement_text="SELECT 1",
+                statement_type=None,
+                start_time=datetime(2023, 1, 1, 10, 0, 0),
+                end_time=datetime(2023, 1, 1, 10, 0, 5),
+                executed_by=None,
+                executed_as=None,
+                executed_by_user_id=None,
+                executed_as_user_id=None,
+            )
+        ]
+        mock_execute.return_value = mock_data
+
+        start_time = datetime(2023, 1, 1)
+        end_time = datetime(2023, 1, 31)
+        result = list(
+            mock_proxy.get_query_history_via_system_tables(start_time, end_time)
+        )
+
+        assert len(result) == 1
+        assert result[0].statement_type is None
+        assert result[0].user_name is None
+        assert result[0].user_id is None
+
+    @patch(
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+    )
+    def test_get_query_history_via_system_tables_error_handling(
+        self, mock_execute, mock_proxy
+    ):
+        """Test error handling when SQL query fails."""
+        mock_execute.side_effect = Exception("SQL execution failed")
+
+        start_time = datetime(2023, 1, 1)
+        end_time = datetime(2023, 1, 31)
+        result = list(
+            mock_proxy.get_query_history_via_system_tables(start_time, end_time)
+        )
+
+        assert len(result) == 0
+        assert len(mock_proxy.report.failures) > 0
+
+    @patch(
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+    )
+    def test_get_query_history_via_system_tables_row_parse_error(
+        self, mock_execute, mock_proxy
+    ):
+        """Test error handling when individual row parsing fails."""
+        from databricks.sql.types import Row
+
+        mock_data = [
+            Row(
+                statement_id="query_126",
+                statement_text="SELECT * FROM valid_table",
+                statement_type="SELECT",
+                start_time=datetime(2023, 1, 1, 10, 0, 0),
+                end_time=datetime(2023, 1, 1, 10, 0, 30),
+                executed_by="user@example.com",
+                executed_as="user@example.com",
+                executed_by_user_id=123,
+                executed_as_user_id=123,
+            )
+        ]
+        mock_execute.return_value = mock_data
+
+        with patch(
+            "datahub.ingestion.source.unity.proxy_types.Query.__init__",
+            side_effect=Exception("Query creation failed"),
+        ):
+            start_time = datetime(2023, 1, 1)
+            end_time = datetime(2023, 1, 31)
+            result = list(
+                mock_proxy.get_query_history_via_system_tables(start_time, end_time)
+            )
+
+            assert len(result) == 0
+            assert len(mock_proxy.report.warnings) > 0
+
+    @patch(
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+    )
+    def test_get_query_history_via_system_tables_time_parameters(
+        self, mock_execute, mock_proxy
+    ):
+        """Test that start and end time are passed correctly as parameters."""
+        mock_execute.return_value = []
+        start_time = datetime(2023, 5, 15, 8, 30, 0)
+        end_time = datetime(2023, 5, 20, 18, 45, 0)
+
+        list(mock_proxy.get_query_history_via_system_tables(start_time, end_time))
+
+        call_args = mock_execute.call_args
+        params = call_args[0][1]
+        assert params == (start_time, end_time)
