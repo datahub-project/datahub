@@ -118,7 +118,7 @@ ext {
             ],
             'quickstartCDC': [
                     profile: 'quickstart-consumers-cdc',
-                    modules: backend_profile_modules + [':datahub-frontend',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
                                                         ':metadata-jobs:mce-consumer-job',
                                                         ':metadata-jobs:mae-consumer-job',
                                                         ':datahub-actions',
@@ -156,7 +156,7 @@ ext {
             ],
             'quickstartPgCdc': [
                 profile: 'quickstart-postgres-cdc',
-                modules: (backend_profile_modules - [':docker:mysql-setup']) + [
+                modules: (python_services_modules + backend_profile_modules - [':docker:mysql-setup']) + [
                     ':docker:postgres-setup',
                     ':datahub-frontend',
                     ':datahub-actions',
