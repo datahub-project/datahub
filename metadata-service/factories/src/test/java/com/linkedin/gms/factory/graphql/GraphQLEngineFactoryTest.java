@@ -16,6 +16,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
+import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
@@ -60,6 +61,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -68,7 +70,12 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-@SpringBootTest(classes = {ConfigurationProvider.class, GraphQLEngineFactory.class})
+@SpringBootTest(
+    classes = {
+      ConfigurationProvider.class,
+      GraphQLEngineFactory.class,
+      BaseElasticSearchComponentsFactory.class
+    })
 @ContextConfiguration(classes = GraphQLEngineFactoryTest.TestConfig.class)
 @TestPropertySource(
     locations = "classpath:/application.yaml",
@@ -552,7 +559,7 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     }
   }
 
-  @org.springframework.context.annotation.Configuration
+  @Configuration
   static class TestConfig {
 
     @MockBean(name = "settingsBuilder")

@@ -9,4 +9,5 @@ public class SystemUpdateConfiguration {
   private String maxBackOffs;
   private String backOffFactor;
   private boolean waitForSystemUpdate;
+  private boolean cdcMode;
 }

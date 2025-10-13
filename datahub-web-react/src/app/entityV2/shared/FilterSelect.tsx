@@ -82,6 +82,7 @@ export const FilterSelect = ({
             areParentsSelectable={false}
             width={width || 100}
             selectLabelProps={{ variant: 'labeled', label: placeholder || 'Filter' }}
+            dataTestId="filter"
             shouldAlwaysSyncParentValues
             hideParentCheckbox
             shouldDisplayConfirmationFooter={shouldDisplayConfirmationFooter}

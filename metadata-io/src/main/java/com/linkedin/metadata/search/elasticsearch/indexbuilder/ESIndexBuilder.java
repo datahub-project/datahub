@@ -1086,6 +1086,28 @@ public class ESIndexBuilder {
     _searchClient.updateIndexSettings(request, RequestOptions.DEFAULT);
   }
 
+  /**
+   * Sets the refresh interval for an index.
+   *
+   * @param indexName the name of the index
+   * @param refreshInterval the refresh interval value (e.g., "1s", "-1" for disabled)
+   * @throws IOException if there's an error communicating with Elasticsearch
+   */
+  public void setIndexRefreshInterval(String indexName, String refreshInterval) throws IOException {
+    setIndexSetting(indexName, refreshInterval, INDEX_REFRESH_INTERVAL);
+  }
+
+  /**
+   * Sets the replica count for an index.
+   *
+   * @param indexName the name of the index
+   * @param replicaCount the number of replicas
+   * @throws IOException if there's an error communicating with Elasticsearch
+   */
+  public void setIndexReplicaCount(String indexName, int replicaCount) throws IOException {
+    setIndexSetting(indexName, String.valueOf(replicaCount), INDEX_NUMBER_OF_REPLICAS);
+  }
+
   private Map<String, Object> submitReindex(
       String[] sourceIndices,
       String destinationIndex,
@@ -1230,7 +1252,7 @@ public class ESIndexBuilder {
     log.info("Created index {}", indexName);
   }
 
-  public static void cleanIndex(
+  public static void cleanOrphanedIndices(
       SearchClientShim<?> searchClient,
       ElasticSearchConfiguration esConfig,
       ReindexConfig indexState) {

@@ -709,7 +709,8 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
         10, // bulkRequestsLimit
         5, // bulkFlushPeriod in seconds
         1000, // retryInterval
-        3 // numRetries
+        3, // numRetries
+        1 // threadCount
         );
 
     // Add bulk requests

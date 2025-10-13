@@ -36,16 +36,19 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 DataJob must be associated with a DataFlow. You can create a DataJob by providing the DataFlow object or the DataFlow URN and its platform instance.
 
 <Tabs>
-<TabItem value="python" label="Create DataJob with a DataFlow Object" default>
+<TabItem value="create-datajob" label="Create DataJob with a DataFlow Object" default>
+
 ```python
 {{ inline /metadata-ingestion/examples/library/create_datajob.py show_path_as_comment }}
 ```
 
 </TabItem>
-<TabItem value="python" label="Create DataJob with DataFlow URN">
+<TabItem value="create-datajob-urn" label="Create DataJob with DataFlow URN">
+
 ```python
 {{ inline /metadata-ingestion/examples/library/create_datajob_with_flow_urn.py show_path_as_comment }}
 ```
+
 </TabItem>
 </Tabs>
 

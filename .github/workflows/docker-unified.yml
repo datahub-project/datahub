@@ -1,6 +1,12 @@
 name: Docker Build, Scan, Test
 on:
   workflow_dispatch:
+    inputs:
+      profileName:
+        description: "Profile name for the smoke-test. Defaults to quickstart-consumers if not specified"
+        required: false
+        default: "quickstart-consumers"
+        type: string
   push:
     branches:
       - acryl-main
@@ -23,6 +29,7 @@ env:
   DOCKER_REGISTRY: "795586375822.dkr.ecr.us-west-2.amazonaws.com"
   ACRYLIO_DOCKER_REGISTRY: "acrylio"
   CLOUDSMITH_REGISTRY: "docker.cloudsmith.io/datahub/enterprise"
+  PROFILE_NAME: "${{ github.event.inputs.profileName || 'quickstart-consumers' }}"
 
   DATAHUB_INGESTION_BASE_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion-base"
 
@@ -290,8 +297,16 @@ jobs:
       - name: Build all Images (For Smoke tests)
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.acrylio_publish != 'true' && needs.setup.outputs.cloudsmith_publish != 'true'}}
         # If not publishing, just a subset of images required for smoke tests is sufficient.
+        # Use buildImagesAll for workflow_dispatch, otherwise buildImagesQuickStartDebugConsumers
         run: |
-          ./gradlew :docker:buildImagesQuickStartDebugConsumers  -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # if triggered via workflow_dispatch, this can run other quickstart variants, so lets build all images to allow that.
+            # we still dont need matrixed builds since this is for smoke test only.
+            BUILD_TASK=":docker:buildImagesAll"
+          else
+            BUILD_TASK=":docker:buildImagesQuickstart"
+          fi
+          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
 
       - name: Login to AWS ECR
         uses: docker/login-action@v3
@@ -476,11 +491,17 @@ jobs:
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
       - name: Free up disk space
-        if: ${{ !contains(needs.setup.outputs.test_runner_type, 'depot') }}
         run: |
           sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/.ghcup || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/share/swift || true
+          sudo rm -rf /usr/local/julia* || true
+          sudo rm -rf /usr/local/share/powershell || true
+          sudo rm -rf /usr/share/miniconda || true
           sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
+          sudo docker system prune -a -f || true
+          df -h
 
       - uses: actions/cache/restore@v4
         with:
@@ -514,6 +535,14 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         if: ${{ env.DEPOT_PROJECT_ID == '' }}
 
+      - name: Disk Space Analysis
+        run: |
+          echo "=== Disk Usage Overview ==="
+          df -h
+
+          echo -e "\n=== Docker Disk Usage ==="
+          docker system df -v
+
       - name: build images
         if: ${{ env.DEPOT_PROJECT_ID == '' }}
         run: |
@@ -528,6 +557,13 @@ jobs:
           depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }}
           docker images
 
+      - name: Disk Space Analysis
+        run: |
+          echo "=== Disk Usage Overview ==="
+          df -h
+
+          echo -e "\n=== Docker Disk Usage ==="
+          docker system df -v
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
@@ -544,6 +580,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.REMOTE_EXECUTOR_AWS_ACCESS_KEY_ID }}
           AWS_REGION: us-west-2
         run: |
+          # Quickstart uses PROFILE_NAME env if defined to start the profile specified. Defaults to quickstart-consumers
           ./smoke-test/run-quickstart.sh
 
       - name: Disk Check

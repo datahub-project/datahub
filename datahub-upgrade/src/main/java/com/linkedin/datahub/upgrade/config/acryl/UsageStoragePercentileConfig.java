@@ -1,6 +1,6 @@
 package com.linkedin.datahub.upgrade.config.acryl;
 
-import com.linkedin.datahub.upgrade.config.SystemUpdateCondition;
+import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.acryl.UsageStoragePercentile;
 import com.linkedin.metadata.entity.AspectDao;

@@ -30,9 +30,6 @@ public class ConfigurationProvider extends DataHubAppConfiguration {
   /** Configuration for the health check server */
   private HealthCheckConfiguration healthCheck;
 
-  /** Structured properties related configurations */
-  private StructuredPropertiesConfiguration structuredProperties;
-
   /** Enable/disable DataHub analytics */
   private PlatformAnalyticsConfiguration platformAnalytics;
 

@@ -83,6 +83,7 @@ export const LinkFormModal = ({ open, initialValues, variant, onSubmit, onCancel
                             isChecked={shouldBeShownInAssetPreview}
                             setIsChecked={setIsShowInAssetPreview}
                             size="sm"
+                            dataTestId="link-form-modal-show-in-asset-preview"
                         />
                         <FooterCheckboxLabel
                             color="gray"

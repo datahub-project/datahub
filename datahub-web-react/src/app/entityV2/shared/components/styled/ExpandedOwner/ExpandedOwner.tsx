@@ -9,9 +9,11 @@ import {
     ExtendedOwner,
     getNameFromType,
 } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import ProposalModal from '@app/shared/tags/ProposalModal';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveOwnerMutation } from '@graphql/mutations.generated';
@@ -32,7 +34,7 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
     const [removeOwnerMutation] = useRemoveOwnerMutation();
 
     const [selectedActionRequest, setSelectedActionRequest] = useState<ActionRequest | undefined | null>(null);
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
     const { user } = useUserContext();
 
     let name = '';
@@ -73,7 +75,11 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
             const isCurrentUserRemoved = user?.urn === owner.owner.urn;
             // Reload modules
             // OwnedAssets - update Your assets module on home page
-            if (isCurrentUserRemoved) reloadModules([DataHubPageModuleType.OwnedAssets], 3000);
+            if (isCurrentUserRemoved)
+                reloadByKeyType(
+                    [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.OwnedAssets)],
+                    3000,
+                );
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {

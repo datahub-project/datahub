@@ -141,6 +141,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         inviteUsersEnabled: false,
         supportTicketsEnabled: false,
         teamsNotificationsEnabled: false,
+        documentationFileUploadV1: false,
     },
     chromeExtensionConfig: {
         enabled: false,

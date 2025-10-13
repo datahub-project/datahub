@@ -429,10 +429,20 @@ public class SearchDocumentTransformerTest {
     String entityUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)";
     SearchDocumentTransformer test = new SearchDocumentTransformer(1000, 1000, 1000);
 
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            RetrieverContext.builder()
+                .aspectRetriever(mock(AspectRetriever.class))
+                .cachingAspectRetriever(
+                    TestOperationContexts.emptyActiveUsersAspectRetriever(() -> ENTITY_REGISTRY))
+                .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
+                .build());
+
     // editedDescription - empty string
     Optional<ObjectNode> transformed =
         test.transformAspect(
-            mock(OperationContext.class),
+            opContext,
             UrnUtils.getUrn(entityUrn),
             new EditableDatasetProperties().setDescription(""),
             ENTITY_REGISTRY
@@ -449,7 +459,7 @@ public class SearchDocumentTransformerTest {
     // description - empty string
     transformed =
         test.transformAspect(
-            mock(OperationContext.class),
+            opContext,
             UrnUtils.getUrn(entityUrn),
             new DatasetProperties().setDescription(""),
             ENTITY_REGISTRY
@@ -487,7 +497,6 @@ public class SearchDocumentTransformerTest {
 
     // Mock AspectRetriever and OperationContext
     AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
-    OperationContext opContext = Mockito.mock(OperationContext.class);
 
     // Mock the aspectRetriever to return a structured property definition
     Map<Urn, Map<String, Aspect>> mockDefinitions = new HashMap<>();
@@ -503,9 +512,18 @@ public class SearchDocumentTransformerTest {
     aspectMap.put(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, structuredPropertyDefinitionAspect);
     mockDefinitions.put(UrnUtils.getUrn(structuredPropertyUrn), aspectMap);
 
-    Mockito.when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
     Mockito.when(aspectRetriever.getLatestAspectObjects(any(Set.class), any(Set.class)))
         .thenReturn(mockDefinitions);
+
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            RetrieverContext.builder()
+                .aspectRetriever(aspectRetriever)
+                .cachingAspectRetriever(
+                    TestOperationContexts.emptyActiveUsersAspectRetriever(() -> ENTITY_REGISTRY))
+                .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
+                .build());
 
     Optional<ObjectNode> transformed =
         test.transformAspect(

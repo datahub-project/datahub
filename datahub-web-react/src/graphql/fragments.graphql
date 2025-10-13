@@ -2046,6 +2046,7 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
         showInSearchFilters
         showAsAssetBadge
         showInAssetSummary
+        hideInAssetSummaryWhenEmpty
         showInColumnsTable
     }
 }
