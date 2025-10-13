@@ -266,7 +266,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setLogicalModelsEnabled(_featureFlags.isLogicalModelsEnabled())
             .setShowHomepageUserRole(_featureFlags.isShowHomepageUserRole())
             .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
-            .setDocumentationFileUploadV1(_featureFlags.isDocumentationFileUploadV1())
+            .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
@@ -367,5 +367,19 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     } else {
       return null;
     }
+  }
+
+  private boolean isDocumentationFileUploadV1Enabled() {
+    boolean isEnabledInConfig = _featureFlags.isDocumentationFileUploadV1();
+    if (!isEnabledInConfig) return false;
+
+    // Check if S3 bucket name is configured
+    String bucketName = _datahubConfiguration.getS3().getBucketName();
+    if (bucketName == null || bucketName.isEmpty()) {
+      log.debug("DocumentationFileUploadV1 disabled: DATAHUB_BUCKET_NAME not configured");
+      return false;
+    }
+
+    return true;
   }
 }

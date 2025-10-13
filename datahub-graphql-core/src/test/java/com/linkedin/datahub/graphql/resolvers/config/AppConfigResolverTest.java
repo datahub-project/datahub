@@ -36,6 +36,7 @@ public class AppConfigResolverTest {
   @Mock private TelemetryConfiguration mockTelemetryConfiguration;
   @Mock private TestsConfiguration mockTestsConfiguration;
   @Mock private DataHubConfiguration mockDatahubConfiguration;
+  @Mock private S3Configuration mockS3Configuration;
   @Mock private ViewsConfiguration mockViewsConfiguration;
   @Mock private SearchBarConfiguration mockSearchBarConfiguration;
   @Mock private SearchCardConfiguration mockSearchCardConfiguration;
@@ -70,6 +71,10 @@ public class AppConfigResolverTest {
     when(mockHomePageConfiguration.getFirstInPersonalSidebar()).thenReturn("YOUR_ASSETS");
     when(mockChromeExtensionConfiguration.isEnabled()).thenReturn(false);
     when(mockChromeExtensionConfiguration.isLineageEnabled()).thenReturn(false);
+
+    // Setup S3 configuration
+    when(mockDatahubConfiguration.getS3()).thenReturn(mockS3Configuration);
+    when(mockS3Configuration.getBucketName()).thenReturn("test-bucket");
 
     // Setup feature flags
     setupFeatureFlags();
@@ -408,5 +413,53 @@ public class AppConfigResolverTest {
     // Verify that the privileges lists are populated (they come from static config)
     assertFalse(result.getPoliciesConfig().getPlatformPrivileges().isEmpty());
     assertFalse(result.getPoliciesConfig().getResourcePrivileges().isEmpty());
+  }
+
+  @Test
+  public void testDocumentationFileUploadV1EnabledWithFeatureFlagAndS3() throws Exception {
+    // Enable feature flag and configure S3 bucket
+    when(mockFeatureFlags.isDocumentationFileUploadV1()).thenReturn(true);
+    when(mockS3Configuration.getBucketName()).thenReturn("my-bucket");
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getFeatureFlags());
+    assertTrue(result.getFeatureFlags().getDocumentationFileUploadV1());
+  }
+
+  @Test
+  public void testDocumentationFileUploadV1DisabledWhenFeatureFlagDisabled() throws Exception {
+    // Feature flag disabled, S3 configured
+    when(mockFeatureFlags.isDocumentationFileUploadV1()).thenReturn(false);
+    when(mockS3Configuration.getBucketName()).thenReturn("my-bucket");
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getFeatureFlags());
+    assertFalse(result.getFeatureFlags().getDocumentationFileUploadV1());
+  }
+
+  @Test
+  public void testDocumentationFileUploadV1DisabledWhenS3BucketNameNull() throws Exception {
+    // Feature flag enabled, but S3 bucket name is null
+    when(mockFeatureFlags.isDocumentationFileUploadV1()).thenReturn(true);
+    when(mockS3Configuration.getBucketName()).thenReturn(null);
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getFeatureFlags());
+    assertFalse(result.getFeatureFlags().getDocumentationFileUploadV1());
+  }
+
+  @Test
+  public void testDocumentationFileUploadV1DisabledWhenS3BucketNameEmpty() throws Exception {
+    // Feature flag enabled, but S3 bucket name is empty
+    when(mockFeatureFlags.isDocumentationFileUploadV1()).thenReturn(true);
+    when(mockS3Configuration.getBucketName()).thenReturn("");
+
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result.getFeatureFlags());
+    assertFalse(result.getFeatureFlags().getDocumentationFileUploadV1());
   }
 }
