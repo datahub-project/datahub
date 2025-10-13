@@ -7,7 +7,7 @@ import {
     useReloadModuleOnProposalApprove,
 } from '@app/taskCenterV2/proposalsV2/useReloadModulesOnProposalApprove';
 
-import { ActionRequestType, DataHubPageModuleType, EntityType } from '@types';
+import { ActionRequestType, EntityType } from '@types';
 
 // Mock the useReloadableContext hook
 vi.mock('@app/sharedV2/reloadableContext/hooks/useReloadableContext', () => ({
@@ -66,7 +66,7 @@ describe('useReloadModuleOnProposalApprove', () => {
 
         onProposalApproved([actionRequest]);
         vi.advanceTimersByTime(3000);
-        expect(mockReloadByKeyType).toHaveBeenCalledWith([DataHubPageModuleType.ChildHierarchy], 3000);
+        expect(mockReloadByKeyType).toHaveBeenCalledWith(['MODULE>CHILD_HIERARCHY'], 3000);
     });
 
     it('should not reload ChildHierarchy for CreateGlossaryNode without parentNode', () => {
@@ -112,7 +112,7 @@ describe('useReloadModuleOnProposalApprove', () => {
 
         onProposalApproved([actionRequest]);
         vi.advanceTimersByTime(3000);
-        expect(mockReloadByKeyType).toHaveBeenCalledWith([DataHubPageModuleType.ChildHierarchy], 3000);
+        expect(mockReloadByKeyType).toHaveBeenCalledWith(['MODULE>CHILD_HIERARCHY'], 3000);
     });
 
     it('should not reload ChildHierarchy for CreateGlossaryTerm without parentNode', () => {
@@ -148,7 +148,7 @@ describe('useReloadModuleOnProposalApprove', () => {
 
         onProposalApproved([actionRequest]);
         vi.advanceTimersByTime(3000);
-        expect(mockReloadByKeyType).toHaveBeenCalledWith([DataHubPageModuleType.Assets], 3000);
+        expect(mockReloadByKeyType).toHaveBeenCalledWith(['MODULE>ASSETS'], 3000);
     });
 
     it('should reload OwnedAssets for OwnerAssociation', () => {
@@ -163,7 +163,7 @@ describe('useReloadModuleOnProposalApprove', () => {
 
         onProposalApproved([actionRequest]);
         vi.advanceTimersByTime(3000);
-        expect(mockReloadByKeyType).toHaveBeenCalledWith([DataHubPageModuleType.OwnedAssets], 3000);
+        expect(mockReloadByKeyType).toHaveBeenCalledWith(['MODULE>OWNED_ASSETS'], 3000);
     });
 
     it('should reload Assets for TermAssociation', () => {
@@ -178,7 +178,7 @@ describe('useReloadModuleOnProposalApprove', () => {
 
         onProposalApproved([actionRequest]);
         vi.advanceTimersByTime(3000);
-        expect(mockReloadByKeyType).toHaveBeenCalledWith([DataHubPageModuleType.Assets], 3000);
+        expect(mockReloadByKeyType).toHaveBeenCalledWith(['MODULE>ASSETS'], 3000);
     });
 
     it('should call reloadByKeyType with correct types and delay for a single action request', () => {
@@ -196,7 +196,7 @@ describe('useReloadModuleOnProposalApprove', () => {
         expect(mockReloadByKeyType).toHaveBeenCalled();
         vi.advanceTimersByTime(3000);
         expect(mockReloadByKeyType).toHaveBeenCalledTimes(1);
-        expect(mockReloadByKeyType).toHaveBeenCalledWith([DataHubPageModuleType.Assets], 3000);
+        expect(mockReloadByKeyType).toHaveBeenCalledWith(['MODULE>ASSETS'], 3000);
     });
 
     it('should call reloadByKeyType with unique types and delay for multiple action requests', () => {
@@ -240,7 +240,7 @@ describe('useReloadModuleOnProposalApprove', () => {
         vi.advanceTimersByTime(3000);
         expect(mockReloadByKeyType).toHaveBeenCalledTimes(1);
         expect(mockReloadByKeyType).toHaveBeenCalledWith(
-            [DataHubPageModuleType.Assets, DataHubPageModuleType.OwnedAssets, DataHubPageModuleType.ChildHierarchy],
+            ['MODULE>ASSETS', 'MODULE>OWNED_ASSETS', 'MODULE>CHILD_HIERARCHY'],
             3000,
         );
     });
@@ -281,6 +281,6 @@ describe('useReloadModuleOnProposalApprove', () => {
         expect(mockReloadByKeyType).toHaveBeenCalled();
         vi.advanceTimersByTime(3000);
         expect(mockReloadByKeyType).toHaveBeenCalledTimes(1);
-        expect(mockReloadByKeyType).toHaveBeenCalledWith([DataHubPageModuleType.Assets], 3000);
+        expect(mockReloadByKeyType).toHaveBeenCalledWith(['MODULE>ASSETS'], 3000);
     });
 });
