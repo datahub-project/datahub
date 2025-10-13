@@ -121,6 +121,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
@@ -1045,15 +1046,52 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     IngestAspectsResult ingestResults = ingestAspectsToLocalDB(opContext, aspectsBatch, overwrite);
 
     // Produce MCLs & run side effects
-    List<UpdateAspectResult> mclResults =
-        emitMCL(opContext, ingestResults.getUpdateAspectResults(), emitMCL);
-    processPostCommitMCLSideEffects(
-        opContext, mclResults.stream().map(UpdateAspectResult::toMCL).collect(Collectors.toList()));
+    List<MetadataChangeLog> mcls =
+        ingestResults.getUpdateAspectResults().stream()
+            .map(UpdateAspectResult::toMCL)
+            .collect(Collectors.toList());
+
+    List<UpdateAspectResult> updateAspectResults;
+
+    List<MCLEmitResult> mclEmitResults;
+    if (!cdcModeChangeLog && emitMCL) {
+      mclEmitResults = produceMCLAsync(opContext, mcls);
+    } else {
+      // This results in pre-process being called here that may be potentially out-of-order.
+      // when the CDC record is consumed, produceMCLAsync is called in the CDC order and
+      // will result in pre-process being called again potentially overwriting this first
+      // preprocess result.
+      mclEmitResults =
+          mcls.stream()
+              .map(mcl -> Pair.of(preprocessEvent(opContext, mcl), mcl))
+              .map(
+                  preprocessResult ->
+                      MCLEmitResult.builder()
+                          .emitted(false)
+                          .processedMCL(preprocessResult.getFirst())
+                          .mclFuture(null)
+                          .metadataChangeLog(preprocessResult.getSecond())
+                          .build())
+              .collect(Collectors.toList());
+    }
+    updateAspectResults =
+        IntStream.range(0, ingestResults.getUpdateAspectResults().size())
+            .mapToObj(
+                i -> {
+                  UpdateAspectResult updateAspectResult =
+                      ingestResults.getUpdateAspectResults().get(i);
+                  MCLEmitResult mclEmitResult = mclEmitResults.get(i);
+                  return updateAspectResult.toBuilder()
+                      .mclFuture(mclEmitResult.getMclFuture())
+                      .processedMCL(mclEmitResult.isProcessedMCL())
+                      .build();
+                })
+            .collect(Collectors.toList());
 
     // Produce FailedMCPs for tracing
     produceFailedMCPs(opContext, ingestResults);
 
-    return mclResults;
+    return updateAspectResults;
   }
 
   /**
