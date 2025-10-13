@@ -114,10 +114,12 @@ public class ExternalEventsService {
       int finalLimit = limit != null ? limit : defaultLimit;
 
       while (fetchedRecords < finalLimit) {
-        if (System.currentTimeMillis() - startTime > timeout) {
+        long timeRemaining = timeout - (System.currentTimeMillis() - startTime);
+        if (timeRemaining <= 0L) {
           break;
         }
-        ConsumerRecords<String, GenericRecord> records = consumer.poll(Duration.ofMillis(1000));
+        ConsumerRecords<String, GenericRecord> records =
+            consumer.poll(Duration.ofMillis(Math.min(1000, timeRemaining)));
         for (ConsumerRecord<String, GenericRecord> record : records) {
           messages.add(record.value());
           latestOffsets.put(
