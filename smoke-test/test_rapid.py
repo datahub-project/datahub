@@ -1,7 +1,9 @@
 import pytest
 import tenacity
+from typing import Any, Dict
 
 from tests.utils import (
+    execute_graphql,
     ingest_file_via_rest,
     get_sleep_info,
 )
@@ -17,45 +19,39 @@ bootstrap_small_2 = "test_resources/bootstrap_single2.json"
 )
 def _ensure_dataset_present_correctly(auth_session):
     urn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,testDataset,PROD)"
-    json = {
-        "query": """query getDataset($urn: String!) {\n
-                dataset(urn: $urn) {\n
-                    urn\n
-                    name\n
-                    description\n
-                    platform {\n
-                        urn\n
-                    }\n
-                    schemaMetadata {\n
-                        name\n
-                        version\n
-                        createdAt\n
-                    }\n
-                    outgoing: relationships(\n
-                                input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 2000 }\n
-                            ) {\n
-                            start\n
-                            count\n
-                            total\n
-                            relationships {\n
-                                type\n
-                                direction\n
-                                entity {\n
-                                    urn\n
-                                    type\n
-                                }\n
-                            }\n
-                    }\n
-                }\n
-            }""",
-        "variables": {"urn": urn},
-    }
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
+    query = """query getDataset($urn: String!) {
+                dataset(urn: $urn) {
+                    urn
+                    name
+                    description
+                    platform {
+                        urn
+                    }
+                    schemaMetadata {
+                        name
+                        version
+                        createdAt
+                    }
+                    outgoing: relationships(
+                                input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 2000 }
+                            ) {
+                            start
+                            count
+                            total
+                            relationships {
+                                type
+                                direction
+                                entity {
+                                    urn
+                                    type
+                                }
+                            }
+                    }
+                }
+            }"""
+    variables: Dict[str, Any] = {"urn": urn}
+    res_data = execute_graphql(auth_session, query, variables)
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["dataset"]
     assert res_data["data"]["dataset"]["urn"] == urn
     assert len(res_data["data"]["dataset"]["outgoing"]["relationships"]) == 1
