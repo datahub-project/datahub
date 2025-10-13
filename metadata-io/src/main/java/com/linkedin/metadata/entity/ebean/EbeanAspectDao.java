@@ -561,6 +561,21 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Nonnull
   @Override
   public PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args) {
+    // Use default for existing RestoreIndices operations
+    return streamAspectBatches(args, null);
+  }
+
+  /**
+   * Stream aspects ordered by URN/aspect for optimal Elasticsearch document batching. Supports
+   * configurable transaction isolation level to optimize for different use cases: - LoadIndices can
+   * use READ_UNCOMMITTED for faster scanning
+   *
+   * @param args Stream arguments and filters
+   * @param isolationLevel Optional isolation level override (null = database default)
+   * @return PartitionedStream of aspects ordered by URN/aspect
+   */
+  public PartitionedStream<EbeanAspectV2> streamAspectBatches(
+      final RestoreIndicesArgs args, final TxIsolation isolationLevel) {
     ExpressionList<EbeanAspectV2> exp =
         server
             .find(EbeanAspectV2.class)
@@ -612,15 +627,32 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       exp = exp.setMaxRows(args.limit);
     }
 
-    return PartitionedStream.<EbeanAspectV2>builder()
-        .delegateStream(
+    // Execute with specific transaction isolation level
+    Stream<EbeanAspectV2> stream;
+    if (isolationLevel == TxIsolation.READ_UNCOMMITTED) {
+      // Use explicit transaction scope for READ_UNCOMMITTED to override default
+      try (Transaction transaction =
+          server.beginTransaction(TxScope.requiresNew().setIsolation(isolationLevel))) {
+        stream =
             exp.orderBy()
                 .asc(EbeanAspectV2.URN_COLUMN)
                 .orderBy()
                 .asc(EbeanAspectV2.ASPECT_COLUMN)
                 .setFirstRow(start)
-                .findStream())
-        .build();
+                .findStream(); // Transaction auto-closes when stream completes
+      }
+    } else {
+      // For READ_COMMITTED and other levels, use standard approach
+      stream =
+          exp.orderBy()
+              .asc(EbeanAspectV2.URN_COLUMN)
+              .orderBy()
+              .asc(EbeanAspectV2.ASPECT_COLUMN)
+              .setFirstRow(start)
+              .findStream();
+    }
+
+    return PartitionedStream.<EbeanAspectV2>builder().delegateStream(stream).build();
   }
 
   /**

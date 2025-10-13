@@ -45,6 +45,7 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -105,6 +106,12 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     this.graphDiffMode = graphDiffMode;
     this.graphStatusEnabled = graphStatusEnabled;
     this.fineGrainedLineageNotAllowedForPlatforms = fineGrainedLineageNotAllowedForPlatforms;
+  }
+
+  @Override
+  public void handleChangeEvents(
+      @Nonnull OperationContext opContext, @Nonnull Collection<MetadataChangeLog> events) {
+    events.forEach(event -> handleChangeEvent(opContext, event));
   }
 
   @Override

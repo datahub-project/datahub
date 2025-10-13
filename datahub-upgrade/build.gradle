@@ -22,6 +22,7 @@ dependencies {
 
   implementation externalDependency.mustache
   implementation externalDependency.javaxInject
+  implementation externalDependency.springActuator
   implementation(externalDependency.hadoopClient) {
     exclude group: 'net.minidev', module: 'json-smart'
     exclude group: 'com.nimbusds', module: 'nimbus-jose-jwt'
@@ -227,6 +228,84 @@ task runRestoreIndicesUrn(type: Exec) {
           "-Dkafka.schemaRegistry.url=http://localhost:8080/schema-registry/api",
           "-Dserver.port=8083",
           bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100", "-a", "urnBasedPagination=true"
+}
+
+/**
+ * Runs LoadIndices on locally running system. This ensures indices have the correct mappings
+ * and then loads data from database to Elasticsearch.
+ *
+ * The process includes two steps:
+ * 1. BuildIndicesStep: Ensures indices have the correct mappings (creates/updates index structure)
+ * 2. LoadIndicesStep: Loads data from database to Elasticsearch
+ * 
+ * The task automatically configures ES_BULK_REQUESTS_LIMIT to match the batch size
+ * and disables ES_BULK_FLUSH_PERIOD for optimal bulk processor performance.
+ * 
+ * Optional parameters:
+ * - limit: Maximum number of records to process (default: no limit)
+ * - batchSize: Number of records per batch (default: 10000)
+ * - esThreadCount: Elasticsearch I/O thread count (default: 3, enables async bulk processing)
+ * - urnLike: URN pattern filter (e.g., "urn:li:dataset:%")
+ * - aspectNames: Comma-separated aspect names to filter
+ * - lePitEpochMs: Process records created before this timestamp
+ * - gePitEpochMs: Process records created after this timestamp
+ * 
+ * Usage examples:
+ * ./gradlew runLoadIndices
+ * ./gradlew runLoadIndices -Plimit=5000
+ * ./gradlew runLoadIndices -Plimit=1000 -PbatchSize=2500
+ * ./gradlew runLoadIndices -PurnLike="urn:li:dataset:%"
+ * ./gradlew runLoadIndices -PesThreadCount=3
+ */
+task runLoadIndices(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the load indices process locally - ensures correct mappings and loads data from database to Elasticsearch."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  
+  def args = ["java", "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+              "-jar", "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "LoadIndices"]
+  
+  // Add batchSize (default: 10000)
+  def batchSize = project.hasProperty('batchSize') ? project.getProperty('batchSize') : '10000'
+  args.addAll(["-a", "batchSize=${batchSize}"])
+  
+  // Optimize bulk request limit for sustained load
+  environment "ES_BULK_REQUESTS_LIMIT", batchSize
+  // Set flush period to 5 minutes to allow proper batching
+  environment "ES_BULK_FLUSH_PERIOD", "300"
+  
+  // Configure Elasticsearch I/O threads for better BulkProcessor performance
+  // Increase from default 2 to allow more concurrent HTTP connections
+  def threadCount = project.hasProperty('esThreadCount') ? project.getProperty('esThreadCount') : '4'
+  environment "ELASTICSEARCH_THREAD_COUNT", threadCount
+  
+  // Add limit if specified
+  if (project.hasProperty('limit')) {
+    args.addAll(["-a", "limit=${project.getProperty('limit')}"])
+  }
+  
+  // Add urnLike if specified
+  if (project.hasProperty('urnLike')) {
+    args.addAll(["-a", "urnLike=${project.getProperty('urnLike')}"])
+  }
+  
+  // Add aspectNames if specified
+  if (project.hasProperty('aspectNames')) {
+    args.addAll(["-a", "aspectNames=${project.getProperty('aspectNames')}"])
+  }
+  
+  // Add lePitEpochMs if specified
+  if (project.hasProperty('lePitEpochMs')) {
+    args.addAll(["-a", "lePitEpochMs=${project.getProperty('lePitEpochMs')}"])
+  }
+  
+  // Add gePitEpochMs if specified
+  if (project.hasProperty('gePitEpochMs')) {
+    args.addAll(["-a", "gePitEpochMs=${project.getProperty('gePitEpochMs')}"])
+  }
+  
+  commandLine args
 }
 
 docker {
