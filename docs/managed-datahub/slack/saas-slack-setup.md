@@ -16,8 +16,8 @@ You can see the permissions required by the DataHub Slack bot [below](#datahub-s
 
 The following steps should be performed by a Slack Workspace Admin.
 
-1. Navigate to [https://api.slack.com/reference/manifests#config-tokens](https://api.slack.com/reference/manifests#config-tokens)
-2. Under **Managing configuration tokens**, select **'Generate Token'**
+1. Navigate to [https://api.slack.com/apps](https://api.slack.com/apps)
+2. Click **Create App**, then select **'Generate Token'**
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_1.png"/>
 </p>
@@ -55,7 +55,7 @@ Now proceed to the [Subscriptions and Notifications page](https://docs.datahub.c
 
 ### DataHub Slack bot permissions
 
-The DataHub Slack bot requires a certain set of scopes (permissions) to function. We've listed them below with thier explanations.
+The DataHub Slack bot requires a certain set of scopes (permissions) to function. We've listed them below with their explanations.
 
 ```
 # Required for slash commands / shortcuts.

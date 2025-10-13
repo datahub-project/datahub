@@ -209,6 +209,8 @@ def test_filters_all_types() -> None:
                 },
                 {"env": ["PROD"]},
                 {"status": "NOT_SOFT_DELETED"},
+                {"glossary_term": ["urn:li:glossaryTerm:data-quality"]},
+                {"tag": ["urn:li:tag:data-quality"]},
                 {
                     "field": "custom_field",
                     "condition": "GREATER_THAN_OR_EQUAL_TO",
@@ -231,6 +233,8 @@ def test_filters_all_types() -> None:
         ),
         F.env("PROD"),
         F.soft_deleted(RemovedStatusFilter.NOT_SOFT_DELETED),
+        F.glossary_term("urn:li:glossaryTerm:data-quality"),
+        F.tag("urn:li:tag:data-quality"),
         F.custom_filter("custom_field", "GREATER_THAN_OR_EQUAL_TO", ["5"]),
     )
 
@@ -334,6 +338,12 @@ def test_tagged_union_error_messages() -> None:
     ):
         load_filters({"and": [{"unknown_field": 6}]})
 
+
+@pytest.mark.skipif(
+    not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
+    reason="Tagged union w/ callable discriminator is not supported by the current pydantic version",
+)
+def test_filter_before_validators() -> None:
     # Test that we can load a filter from a string.
     # Sometimes we get filters encoded as JSON, and we want to handle those gracefully.
     filter_str = '{\n  "and": [\n    {"entity_type": ["dataset"]},\n    {"entity_subtype": ["Table"]},\n    {"platform": ["snowflake"]}\n  ]\n}'
@@ -349,6 +359,141 @@ def test_tagged_union_error_messages() -> None:
         ),
     ):
         load_filters("this is invalid json but should not raise a json error")
+
+    # Test that we can load a filter from and-like dictionary.
+    # Sometimes we get filters that are not wrapped in an "and" clause.
+    filter_str = '{"entity_type": ["dataset"], "entity_subtype": ["Table"], "platform": ["snowflake"]}'
+    assert load_filters(filter_str) == F.and_(
+        F.entity_type("dataset"),
+        F.entity_subtype("Table"),
+        F.platform("snowflake"),
+    )
+
+    filter_str = '{"entity_type": ["dataset"], "container": ["urn:li:container:f784c48c306ba1c775ef917e2f8c1560"]}'
+    assert load_filters(filter_str) == F.and_(
+        F.entity_type("dataset"),
+        F.container("urn:li:container:f784c48c306ba1c775ef917e2f8c1560"),
+    )
+
+    filter_str = '{"entity_type": ["dataset"], "container": ["urn:li:container:f784c48c306ba1c775ef917e2f8c1560"], "direct_descendants_only": true}'
+    with pytest.raises(
+        ValidationError,
+        match=re.compile(
+            r"1 validation error.*container\.entity_type.*Extra inputs are not permitted.*",
+            re.DOTALL,
+        ),
+    ):
+        load_filters(filter_str)
+
+
+def test_owner_filter() -> None:
+    """Test basic owner filter functionality."""
+    filter_obj: Filter = load_filters({"owner": ["urn:li:corpuser:john"]})
+    assert filter_obj == F.owner("urn:li:corpuser:john")
+
+    assert filter_obj.compile() == [
+        {
+            "and": [
+                SearchFilterRule(
+                    field="owners",
+                    condition="EQUAL",
+                    values=["urn:li:corpuser:john"],
+                )
+            ]
+        }
+    ]
+
+
+def test_glossary_term_filter() -> None:
+    """Test basic glossary term filter functionality."""
+    filter_obj: Filter = load_filters(
+        {"glossary_term": ["urn:li:glossaryTerm:data-quality"]}
+    )
+    assert filter_obj == F.glossary_term("urn:li:glossaryTerm:data-quality")
+
+    assert filter_obj.compile() == [
+        {
+            "and": [
+                SearchFilterRule(
+                    field="glossaryTerms",
+                    condition="EQUAL",
+                    values=["urn:li:glossaryTerm:data-quality"],
+                )
+            ]
+        }
+    ]
+
+
+def test_owner_filter_mixed_types() -> None:
+    """Test owner filter with both user and group URNs."""
+    filter_obj: Filter = load_filters(
+        {"owner": ["urn:li:corpuser:john", "urn:li:corpGroup:engineering"]}
+    )
+    assert filter_obj == F.owner(
+        ["urn:li:corpuser:john", "urn:li:corpGroup:engineering"]
+    )
+
+
+def test_invalid_owner_filter() -> None:
+    """Test validation error for invalid owner URN."""
+    with pytest.raises(
+        ValidationError, match="Owner must be a valid User or Group URN"
+    ):
+        F.owner("invalid-owner")
+
+
+def test_glossary_term_filter_multiple() -> None:
+    """Test glossary term filter with multiple terms."""
+    filter_obj: Filter = load_filters(
+        {
+            "glossary_term": [
+                "urn:li:glossaryTerm:data-quality",
+                "urn:li:glossaryTerm:compliance",
+            ]
+        }
+    )
+    assert filter_obj == F.glossary_term(
+        ["urn:li:glossaryTerm:data-quality", "urn:li:glossaryTerm:compliance"]
+    )
+
+
+def test_invalid_glossary_term_filter() -> None:
+    """Test validation error for invalid glossary term URN."""
+    with pytest.raises(
+        ValidationError, match="Glossary term must be a valid glossary term URN"
+    ):
+        F.glossary_term("urn:li:corpuser:john")
+
+
+def test_tag_filter() -> None:
+    """Test basic tag filter functionality."""
+    filter_obj: Filter = load_filters({"tag": ["urn:li:tag:data-quality"]})
+    assert filter_obj == F.tag("urn:li:tag:data-quality")
+    assert filter_obj.compile() == [
+        {
+            "and": [
+                SearchFilterRule(
+                    field="tags",
+                    condition="EQUAL",
+                    values=["urn:li:tag:data-quality"],
+                )
+            ]
+        }
+    ]
+
+
+def test_tag_filter_multiple() -> None:
+    """Test tag filter with multiple tags."""
+    filter_obj: Filter = load_filters(
+        {"tag": ["urn:li:tag:data-quality", "urn:li:tag:production"]}
+    )
+    assert filter_obj == F.tag(["urn:li:tag:data-quality", "urn:li:tag:production"])
+
+
+def test_invalid_tag_filter() -> None:
+    """Test validation error for invalid tag URN."""
+    with pytest.raises(ValidationError, match="Tag must be a valid tag URN"):
+        F.tag("urn:li:corpuser:john")
 
 
 def test_invalid_filter() -> None:
@@ -585,6 +730,7 @@ def test_get_urns() -> None:
                 "batchSize": unittest.mock.ANY,
                 "scrollId": None,
                 "skipCache": False,
+                "includeSoftDeleted": None,
             },
         )
 
@@ -636,5 +782,6 @@ def test_get_urns_with_skip_cache() -> None:
                 "batchSize": unittest.mock.ANY,
                 "scrollId": None,
                 "skipCache": True,
+                "includeSoftDeleted": None,
             },
         )

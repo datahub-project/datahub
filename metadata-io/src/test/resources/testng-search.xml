@@ -2,6 +2,7 @@
 <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
 <suite name="metadata-io-search" parallel="tests" thread-count="2">
     <test name="elasticsearch-testcontainers">
+        <parameter name="elasticVersion" value="7.10.2"/>
         <packages>
             <package name="com.linkedin.metadata.graph.search.elasticsearch.*" />
             <package name="com.linkedin.metadata.search.elasticsearch.*"/>

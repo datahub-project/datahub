@@ -1,4 +1,5 @@
 import logging
+from copy import deepcopy
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -6,9 +7,10 @@ from pydantic import root_validator
 from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -94,13 +96,18 @@ class RedshiftConfig(
     # Because of this behavior, it uses dramatically fewer round trips for
     # large Redshift warehouses. As an example, see this query for the columns:
     # https://github.com/sqlalchemy-redshift/sqlalchemy-redshift/blob/60b4db04c1d26071c291aeea52f1dcb5dd8b0eb0/sqlalchemy_redshift/dialect.py#L745.
-    scheme: str = Field(
+    scheme: HiddenFromDocs[str] = Field(
         default="redshift+redshift_connector",
         description="",
-        hidden_from_docs=True,
     )
 
     _database_alias_removed = pydantic_removed_field("database_alias")
+    _use_lineage_v2_removed = pydantic_removed_field("use_lineage_v2")
+    _rename_lineage_v2_generate_queries_to_lineage_generate_queries = (
+        pydantic_renamed_field(
+            "lineage_v2_generate_queries", "lineage_generate_queries"
+        )
+    )
 
     default_schema: str = Field(
         default="public",
@@ -112,13 +119,9 @@ class RedshiftConfig(
         description="Whether target Redshift instance is serverless (alternative is provisioned cluster)",
     )
 
-    use_lineage_v2: bool = Field(
+    lineage_generate_queries: bool = Field(
         default=True,
-        description="Whether to use the new SQL-based lineage collector.",
-    )
-    lineage_v2_generate_queries: bool = Field(
-        default=True,
-        description="Whether to generate queries entities for the new SQL-based lineage collector.",
+        description="Whether to generate queries entities for the SQL-based lineage collector.",
     )
 
     include_table_lineage: bool = Field(
@@ -213,6 +216,9 @@ class RedshiftConfig(
 
     @root_validator(skip_on_failure=True)
     def connection_config_compatibility_set(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
+
         if (
             ("options" in values and "connect_args" in values["options"])
             and "extra_client_options" in values

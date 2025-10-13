@@ -543,16 +543,19 @@ def _select_statement_cll(
     root_scope: sqlglot.optimizer.Scope,
     column_resolver: _ColumnResolver,
     output_table: Optional[_TableName],
+    table_name_schema_mapping: Dict[_TableName, SchemaInfo],
+    default_db: Optional[str] = None,
+    default_schema: Optional[str] = None,
 ) -> List[_ColumnLineageInfo]:
     column_lineage: List[_ColumnLineageInfo] = []
 
     try:
-        # List output columns.
         output_columns = [
             (select_col.alias_or_name, select_col) for select_col in statement.selects
         ]
         logger.debug("output columns: %s", [col[0] for col in output_columns])
-        for output_col, original_col_expression in output_columns:
+
+        for output_col, _original_col_expression in output_columns:
             if not output_col or output_col == "*":
                 # If schema information is available, the * will be expanded to the actual columns.
                 # Otherwise, we can't process it.
@@ -576,13 +579,14 @@ def _select_statement_cll(
                 trim_selects=False,
                 # We don't need to pass the schema in here, since we've already qualified the columns.
             )
-            # import pathlib
-            # pathlib.Path("sqlglot.html").write_text(
-            #     str(lineage_node.to_html(dialect=dialect))
-            # )
 
             # Generate SELECT lineage.
-            direct_raw_col_upstreams = _get_direct_raw_col_upstreams(lineage_node)
+            direct_raw_col_upstreams = _get_direct_raw_col_upstreams(
+                lineage_node,
+                dialect,
+                default_db,
+                default_schema,
+            )
 
             # Fuzzy resolve the output column.
             original_col_expression = lineage_node.expression
@@ -601,7 +605,7 @@ def _select_statement_cll(
             if original_col_expression.type:
                 output_col_type = original_col_expression.type
 
-            # Fuzzy resolve upstream columns.
+            # Resolve upstream columns - table names should already be qualified from placeholder processing
             direct_resolved_col_upstreams = {
                 _ColumnRef(
                     table=edge.table,
@@ -706,6 +710,9 @@ def _column_level_lineage(
         root_scope=root_scope,
         column_resolver=column_resolver,
         output_table=downstream_table,
+        table_name_schema_mapping=table_name_schema_mapping,
+        default_db=default_db,
+        default_schema=default_schema,
     )
 
     joins: Optional[List[_JoinInfo]] = None
@@ -726,6 +733,9 @@ def _column_level_lineage(
 
 def _get_direct_raw_col_upstreams(
     lineage_node: sqlglot.lineage.Node,
+    dialect: Optional[sqlglot.Dialect] = None,
+    default_db: Optional[str] = None,
+    default_schema: Optional[str] = None,
 ) -> OrderedSet[_ColumnRef]:
     # Using an OrderedSet here to deduplicate upstreams while preserving "discovery" order.
     direct_raw_col_upstreams: OrderedSet[_ColumnRef] = OrderedSet()
@@ -755,6 +765,53 @@ def _get_direct_raw_col_upstreams(
             direct_raw_col_upstreams.add(
                 _ColumnRef(table=table_ref, column=normalized_col)
             )
+        elif isinstance(node.expression, sqlglot.exp.Placeholder) and node.name != "*":
+            # Handle placeholder expressions from lateral joins.
+            #
+            # In newer SQLGlot versions, columns from lateral subqueries appear as sqlglot.exp.Placeholder
+            # expressions instead of regular table references. This is critical for lateral join column lineage.
+            #
+            # Example: In "SELECT t2.value FROM t1, LATERAL (SELECT value FROM t2 WHERE t1.id = t2.id) t2"
+            # The "t2.value" column reference creates a placeholder with name like '"my_table2"."value"'
+            # which we need to parse to establish the lineage: output.value <- my_table2.value
+            #
+            # Without this handling, lateral join column lineage would be incomplete/missing.
+            try:
+                parsed = sqlglot.parse_one(node.name, dialect=dialect)
+                if isinstance(parsed, sqlglot.exp.Column) and parsed.table:
+                    table_ref = _TableName.from_sqlglot_table(
+                        sqlglot.parse_one(
+                            parsed.table, into=sqlglot.exp.Table, dialect=dialect
+                        )
+                    )
+
+                    # SQLGlot's qualification process doesn't fully qualify placeholder names from lateral joins.
+                    # Even after statement-level qualification, these placeholders remain unqualified (e.g., "t2.value").
+                    # We need this runtime qualification to ensure proper lineage resolution.
+                    # Only qualify if this appears to be a real table reference (not a temporary construct)
+                    if (
+                        not (table_ref.database or table_ref.db_schema)
+                        and dialect is not None
+                    ):
+                        table_ref = table_ref.qualified(
+                            dialect=dialect,
+                            default_db=default_db,
+                            default_schema=default_schema,
+                        )
+
+                    # Extract column name using proper isinstance check
+                    if isinstance(parsed.this, sqlglot.exp.Identifier):
+                        column_name = parsed.this.name
+                    else:
+                        column_name = str(parsed.this)
+                    direct_raw_col_upstreams.add(
+                        _ColumnRef(table=table_ref, column=column_name)
+                    )
+            except Exception as e:
+                logger.debug(
+                    f"Failed to parse placeholder column expression: {node.name} with dialect {dialect}. The exception was: {e}",
+                    exc_info=True,
+                )
         else:
             # This branch doesn't matter. For example, a count(*) column would go here, and
             # we don't get any column-level lineage for that.
@@ -857,7 +914,7 @@ def _get_raw_col_upstreams_for_expression(
             trim_selects=False,
         )
 
-        return _get_direct_raw_col_upstreams(node)
+        return _get_direct_raw_col_upstreams(node, dialect, None, None)
     finally:
         scope.expression = original_expression
 
@@ -872,8 +929,9 @@ def _list_joins(
 
     scope: sqlglot.optimizer.Scope
     for scope in root_scope.traverse():
+        # PART 1: Handle regular explicit JOINs (updated API)
         join: sqlglot.exp.Join
-        for join in scope.find_all(sqlglot.exp.Join):
+        for join in scope.expression.find_all(sqlglot.exp.Join):
             left_side_tables: OrderedSet[_TableName] = OrderedSet()
             from_clause: sqlglot.exp.From
             for from_clause in scope.find_all(sqlglot.exp.From):
@@ -948,6 +1006,36 @@ def _list_joins(
                     columns_involved=list(sorted(joined_columns)),
                 )
             )
+
+        # Handle LATERAL constructs
+        for lateral in scope.expression.find_all(sqlglot.exp.Lateral):
+            # Get tables from non-lateral FROM clauses
+            qualified_left: OrderedSet[_TableName] = OrderedSet()
+            for from_clause in scope.find_all(sqlglot.exp.From):
+                if not isinstance(from_clause.this, sqlglot.exp.Lateral):
+                    qualified_left.update(
+                        _get_join_side_tables(from_clause.this, dialect, scope)
+                    )
+
+            # Get tables from lateral subquery
+            qualified_right: OrderedSet[_TableName] = OrderedSet()
+            if lateral.this and isinstance(lateral.this, sqlglot.exp.Subquery):
+                qualified_right.update(
+                    _TableName.from_sqlglot_table(t)
+                    for t in lateral.this.find_all(sqlglot.exp.Table)
+                )
+            qualified_right.update(qualified_left)
+
+            if qualified_left and qualified_right:
+                joins.append(
+                    _JoinInfo(
+                        join_type="LATERAL JOIN",
+                        left_tables=list(qualified_left),
+                        right_tables=list(qualified_right),
+                        on_clause=None,
+                        columns_involved=[],
+                    )
+                )
 
     return joins
 
@@ -1088,7 +1176,12 @@ def _try_extract_select(
             statement = sqlglot.exp.Select().select("*").from_(statement)
     elif isinstance(statement, sqlglot.exp.Insert):
         # TODO Need to map column renames in the expressions part of the statement.
-        statement = statement.expression
+        # Preserve CTEs when extracting the SELECT expression from INSERT
+        original_ctes = statement.ctes
+        statement = statement.expression  # Get the SELECT expression from the INSERT
+        if isinstance(statement, sqlglot.exp.Query) and original_ctes:
+            for cte in original_ctes:
+                statement = statement.with_(alias=cte.alias, as_=cte.this)
     elif isinstance(statement, sqlglot.exp.Update):
         # Assumption: the output table is already captured in the modified tables list.
         statement = _extract_select_from_update(statement)
@@ -1186,25 +1279,30 @@ def _translate_internal_joins(
 ) -> List[JoinInfo]:
     joins = []
     for raw_join in raw_joins:
-        joins.append(
-            JoinInfo(
-                join_type=raw_join.join_type,
-                left_tables=[
-                    table_name_urn_mapping[table] for table in raw_join.left_tables
-                ],
-                right_tables=[
-                    table_name_urn_mapping[table] for table in raw_join.right_tables
-                ],
-                on_clause=raw_join.on_clause,
-                columns_involved=[
-                    ColumnRef(
-                        table=table_name_urn_mapping[col.table],
-                        column=col.column,
-                    )
-                    for col in raw_join.columns_involved
-                ],
+        try:
+            joins.append(
+                JoinInfo(
+                    join_type=raw_join.join_type,
+                    left_tables=[
+                        table_name_urn_mapping[table] for table in raw_join.left_tables
+                    ],
+                    right_tables=[
+                        table_name_urn_mapping[table] for table in raw_join.right_tables
+                    ],
+                    on_clause=raw_join.on_clause,
+                    columns_involved=[
+                        ColumnRef(
+                            table=table_name_urn_mapping[col.table],
+                            column=col.column,
+                        )
+                        for col in raw_join.columns_involved
+                    ],
+                )
             )
-        )
+        except KeyError as e:
+            # Skip joins that reference tables we can't resolve (e.g., from CTE subqueries)
+            logger.debug(f"Skipping join with unresolvable table: {e}")
+            continue
     return joins
 
 

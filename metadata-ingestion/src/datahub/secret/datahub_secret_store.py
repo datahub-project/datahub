@@ -65,3 +65,6 @@ class DataHubSecretStore(SecretStore):
     def create(cls, config: Any) -> "DataHubSecretStore":
         config = DataHubSecretStoreConfig.parse_obj(config)
         return cls(config)
+
+    def close(self) -> None:
+        self.client.graph.close()

@@ -188,18 +188,39 @@ Expected Output:
 acryl-datahub, version unavailable (installed in develop mode)
 ```
 
+### Building All Docker images
+
+Running `./gradlew quickstart` or one of its variants builds images required for that variant and also starts datahub.
+If you want to build all images without starting datahub, run
+
+```commandline
+./gradlew :docker:build
+```
+
+You can optionally pass the following additional args when executing `:docker:build` task
+
+- `-Ptag=customTag` to use the custom tag when generating the image tag.
+- `-PdockerRegistry=customRegistry` to use the custom registry when generating the full image tag.
+
 ## IDE Support
 
 The recommended IDE for DataHub development is [IntelliJ IDEA](https://www.jetbrains.com/idea/).
-You can run the following command to generate or update the IntelliJ project file.
 
-```shell
-./gradlew idea
-```
+### Required IntelliJ Plugins
 
-Open `datahub.ipr` in IntelliJ to start developing!
+DataHub requires the following IntelliJ plugins for proper development:
 
-For consistency please import and auto format the code using [LinkedIn IntelliJ Java style](../gradle/idea/LinkedIn%20Style.xml).
+1. **Lombok Plugin** - Essential for Lombok annotation processing
+   - Install: Settings → Plugins → Search "Lombok" → Install
+
+### Setup Steps
+
+1. Install required plugins (see above)
+2. Generate the IntelliJ project file (re-run after dependency changes):
+   ```shell
+   ./gradlew idea
+   ```
+3. Open `datahub.ipr` in IntelliJ
 
 ## Windows Compatibility
 

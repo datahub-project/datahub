@@ -5,6 +5,8 @@ source:
     token: "<token>"
     include_metastore: false
     include_ownership: true
+    include_ml_model_aliases: false
+    ml_model_max_results: 1000
     profiling:
       method: "ge"
       enabled: true

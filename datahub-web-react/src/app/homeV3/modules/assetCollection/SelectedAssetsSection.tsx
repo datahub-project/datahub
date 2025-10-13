@@ -22,6 +22,7 @@ const SelectedAssetsContainer = styled.div`
 const ResultsContainer = styled.div`
     margin: 0 -12px 0 -8px;
     overflow-y: auto;
+    scrollbar-gutter: stable;
 `;
 
 type Props = {
@@ -102,7 +103,7 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
                 Selected Assets
             </Text>
             <VerticalDragAndDrop items={orderedUrns} onChange={onChangeOrder}>
-                <ResultsContainer>{content}</ResultsContainer>
+                <ResultsContainer data-testid="selected-assets-list">{content}</ResultsContainer>
             </VerticalDragAndDrop>
         </SelectedAssetsContainer>
     );

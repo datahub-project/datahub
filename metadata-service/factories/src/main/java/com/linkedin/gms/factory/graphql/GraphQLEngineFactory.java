@@ -18,7 +18,6 @@ import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
-import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
@@ -49,6 +48,7 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import com.linkedin.metadata.version.GitVersion;
@@ -59,7 +59,6 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -70,7 +69,6 @@ import org.springframework.context.annotation.Import;
 
 @Configuration
 @Import({
-  RestHighLevelClientFactory.class,
   IndexConventionFactory.class,
   RecommendationServiceFactory.class,
   EntityRegistryFactory.class,
@@ -81,8 +79,8 @@ import org.springframework.context.annotation.Import;
 })
 public class GraphQLEngineFactory {
   @Autowired
-  @Qualifier("elasticSearchRestHighLevelClient")
-  private RestHighLevelClient elasticClient;
+  @Qualifier("searchClientShim")
+  private SearchClientShim<?> elasticClient;
 
   @Autowired
   @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
@@ -257,6 +255,7 @@ public class GraphQLEngineFactory {
     args.setDatahubConfiguration(configProvider.getDatahub());
     args.setViewsConfiguration(configProvider.getViews());
     args.setSearchBarConfiguration(configProvider.getSearchBar());
+    args.setSearchCardConfiguration(configProvider.getSearchCard());
     args.setHomePageConfiguration(configProvider.getHomePage());
     args.setSiblingGraphService(siblingGraphService);
     args.setGroupService(groupService);
@@ -316,7 +315,7 @@ public class GraphQLEngineFactory {
         GraphQLConcurrencyUtils.setExecutorService(graphQLWorkerPool);
     if (metricUtils != null) {
       MicrometerMetricsRegistry.registerExecutorMetrics(
-          "graphql", graphqlExecutorService, metricUtils.getRegistry().orElse(null));
+          "graphql", graphqlExecutorService, metricUtils.getRegistry());
     }
 
     return graphQLWorkerPool;

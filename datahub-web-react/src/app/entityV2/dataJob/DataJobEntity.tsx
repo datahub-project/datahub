@@ -30,7 +30,7 @@ import { DataJobFlowTab } from '@app/entityV2/shared/tabs/Entity/DataJobFlowTab'
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { SidebarTitleActionType, getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
+import { SidebarTitleActionType, getDataProduct, getFirstSubType, isOutputPort } from '@app/entityV2/shared/utils';
 import { EntityAndType } from '@app/lineage/types';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
@@ -47,7 +47,6 @@ const getDataJobPlatformName = (data?: DataJob | null): string => {
 };
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
@@ -206,7 +205,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 urn={data.urn}
                 data={genericProperties}
                 name={data.properties?.name || ''}
-                subtype={data.subTypes?.typeNames?.[0]}
+                subtype={getFirstSubType(data)}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={getDataJobPlatformName(data)}
                 platformLogo={getPlatformForDataJob(data)?.properties?.logoUrl || ''}
@@ -230,7 +229,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 urn={data.urn}
                 data={genericProperties}
                 name={data.properties?.name || ''}
-                subtype={data.subTypes?.typeNames?.[0]}
+                subtype={getFirstSubType(data)}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={getDataJobPlatformName(data)}
                 platformLogo={getPlatformForDataJob(data)?.properties?.logoUrl || ''}
@@ -251,6 +250,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data?.browsePathV2 || undefined}
                 parentContainers={data.parentContainers}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

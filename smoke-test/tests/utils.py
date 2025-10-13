@@ -43,16 +43,28 @@ def get_admin_credentials():
     )
 
 
+def get_base_path():
+    base_path = os.getenv("DATAHUB_BASE_PATH", "")
+    return "" if base_path == "/" else base_path
+
+
+def get_gms_base_path():
+    base_gms_path = os.getenv("DATAHUB_GMS_BASE_PATH", "")
+    return "" if base_gms_path == "/" else base_gms_path
+
+
 def get_root_urn():
     return "urn:li:corpuser:datahub"
 
 
 def get_gms_url():
-    return os.getenv("DATAHUB_GMS_URL") or "http://localhost:8080"
+    return os.getenv("DATAHUB_GMS_URL") or f"http://localhost:8080{get_gms_base_path()}"
 
 
 def get_frontend_url():
-    return os.getenv("DATAHUB_FRONTEND_URL") or "http://localhost:9002"
+    return (
+        os.getenv("DATAHUB_FRONTEND_URL") or f"http://localhost:9002{get_base_path()}"
+    )
 
 
 def get_kafka_broker_url():
@@ -61,19 +73,44 @@ def get_kafka_broker_url():
 
 def get_kafka_schema_registry():
     #  internal registry "http://localhost:8080/schema-registry/api/"
-    return os.getenv("DATAHUB_KAFKA_SCHEMA_REGISTRY_URL") or "http://localhost:8081"
+    return (
+        os.getenv("DATAHUB_KAFKA_SCHEMA_REGISTRY_URL")
+        or f"http://localhost:8080{get_gms_base_path()}/schema-registry/api"
+    )
 
 
-def get_mysql_url():
-    return os.getenv("DATAHUB_MYSQL_URL") or "localhost:3306"
+def get_db_type():
+    db_type = os.getenv("DB_TYPE")
+    if db_type:
+        return db_type
+    else:
+        # infer from profile
+        profile_name = os.getenv("PROFILE_NAME")
+        if profile_name and "postgres" in profile_name:
+            return "postgres"
+        else:
+            return "mysql"
 
 
-def get_mysql_username():
-    return os.getenv("DATAHUB_MYSQL_USERNAME") or "datahub"
+def get_db_url():
+    if get_db_type() == "mysql":
+        return os.getenv("DATAHUB_MYSQL_URL") or "localhost:3306"
+    else:
+        return os.getenv("DATAHUB_POSTGRES_URL") or "localhost:5432"
 
 
-def get_mysql_password():
-    return os.getenv("DATAHUB_MYSQL_PASSWORD") or "datahub"
+def get_db_username():
+    if get_db_type() == "mysql":
+        return os.getenv("DATAHUB_MYSQL_USERNAME") or "datahub"
+    else:
+        return os.getenv("DATAHUB_POSTGRES_USERNAME") or "datahub"
+
+
+def get_db_password():
+    if get_db_type() == "mysql":
+        return os.getenv("DATAHUB_MYSQL_PASSWORD") or "datahub"
+    else:
+        return os.getenv("DATAHUB_POSTGRES_PASSWORD") or "datahub"
 
 
 def get_sleep_info() -> Tuple[int, int]:
@@ -352,3 +389,5 @@ class TestSessionWrapper:
                 f"{self._frontend_url}/api/v2/graphql", json=json
             )
             response.raise_for_status()
+            # Clear the token ID after successful revocation to prevent double-call issues
+            self._gms_token_id = None

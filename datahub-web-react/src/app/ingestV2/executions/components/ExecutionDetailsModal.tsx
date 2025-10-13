@@ -1,10 +1,12 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Icon, Modal, Pill } from '@components';
 import { message } from 'antd';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router';
 
 import { Tab, Tabs } from '@components/components/Tabs/Tabs';
 
+import analytics, { EventType } from '@app/analytics';
 import { LogsTab } from '@app/ingestV2/executions/components/LogsTab';
 import { RecipeTab } from '@app/ingestV2/executions/components/RecipeTab';
 import { SummaryTab } from '@app/ingestV2/executions/components/SummaryTab';
@@ -34,9 +36,34 @@ type Props = {
 
 export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     const { data, loading, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
+    const location = useLocation();
     const result = data?.executionRequest?.result as Partial<ExecutionRequestResult>;
     const status = getIngestionSourceStatus(result);
     const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Summary);
+
+    const sendAnalyticsTabViewedEvent = useCallback(
+        (tab: TabType) => {
+            if (!result) return;
+            analytics.event({
+                type: EventType.IngestionExecutionResultViewedEvent,
+                executionUrn: urn,
+                executionStatus: status || 'UNKNOWN',
+                viewedSection: tab,
+            });
+        },
+        [result, urn, status],
+    );
+
+    const selectTab = (tab: TabType) => {
+        setSelectedTab(tab);
+        sendAnalyticsTabViewedEvent(tab);
+    };
+
+    useEffect(() => {
+        if (open) {
+            sendAnalyticsTabViewedEvent(TabType.Summary);
+        }
+    }, [open, urn, status, sendAnalyticsTabViewedEvent]);
 
     const ResultIcon = status && getExecutionRequestStatusIcon(status);
     const resultColor = status ? getExecutionRequestStatusDisplayColor(status) : 'gray';
@@ -106,8 +133,8 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
             <Tabs
                 tabs={tabs}
                 selectedTab={selectedTab}
-                onChange={(tab) => setSelectedTab(tab as TabType)}
-                getCurrentUrl={() => window.location.pathname}
+                onChange={(tab) => selectTab(tab as TabType)}
+                getCurrentUrl={() => location.pathname}
                 scrollToTopOnChange
                 maxHeight="80vh"
                 stickyHeader

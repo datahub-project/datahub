@@ -3,11 +3,13 @@ import {
     dictToQueryStringParams,
     encodeComma,
     extractDatasetNameFromUrn,
+    extractPlatformNameFromAssetUrn,
     extractPlatformNameFromPlatformUrn,
     getDataProduct,
     getFineGrainedLineageWithSiblings,
     getNumberWithOrdinal,
     getPlatformNameFromEntityData,
+    getPlatformUrnFromEntityUrn,
     handleBatchError,
     isListSubset,
     isOutputPort,
@@ -86,7 +88,7 @@ describe('entity V2 utils test ->', () => {
                     type: 'DATA_PLATFORM',
                     urn: 'urn:li:dataPlatform:clickhouse',
                     properties: {
-                        logoUrl: '/assets/platforms/clickhouselogo.png',
+                        logoUrl: 'assets/platforms/clickhouselogo.png',
                     },
                 },
             };
@@ -257,5 +259,69 @@ describe('extractPlatformNameFromPlatformUrn', () => {
     it('should return null for malformed URNs', () => {
         expect(extractPlatformNameFromPlatformUrn('not:a:valid:urn')).toBeNull();
         expect(extractPlatformNameFromPlatformUrn('')).toBeNull();
+    });
+});
+
+describe('getPlatformUrnFromEntityUrn', () => {
+    it('should handle dataset URNs', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:mysql,my_database.my_table,PROD)';
+        expect(getPlatformUrnFromEntityUrn(urn)).toBe('urn:li:dataPlatform:mysql');
+    });
+
+    it('should handle chart URNs', () => {
+        const urn = 'urn:li:chart:(looker,dashboard_elements.1234)';
+        expect(getPlatformUrnFromEntityUrn(urn)).toBe('urn:li:dataPlatform:looker');
+    });
+
+    it('should handle dashboard URNs', () => {
+        const urn = 'urn:li:dashboard:(superset,42)';
+        expect(getPlatformUrnFromEntityUrn(urn)).toBe('urn:li:dataPlatform:superset');
+    });
+
+    it('should handle nested schema field URNs', () => {
+        const urn = 'urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,my_table,PROD),user_id)';
+        expect(getPlatformUrnFromEntityUrn(urn)).toBe('urn:li:dataPlatform:mysql');
+    });
+
+    it('should handle mlModel URNs', () => {
+        const urn = 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,my_model,PROD)';
+        expect(getPlatformUrnFromEntityUrn(urn)).toBe('urn:li:dataPlatform:sagemaker');
+    });
+
+    it('should return undefined for unknown entity types', () => {
+        const urn = 'urn:li:unknown:(something,else)';
+        expect(getPlatformUrnFromEntityUrn(urn)).toBeUndefined();
+    });
+});
+
+describe('extractPlatformNameFromAssetUrn', () => {
+    it('should extract platform name from dataset URN', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:mysql,my_database.my_table,PROD)';
+        expect(extractPlatformNameFromAssetUrn(urn)).toBe('mysql');
+    });
+
+    it('should extract platform name from chart URN', () => {
+        const urn = 'urn:li:chart:(looker,dashboard_elements.1234)';
+        expect(extractPlatformNameFromAssetUrn(urn)).toBe('looker');
+    });
+
+    it('should extract platform name from dashboard URN', () => {
+        const urn = 'urn:li:dashboard:(superset,42)';
+        expect(extractPlatformNameFromAssetUrn(urn)).toBe('superset');
+    });
+
+    it('should extract platform name from nested schema field URN', () => {
+        const urn = 'urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,my_table,PROD),user_id)';
+        expect(extractPlatformNameFromAssetUrn(urn)).toBe('mysql');
+    });
+
+    it('should return null for unknown entity types', () => {
+        const urn = 'urn:li:unknown:(something,else)';
+        expect(extractPlatformNameFromAssetUrn(urn)).toBeNull();
+    });
+
+    it('should return null for malformed URNs', () => {
+        const urn = 'not:a:valid:urn';
+        expect(extractPlatformNameFromAssetUrn(urn)).toBeNull();
     });
 });

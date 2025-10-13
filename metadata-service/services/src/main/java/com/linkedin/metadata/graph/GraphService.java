@@ -168,6 +168,22 @@ public interface GraphService {
       int maxHops);
 
   /**
+   * Returns lineage information for impact analysis with configurable limits and timeout.
+   *
+   * @param opContext operation context
+   * @param entityUrn the source entity URN
+   * @param graphFilters lineage graph filters
+   * @param maxHops maximum number of hops to traverse
+   * @return lineage result with relationships up to configured limits
+   */
+  @Nonnull
+  EntityLineageResult getImpactLineage(
+      @Nonnull final OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull LineageGraphFilters graphFilters,
+      int maxHops);
+
+  /**
    * Removes the given node (if it exists) as well as all edges (incoming and outgoing) of the node.
    */
   void removeNode(@Nonnull final OperationContext opContext, @Nonnull final Urn urn);
@@ -219,6 +235,7 @@ public interface GraphService {
    * @param relationshipFilter
    * @param sortCriteria
    * @param scrollId
+   * @param keepAlive
    * @param count
    * @param startTimeMillis
    * @param endTimeMillis
@@ -235,6 +252,7 @@ public interface GraphService {
       @Nonnull RelationshipFilter relationshipFilter,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
@@ -249,6 +267,7 @@ public interface GraphService {
             relationshipFilter),
         sortCriteria,
         scrollId,
+        keepAlive,
         count,
         startTimeMillis,
         endTimeMillis);
@@ -260,6 +279,7 @@ public interface GraphService {
       @Nonnull GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis);

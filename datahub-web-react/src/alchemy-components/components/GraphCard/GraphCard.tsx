@@ -41,6 +41,7 @@ export function GraphCard({
     showHeader = true,
     showEmptyMessageHeader = true,
     emptyMessage = 'No stats collected for this asset at the moment.',
+    dataTestId,
 }: GraphCardProps) {
     const [showInfoModal, setShowInfoModal] = useState<boolean>(false);
 
@@ -49,7 +50,7 @@ export function GraphCard({
     };
 
     return (
-        <CardContainer maxWidth={width}>
+        <CardContainer maxWidth={width} data-testid={dataTestId}>
             {showHeader && (
                 <GraphCardHeader>
                     <PageTitle title={title} subTitle={subTitle} variant="sectionHeader" />
@@ -79,7 +80,7 @@ export function GraphCard({
                                     )}
                                     <Text color="gray">{emptyMessage}</Text>
                                     {moreInfoModalContent && (
-                                        <LinkText color="violet" onClick={() => setShowInfoModal(true)}>
+                                        <LinkText color="primary" onClick={() => setShowInfoModal(true)}>
                                             More info
                                         </LinkText>
                                     )}

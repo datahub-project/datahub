@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 
 import click
 from docgen_types import Platform, Plugin
-from docs_config_table import gen_md_table_from_json_schema
+from docs_config_table import gen_md_table_from_pydantic
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.decorators import (
@@ -243,9 +243,11 @@ def create_plugin_from_capability_data(
         if hasattr(source_type, "get_config_class"):
             source_config_class: ConfigModel = source_type.get_config_class()
 
-            plugin.config_json_schema = source_config_class.schema_json(indent=2)
-            plugin.config_md = gen_md_table_from_json_schema(
-                source_config_class.schema(), current_source=plugin_name
+            plugin.config_json_schema = json.dumps(
+                source_config_class.model_json_schema(), indent=2
+            )
+            plugin.config_md = gen_md_table_from_pydantic(
+                source_config_class, current_source=plugin_name
             )
 
             # Write the config json schema to the out_dir.
