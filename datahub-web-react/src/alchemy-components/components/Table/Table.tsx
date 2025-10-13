@@ -278,6 +278,7 @@ export const Table = <T,>({
                                                     }}
                                                     style={{ cursor: column.onCellClick ? 'pointer' : 'default' }}
                                                     className={column.cellWrapper ? 'hoverable-cell' : undefined}
+                                                    data-testid={column.key}
                                                 >
                                                     {cellContent}
                                                 </TableCell>

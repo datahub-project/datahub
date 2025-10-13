@@ -10,6 +10,7 @@ import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,6 +30,8 @@ public class TweakReplicasStepTest {
   @Mock private ElasticSearchIndexed mockService;
 
   @Mock private UpgradeContext mockContext;
+
+  @Mock private OperationContext mockOpContext;
 
   @Mock private Urn mockUrn;
 
@@ -118,6 +121,7 @@ public class TweakReplicasStepTest {
     parsedArgs.put("dryRun", Optional.of("true"));
 
     Mockito.when(mockContext.parsedArgs()).thenReturn(parsedArgs);
+    Mockito.when(mockContext.opContext()).thenReturn(mockOpContext);
 
     UpgradeStepResult result = tweakReplicasStep.executable().apply(mockContext);
 
@@ -135,6 +139,7 @@ public class TweakReplicasStepTest {
     Map<String, Optional<String>> parsedArgs = new HashMap<>();
 
     Mockito.when(mockContext.parsedArgs()).thenReturn(parsedArgs);
+    Mockito.when(mockContext.opContext()).thenReturn(mockOpContext);
     Mockito.doThrow(new RuntimeException("Test exception"))
         .when(mockService)
         .tweakReplicasAll(ArgumentMatchers.any(), ArgumentMatchers.anyBoolean());
@@ -155,6 +160,7 @@ public class TweakReplicasStepTest {
 
     Map<String, Optional<String>> parsedArgs = new HashMap<>();
     Mockito.when(mockContext.parsedArgs()).thenReturn(parsedArgs);
+    Mockito.when(mockContext.opContext()).thenReturn(mockOpContext);
 
     UpgradeStepResult result = tweakReplicasStep.executable().apply(mockContext);
 
