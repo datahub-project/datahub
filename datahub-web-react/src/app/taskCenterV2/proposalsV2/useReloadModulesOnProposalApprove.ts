@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 
 import { ActionRequest, ActionRequestType, DataHubPageModuleType } from '@types';
 
@@ -52,7 +54,12 @@ export function useReloadModuleOnProposalApprove() {
             const moduleTypesToReload = Array.from(new Set(actionRequests.map(getModuleTypesToReload).flat()));
 
             if (moduleTypesToReload.length) {
-                reloadByKeyType(moduleTypesToReload, DELAY_MS);
+                reloadByKeyType(
+                    moduleTypesToReload.map((moduleType) =>
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, moduleType),
+                    ),
+                    DELAY_MS,
+                );
             }
         },
         [reloadByKeyType, getModuleTypesToReload],

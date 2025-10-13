@@ -38,6 +38,8 @@ import {
     getTeamsSubscriptionChannel,
 } from '@app/shared/subscribe/drawer/utils';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useGetLineageCountsQuery } from '@graphql/lineage.generated';
@@ -227,7 +229,10 @@ const SubscriptionDrawerContent = ({
         upsertSubscription();
         // Reload modules
         // SubscribedAssets - update module after adding subscription
-        reloadByKeyType([DataHubPageModuleType.SubscribedAssets], 3000);
+        reloadByKeyType(
+            [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.SubscribedAssets)],
+            3000,
+        );
 
         const shouldUpdateNotificationSettings =
             slackSaveAsDefault ||
@@ -284,7 +289,10 @@ const SubscriptionDrawerContent = ({
             onDeleteSubscription?.();
             // Reload modules
             // SubscribedAssets - update module after removing subscription
-            reloadByKeyType([DataHubPageModuleType.SubscribedAssets], 3000);
+            reloadByKeyType(
+                [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.SubscribedAssets)],
+                3000,
+            );
         }
         onClose();
     };
