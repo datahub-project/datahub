@@ -121,7 +121,6 @@
       "json": {
         "entities": [
           {
-            "scrollId": "",
             "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetSingle1EntityV3,PROD)",
             "datasetProperties": {
               "value": {
