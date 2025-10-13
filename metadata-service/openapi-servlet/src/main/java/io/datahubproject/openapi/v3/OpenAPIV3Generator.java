@@ -1418,7 +1418,14 @@ public class OpenAPIV3Generator {
                     .type(TYPE_STRING)
                     ._enum(
                         Arrays.asList(
-                            "EQUAL", "STARTS_WITH", "ENDS_WITH", "EXISTS", "IN", "CONTAIN"))
+                            "EQUAL",
+                            "STARTS_WITH",
+                            "ENDS_WITH",
+                            "EXISTS",
+                            "IN",
+                            "CONTAIN",
+                            "GREATER_THAN",
+                            "LESS_THAN"))
                     ._default("EQUAL")
                     .description("The condition for the criterion."))
             .addProperties(
