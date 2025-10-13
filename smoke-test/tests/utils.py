@@ -140,6 +140,42 @@ def check_endpoint(auth_session, url):
         raise SystemExit(f"{url}: is Not reachable \nErr: {e}")
 
 
+def execute_graphql(
+    auth_session, query: str, variables: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Execute a GraphQL query with standard error handling.
+
+    Args:
+        auth_session: Authenticated session for making requests
+        query: GraphQL query string
+        variables: Optional dictionary of GraphQL variables
+
+    Returns:
+        Response data dictionary
+
+    Example:
+        >>> query = "query getDataset($urn: String!) { dataset(urn: $urn) { name } }"
+        >>> variables = {"urn": "urn:li:dataset:(...)"}
+        >>> res_data = execute_graphql(auth_session, query, variables)
+        >>> dataset_name = res_data["data"]["dataset"]["name"]
+    """
+    json_payload: Dict[str, Any] = {"query": query}
+    if variables:
+        json_payload["variables"] = variables
+
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_payload
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data, "GraphQL response is empty"
+    assert res_data.get("data") is not None, "GraphQL response.data is None"
+    assert "errors" not in res_data, f"GraphQL errors: {res_data.get('errors')}"
+
+    return res_data
+
+
 def run_datahub_cmd(
     command: List[str],
     *,
