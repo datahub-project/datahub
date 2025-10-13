@@ -40,6 +40,7 @@ const Container = styled.div`
 
 const LeftSection = styled.div`
     flex: 6;
+    min-width: 0;
 `;
 
 const RightSection = styled.div`
