@@ -49,6 +49,7 @@ public class FeatureFlags {
   private boolean logicalModelsEnabled = false;
   private boolean showHomepageUserRole = false;
   private boolean viewIngestionSourcePrivilegesEnabled = false;
+  private boolean documentationFileUploadV1 = false;
 
   /* SaaS Only */
   private boolean assertionMonitorsEnabled = false;
@@ -85,5 +86,4 @@ public class FeatureFlags {
   private boolean assetSummaryPageV1 = false;
   private boolean inviteUsersEnabled = false;
   private boolean supportTicketsEnabled = false;
-  private boolean documentationFileUploadV1 = false;
 }
