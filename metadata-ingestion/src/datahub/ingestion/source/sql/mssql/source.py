@@ -475,7 +475,10 @@ class SQLServerSource(SQLAlchemySource):
         jobs_result = conn.execute("EXEC msdb.dbo.sp_help_job")
         jobs_data = {}
 
-        for row in jobs_result:
+        # SQLAlchemy 1.3 support was dropped in Sept 2023 (PR #8810)
+        # SQLAlchemy 1.4+ returns LegacyRow objects that don't support dictionary-style .get() method
+        # Use .mappings() to get MappingResult with dictionary-like rows that support .get()
+        for row in jobs_result.mappings():
             try:
                 job_id = str(row["job_id"])
                 jobs_data[job_id] = {
@@ -509,7 +512,8 @@ class SQLServerSource(SQLAlchemySource):
                 )
 
                 job_steps = {}
-                for step_row in steps_result:
+                # Use .mappings() for dictionary-like access (SQLAlchemy 1.4+ compatibility)
+                for step_row in steps_result.mappings():
                     # Only include steps that run against our target database
                     step_database = step_row.get("database_name", "")
                     if step_database.lower() == db_name.lower() or not step_database:
