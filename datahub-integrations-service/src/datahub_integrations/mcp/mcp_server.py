@@ -342,7 +342,9 @@ def clean_get_entity_response(raw_response: dict) -> dict:
     return response
 
 
-@mcp.tool(description="Get an entity by its DataHub URN.")
+@mcp.tool(
+    description="Get detailed information about any entity by its DataHub URN. Supports all entity types including datasets, assertions, incidents, dashboards, charts, users, groups, and more. The response fields vary based on the entity type."
+)
 @async_background
 def get_entity(urn: str) -> dict:
     client = get_datahub_client()

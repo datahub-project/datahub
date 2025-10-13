@@ -978,6 +978,303 @@ fragment entityPreview on Entity {
       }
     }
   }
+  ... on Assertion {
+    urn
+    type
+    info {
+      type
+      description
+      lastUpdated {
+        time
+        actor
+      }
+      datasetAssertion {
+        datasetUrn
+        scope
+        aggregation
+        operator
+        parameters {
+          value {
+            value
+            type
+          }
+          minValue {
+            value
+            type
+          }
+          maxValue {
+            value
+            type
+          }
+        }
+        fields {
+          urn
+          path
+        }
+        nativeType
+        nativeParameters {
+          key
+          value
+        }
+        logic
+      }
+      fieldAssertion {
+        type
+        entityUrn
+        fieldValuesAssertion {
+          field {
+            path
+            type
+            nativeType
+          }
+          operator
+          parameters {
+            value {
+              value
+              type
+            }
+            minValue {
+              value
+              type
+            }
+            maxValue {
+              value
+              type
+            }
+          }
+          failThreshold {
+            type
+            value
+          }
+          excludeNulls
+        }
+        fieldMetricAssertion {
+          field {
+            path
+            type
+            nativeType
+          }
+          metric
+          operator
+          parameters {
+            value {
+              value
+              type
+            }
+            minValue {
+              value
+              type
+            }
+            maxValue {
+              value
+              type
+            }
+          }
+        }
+      }
+      volumeAssertion {
+        type
+        entityUrn
+        rowCountTotal {
+          operator
+          parameters {
+            value {
+              value
+              type
+            }
+            minValue {
+              value
+              type
+            }
+            maxValue {
+              value
+              type
+            }
+          }
+        }
+        rowCountChange {
+          type
+          operator
+          parameters {
+            value {
+              value
+              type
+            }
+            minValue {
+              value
+              type
+            }
+            maxValue {
+              value
+              type
+            }
+          }
+        }
+      }
+      sqlAssertion {
+        type
+        entityUrn
+        statement
+        operator
+        parameters {
+          value {
+            value
+            type
+          }
+          minValue {
+            value
+            type
+          }
+          maxValue {
+            value
+            type
+          }
+        }
+      }
+      source {
+        type
+        created {
+          time
+          actor
+        }
+      }
+    }
+    platform {
+      urn
+      name
+      properties {
+        displayName
+      }
+    }
+    runEvents(status: COMPLETE, limit: 10) {
+      total
+      failed
+      succeeded
+      runEvents {
+        timestampMillis
+        status
+        result {
+          type
+          actualAggValue
+          externalUrl
+          nativeResults {
+            key
+            value
+          }
+        }
+      }
+    }
+  }
+  ... on Incident {
+    urn
+    type
+    incidentType
+    customType
+    title
+    description
+    priority
+    startedAt
+    created {
+      time
+      actor
+    }
+    incidentStatus {
+      state
+      stage
+      message
+      lastUpdated {
+        time
+        actor
+      }
+    }
+    assignees {
+      ... on CorpUser {
+        urn
+        username
+        properties {
+          active
+          displayName
+          email
+          title
+        }
+        editableProperties {
+          displayName
+          title
+        }
+      }
+      ... on CorpGroup {
+        urn
+        name
+        properties {
+          displayName
+          email
+        }
+        info {
+          displayName
+          email
+        }
+      }
+    }
+    entity {
+      urn
+      type
+      ... on Dataset {
+        name
+        properties {
+          name
+          description
+        }
+      }
+      ... on Dashboard {
+        properties {
+          name
+          description
+        }
+      }
+      ... on Chart {
+        properties {
+          name
+          description
+        }
+      }
+      ... on DataJob {
+        properties {
+          name
+          description
+        }
+      }
+      ... on DataFlow {
+        properties {
+          name
+          description
+        }
+      }
+    }
+    source {
+      type
+      source {
+        urn
+        type
+        ... on Assertion {
+          info {
+            description
+          }
+        }
+      }
+    }
+    tags {
+      tags {
+        tag {
+          urn
+          name
+          properties {
+            name
+            description
+          }
+        }
+      }
+    }
+  }
 }
 
 fragment documentationFields on Documentation {
