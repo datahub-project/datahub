@@ -20,6 +20,9 @@ public class S3UtilFactory {
   @Qualifier("entityClient")
   private EntityClient entityClient;
 
+  @Autowired(required = false)
+  private StsClient stsClient;
+
   @Value("${datahub.s3.roleArn:#{null}}")
   private String roleArn;
 
@@ -30,8 +33,8 @@ public class S3UtilFactory {
 
     if (roleArn != null && !roleArn.trim().isEmpty()) {
       log.info("Using STS role-based S3Util with role ARN: {}", roleArn);
-      StsClient stsClient = StsClient.create();
-      return new S3Util(entityClient, stsClient, roleArn);
+      StsClient clientToUse = stsClient != null ? stsClient : StsClient.create();
+      return new S3Util(entityClient, clientToUse, roleArn);
     } else {
       log.info("Using default S3Util with default credentials");
       S3Client s3Client = S3Client.create();
