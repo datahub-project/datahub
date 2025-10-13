@@ -185,6 +185,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             ),
             "http_path": f"/sql/1.0/warehouses/{self.warehouse_id}",
             "access_token": self._workspace_client.config.token,
+            "user_agent_entry":  "datahub",
         }
 
     def check_basic_connectivity(self) -> bool:
