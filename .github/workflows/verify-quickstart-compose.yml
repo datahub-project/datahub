@@ -6,6 +6,8 @@ on:
     branches:
       - master
   pull_request:
+    branches:
+      - master
 jobs:
   verify-quickstart-compose-updated:
     name: Verify quickstart compose file is up-to-date
