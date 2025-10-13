@@ -187,28 +187,22 @@ class PostgresSource(SQLAlchemySource):
     """
 
     config: PostgresConfig
-    _rds_iam_hostname: Optional[str] = None
-    _rds_iam_port: Optional[int] = None
 
     def __init__(self, config: PostgresConfig, ctx: PipelineContext):
         super().__init__(config, ctx, self.get_platform())
 
         self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
         if config.auth_mode == PostgresAuthMode.IAM:
-            # Extract and store hostname/port for reuse
-            self._rds_iam_hostname, parsed_port = parse_host_port(
-                config.host_port, default_port=5432
-            )
-            # parse_host_port returns Optional[int], but we need int for RDSIAMTokenManager
-            self._rds_iam_port = parsed_port if parsed_port is not None else 5432
+            hostname, parsed_port = parse_host_port(config.host_port, default_port=5432)
+            port = parsed_port if parsed_port is not None else 5432
 
             if not config.username:
                 raise ValueError("username is required for RDS IAM authentication")
 
             self._rds_iam_token_manager = RDSIAMTokenManager(
-                endpoint=self._rds_iam_hostname,
+                endpoint=hostname,
                 username=config.username,
-                port=self._rds_iam_port,
+                port=port,
                 aws_config=config.aws_config,
             )
 
@@ -232,23 +226,15 @@ class PostgresSource(SQLAlchemySource):
         ):
             return
 
-        # Type narrowing: assert token manager is not None after the guard check
-        assert self._rds_iam_token_manager is not None
+        token_manager = self._rds_iam_token_manager
 
-        def _postgres_extra_params(cparams: Any) -> None:
-            """Configure PostgreSQL-specific SSL settings for RDS IAM."""
-            # RDS IAM authentication requires SSL/TLS
-            # Set sslmode to 'require' if not already configured with a stricter mode
-            current_sslmode = cparams.get("sslmode", "")
-            if current_sslmode not in ("require", "verify-ca", "verify-full"):
+        def provide_token(
+            dialect: Any, conn_rec: Any, cargs: Any, cparams: Any
+        ) -> None:
+            """Inject fresh RDS IAM token before each connection."""
+            cparams["password"] = token_manager.get_token()
+            if cparams.get("sslmode") not in ("require", "verify-ca", "verify-full"):
                 cparams["sslmode"] = "require"
-
-        provide_token = self._rds_iam_token_manager.create_connect_event_listener(
-            database=database_name
-            or self.config.database
-            or self.config.initial_database,
-            extra_params_callback=_postgres_extra_params,
-        )
 
         event.listen(engine, "do_connect", provide_token)  # type: ignore[misc]
 
@@ -260,16 +246,7 @@ class PostgresSource(SQLAlchemySource):
 
         logger.debug(f"sql_alchemy_url={url}")
 
-        # Configure engine options for RDS IAM authentication
-        engine_options = dict(self.config.options)
-        if self.config.auth_mode == PostgresAuthMode.IAM:
-            engine_options.setdefault("pool_recycle", 600)
-            engine_options.setdefault("pool_pre_ping", True)
-            logger.debug(
-                "RDS IAM enabled: setting pool_recycle=600 and pool_pre_ping=True"
-            )
-
-        engine = create_engine(url, **engine_options)
+        engine = create_engine(url, **self.config.options)
         self._setup_rds_iam_event_listener(engine)
 
         with engine.connect() as conn:
@@ -288,14 +265,7 @@ class PostgresSource(SQLAlchemySource):
                         continue
 
                     url = self.config.get_sql_alchemy_url(database=db["datname"])
-
-                    # Configure engine options for database-specific connections
-                    db_engine_options = dict(self.config.options)
-                    if self.config.auth_mode == PostgresAuthMode.IAM:
-                        db_engine_options.setdefault("pool_recycle", 600)
-                        db_engine_options.setdefault("pool_pre_ping", True)
-
-                    db_engine = create_engine(url, **db_engine_options)
+                    db_engine = create_engine(url, **self.config.options)
                     self._setup_rds_iam_event_listener(
                         db_engine, database_name=db["datname"]
                     )

@@ -151,7 +151,7 @@ class TestPostgresSourceRDSIAM:
 
     @patch("datahub.ingestion.source.sql.postgres.RDSIAMTokenManager")
     def test_init_with_rds_iam_stores_hostname_and_port(self, mock_token_manager):
-        """Test that hostname and port are stored as instance variables."""
+        """Test that hostname and port are passed to token manager."""
         config_dict = {
             "host_port": "test.rds.amazonaws.com:5433",
             "username": "testuser",
@@ -164,7 +164,11 @@ class TestPostgresSourceRDSIAM:
 
         source = PostgresSource(config, ctx)
 
-        # Verify hostname and port are stored
-        assert source._rds_iam_hostname == "test.rds.amazonaws.com"
-        assert source._rds_iam_port == 5433
+        # Verify token manager was created with correct parameters
         assert source._rds_iam_token_manager is not None
+        mock_token_manager.assert_called_once_with(
+            endpoint="test.rds.amazonaws.com",
+            username="testuser",
+            port=5433,
+            aws_config=config.aws_config,
+        )
