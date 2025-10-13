@@ -61,6 +61,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -69,7 +70,12 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-@SpringBootTest(classes = {ConfigurationProvider.class, GraphQLEngineFactory.class})
+@SpringBootTest(
+    classes = {
+      ConfigurationProvider.class,
+      GraphQLEngineFactory.class,
+      BaseElasticSearchComponentsFactory.class
+    })
 @ContextConfiguration(classes = GraphQLEngineFactoryTest.TestConfig.class)
 @TestPropertySource(
     locations = "classpath:/application.yaml",
@@ -285,9 +291,6 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @MockitoBean private EntityRegistry entityRegistry;
 
   @MockitoBean private QueryFilterRewriteChain queryFilterRewriteChain;
-
-  @MockitoBean(name = "baseElasticSearchComponents")
-  private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
   @MockitoBean
   @Qualifier("recentlyViewedCandidateSource")
@@ -556,7 +559,7 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     }
   }
 
-  @org.springframework.context.annotation.Configuration
+  @Configuration
   static class TestConfig {
 
     @MockBean(name = "settingsBuilder")
