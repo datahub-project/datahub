@@ -20,7 +20,7 @@ export const AssertionSummaryTab = ({ loading, assertion, monitor, openAssertion
                 <AssertionSummaryLoading />
             ) : (
                 <AssertionSummaryContent
-                    assertion={assertion as Assertion}
+                    assertion={assertion}
                     monitor={monitor}
                     openAssertionNote={openAssertionNote}
                     refreshData={refreshData}

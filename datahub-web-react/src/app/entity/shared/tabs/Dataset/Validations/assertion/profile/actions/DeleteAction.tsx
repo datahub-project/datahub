@@ -4,8 +4,8 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { ActionItem } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
+import { useDeleteAssertionMutationWithCache } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
 
-import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
 import { useDeleteMonitorMutation } from '@graphql/monitor.generated';
 import { Assertion, Monitor } from '@types';
 
@@ -25,7 +25,7 @@ type Props = {
 };
 
 export const DeleteAction = ({ assertion, monitor, canEdit, refetch }: Props) => {
-    const [deleteAssertionMutation] = useDeleteAssertionMutation();
+    const [deleteAssertionMutation] = useDeleteAssertionMutationWithCache();
     const [deleteMonitorMutation] = useDeleteMonitorMutation();
 
     const deleteMonitor = async () => {

@@ -1,3 +1,5 @@
+import { ApolloClient } from '@apollo/client';
+
 import {
     GetDatasetAssertionsWithMonitorsDocument,
     GetDatasetAssertionsWithMonitorsQuery,
@@ -39,7 +41,7 @@ const addOrUpdateAssertionInList = (existingAssertions, newAssertion) => {
  * If either of these fields are missing in the assertion object, the cache WILL NOT work. This is due to how
  * Apollo cache requires a value for all projected fields in order to find a cache hit.
  */
-export const updateDatasetAssertionsCache = (datasetUrn: string, newAssertion: any, client) => {
+export const updateDatasetAssertionsCache = (datasetUrn: string, newAssertion: any, client: ApolloClient<any>) => {
     // Read the data from our cache for this query.
     const currData: GetDatasetAssertionsWithMonitorsQuery | null = client.readQuery({
         query: GetDatasetAssertionsWithMonitorsDocument,

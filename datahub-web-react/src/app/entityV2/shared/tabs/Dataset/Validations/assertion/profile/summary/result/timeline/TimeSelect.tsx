@@ -68,6 +68,7 @@ export const TimeSelect = ({ timeWindow, setTimeWindow }: Props) => {
             {/* Fixed lookback windows */}
             {Object.values(LOOKBACK_WINDOWS_FOR_ASSERTION_VIZ).map((window) => (
                 <SelectablePill
+                    key={window.text}
                     text={window.text}
                     selected={timeWindow.windowName === window.text}
                     onSelect={() =>

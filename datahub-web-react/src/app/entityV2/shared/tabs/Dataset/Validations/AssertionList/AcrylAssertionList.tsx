@@ -65,16 +65,25 @@ export const AcrylAssertionList = () => {
 
     const [assertionMonitorData, setAssertionMonitorData] = useState<AssertionWithMonitorDetails[]>([]);
 
-    const { data, refetch, client, loading } = useGetDatasetAssertionsWithMonitorsQuery({
+    const {
+        data,
+        refetch,
+        client,
+        loading: assertionLoading,
+    } = useGetDatasetAssertionsWithMonitorsQuery({
         variables: { urn },
         fetchPolicy: 'cache-first',
     });
-    const { data: contractData, refetch: contractRefetch } = useGetDatasetContractQuery({
+    const {
+        data: contractData,
+        refetch: contractRefetch,
+        loading: contractLoading,
+    } = useGetDatasetContractQuery({
         variables: { urn },
         fetchPolicy: 'cache-first',
     });
 
-    const contract: DataContract = contractData?.dataset?.contract as DataContract;
+    const contract = contractData?.dataset?.contract as DataContract | undefined;
 
     // get filtered Assertion as per the filter object
     const getFilteredAssertions = (assertions: AssertionWithMonitorDetails[]) => {
@@ -109,7 +118,7 @@ export const AcrylAssertionList = () => {
     const canEditSqlAssertionMonitors = privileges?.canEditSqlAssertionMonitors || false;
 
     const renderListTable = () => {
-        if (loading || ingestionSourceLoading) {
+        if (assertionLoading || ingestionSourceLoading || contractLoading) {
             return <TableLoadingSkeleton />;
         }
         if ((visibleAssertions?.assertions || []).length > 0) {
