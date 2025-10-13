@@ -1484,7 +1484,7 @@ class ModeSource(StatefulIngestionSourceBase):
                         reports_page = [
                             report
                             for report in reports_page
-                            if report["archived"] is False
+                            if not report.get("archived", False)
                         ]
                     yield reports_page
         except ModeRequestError as e:
