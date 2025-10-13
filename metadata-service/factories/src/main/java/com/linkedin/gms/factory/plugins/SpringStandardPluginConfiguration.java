@@ -570,7 +570,7 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(PolicyFieldTypeValidator.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
