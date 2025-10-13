@@ -469,7 +469,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
             self.report.report_failure(
                 title="Failed to fetch query history from system tables",
-                message=f"Error querying system.query.history table: {e}",
+                message=f"Error querying system.query.history table",
                 context=f"Query period: {start_time} to {end_time}",
             )
 
