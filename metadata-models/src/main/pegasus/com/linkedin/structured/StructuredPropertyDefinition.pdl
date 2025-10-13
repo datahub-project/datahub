@@ -11,7 +11,9 @@ record StructuredPropertyDefinition {
     /**
     * The fully qualified name of the property. e.g. io.acryl.datahub.myProperty
     */
-    @Searchable = {}
+    @Searchable = {
+      "enableAutocomplete": false,
+    }
     qualifiedName: string
 
     /**
@@ -19,6 +21,7 @@ record StructuredPropertyDefinition {
     */
     @Searchable = {
       "enableAutocomplete": true,
+      "fieldType": "WORD_GRAM",
       "boostScore": 10.0
       }
     displayName: optional string
