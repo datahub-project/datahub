@@ -83,9 +83,23 @@ class Db2Config(BasicSQLAlchemyConfig):
         "Specify regex to match the entire procedure name in schema.procedure_name format.",
     )
 
+    uri_args: Dict[str, str] = pydantic.Field(
+        default={},
+        description="Arguments to add to the URL when connecting.",
+    )
+
     # Override defaults
     host_port: str = pydantic.Field(default="localhost:50000")
     scheme: HiddenFromDocs[str] = pydantic.Field(default="db2+ibm_db")
+
+    def get_sql_alchemy_url(
+        self,
+        uri_opts: Optional[Dict[str, Any]] = None,
+        database: Optional[str] = None,
+    ) -> str:
+        return super().get_sql_alchemy_url(
+            {**self.uri_args, **(uri_opts or {})}, database
+        )
 
 
 def _quote_identifier(value):
