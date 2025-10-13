@@ -17,10 +17,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.NotImplementedException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.springframework.beans.factory.DisposableBean;
 
 /** A search DAO for Elasticsearch backend. */
 @Slf4j
-public class ESGraphQueryDAO implements GraphQueryDAO {
+public class ESGraphQueryDAO implements GraphQueryDAO, DisposableBean {
 
   private final GraphQueryBaseDAO delegate;
   @Getter private final GraphServiceConfiguration graphServiceConfig;
@@ -96,5 +97,13 @@ public class ESGraphQueryDAO implements GraphQueryDAO {
 
   SearchResponse executeSearch(@Nonnull SearchRequest searchRequest) {
     return delegate.executeSearch(searchRequest);
+  }
+
+  @Override
+  public void destroy() throws Exception {
+    // Shutdown the delegate if it's a GraphQueryPITDAO
+    if (delegate instanceof GraphQueryPITDAO) {
+      ((GraphQueryPITDAO) delegate).shutdown();
+    }
   }
 }
