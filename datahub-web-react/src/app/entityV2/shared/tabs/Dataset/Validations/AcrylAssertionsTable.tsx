@@ -250,11 +250,9 @@ export const AcrylAssertionsTable = ({
                 <AssertionProfileDrawer
                     urn={focusAssertionUrn}
                     entity={focusedAssertionEntity as Entity}
-                    contract={contract}
                     canEditAssertion={canEditFocusAssertion}
                     canEditMonitor={canEditFocusMonitor}
                     closeDrawer={() => setFocusAssertionUrn(null)}
-                    refetch={refetch}
                 />
             )}
         </>

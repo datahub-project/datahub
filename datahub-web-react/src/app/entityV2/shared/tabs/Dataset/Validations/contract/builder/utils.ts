@@ -69,7 +69,7 @@ export const buildProposeDataContractMutationVariables = (
 export const buildRemoveAssertionFromContractMutationVariables = (
     entityUrn: string,
     assertionUrn: string,
-    contract?: DataContract,
+    contract?: DataContract | null,
 ) => {
     return {
         input: {
@@ -100,7 +100,7 @@ export const buildAddAssertionToContractMutationVariables = (
     category: DataContractCategoryType,
     entityUrn: string,
     assertionUrn: string,
-    contract?: DataContract,
+    contract?: DataContract | null,
 ) => {
     const baseInput = {
         entityUrn,

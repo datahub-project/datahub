@@ -3,9 +3,9 @@ import { Modal, message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { useDeleteAssertionMutationWithCache } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
 import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
 
-import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
 import { useDeleteMonitorMutation } from '@graphql/monitor.generated';
 import { Assertion, Monitor } from '@types';
 
@@ -26,7 +26,7 @@ type Props = {
 };
 
 export const DeleteAction = ({ assertion, monitor, canEdit, refetch, isExpandedView = false }: Props) => {
-    const [deleteAssertionMutation] = useDeleteAssertionMutation();
+    const [deleteAssertionMutation] = useDeleteAssertionMutationWithCache();
     const [deleteMonitorMutation] = useDeleteMonitorMutation();
 
     const deleteMonitor = async () => {

@@ -360,13 +360,22 @@ export function nullsToUndefined<T>(obj: T): RecursivelyReplaceNullWithUndefined
         return undefined as any;
     }
 
-    if ((obj as any).constructor.name === 'Object' || Array.isArray(obj)) {
+    // Handle arrays
+    if (Array.isArray(obj)) {
+        return obj.map((item) => nullsToUndefined(item)) as any;
+    }
+
+    // Handle objects
+    if (obj.constructor.name === 'Object' || typeof obj === 'object') {
+        const newObj: any = {};
         // eslint-disable-next-line no-restricted-syntax
         for (const key of Object.keys(obj)) {
-            // eslint-disable-next-line no-param-reassign
-            obj[key] = nullsToUndefined(obj[key]) as any;
+            newObj[key] = nullsToUndefined((obj as any)[key]);
         }
+        return newObj;
     }
+
+    // Primitive values
     return obj as any;
 }
 

@@ -25,7 +25,7 @@ const TableContainer = styled.div`
 type Props = {
     assertionData: AssertionTable;
     refetch: () => void;
-    contract: DataContract;
+    contract: DataContract | undefined;
     canEditAssertions: boolean;
     canEditMonitors: boolean;
     canEditSqlAssertions: boolean;
@@ -128,11 +128,9 @@ export const AcrylAssertionListTable = ({
                 <AssertionProfileDrawer
                     urn={focusAssertionUrn}
                     entity={focusedAssertionEntity as Entity}
-                    contract={contract}
                     canEditAssertion={canEditFocusAssertion}
                     canEditMonitor={canEditFocusMonitor}
                     closeDrawer={() => setFocusAssertionUrn(null)}
-                    refetch={refetch}
                 />
             )}
         </TableContainer>

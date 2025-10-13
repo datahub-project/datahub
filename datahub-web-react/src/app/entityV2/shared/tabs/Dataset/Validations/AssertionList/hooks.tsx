@@ -50,7 +50,7 @@ export const useAssertionsTableColumns = ({
     refetch,
     isEntityReachable,
 }: {
-    contract: DataContract;
+    contract: DataContract | undefined;
     canEditSqlAssertions: boolean;
     canEditAssertions: boolean;
     canEditMonitors: boolean;
