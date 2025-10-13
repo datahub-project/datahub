@@ -1006,6 +1006,7 @@ featureFlags:
   showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false}  # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:false} # Enables displaying the asset summary page
+  documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   # SaaS-only features
   showBulkFormByDefault: ${SHOW_BULK_FORM_BY_DEFAULT:false}
   # If turned on, the bulk form by question view will be shown by default from the task center
@@ -1079,7 +1080,6 @@ featureFlags:
   # If enabled, the invite users feature will be available in the UI
   supportTicketsEnabled: ${SUPPORT_TICKETS_ENABLED:false}
   # If enabled, the support tickets feature will be available in the UI
-  documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
