@@ -1,6 +1,8 @@
+from typing import Any, Dict
+
 import pytest
 
-from tests.utils import delete_urns_from_file, ingest_file_via_rest
+from tests.utils import delete_urns_from_file, execute_graphql, ingest_file_via_rest
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -18,67 +20,40 @@ def test_add_tag(auth_session):
     env = "PROD"
     dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
 
-    dataset_json = {
-        "query": """query getDataset($urn: String!) {\n
-            dataset(urn: $urn) {\n
-                globalTags {\n
-                    tags {\n
-                        tag {\n
-                            urn\n
-                            name\n
-                            description\n
-                        }\n
-                    }\n
-                }\n
-            }\n
-        }""",
-        "variables": {"urn": dataset_urn},
-    }
+    dataset_query = """query getDataset($urn: String!) {
+            dataset(urn: $urn) {
+                globalTags {
+                    tags {
+                        tag {
+                            urn
+                            name
+                            description
+                        }
+                    }
+                }
+            }
+        }"""
+    dataset_variables: Dict[str, Any] = {"urn": dataset_urn}
 
     # Fetch tags
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
+    res_data = execute_graphql(auth_session, dataset_query, dataset_variables)
     assert res_data["data"]["dataset"]["globalTags"] is None
 
-    add_json = {
-        "query": """mutation addTag($input: TagAssociationInput!) {\n
+    add_query = """mutation addTag($input: TagAssociationInput!) {
             addTag(input: $input)
-        }""",
-        "variables": {
-            "input": {
-                "tagUrn": "urn:li:tag:Legacy",
-                "resourceUrn": dataset_urn,
-            }
-        },
+        }"""
+    add_variables: Dict[str, Any] = {
+        "input": {
+            "tagUrn": "urn:li:tag:Legacy",
+            "resourceUrn": dataset_urn,
+        }
     }
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=add_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
+    res_data = execute_graphql(auth_session, add_query, add_variables)
     assert res_data["data"]["addTag"] is True
 
     # Refetch the dataset
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
+    res_data = execute_graphql(auth_session, dataset_query, dataset_variables)
     assert res_data["data"]["dataset"]["globalTags"] == {
         "tags": [
             {
@@ -91,40 +66,22 @@ def test_add_tag(auth_session):
         ]
     }
 
-    remove_json = {
-        "query": """mutation removeTag($input: TagAssociationInput!) {\n
+    remove_query = """mutation removeTag($input: TagAssociationInput!) {
             removeTag(input: $input)
-        }""",
-        "variables": {
-            "input": {
-                "tagUrn": "urn:li:tag:Legacy",
-                "resourceUrn": dataset_urn,
-            }
-        },
+        }"""
+    remove_variables: Dict[str, Any] = {
+        "input": {
+            "tagUrn": "urn:li:tag:Legacy",
+            "resourceUrn": dataset_urn,
+        }
     }
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=remove_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
+    res_data = execute_graphql(auth_session, remove_query, remove_variables)
     print(res_data)
-
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["removeTag"] is True
 
     # Refetch the dataset
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
+    res_data = execute_graphql(auth_session, dataset_query, dataset_variables)
     assert res_data["data"]["dataset"]["globalTags"] == {"tags": []}
 
 
