@@ -31,6 +31,7 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
 from datahub.ingestion.source_report.ingestion_stage import (
     USAGE_EXTRACTION_OPERATIONAL_STATS,
     USAGE_EXTRACTION_USAGE_AGGREGATION,
+    IngestionHighStage,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetFieldUsageCounts,
@@ -146,6 +147,12 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
         if not self._should_ingest_usage():
             return
 
+        with self.report.new_high_stage(IngestionHighStage.USAGE):
+            yield from self._get_usage_workunits(discovered_datasets)
+
+    def _get_usage_workunits(
+        self, discovered_datasets: List[str]
+    ) -> Iterable[MetadataWorkUnit]:
         with self.report.new_stage(f"*: {USAGE_EXTRACTION_USAGE_AGGREGATION}"):
             if self.report.edition == SnowflakeEdition.STANDARD.value:
                 logger.info(

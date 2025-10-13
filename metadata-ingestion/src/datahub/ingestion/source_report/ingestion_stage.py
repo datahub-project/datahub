@@ -28,7 +28,11 @@ class IngestionHighStage(Enum):
     Team to add more stages as needed
     """
 
+    METADATA_EXTRACTION = "Metadata Extraction"
     PROFILING = "Profiling"
+    LINEAGE = "Lineage"
+    USAGE = "Usage"
+
     _UNDEFINED = "Ingestion"
 
 

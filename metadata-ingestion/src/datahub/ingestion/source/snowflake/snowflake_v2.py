@@ -82,10 +82,10 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source_report.ingestion_stage import (
-    LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
     QUERIES_EXTRACTION,
     VIEW_PARSING,
+    IngestionHighStage,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -629,7 +629,7 @@ class SnowflakeV2Source(
 
         else:
             if self.lineage_extractor:
-                with self.report.new_stage(f"*: {LINEAGE_EXTRACTION}"):
+                with self.report.new_high_stage(IngestionHighStage.LINEAGE):
                     self.lineage_extractor.add_time_based_lineage_to_aggregator(
                         discovered_tables=discovered_tables,
                         discovered_views=discovered_views,
