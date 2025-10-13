@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 pytestmark = pytest.mark.no_cypress_suite1
 
 from tests.utils import (
+    execute_graphql,
     get_kafka_broker_url,
     get_kafka_schema_registry,
     get_sleep_info,
@@ -60,23 +61,17 @@ def _ensure_user_present(auth_session, urn: str):
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
 def _ensure_user_relationship_present(auth_session, urn, relationships):
-    json = {
-        "query": """query corpUser($urn: String!) {\n
-            corpUser(urn: $urn) {\n
-                urn\n
-                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
-                    total\n
-                }\n
-            }\n
-        }""",
-        "variables": {"urn": urn},
-    }
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
+    query = """query corpUser($urn: String!) {
+        corpUser(urn: $urn) {
+            urn
+            relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {
+                total
+            }
+        }
+    }"""
+    variables = {"urn": urn}
+    res_data = execute_graphql(auth_session, query, variables)
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["corpUser"]
     assert res_data["data"]["corpUser"]["relationships"]
     assert res_data["data"]["corpUser"]["relationships"]["total"] == relationships
@@ -109,23 +104,17 @@ def _ensure_dataset_present(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
 def _ensure_group_not_present(auth_session, urn: str) -> Any:
-    json = {
-        "query": """query corpGroup($urn: String!) {\n
-            corpGroup(urn: $urn) {\n
-                urn\n
-                properties {\n
-                    displayName\n
-                }\n
-            }\n
-        }""",
-        "variables": {"urn": urn},
-    }
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
+    query = """query corpGroup($urn: String!) {
+        corpGroup(urn: $urn) {
+            urn
+            properties {
+                displayName
+            }
+        }
+    }"""
+    variables = {"urn": urn}
+    res_data = execute_graphql(auth_session, query, variables)
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["corpGroup"]
     assert res_data["data"]["corpGroup"]["properties"] is None
 
@@ -338,33 +327,25 @@ def test_frontend_auth(auth_session):
 
 
 def test_frontend_browse_datasets(auth_session):
+    query = """query browse($input: BrowseInput!) {
+        browse(input: $input) {
+            start
+            count
+            total
+            groups {
+                name
+            }
+            entities {
+                ... on Dataset {
+                    urn
+                    name
+                }
+            }
+        }
+    }"""
+    variables = {"input": {"type": "DATASET", "path": ["prod"]}}
+    res_data = execute_graphql(auth_session, query, variables)
 
-    json = {
-        "query": """query browse($input: BrowseInput!) {\n
-                        browse(input: $input) {\n
-                            start\n
-                            count\n
-                            total\n
-                            groups {
-                                name
-                            }
-                            entities {\n
-                                ... on Dataset {\n
-                                    urn\n
-                                    name\n
-                                }\n
-                            }\n
-                        }\n
-                    }""",
-        "variables": {"input": {"type": "DATASET", "path": ["prod"]}},
-    }
-
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
-
-    response.raise_for_status()
-    res_data = response.json()
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["browse"]
     assert len(res_data["data"]["browse"]["entities"]) == 0
     assert len(res_data["data"]["browse"]["groups"]) > 0
@@ -379,34 +360,26 @@ def test_frontend_browse_datasets(auth_session):
     ],
 )
 def test_frontend_search_datasets(auth_session, query, min_expected_results):
-
-    json = {
-        "query": """query search($input: SearchInput!) {\n
-            search(input: $input) {\n
-                start\n
-                count\n
-                total\n
-                searchResults {\n
-                    entity {\n
-                        ... on Dataset {\n
-                            urn\n
-                            name\n
-                        }\n
-                    }\n
-                }\n
-            }\n
-        }""",
-        "variables": {
-            "input": {"type": "DATASET", "query": f"{query}", "start": 0, "count": 10}
-        },
+    graphql_query = """query search($input: SearchInput!) {
+        search(input: $input) {
+            start
+            count
+            total
+            searchResults {
+                entity {
+                    ... on Dataset {
+                        urn
+                        name
+                    }
+                }
+            }
+        }
+    }"""
+    variables = {
+        "input": {"type": "DATASET", "query": f"{query}", "start": 0, "count": 10}
     }
+    res_data = execute_graphql(auth_session, graphql_query, variables)
 
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["search"]
     assert res_data["data"]["search"]["total"] >= min_expected_results
     assert len(res_data["data"]["search"]["searchResults"]) >= min_expected_results
@@ -421,34 +394,26 @@ def test_frontend_search_datasets(auth_session, query, min_expected_results):
     ],
 )
 def test_frontend_search_across_entities(auth_session, query, min_expected_results):
-
-    json = {
-        "query": """query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {\n
-            searchAcrossEntities(input: $input) {\n
-                start\n
-                count\n
-                total\n
-                searchResults {\n
-                    entity {\n
-                        ... on Dataset {\n
-                            urn\n
-                            name\n
-                        }\n
-                    }\n
-                }\n
-            }\n
-        }""",
-        "variables": {
-            "input": {"types": [], "query": f"{query}", "start": 0, "count": 10}
-        },
+    graphql_query = """query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {
+        searchAcrossEntities(input: $input) {
+            start
+            count
+            total
+            searchResults {
+                entity {
+                    ... on Dataset {
+                        urn
+                        name
+                    }
+                }
+            }
+        }
+    }"""
+    variables = {
+        "input": {"types": [], "query": f"{query}", "start": 0, "count": 10}
     }
+    res_data = execute_graphql(auth_session, graphql_query, variables)
 
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["searchAcrossEntities"]
     assert res_data["data"]["searchAcrossEntities"]["total"] >= min_expected_results
     assert (
@@ -458,32 +423,25 @@ def test_frontend_search_across_entities(auth_session, query, min_expected_resul
 
 
 def test_frontend_user_info(auth_session):
-
     urn = get_root_urn()
-    json = {
-        "query": """query corpUser($urn: String!) {\n
-            corpUser(urn: $urn) {\n
-                urn\n
-                username\n
-                editableInfo {\n
-                    pictureLink\n
-                }\n
-                info {\n
-                    firstName\n
-                    fullName\n
-                    title\n
-                    email\n
-                }\n
-            }\n
-        }""",
-        "variables": {"urn": urn},
-    }
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
+    query = """query corpUser($urn: String!) {
+        corpUser(urn: $urn) {
+            urn
+            username
+            editableInfo {
+                pictureLink
+            }
+            info {
+                firstName
+                fullName
+                title
+                email
+            }
+        }
+    }"""
+    variables = {"urn": urn}
+    res_data = execute_graphql(auth_session, query, variables)
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["corpUser"]
     assert res_data["data"]["corpUser"]["urn"] == urn
 
@@ -507,31 +465,24 @@ def test_frontend_user_info(auth_session):
 )
 def test_frontend_datasets(auth_session, platform, dataset_name, env):
     urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
-    json = {
-        "query": """query getDataset($urn: String!) {\n
-            dataset(urn: $urn) {\n
-                urn\n
-                name\n
-                description\n
-                platform {\n
-                    urn\n
-                }\n
-                schemaMetadata {\n
-                    name\n
-                    version\n
-                    createdAt\n
-                }\n
-            }\n
-        }""",
-        "variables": {"urn": urn},
-    }
-    # Basic dataset info.
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
+    query = """query getDataset($urn: String!) {
+        dataset(urn: $urn) {
+            urn
+            name
+            description
+            platform {
+                urn
+            }
+            schemaMetadata {
+                name
+                version
+                createdAt
+            }
+        }
+    }"""
+    variables = {"urn": urn}
+    res_data = execute_graphql(auth_session, query, variables)
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["dataset"]
     assert res_data["data"]["dataset"]["urn"] == urn
     assert res_data["data"]["dataset"]["name"] == dataset_name
@@ -628,81 +579,65 @@ def test_ingest_without_system_metadata(auth_session):
 
 
 def test_frontend_app_config(auth_session):
+    query = """query appConfig {
+        appConfig {
+            analyticsConfig {
+              enabled
+            }
+            policiesConfig {
+              enabled
+              platformPrivileges {
+                type
+                displayName
+                description
+              }
+              resourcePrivileges {
+                resourceType
+                resourceTypeDisplayName
+                entityType
+                privileges {
+                  type
+                  displayName
+                  description
+                }
+              }
+            }
+        }
+    }"""
+    res_data = execute_graphql(auth_session, query)
 
-    json = {
-        "query": """query appConfig {\n
-            appConfig {\n
-                analyticsConfig {\n
-                  enabled\n
-                }\n
-                policiesConfig {\n
-                  enabled\n
-                  platformPrivileges {\n
-                    type\n
-                    displayName\n
-                    description\n
-                  }\n
-                  resourcePrivileges {\n
-                    resourceType\n
-                    resourceTypeDisplayName\n
-                    entityType\n
-                    privileges {\n
-                      type\n
-                      displayName\n
-                      description\n
-                    }\n
-                  }\n
-                }\n
-            }\n
-        }"""
-    }
-
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["appConfig"]
     assert res_data["data"]["appConfig"]["analyticsConfig"]["enabled"] is True
     assert res_data["data"]["appConfig"]["policiesConfig"]["enabled"] is True
 
 
 def test_frontend_me_query(auth_session):
+    query = """query me {
+        me {
+            corpUser {
+              urn
+              username
+              editableInfo {
+                  pictureLink
+              }
+              info {
+                  firstName
+                  fullName
+                  title
+                  email
+              }
+            }
+            platformPrivileges {
+              viewAnalytics
+              managePolicies
+              manageIdentities
+              manageUserCredentials
+              generatePersonalAccessTokens
+            }
+        }
+    }"""
+    res_data = execute_graphql(auth_session, query)
 
-    json = {
-        "query": """query me {\n
-            me {\n
-                corpUser {\n
-                  urn\n
-                  username\n
-                  editableInfo {\n
-                      pictureLink\n
-                  }\n
-                  info {\n
-                      firstName\n
-                      fullName\n
-                      title\n
-                      email\n
-                  }\n
-                }\n
-                platformPrivileges {\n
-                  viewAnalytics
-                  managePolicies
-                  manageIdentities
-                  manageUserCredentials
-                  generatePersonalAccessTokens 
-                }\n
-            }\n
-        }"""
-    }
-
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["me"]["corpUser"]["urn"] == get_root_urn()
     assert res_data["data"]["me"]["platformPrivileges"]["viewAnalytics"] is True
     assert res_data["data"]["me"]["platformPrivileges"]["managePolicies"] is True
@@ -715,36 +650,29 @@ def test_frontend_me_query(auth_session):
 
 
 def test_list_users(auth_session):
-
-    json = {
-        "query": """query listUsers($input: ListUsersInput!) {\n
-            listUsers(input: $input) {\n
-                start\n
-                count\n
-                total\n
-                users {\n
-                    urn\n
-                    type\n
-                    username\n
-                    properties {\n
-                      firstName
-                    }\n
-                }\n
-            }\n
-        }""",
-        "variables": {
-            "input": {
-                "start": 0,
-                "count": 2,
+    query = """query listUsers($input: ListUsersInput!) {
+        listUsers(input: $input) {
+            start
+            count
+            total
+            users {
+                urn
+                type
+                username
+                properties {
+                  firstName
+                }
             }
-        },
+        }
+    }"""
+    variables = {
+        "input": {
+            "start": 0,
+            "count": 2,
+        }
     }
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
+    res_data = execute_graphql(auth_session, query, variables)
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["listUsers"]
     assert res_data["data"]["listUsers"]["start"] == 0
     assert res_data["data"]["listUsers"]["count"] == 2
@@ -755,36 +683,29 @@ def test_list_users(auth_session):
 
 @pytest.mark.dependency()
 def test_list_groups(auth_session):
-
-    json = {
-        "query": """query listGroups($input: ListGroupsInput!) {\n
-            listGroups(input: $input) {\n
-                start\n
-                count\n
-                total\n
-                groups {\n
-                    urn\n
-                    type\n
-                    name\n
-                    properties {\n
-                      displayName
-                    }\n
-                }\n
-            }\n
-        }""",
-        "variables": {
-            "input": {
-                "start": 0,
-                "count": 2,
+    query = """query listGroups($input: ListGroupsInput!) {
+        listGroups(input: $input) {
+            start
+            count
+            total
+            groups {
+                urn
+                type
+                name
+                properties {
+                  displayName
+                }
             }
-        },
+        }
+    }"""
+    variables = {
+        "input": {
+            "start": 0,
+            "count": 2,
+        }
     }
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
+    res_data = execute_graphql(auth_session, query, variables)
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["listGroups"]
     assert res_data["data"]["listGroups"]["start"] == 0
     assert res_data["data"]["listGroups"]["count"] == 2
@@ -797,60 +718,45 @@ def test_list_groups(auth_session):
     depends=["test_list_groups"]
 )
 def test_add_remove_members_from_group(auth_session):
-
     # Assert no group edges for user jdoe
-    json = {
-        "query": """query corpUser($urn: String!) {\n
-            corpUser(urn: $urn) {\n
-                urn\n
-                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
-                    total\n
-                }\n
-            }\n
-        }""",
-        "variables": {"urn": "urn:li:corpuser:jdoe"},
-    }
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
+    query = """query corpUser($urn: String!) {
+        corpUser(urn: $urn) {
+            urn
+            relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {
+                total
+            }
+        }
+    }"""
+    variables = {"urn": "urn:li:corpuser:jdoe"}
+    res_data = execute_graphql(auth_session, query, variables)
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["corpUser"]
     assert res_data["data"]["corpUser"]["relationships"]["total"] == 0
 
     # Add jdoe to group
-    json = {
-        "query": """mutation addGroupMembers($input: AddGroupMembersInput!) {\n
-            addGroupMembers(input: $input) }""",
-        "variables": {
-            "input": {
-                "groupUrn": "urn:li:corpGroup:bfoo",
-                "userUrns": ["urn:li:corpuser:jdoe"],
-            }
-        },
+    mutation = """mutation addGroupMembers($input: AddGroupMembersInput!) {
+        addGroupMembers(input: $input) }"""
+    variables = {
+        "input": {
+            "groupUrn": "urn:li:corpGroup:bfoo",
+            "userUrns": ["urn:li:corpuser:jdoe"],
+        }
     }
-
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
+    execute_graphql(auth_session, mutation, variables)
 
     # Verify the member has been added
     _ensure_user_relationship_present(auth_session, "urn:li:corpuser:jdoe", 1)
 
     # Now remove jdoe from the group
-    json = {
-        "query": """mutation removeGroupMembers($input: RemoveGroupMembersInput!) {\n
-            removeGroupMembers(input: $input) }""",
-        "variables": {
-            "input": {
-                "groupUrn": "urn:li:corpGroup:bfoo",
-                "userUrns": ["urn:li:corpuser:jdoe"],
-            }
-        },
+    mutation = """mutation removeGroupMembers($input: RemoveGroupMembersInput!) {
+        removeGroupMembers(input: $input) }"""
+    variables = {
+        "input": {
+            "groupUrn": "urn:li:corpGroup:bfoo",
+            "userUrns": ["urn:li:corpuser:jdoe"],
+        }
     }
-
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
+    execute_graphql(auth_session, mutation, variables)
 
     # Verify the member has been removed
     _ensure_user_relationship_present(auth_session, "urn:li:corpuser:jdoe", 0)
