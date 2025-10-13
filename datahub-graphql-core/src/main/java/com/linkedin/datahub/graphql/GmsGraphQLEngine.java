@@ -1118,7 +1118,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "getPresignedUploadUrl",
                     new GetPresignedUploadUrlResolver(
-                        this.s3Util, System.getenv("DATAHUB_BUCKET_NAME"))));
+                        this.s3Util, this.datahubConfiguration.getS3().getBucketName())));
   }
 
   private DataFetcher getEntitiesResolver() {
