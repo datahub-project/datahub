@@ -15,9 +15,11 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_C
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG_NO_PIT;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -56,6 +58,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.action.search.ClearScrollRequest;
@@ -72,6 +76,7 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.skyscreamer.jsonassert.JSONAssert;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 public class GraphQueryPITDAOTest {
@@ -80,6 +85,39 @@ public class GraphQueryPITDAOTest {
       "elasticsearch/sample_filters/lineage_query_filters_limited.json";
   private static final String TEST_QUERY_FILE_FULL =
       "elasticsearch/sample_filters/lineage_query_filters_full.json";
+
+  // Track created DAOs for cleanup
+  private final List<GraphQueryPITDAO> createdDAOs = new ArrayList<>();
+
+  /** Create a GraphQueryPITDAO and track it for cleanup */
+  private GraphQueryPITDAO createTrackedDAO(SearchClientShim<?> client) {
+    return createTrackedDAO(client, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG);
+  }
+
+  /** Create a GraphQueryPITDAO with custom configs and track it for cleanup */
+  private GraphQueryPITDAO createTrackedDAO(
+      SearchClientShim<?> client,
+      GraphServiceConfiguration graphConfig,
+      ElasticSearchConfiguration esConfig) {
+    GraphQueryPITDAO dao = new GraphQueryPITDAO(client, graphConfig, esConfig, null);
+    createdDAOs.add(dao);
+    return dao;
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    // Shutdown all created DAOs to prevent thread pool leaks
+    for (GraphQueryPITDAO dao : createdDAOs) {
+      try {
+        dao.shutdown();
+      } catch (Exception e) {
+        // Log but don't fail the test
+        System.err.println("Failed to shutdown DAO: " + e.getMessage());
+      }
+    }
+    createdDAOs.clear();
+  }
+
   private static final String TEST_QUERY_FILE_FULL_EMPTY_FILTERS =
       "elasticsearch/sample_filters/lineage_query_filters_full_empty_filters.json";
   private static final String TEST_QUERY_FILE_FULL_MULTIPLE_FILTERS =
@@ -1940,5 +1978,278 @@ public class GraphQueryPITDAOTest {
       // Expected to fail due to missing lineage data, but should set scroll parameter correctly
       Assert.assertFalse(hasMessageInChain(e, "Point-in-Time creation is required"));
     }
+  }
+
+  @Test
+  public void testSearchSingleSliceWithPitThreadInterruption() throws Exception {
+    // Test that thread interruption is properly handled in searchSingleSliceWithPit
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient);
+
+    // Mock PIT creation
+    CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
+    when(mockPitResponse.getId()).thenReturn("test_pit_id");
+    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockPitResponse);
+
+    // Create a thread that will be interrupted
+    Thread testThread =
+        new Thread(
+            () -> {
+              try {
+                Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
+                LineageGraphFilters filters =
+                    LineageGraphFilters.forEntityType(
+                        operationContext.getLineageRegistry(),
+                        DATASET_ENTITY_NAME,
+                        LineageDirection.DOWNSTREAM);
+
+                // Start the search operation
+                dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+              } catch (Exception e) {
+                // Expected to throw exception due to interruption
+              }
+            });
+
+    // Start the thread and then interrupt it
+    testThread.start();
+
+    // Give the thread a moment to start, then interrupt it
+    Thread.sleep(100);
+    testThread.interrupt();
+
+    // Wait for the thread to complete
+    testThread.join(5000);
+
+    // Verify that the thread completed (either successfully or with exception)
+    Assert.assertFalse(testThread.isAlive(), "Test thread should have completed");
+  }
+
+  @Test
+  public void testSearchSingleSliceWithPitThreadInterruptionException() throws Exception {
+    // Test that the specific RuntimeException is thrown when thread is interrupted
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient);
+
+    // Mock PIT creation
+    CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
+    when(mockPitResponse.getId()).thenReturn("test_pit_id");
+    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockPitResponse);
+
+    // Create a mock search response that will cause the method to enter the loop
+    SearchHit[] hits = createFakeLineageHits(1, "urn:li:dataset:test-urn", "dest", "DownstreamOf");
+    SearchResponse searchResponse = createFakeSearchResponse(hits, 1);
+
+    // Mock search to return the response, then throw interruption exception
+    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenAnswer(
+            invocation -> {
+              // Simulate thread interruption by checking Thread.currentThread().isInterrupted()
+              if (Thread.currentThread().isInterrupted()) {
+                throw new RuntimeException("Slice 0 was interrupted");
+              }
+              return searchResponse;
+            });
+
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(),
+            DATASET_ENTITY_NAME,
+            LineageDirection.DOWNSTREAM);
+
+    // Create a thread that will be interrupted
+    final RuntimeException[] caughtException = new RuntimeException[1];
+    Thread testThread =
+        new Thread(
+            () -> {
+              try {
+                dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+              } catch (RuntimeException e) {
+                caughtException[0] = e;
+              }
+            });
+
+    // Start the thread and then interrupt it
+    testThread.start();
+
+    // Give the thread a moment to start, then interrupt it
+    Thread.sleep(100);
+    testThread.interrupt();
+
+    // Wait for the thread to complete
+    testThread.join(5000);
+
+    // Verify that the specific interruption exception was caught
+    Assert.assertNotNull(
+        caughtException[0], "Expected RuntimeException to be thrown due to interruption");
+    Assert.assertTrue(
+        caughtException[0].getMessage().contains("Failed to execute slice-based search"),
+        "Expected slice-based search failure message, got: " + caughtException[0].getMessage());
+  }
+
+  @Test
+  public void testShutdown() throws Exception {
+    // Test that shutdown method properly terminates the thread pool
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient);
+
+    // Verify thread pool is running
+    Assert.assertFalse(dao.pitExecutor.isShutdown(), "Thread pool should be running");
+
+    // Call shutdown
+    dao.shutdown();
+
+    // Verify thread pool is shutdown
+    Assert.assertTrue(dao.pitExecutor.isShutdown(), "Thread pool should be shutdown");
+    Assert.assertTrue(dao.pitExecutor.isTerminated(), "Thread pool should be terminated");
+  }
+
+  @Test
+  public void testShutdownWithForcedTermination() throws Exception {
+    // Test shutdown when graceful termination fails and forced shutdown is needed
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient);
+
+    // Create a custom ExecutorService that simulates graceful shutdown failure
+    ExecutorService mockExecutor = mock(ExecutorService.class);
+    when(mockExecutor.isShutdown()).thenReturn(false);
+    when(mockExecutor.awaitTermination(30, TimeUnit.SECONDS))
+        .thenReturn(false); // Graceful shutdown fails
+    when(mockExecutor.awaitTermination(10, TimeUnit.SECONDS))
+        .thenReturn(true); // Forced shutdown succeeds
+
+    // Replace the executor with our mock
+    java.lang.reflect.Field executorField = GraphQueryPITDAO.class.getDeclaredField("pitExecutor");
+    executorField.setAccessible(true);
+    executorField.set(dao, mockExecutor);
+
+    // Call shutdown
+    dao.shutdown();
+
+    // Verify that shutdownNow was called
+    verify(mockExecutor).shutdown();
+    verify(mockExecutor).shutdownNow();
+    verify(mockExecutor).awaitTermination(30, TimeUnit.SECONDS);
+    verify(mockExecutor).awaitTermination(10, TimeUnit.SECONDS);
+  }
+
+  @Test
+  public void testShutdownWithFailedForcedTermination() throws Exception {
+    // Test shutdown when both graceful and forced termination fail
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient);
+
+    // Create a custom ExecutorService that simulates both graceful and forced shutdown failure
+    ExecutorService mockExecutor = mock(ExecutorService.class);
+    when(mockExecutor.isShutdown()).thenReturn(false);
+    when(mockExecutor.awaitTermination(30, TimeUnit.SECONDS))
+        .thenReturn(false); // Graceful shutdown fails
+    when(mockExecutor.awaitTermination(10, TimeUnit.SECONDS))
+        .thenReturn(false); // Forced shutdown also fails
+
+    // Replace the executor with our mock
+    java.lang.reflect.Field executorField = GraphQueryPITDAO.class.getDeclaredField("pitExecutor");
+    executorField.setAccessible(true);
+    executorField.set(dao, mockExecutor);
+
+    // Call shutdown
+    dao.shutdown();
+
+    // Verify that shutdownNow was called and both awaitTermination calls were made
+    verify(mockExecutor).shutdown();
+    verify(mockExecutor).shutdownNow();
+    verify(mockExecutor).awaitTermination(30, TimeUnit.SECONDS);
+    verify(mockExecutor).awaitTermination(10, TimeUnit.SECONDS);
+  }
+
+  @Test
+  public void testShutdownWithInterruptedException() throws Exception {
+    // Test shutdown when interrupted during awaitTermination
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient);
+
+    // Create a custom ExecutorService that throws InterruptedException
+    ExecutorService mockExecutor = mock(ExecutorService.class);
+    when(mockExecutor.isShutdown()).thenReturn(false);
+    when(mockExecutor.awaitTermination(30, TimeUnit.SECONDS))
+        .thenThrow(new InterruptedException("Test interruption"));
+
+    // Replace the executor with our mock
+    java.lang.reflect.Field executorField = GraphQueryPITDAO.class.getDeclaredField("pitExecutor");
+    executorField.setAccessible(true);
+    executorField.set(dao, mockExecutor);
+
+    // Call shutdown
+    dao.shutdown();
+
+    // Verify that shutdownNow was called and thread was interrupted
+    verify(mockExecutor).shutdown();
+    verify(mockExecutor).shutdownNow();
+    verify(mockExecutor).awaitTermination(30, TimeUnit.SECONDS);
+
+    // Verify that the current thread was interrupted
+    Assert.assertTrue(Thread.currentThread().isInterrupted(), "Thread should be interrupted");
+
+    // Clear the interrupt flag for other tests
+    Thread.interrupted();
+  }
+
+  @Test
+  public void testShutdownWhenAlreadyShutdown() throws Exception {
+    // Test shutdown when executor is already shutdown
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient);
+
+    // Create a custom ExecutorService that is already shutdown
+    ExecutorService mockExecutor = mock(ExecutorService.class);
+    when(mockExecutor.isShutdown()).thenReturn(true);
+
+    // Replace the executor with our mock
+    java.lang.reflect.Field executorField = GraphQueryPITDAO.class.getDeclaredField("pitExecutor");
+    executorField.setAccessible(true);
+    executorField.set(dao, mockExecutor);
+
+    // Call shutdown
+    dao.shutdown();
+
+    // Verify that no shutdown methods were called since it's already shutdown
+    verify(mockExecutor, never()).shutdown();
+    verify(mockExecutor, never()).shutdownNow();
+    verify(mockExecutor, never()).awaitTermination(anyLong(), any(TimeUnit.class));
+  }
+
+  @Test
+  public void testShutdownWhenExecutorIsNull() throws Exception {
+    // Test shutdown when executor is null
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient);
+
+    // Set executor to null
+    java.lang.reflect.Field executorField = GraphQueryPITDAO.class.getDeclaredField("pitExecutor");
+    executorField.setAccessible(true);
+    executorField.set(dao, null);
+
+    // Call shutdown - should not throw exception
+    dao.shutdown();
+
+    // Test passes if no exception is thrown
   }
 }
