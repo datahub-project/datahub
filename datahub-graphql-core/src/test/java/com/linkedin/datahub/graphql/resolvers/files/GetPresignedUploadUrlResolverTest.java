@@ -15,6 +15,7 @@ import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrl;
 import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlInput;
 import com.linkedin.datahub.graphql.generated.UploadDownloadScenario;
@@ -313,6 +314,326 @@ public class GetPresignedUploadUrlResolverTest {
         new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
     assertThrows(
         "assetUrn is required for ASSET_DOCUMENTATION scenario",
+        IllegalArgumentException.class,
+        () -> resolver.get(mockEnv).get());
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithAuthorizationFailure() throws Exception {
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            TEST_CONTENT_TYPE,
+            "test.png");
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    // Mock authorization to return false
+    authorizationUtilsMockedStatic
+        .when(
+            () ->
+                AuthorizationUtils.isAuthorized(
+                    any(QueryContext.class),
+                    any(String.class),
+                    any(String.class),
+                    any(DisjunctivePrivilegeGroup.class)))
+        .thenReturn(false);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+    assertThrows(
+        "Unauthorized to edit documentation for asset: " + TEST_ASSET_URN,
+        AuthorizationException.class,
+        () -> resolver.get(mockEnv).get());
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithUnsupportedScenario() throws Exception {
+    // Since only ASSET_DOCUMENTATION is supported, we'll test the else branch in getS3Key
+    // by creating a mock scenario that's not ASSET_DOCUMENTATION
+    GetPresignedUploadUrlInput input = new GetPresignedUploadUrlInput();
+    input.setScenario(null); // Set to null to trigger the else branch
+    input.setAssetUrn(TEST_ASSET_URN);
+    input.setContentType(TEST_CONTENT_TYPE);
+    input.setFileName("test.png");
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+    assertThrows(IllegalArgumentException.class, () -> resolver.get(mockEnv).get());
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithAllAllowedFileExtensions() throws Exception {
+    String[] allowedExtensions = {
+      "pdf", "jpeg", "jpg", "png", "pptx", "docx", "xls", "xml", "ppt", "gif", "xlsx", "bmp", "doc",
+      "rtf", "gz", "zip", "mp4", "mp3", "wmv", "tiff", "txt", "md", "csv"
+    };
+
+    for (String extension : allowedExtensions) {
+      GetPresignedUploadUrlInput input =
+          createInput(
+              UploadDownloadScenario.ASSET_DOCUMENTATION,
+              TEST_ASSET_URN,
+              TEST_CONTENT_TYPE,
+              "test." + extension);
+
+      when(mockEnv.getArgument("input")).thenReturn(input);
+      when(mockEnv.getContext()).thenReturn(mockQueryContext);
+      when(mockS3Util.generatePresignedUploadUrl(
+              eq(TEST_BUCKET_NAME), any(String.class), anyInt(), eq(TEST_CONTENT_TYPE)))
+          .thenReturn(MOCKED_PRESIGNED_URL);
+
+      GetPresignedUploadUrlResolver resolver =
+          new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+      CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
+      GetPresignedUploadUrl result = future.get();
+
+      assertNotNull(result, "Result should not be null for extension: " + extension);
+      assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
+      assertTrue(result.getFileId().contains("test." + extension));
+    }
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithCaseInsensitiveFileExtensions() throws Exception {
+    String[] testExtensions = {"PDF", "JPG", "PNG", "DOCX", "XLSX"};
+
+    for (String extension : testExtensions) {
+      GetPresignedUploadUrlInput input =
+          createInput(
+              UploadDownloadScenario.ASSET_DOCUMENTATION,
+              TEST_ASSET_URN,
+              TEST_CONTENT_TYPE,
+              "test." + extension);
+
+      when(mockEnv.getArgument("input")).thenReturn(input);
+      when(mockEnv.getContext()).thenReturn(mockQueryContext);
+      when(mockS3Util.generatePresignedUploadUrl(
+              eq(TEST_BUCKET_NAME), any(String.class), anyInt(), eq(TEST_CONTENT_TYPE)))
+          .thenReturn(MOCKED_PRESIGNED_URL);
+
+      GetPresignedUploadUrlResolver resolver =
+          new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+      CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
+      GetPresignedUploadUrl result = future.get();
+
+      assertNotNull(result, "Result should not be null for extension: " + extension);
+      assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
+      assertTrue(result.getFileId().contains("test." + extension));
+    }
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithDisallowedFileExtensions() throws Exception {
+    String[] disallowedExtensions = {
+      "exe", "bat", "sh", "ps1", "jar", "war", "ear", "class", "php", "asp", "jsp", "py", "rb",
+      "pl", "c", "cpp", "java", "js", "html", "htm", "css", "scss", "less", "sql", "db", "sqlite"
+    };
+
+    for (String extension : disallowedExtensions) {
+      GetPresignedUploadUrlInput input =
+          createInput(
+              UploadDownloadScenario.ASSET_DOCUMENTATION,
+              TEST_ASSET_URN,
+              TEST_CONTENT_TYPE,
+              "test." + extension);
+
+      when(mockEnv.getArgument("input")).thenReturn(input);
+      when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+      GetPresignedUploadUrlResolver resolver =
+          new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+      assertThrows(IllegalArgumentException.class, () -> resolver.get(mockEnv).get());
+    }
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithFileExtensionAtStart() throws Exception {
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION, TEST_ASSET_URN, TEST_CONTENT_TYPE, ".pdf");
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+    assertThrows(
+        "Unsupported file extension: ",
+        IllegalArgumentException.class,
+        () -> resolver.get(mockEnv).get());
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithMultipleDotsInFileName() throws Exception {
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            TEST_CONTENT_TYPE,
+            "my.file.name.pdf");
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+    when(mockS3Util.generatePresignedUploadUrl(
+            eq(TEST_BUCKET_NAME), any(String.class), anyInt(), eq(TEST_CONTENT_TYPE)))
+        .thenReturn(MOCKED_PRESIGNED_URL);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+    CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
+    GetPresignedUploadUrl result = future.get();
+
+    assertNotNull(result);
+    assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
+    assertTrue(result.getFileId().contains("my.file.name.pdf"));
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlGeneratesUniqueFileIds() throws Exception {
+    GetPresignedUploadUrlInput input1 =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            TEST_CONTENT_TYPE,
+            "test1.pdf");
+    GetPresignedUploadUrlInput input2 =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            TEST_CONTENT_TYPE,
+            "test2.pdf");
+
+    when(mockEnv.getArgument("input")).thenReturn(input1).thenReturn(input2);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+    when(mockS3Util.generatePresignedUploadUrl(
+            eq(TEST_BUCKET_NAME), any(String.class), anyInt(), eq(TEST_CONTENT_TYPE)))
+        .thenReturn(MOCKED_PRESIGNED_URL);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+
+    CompletableFuture<GetPresignedUploadUrl> future1 = resolver.get(mockEnv);
+    GetPresignedUploadUrl result1 = future1.get();
+
+    CompletableFuture<GetPresignedUploadUrl> future2 = resolver.get(mockEnv);
+    GetPresignedUploadUrl result2 = future2.get();
+
+    assertNotNull(result1.getFileId());
+    assertNotNull(result2.getFileId());
+    assertNotEquals(result1.getFileId(), result2.getFileId(), "File IDs should be unique");
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithDifferentContentTypes() throws Exception {
+    String[] contentTypes = {
+      "image/png",
+      "image/jpeg",
+      "application/pdf",
+      "text/plain",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    };
+
+    for (String contentType : contentTypes) {
+      GetPresignedUploadUrlInput input =
+          createInput(
+              UploadDownloadScenario.ASSET_DOCUMENTATION, TEST_ASSET_URN, contentType, "test.pdf");
+
+      when(mockEnv.getArgument("input")).thenReturn(input);
+      when(mockEnv.getContext()).thenReturn(mockQueryContext);
+      when(mockS3Util.generatePresignedUploadUrl(
+              eq(TEST_BUCKET_NAME), any(String.class), anyInt(), eq(contentType)))
+          .thenReturn(MOCKED_PRESIGNED_URL);
+
+      GetPresignedUploadUrlResolver resolver =
+          new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+      CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
+      GetPresignedUploadUrl result = future.get();
+
+      assertNotNull(result, "Result should not be null for content type: " + contentType);
+      assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
+
+      // Verify that the correct content type was passed to S3Util
+      verify(mockS3Util)
+          .generatePresignedUploadUrl(
+              eq(TEST_BUCKET_NAME), any(String.class), anyInt(), eq(contentType));
+    }
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithNullContentType() throws Exception {
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            null, // null content type
+            "test.pdf");
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+    when(mockS3Util.generatePresignedUploadUrl(
+            eq(TEST_BUCKET_NAME), any(String.class), anyInt(), eq((String) null)))
+        .thenReturn(MOCKED_PRESIGNED_URL);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+    CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
+    GetPresignedUploadUrl result = future.get();
+
+    assertNotNull(result);
+    assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
+
+    // Verify that null content type was passed to S3Util
+    verify(mockS3Util)
+        .generatePresignedUploadUrl(
+            eq(TEST_BUCKET_NAME), any(String.class), anyInt(), eq((String) null));
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithS3UtilException() throws Exception {
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            TEST_CONTENT_TYPE,
+            "test.pdf");
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+    when(mockS3Util.generatePresignedUploadUrl(
+            eq(TEST_BUCKET_NAME), any(String.class), anyInt(), eq(TEST_CONTENT_TYPE)))
+        .thenThrow(new RuntimeException("S3 service unavailable"));
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+
+    // The RuntimeException gets wrapped in ExecutionException when called via
+    // CompletableFuture.get()
+    assertThrows(java.util.concurrent.ExecutionException.class, () -> resolver.get(mockEnv).get());
+  }
+
+  @Test
+  public void testGetPresignedUploadUrlWithEmptyFileName() throws Exception {
+    GetPresignedUploadUrlInput input =
+        createInput(
+            UploadDownloadScenario.ASSET_DOCUMENTATION,
+            TEST_ASSET_URN,
+            TEST_CONTENT_TYPE,
+            ""); // empty file name
+
+    when(mockEnv.getArgument("input")).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(mockQueryContext);
+
+    GetPresignedUploadUrlResolver resolver =
+        new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
+    assertThrows(
+        "Unsupported file extension: ",
         IllegalArgumentException.class,
         () -> resolver.get(mockEnv).get());
   }

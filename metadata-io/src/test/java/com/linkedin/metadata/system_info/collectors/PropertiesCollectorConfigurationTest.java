@@ -456,6 +456,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.plugin.retention.path",
           "datahub.serverEnv",
           "datahub.serverType",
+          "datahub.s3.bucketName",
+          "datahub.s3.roleArn",
 
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",

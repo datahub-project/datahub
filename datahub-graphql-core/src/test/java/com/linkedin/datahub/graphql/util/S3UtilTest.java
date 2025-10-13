@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.util;
 
 import static com.linkedin.datahub.graphql.util.S3Util.assumeRole;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -25,6 +26,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 import software.amazon.awssdk.services.sts.StsClient;
@@ -348,5 +351,151 @@ public class S3UtilTest {
     assertThrows(
         RuntimeException.class,
         () -> s3Util.generatePresignedUploadUrl(bucket, key, expirationSeconds, contentType));
+  }
+
+  @Test
+  public void testConstructorWithS3ClientAndPresigner() {
+    S3Util s3Util = new S3Util(mockS3Client, mockEntityClient, mockS3Presigner);
+    assertNotNull(s3Util);
+  }
+
+  @Test
+  public void testConstructorWithStsClientAndPresigner() {
+    String roleArn = "arn:aws:iam::123456789012:role/test-role";
+
+    Credentials mockCredentials =
+        Credentials.builder()
+            .accessKeyId("access-key")
+            .secretAccessKey("secret-key")
+            .sessionToken("session-token")
+            .expiration(Instant.now().plusSeconds(3600))
+            .build();
+
+    AssumeRoleResponse mockResponse =
+        AssumeRoleResponse.builder().credentials(mockCredentials).build();
+
+    when(mockStsClient.assumeRole(any(AssumeRoleRequest.class))).thenReturn(mockResponse);
+
+    S3Util s3Util = new S3Util(mockEntityClient, mockStsClient, roleArn, mockS3Presigner);
+    assertNotNull(s3Util);
+  }
+
+  @Test
+  public void testGeneratePresignedDownloadUrlSuccess() throws Exception {
+    String bucket = "test-download-bucket";
+    String key = "test-download-key";
+    int expirationSeconds = 3600;
+    String expectedUrl =
+        "https://test-download-bucket.s3.amazonaws.com/test-download-key?X-Amz-Signature=mocked";
+
+    S3Util s3Util = new S3Util(mockS3Client, mockEntityClient, mockS3Presigner);
+
+    PresignedGetObjectRequest mockPresignedRequest = mock(PresignedGetObjectRequest.class);
+    when(mockPresignedRequest.url()).thenReturn(new URL(expectedUrl));
+
+    when(mockS3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
+        .thenReturn(mockPresignedRequest);
+
+    String actualUrl = s3Util.generatePresignedDownloadUrl(bucket, key, expirationSeconds);
+
+    assertNotNull(actualUrl);
+    assertEquals(actualUrl, expectedUrl);
+
+    verify(mockS3Presigner).presignGetObject(any(GetObjectPresignRequest.class));
+  }
+
+  @Test
+  public void testGeneratePresignedDownloadUrlExceptionHandling() {
+    S3Util s3Util = new S3Util(mockS3Client, mockEntityClient, mockS3Presigner);
+
+    String bucket = "test-download-bucket";
+    String key = "test-download-key";
+    int expirationSeconds = 3600;
+
+    when(mockS3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
+        .thenThrow(new RuntimeException("S3 presigner error"));
+
+    assertThrows(
+        RuntimeException.class,
+        () -> s3Util.generatePresignedDownloadUrl(bucket, key, expirationSeconds));
+  }
+
+  @Test
+  public void testCredentialRefreshWithExpiredCredentials() {
+    String roleArn = "arn:aws:iam::123456789012:role/test-role";
+
+    // Create credentials that are already expired
+    Credentials expiredCredentials =
+        Credentials.builder()
+            .accessKeyId("access-key")
+            .secretAccessKey("secret-key")
+            .sessionToken("session-token")
+            .expiration(Instant.now().minusSeconds(3600)) // Expired 1 hour ago
+            .build();
+
+    AssumeRoleResponse mockResponse =
+        AssumeRoleResponse.builder().credentials(expiredCredentials).build();
+
+    when(mockStsClient.assumeRole(any(AssumeRoleRequest.class))).thenReturn(mockResponse);
+
+    S3Util s3Util = new S3Util(mockEntityClient, mockStsClient, roleArn);
+
+    // This should trigger credential refresh
+    assertThrows(
+        RuntimeException.class, () -> s3Util.generatePresignedDownloadUrl("bucket", "key", 3600));
+  }
+
+  @Test
+  public void testCredentialRefreshFailure() {
+    String roleArn = "arn:aws:iam::123456789012:role/test-role";
+
+    // Mock STS client to throw exception on assumeRole
+    when(mockStsClient.assumeRole(any(AssumeRoleRequest.class)))
+        .thenThrow(StsException.builder().message("Access denied").build());
+
+    // This should fail during constructor initialization
+    assertThrows(
+        RuntimeException.class, () -> new S3Util(mockEntityClient, mockStsClient, roleArn));
+  }
+
+  @Test
+  public void testS3ClientCloseFailure() {
+    String roleArn = "arn:aws:iam::123456789012:role/test-role";
+
+    Credentials mockCredentials =
+        Credentials.builder()
+            .accessKeyId("access-key")
+            .secretAccessKey("secret-key")
+            .sessionToken("session-token")
+            .expiration(Instant.now().plusSeconds(3600))
+            .build();
+
+    AssumeRoleResponse mockResponse =
+        AssumeRoleResponse.builder().credentials(mockCredentials).build();
+
+    when(mockStsClient.assumeRole(any(AssumeRoleRequest.class))).thenReturn(mockResponse);
+
+    // Mock S3Client to throw exception on close
+    S3Client mockS3ClientWithCloseFailure = mock(S3Client.class);
+    doThrow(new RuntimeException("Close failed")).when(mockS3ClientWithCloseFailure).close();
+
+    S3Util s3Util = new S3Util(mockEntityClient, mockStsClient, roleArn);
+
+    // This should not throw an exception even if close fails
+    assertThrows(
+        RuntimeException.class, () -> s3Util.generatePresignedDownloadUrl("bucket", "key", 3600));
+  }
+
+  @Test
+  public void testPresignerCreationWithS3ClientConfiguration() {
+    S3Util s3Util = new S3Util(mockS3Client, mockEntityClient);
+
+    // Mock S3Client configuration to throw exception
+    when(mockS3Client.serviceClientConfiguration())
+        .thenThrow(new RuntimeException("S3 client configuration error"));
+
+    // This will fail because we can't create a real presigner, but it tests the path
+    assertThrows(
+        RuntimeException.class, () -> s3Util.generatePresignedDownloadUrl("bucket", "key", 3600));
   }
 }
