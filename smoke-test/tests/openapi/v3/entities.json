@@ -229,6 +229,7 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
+        "root\\['facets'\\]",
         "root\\['entities'\\]\\[\\d+\\]\\['scrollId'\\]"
       ],
       "json": {
