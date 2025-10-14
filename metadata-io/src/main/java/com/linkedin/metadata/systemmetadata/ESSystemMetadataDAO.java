@@ -11,6 +11,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapp
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -26,7 +27,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.common.xcontent.XContentType;
@@ -44,7 +44,7 @@ import org.opensearch.search.sort.SortOrder;
 @Slf4j
 @RequiredArgsConstructor
 public class ESSystemMetadataDAO {
-  private final RestHighLevelClient client;
+  private final SearchClientShim<?> client;
   private final IndexConvention indexConvention;
   private final ESBulkProcessor bulkProcessor;
   private final int numRetries;
@@ -58,7 +58,7 @@ public class ESSystemMetadataDAO {
   public Optional<GetTaskResponse> getTaskStatus(@Nonnull String nodeId, long taskId) {
     final GetTaskRequest taskRequest = new GetTaskRequest(nodeId, taskId);
     try {
-      return client.tasks().get(taskRequest, RequestOptions.DEFAULT);
+      return client.getTask(taskRequest, RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("ERROR: Failed to get task status: ", e);
       e.printStackTrace();
@@ -87,7 +87,8 @@ public class ESSystemMetadataDAO {
         new DeleteRequest(indexConvention.getIndexName(INDEX_NAME), docId);
 
     try {
-      final DeleteResponse deleteResponse = client.delete(deleteRequest, RequestOptions.DEFAULT);
+      final DeleteResponse deleteResponse =
+          client.deleteDocument(deleteRequest, RequestOptions.DEFAULT);
       return deleteResponse;
     } catch (IOException e) {
       log.error("ERROR: Failed to delete by query. See stacktrace for a more detailed error:");

@@ -59,7 +59,9 @@ jobs:
           "Alex23Hub",
           "alexsku",
           "benjiaming",
-          "deepgarg760"
+          "deepgarg760",
+          "petemango",
+          "askumar27"
           ]'),
           github.actor
           )

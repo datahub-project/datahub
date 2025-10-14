@@ -6,8 +6,8 @@ const placeholderRecipe = `\
 source:
     type: glue
     config:
-        # AWS credentials. 
-        aws_region: # The region for your AWS Glue instance. 
+        # AWS credentials.
+        aws_region: # The region for your AWS Glue instance.
         # Add secret in Secrets Tab with relevant names for each variable
         # The access key for your AWS account.
         aws_access_key_id: "\${AWS_ACCESS_KEY_ID}"

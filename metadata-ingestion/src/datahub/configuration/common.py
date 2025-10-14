@@ -1,20 +1,25 @@
+import dataclasses
 import re
 import unittest.mock
 from abc import ABC, abstractmethod
 from enum import auto
 from typing import (
     IO,
+    TYPE_CHECKING,
+    Annotated,
     Any,
     ClassVar,
     Dict,
     List,
     Optional,
     Type,
+    TypeVar,
     Union,
     runtime_checkable,
 )
 
 import pydantic
+import pydantic_core
 from cached_property import cached_property
 from pydantic import BaseModel, Extra, ValidationError
 from pydantic.fields import Field
@@ -83,6 +88,29 @@ def redact_raw_config(obj: Any) -> Any:
         return obj
 
 
+if TYPE_CHECKING:
+    AnyType = TypeVar("AnyType")
+    HiddenFromDocs = Annotated[AnyType, ...]
+else:
+    HiddenFromDocs = pydantic.json_schema.SkipJsonSchema
+
+LaxStr = Annotated[str, pydantic.BeforeValidator(lambda v: str(v))]
+
+
+@dataclasses.dataclass(frozen=True)
+class SupportedSources:
+    sources: List[str]
+
+    def __get_pydantic_json_schema__(
+        self,
+        core_schema: pydantic_core.core_schema.CoreSchema,
+        handler: pydantic.GetJsonSchemaHandler,
+    ) -> pydantic.json_schema.JsonSchemaValue:
+        json_schema = handler(core_schema)
+        json_schema.setdefault("schema_extra", {})["supported_sources"] = self.sources
+        return json_schema
+
+
 class ConfigModel(BaseModel):
     class Config:
         @staticmethod
@@ -139,6 +167,17 @@ class PermissiveConfigModel(ConfigModel):
             extra = "allow"
         else:
             extra = Extra.allow
+
+
+class ConnectionModel(BaseModel):
+    """Represents the config associated with a connection"""
+
+    class Config:
+        if PYDANTIC_VERSION_2:
+            extra = "allow"
+        else:
+            extra = Extra.allow
+            underscore_attrs_are_private = True
 
 
 class TransformerSemantics(ConfigEnum):
@@ -334,4 +373,4 @@ class KeyValuePattern(ConfigModel):
 
 
 class VersionedConfig(ConfigModel):
-    version: str = "1"
+    version: LaxStr = "1"

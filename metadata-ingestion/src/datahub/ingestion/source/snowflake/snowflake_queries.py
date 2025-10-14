@@ -13,7 +13,7 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 import pydantic
 from typing_extensions import Self
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
@@ -112,12 +112,11 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
         "to ignore the temporary staging tables created by known ETL tools.",
     )
 
-    local_temp_path: Optional[pathlib.Path] = pydantic.Field(
-        default=None,
-        description="Local path to store the audit log.",
+    local_temp_path: HiddenFromDocs[Optional[pathlib.Path]] = pydantic.Field(
         # TODO: For now, this is simply an advanced config to make local testing easier.
         # Eventually, we will want to store date-specific files in the directory and use it as a cache.
-        hidden_from_docs=True,
+        default=None,
+        description="Local path to store the audit log.",
     )
 
     include_lineage: bool = True
@@ -298,15 +297,31 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         if use_cached_audit_log:
             logger.info(f"Using cached audit log at {audit_log_file}")
         else:
-            logger.info(f"Fetching audit log into {audit_log_file}")
+            # Check if any query-based features are enabled before fetching
+            needs_query_data = any(
+                [
+                    self.config.include_lineage,
+                    self.config.include_queries,
+                    self.config.include_usage_statistics,
+                    self.config.include_query_usage_statistics,
+                    self.config.include_operations,
+                ]
+            )
 
-            with self.report.copy_history_fetch_timer:
-                for copy_entry in self.fetch_copy_history():
-                    queries.append(copy_entry)
+            if not needs_query_data:
+                logger.info(
+                    "All query-based features are disabled. Skipping expensive query log fetch."
+                )
+            else:
+                logger.info(f"Fetching audit log into {audit_log_file}")
 
-            with self.report.query_log_fetch_timer:
-                for entry in self.fetch_query_log(users):
-                    queries.append(entry)
+                with self.report.copy_history_fetch_timer:
+                    for copy_entry in self.fetch_copy_history():
+                        queries.append(copy_entry)
+
+                with self.report.query_log_fetch_timer:
+                    for entry in self.fetch_query_log(users):
+                        queries.append(entry)
 
         stored_proc_tracker: StoredProcLineageTracker = self._exit_stack.enter_context(
             StoredProcLineageTracker(

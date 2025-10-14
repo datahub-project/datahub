@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
@@ -17,13 +18,12 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTime;
 import org.json.JSONObject;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.scheduling.annotation.Scheduled;
 
 @Slf4j
 public class DailyReport {
   private final OperationContext systemOperationContext;
-  private final RestHighLevelClient _elasticClient;
+  private final SearchClientShim<?> _elasticClient;
   private final ConfigurationProvider _configurationProvider;
   private final EntityService<?> _entityService;
   private final GitVersion _gitVersion;
@@ -34,7 +34,7 @@ public class DailyReport {
 
   public DailyReport(
       @Nonnull OperationContext systemOperationContext,
-      RestHighLevelClient elasticClient,
+      SearchClientShim<?> elasticClient,
       ConfigurationProvider configurationProvider,
       EntityService<?> entityService,
       GitVersion gitVersion) {
