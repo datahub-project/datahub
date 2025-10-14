@@ -235,5 +235,6 @@ To see resolved dependencies for each Scala version:
 ```
 
 **Note:** Java 8 is required to build this project, specified via `-PjavaClassVersionDefault=8`. The shadow JARs are output to `build/libs/` with filenames like:
+
 - `acryl-spark-lineage_2.12-<version>.jar`
 - `acryl-spark-lineage_2.13-<version>.jar`
