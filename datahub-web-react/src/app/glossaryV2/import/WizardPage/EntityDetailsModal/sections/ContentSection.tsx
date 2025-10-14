@@ -110,8 +110,9 @@ export const ContentSection: React.FC<ContentSectionProps> = ({
           <FieldTextArea
             value={value}
             onChange={(e) => onFieldChange(field, e.target.value)}
-            className={error ? 'error' : ''}
+            label=""
             placeholder={`Enter ${label.toLowerCase()}`}
+            error={error?.message}
             rows={4}
           />
         );
@@ -120,9 +121,10 @@ export const ContentSection: React.FC<ContentSectionProps> = ({
       return (
         <FieldInput
           value={value}
-          onChange={(e) => onFieldChange(field, e.target.value)}
-          className={error ? 'error' : ''}
+          setValue={(val) => onFieldChange(field, typeof val === 'string' ? val : '')}
+          label=""
           placeholder={`Enter ${label.toLowerCase()}`}
+          error={error?.message}
         />
       );
     }

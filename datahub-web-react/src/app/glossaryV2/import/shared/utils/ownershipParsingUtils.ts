@@ -212,31 +212,76 @@ export function validateOwnershipColumns(usersColumn: string, groupsColumn: stri
  * Creates ownership patch operations for DataHub
  * @param parsedOwnership - Array of parsed ownership objects
  * @param ownershipTypeMap - Map of ownership type names to URNs
+ * @param isUpdate - Whether this is updating an existing entity (uses REPLACE) or creating new (uses ADD)
  * @returns Array of patch operations
  */
 export function createOwnershipPatchOperations(
   parsedOwnership: ParsedOwnership[],
-  ownershipTypeMap: Map<string, string>
+  ownershipTypeMap: Map<string, string>,
+  isUpdate: boolean = false
 ): Array<{ op: 'ADD' | 'REMOVE' | 'REPLACE' | 'MOVE' | 'COPY' | 'TEST'; path: string; value: string }> {
   const patches: Array<{ op: 'ADD' | 'REMOVE' | 'REPLACE' | 'MOVE' | 'COPY' | 'TEST'; path: string; value: string }> = [];
 
-  parsedOwnership.forEach(({ ownershipTypeName, ownerUrn, ownerType }) => {
-    const ownershipTypeUrn = ownershipTypeMap.get(ownershipTypeName.toLowerCase());
-    if (!ownershipTypeUrn) {
-      throw new Error(`Ownership type "${ownershipTypeName}" not found in ownership type map`);
-    }
+  if (isUpdate) {
+    // For existing entities, replace the entire owners array to avoid stale data
+    const owners = parsedOwnership.map(({ ownershipTypeName, ownerUrn, ownerType }) => {
+      const ownershipTypeUrn = ownershipTypeMap.get(ownershipTypeName.toLowerCase());
+      if (!ownershipTypeUrn) {
+        throw new Error(`Ownership type "${ownershipTypeName}" not found in ownership type map`);
+      }
 
-    patches.push({
-      op: 'ADD' as const,
-      path: `/owners/${ownerUrn}/${ownershipTypeUrn}`,
-      value: JSON.stringify({
+      return {
         owner: ownerUrn,
         typeUrn: ownershipTypeUrn,
         type: ownerType,
         source: { type: 'MANUAL' }
-      })
+      };
     });
-  });
+
+    // Group owners by ownership type for the ownerTypes structure
+    const ownerTypes: Record<string, string[]> = {};
+    owners.forEach(owner => {
+      if (!ownerTypes[owner.typeUrn]) {
+        ownerTypes[owner.typeUrn] = [];
+      }
+      ownerTypes[owner.typeUrn].push(owner.owner);
+    });
+
+    // Replace the owners array directly (no /value wrapper)
+    patches.push({
+      op: 'REPLACE' as const,
+      path: '/owners',
+      value: JSON.stringify(owners)
+    });
+
+    // Replace the ownerTypes map
+    patches.push({
+      op: 'REPLACE' as const,
+      path: '/ownerTypes',
+      value: JSON.stringify(ownerTypes)
+    });
+  } else {
+    // For new entities, add individual owners
+    parsedOwnership.forEach(({ ownershipTypeName, ownerUrn, ownerType }) => {
+      const ownershipTypeUrn = ownershipTypeMap.get(ownershipTypeName.toLowerCase());
+      if (!ownershipTypeUrn) {
+        throw new Error(`Ownership type "${ownershipTypeName}" not found in ownership type map`);
+      }
+
+      // Use the ownership type string in the path, not the URN
+      // The path format should be: /owners/{ownerUrn}/{ownershipType}
+      patches.push({
+        op: 'ADD' as const,
+        path: `/owners/${ownerUrn}/${ownerType}`,
+        value: JSON.stringify({
+          owner: ownerUrn,
+          typeUrn: ownershipTypeUrn,
+          type: ownerType,
+          source: { type: 'MANUAL' }
+        })
+      });
+    });
+  }
 
   return patches;
 }

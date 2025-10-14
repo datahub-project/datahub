@@ -101,12 +101,14 @@ const ShortcutDescription = styled(Text)`
   font-size: 14px;
 `;
 
-const ShortcutKey = styled(Badge)`
+const ShortcutKey = styled.div`
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 12px;
   background: #f3f4f6;
   color: #374151;
   border: 1px solid #d1d5db;
+  padding: 4px 8px;
+  border-radius: 4px;
 `;
 
 const FooterActions = styled.div`
@@ -225,6 +227,7 @@ export const KeyboardShortcuts: React.FC<KeyboardShortcutsProps> = ({
 
   return (
     <Modal
+      title=""
       open={visible}
       onCancel={onClose}
       width={500}
@@ -234,7 +237,7 @@ export const KeyboardShortcuts: React.FC<KeyboardShortcutsProps> = ({
     >
       <ModalContainer>
         <ModalHeader>
-          <ModalTitle level={4}>
+          <ModalTitle>
             Keyboard Shortcuts
           </ModalTitle>
           <CloseButton
@@ -246,7 +249,7 @@ export const KeyboardShortcuts: React.FC<KeyboardShortcutsProps> = ({
 
         {Object.entries(groupedShortcuts).map(([category, categoryShortcuts]) => (
           <CategoryContainer key={category}>
-            <CategoryTitle level={5}>
+            <CategoryTitle>
               {categoryLabels[category as keyof typeof categoryLabels]}
             </CategoryTitle>
             {categoryShortcuts.map((shortcut, index) => (

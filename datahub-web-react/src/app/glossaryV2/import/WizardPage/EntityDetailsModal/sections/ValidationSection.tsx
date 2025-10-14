@@ -73,7 +73,7 @@ export const ValidationSection: React.FC<ValidationSectionProps> = ({
     return (
       <SectionCard title="Validation">
         <EmptyState>
-          <Text type="success">✓ No validation issues found</Text>
+          <Text color="green">✓ No validation issues found</Text>
         </EmptyState>
       </SectionCard>
     );

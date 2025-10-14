@@ -39,7 +39,7 @@ export const useEntityDetails = (
       errors.push({
         field: 'name',
         message: 'Name is required',
-        type: 'required'
+        code: 'REQUIRED'
       });
     }
 
@@ -47,7 +47,7 @@ export const useEntityDetails = (
       errors.push({
         field: 'entity_type',
         message: 'Entity type is required',
-        type: 'required'
+        code: 'REQUIRED'
       });
     }
 
@@ -56,7 +56,7 @@ export const useEntityDetails = (
       errors.push({
         field: 'entity_type',
         message: 'Entity type must be either "glossaryTerm" or "glossaryNode"',
-        type: 'format'
+        code: 'INVALID_FORMAT'
       });
     }
 
@@ -65,7 +65,7 @@ export const useEntityDetails = (
       errors.push({
         field: 'source_url',
         message: 'Source URL must be a valid URL',
-        type: 'format'
+        code: 'INVALID_FORMAT'
       });
     }
 
@@ -74,7 +74,7 @@ export const useEntityDetails = (
       errors.push({
         field: 'urn',
         message: 'URN must be a valid DataHub URN',
-        type: 'format'
+        code: 'INVALID_FORMAT'
       });
     }
 
@@ -100,7 +100,7 @@ export const useEntityDetails = (
       allWarnings.push({
         field: 'parent_nodes',
         message: 'Terms should typically have a parent node',
-        type: 'recommendation'
+        code: 'RECOMMENDATION'
       });
     }
 
@@ -112,7 +112,7 @@ export const useEntityDetails = (
           allErrors.push({
             field: 'parent_nodes',
             message: 'Entity cannot be its own parent',
-            type: 'hierarchy'
+            code: 'INVALID_HIERARCHY'
           });
         }
       });

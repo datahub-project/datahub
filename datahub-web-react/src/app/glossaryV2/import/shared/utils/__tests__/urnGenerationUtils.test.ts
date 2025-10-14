@@ -93,10 +93,11 @@ describe('URN Generation Utils', () => {
 
       const urnMap = preGenerateUrns(entities);
       
-      expect(urnMap.size).toBe(1);
+      expect(urnMap.size).toBe(2); // Both new and existing entities are in the map
       expect(urnMap.has('1')).toBe(true);
-      expect(urnMap.has('2')).toBe(false);
+      expect(urnMap.has('2')).toBe(true); // Existing entity is also in the map
       expect(urnMap.get('1')).toMatch(/^urn:li:glossaryTerm:/);
+      expect(urnMap.get('2')).toBe('urn:li:glossaryTerm:existing');
     });
 
     it('should not generate URNs for entities with existing URNs', () => {
@@ -115,7 +116,8 @@ describe('URN Generation Utils', () => {
       ];
 
       const urnMap = preGenerateUrns(entities);
-      expect(urnMap.size).toBe(0);
+      expect(urnMap.size).toBe(1); // Existing URN is stored in the map
+      expect(urnMap.get('1')).toBe('urn:li:glossaryTerm:existing'); // Uses existing URN
     });
   });
 

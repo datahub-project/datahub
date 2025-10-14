@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Modal, Button } from '@components';
+import { Modal } from '@components';
 // Progress component not available, using custom progress bar
 import { Message } from '@app/shared/Message';
 import { ComprehensiveImportProgress, ImportError, ImportWarning } from '../../shared/hooks/useComprehensiveImport';
@@ -88,12 +88,6 @@ const WarningItem = styled.div`
   }
 `;
 
-const FooterActions = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-`;
 
 export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({
   visible,
@@ -143,7 +137,7 @@ export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({
           <CurrentOperation>
             <strong>Current Operation:</strong>
             <br />
-            {progress.currentOperation}
+            {progress.currentPhase}
             <br />
             <span style={{ color: '#6b7280' }}>Entity: {progress.currentEntity.name}</span>
           </CurrentOperation>
@@ -171,25 +165,15 @@ export const ImportProgressModal: React.FC<ImportProgressModalProps> = ({
         )}
 
 
-        <FooterActions>
-          <div>
-                {isCompleted && (
-                  <Message
-                    content={hasFailed ? "Import completed with errors" : "Import completed successfully"}
-                    type={hasFailed ? "warning" : "success"}
-                    style={{ marginBottom: 0 }}
-                  />
-                )}
+        {isCompleted && (
+          <div style={{ marginTop: '16px' }}>
+            <Message
+              content={hasFailed ? "Import completed with errors" : "Import completed successfully"}
+              type={hasFailed ? "warning" : "success"}
+              style={{ marginBottom: 0 }}
+            />
           </div>
-          
-          <Button
-            variant="filled"
-            color="primary"
-            onClick={onClose}
-          >
-            Close
-          </Button>
-        </FooterActions>
+        )}
       </ModalContainer>
     </Modal>
   );

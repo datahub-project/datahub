@@ -89,7 +89,8 @@ export const useComprehensiveImport = ({
   const { 
     executeUnifiedGlossaryQuery, 
     executePatchEntitiesMutation,
-    executeGetOwnershipTypesQuery
+    executeGetOwnershipTypesQuery,
+    executeAddRelatedTermsMutation
   } = useGraphQLOperations();
   
   const { createProcessingOrder, validateHierarchy } = useHierarchyManagement();
@@ -132,7 +133,14 @@ export const useComprehensiveImport = ({
       });
 
       const ownershipTypeMap = new Map<string, string>();
-      if (result && typeof result === 'object' && 'data' in result) {
+      
+      // Handle the actual response format - it's an array directly
+      if (Array.isArray(result)) {
+        const arrayResult = result;
+        arrayResult.forEach((ot: any) => {
+          ownershipTypeMap.set(ot.info.name.toLowerCase(), ot.urn);
+        });
+      } else if (result && typeof result === 'object' && 'data' in result) {
         const data = (result as any).data;
         if (data?.listOwnershipTypes?.ownershipTypes) {
           data.listOwnershipTypes.ownershipTypes.forEach((ot: any) => {
@@ -140,8 +148,6 @@ export const useComprehensiveImport = ({
           });
         }
       }
-
-      console.log(`📋 Loaded ${ownershipTypeMap.size} existing ownership types`);
       return ownershipTypeMap;
     } catch (error) {
       console.error('Failed to load existing ownership types:', error);
@@ -153,65 +159,145 @@ export const useComprehensiveImport = ({
    * Execute comprehensive import in single GraphQL call
    */
   const executeComprehensiveImport = useCallback(async (
-    entities: Entity[],
+    allEntities: Entity[],
     existingEntities: Entity[],
     existingOwnershipTypes: Map<string, string>
   ): Promise<void> => {
     console.log('🚀 Starting comprehensive import...');
     
     try {
-      // 1. Create comprehensive import plan
+      // 1. Categorize entities to get only new and updated for entity patches
+      const categorizationResult = categorizeEntities(allEntities, existingEntities);
+      const entitiesToProcess = [
+        ...categorizationResult.newEntities,
+        ...categorizationResult.updatedEntities
+      ];
+      
+      // 2. Create comprehensive import plan (use all entities for relationships, filtered for entity patches)
       updateProgress({ currentPhase: 'Planning import...' });
-      const plan = createComprehensiveImportPlan(entities, existingEntities, existingOwnershipTypes);
+      const plan = createComprehensiveImportPlan(allEntities, existingEntities, existingOwnershipTypes);
       currentPlanRef.current = plan;
       
-      console.log(`📊 Import plan: ${plan.entities.length} entities, ${plan.ownershipTypes.length} ownership types`);
       
-      // 2. Convert plan to patch inputs
+      // 3. Convert plan to patch inputs
       updateProgress({ currentPhase: 'Preparing patch operations...' });
-      const patchInputs = convertPlanToPatchInputs(plan);
+      const patchInputs = convertPlanToPatchInputs(plan, entitiesToProcess, existingEntities);
       
-      console.log(`📦 Created ${patchInputs.length} patch operations`);
+      // Separate regular patches from addRelatedTerms mutations
+      const regularPatches = patchInputs.filter(input => input.aspectName !== 'addRelatedTerms');
+      const relationshipPatches = patchInputs.filter(input => input.aspectName === 'addRelatedTerms');
       
-      // 3. Execute single GraphQL call (atomic operation)
+      // 4. Execute regular patch operations
       updateProgress({ 
         currentPhase: 'Executing comprehensive import...',
         total: patchInputs.length,
         processed: 0
       });
       
-      // Note: DataHub mutations are atomic - either all operations succeed or all fail
-      // Convert ComprehensivePatchInput to EntityPatchInput for compatibility
-      const entityPatchInputs = patchInputs.map(input => ({
-        urn: input.urn,
-        entityType: input.entityType,
-        aspectName: input.aspectName,
-        patch: input.patch,
-        arrayPrimaryKeys: input.arrayPrimaryKeys?.map(pk => ({
-          keyPath: pk.arrayField,
-          primaryKeys: pk.keys
-        })),
-        forceGenericPatch: input.forceGenericPatch
-      }));
+      let results: any[] = [];
       
-      const results = await executePatchEntitiesMutation(entityPatchInputs);
+      // Execute regular patchEntities mutations
+      if (regularPatches.length > 0) {
+        const entityPatchInputs = regularPatches.map(input => ({
+          urn: input.urn,
+          entityType: input.entityType,
+          aspectName: input.aspectName,
+          patch: input.patch,
+          arrayPrimaryKeys: input.arrayPrimaryKeys?.map(pk => ({
+            keyPath: pk.arrayField,
+            primaryKeys: pk.keys
+          })),
+          forceGenericPatch: input.forceGenericPatch
+        }));
+        
+        const patchResults = await executePatchEntitiesMutation(entityPatchInputs);
+        results = [...results, ...patchResults];
+      }
       
-      // 4. Process results - DataHub mutations are atomic
-      // If we get here, the entire batch succeeded
+      // Execute addRelatedTerms mutations
+      if (relationshipPatches.length > 0) {
+        updateProgress({ currentPhase: 'Creating relationships...' });
+        
+        for (const relationshipPatch of relationshipPatches) {
+          try {
+            const input = relationshipPatch.patch[0].value;
+            const addRelatedTermsResult = await executeAddRelatedTermsMutation({
+              urn: relationshipPatch.urn,
+              termUrns: input.termUrns,
+              relationshipType: input.relationshipType
+            });
+            
+            // Add success result for consistency
+            results.push({
+              urn: relationshipPatch.urn,
+              success: true,
+              error: null
+            });
+          } catch (error) {
+            console.error('Failed to create relationship:', error);
+            results.push({
+              urn: relationshipPatch.urn,
+              success: false,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            });
+          }
+        }
+      }
+      
+               // 4. Process results - Check if any operations failed
+      
       const totalEntities = plan.entities.length;
       const totalOwnershipTypes = plan.ownershipTypes.length;
+      const totalOperations = totalEntities + totalOwnershipTypes;
       
-      updateProgress({
-        processed: patchInputs.length,
-        successful: totalEntities + totalOwnershipTypes,
-        failed: 0,
-        currentPhase: 'Import completed'
-      });
+      // Check if any results indicate failure
+      const failedResults = results.filter((result: any) => !result.success);
+      const successfulResults = results.filter((result: any) => result.success);
       
-      console.log(`✅ Comprehensive import completed: ${totalEntities} entities and ${totalOwnershipTypes} ownership types created successfully`);
+               if (failedResults.length > 0) {
+        
+        // Aggregate duplicate errors to avoid showing the same error multiple times
+        const errorMap = new Map<string, { count: number; firstResult: any }>();
+        
+        failedResults.forEach((result: any) => {
+          const errorKey = result.error || 'Unknown error';
+          if (errorMap.has(errorKey)) {
+            errorMap.get(errorKey)!.count++;
+          } else {
+            errorMap.set(errorKey, { count: 1, firstResult: result });
+          }
+        });
+        
+        // Add one error per unique error message
+        errorMap.forEach(({ firstResult }, errorMessage) => {
+          addError({
+            entityId: 'comprehensive-import',
+            entityName: 'Import operation',
+            operation: 'comprehensive-import',
+            error: errorMessage,
+            retryable: true
+          });
+        });
+        
+        updateProgress({
+          processed: patchInputs.length,
+          successful: successfulResults.length,
+          failed: failedResults.length,
+          currentPhase: 'Import completed with errors'
+        });
+      } else {
+        // All operations succeeded
+        updateProgress({
+          processed: patchInputs.length,
+          successful: totalOperations,
+          failed: 0,
+          currentPhase: 'Import completed successfully'
+        });
+        
+      }
       
     } catch (error) {
-      console.error('❌ Comprehensive import failed:', error);
+      console.error('Comprehensive import failed:', error);
       
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
@@ -283,7 +369,6 @@ export const useComprehensiveImport = ({
         return;
       }
 
-      console.log(`📋 Processing ${entitiesToProcess.length} entities (${categorizationResult.newEntities.length} new, ${categorizationResult.updatedEntities.length} updated)`);
 
       // 2. Validate hierarchy
       updateProgress({ currentPhase: 'Validating hierarchy...' });
@@ -305,8 +390,8 @@ export const useComprehensiveImport = ({
       updateProgress({ currentPhase: 'Loading existing ownership types...' });
       const existingOwnershipTypes = await loadExistingOwnershipTypes();
 
-      // 4. Execute comprehensive import
-      await executeComprehensiveImport(entitiesToProcess, existingEntities, existingOwnershipTypes);
+      // 4. Execute comprehensive import (pass all entities for relationship processing)
+      await executeComprehensiveImport(entities, existingEntities, existingOwnershipTypes);
 
     } catch (error) {
       console.error('❌ Import process failed:', error);
@@ -375,13 +460,11 @@ export const useComprehensiveImport = ({
     retryCountRef.current.clear();
   }, []);
 
-  const retryFailed = useCallback(async () => {
-    if (!currentPlanRef.current) {
-      console.warn('No import plan available for retry');
-      return;
-    }
-
-    console.log('🔄 Retrying comprehensive import...');
+         const retryFailed = useCallback(async () => {
+           if (!currentPlanRef.current) {
+             console.warn('No import plan available for retry');
+             return;
+           }
     
     // Reset retry state
     setIsCancelled(false);

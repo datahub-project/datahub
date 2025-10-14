@@ -81,9 +81,10 @@ export const OwnershipSection: React.FC<OwnershipSectionProps> = ({
       return (
         <FieldInput
           value={value}
-          onChange={(e) => onFieldChange(field, e.target.value)}
-          className={error ? 'error' : ''}
+          setValue={(val) => onFieldChange(field, typeof val === 'string' ? val : '')}
+          label=""
           placeholder={`Enter ${label.toLowerCase()}`}
+          error={error?.message}
         />
       );
     }

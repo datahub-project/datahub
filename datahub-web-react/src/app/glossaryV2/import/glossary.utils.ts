@@ -3,6 +3,7 @@
  */
 
 import { EntityData, Entity, GraphQLEntity, ValidationResult, ValidationError, ValidationWarning } from './glossary.types';
+import { UrnManager } from './shared/utils/urnManager';
 
 /**
  * Generate a unique ID for an entity based on its hierarchy path
@@ -29,28 +30,26 @@ export function toCommaSeparated(values: string[]): string {
 
 /**
  * Validate URN format
+ * @deprecated Use UrnManager.isValidUrn instead
  */
 export function isValidUrn(urn: string): boolean {
-  if (!urn || urn.trim() === '') return true; // Empty URN is valid (will be generated)
-  return urn.startsWith('urn:li:') && urn.includes(':');
+  return UrnManager.isValidUrn(urn, true); // Empty URN is valid (will be generated)
 }
 
 /**
  * Generate URN for glossary entity
+ * @deprecated Use UrnManager.generateGlossaryUrn instead
  */
 export function generateGlossaryUrn(entityType: 'glossaryTerm' | 'glossaryNode', name: string): string {
-  const encodedName = encodeURIComponent(name);
-  return `urn:li:${entityType}:${encodedName}`;
+  return UrnManager.generateGlossaryUrn(entityType, name);
 }
 
 /**
  * Extract entity type from URN
+ * @deprecated Use UrnManager.extractEntityTypeFromUrn instead
  */
 export function extractEntityTypeFromUrn(urn: string): 'glossaryTerm' | 'glossaryNode' | null {
-  if (!urn.startsWith('urn:li:')) return null;
-  const parts = urn.split(':');
-  if (parts.length < 4) return null;
-  const entityType = parts[2];
+  const entityType = UrnManager.extractEntityTypeFromUrn(urn);
   return entityType === 'glossaryTerm' || entityType === 'glossaryNode' ? entityType : null;
 }
 

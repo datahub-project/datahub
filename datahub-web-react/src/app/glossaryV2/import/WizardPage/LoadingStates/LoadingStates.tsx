@@ -51,6 +51,24 @@ const ProgressContainer = styled.div`
   margin-top: 16px;
 `;
 
+const CustomProgressBar = styled.div<{ progress: number }>`
+  width: 100%;
+  height: 8px;
+  background-color: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  
+  &::after {
+    content: '';
+    display: block;
+    width: ${props => props.progress}%;
+    height: 100%;
+    background-color: #3b82f6;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
+`;
+
 const getLoadingConfig = (type: LoadingStatesProps['type']) => {
   switch (type) {
     case 'initial':
@@ -104,9 +122,9 @@ export const LoadingStates: React.FC<LoadingStatesProps> = ({
 
   return (
     <LoadingContainer>
-      <LoadingCard>
-        <Spin size="large" />
-        <LoadingTitle level={4}>
+      <LoadingCard title="">
+        <Loader size="lg" />
+        <LoadingTitle>
           {config.title}
         </LoadingTitle>
         <LoadingMessage>
@@ -119,13 +137,8 @@ export const LoadingStates: React.FC<LoadingStatesProps> = ({
         )}
         {progress !== undefined && (
           <ProgressContainer>
-            <Progress
-              percent={Math.round(progress)}
-              status="active"
-              strokeColor="#3b82f6"
-              showInfo={false}
-            />
-            <Text type="secondary" style={{ fontSize: '12px', marginTop: '8px' }}>
+            <CustomProgressBar progress={Math.round(progress)} />
+            <Text color="gray" style={{ fontSize: '12px', marginTop: '8px' }}>
               {Math.round(progress)}% complete
             </Text>
           </ProgressContainer>

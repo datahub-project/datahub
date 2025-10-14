@@ -157,6 +157,7 @@ export const EntityDetailsModal: React.FC<EntityDetailsModalProps> = ({
 
   return (
     <Modal
+      title=""
       open={visible}
       onCancel={handleClose}
       width={800}
@@ -167,7 +168,7 @@ export const EntityDetailsModal: React.FC<EntityDetailsModalProps> = ({
       <ModalContainer>
         <ModalHeader>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <ModalTitle level={4}>
+            <ModalTitle>
               {isEditing ? 'Edit Entity' : 'Entity Details'}
             </ModalTitle>
             <StatusIndicator status={status}>
@@ -227,7 +228,7 @@ export const EntityDetailsModal: React.FC<EntityDetailsModalProps> = ({
         <FooterActions>
           <div>
             {validationErrors.length > 0 && (
-              <Text type="danger" style={{ fontSize: '12px' }}>
+              <Text color="red" style={{ fontSize: '12px' }}>
                 {validationErrors.length} validation error(s)
               </Text>
             )}
@@ -237,7 +238,7 @@ export const EntityDetailsModal: React.FC<EntityDetailsModalProps> = ({
             {isEditing ? (
               <>
                 <DataHubButton
-                  variant="outlined"
+                  variant="outline"
                   onClick={handleCancel}
                 >
                   Cancel

@@ -128,7 +128,7 @@ describe('Comprehensive Import Utils', () => {
       const plan = createComprehensiveImportPlan(entities, existingEntities, existingOwnershipTypes);
 
       expect(plan.entities).toHaveLength(2);
-      expect(plan.parentRelationshipPatches).toHaveLength(1); // Child has parent relationship
+      expect(plan.parentRelationshipPatches).toHaveLength(0); // Parent relationships are now handled in entity patches
     });
 
     it('should handle related terms', () => {
@@ -178,10 +178,11 @@ describe('Comprehensive Import Utils', () => {
         ownershipPatches: [],
         parentRelationshipPatches: [],
         relatedTermPatches: [],
-        domainAssignmentPatches: []
+        domainAssignmentPatches: [],
+        urnMap: new Map([['test-1', 'urn:li:glossaryTerm:test-1']])
       };
 
-      const patchInputs = convertPlanToPatchInputs(plan);
+      const patchInputs = convertPlanToPatchInputs(plan, [mockEntity], []);
 
       expect(patchInputs).toBeDefined();
       expect(patchInputs.length).toBeGreaterThan(0);
@@ -198,10 +199,11 @@ describe('Comprehensive Import Utils', () => {
         ownershipPatches: [],
         parentRelationshipPatches: [],
         relatedTermPatches: [],
-        domainAssignmentPatches: []
+        domainAssignmentPatches: [],
+        urnMap: new Map([['test-1', 'urn:li:glossaryTerm:test-1']])
       };
 
-      const patchInputs = convertPlanToPatchInputs(plan);
+      const patchInputs = convertPlanToPatchInputs(plan, [mockEntity], []);
 
       const entityPatch = patchInputs.find(p => p.entityType === 'glossaryTerm');
       expect(entityPatch).toBeDefined();
@@ -213,7 +215,7 @@ describe('Comprehensive Import Utils', () => {
       });
       expect(entityPatch?.patch).toContainEqual({
         op: 'ADD',
-        path: '/description',
+        path: '/definition',
         value: 'Test Description'
       });
     });
@@ -225,10 +227,11 @@ describe('Comprehensive Import Utils', () => {
         ownershipPatches: [],
         parentRelationshipPatches: [],
         relatedTermPatches: [],
-        domainAssignmentPatches: []
+        domainAssignmentPatches: [],
+        urnMap: new Map([['test-1', 'urn:li:glossaryTerm:test-1']])
       };
 
-      const patchInputs = convertPlanToPatchInputs(plan);
+      const patchInputs = convertPlanToPatchInputs(plan, [mockEntity], []);
 
       const entityPatch = patchInputs.find(p => p.entityType === 'glossaryTerm');
       expect(entityPatch?.patch).toContainEqual({

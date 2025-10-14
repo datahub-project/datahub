@@ -69,6 +69,24 @@ const ProgressContainer = styled.div`
   margin: 8px 0;
 `;
 
+const CustomProgressBar = styled.div<{ progress: number; color: string }>`
+  width: 100%;
+  height: 6px;
+  background-color: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+  
+  &::after {
+    content: '';
+    display: block;
+    width: ${props => props.progress}%;
+    height: 100%;
+    background-color: ${props => props.color};
+    border-radius: 3px;
+    transition: width 0.3s ease;
+  }
+`;
+
 const ActionButtons = styled.div`
   display: flex;
   gap: 8px;
@@ -145,9 +163,9 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
   return (
     <>
       <MonitorContainer visible={isExpanded}>
-        <MonitorCard>
+        <MonitorCard title="">
           <MonitorHeader>
-            <MonitorTitle level={5}>
+            <MonitorTitle>
               Performance Monitor
             </MonitorTitle>
             <DataHubButton
@@ -186,26 +204,23 @@ export const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
           </MetricItem>
 
           <ProgressContainer>
-            <Progress
-              percent={Math.min((metrics.renderTime / 100) * 100, 100)}
-              status={performanceStatus === 'poor' ? 'exception' : 'active'}
-              strokeColor={getStatusColor(performanceStatus)}
-              showInfo={false}
-              size="small"
+            <CustomProgressBar
+              progress={Math.min((metrics.renderTime / 100) * 100, 100)}
+              color={getStatusColor(performanceStatus)}
             />
           </ProgressContainer>
 
           <ActionButtons>
             <DataHubButton
-              variant="outlined"
-              size="small"
+              variant="outline"
+              size="sm"
               onClick={onOptimizeMemory}
             >
               Optimize
             </DataHubButton>
             <DataHubButton
-              variant="outlined"
-              size="small"
+              variant="outline"
+              size="sm"
               onClick={onClearCache}
             >
               Clear Cache

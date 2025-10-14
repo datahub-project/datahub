@@ -287,11 +287,11 @@ export default function DropzoneTable({
       <DropzoneContent>
         {getStatusIcon()}
         <div>
-          <Text strong style={{ fontSize: 16 }}>
+          <Text weight="bold" style={{ fontSize: 16 }}>
             {isProcessing ? 'Processing file...' : 'Drop your CSV file here'}
           </Text>
           <br />
-          <Text type="secondary">
+          <Text color="gray">
             or click to browse files
           </Text>
         </div>

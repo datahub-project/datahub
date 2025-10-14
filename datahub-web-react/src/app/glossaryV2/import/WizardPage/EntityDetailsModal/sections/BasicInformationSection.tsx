@@ -4,7 +4,6 @@ import { Text, Heading, Input, Select } from '@components';
 import { Card } from '@components';
 import { EntityData, ValidationError } from '../../../glossary.types';
 
-const { Option } = Select;
 
 interface BasicInformationSectionProps {
   data: EntityData | null;
@@ -119,26 +118,21 @@ export const BasicInformationSection: React.FC<BasicInformationSectionProps> = (
       if (type === 'select' && options) {
         return (
           <FieldSelect
-            value={value}
-            onChange={(val: string) => onFieldChange(field, val)}
-            className={error ? 'error' : ''}
+            values={[value]}
+            onUpdate={(vals: string[]) => onFieldChange(field, vals[0] || '')}
             placeholder={`Select ${label.toLowerCase()}`}
-          >
-            {options.map(option => (
-              <Option key={option.value} value={option.value}>
-                {option.label}
-              </Option>
-            ))}
-          </FieldSelect>
+            options={options}
+          />
         );
       }
 
       return (
         <FieldInput
           value={value}
-          onChange={(e) => onFieldChange(field, e.target.value)}
-          className={error ? 'error' : ''}
+          setValue={(val) => onFieldChange(field, typeof val === 'string' ? val : '')}
+          label=""
           placeholder={`Enter ${label.toLowerCase()}`}
+          error={error?.message}
         />
       );
     }

@@ -18,6 +18,7 @@ import { useCsvProcessing } from '../shared/hooks/useCsvProcessing';
 import { useEntityManagement } from '../shared/hooks/useEntityManagement';
 import { useGraphQLOperations } from '../shared/hooks/useGraphQLOperations';
 import { useEntityComparison } from '../shared/hooks/useEntityComparison';
+import { HierarchyNameResolver } from '../shared/utils/hierarchyUtils';
 import { useApolloClient } from '@apollo/client';
 import DropzoneTable from './DropzoneTable/DropzoneTable';
 import { BreadcrumbHeader } from '../shared/components/BreadcrumbHeader';
@@ -348,7 +349,7 @@ export const WizardPage = () => {
                         parentNames: parentNodes.map((node: any) => node.properties?.name || ''),
                         parentUrns: parentNodes.map((node: any) => node.urn),
                         level: parentNodes.length,
-                        data: {
+        data: {
                             entity_type: (isTerm ? 'glossaryTerm' : 'glossaryNode') as 'glossaryTerm' | 'glossaryNode',
                             urn: entity.urn,
                             name: properties.name || entity.name || '',
@@ -384,12 +385,24 @@ export const WizardPage = () => {
                 // Perform entity comparison
                 const comparison = categorizeEntities(normalizedEntities, convertedExistingEntities);
                 
-                // Update entities with comparison results
+                // Update entities with comparison results and ensure URNs are set
                 const updatedEntities = [
                     ...comparison.newEntities.map(entity => ({ ...entity, status: 'new' as const })),
-                    ...comparison.updatedEntities,
-                    ...comparison.unchangedEntities,
-                    ...comparison.conflictedEntities
+                    ...comparison.updatedEntities.map(entity => ({ 
+                        ...entity, 
+                        urn: entity.existingEntity?.urn || entity.urn,
+                        status: 'updated' as const 
+                    })),
+                    ...comparison.unchangedEntities.map(entity => ({ 
+                        ...entity, 
+                        urn: entity.existingEntity?.urn || entity.urn,
+                        status: 'existing' as const 
+                    })),
+                    ...comparison.conflictedEntities.map(entity => ({ 
+                        ...entity, 
+                        urn: entity.existingEntity?.urn || entity.urn,
+                        status: 'conflict' as const 
+                    }))
                 ];
                 
                 setEntities(updatedEntities);
@@ -447,7 +460,7 @@ export const WizardPage = () => {
     const renderStepContent = () => {
         switch (currentStep) {
             case 0: // Upload CSV
-                return (
+    return (
                     <DropzoneTable
                         onFileSelect={handleFileSelect}
                         onFileRemove={handleFileRemove}
@@ -533,7 +546,7 @@ export const WizardPage = () => {
                                     icon={{ icon: 'ArrowClockwise', source: 'phosphor' }}
                                 >
                                     Reset
-                                </Button>
+        </Button>
                                 <Button
                                     variant="filled"
                                     color="primary"
@@ -593,15 +606,15 @@ const GlossaryImportList = ({
     existingEntities,
     onRestart, 
     csvProcessing, 
-    entityManagement, 
-    onStartImport, 
-    isImportModalVisible, 
-    setIsImportModalVisible, 
-    progress, 
-    isProcessing, 
-    resetProgress, 
-    retryFailed 
-}: {
+    entityManagement,
+    onStartImport,
+    isImportModalVisible,
+    setIsImportModalVisible,
+    progress,
+    isProcessing,
+    resetProgress,
+    retryFailed
+}: { 
     entities: Entity[];
     setEntities: (entities: Entity[]) => void;
     existingEntities: Entity[];
@@ -623,6 +636,7 @@ const GlossaryImportList = ({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [editingCell, setEditingCell] = useState<{ rowId: string; field: string } | null>(null);
+    const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
     
     // Entity Details Modal state
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -662,7 +676,15 @@ const GlossaryImportList = ({
             filtered = filtered.filter(entity => 
                 entity.name.toLowerCase().includes(searchLower) ||
                 entity.data.description.toLowerCase().includes(searchLower) ||
-                entity.data.term_source.toLowerCase().includes(searchLower)
+                entity.data.term_source.toLowerCase().includes(searchLower) ||
+                entity.data.source_ref.toLowerCase().includes(searchLower) ||
+                entity.data.source_url.toLowerCase().includes(searchLower) ||
+                entity.data.ownership_users.toLowerCase().includes(searchLower) ||
+                entity.data.ownership_groups.toLowerCase().includes(searchLower) ||
+                entity.data.related_contains.toLowerCase().includes(searchLower) ||
+                entity.data.related_inherits.toLowerCase().includes(searchLower) ||
+                entity.data.domain_name.toLowerCase().includes(searchLower) ||
+                entity.data.custom_properties.toLowerCase().includes(searchLower)
             );
         }
 
@@ -713,11 +735,58 @@ const GlossaryImportList = ({
     };
 
     const handleCellSave = (rowId: string, field: string, value: string) => {
-        setEntities(entities.map(entity => 
-            entity.id === rowId 
-                ? { ...entity, data: { ...entity.data, [field]: value } }
-                : entity
-        ));
+        if (field === 'name') {
+            // Find the entity being edited
+            const entityBeingEdited = entities.find(entity => entity.id === rowId);
+            if (!entityBeingEdited) return;
+            
+            const oldName = entityBeingEdited.data.name;
+            const newName = value;
+            
+            // First, update the entity being edited
+            let updatedEntities = entities.map(entity => 
+                entity.id === rowId 
+                    ? { ...entity, data: { ...entity.data, [field]: value } }
+                    : entity
+            );
+            
+            // Create a map to track name changes for nested updates
+            const nameChanges = new Map<string, string>();
+            nameChanges.set(oldName, newName);
+            
+            // Iteratively update all descendants at all levels
+            // This handles multiple levels of nesting by doing multiple passes
+            let hasChanges = true;
+            while (hasChanges) {
+                hasChanges = false;
+                updatedEntities = updatedEntities.map(entity => {
+                    // Check if this entity's parent has been renamed
+                    const parentNewName = nameChanges.get(entity.data.parent_nodes);
+                    if (parentNewName) {
+                        hasChanges = true;
+                        // Track this entity's name change for future iterations
+                        nameChanges.set(entity.data.name, entity.data.name);
+                        return {
+                            ...entity,
+                            data: {
+                                ...entity.data,
+                                parent_nodes: parentNewName
+                            }
+                        };
+                    }
+                    return entity;
+                });
+            }
+            
+            setEntities(updatedEntities);
+        } else {
+            // For non-name fields, just update the specific entity
+            setEntities(entities.map(entity => 
+                entity.id === rowId 
+                    ? { ...entity, data: { ...entity.data, [field]: value } }
+                    : entity
+            ));
+        }
         setEditingCell(null);
     };
 
@@ -725,8 +794,91 @@ const GlossaryImportList = ({
         setEditingCell(null);
     };
 
-    // Table columns with optimized widths for horizontal scrolling
-    const tableColumns: Column<Entity>[] = [
+    // Organize entities into hierarchical structure for collapsible parents
+    const organizeEntitiesHierarchically = (entities: Entity[]) => {
+        const entityMap = new Map<string, Entity & { children: Entity[] }>();
+        const rootEntities: (Entity & { children: Entity[] })[] = [];
+
+        // First pass: create map with children arrays
+        entities.forEach(entity => {
+            entityMap.set(entity.name, { ...entity, children: [] });
+        });
+
+        // Helper function to find parent entity by hierarchical name
+        const findParentEntity = (parentPath: string): (Entity & { children: Entity[] }) | null => {
+            // Use HierarchyNameResolver to parse hierarchical name and find parent
+            const actualParentName = HierarchyNameResolver.parseHierarchicalName(parentPath);
+            return entityMap.get(actualParentName) || null;
+        };
+
+        // Second pass: build hierarchy
+        entities.forEach(entity => {
+            const parentNames = entity.data.parent_nodes?.split(',').map(name => name.trim()).filter(Boolean) || [];
+            
+            if (parentNames.length === 0) {
+                // Root entity
+                rootEntities.push(entityMap.get(entity.name)!);
+            } else {
+                // Find parent entity using hierarchical lookup
+                const parentName = parentNames[0]; // Use first parent
+                const parentEntity = findParentEntity(parentName);
+                if (parentEntity) {
+                    parentEntity.children.push(entityMap.get(entity.name)!);
+                } else {
+                    // Parent not found, treat as root
+                    rootEntities.push(entityMap.get(entity.name)!);
+                }
+            }
+        });
+
+        return rootEntities;
+    };
+
+    // Create hierarchical data for collapsible parents
+    const hierarchicalData = useMemo(() => {
+        return organizeEntitiesHierarchically(filteredEntities);
+    }, [filteredEntities]);
+
+    // Handle row expansion
+    const handleExpandRow = (record: any) => {
+        const key = record.name;
+        setExpandedRowKeys(prev => 
+            prev.includes(key) 
+                ? prev.filter(k => k !== key)
+                : [...prev, key]
+        );
+    };
+
+    // Add indentation to child entities
+    const addIndentation = (record: Entity, level: number = 0): Entity & { _indentLevel: number; _indentSize: number } => {
+        const indentSize = level * 20; // 20px per level
+        return {
+            ...record,
+            _indentLevel: level,
+            _indentSize: indentSize
+        };
+    };
+
+    // Flatten hierarchical data with indentation levels, respecting collapsed state
+    const flattenedData = useMemo(() => {
+        const flatten = (entities: (Entity & { children: Entity[] })[], level: number = 0): (Entity & { _indentLevel: number; _indentSize: number })[] => {
+            const result: (Entity & { _indentLevel: number; _indentSize: number })[] = [];
+            entities.forEach(entity => {
+                result.push(addIndentation(entity, level));
+                // Only show children if parent is expanded
+                if (entity.children && entity.children.length > 0 && expandedRowKeys.includes(entity.name)) {
+                    // Cast children to the expected type for recursive call
+                    const childrenWithType = entity.children as (Entity & { children: Entity[] })[];
+                    result.push(...flatten(childrenWithType, level + 1));
+                }
+            });
+            return result;
+        };
+        return flatten(hierarchicalData);
+    }, [hierarchicalData, expandedRowKeys]);
+
+    // Table columns matching DiffModal order
+    const tableColumns: Column<Entity & { _indentLevel?: number; _indentSize?: number; children?: Entity[] }>[] = [
         {
             title: 'Diff',
             key: 'diff',
@@ -742,9 +894,8 @@ const GlossaryImportList = ({
                     Diff
                 </Button>
             ),
-            width: '60px',
+            width: '80px',
             minWidth: '60px',
-            maxWidth: '60px',
             alignment: 'center',
         },
         {
@@ -769,68 +920,120 @@ const GlossaryImportList = ({
                 };
 
                 return (
-                    <Pill
-                        label={getStatusLabel(record.status)}
-                        color={getStatusColor(record.status)}
-                        size="sm"
-                        variant="filled"
-                    />
+                        <Pill
+                            label={getStatusLabel(record.status)}
+                            color={getStatusColor(record.status)}
+                            size="sm"
+                            variant="filled"
+                        />
                 );
             },
-            width: '80px',
+            width: '100px',
             minWidth: '80px',
-            maxWidth: '80px',
             alignment: 'left',
             sorter: (a, b) => a.status.localeCompare(b.status),
-        },
-        {
-            title: 'Type',
-            key: 'type',
-            render: (record) => record.type === 'glossaryNode' ? 'Term Group' : 'Term',
-            width: '90px',
-            minWidth: '90px',
-            maxWidth: '90px',
-            alignment: 'left',
-            sorter: (a, b) => a.type.localeCompare(b.type),
         },
         {
             title: 'Name',
             key: 'name',
             render: (record) => {
+                const hasChildren = record.children && record.children.length > 0;
+                const isExpanded = expandedRowKeys.includes(record.name);
+                
                 if (isEditing(record.id, 'name')) {
                     return (
-                        <Input
-                            value={record.name}
-                            setValue={(value) => {
-                                const stringValue = typeof value === 'function' ? value('') : value;
-                                handleCellSave(record.id, 'name', stringValue);
-                            }}
-                            placeholder="Enter name"
-                            label=""
+                        <div style={{ paddingLeft: `${record._indentSize || 0}px`, display: 'flex', alignItems: 'center' }}>
+                            {hasChildren && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleExpandRow(record);
+                                    }}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        padding: '2px',
+                                        marginRight: '4px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                >
+                                    {isExpanded ? '▼' : '▶'}
+                                </button>
+                            )}
+                            <Input
+                                value={record.name}
+                                setValue={(value) => {
+                                    const stringValue = typeof value === 'function' ? value('') : value;
+                                    handleCellSave(record.id, 'name', stringValue);
+                                }}
+                                placeholder="Enter name"
+                                label=""
+                            />
+                        </div>
+                    );
+                }
+                return (
+                    <div style={{ paddingLeft: `${record._indentSize || 0}px`, display: 'flex', alignItems: 'center' }}>
+                        {hasChildren && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleExpandRow(record);
+                                }}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    padding: '2px',
+                                    marginRight: '4px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                            >
+                                {isExpanded ? '▼' : '▶'}
+                            </button>
+                        )}
+                        <span>{record.name}</span>
+                    </div>
+                );
+            },
+            width: '200px',
+            minWidth: '150px',
+            alignment: 'left',
+            sorter: (a, b) => a.name.localeCompare(b.name),
+        },
+        {
+            title: 'Entity Type',
+            key: 'entity_type',
+            render: (record) => {
+                if (isEditing(record.id, 'entity_type')) {
+                    return (
+                        <SimpleSelect
+                            values={[record.data.entity_type]}
+                            onUpdate={(values) => handleCellSave(record.id, 'entity_type', values[0])}
+                            width="full"
+                            options={[
+                                { value: 'glossaryTerm', label: 'Term' },
+                                { value: 'glossaryNode', label: 'Term Group' }
+                            ]}
                         />
                     );
                 }
                 return (
                     <div 
-                        onClick={() => handleCellEdit(record.id, 'name')}
-                        style={{ 
-                            cursor: 'pointer',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: '150px'
-                        }}
-                        title={record.name}
+                        onClick={() => handleCellEdit(record.id, 'entity_type')}
+                        style={{ cursor: 'pointer' }}
                     >
-                        {record.name}
+                        {record.data.entity_type === 'glossaryNode' ? 'Term Group' : 'Term'}
                     </div>
                 );
             },
-            width: '150px',
-            minWidth: '150px',
-            maxWidth: '150px',
+            width: '120px',
+            minWidth: '100px',
             alignment: 'left',
-            sorter: (a, b) => a.name.localeCompare(b.name),
+            sorter: (a, b) => a.data.entity_type.localeCompare(b.data.entity_type),
         },
         {
             title: 'Description',
@@ -838,144 +1041,357 @@ const GlossaryImportList = ({
             render: (record) => {
                 if (isEditing(record.id, 'description')) {
                     return (
-                        <Input
-                            value={record.data.description}
-                            setValue={(value) => {
-                                const stringValue = typeof value === 'function' ? value('') : value;
-                                handleCellSave(record.id, 'description', stringValue);
-                            }}
-                            placeholder="Enter description"
-                            label=""
-                        />
+                            <Input
+                                value={record.data.description}
+                                setValue={(value) => {
+                                    const stringValue = typeof value === 'function' ? value('') : value;
+                                    handleCellSave(record.id, 'description', stringValue);
+                                }}
+                                placeholder="Enter description"
+                                label=""
+                            />
                     );
                 }
                 return (
                     <div 
                         onClick={() => handleCellEdit(record.id, 'description')}
-                        style={{ 
-                            cursor: 'pointer',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: '200px'
-                        }}
-                        title={record.data.description}
+                        style={{ cursor: 'pointer' }}
                     >
                         {record.data.description}
                     </div>
                 );
             },
-            width: '200px',
+            width: '250px',
             minWidth: '200px',
-            maxWidth: '200px',
             alignment: 'left',
             sorter: (a, b) => a.data.description.localeCompare(b.data.description),
         },
         {
             title: 'Term Source',
             key: 'term_source',
-            render: (record) => (
-                <div 
-                    style={{ 
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        maxWidth: '100px'
-                    }}
-                    title={record.data.term_source}
-                >
-                    {record.data.term_source || '-'}
-                </div>
-            ),
-            width: '100px',
-            minWidth: '100px',
-            maxWidth: '100px',
+            render: (record) => {
+                if (isEditing(record.id, 'term_source')) {
+                    return (
+                            <Input
+                            value={record.data.term_source || ''}
+                                setValue={(value) => {
+                                    const stringValue = typeof value === 'function' ? value('') : value;
+                                    handleCellSave(record.id, 'term_source', stringValue);
+                                }}
+                                placeholder="Enter term source"
+                                label=""
+                            />
+                    );
+                }
+                return (
+                    <div 
+                        onClick={() => handleCellEdit(record.id, 'term_source')}
+                        style={{ cursor: 'pointer' }}
+                    >
+                        {record.data.term_source || '-'}
+                    </div>
+                );
+            },
+            width: '140px',
+            minWidth: '120px',
             alignment: 'left',
             sorter: (a, b) => (a.data.term_source || '').localeCompare(b.data.term_source || ''),
         },
         {
-            title: 'Ownership',
-            key: 'ownership',
+            title: 'Source Ref',
+            key: 'source_ref',
             render: (record) => {
-                const hasUsers = record.data.ownership_users && record.data.ownership_users.trim() !== '';
-                const hasGroups = record.data.ownership_groups && record.data.ownership_groups.trim() !== '';
-                
-                if (!hasUsers && !hasGroups) {
-                    return <span style={{ color: '#6b7280' }}>-</span>;
+                if (isEditing(record.id, 'source_ref')) {
+                    return (
+                            <Input
+                            value={record.data.source_ref || ''}
+                                setValue={(value) => {
+                                    const stringValue = typeof value === 'function' ? value('') : value;
+                                    handleCellSave(record.id, 'source_ref', stringValue);
+                                }}
+                            placeholder="Enter source reference"
+                                label=""
+                            />
+                    );
                 }
-                
-                const ownershipText = [
-                    hasUsers ? `Users: ${record.data.ownership_users.split('|').length}` : '',
-                    hasGroups ? `Groups: ${record.data.ownership_groups.split('|').length}` : ''
-                ].filter(Boolean).join(', ');
-                
                 return (
                     <div 
-                        style={{ 
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: '120px',
-                            fontSize: '12px'
-                        }}
-                        title={`Users: ${record.data.ownership_users || 'none'}, Groups: ${record.data.ownership_groups || 'none'}`}
+                        onClick={() => handleCellEdit(record.id, 'source_ref')}
+                        style={{ cursor: 'pointer' }}
                     >
-                        {ownershipText}
+                        {record.data.source_ref || '-'}
                     </div>
                 );
             },
-            width: '120px',
+            width: '140px',
             minWidth: '120px',
-            maxWidth: '120px',
             alignment: 'left',
+            sorter: (a, b) => (a.data.source_ref || '').localeCompare(b.data.source_ref || ''),
+        },
+        {
+            title: 'Source URL',
+            key: 'source_url',
+            render: (record) => {
+                if (isEditing(record.id, 'source_url')) {
+                    return (
+                            <Input
+                            value={record.data.source_url || ''}
+                                setValue={(value) => {
+                                    const stringValue = typeof value === 'function' ? value('') : value;
+                                    handleCellSave(record.id, 'source_url', stringValue);
+                                }}
+                                placeholder="Enter source URL"
+                                label=""
+                            />
+                    );
+                }
+                return (
+                    <div 
+                        onClick={() => handleCellEdit(record.id, 'source_url')}
+                        style={{ cursor: 'pointer' }}
+                    >
+                        {record.data.source_url || '-'}
+                    </div>
+                );
+            },
+            width: '180px',
+            minWidth: '150px',
+            alignment: 'left',
+            sorter: (a, b) => (a.data.source_url || '').localeCompare(b.data.source_url || ''),
+        },
+        {
+            title: 'Ownership (Users)',
+            key: 'ownership_users',
+            render: (record) => {
+                if (isEditing(record.id, 'ownership_users')) {
+                    return (
+                            <Input
+                            value={record.data.ownership_users || ''}
+                                setValue={(value) => {
+                                    const stringValue = typeof value === 'function' ? value('') : value;
+                                handleCellSave(record.id, 'ownership_users', stringValue);
+                                }}
+                            placeholder="Enter ownership users (comma-separated)"
+                                label=""
+                            />
+                    );
+                }
+                return (
+                    <div 
+                        onClick={() => handleCellEdit(record.id, 'ownership_users')}
+                        style={{ cursor: 'pointer' }}
+                    >
+                        {record.data.ownership_users || '-'}
+                    </div>
+                );
+            },
+            width: '180px',
+            minWidth: '150px',
+            alignment: 'left',
+            sorter: (a, b) => (a.data.ownership_users || '').localeCompare(b.data.ownership_users || ''),
+        },
+        {
+            title: 'Ownership (Groups)',
+            key: 'ownership_groups',
+            render: (record) => {
+                if (isEditing(record.id, 'ownership_groups')) {
+                    return (
+                        <Input
+                            value={record.data.ownership_groups || ''}
+                            setValue={(value) => {
+                                const stringValue = typeof value === 'function' ? value('') : value;
+                                handleCellSave(record.id, 'ownership_groups', stringValue);
+                            }}
+                            placeholder="Enter ownership groups (comma-separated)"
+                            label=""
+                        />
+                    );
+                }
+                return (
+                    <div 
+                        onClick={() => handleCellEdit(record.id, 'ownership_groups')}
+                        style={{ cursor: 'pointer' }}
+                    >
+                        {record.data.ownership_groups || '-'}
+                    </div>
+                );
+            },
+            width: '180px',
+            minWidth: '150px',
+            alignment: 'left',
+            sorter: (a, b) => (a.data.ownership_groups || '').localeCompare(b.data.ownership_groups || ''),
+        },
+        {
+            title: 'Related Contains',
+            key: 'related_contains',
+            render: (record) => {
+                if (isEditing(record.id, 'related_contains')) {
+                    return (
+                        <Input
+                            value={record.data.related_contains || ''}
+                            setValue={(value) => {
+                                const stringValue = typeof value === 'function' ? value('') : value;
+                                handleCellSave(record.id, 'related_contains', stringValue);
+                            }}
+                            placeholder="Enter related terms (comma-separated)"
+                            label=""
+                        />
+                    );
+                }
+                return (
+                    <div 
+                        onClick={() => handleCellEdit(record.id, 'related_contains')}
+                        style={{ cursor: 'pointer' }}
+                    >
+                        {record.data.related_contains || '-'}
+                    </div>
+                );
+            },
+            width: '180px',
+            minWidth: '150px',
+            alignment: 'left',
+            sorter: (a, b) => (a.data.related_contains || '').localeCompare(b.data.related_contains || ''),
+        },
+        {
+            title: 'Related Inherits',
+            key: 'related_inherits',
+            render: (record) => {
+                if (isEditing(record.id, 'related_inherits')) {
+                    return (
+                        <Input
+                            value={record.data.related_inherits || ''}
+                            setValue={(value) => {
+                                const stringValue = typeof value === 'function' ? value('') : value;
+                                handleCellSave(record.id, 'related_inherits', stringValue);
+                            }}
+                            placeholder="Enter inherited terms (comma-separated)"
+                            label=""
+                        />
+                    );
+                }
+                return (
+                    <div 
+                        onClick={() => handleCellEdit(record.id, 'related_inherits')}
+                        style={{ cursor: 'pointer' }}
+                    >
+                        {record.data.related_inherits || '-'}
+                    </div>
+                );
+            },
+            width: '180px',
+            minWidth: '150px',
+            alignment: 'left',
+            sorter: (a, b) => (a.data.related_inherits || '').localeCompare(b.data.related_inherits || ''),
+        },
+        {
+            title: 'Domain Name',
+            key: 'domain_name',
+            render: (record) => {
+                if (isEditing(record.id, 'domain_name')) {
+                    return (
+                        <Input
+                            value={record.data.domain_name || ''}
+                            setValue={(value) => {
+                                const stringValue = typeof value === 'function' ? value('') : value;
+                                handleCellSave(record.id, 'domain_name', stringValue);
+                            }}
+                            placeholder="Enter domain name"
+                            label=""
+                        />
+                    );
+                }
+                return (
+                    <div 
+                        onClick={() => handleCellEdit(record.id, 'domain_name')}
+                        style={{ cursor: 'pointer' }}
+                    >
+                        {record.data.domain_name || '-'}
+                    </div>
+                );
+            },
+            width: '140px',
+            minWidth: '120px',
+            alignment: 'left',
+            sorter: (a, b) => (a.data.domain_name || '').localeCompare(b.data.domain_name || ''),
+        },
+        {
+            title: 'Custom Properties',
+            key: 'custom_properties',
+            render: (record) => {
+                if (isEditing(record.id, 'custom_properties')) {
+                    return (
+                        <Input
+                            value={record.data.custom_properties || ''}
+                            setValue={(value) => {
+                                const stringValue = typeof value === 'function' ? value('') : value;
+                                handleCellSave(record.id, 'custom_properties', stringValue);
+                            }}
+                            placeholder="Enter custom properties (JSON format)"
+                            label=""
+                        />
+                    );
+                }
+                return (
+                    <div 
+                        onClick={() => handleCellEdit(record.id, 'custom_properties')}
+                        style={{ cursor: 'pointer' }}
+                    >
+                        {record.data.custom_properties || '-'}
+                    </div>
+                );
+            },
+            width: '250px',
+            minWidth: '200px',
+            alignment: 'left',
+            sorter: (a, b) => (a.data.custom_properties || '').localeCompare(b.data.custom_properties || ''),
         },
     ];
 
     return (
         <>
-            <StyledTabToolbar>
-                <SearchContainer>
-                    <StyledSearchBar
+                    <StyledTabToolbar>
+                        <SearchContainer>
+                            <StyledSearchBar
                         placeholder="Search entities..."
                         value={searchInput}
                         onChange={handleSearchInputChange}
-                        ref={searchInputRef}
-                    />
-                    <StyledSimpleSelect
+                                ref={searchInputRef}
+                            />
+                            <StyledSimpleSelect
                         values={[statusFilter]}
                         isMultiSelect={false}
-                        options={[
-                            { label: 'All', value: '0' },
-                            { label: 'New', value: '1' },
-                            { label: 'Updated', value: '2' },
-                            { label: 'Conflict', value: '3' },
-                        ]}
+                                options={[
+                                    { label: 'All', value: '0' },
+                                    { label: 'New', value: '1' },
+                                    { label: 'Updated', value: '2' },
+                                    { label: 'Conflict', value: '3' },
+                                ]}
                         onUpdate={(values) => setStatusFilter(values[0] || '0')}
-                        showClear={false}
-                        width="fit-content"
-                        size="lg"
-                    />
-                </SearchContainer>
-                <FilterButtonsContainer>
+                                showClear={false}
+                                width="fit-content"
+                                size="lg"
+                            />
+                        </SearchContainer>
+                        <FilterButtonsContainer>
                     {/* Add refresh button or other actions here if needed */}
-                </FilterButtonsContainer>
-            </StyledTabToolbar>
+                        </FilterButtonsContainer>
+                    </StyledTabToolbar>
             
-            <TableContainer>
-                <Table
-                    columns={tableColumns}
-                    data={filteredEntities}
+                        <TableContainer>
+                            <Table
+                                columns={tableColumns}
+                    data={flattenedData}
                     showHeader
-                    isScrollable
+                                isScrollable
                     maxHeight="400px"
                     rowKey="id"
                     isBorderless={false}
-                />
-            </TableContainer>
+                            />
+                        </TableContainer>
 
             {isModalVisible && selectedEntity && (
-                <EntityDetailsModal
-                    visible={isModalVisible}
+            <EntityDetailsModal
+                visible={isModalVisible}
                     onClose={handleCloseDetails}
                     entityData={selectedEntity.data}
                     onSave={() => {}}
@@ -983,8 +1399,8 @@ const GlossaryImportList = ({
             )}
 
             {isDiffModalVisible && selectedEntity && (
-                <DiffModal
-                    visible={isDiffModalVisible}
+            <DiffModal
+                visible={isDiffModalVisible}
                     onClose={handleCloseDiff}
                     entity={selectedEntity}
                     existingEntity={selectedEntity.existingEntity || null}

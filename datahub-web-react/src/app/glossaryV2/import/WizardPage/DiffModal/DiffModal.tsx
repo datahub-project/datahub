@@ -23,15 +23,15 @@ interface DiffModalProps {
 
 // Field labels for display
 const fieldLabels: Record<string, string> = {
-  entity_type: 'Entity Type',
   name: 'Name',
+  parent_nodes: 'Parent Nodes',
+  entity_type: 'Entity Type',
   description: 'Description',
   term_source: 'Term Source',
   source_ref: 'Source Ref',
   source_url: 'Source URL',
   ownership_users: 'Ownership (Users)',
   ownership_groups: 'Ownership (Groups)',
-  parent_nodes: 'Parent Nodes',
   related_contains: 'Related Contains',
   related_inherits: 'Related Inherits',
   domain_name: 'Domain Name',
@@ -72,7 +72,7 @@ const createTableColumns = () => [
     title: (
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <Text weight="medium">Existing Data</Text>
-        <Badge color="blue" size="sm">Current</Badge>
+        <Badge color="blue" size="sm" count={1} />
       </div>
     ),
     key: 'existing',
@@ -91,7 +91,7 @@ const createTableColumns = () => [
       }}>
         {record.existingValue ? (
           <Text 
-            color={record.isConflict ? 'red' : record.hasChanges ? 'orange' : 'gray'}
+            color={record.isConflict ? 'red' : record.hasChanges ? 'yellow' : 'gray'}
             size="sm"
             style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
           >
@@ -106,15 +106,14 @@ const createTableColumns = () => [
           <Badge 
             color="red" 
             size="xs" 
+            count={1}
             style={{ 
               position: 'absolute', 
               top: '4px', 
               right: '4px',
               fontSize: '10px'
             }}
-          >
-            Conflict
-          </Badge>
+          />
         )}
       </div>
     ),
@@ -123,7 +122,7 @@ const createTableColumns = () => [
     title: (
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <Text weight="medium">Imported Data</Text>
-        <Badge color="green" size="sm">New</Badge>
+        <Badge color="green" size="sm" count={1} />
       </div>
     ),
     key: 'imported',
@@ -142,7 +141,7 @@ const createTableColumns = () => [
       }}>
         {record.importedValue ? (
           <Text 
-            color={record.isConflict ? 'red' : record.hasChanges ? 'orange' : 'gray'}
+            color={record.isConflict ? 'red' : record.hasChanges ? 'yellow' : 'gray'}
             size="sm"
             style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
           >
@@ -157,15 +156,14 @@ const createTableColumns = () => [
           <Badge 
             color="red" 
             size="xs" 
+            count={1}
             style={{ 
               position: 'absolute', 
               top: '4px', 
               right: '4px',
               fontSize: '10px'
             }}
-          >
-            Conflict
-          </Badge>
+          />
         )}
       </div>
     ),
@@ -184,10 +182,23 @@ export const DiffModal: React.FC<DiffModalProps> = ({
     const importedData = entity.data;
     const existingData = existingEntity?.data;
 
-    // Filter out fields we don't want to show in comparison
-    const fieldsToCompare = Object.keys(importedData).filter(key => 
-      key !== 'urn' && key !== 'status'
-    );
+
+    // Define field order for comparison (matching table order)
+    const fieldsToCompare = [
+      'name',
+      'parent_nodes', 
+      'entity_type',
+      'description',
+      'term_source',
+      'source_ref',
+      'source_url',
+      'ownership_users',
+      'ownership_groups',
+      'related_contains',
+      'related_inherits',
+      'domain_name',
+      'custom_properties'
+    ];
 
     return fieldsToCompare.map(key => {
       const importedValue = importedData[key as keyof EntityData];
@@ -201,10 +212,19 @@ export const DiffModal: React.FC<DiffModalProps> = ({
         return value || '';
       };
       
+      // Normalize values for comparison - treat null, undefined, and empty string as equivalent
+      const normalizeValue = (value: string | undefined | null) => {
+        if (value === null || value === undefined || value === '') {
+          return '';
+        }
+        return value;
+      };
+      
       const hasChanges = key === 'custom_properties' 
-        ? !compareCustomProperties(importedValue || '', existingValue || '')
-        : importedValue !== existingValue;
-      const isConflict = hasChanges && existingValue !== null && existingValue !== '';
+        ? !compareCustomProperties(normalizeValue(importedValue), normalizeValue(existingValue))
+        : normalizeValue(importedValue) !== normalizeValue(existingValue);
+      const isConflict = hasChanges && existingValue !== null && existingValue !== '' && existingValue !== undefined;
+
 
       return {
         id: key,
@@ -217,6 +237,7 @@ export const DiffModal: React.FC<DiffModalProps> = ({
       };
     });
   }, [entity, existingEntity]);
+
 
   const hasConflicts = useMemo(() => 
     tableData.some(field => field.isConflict), 
@@ -238,8 +259,7 @@ export const DiffModal: React.FC<DiffModalProps> = ({
       subtitle={`Status: ${status.charAt(0).toUpperCase() + status.slice(1)}`}
       onCancel={onClose}
       open={visible}
-            width="63%"
-            maxWidth="840px"
+      width="63%"
       dataTestId="diff-modal"
     >
       {hasConflicts && (
@@ -253,7 +273,7 @@ export const DiffModal: React.FC<DiffModalProps> = ({
           alignItems: 'center',
           gap: '8px'
         }}>
-          <Badge color="red" size="sm">Conflicts Detected</Badge>
+          <Badge color="red" size="sm" count={1} />
           <Text color="red" size="sm">
             Values differ between existing and imported data
           </Text>
