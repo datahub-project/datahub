@@ -24,11 +24,12 @@ marked.use({
 });
 
 export function markdownToHtml(markdown: string, sanitizer?: (html: string) => string): string {
-    return marked(markdown, {
+    const html = marked(markdown, {
         gfm: true,
         smartLists: true,
         xhtml: true,
-        sanitizer,
         breaks: true,
-    });
+    }) as string;
+
+    return sanitizer ? sanitizer(html) : html;
 }
