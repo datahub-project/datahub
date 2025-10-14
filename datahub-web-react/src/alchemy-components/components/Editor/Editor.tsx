@@ -47,10 +47,22 @@ type EditorProps = {
     placeholder?: string;
     hideHighlightToolbar?: boolean;
     toolbarStyles?: React.CSSProperties;
+    dataTestId?: string;
+    onKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void;
 };
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
-    const { content, readOnly, onChange, className, placeholder, hideHighlightToolbar, toolbarStyles } = props;
+    const {
+        content,
+        readOnly,
+        onChange,
+        className,
+        placeholder,
+        hideHighlightToolbar,
+        toolbarStyles,
+        dataTestId,
+        onKeyDown,
+    } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
@@ -95,7 +107,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     }, [readOnly, content]);
 
     return (
-        <EditorContainer className={className}>
+        <EditorContainer className={className} data-testid={dataTestId} $readOnly={readOnly} onKeyDown={onKeyDown}>
             <ThemeProvider theme={EditorTheme}>
                 <Remirror
                     classNames={['ant-typography']}

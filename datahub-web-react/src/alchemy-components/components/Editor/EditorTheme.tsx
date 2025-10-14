@@ -47,7 +47,7 @@ export const EditorTheme: RemirrorThemeType = {
     },
 };
 
-export const EditorContainer = styled.div`
+export const EditorContainer = styled.div<{ $readOnly?: boolean }>`
     ${extensionBlockquoteStyledCss}
     ${extensionCalloutStyledCss}
     ${extensionCodeBlockStyledCss}
@@ -63,7 +63,7 @@ export const EditorContainer = styled.div`
     font-weight: 400;
     display: flex;
     flex: 1 1 auto;
-    border: 1px solid ${ANTD_GRAY[4.5]};
+    border: ${(props) => (props.$readOnly ? `none` : `1px solid ${ANTD_GRAY[4.5]}`)};
     border-radius: 12px;
 
     .remirror-theme,

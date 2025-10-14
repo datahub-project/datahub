@@ -1,3 +1,4 @@
+import { Editor } from '@components';
 import { Modal, message } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
@@ -7,7 +8,6 @@ import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app
 import { GenericEntityUpdate } from '@app/entity/shared/types';
 import { DescriptionEditorToolbar } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditorToolbar';
 import SourceDescription from '@app/entityV2/shared/tabs/Documentation/components/SourceDescription';
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
 
