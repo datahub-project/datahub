@@ -4,7 +4,7 @@ extend type Query {
   """
   getPresignedUploadUrl(
     input: GetPresignedUploadUrlInput!
-  ): GetPresignedUploadUrl!
+  ): GetPresignedUploadUrlResponse!
 }
 
 """
@@ -41,7 +41,7 @@ enum UploadDownloadScenario {
   ASSET_DOCUMENTATION
 }
 
-type GetPresignedUploadUrl {
+type GetPresignedUploadUrlResponse {
   url: String!
   fileId: String!
 }

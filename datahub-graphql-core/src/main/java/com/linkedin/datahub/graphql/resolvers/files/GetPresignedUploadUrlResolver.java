@@ -6,8 +6,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrl;
 import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlInput;
+import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlResponse;
 import com.linkedin.datahub.graphql.generated.UploadDownloadScenario;
 import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
 import com.linkedin.datahub.graphql.util.S3Util;
@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @Component
 public class GetPresignedUploadUrlResolver
-    implements DataFetcher<CompletableFuture<GetPresignedUploadUrl>> {
+    implements DataFetcher<CompletableFuture<GetPresignedUploadUrlResponse>> {
 
   private static final int EXPIRATION_SECONDS = 60 * 60; // 60 minutes
   private static final Set<String> ALLOWED_FILE_EXTENSIONS =
@@ -39,7 +39,7 @@ public class GetPresignedUploadUrlResolver
   private final String bucketName;
 
   @Override
-  public CompletableFuture<GetPresignedUploadUrl> get(DataFetchingEnvironment environment)
+  public CompletableFuture<GetPresignedUploadUrlResponse> get(DataFetchingEnvironment environment)
       throws Exception {
     if (s3Util == null) {
       throw new IllegalArgumentException("S3Util isn't provided");
@@ -65,7 +65,7 @@ public class GetPresignedUploadUrlResolver
           String presignedUploadUrl =
               s3Util.generatePresignedUploadUrl(bucketName, s3Key, EXPIRATION_SECONDS, contentType);
 
-          GetPresignedUploadUrl result = new GetPresignedUploadUrl();
+          GetPresignedUploadUrlResponse result = new GetPresignedUploadUrlResponse();
           result.setUrl(presignedUploadUrl);
           result.setFileId(newFileId);
           return result;

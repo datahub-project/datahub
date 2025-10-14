@@ -16,8 +16,8 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrl;
 import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlInput;
+import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlResponse;
 import com.linkedin.datahub.graphql.generated.UploadDownloadScenario;
 import com.linkedin.datahub.graphql.util.S3Util;
 import graphql.schema.DataFetchingEnvironment;
@@ -102,8 +102,8 @@ public class GetPresignedUploadUrlResolverTest {
 
     GetPresignedUploadUrlResolver resolver =
         new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
-    CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
-    GetPresignedUploadUrl result = future.get();
+    CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
+    GetPresignedUploadUrlResponse result = future.get();
 
     assertNotNull(result);
     assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
@@ -131,8 +131,8 @@ public class GetPresignedUploadUrlResolverTest {
 
     GetPresignedUploadUrlResolver resolver =
         new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
-    CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
-    GetPresignedUploadUrl result = future.get();
+    CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
+    GetPresignedUploadUrlResponse result = future.get();
 
     assertNotNull(result);
     assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
@@ -209,7 +209,7 @@ public class GetPresignedUploadUrlResolverTest {
 
     GetPresignedUploadUrlResolver resolver =
         new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
-    CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
+    CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
     future.get(); // Execute the resolver to capture the argument
 
     String capturedS3Key = s3KeyCaptor.getValue();
@@ -252,8 +252,8 @@ public class GetPresignedUploadUrlResolverTest {
 
     GetPresignedUploadUrlResolver resolver =
         new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
-    CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
-    GetPresignedUploadUrl result = future.get();
+    CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
+    GetPresignedUploadUrlResponse result = future.get();
 
     assertNotNull(result);
     assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
@@ -390,8 +390,8 @@ public class GetPresignedUploadUrlResolverTest {
 
       GetPresignedUploadUrlResolver resolver =
           new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
-      CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
-      GetPresignedUploadUrl result = future.get();
+      CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
+      GetPresignedUploadUrlResponse result = future.get();
 
       assertNotNull(result, "Result should not be null for extension: " + extension);
       assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
@@ -419,8 +419,8 @@ public class GetPresignedUploadUrlResolverTest {
 
       GetPresignedUploadUrlResolver resolver =
           new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
-      CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
-      GetPresignedUploadUrl result = future.get();
+      CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
+      GetPresignedUploadUrlResponse result = future.get();
 
       assertNotNull(result, "Result should not be null for extension: " + extension);
       assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
@@ -486,8 +486,8 @@ public class GetPresignedUploadUrlResolverTest {
 
     GetPresignedUploadUrlResolver resolver =
         new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
-    CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
-    GetPresignedUploadUrl result = future.get();
+    CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
+    GetPresignedUploadUrlResponse result = future.get();
 
     assertNotNull(result);
     assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
@@ -518,11 +518,11 @@ public class GetPresignedUploadUrlResolverTest {
     GetPresignedUploadUrlResolver resolver =
         new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
 
-    CompletableFuture<GetPresignedUploadUrl> future1 = resolver.get(mockEnv);
-    GetPresignedUploadUrl result1 = future1.get();
+    CompletableFuture<GetPresignedUploadUrlResponse> future1 = resolver.get(mockEnv);
+    GetPresignedUploadUrlResponse result1 = future1.get();
 
-    CompletableFuture<GetPresignedUploadUrl> future2 = resolver.get(mockEnv);
-    GetPresignedUploadUrl result2 = future2.get();
+    CompletableFuture<GetPresignedUploadUrlResponse> future2 = resolver.get(mockEnv);
+    GetPresignedUploadUrlResponse result2 = future2.get();
 
     assertNotNull(result1.getFileId());
     assertNotNull(result2.getFileId());
@@ -553,8 +553,8 @@ public class GetPresignedUploadUrlResolverTest {
 
       GetPresignedUploadUrlResolver resolver =
           new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
-      CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
-      GetPresignedUploadUrl result = future.get();
+      CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
+      GetPresignedUploadUrlResponse result = future.get();
 
       assertNotNull(result, "Result should not be null for content type: " + contentType);
       assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
@@ -583,8 +583,8 @@ public class GetPresignedUploadUrlResolverTest {
 
     GetPresignedUploadUrlResolver resolver =
         new GetPresignedUploadUrlResolver(mockS3Util, TEST_BUCKET_NAME);
-    CompletableFuture<GetPresignedUploadUrl> future = resolver.get(mockEnv);
-    GetPresignedUploadUrl result = future.get();
+    CompletableFuture<GetPresignedUploadUrlResponse> future = resolver.get(mockEnv);
+    GetPresignedUploadUrlResponse result = future.get();
 
     assertNotNull(result);
     assertEquals(result.getUrl(), MOCKED_PRESIGNED_URL);
