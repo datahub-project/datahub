@@ -1,4 +1,5 @@
 import logging
+import os
 import tempfile
 import time
 from random import randint
@@ -100,10 +101,13 @@ def ingest_cleanup_data(
     auth_session, graph_client, chart_urn, upstream_schema_field_urn
 ):
     _, filename = tempfile.mkstemp(suffix=".json")
-    create_test_data(filename, chart_urn, upstream_schema_field_urn)
-    yield from _ingest_cleanup_data_impl(
-        auth_session, graph_client, filename, "schema_fields", cleanup_file=True
-    )
+    try:
+        create_test_data(filename, chart_urn, upstream_schema_field_urn)
+        yield from _ingest_cleanup_data_impl(
+            auth_session, graph_client, filename, "schema_fields"
+        )
+    finally:
+        os.remove(filename)
 
 
 def get_gql_query(filename: str) -> str:

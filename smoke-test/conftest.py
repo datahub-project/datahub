@@ -58,7 +58,6 @@ def _ingest_cleanup_data_impl(
     graph_client,
     data_file: str,
     test_name: str,
-    cleanup_file: bool = False,
     to_delete_urns: Optional[List[str]] = None
 ):
     """Helper for ingesting test data with automatic cleanup.
@@ -68,7 +67,7 @@ def _ingest_cleanup_data_impl(
         graph_client: The DataHub graph client
         data_file: Path to the data file to ingest
         test_name: Name of the test (for logging)
-        cleanup_file: If True, delete the file after cleanup (for temp files)
+        to_delete_urns: URNs to delete after cleanup
 
     Usage in test files:
         @pytest.fixture(scope="module", autouse=True)
@@ -78,37 +77,18 @@ def _ingest_cleanup_data_impl(
                 "tests/tags_and_terms/data.json",
                 "tags_and_terms"
             )
-
-        For temp files:
-
-        import tempfile
-
-        @pytest.fixture(scope="module")
-        def ingest_cleanup_data(auth_session, graph_client):
-            _, filename = tempfile.mkstemp(suffix=".json")
-            create_test_data(filename)
-            yield from _ingest_cleanup_data_impl(
-                auth_session, graph_client,
-                filename,
-                "test_name",
-                cleanup_file=True
-            )
     """
-    try:
-        print(f"deleting {test_name} test data for idempotency")
-        delete_urns_from_file(graph_client, data_file)
-        print(f"ingesting {test_name} test data")
-        ingest_file_via_rest(auth_session, data_file)
-        wait_for_writes_to_sync()
-        yield
-        print(f"removing {test_name} test data")
-        delete_urns_from_file(graph_client, data_file)
-        if to_delete_urns:
-            delete_urns(graph_client, to_delete_urns)
-        wait_for_writes_to_sync()
-    finally:
-        if cleanup_file and os.path.exists(data_file):
-            os.remove(data_file)
+    print(f"deleting {test_name} test data for idempotency")
+    delete_urns_from_file(graph_client, data_file)
+    print(f"ingesting {test_name} test data")
+    ingest_file_via_rest(auth_session, data_file)
+    wait_for_writes_to_sync()
+    yield
+    print(f"removing {test_name} test data")
+    delete_urns_from_file(graph_client, data_file)
+    if to_delete_urns:
+        delete_urns(graph_client, to_delete_urns)
+    wait_for_writes_to_sync()
 
 
 

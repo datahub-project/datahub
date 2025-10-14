@@ -1,4 +1,5 @@
 import logging
+import os
 import tempfile
 from random import randint
 
@@ -169,10 +170,13 @@ def create_test_data(filename: str):
 @pytest.fixture(scope="module", autouse=False)
 def ingest_cleanup_data(auth_session, graph_client):
     _, filename = tempfile.mkstemp(suffix=".json")
-    create_test_data(filename)
-    yield from _ingest_cleanup_data_impl(
-        auth_session, graph_client, filename, "data_process_instance", cleanup_file=True
-    )
+    try:
+        create_test_data(filename)
+        yield from _ingest_cleanup_data_impl(
+            auth_session, graph_client, filename, "data_process_instance"
+        )
+    finally:
+        os.remove(filename)
 
 
 # @pytest.mark.integration

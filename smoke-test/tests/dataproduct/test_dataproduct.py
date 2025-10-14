@@ -1,4 +1,5 @@
 import logging
+import os
 import tempfile
 from random import randint
 from typing import List
@@ -82,10 +83,13 @@ sleep_sec, sleep_times = get_sleep_info()
 @pytest.fixture(scope="module", autouse=False)
 def ingest_cleanup_data(auth_session, graph_client):
     _, filename = tempfile.mkstemp(suffix=".json")
-    create_test_data(filename)
-    yield from _ingest_cleanup_data_impl(
-        auth_session, graph_client, filename, "data_products", cleanup_file=True
-    )
+    try:
+        create_test_data(filename)
+        yield from _ingest_cleanup_data_impl(
+            auth_session, graph_client, filename, "data_products"
+        )
+    finally:
+        os.remove(filename)
 
 
 def get_gql_query(filename: str) -> str:
