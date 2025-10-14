@@ -3672,18 +3672,4 @@ public class GmsGraphQLEngine {
                       return null;
                     })));
   }
-
-  private void configureFilesResolver(final RuntimeWiring.Builder builder) {
-    builder.type(
-        "GetPresignedUploadUrlResponse",
-        typeWiring ->
-            typeWiring
-                .dataFetcher(
-                    "latestVersion",
-                    new EntityTypeResolver(
-                        entityTypes, (env) -> ((VersionSet) env.getSource()).getLatestVersion()))
-                .dataFetcher(
-                    "versionsSearch",
-                    new VersionsSearchResolver(this.entityClient, this.viewService)));
-  }
 }
