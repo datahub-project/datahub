@@ -15,7 +15,7 @@ from datahub.metadata.schema_classes import (
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
 )
-from tests.utils import get_sleep_info, wait_for_writes_to_sync
+from tests.utils import get_sleep_info
 
 logger = logging.getLogger(__name__)
 
@@ -81,11 +81,9 @@ sleep_sec, sleep_times = get_sleep_info()
 def ingest_cleanup_data(auth_session, graph_client):
     _, filename = tempfile.mkstemp(suffix=".json")
     create_test_data(filename)
-    wait_for_writes_to_sync()
     yield from _ingest_cleanup_data_impl(
         auth_session, graph_client, filename, "ml_models", cleanup_file=True
     )
-    wait_for_writes_to_sync()
 
 
 @pytest.mark.integration

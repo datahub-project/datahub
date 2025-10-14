@@ -13,7 +13,7 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
-from tests.utils import get_sleep_info, wait_for_writes_to_sync
+from tests.utils import get_sleep_info
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,6 @@ def ingest_cleanup_data(
     yield from _ingest_cleanup_data_impl(
         auth_session, graph_client, filename, "schema_fields", cleanup_file=True
     )
-    wait_for_writes_to_sync()
 
 
 def get_gql_query(filename: str) -> str:

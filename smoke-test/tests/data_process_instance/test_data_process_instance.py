@@ -164,17 +164,16 @@ def create_test_data(filename: str):
     for mcp in mcps:
         file_emitter.emit(mcp)
     file_emitter.close()
+    wait_for_writes_to_sync()
 
 
 @pytest.fixture(scope="module", autouse=False)
 def ingest_cleanup_data(auth_session, graph_client):
     _, filename = tempfile.mkstemp(suffix=".json")
     create_test_data(filename)
-    wait_for_writes_to_sync()
     yield from _ingest_cleanup_data_impl(
         auth_session, graph_client, filename, "data_process_instance", cleanup_file=True
     )
-    wait_for_writes_to_sync()
 
 
 # @pytest.mark.integration

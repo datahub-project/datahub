@@ -86,7 +86,6 @@ def ingest_cleanup_data(auth_session, graph_client):
     yield from _ingest_cleanup_data_impl(
         auth_session, graph_client, filename, "data_products", cleanup_file=True
     )
-    wait_for_writes_to_sync()
 
 
 def get_gql_query(filename: str) -> str:

@@ -13,6 +13,7 @@ from tests.utils import (
     wait_for_healthcheck_util,
     ingest_file_via_rest,
     delete_urns_from_file,
+    wait_for_writes_to_sync,
 )
 
 # Disable telemetry
@@ -92,11 +93,15 @@ def _ingest_cleanup_data_impl(
             )
     """
     try:
+        print(f"deleting {test_name} test data for idempotency")
+        delete_urns_from_file(graph_client, data_file)
         print(f"ingesting {test_name} test data")
         ingest_file_via_rest(auth_session, data_file)
+        wait_for_writes_to_sync()
         yield
         print(f"removing {test_name} test data")
         delete_urns_from_file(graph_client, data_file)
+        wait_for_writes_to_sync()
     finally:
         if cleanup_file and os.path.exists(data_file):
             os.remove(data_file)

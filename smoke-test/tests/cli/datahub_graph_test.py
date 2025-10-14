@@ -23,8 +23,6 @@ graph_2 = "test_resources/graph_dataDiff.json"
 
 @pytest.fixture(scope="module", autouse=False)
 def ingest_cleanup_data(auth_session, graph_client):
-    print("removing graph test data")
-    delete_urns_from_file(graph_client, "tests/cli/graph_data.json")
     yield from _ingest_cleanup_data_impl(
         auth_session, graph_client, "tests/cli/graph_data.json", "graph"
     )
