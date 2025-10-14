@@ -1,6 +1,9 @@
 from bson import ObjectId
+from deepdiff import DeepDiff
 
 from datahub.ingestion.source.schema_inference.object import construct_schema
+
+EXCLUDE_SCHEMA_FIELDS = [r"root\[.+\]\['types'\]", r"root\[.+\]\['delimited_name'\]"]
 
 
 def test_construct_schema_basic_types():
@@ -268,41 +271,60 @@ def test_construct_schema_mongodb_example():
 
     schema = construct_schema(collection)
 
-    assert schema[("_id",)]["type"] is ObjectId
-    assert schema[("_id",)]["count"] == 3
-    assert not schema[("_id",)]["nullable"]
-
-    assert schema[("name",)]["type"] is str
-    assert schema[("name",)]["count"] == 3
-    assert not schema[("name",)]["nullable"]
-
-    assert schema[("rating",)]["type"] is float
-    assert schema[("rating",)]["count"] == 3
-    assert not schema[("rating",)]["nullable"]
-
-    assert schema[("varieties",)]["type"] is list
-    assert schema[("varieties",)]["count"] == 2
-    assert schema[("varieties",)]["nullable"]
-
-    assert schema[("tasty",)]["type"] is bool
-    assert schema[("tasty",)]["count"] == 3
-    assert not schema[("tasty",)]["nullable"]
-
-    assert schema[("mixedType",)]["type"] == "mixed"
-    assert schema[("mixedType",)]["count"] == 3
-    assert not schema[("mixedType",)]["nullable"]
-
-    assert schema[("mixedType", "fieldA")]["type"] is str
-    assert schema[("mixedType", "fieldA")]["count"] == 1
-    assert schema[("mixedType", "fieldA")]["nullable"]
-
-    assert schema[("mixedType", "fieldTwo")]["type"] is int
-    assert schema[("mixedType", "fieldTwo")]["count"] == 1
-    assert schema[("mixedType", "fieldTwo")]["nullable"]
-
-    assert schema[("nullableMixedType",)]["type"] == "mixed"
-    assert schema[("nullableMixedType",)]["count"] == 2
-    assert schema[("nullableMixedType",)]["nullable"]
+    assert (
+        DeepDiff(
+            schema,
+            {
+                ("_id",): {
+                    "type": ObjectId,
+                    "count": 3,
+                    "nullable": False,
+                },
+                ("name",): {
+                    "type": str,
+                    "count": 3,
+                    "nullable": False,
+                },
+                ("rating",): {
+                    "type": float,
+                    "count": 3,
+                    "nullable": False,
+                },
+                ("varieties",): {
+                    "type": list,
+                    "count": 2,
+                    "nullable": True,
+                },
+                ("tasty",): {
+                    "type": bool,
+                    "count": 3,
+                    "nullable": False,
+                },
+                ("mixedType",): {
+                    "type": "mixed",
+                    "count": 3,
+                    "nullable": False,
+                },
+                ("mixedType", "fieldA"): {
+                    "type": str,
+                    "count": 1,
+                    "nullable": True,
+                },
+                ("mixedType", "fieldTwo"): {
+                    "type": int,
+                    "count": 1,
+                    "nullable": True,
+                },
+                ("nullableMixedType",): {
+                    "type": "mixed",
+                    "count": 2,
+                    "nullable": True,
+                },
+            },
+            exclude_regex_paths=EXCLUDE_SCHEMA_FIELDS,
+        )
+        == {}
+    )
 
 
 def test_construct_schema_complex_nested_arrays():
@@ -338,46 +360,65 @@ def test_construct_schema_complex_nested_arrays():
 
     schema = construct_schema(collection)
 
-    assert schema[("products",)]["type"] is list
-    assert schema[("products",)]["count"] == 2
-    assert not schema[("products",)]["nullable"]
-
-    assert schema[("products", "name")]["type"] is str
-    assert schema[("products", "name")]["count"] == 3
-    assert not schema[("products", "name")]["nullable"]
-
-    assert schema[("products", "specs")]["type"] is dict
-    assert schema[("products", "specs")]["count"] == 3
-    assert not schema[("products", "specs")]["nullable"]
-
-    assert schema[("products", "specs", "cpu")]["type"] is str
-    assert schema[("products", "specs", "cpu")]["count"] == 1
-    assert schema[("products", "specs", "cpu")]["nullable"]
-
-    assert schema[("products", "specs", "ram")]["type"] is int
-    assert schema[("products", "specs", "ram")]["count"] == 1
-    assert schema[("products", "specs", "ram")]["nullable"]
-
-    assert schema[("products", "specs", "dpi")]["type"] is int
-    assert schema[("products", "specs", "dpi")]["count"] == 1
-    assert schema[("products", "specs", "dpi")]["nullable"]
-
-    assert schema[("products", "specs", "switches")]["type"] is str
-    assert schema[("products", "specs", "switches")]["count"] == 1
-    assert schema[("products", "specs", "switches")]["nullable"]
-
-    assert schema[("products", "reviews")]["type"] is list
-    assert schema[("products", "reviews")]["count"] == 2
-    assert schema[("products", "reviews")]["nullable"]
-
-    assert schema[("products", "reviews", "rating")]["type"] is int
-    assert schema[("products", "reviews", "rating")]["count"] == 3
-    # should be non-nullable, bug?
-    # assert not schema[("products", "reviews", "rating")]["nullable"]
-
-    assert schema[("products", "reviews", "comment")]["type"] is str
-    assert schema[("products", "reviews", "comment")]["count"] == 2
-    assert schema[("products", "reviews", "comment")]["nullable"]
+    assert (
+        DeepDiff(
+            schema,
+            {
+                ("products",): {
+                    "type": list,
+                    "count": 2,
+                    "nullable": False,
+                },
+                ("products", "name"): {
+                    "type": str,
+                    "count": 3,
+                    "nullable": False,
+                },
+                ("products", "specs"): {
+                    "type": dict,
+                    "count": 3,
+                    "nullable": False,
+                },
+                ("products", "specs", "cpu"): {
+                    "type": str,
+                    "count": 1,
+                    "nullable": True,
+                },
+                ("products", "specs", "ram"): {
+                    "type": int,
+                    "count": 1,
+                    "nullable": True,
+                },
+                ("products", "specs", "dpi"): {
+                    "type": int,
+                    "count": 1,
+                    "nullable": True,
+                },
+                ("products", "specs", "switches"): {
+                    "type": str,
+                    "count": 1,
+                    "nullable": True,
+                },
+                ("products", "reviews"): {
+                    "type": list,
+                    "count": 2,
+                    "nullable": True,
+                },
+                ("products", "reviews", "rating"): {
+                    "type": int,
+                    "count": 3,
+                    "nullable": True,
+                },
+                ("products", "reviews", "comment"): {
+                    "type": str,
+                    "count": 2,
+                    "nullable": True,
+                },
+            },
+            exclude_regex_paths=EXCLUDE_SCHEMA_FIELDS,
+        )
+        == {}
+    )
 
 
 def test_construct_schema_array_with_varying_field_counts():
@@ -394,25 +435,40 @@ def test_construct_schema_array_with_varying_field_counts():
 
     schema = construct_schema(collection)
 
-    assert schema[("orders",)]["type"] is list
-    assert schema[("orders",)]["count"] == 1
-    assert not schema[("orders",)]["nullable"]
-
-    assert schema[("orders", "id")]["type"] is int
-    assert schema[("orders", "id")]["count"] == 4
-    assert not schema[("orders", "id")]["nullable"]
-
-    assert schema[("orders", "amount")]["type"] is float
-    assert schema[("orders", "amount")]["count"] == 4
-    assert not schema[("orders", "amount")]["nullable"]
-
-    assert schema[("orders", "status")]["type"] is str
-    assert schema[("orders", "status")]["count"] == 2
-    assert schema[("orders", "status")]["nullable"]
-
-    assert schema[("orders", "discount")]["type"] is float
-    assert schema[("orders", "discount")]["count"] == 2
-    assert schema[("orders", "discount")]["nullable"]
+    assert (
+        DeepDiff(
+            schema,
+            {
+                ("orders",): {
+                    "type": list,
+                    "count": 1,
+                    "nullable": False,
+                },
+                ("orders", "id"): {
+                    "type": int,
+                    "count": 4,
+                    "nullable": False,
+                },
+                ("orders", "amount"): {
+                    "type": float,
+                    "count": 4,
+                    "nullable": False,
+                },
+                ("orders", "status"): {
+                    "type": str,
+                    "count": 3,
+                    "nullable": True,
+                },
+                ("orders", "discount"): {
+                    "type": float,
+                    "count": 2,
+                    "nullable": True,
+                },
+            },
+            exclude_regex_paths=EXCLUDE_SCHEMA_FIELDS,
+        )
+        == {}
+    )
 
 
 def test_construct_schema_array_with_mixed_item_types():
