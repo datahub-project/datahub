@@ -413,8 +413,11 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 ## Changelog
 
 ### Next
+
 - _Changes_:
-    - Map jdbc sqlserver dialect to mssql platform otherwise OpenLineage fails to parse the sql
+  - Map jdbc sqlserver dialect to mssql platform otherwise OpenLineage fails to parse the sql
+- _Fixes_:
+  - **Dependency Relocation Fix** ([#14989](https://github.com/datahub-project/datahub/issues/14989)): Fixed shadow JAR packaging to properly relocate all transitive dependencies, preventing classloading conflicts with other Spark extensions. All dependencies except `io.openlineage` (which contains customized classes) and `datahub.spark` (the public API) are now properly relocated under `io.acryl.shaded` namespace. This resolves conflicts with libraries like ANTLR, Apache Avro, and others that could clash with Delta Lake and other Spark components.
 
 ### Version 0.2.18
 

@@ -5,6 +5,7 @@ This module integrates OpenLineage with DataHub's Spark lineage collection. It c
 ## Architecture
 
 This module:
+
 - Builds shadow JARs for multiple Scala versions (2.12 and 2.13)
 - Contains custom OpenLineage class implementations
 - Depends on `io.openlineage:openlineage-spark` as specified by `ext.openLineageVersion` in the root `build.gradle`
@@ -14,6 +15,7 @@ This module:
 ### Current Version
 
 The OpenLineage version is defined in the root `build.gradle`:
+
 ```gradle
 ext.openLineageVersion = '1.38.0'
 ```
@@ -21,6 +23,7 @@ ext.openLineageVersion = '1.38.0'
 **Last upgraded:** October 2, 2025 (from 1.33.0 to 1.38.0)
 
 **Key changes in 1.38.0:**
+
 - ✅ AWS Glue ARN handling now in upstream (was DataHub customization)
 - ✅ `getMetastoreUri()` and `getWarehouseLocation()` now public upstream
 - ✅ SaveIntoDataSourceCommandVisitor Delta table handling adopted upstream
@@ -51,6 +54,7 @@ patches/backup-<timestamp>/      # Automatic backups during upgrades
 ### Shadowed Classes Location
 
 Custom OpenLineage implementations are in:
+
 ```
 src/main/java/io/openlineage/
 ```
@@ -95,23 +99,27 @@ Use the automated upgrade script:
 If you prefer manual control or need to resolve conflicts:
 
 1. **Fetch upstream files**:
+
    ```bash
    ./scripts/fetch-upstream.sh 1.38.0
    ```
 
 2. **Compare upstream changes** (optional):
+
    ```bash
    # See what changed between versions
    diff -r patches/upstream-1.33.0 patches/upstream-1.38.0
    ```
 
 3. **Update source files**:
+
    ```bash
    # Copy new upstream files
    cp -r patches/upstream-1.38.0/* src/main/java/io/openlineage/
    ```
 
 4. **Apply DataHub customizations**:
+
    ```bash
    # Apply all patches for the target version
    for patch in patches/datahub-customizations/v1.38.0/*.patch; do
@@ -121,17 +129,20 @@ If you prefer manual control or need to resolve conflicts:
    ```
 
 5. **Handle conflicts**:
+
    - If patches fail, manually merge changes from:
      - Backup: `patches/backup-<timestamp>/`
      - New upstream: `patches/upstream-<new-version>/`
      - Patches show what to customize: `patches/datahub-customizations/v<version>/`
 
 6. **Regenerate patches** (if you manually merged):
+
    ```bash
    ./scripts/generate-patches.sh 1.38.0
    ```
 
 7. **Update build.gradle**:
+
    ```gradle
    ext.openLineageVersion = '1.38.0'
    ```
@@ -170,6 +181,7 @@ If you need to customize additional files:
 ### Troubleshooting
 
 **Patch conflicts during upgrade:**
+
 - The upgrade script preserves backups in `patches/backup-<timestamp>/`
 - Manually merge by comparing:
   - Your backup (shows DataHub customizations)
@@ -177,11 +189,13 @@ If you need to customize additional files:
   - Existing patch (shows what customizations to preserve)
 
 **Files that are entirely DataHub-specific:**
+
 - `FileStreamMicroBatchStreamStrategy.java` - Custom file-based streaming
 - Redshift vendor files - Complete custom Redshift support
 - These have `.note` files instead of `.patch` files
 
 **Debugging patches:**
+
 ```bash
 # Dry-run to see if patch will apply cleanly
 patch -p0 --dry-run < patches/datahub-customizations/v1.38.0/Vendors.patch
@@ -193,14 +207,33 @@ patch -p0 --dry-run < patches/datahub-customizations/v1.38.0/Vendors.patch | les
 ### Debugging
 
 To see resolved dependencies for each Scala version:
+
 ```bash
 ./gradlew :metadata-integration:java:acryl-spark-lineage:debugDependencies
 ```
 
 ## Build Tasks
 
-- `./gradlew :metadata-integration:java:acryl-spark-lineage:build` - Build all shadow JARs
-- `./gradlew :metadata-integration:java:acryl-spark-lineage:shadowJar_2_12` - Build Scala 2.12 JAR only
-- `./gradlew :metadata-integration:java:acryl-spark-lineage:shadowJar_2_13` - Build Scala 2.13 JAR only
-- `./gradlew :metadata-integration:java:acryl-spark-lineage:test` - Run unit tests
-- `./gradlew :metadata-integration:java:acryl-spark-lineage:integrationTest` - Run integration tests
+**Building from repository root:**
+
+```bash
+# Build all shadow JARs (both Scala 2.12 and 2.13)
+./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:acryl-spark-lineage:shadowJar
+
+# Build specific Scala version
+./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:acryl-spark-lineage:shadowJar_2_12
+./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:acryl-spark-lineage:shadowJar_2_13
+
+# Run tests
+./gradlew :metadata-integration:java:acryl-spark-lineage:test
+
+# Run integration tests
+./gradlew :metadata-integration:java:acryl-spark-lineage:integrationTest
+
+# Full build with tests
+./gradlew :metadata-integration:java:acryl-spark-lineage:build
+```
+
+**Note:** Java 8 is required to build this project, specified via `-PjavaClassVersionDefault=8`. The shadow JARs are output to `build/libs/` with filenames like:
+- `acryl-spark-lineage_2.12-<version>.jar`
+- `acryl-spark-lineage_2.13-<version>.jar`
