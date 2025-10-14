@@ -119,6 +119,7 @@
         "root\\['facets'\\]"
       ],
       "json": {
+        "scrollId": "IGNORED",
         "entities": [
           {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetSingle1EntityV3,PROD)",
@@ -129,9 +130,19 @@
                 "customProperties": {},
                 "tags": []
               }
+            },
+            "scrollId": "IGNORED"
+          }
+        ],
+        "facets": [
+          {
+            "field": "entity",
+            "aggregations": {
+              "dataset": 1
             }
           }
-        ]
+        ],
+        "totalCount": 3
       }
     }
   },
