@@ -1,15 +1,12 @@
 import { Button, Input, Pill, SearchBar, SimpleSelect, Table, ActionsBar } from '@components';
-import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
-import { useHistory } from 'react-router';
 
 import { Column } from '@components/components/Table/types';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
 import { PageRoutes } from '@conf/Global';
-import { Entity, EntityData } from '../glossary.types';
+import { Entity } from '../glossary.types';
 import { EntityDetailsModal } from './EntityDetailsModal/EntityDetailsModal';
 import { DiffModal } from './DiffModal/DiffModal';
 import { ImportProgressModal } from './ImportProgressModal/ImportProgressModal';
@@ -22,6 +19,7 @@ import { HierarchyNameResolver } from '../shared/utils/hierarchyUtils';
 import { useApolloClient } from '@apollo/client';
 import DropzoneTable from './DropzoneTable/DropzoneTable';
 import { BreadcrumbHeader } from '../shared/components/BreadcrumbHeader';
+import { colors } from '@src/alchemy-components';
 
 // Styled components following IngestionSourceList pattern
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
@@ -43,11 +41,15 @@ const SourceContainer = styled.div`
     display: flex;
     flex-direction: column;
     height: 100%;
-    overflow: auto;
+    overflow: hidden;
 `;
 
 const HeaderContainer = styled.div`
-    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 `;
 
 const StyledTabToolbar = styled.div`
@@ -84,92 +86,49 @@ const StyledSimpleSelect = styled(SimpleSelect)`
 
 const TableContainer = styled.div`
     flex: 1;
-    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     min-width: 0;
-    margin: 0 0 16px 0;
+    min-height: 0;
     
     /* Enable horizontal scrolling for the table */
     .table-wrapper {
         overflow-x: auto;
-        overflow-y: visible;
+        overflow-y: auto;
         min-width: 100%;
+        flex: 1;
     }
     
     /* Reduce table cell padding and spacing */
-    .ant-table-tbody > tr > td {
-        padding: 8px 12px !important;
-        border-bottom: 1px solid #f0f0f0;
+    &&& .ant-table-tbody > tr > td {
+        padding: 8px 12px;
+        border-bottom: 1px solid ${colors.gray[100]};
     }
     
-    .ant-table-thead > tr > th {
-        padding: 8px 12px !important;
-        background-color: #fafafa;
+    &&& .ant-table-thead > tr > th {
+        padding: 8px 12px;
+        background-color: ${colors.gray[1500]};
         font-weight: 600;
         font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        color: ${colors.gray[600]};
     }
     
     /* Compact table styling */
-    .ant-table {
+    &&& .ant-table {
         font-size: 13px;
     }
     
-    .ant-table-tbody > tr:hover > td {
-        background-color: #f5f5f5;
+    &&& .ant-table-tbody > tr:hover > td {
+        background-color: ${colors.gray[100]};
     }
 `;
 
-
-const StepActions = styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 16px;
-    padding: 16px 0;
-    border-top: 1px solid #e8e8e8;
-`;
-
-const StepButtons = styled.div`
-    display: flex;
-    gap: 12px;
-`;
-
-
-// Wizard step definitions
-const wizardSteps = [
-    {
-        title: 'Upload CSV',
-        description: 'Select and upload your glossary CSV file',
-        key: 'upload',
-    },
-    {
-        title: 'Preview Data',
-        description: 'Review and edit imported data',
-        key: 'preview',
-    },
-    {
-        title: 'Compare & Validate',
-        description: 'Compare with existing entities',
-        key: 'compare',
-    },
-    {
-        title: 'Manage Hierarchy',
-        description: 'Set up parent-child relationships',
-        key: 'hierarchy',
-    },
-    {
-        title: 'Import',
-        description: 'Execute the import process',
-        key: 'import',
-    },
-];
-
-
 export const WizardPage = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
-    const history = useHistory();
-    const [currentStep, setCurrentStep] = useState(0); // Start at step 0 for upload page
+    const [currentStep, setCurrentStep] = useState(0); // Tracks wizard step (0=upload, 1=preview)
     
     // Import Processing state
     const [isImportModalVisible, setIsImportModalVisible] = useState(false);
@@ -192,59 +151,42 @@ export const WizardPage = () => {
     });
     
     // Import state management
-    // Real data state - no mock data
-    const [csvData, setCsvData] = useState<EntityData[]>([]);
-    const [parseResult, setParseResult] = useState<any>(null);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
     const [entities, setEntities] = useState<Entity[]>([]);
     const [existingEntities, setExistingEntities] = useState<Entity[]>([]);
     const [comparisonResult, setComparisonResult] = useState<any>(null);
-    const [isComparisonComplete, setIsComparisonComplete] = useState(false);
     
-    // Helper functions
-    const setCsvDataAndResult = useCallback((data: EntityData[], result: any) => {
-        setCsvData(data);
-        setParseResult(result);
+    // Helper function to set CSV data and result
+    const setCsvDataAndResult = (_data: any[], _result: any) => {
         setIsDataLoaded(true);
-    }, []);
+    };
     
-    const clearData = useCallback(() => {
-        setCsvData([]);
-        setParseResult(null);
+    // Helper function to clear all data
+    const clearData = () => {
         setIsDataLoaded(false);
         setEntities([]);
         setExistingEntities([]);
         setComparisonResult(null);
-        setIsComparisonComplete(false);
-    }, []);
+    };
     
-    // Initialize CSV processing hooks at component level
+    // Initialize hooks
     const csvProcessing = useCsvProcessing();
     const entityManagement = useEntityManagement();
     const { executeUnifiedGlossaryQuery } = useGraphQLOperations();
-    
     const { categorizeEntities } = useEntityComparison();
 
-    // Import handlers
-    const handleStartImport = useCallback(async () => {
+    // Import handler
+    const handleStartImport = async () => {
         try {
             setIsImportModalVisible(true);
             await startImport(entities, existingEntities);
         } catch (error) {
             console.error('Import failed:', error);
         }
-    }, [entities, existingEntities, startImport]);
-
-    const handleNext = () => {
-        if (currentStep < wizardSteps.length - 1) {
-            setCurrentStep(currentStep + 1);
-        }
     };
 
-    const handlePrevious = () => {
-        if (currentStep > 0) {
-            setCurrentStep(currentStep - 1);
-        }
+    const handleNext = () => {
+        setCurrentStep(1); // Move to preview step
     };
 
     const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -457,64 +399,6 @@ export const WizardPage = () => {
         }
     ];
 
-    const renderStepContent = () => {
-        switch (currentStep) {
-            case 0: // Upload CSV
-    return (
-                    <DropzoneTable
-                        onFileSelect={handleFileSelect}
-                        onFileRemove={handleFileRemove}
-                        file={uploadFile}
-                        isProcessing={isProcessing}
-                        progress={uploadProgress}
-                        error={uploadError}
-                        acceptedFileTypes={['.csv']}
-                        maxFileSize={10}
-                    />
-                );
-            case 1: // Preview Data
-                return <GlossaryImportList 
-                    entities={entities} 
-                    setEntities={setEntities} 
-                    existingEntities={existingEntities}
-                    onRestart={handleRestart} 
-                    csvProcessing={csvProcessing} 
-                    entityManagement={entityManagement} 
-                    onStartImport={handleStartImport}
-                    isImportModalVisible={isImportModalVisible}
-                    setIsImportModalVisible={setIsImportModalVisible}
-                    progress={progress}
-                    isProcessing={isProcessing}
-                    resetProgress={resetProgress}
-                    retryFailed={retryFailed}
-                />;
-            case 2: // Compare & Validate
-                return <div>Compare & Validate Step - Coming Soon</div>;
-            case 3: // Manage Hierarchy
-                return <div>Manage Hierarchy Step - Coming Soon</div>;
-            case 4: // Import
-                return <div>Import Step - Coming Soon</div>;
-            default:
-                return <div>Unknown step</div>;
-        }
-    };
-
-    const canProceed = () => {
-        switch (currentStep) {
-            case 0: // Upload CSV
-                return isDataLoaded && entities.length > 0;
-            case 1: // Preview Data
-                return true; // Always can proceed from preview
-            case 2: // Compare & Validate
-                return isComparisonComplete;
-            case 3: // Manage Hierarchy
-                return true; // Always can proceed from hierarchy
-            case 4: // Import
-                return true; // Always can proceed to import
-            default:
-                return false;
-        }
-    };
 
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
@@ -525,7 +409,34 @@ export const WizardPage = () => {
             />
             <SourceContainer>
                 <HeaderContainer>
-                {renderStepContent()}
+                    {currentStep === 0 ? (
+                        <DropzoneTable
+                            onFileSelect={handleFileSelect}
+                            onFileRemove={handleFileRemove}
+                            file={uploadFile}
+                            isProcessing={isProcessing}
+                            progress={uploadProgress}
+                            error={uploadError}
+                            acceptedFileTypes={['.csv']}
+                            maxFileSize={10}
+                        />
+                    ) : (
+                        <GlossaryImportList 
+                            entities={entities} 
+                            setEntities={setEntities} 
+                            existingEntities={existingEntities}
+                            onRestart={handleRestart} 
+                            csvProcessing={csvProcessing}
+                            entityManagement={entityManagement}
+                            onStartImport={handleStartImport}
+                            isImportModalVisible={isImportModalVisible}
+                            setIsImportModalVisible={setIsImportModalVisible}
+                            progress={progress}
+                            isProcessing={isProcessing}
+                            resetProgress={resetProgress}
+                            retryFailed={retryFailed}
+                        />
+                    )}
                 </HeaderContainer>
                 
                 {/* Actions Bar - Always visible */}
@@ -535,7 +446,7 @@ export const WizardPage = () => {
                     flexShrink: 0, 
                     padding: '16px 0', 
                     marginTop: '16px', 
-                    borderTop: '1px solid #e8e8e8' 
+                    borderTop: `1px solid ${colors.gray[100]}` 
                 }}>
                     <ActionsBar>
                         {entities.length > 0 && (
@@ -559,41 +470,6 @@ export const WizardPage = () => {
                         )}
                     </ActionsBar>
                 </div>
-
-                {/* Step Actions - Only show if not on data preview step */}
-                {currentStep !== 1 && (
-                    <StepActions>
-                        <div>
-                            {currentStep > 0 && (
-                                <Button variant="outline" onClick={handlePrevious}>
-                                    Previous
-                                </Button>
-                            )}
-                        </div>
-                        <StepButtons>
-                            <Button variant="outline" onClick={() => history.back()}>
-                                Cancel
-                            </Button>
-                            {currentStep < wizardSteps.length - 1 ? (
-                                <Button 
-                                    variant="filled" 
-                                    onClick={handleNext}
-                                    disabled={!canProceed()}
-                                >
-                                    Next
-                                </Button>
-                            ) : (
-                                <Button 
-                                    variant="filled" 
-                                    color="green"
-                                    disabled={!canProceed()}
-                                >
-                                    Import
-                                </Button>
-                            )}
-                        </StepButtons>
-                    </StepActions>
-                )}
             </SourceContainer>
         </PageContainer>
     );
@@ -792,6 +668,29 @@ const GlossaryImportList = ({
 
     const handleCellCancel = () => {
         setEditingCell(null);
+    };
+
+    // Expand/Collapse All functionality
+    const handleExpandAll = () => {
+        // Recursively collect all entity names that have children at any level
+        const collectExpandableKeys = (entities: (Entity & { children?: Entity[] })[]): string[] => {
+            const keys: string[] = [];
+            entities.forEach(entity => {
+                if (entity.children && entity.children.length > 0) {
+                    keys.push(entity.name);
+                    // Recursively collect from children
+                    keys.push(...collectExpandableKeys(entity.children));
+                }
+            });
+            return keys;
+        };
+        
+        const allExpandableKeys = collectExpandableKeys(hierarchicalData);
+        setExpandedRowKeys(allExpandableKeys);
+    };
+
+    const handleCollapseAll = () => {
+        setExpandedRowKeys([]);
     };
 
     // Organize entities into hierarchical structure for collapsible parents
@@ -1348,7 +1247,7 @@ const GlossaryImportList = ({
     ];
 
     return (
-        <>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
                     <StyledTabToolbar>
                         <SearchContainer>
                             <StyledSearchBar
@@ -1373,7 +1272,24 @@ const GlossaryImportList = ({
                             />
                         </SearchContainer>
                         <FilterButtonsContainer>
-                    {/* Add refresh button or other actions here if needed */}
+                            <Button
+                                variant="text"
+                                size="sm"
+                                icon={{ icon: 'CaretDown', source: 'phosphor' }}
+                                onClick={handleExpandAll}
+                                disabled={hierarchicalData.filter(e => e.children && e.children.length > 0).length === 0}
+                            >
+                                Expand All
+                            </Button>
+                            <Button
+                                variant="text"
+                                size="sm"
+                                icon={{ icon: 'CaretUp', source: 'phosphor' }}
+                                onClick={handleCollapseAll}
+                                disabled={expandedRowKeys.length === 0}
+                            >
+                                Collapse All
+                            </Button>
                         </FilterButtonsContainer>
                     </StyledTabToolbar>
             
@@ -1383,7 +1299,6 @@ const GlossaryImportList = ({
                     data={flattenedData}
                     showHeader
                                 isScrollable
-                    maxHeight="400px"
                     rowKey="id"
                     isBorderless={false}
                             />
@@ -1413,7 +1328,7 @@ const GlossaryImportList = ({
                 progress={progress}
                 isProcessing={isProcessing}
             />
-        </>
+        </div>
     );
 };
 

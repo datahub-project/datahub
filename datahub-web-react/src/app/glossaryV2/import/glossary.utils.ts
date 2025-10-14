@@ -222,32 +222,56 @@ export function validateUrl(url: string): ValidationResult {
 
 /**
  * Check for duplicate names in entity data
+ * NOTE: Only detects duplicates within the same hierarchy level (same parent)
+ * Entities with different parents can have the same name
  */
 export function findDuplicateNames(entities: EntityData[]): ValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
-  const nameCounts = new Map<string, number[]>();
+  
+  // Group entities by their parent (or root level if no parent)
+  // Key format: "parent1,parent2" (sorted, comma-separated) or "" for root level
+  const hierarchyGroups = new Map<string, EntityData[]>();
 
   entities.forEach((entity, index) => {
-    const name = entity.name?.toLowerCase();
-    if (name) {
-      if (!nameCounts.has(name)) {
-        nameCounts.set(name, []);
-      }
-      nameCounts.get(name)!.push(index);
+    const parentKey = entity.parent_nodes 
+      ? parseCommaSeparated(entity.parent_nodes).sort().join(',').toLowerCase()
+      : ''; // Empty string for root-level entities
+    
+    if (!hierarchyGroups.has(parentKey)) {
+      hierarchyGroups.set(parentKey, []);
     }
+    hierarchyGroups.get(parentKey)!.push(entity);
   });
 
-  nameCounts.forEach((indices, name) => {
-    if (indices.length > 1) {
-      indices.forEach(rowIndex => {
-        errors.push({
-          field: 'name',
-          message: `Duplicate name "${name}" found in rows ${indices.join(', ')}`,
-          code: 'DUPLICATE_NAME'
+  // Check for duplicates within each hierarchy group
+  hierarchyGroups.forEach((entitiesInGroup, parentKey) => {
+    const nameCounts = new Map<string, number[]>();
+
+    entitiesInGroup.forEach((entity) => {
+      const name = entity.name?.toLowerCase();
+      if (name) {
+        if (!nameCounts.has(name)) {
+          nameCounts.set(name, []);
+        }
+        // Find the original index in the entities array
+        const originalIndex = entities.indexOf(entity);
+        nameCounts.get(name)!.push(originalIndex);
+      }
+    });
+
+    nameCounts.forEach((indices, name) => {
+      if (indices.length > 1) {
+        const parentLabel = parentKey ? `with parent(s) "${parentKey}"` : 'at root level';
+        indices.forEach(rowIndex => {
+          errors.push({
+            field: 'name',
+            message: `Duplicate name "${name}" found ${parentLabel} in rows ${indices.map(i => i + 1).join(', ')}`,
+            code: 'DUPLICATE_NAME'
+          });
         });
-      });
-    }
+      }
+    });
   });
 
   return {
