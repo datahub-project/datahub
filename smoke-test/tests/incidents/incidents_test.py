@@ -3,7 +3,12 @@ from typing import Any, Dict
 
 import pytest
 
-from tests.utils import delete_urns_from_file, execute_graphql, ingest_file_via_rest
+from tests.utils import (
+    delete_entity,
+    delete_urns_from_file,
+    execute_graphql,
+    ingest_file_via_rest,
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -199,11 +204,5 @@ def test_raise_resolve_incident(auth_session):
     assert new_incident["incidentStatus"]["state"] == "RESOLVED"
     assert new_incident["priority"] == "CRITICAL"
 
-    delete_json = {"urn": new_incident_urn}
-
     # Cleanup: Delete the incident
-    response = auth_session.post(
-        f"{auth_session.gms_url()}/entities?action=delete", json=delete_json
-    )
-
-    response.raise_for_status()
+    delete_entity(auth_session, new_incident_urn)
