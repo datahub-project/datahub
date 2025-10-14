@@ -173,11 +173,11 @@ class ConnectionModel(BaseModel):
     """Represents the config associated with a connection"""
 
     class Config:
-        if PYDANTIC_VERSION_2:  # noqa: SIM108
+        if PYDANTIC_VERSION_2:
             extra = "allow"
         else:
             extra = Extra.allow
-        underscore_attrs_are_private = True
+            underscore_attrs_are_private = True
 
 
 class TransformerSemantics(ConfigEnum):
