@@ -62,6 +62,7 @@ from datahub.ingestion.source.iceberg.iceberg import (
     IcebergProfiler,
     IcebergSource,
     IcebergSourceConfig,
+    ToAvroSchemaIcebergVisitor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
 from datahub.metadata.schema_classes import (
@@ -551,6 +552,70 @@ def test_avro_decimal_bytes_nullable() -> None:
     print(
         f"After avro parsing, _nullable attribute is preserved:  {boolean_avro_schema}"
     )
+
+
+def test_visit_timestamp_ns() -> None:
+    """
+    Test the visit_timestamp_ns method for handling nanosecond precision timestamps.
+    This method was added in pyiceberg 0.10.0 to support nanosecond precision timestamps.
+    """
+    visitor = ToAvroSchemaIcebergVisitor()
+
+    # Create a mock type object that behaves like TimestampNsType from pyiceberg 0.10.0+
+    # The string representation follows pyiceberg's pattern: "timestampns"
+    class MockTimestampNsType:
+        def __str__(self) -> str:
+            return "timestampns"
+
+    mock_type = MockTimestampNsType()
+    result = visitor.visit_timestamp_ns(mock_type)
+
+    # Verify the Avro schema structure
+    assert result["type"] == "long"
+    assert result["logicalType"] == "timestamp-micros"
+    assert result["native_data_type"] == "timestampns"
+
+
+def test_visit_timestamptz_ns() -> None:
+    """
+    Test the visit_timestamptz_ns method for handling nanosecond precision timestamps with timezone.
+    This method was added in pyiceberg 0.10.0 to support nanosecond precision timestamps with timezone.
+    """
+    visitor = ToAvroSchemaIcebergVisitor()
+
+    # Create a mock type object that behaves like TimestamptzNsType from pyiceberg 0.10.0+
+    # The string representation follows pyiceberg's pattern: "timestamptzns"
+    class MockTimestamptzNsType:
+        def __str__(self) -> str:
+            return "timestamptzns"
+
+    mock_type = MockTimestamptzNsType()
+    result = visitor.visit_timestamptz_ns(mock_type)
+
+    # Verify the Avro schema structure
+    assert result["type"] == "long"
+    assert result["logicalType"] == "timestamp-micros"
+    assert result["native_data_type"] == "timestamptzns"
+
+
+def test_visit_unknown() -> None:
+    """
+    Test the visit_unknown method for handling unknown/unsupported types.
+    This is a fallback method for types that don't have specific visitor implementations.
+    """
+    visitor = ToAvroSchemaIcebergVisitor()
+
+    # Create a mock type object representing an unknown type
+    class MockUnknownType:
+        def __str__(self) -> str:
+            return "unknown_custom_type"
+
+    mock_type = MockUnknownType()
+    result = visitor.visit_unknown(mock_type)
+
+    # Verify the Avro schema structure - unknown types are mapped to string
+    assert result["type"] == "string"
+    assert result["native_data_type"] == "unknown_custom_type"
 
 
 class MockCatalog:
