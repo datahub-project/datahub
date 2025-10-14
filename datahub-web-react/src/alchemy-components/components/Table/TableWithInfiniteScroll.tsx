@@ -21,7 +21,7 @@ interface TableWithInfiniteScrollProps<T> {
     newItemToAdd?: T;
     itemToRemove?: (item: T) => boolean;
     itemToUpdate?: { updatedItem: T; shouldUpdate: (item: T) => boolean };
-    triggerReset?: string | number | boolean;
+    resetTrigger?: string | number | boolean;
 }
 
 export function TableWithInfiniteScroll<T>({
@@ -32,7 +32,8 @@ export function TableWithInfiniteScroll<T>({
     newItemToAdd,
     itemToRemove,
     itemToUpdate,
-    triggerReset,
+    resetTrigger,
+    ...props
 }: TableWithInfiniteScrollProps<T>) {
     const {
         items: data,
@@ -46,7 +47,7 @@ export function TableWithInfiniteScroll<T>({
         fetchData,
         pageSize,
         totalItemCount,
-        triggerReset,
+        resetTrigger,
     });
 
     // Update states to show immediate feedback on the UI
@@ -95,6 +96,7 @@ export function TableWithInfiniteScroll<T>({
                     </>
                 );
             }}
+            {...props}
         />
     );
 }

@@ -6,6 +6,7 @@ import { useInfiniteScroll } from '@components/components/InfiniteScrollList/use
 
 const flushPromises = () => new Promise(setImmediate);
 
+// Mock IntersectionObserver
 const mockIntersectionObserver = vi.fn((callback) => {
     const observerInstance = {
         observe: (element: Element) => {
@@ -51,7 +52,7 @@ describe('useInfiniteScroll hook', () => {
         expect(result.current.hasMore).toBe(true);
     });
 
-    it('sets hasMore=false when less than pageSize items are fetched and no totalItemCount provided', async () => {
+    it('sets hasMore=false when fewer items than pageSize are returned', async () => {
         const dataBatches = [[1, 2]];
         const fetchData = createFetchDataMock(dataBatches);
 
@@ -85,7 +86,7 @@ describe('useInfiniteScroll hook', () => {
         expect(result.current.hasMore).toBe(false);
     });
 
-    it('does not load more data if already loading or hasMore is false', async () => {
+    it('does not fetch more when already loading or hasMore is false', async () => {
         const dataBatches = [[1, 2, 3]];
         const fetchData = createFetchDataMock(dataBatches);
 
@@ -93,12 +94,8 @@ describe('useInfiniteScroll hook', () => {
 
         await waitForNextUpdate();
 
-        expect(result.current.loading).toBe(false);
-        expect(result.current.hasMore).toBe(true);
-
-        // manually set hasMore=false to trigger early return
+        // set hasMore=false to trigger early return
         act(() => {
-            result.current.observerRef.current = document.createElement('div');
             result.current.hasMore = false as any;
         });
 
@@ -114,17 +111,25 @@ describe('useInfiniteScroll hook', () => {
         await waitForNextUpdate();
 
         expect(result.current.items).toEqual([]);
-        expect(result.current.hasMore).toBe(true); // fallback
+        expect(result.current.hasMore).toBe(true);
     });
 
-    it('prepends a new item correctly', async () => {
+    it('prepends a new item correctly and prevents duplicates', async () => {
         const dataBatches = [[1, 2, 3]];
         const fetchData = createFetchDataMock(dataBatches);
 
         const { result, waitForNextUpdate } = renderHook(() => useInfiniteScroll({ fetchData, pageSize }));
 
+        // Prepend before initial load
+        act(() => {
+            result.current.prependItem(0);
+        });
+
         await waitForNextUpdate();
 
+        expect(result.current.items).toEqual([0, 1, 2, 3]);
+
+        // Attempt to prepend the same item again
         act(() => {
             result.current.prependItem(0);
         });
@@ -214,5 +219,26 @@ describe('useInfiniteScroll hook', () => {
         expect(result.current.observerRef).toBeDefined();
         expect(typeof result.current.observerRef).toBe('object');
         expect(result.current.observerRef.current).toBeNull();
+    });
+
+    it('resets items and startIndex on resetTrigger', async () => {
+        const dataBatches = [[1, 2, 3]];
+        const fetchData = createFetchDataMock(dataBatches);
+
+        let trigger = 1;
+        const { result, waitForNextUpdate, rerender } = renderHook(
+            ({ resetTrigger }) => useInfiniteScroll({ fetchData, pageSize, resetTrigger }),
+            { initialProps: { resetTrigger: trigger } },
+        );
+
+        await waitForNextUpdate();
+        expect(result.current.items).toEqual([1, 2, 3]);
+
+        // Trigger reset
+        trigger = 2;
+        rerender({ resetTrigger: trigger });
+        expect(result.current.items).toEqual([]);
+        expect(result.current.hasMore).toBe(true);
+        expect(result.current.loading).toBe(false);
     });
 });

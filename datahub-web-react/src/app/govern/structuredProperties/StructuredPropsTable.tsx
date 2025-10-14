@@ -338,7 +338,7 @@ const StructuredPropsTable = ({
                               }
                             : undefined
                     }
-                    triggerReset={searchQuery}
+                    resetTrigger={searchQuery}
                 />
             )}
             <ConfirmationModal
