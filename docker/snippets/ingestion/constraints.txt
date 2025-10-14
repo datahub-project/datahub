@@ -1,0 +1,1 @@
+pydantic_core!=2.41.3
