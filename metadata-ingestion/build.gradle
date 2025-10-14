@@ -24,8 +24,9 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   def sentinel_file = "${venv_name}/.venv_environment_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
+  def venv_copies_flag = System.getenv('DATAHUB_VENV_USE_COPIES') == 'true' ? '--copies' : ''
   commandLine 'bash', '-c',
-    "if [ ! -d ${venv_name} ] || [ ! -f ${venv_name}/bin/python ]; then ${python_executable} -m venv ${venv_name}; fi && " +
+    "if [ ! -d ${venv_name} ] || [ ! -f ${venv_name}/bin/python ]; then ${python_executable} -m venv ${venv_copies_flag} ${venv_name}; fi && " +
     "set -x && " +
     // If we already have uv available, use it to upgrade uv. Otherwise, install it with pip.
     "if [ ! -f ${venv_name}/bin/uv ]; then ${venv_name}/bin/python -m pip install --upgrade uv; else ${venv_name}/bin/python -m uv pip install --upgrade uv; fi && " +

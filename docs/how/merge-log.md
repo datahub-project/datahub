@@ -795,3 +795,57 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **ef0b4a71ce** - fix(impact): add missing executor pool (#14976)
   *by david-leifker on 2025-10-10*
 
+
+## Upstream Merge Session - 2025-10-14 05:11:27
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-oct-13-2025`
+- **Merge Base**: `ef0b4a71ce77ec1b7ba7ef35ec9854998be6524c`
+- **End Commit**: `79eac47ec5aae2ca4120f4a64a3e364e9bfa9ca8`
+- **Total Commits**: 13
+- **Strategy**: stacked
+- **Started**: Tue Oct 14 05:11:27 UTC 2025
+
+### Commits Included in This Merge
+- **b45d606062** - fix(authentication): fix PlayCacheSessionStore (#14754)
+  *by trialiya on 2025-10-11*
+
+- **e8c144362e** - fix(ingest/dremio): Dremio sql parsing fix (#14974)
+  *by Tamas Nemeth on 2025-10-13*
+
+- **c20d2eb49e** - fix(cli): remove pydantic warning (#14987)
+  *by Aseem Bansal on 2025-10-13*
+
+- **6a167da408** - fix(build): Add --copies flag to Python venv creation for better compatibility (#14120)
+  *by Pedro Silva on 2025-10-13*
+
+- **82338628b6** - fix(smoke-test):cleanup existing token and add wait (#14988)
+  *by Deepak Garg on 2025-10-13*
+
+- **9fb82a73ad** - fix(ingest/deltalake) Deltalake ingestor doesn't delete metadata if the table is deleted.  (#14763)
+  *by alplatonov on 2025-10-13*
+
+- **db4a801f9d** - fix(ci): only applies to master (#14981)
+  *by david-leifker on 2025-10-13*
+
+- **c5cdce2c3d** - fix(upsertLink): remove log (#14984)
+  *by v-tarasevich-blitz-brain on 2025-10-13*
+
+- **d7b73b615d** - refactor(ui) : New great expectation logo (#14983)
+  *by DucNgoQuang on 2025-10-13*
+
+- **e4184fe251** - fix(api): add validation entity type for policy creation (#14955)
+  *by Aseem Bansal on 2025-10-13*
+
+- **ed4d3680a9** - build(actions): optimize docker layer caching for bundled-venvs (#14945)
+  *by Chakru on 2025-10-13*
+
+- **b0581dfe5a** - quickstart Reload improvements (#14982)
+  *by Chakru on 2025-10-13*
+
+- **79eac47ec5** - fix(upsertLink): reorder fields to be consistent with Saas (#14986)
+  *by v-tarasevich-blitz-brain on 2025-10-13*
+

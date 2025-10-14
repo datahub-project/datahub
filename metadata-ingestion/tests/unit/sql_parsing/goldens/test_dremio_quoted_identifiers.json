@@ -1,0 +1,75 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "51225b224793d6d8f175d540854116eae88bc3897f5d5f62419f9cd425e1dd15",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:dremio,mysource.sales.customers,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:dremio,mysource.sales.orders,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "order_id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:dremio,mysource.sales.orders,PROD)",
+                    "column": "order_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"orders\".\"order_id\" AS \"order_id\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "customer_name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:dremio,mysource.sales.customers,PROD)",
+                    "column": "customer_name"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"customers\".\"customer_name\" AS \"customer_name\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:dremio,mysource.sales.orders,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dremio,mysource.sales.customers,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:dremio,mysource.sales.customers,PROD)"
+            ],
+            "on_clause": "\"cte_orders\".\"customer_id\" = \"customers\".\"customer_id\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:dremio,mysource.sales.customers,PROD)",
+                    "column": "customer_id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:dremio,mysource.sales.orders,PROD)",
+                    "column": "customer_id"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "WITH \"cte_orders\" AS (SELECT * FROM \"MySource\".\"sales\".\"orders\" WHERE \"status\" = ?) SELECT \"cte_orders\".\"order_id\", \"customers\".\"customer_name\" FROM \"cte_orders\" JOIN \"MySource\".\"sales\".\"customers\" ON \"cte_orders\".\"customer_id\" = \"customers\".\"customer_id\""
+    }
+}
