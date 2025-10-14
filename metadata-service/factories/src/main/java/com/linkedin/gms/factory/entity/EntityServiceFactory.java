@@ -32,6 +32,7 @@ public class EntityServiceFactory {
       @Qualifier("entityAspectDao") final AspectDao aspectDao,
       @Qualifier("configurationProvider") ConfigurationProvider configurationProvider,
       @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2,
+      @Value("${featureFlags.cdcModeChangeLog}") final boolean enableCDCModeChangeLog,
       final List<ThrottleSensor> throttleSensors) {
 
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
@@ -41,6 +42,7 @@ public class EntityServiceFactory {
             aspectDao,
             eventProducer,
             featureFlags.isAlwaysEmitChangeLog(),
+            featureFlags.isCdcModeChangeLog(),
             featureFlags.getPreProcessHooks(),
             _ebeanMaxTransactionRetry,
             enableBrowsePathV2);

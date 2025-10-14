@@ -13,6 +13,7 @@ interface BaseEntityFilterProps extends FilterComponentProps {
     filterName: string;
     renderEntity: (entity: Entity) => React.ReactNode;
     entityTypes: EntityType[];
+    dataTestId?: string;
 }
 
 export default function BaseEntityFilter({
@@ -23,6 +24,7 @@ export default function BaseEntityFilter({
     facetState,
     renderEntity,
     entityTypes,
+    dataTestId,
 }: BaseEntityFilterProps) {
     const [searchQuery, setSearchQuery] = useState<string>('');
     // used to forcibly show entities in options even though these entities are not in facet
@@ -66,6 +68,7 @@ export default function BaseEntityFilter({
             selectLabelProps={{ variant: 'labeled', label: filterName }}
             renderCustomOptionText={(option) => renderEntity(option.entity)}
             width="fit-content"
+            dataTestId={dataTestId}
             onSearchChange={onSearch}
         />
     );

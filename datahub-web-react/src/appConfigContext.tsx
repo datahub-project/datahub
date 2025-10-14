@@ -91,6 +91,7 @@ export const DEFAULT_APP_CONFIG = {
         logicalModelsEnabled: false,
         showHomepageUserRole: false,
         assetSummaryPageV1: false,
+        documentationFileUploadV1: false,
     },
     chromeExtensionConfig: {
         enabled: false,

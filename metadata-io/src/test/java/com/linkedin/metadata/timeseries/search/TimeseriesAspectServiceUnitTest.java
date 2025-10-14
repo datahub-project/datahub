@@ -25,6 +25,8 @@ import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.pegasus2avro.entity.EnvelopedAspect;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import com.linkedin.util.Pair;
@@ -50,9 +52,6 @@ import org.apache.http.HttpEntity;
 import org.apache.lucene.search.TotalHits;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
-import org.opensearch.client.Response;
-import org.opensearch.client.RestClient;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.testng.Assert;
@@ -65,10 +64,10 @@ import org.testng.annotations.Test;
  */
 public class TimeseriesAspectServiceUnitTest {
 
-  private final RestHighLevelClient searchClient = mock(RestHighLevelClient.class);
+  private final SearchClientShim searchClient = mock(SearchClientShim.class);
   private final IndexConvention indexConvention = mock(IndexConvention.class);
   private final ESBulkProcessor bulkProcessor = mock(ESBulkProcessor.class);
-  private final RestClient restClient = mock(RestClient.class);
+  private final RawResponse response = mock(RawResponse.class);
   private final OperationContext opContext =
       TestOperationContexts.systemContextNoSearchAuthorization(indexConvention);
   private final EntityRegistry entityRegistry = opContext.getEntityRegistry();
@@ -89,13 +88,13 @@ public class TimeseriesAspectServiceUnitTest {
 
   @BeforeMethod
   public void resetMocks() {
-    reset(searchClient, indexConvention, bulkProcessor, restClient, indexBuilder);
+    reset(searchClient, indexConvention, bulkProcessor, response, indexBuilder);
   }
 
   @Test
   public void testGetIndicesIntegerWrap() throws IOException {
     when(indexConvention.getAllTimeseriesAspectIndicesPattern()).thenReturn(INDEX_PATTERN);
-    when(searchClient.getLowLevelClient()).thenReturn(restClient);
+    when(searchClient.performLowLevelRequest(any(Request.class))).thenReturn(response);
     ObjectNode jsonNode = JsonNodeFactory.instance.objectNode();
     ObjectNode indicesNode = JsonNodeFactory.instance.objectNode();
     ObjectNode indexNode = JsonNodeFactory.instance.objectNode();
@@ -108,12 +107,10 @@ public class TimeseriesAspectServiceUnitTest {
     indicesNode.set("someIndexName", indexNode);
     jsonNode.set("indices", indicesNode);
 
-    Response response = mock(Response.class);
     HttpEntity responseEntity = mock(HttpEntity.class);
     when(response.getEntity()).thenReturn(responseEntity);
     when(responseEntity.getContent())
         .thenReturn(IOUtils.toInputStream(jsonNode.toString(), StandardCharsets.UTF_8));
-    when(restClient.performRequest(any(Request.class))).thenReturn(response);
 
     List<TimeseriesIndexSizeResult> results = _timeseriesAspectService.getIndexSizes(opContext);
 
@@ -284,14 +281,12 @@ public class TimeseriesAspectServiceUnitTest {
 
     // Setup mock to throw IOException when reading JSON response
     when(indexConvention.getAllTimeseriesAspectIndicesPattern()).thenReturn(INDEX_PATTERN);
-    when(searchClient.getLowLevelClient()).thenReturn(restClient);
+    when(searchClient.performLowLevelRequest(any(Request.class))).thenReturn(response);
 
-    Response response = mock(Response.class);
     HttpEntity responseEntity = mock(HttpEntity.class);
     when(response.getEntity()).thenReturn(responseEntity);
     when(responseEntity.getContent())
         .thenReturn(IOUtils.toInputStream("invalid json", StandardCharsets.UTF_8));
-    when(restClient.performRequest(any(Request.class))).thenReturn(response);
 
     // Execute and verify RuntimeException is thrown
     try {

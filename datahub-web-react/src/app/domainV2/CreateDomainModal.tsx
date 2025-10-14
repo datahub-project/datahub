@@ -14,6 +14,9 @@ import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { Button, Input, Modal, TextArea } from '@src/alchemy-components';
 
@@ -75,7 +78,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
         setSelectedOwnerUrns(ownerUrns);
     }, []);
 
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
 
     const onCreateDomain = () => {
         // Create owner input objects from selected owner URNs using utility
@@ -123,7 +126,10 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     form.resetFields();
                     // Reload modules
                     // ChildHierarchy - to reload shown child domains on asset summary tab
-                    reloadModules([DataHubPageModuleType.ChildHierarchy], 3000);
+                    reloadByKeyType(
+                        [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.ChildHierarchy)],
+                        3000,
+                    );
                 }
             })
             .catch((e) => {

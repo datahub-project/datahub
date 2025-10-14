@@ -5,6 +5,7 @@ from random import randint
 
 import pytest
 
+from conftest import _ingest_cleanup_data_impl
 from datahub.emitter.mce_builder import make_ml_model_group_urn, make_ml_model_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
@@ -15,12 +16,7 @@ from datahub.metadata.schema_classes import (
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
 )
-from tests.utils import (
-    delete_urns_from_file,
-    get_sleep_info,
-    ingest_file_via_rest,
-    wait_for_writes_to_sync,
-)
+from tests.utils import get_sleep_info
 
 logger = logging.getLogger(__name__)
 
@@ -83,17 +79,13 @@ sleep_sec, sleep_times = get_sleep_info()
 
 
 @pytest.fixture(scope="module", autouse=False)
-def ingest_cleanup_data(auth_session, graph_client, request):
-    new_file, filename = tempfile.mkstemp(suffix=".json")
+def ingest_cleanup_data(auth_session, graph_client):
+    _, filename = tempfile.mkstemp(suffix=".json")
     try:
         create_test_data(filename)
-        print("ingesting ml model test data")
-        ingest_file_via_rest(auth_session, filename)
-        wait_for_writes_to_sync()
-        yield
-        print("removing ml model test data")
-        delete_urns_from_file(graph_client, filename)
-        wait_for_writes_to_sync()
+        yield from _ingest_cleanup_data_impl(
+            auth_session, graph_client, filename, "ml_models"
+        )
     finally:
         os.remove(filename)
 
