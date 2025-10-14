@@ -140,8 +140,20 @@ def check_endpoint(auth_session, url):
         raise SystemExit(f"{url}: is Not reachable \nErr: {e}")
 
 
+def delete_entity(auth_session, urn: str) -> None:
+    delete_json = {"urn": urn}
+    response = auth_session.post(
+        f"{auth_session.gms_url()}/entities?action=delete", json=delete_json
+    )
+
+    response.raise_for_status()
+
+
 def execute_graphql(
-    auth_session, query: str, variables: Optional[Dict[str, Any]] = None
+    auth_session,
+    query: str,
+    variables: Optional[Dict[str, Any]] = None,
+    expect_errors: bool = False,
 ) -> Dict[str, Any]:
     """Execute a GraphQL query with standard error handling.
 
