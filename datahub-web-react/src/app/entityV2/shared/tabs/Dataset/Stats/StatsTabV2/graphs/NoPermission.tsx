@@ -14,7 +14,7 @@ interface Props {
 
 const NoPermission = ({ statName }: Props) => {
     return (
-        <EmptyMessageContainer>
+        <EmptyMessageContainer data-testid="no-permissions">
             <EmptyMessageWrapper>
                 <Text size="2xl" weight="bold" color="gray">
                     No Permission

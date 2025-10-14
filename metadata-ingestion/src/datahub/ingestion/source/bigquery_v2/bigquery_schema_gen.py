@@ -66,7 +66,7 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source_report.ingestion_stage import (
     METADATA_EXTRACTION,
-    PROFILING,
+    IngestionHighStage,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
@@ -416,7 +416,7 @@ class BigQuerySchemaGenerator:
 
         if self.config.is_profiling_enabled():
             logger.info(f"Starting profiling project {project_id}")
-            with self.report.new_stage(f"{project_id}: {PROFILING}"):
+            with self.report.new_high_stage(IngestionHighStage.PROFILING):
                 yield from self.profiler.get_workunits(
                     project_id=project_id,
                     tables=db_tables,

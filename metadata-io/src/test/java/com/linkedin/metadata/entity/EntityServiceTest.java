@@ -130,6 +130,7 @@ import org.testng.annotations.Test;
 public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends RetentionService> {
 
   protected EntityServiceImpl _entityServiceImpl;
+  protected boolean cdcModeChangeLog = false;
   protected T_AD _aspectDao;
   protected T_RS _retentionService;
 
@@ -215,15 +216,21 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .get(0)
                 .getCorpUserKey())); // Key + Info aspect.
 
-    ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(
-            any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
-    MetadataChangeLog mcl = mclCaptor.getValue();
-    assertEquals(mcl.getEntityType(), "corpuser");
-    assertNull(mcl.getPreviousAspectValue());
-    assertNull(mcl.getPreviousSystemMetadata());
-    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    if (!cdcModeChangeLog) {
+      ArgumentCaptor<MetadataChangeLog> mclCaptor =
+          ArgumentCaptor.forClass(MetadataChangeLog.class);
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              mclCaptor.capture());
+      MetadataChangeLog mcl = mclCaptor.getValue();
+      assertEquals(mcl.getEntityType(), "corpuser");
+      assertNull(mcl.getPreviousAspectValue());
+      assertNull(mcl.getPreviousSystemMetadata());
+      assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    }
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -262,16 +269,22 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .get(0)
                 .getCorpUserKey())); // Key + Info aspect.
 
-    ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(
-            any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
-    MetadataChangeLog mcl = mclCaptor.getValue();
-    assertEquals(mcl.getEntityType(), "corpuser");
-    assertNull(mcl.getPreviousAspectValue());
-    assertNull(mcl.getPreviousSystemMetadata());
-    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    if (!cdcModeChangeLog) {
+      ArgumentCaptor<MetadataChangeLog> mclCaptor =
+          ArgumentCaptor.forClass(MetadataChangeLog.class);
 
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              mclCaptor.capture());
+      MetadataChangeLog mcl = mclCaptor.getValue();
+      assertEquals(mcl.getEntityType(), "corpuser");
+      assertNull(mcl.getPreviousAspectValue());
+      assertNull(mcl.getPreviousSystemMetadata());
+      assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    }
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -351,30 +364,34 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .get(0)
                 .getCorpUserKey())); // Key + Info aspect.
 
-    ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn1),
-            Mockito.any(),
-            mclCaptor.capture());
-    MetadataChangeLog mcl = mclCaptor.getValue();
-    assertEquals(mcl.getEntityType(), "corpuser");
-    assertNull(mcl.getPreviousAspectValue());
-    assertNull(mcl.getPreviousSystemMetadata());
-    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    if (!cdcModeChangeLog) {
 
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn2),
-            Mockito.any(),
-            mclCaptor.capture());
-    mcl = mclCaptor.getValue();
-    assertEquals(mcl.getEntityType(), "corpuser");
-    assertNull(mcl.getPreviousAspectValue());
-    assertNull(mcl.getPreviousSystemMetadata());
-    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+      ArgumentCaptor<MetadataChangeLog> mclCaptor =
+          ArgumentCaptor.forClass(MetadataChangeLog.class);
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn1),
+              Mockito.any(),
+              mclCaptor.capture());
+      MetadataChangeLog mcl = mclCaptor.getValue();
+      assertEquals(mcl.getEntityType(), "corpuser");
+      assertNull(mcl.getPreviousAspectValue());
+      assertNull(mcl.getPreviousSystemMetadata());
+      assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn2),
+              Mockito.any(),
+              mclCaptor.capture());
+      mcl = mclCaptor.getValue();
+      assertEquals(mcl.getEntityType(), "corpuser");
+      assertNull(mcl.getPreviousAspectValue());
+      assertNull(mcl.getPreviousSystemMetadata());
+      assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    }
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -441,14 +458,15 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertTrue(
         DataTemplateUtil.areEqual(expectedKey2, new CorpUserKey(envelopedKey2.getValue().data())));
 
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(
-            any(OperationContext.class), Mockito.eq(entityUrn1), Mockito.any(), Mockito.any());
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn1), Mockito.any(), Mockito.any());
 
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(
-            any(OperationContext.class), Mockito.eq(entityUrn2), Mockito.any(), Mockito.any());
-
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn2), Mockito.any(), Mockito.any());
+    }
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -514,14 +532,15 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertTrue(
         DataTemplateUtil.areEqual(expectedKey2, new CorpUserKey(envelopedKey2.getValue().data())));
 
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(
-            any(OperationContext.class), Mockito.eq(entityUrn1), Mockito.any(), Mockito.any());
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn1), Mockito.any(), Mockito.any());
 
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(
-            any(OperationContext.class), Mockito.eq(entityUrn2), Mockito.any(), Mockito.any());
-
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn2), Mockito.any(), Mockito.any());
+    }
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -550,10 +569,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, latestAspects.get(aspectName1)));
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, latestAspects.get(aspectName2)));
 
-    verify(_mockProducer, times(3))
-        .produceMetadataChangeLog(
-            any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
-
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(3))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
+    }
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -595,12 +615,14 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             opContext, entityUrn, new HashSet<>(List.of(aspectName1)), false);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, latestAspects.get(aspectName1)));
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.any(),
-            Mockito.eq(initialChangeLog));
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              Mockito.eq(initialChangeLog));
+    }
 
     // Mockito detects the previous invocation and throws an error in verifying the second call
     // unless invocations are cleared
@@ -684,12 +706,19 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             opContext, entityUrn, new HashSet<>(List.of(aspectName1)), false);
     assertTrue(DataTemplateUtil.areEqual(upstreamLineage, latestAspects.get(aspectName1)));
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.any(),
-            Mockito.eq(initialChangeLog));
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              Mockito.eq(initialChangeLog));
+      verify(_mockProducer, times(4))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
+    }
+    // verifyNoMoreInteractions(_mockProducer); // /TODO: This should be required, but somehow fails
+    // with this.
 
     // Mockito detects the previous invocation and throws an error in verifying the second call
     // unless invocations are cleared
@@ -698,13 +727,14 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     _entityServiceImpl.ingestAspects(
         opContext, entityUrn, pairToIngest, TEST_AUDIT_STAMP, futureSystemMetadata);
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.any(),
-            Mockito.eq(restateChangeLog));
-
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              Mockito.eq(restateChangeLog));
+    }
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -768,12 +798,18 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             opContext, entityUrn, new HashSet<>(List.of(aspectName1)), false);
     assertTrue(DataTemplateUtil.areEqual(upstreamLineage, latestAspects.get(aspectName1)));
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.any(),
-            Mockito.eq(initialChangeLog));
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              Mockito.eq(initialChangeLog));
+      verify(_mockProducer, times(4))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
+    }
+    verifyNoMoreInteractions(_mockProducer);
 
     // Mockito detects the previous invocation and throws an error in verifying the second call
     // unless invocations are cleared
@@ -781,14 +817,17 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     _entityServiceImpl.ingestProposal(opContext, mcp2, TEST_AUDIT_STAMP, false);
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.any(),
-            Mockito.eq(restateChangeLog));
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              Mockito.eq(restateChangeLog));
+    }
 
     verifyNoMoreInteractions(_mockProducer);
+    clearInvocations(_mockProducer);
   }
 
   @Test
@@ -810,6 +849,15 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     genericAspect.setContentType("application/json");
     gmce.setAspect(genericAspect);
     _entityServiceImpl.ingestProposal(opContext, gmce, TEST_AUDIT_STAMP, false);
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(4))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
+    } else {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), Mockito.any());
+    }
   }
 
   @Test
@@ -886,12 +934,14 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     RecordTemplate readAspect1 = _entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 0);
     assertTrue(DataTemplateUtil.areEqual(writeAspect, readAspect1));
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.eq(corpUserInfoSpec),
-            Mockito.any());
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(corpUserInfoSpec),
+              Mockito.any());
+    }
 
     // Ingest CorpUserInfo Aspect #2
     writeAspect.setEmail("newemail@test.com");
@@ -902,23 +952,25 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     RecordTemplate readAspect2 = _entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 0);
     assertTrue(DataTemplateUtil.areEqual(writeAspect, readAspect2));
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.eq(corpUserInfoSpec),
-            Mockito.any());
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(corpUserInfoSpec),
+              Mockito.any());
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.eq(
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec("corpUser")
-                    .getAspectSpec("corpUserKey")),
-            Mockito.any());
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec("corpUser")
+                      .getAspectSpec("corpUserKey")),
+              Mockito.any());
+    }
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -947,12 +999,14 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     VersionedAspect readAspect1 =
         _entityServiceImpl.getVersionedAspect(opContext, entityUrn, aspectName, 0);
     assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspect1));
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.eq(corpUserInfoSpec),
-            Mockito.any());
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(corpUserInfoSpec),
+              Mockito.any());
+    }
 
     readAspect1 = _entityServiceImpl.getVersionedAspect(opContext, entityUrn, aspectName, -1);
     assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspect1));
@@ -969,28 +1023,32 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         _entityServiceImpl.getVersionedAspect(opContext, entityUrn, aspectName, 0);
     assertFalse(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspectVersion2));
     assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect2, readAspectVersion2));
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.eq(corpUserInfoSpec),
-            Mockito.any());
+
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(corpUserInfoSpec),
+              Mockito.any());
+    }
 
     readAspect1 = _entityServiceImpl.getVersionedAspect(opContext, entityUrn, aspectName, -1);
     assertFalse(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspect1));
 
     // check key aspect
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.eq(
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec("corpuser")
-                    .getAspectSpec("corpUserKey")),
-            Mockito.any());
-
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec("corpuser")
+                      .getAspectSpec("corpUserKey")),
+              Mockito.any());
+    }
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -1316,33 +1374,37 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         _entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
 
-    ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.eq(
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec("corpUser")
-                    .getAspectSpec("corpUserInfo")),
-            mclCaptor.capture());
-    MetadataChangeLog mcl = mclCaptor.getValue();
-    assertEquals(mcl.getEntityType(), "corpuser");
-    assertNull(mcl.getPreviousAspectValue());
-    assertNull(mcl.getPreviousSystemMetadata());
-    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    if (!cdcModeChangeLog) {
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.eq(
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec("corpUser")
-                    .getAspectSpec("corpUserKey")),
-            Mockito.any());
+      ArgumentCaptor<MetadataChangeLog> mclCaptor =
+          ArgumentCaptor.forClass(MetadataChangeLog.class);
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec("corpUser")
+                      .getAspectSpec("corpUserInfo")),
+              mclCaptor.capture());
+      MetadataChangeLog mcl = mclCaptor.getValue();
+      assertEquals(mcl.getEntityType(), "corpuser");
+      assertNull(mcl.getPreviousAspectValue());
+      assertNull(mcl.getPreviousSystemMetadata());
+      assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec("corpUser")
+                      .getAspectSpec("corpUserKey")),
+              Mockito.any());
+    }
 
     verifyNoMoreInteractions(_mockProducer);
 
@@ -1393,14 +1455,21 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             SystemMetadataUtils.parseSystemMetadata(readAspectDao1.getSystemMetadata()),
             metadata1));
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class), Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
-    mcl = mclCaptor.getValue();
-    assertEquals(mcl.getEntityType(), "corpuser");
-    assertNotNull(mcl.getPreviousAspectValue());
-    assertNotNull(mcl.getPreviousSystemMetadata());
-    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    if (!cdcModeChangeLog) {
+      ArgumentCaptor<MetadataChangeLog> mclCaptor =
+          ArgumentCaptor.forClass(MetadataChangeLog.class);
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.any(),
+              mclCaptor.capture());
+      MetadataChangeLog mcl = mclCaptor.getValue();
+      assertEquals(mcl.getEntityType(), "corpuser");
+      assertNotNull(mcl.getPreviousAspectValue());
+      assertNotNull(mcl.getPreviousSystemMetadata());
+      assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    }
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -1494,27 +1563,29 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             SystemMetadataUtils.parseSystemMetadata(readAspectDao1.getSystemMetadata()),
             metadata1));
 
-    verify(_mockProducer, times(2))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.eq(
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec("corpUser")
-                    .getAspectSpec("corpUserInfo")),
-            Mockito.any());
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(2))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec("corpUser")
+                      .getAspectSpec("corpUserInfo")),
+              Mockito.any());
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.eq(
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec("corpUser")
-                    .getAspectSpec("corpUserKey")),
-            Mockito.any());
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec("corpUser")
+                      .getAspectSpec("corpUserKey")),
+              Mockito.any());
+    }
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -1556,33 +1627,36 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         _entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
 
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.eq(
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec("corpUser")
-                    .getAspectSpec("corpUserKey")),
-            Mockito.any());
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec("corpUser")
+                      .getAspectSpec("corpUserKey")),
+              Mockito.any());
 
-    ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            Mockito.eq(
-                opContext
-                    .getEntityRegistry()
-                    .getEntitySpec("corpUser")
-                    .getAspectSpec("corpUserInfo")),
-            mclCaptor.capture());
-    MetadataChangeLog mcl = mclCaptor.getValue();
-    assertEquals(mcl.getEntityType(), "corpuser");
-    assertNull(mcl.getPreviousAspectValue());
-    assertNull(mcl.getPreviousSystemMetadata());
-    assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+      ArgumentCaptor<MetadataChangeLog> mclCaptor =
+          ArgumentCaptor.forClass(MetadataChangeLog.class);
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              Mockito.eq(
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec("corpUser")
+                      .getAspectSpec("corpUserInfo")),
+              mclCaptor.capture());
+      MetadataChangeLog mcl = mclCaptor.getValue();
+      assertEquals(mcl.getEntityType(), "corpuser");
+      assertNull(mcl.getPreviousAspectValue());
+      assertNull(mcl.getPreviousSystemMetadata());
+      assertEquals(mcl.getChangeType(), ChangeType.UPSERT);
+    }
 
     verifyNoMoreInteractions(_mockProducer);
 
@@ -1635,9 +1709,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             SystemMetadataUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()),
             expectedMetadata2));
 
-    verify(_mockProducer, times(0))
-        .produceMetadataChangeLog(
-            any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
+    if (!cdcModeChangeLog) {
+      verify(_mockProducer, times(0))
+          .produceMetadataChangeLog(
+              any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
+    }
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -2054,25 +2130,35 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     gmce.setAspect(genericAspect);
     _entityServiceImpl.ingestProposal(opContext, gmce, TEST_AUDIT_STAMP, false);
 
-    ArgumentCaptor<MetadataChangeLog> captor = ArgumentCaptor.forClass(MetadataChangeLog.class);
-    ArgumentCaptor<AspectSpec> aspectSpecCaptor = ArgumentCaptor.forClass(AspectSpec.class);
-    verify(_mockProducer, times(4))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(entityUrn),
-            aspectSpecCaptor.capture(),
-            captor.capture());
-    assertEquals(UI_SOURCE, captor.getValue().getSystemMetadata().getProperties().get(APP_SOURCE));
+    if (!cdcModeChangeLog) { // TODO: This needs an additional check to make sure preprocess was
+      // called even though mcl was not produced.
+      ArgumentCaptor<MetadataChangeLog> captor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+      ArgumentCaptor<AspectSpec> aspectSpecCaptor = ArgumentCaptor.forClass(AspectSpec.class);
+      verify(_mockProducer, times(4))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(entityUrn),
+              aspectSpecCaptor.capture(),
+              captor.capture());
+      assertEquals(
+          captor.getValue().getSystemMetadata().getProperties().get(APP_SOURCE), UI_SOURCE);
+      assertEquals(
+          aspectSpecCaptor.getAllValues().stream()
+              .map(AspectSpec::getName)
+              .collect(Collectors.toSet()),
+          Set.of(
+              "browsePathsV2",
+              "editableDatasetProperties",
+              // "browsePaths",
+              "dataPlatformInstance",
+              "datasetKey"));
+    }
+    ArgumentCaptor<MetadataChangeLog> mceCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    verify(_mockUpdateIndicesService, times(4))
+        .handleChangeEvent(eq(opContext), mceCaptor.capture());
     assertEquals(
-        aspectSpecCaptor.getAllValues().stream()
-            .map(AspectSpec::getName)
-            .collect(Collectors.toSet()),
-        Set.of(
-            "browsePathsV2",
-            "editableDatasetProperties",
-            // "browsePaths",
-            "dataPlatformInstance",
-            "datasetKey"));
+        mceCaptor.getValue().getSystemMetadata().getProperties().get(APP_SOURCE), UI_SOURCE);
+    assertEquals(mceCaptor.getValue().getEntityUrn(), entityUrn);
   }
 
   @Test
@@ -2193,13 +2279,15 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     gmce.setAspect(genericAspect);
     _entityServiceImpl.ingestProposal(opContext, gmce, TEST_AUDIT_STAMP, false);
 
-    ArgumentCaptor<MetadataChangeLog> captor = ArgumentCaptor.forClass(MetadataChangeLog.class);
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(firstPropertyUrn),
-            Mockito.eq(structuredPropertiesDefinitionAspect),
-            captor.capture());
+    if (!cdcModeChangeLog) {
+      ArgumentCaptor<MetadataChangeLog> captor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(firstPropertyUrn),
+              Mockito.eq(structuredPropertiesDefinitionAspect),
+              captor.capture());
+    }
     assertEquals(
         _entityServiceImpl.getAspect(opContext, firstPropertyUrn, definitionAspectName, 0),
         structuredPropertyDefinition);
@@ -2281,14 +2369,17 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     secondGenericAspect.setContentType("application/json");
     gmce2.setAspect(secondGenericAspect);
     _entityServiceImpl.ingestProposal(opContext, gmce2, TEST_AUDIT_STAMP, false);
-    ArgumentCaptor<MetadataChangeLog> secondCaptor =
-        ArgumentCaptor.forClass(MetadataChangeLog.class);
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeLog(
-            any(OperationContext.class),
-            Mockito.eq(secondPropertyUrn),
-            Mockito.eq(structuredPropertiesDefinitionAspect),
-            secondCaptor.capture());
+    if (!cdcModeChangeLog) {
+
+      ArgumentCaptor<MetadataChangeLog> secondCaptor =
+          ArgumentCaptor.forClass(MetadataChangeLog.class);
+      verify(_mockProducer, times(1))
+          .produceMetadataChangeLog(
+              any(OperationContext.class),
+              Mockito.eq(secondPropertyUrn),
+              Mockito.eq(structuredPropertiesDefinitionAspect),
+              secondCaptor.capture());
+    }
     assertEquals(
         _entityServiceImpl.getAspect(opContext, firstPropertyUrn, definitionAspectName, 0),
         structuredPropertyDefinition);
@@ -2355,6 +2446,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertEquals(
         _entityServiceImpl.getAspect(opContext, entityUrn, "structuredProperties", 0),
         expectedProperties);
+
+    if (cdcModeChangeLog) {
+      verifyNoMoreInteractions(_mockProducer);
+    }
   }
 
   @Test

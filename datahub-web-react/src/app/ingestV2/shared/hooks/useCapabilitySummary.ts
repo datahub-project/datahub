@@ -13,7 +13,7 @@ export const useCapabilitySummary = () => {
             setError(null);
 
             try {
-                const response = await fetch('/assets/ingestion/capability_summary.json');
+                const response = await fetch('assets/ingestion/capability_summary.json');
                 if (!response.ok) {
                     throw new Error(`Failed to fetch capability summary: ${response.status} ${response.statusText}`);
                 }

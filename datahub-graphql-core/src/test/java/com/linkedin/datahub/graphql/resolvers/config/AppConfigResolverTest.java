@@ -132,6 +132,7 @@ public class AppConfigResolverTest {
     when(mockFeatureFlags.isLogicalModelsEnabled()).thenReturn(false);
     when(mockFeatureFlags.isShowHomepageUserRole()).thenReturn(false);
     when(mockFeatureFlags.isAssetSummaryPageV1()).thenReturn(false);
+    when(mockFeatureFlags.isDocumentationFileUploadV1()).thenReturn(false);
   }
 
   @Test

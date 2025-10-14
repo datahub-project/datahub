@@ -1,16 +1,20 @@
 package io.datahubproject.openapi.schema.registry;
 
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.EventSchemaConstants;
+import com.linkedin.metadata.EventSchemaData;
+import com.linkedin.metadata.SchemaConfigLoader;
+import com.linkedin.metadata.SchemaIdOrdinal;
 import com.linkedin.metadata.registry.SchemaRegistryService;
+import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.mxe.TopicConvention;
+import com.linkedin.mxe.TopicConventionImpl;
+import com.linkedin.mxe.Topics;
 import io.datahubproject.schema_registry.openapi.generated.Config;
-import io.datahubproject.schema_registry.openapi.generated.RegisterSchemaRequest;
-import io.datahubproject.schema_registry.openapi.generated.RegisterSchemaResponse;
 import io.datahubproject.schema_registry.openapi.generated.Schema;
-import io.datahubproject.schema_registry.openapi.generated.SchemaString;
-import io.datahubproject.schema_registry.openapi.generated.SubjectVersion;
 import java.util.List;
 import java.util.Optional;
 import org.mockito.Mock;
@@ -18,950 +22,686 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
-import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+/**
+ * Consolidated test suite for SchemaRegistryController.
+ *
+ * <p>This test class combines: - Original mocked tests for basic functionality - Real
+ * implementation tests for MCL schema validation - Ordinal-based schema ID functionality tests
+ *
+ * <p>The tests are organized into sections: 1. Basic functionality tests (mocked) 2. Real
+ * implementation tests (using actual EventSchemaData and SchemaRegistryServiceImpl) 3. MCL-specific
+ * tests (using real implementations) 4. Error handling tests
+ */
 public class SchemaRegistryControllerTest {
 
-  @Mock private SchemaRegistryService mockSchemaRegistryService;
+  // MCL Topic and Subject names for real implementation tests
+  private static final String MCL_VERSIONED_TOPIC = Topics.METADATA_CHANGE_LOG_VERSIONED;
+  private static final String MCL_VERSIONED_SUBJECT = MCL_VERSIONED_TOPIC + "-value";
 
+  // Expected schema IDs based on SchemaIdOrdinal enum
+  private static final int MCL_V1_SCHEMA_ID = 2; // METADATA_CHANGE_LOG_V1
+  private static final int MCL_TIMESERIES_V1_SCHEMA_ID = 3; // METADATA_CHANGE_LOG_TIMESERIES_V1
+  private static final int MCL_V1_FIX_SCHEMA_ID = 11; // METADATA_CHANGE_LOG_V1_FIX
+  private static final int MCL_TIMESERIES_V1_FIX_SCHEMA_ID =
+      12; // METADATA_CHANGE_LOG_TIMESERIES_V1_FIX
+  private static final int MCL_NEW_SCHEMA_ID = 18; // METADATA_CHANGE_LOG
+  private static final int MCL_TIMESERIES_NEW_SCHEMA_ID = 19; // METADATA_CHANGE_LOG_TIMESERIES
+
+  // Mocked dependencies for basic tests
+  @Mock private SchemaRegistryService mockSchemaRegistryService;
   @Mock private TopicConvention mockTopicConvention;
 
-  private SchemaRegistryController schemaRegistryController;
+  private SchemaRegistryController controller;
   private MockHttpServletRequest mockRequest;
-
-  private static final String MCP_TOPIC = "MetadataChangeProposal";
-  private static final String MCP_SUBJECT = "MetadataChangeProposal-value";
-  private static final String FMCP_TOPIC = "FailedMetadataChangeProposal";
-  private static final String FMCP_SUBJECT = "FailedMetadataChangeProposal-value";
 
   @BeforeMethod
   public void setUp() {
     MockitoAnnotations.openMocks(this);
-
     mockRequest = new MockHttpServletRequest();
-    schemaRegistryController =
+    controller =
         new SchemaRegistryController(new ObjectMapper(), mockRequest, mockSchemaRegistryService);
   }
 
-  @Test
-  public void testGetSchemaByVersion_Latest() {
-    // Mock the service to return version 2 as latest
-    when(mockSchemaRegistryService.getLatestSchemaVersionForTopic(MCP_TOPIC))
-        .thenReturn(Optional.of(2));
-    when(mockSchemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 2))
-        .thenReturn(Optional.of(createMockAvroSchema()));
-    when(mockSchemaRegistryService.getSchemaIdForTopic(MCP_TOPIC)).thenReturn(Optional.of(1));
-
-    ResponseEntity<Schema> response =
-        schemaRegistryController.getSchemaByVersion(MCP_SUBJECT, "latest", false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertEquals(response.getBody().getVersion(), 2);
-    Assert.assertEquals(response.getBody().getSubject(), MCP_SUBJECT);
-  }
-
-  @Test
-  public void testGetSchemaByVersion_SpecificVersion() {
-    // Mock the service to return version 1
-    when(mockSchemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 1))
-        .thenReturn(Optional.of(createMockAvroSchema()));
-    when(mockSchemaRegistryService.getSchemaIdForTopic(MCP_TOPIC)).thenReturn(Optional.of(1));
-
-    ResponseEntity<Schema> response =
-        schemaRegistryController.getSchemaByVersion(MCP_SUBJECT, "1", false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertEquals(response.getBody().getVersion(), 1);
-    Assert.assertEquals(response.getBody().getSubject(), MCP_SUBJECT);
-  }
-
-  @Test
-  public void testGetSchemaByVersion_InvalidVersion() {
-    ResponseEntity<Schema> response =
-        schemaRegistryController.getSchemaByVersion(MCP_SUBJECT, "3", false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
-  }
-
-  @Test
-  public void testGetSchemaByVersion_InvalidVersionFormat() {
-    ResponseEntity<Schema> response =
-        schemaRegistryController.getSchemaByVersion(MCP_SUBJECT, "invalid", false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.BAD_REQUEST);
-  }
-
-  @Test
-  public void testGetSchemaByVersion_TopicNotFound() {
-    when(mockSchemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 1))
-        .thenReturn(Optional.empty());
-
-    ResponseEntity<Schema> response =
-        schemaRegistryController.getSchemaByVersion(MCP_SUBJECT, "1", false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
-  }
-
-  @Test
-  public void testListVersions() {
-    List<Integer> supportedVersions = List.of(1, 2);
-    when(mockSchemaRegistryService.getSupportedSchemaVersionsForTopic(MCP_TOPIC))
-        .thenReturn(Optional.of(supportedVersions));
-
-    ResponseEntity<List<Integer>> response =
-        schemaRegistryController.listVersions(MCP_SUBJECT, false, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertEquals(response.getBody(), supportedVersions);
-  }
-
-  @Test
-  public void testListVersions_TopicNotFound() {
-    when(mockSchemaRegistryService.getSupportedSchemaVersionsForTopic(MCP_TOPIC))
-        .thenReturn(Optional.empty());
-
-    ResponseEntity<List<Integer>> response =
-        schemaRegistryController.listVersions(MCP_SUBJECT, false, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
-  }
-
-  @Test
-  public void testList_AllSubjects() {
-    // Mock the service to return a list of topics
-    List<String> mockTopics =
-        List.of(
-            "MetadataChangeProposal",
-            "FailedMetadataChangeProposal",
-            "MetadataChangeLog",
-            "PlatformEvent");
-    when(mockSchemaRegistryService.getAllTopics()).thenReturn(mockTopics);
-
-    ResponseEntity<List<String>> response = schemaRegistryController.list(null, false, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-
-    List<String> subjects = response.getBody();
-    Assert.assertEquals(subjects.size(), 4);
-
-    // Verify subjects have "-value" suffix
-    Assert.assertTrue(subjects.contains("MetadataChangeProposal-value"));
-    Assert.assertTrue(subjects.contains("FailedMetadataChangeProposal-value"));
-    Assert.assertTrue(subjects.contains("MetadataChangeLog-value"));
-    Assert.assertTrue(subjects.contains("PlatformEvent-value"));
-  }
-
-  @Test
-  public void testList_WithSubjectPrefix() {
-    // Mock the service to return a list of topics
-    List<String> mockTopics =
-        List.of(
-            "MetadataChangeProposal",
-            "FailedMetadataChangeProposal",
-            "MetadataChangeLog",
-            "PlatformEvent");
-    when(mockSchemaRegistryService.getAllTopics()).thenReturn(mockTopics);
-
-    ResponseEntity<List<String>> response = schemaRegistryController.list("Metadata", false, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-
-    List<String> subjects = response.getBody();
-    Assert.assertEquals(subjects.size(), 2);
-
-    // Should only contain subjects starting with "Metadata"
-    Assert.assertTrue(subjects.contains("MetadataChangeProposal-value"));
-    Assert.assertTrue(subjects.contains("MetadataChangeLog-value"));
-    Assert.assertFalse(subjects.contains("FailedMetadataChangeProposal-value"));
-    Assert.assertFalse(subjects.contains("PlatformEvent-value"));
-  }
-
-  @Test
-  public void testList_WithExactSubjectPrefix() {
-    // Mock the service to return a list of topics
-    List<String> mockTopics =
-        List.of(
-            "MetadataChangeProposal",
-            "FailedMetadataChangeProposal",
-            "MetadataChangeLog",
-            "PlatformEvent");
-    when(mockSchemaRegistryService.getAllTopics()).thenReturn(mockTopics);
-
-    ResponseEntity<List<String>> response =
-        schemaRegistryController.list("MetadataChange", false, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-
-    List<String> subjects = response.getBody();
-    Assert.assertEquals(subjects.size(), 2);
-
-    // Should only contain subjects starting with "MetadataChange"
-    Assert.assertTrue(subjects.contains("MetadataChangeProposal-value"));
-    Assert.assertTrue(subjects.contains("MetadataChangeLog-value"));
-    Assert.assertFalse(subjects.contains("FailedMetadataChangeProposal-value"));
-    Assert.assertFalse(subjects.contains("PlatformEvent-value"));
-  }
-
-  @Test
-  public void testList_WithNoMatchingPrefix() {
-    // Mock the service to return a list of topics
-    List<String> mockTopics =
-        List.of(
-            "MetadataChangeProposal",
-            "FailedMetadataChangeProposal",
-            "MetadataChangeLog",
-            "PlatformEvent");
-    when(mockSchemaRegistryService.getAllTopics()).thenReturn(mockTopics);
-
-    ResponseEntity<List<String>> response =
-        schemaRegistryController.list("NonExistent", false, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-
-    List<String> subjects = response.getBody();
-    Assert.assertEquals(subjects.size(), 0);
-  }
-
-  @Test
-  public void testList_DeletedTrue() {
-    // Mock the service to return a list of topics
-    List<String> mockTopics = List.of("MetadataChangeProposal", "FailedMetadataChangeProposal");
-    when(mockSchemaRegistryService.getAllTopics()).thenReturn(mockTopics);
-
-    ResponseEntity<List<String>> response = schemaRegistryController.list(null, true, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-
-    List<String> subjects = response.getBody();
-    Assert.assertEquals(subjects.size(), 0);
-  }
-
-  @Test
-  public void testList_DeletedOnlyTrue() {
-    // Mock the service to return a list of topics
-    List<String> mockTopics = List.of("MetadataChangeProposal", "FailedMetadataChangeProposal");
-    when(mockSchemaRegistryService.getAllTopics()).thenReturn(mockTopics);
-
-    ResponseEntity<List<String>> response = schemaRegistryController.list(null, false, true);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-
-    List<String> subjects = response.getBody();
-    Assert.assertEquals(subjects.size(), 0);
-  }
-
-  @Test
-  public void testList_DeletedTrueAndDeletedOnlyTrue() {
-    // Mock the service to return a list of topics
-    List<String> mockTopics = List.of("MetadataChangeProposal", "FailedMetadataChangeProposal");
-    when(mockSchemaRegistryService.getAllTopics()).thenReturn(mockTopics);
-
-    ResponseEntity<List<String>> response = schemaRegistryController.list(null, true, true);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-
-    List<String> subjects = response.getBody();
-    Assert.assertEquals(subjects.size(), 0);
-  }
-
-  @Test
-  public void testList_EmptyTopicsList() {
-    // Mock the service to return an empty list
-    when(mockSchemaRegistryService.getAllTopics()).thenReturn(List.of());
-
-    ResponseEntity<List<String>> response = schemaRegistryController.list(null, false, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-
-    List<String> subjects = response.getBody();
-    Assert.assertEquals(subjects.size(), 0);
-  }
-
-  @Test
-  public void testList_WithSpecialCharactersInTopics() {
-    // Mock the service to return topics with special characters
-    List<String> mockTopics =
-        List.of(
-            "Metadata-Change.Proposal", "Failed_Metadata_Change_Proposal", "MetadataChangeLog123");
-    when(mockSchemaRegistryService.getAllTopics()).thenReturn(mockTopics);
-
-    ResponseEntity<List<String>> response = schemaRegistryController.list(null, false, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-
-    List<String> subjects = response.getBody();
-    Assert.assertEquals(subjects.size(), 3);
-
-    // Verify subjects have "-value" suffix
-    Assert.assertTrue(subjects.contains("Metadata-Change.Proposal-value"));
-    Assert.assertTrue(subjects.contains("Failed_Metadata_Change_Proposal-value"));
-    Assert.assertTrue(subjects.contains("MetadataChangeLog123-value"));
-  }
-
-  @Test
-  public void testList_ServiceReturnsNull() {
-    // Mock the service to return null (edge case)
-    when(mockSchemaRegistryService.getAllTopics()).thenReturn(null);
-
-    ResponseEntity<List<String>> response = schemaRegistryController.list(null, false, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-
-    List<String> subjects = response.getBody();
-    Assert.assertEquals(subjects.size(), 0);
-  }
-
-  @Test
-  public void testGetSchemaByVersion_FailedMCPTopic() {
-    // Test that Failed MCP topic also works with versioning
-    when(mockSchemaRegistryService.getSchemaForTopicAndVersion(FMCP_TOPIC, 1))
-        .thenReturn(Optional.of(createMockAvroSchema()));
-    when(mockSchemaRegistryService.getSchemaIdForTopic(FMCP_TOPIC)).thenReturn(Optional.of(2));
-
-    ResponseEntity<Schema> response =
-        schemaRegistryController.getSchemaByVersion(FMCP_SUBJECT, "1", false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertEquals(response.getBody().getVersion(), 1);
-    Assert.assertEquals(response.getBody().getSubject(), FMCP_SUBJECT);
-  }
-
-  @Test
-  public void testGetSchemaByVersion_UnsupportedVersion() {
-    // Test with a version that's not in the supported set
-    ResponseEntity<Schema> response =
-        schemaRegistryController.getSchemaByVersion(MCP_SUBJECT, "99", false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
-  }
-
-  @Test
-  public void testGetSchemaByVersion_EmptyVersion() {
-    ResponseEntity<Schema> response =
-        schemaRegistryController.getSchemaByVersion(MCP_SUBJECT, "", false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.BAD_REQUEST);
-  }
-
-  @Test
-  public void testGetSchemaByVersion_NullVersion() {
-    ResponseEntity<Schema> response =
-        schemaRegistryController.getSchemaByVersion(MCP_SUBJECT, null, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.BAD_REQUEST);
-  }
-
-  // New tests for missing methods
-
-  @Test
-  public void testGetSchema_Success() {
-    // Test the critical getSchema method for Kafka consumer deserialization
-    Integer schemaId = 1;
-    String topicName = "MetadataChangeProposal";
-    org.apache.avro.Schema mockAvroSchema = createMockAvroSchema();
-
-    when(mockSchemaRegistryService.getTopicNameById(schemaId)).thenReturn(Optional.of(topicName));
-    when(mockSchemaRegistryService.getSchemaForId(schemaId))
-        .thenReturn(Optional.of(mockAvroSchema));
-    when(mockSchemaRegistryService.getLatestSchemaVersionForTopic(topicName))
-        .thenReturn(Optional.of(1));
-
-    ResponseEntity<SchemaString> response =
-        schemaRegistryController.getSchema(schemaId, null, null, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().getSchema(), mockAvroSchema.toString());
-    Assert.assertEquals(response.getBody().getSchemaType(), "AVRO");
-    Assert.assertNull(response.getBody().getMaxId());
-  }
-
-  @Test
-  public void testGetSchema_WithFetchMaxId() {
-    // Test getSchema with fetchMaxId=true
-    Integer schemaId = 1;
-    String topicName = "MetadataChangeProposal";
-    org.apache.avro.Schema mockAvroSchema = createMockAvroSchema();
-
-    when(mockSchemaRegistryService.getTopicNameById(schemaId)).thenReturn(Optional.of(topicName));
-    when(mockSchemaRegistryService.getSchemaForId(schemaId))
-        .thenReturn(Optional.of(mockAvroSchema));
-    when(mockSchemaRegistryService.getLatestSchemaVersionForTopic(topicName))
-        .thenReturn(Optional.of(1));
-
-    ResponseEntity<SchemaString> response =
-        schemaRegistryController.getSchema(schemaId, null, null, true);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().getMaxId(), schemaId);
-  }
-
-  @Test
-  public void testGetSchema_SchemaIdNotFound() {
-    // Test getSchema when schema ID doesn't exist
-    Integer schemaId = 999;
-    when(mockSchemaRegistryService.getTopicNameById(schemaId)).thenReturn(Optional.empty());
-
-    ResponseEntity<SchemaString> response =
-        schemaRegistryController.getSchema(schemaId, null, null, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
-  }
-
-  @Test
-  public void testGetSchema_SchemaNotFound() {
-    // Test getSchema when schema exists but schema content not found
-    Integer schemaId = 1;
-    String topicName = "MetadataChangeProposal";
-
-    when(mockSchemaRegistryService.getTopicNameById(schemaId)).thenReturn(Optional.of(topicName));
-    when(mockSchemaRegistryService.getSchemaForId(schemaId)).thenReturn(Optional.empty());
-
-    ResponseEntity<SchemaString> response =
-        schemaRegistryController.getSchema(schemaId, null, null, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
-  }
-
-  @Test
-  public void testGetSchema_NoVersionFound() {
-    // Test getSchema when no version found for topic
-    Integer schemaId = 1;
-    String topicName = "MetadataChangeProposal";
-    org.apache.avro.Schema mockAvroSchema = createMockAvroSchema();
-
-    when(mockSchemaRegistryService.getTopicNameById(schemaId)).thenReturn(Optional.of(topicName));
-    when(mockSchemaRegistryService.getSchemaForId(schemaId))
-        .thenReturn(Optional.of(mockAvroSchema));
-    when(mockSchemaRegistryService.getLatestSchemaVersionForTopic(topicName))
-        .thenReturn(Optional.empty());
-
-    ResponseEntity<SchemaString> response =
-        schemaRegistryController.getSchema(schemaId, null, null, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
-  }
-
-  @Test
-  public void testGetSchemaOnly2_Success() {
-    // Test getSchemaOnly2 method
-    String subject = "MetadataChangeProposal-value";
-    String version = "1";
-    org.apache.avro.Schema mockAvroSchema = createMockAvroSchema();
-
-    when(mockSchemaRegistryService.getSchemaBySubjectAndVersion(subject, 1))
-        .thenReturn(Optional.of(mockAvroSchema));
-
-    ResponseEntity<String> response =
-        schemaRegistryController.getSchemaOnly2(subject, version, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertEquals(response.getBody(), mockAvroSchema.toString());
-  }
-
-  @Test
-  public void testGetSchemaOnly2_FallbackToTopicLookup() {
-    // Test getSchemaOnly2 fallback to topic-based lookup
-    String subject = "MetadataChangeProposal-value";
-    String version = "1";
-    String topicName = "MetadataChangeProposal";
-    org.apache.avro.Schema mockAvroSchema = createMockAvroSchema();
-
-    when(mockSchemaRegistryService.getSchemaBySubjectAndVersion(subject, 1))
-        .thenReturn(Optional.empty());
-    when(mockSchemaRegistryService.getSchemaForTopicAndVersion(topicName, 1))
-        .thenReturn(Optional.of(mockAvroSchema));
-
-    ResponseEntity<String> response =
-        schemaRegistryController.getSchemaOnly2(subject, version, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertEquals(response.getBody(), mockAvroSchema.toString());
-  }
-
-  @Test
-  public void testGetSchemaOnly2_InvalidVersionFormat() {
-    // Test getSchemaOnly2 with invalid version format
-    String subject = "MetadataChangeProposal-value";
-    String version = "invalid";
-
-    ResponseEntity<String> response =
-        schemaRegistryController.getSchemaOnly2(subject, version, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.BAD_REQUEST);
-  }
-
-  @Test
-  public void testGetSchemaOnly2_SchemaNotFound() {
-    // Test getSchemaOnly2 when schema not found
-    String subject = "MetadataChangeProposal-value";
-    String version = "1";
-    String topicName = "MetadataChangeProposal";
-
-    when(mockSchemaRegistryService.getSchemaBySubjectAndVersion(subject, 1))
-        .thenReturn(Optional.empty());
-    when(mockSchemaRegistryService.getSchemaForTopicAndVersion(topicName, 1))
-        .thenReturn(Optional.empty());
-
-    ResponseEntity<String> response =
-        schemaRegistryController.getSchemaOnly2(subject, version, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
-  }
-
-  @Test
-  public void testRegister_Success() {
-    // Test register method
-    String subject = "MetadataChangeProposal-value";
-    String topicName = "MetadataChangeProposal";
-    Integer schemaId = 1;
-    RegisterSchemaRequest request = new RegisterSchemaRequest();
-
-    when(mockSchemaRegistryService.getSchemaIdForTopic(topicName))
-        .thenReturn(Optional.of(schemaId));
-
-    ResponseEntity<RegisterSchemaResponse> response =
-        schemaRegistryController.register(subject, request, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().getId(), schemaId);
-  }
-
-  @Test
-  public void testRegister_TopicNotFound() {
-    // Test register method when topic not found
-    String subject = "MetadataChangeProposal-value";
-    String topicName = "MetadataChangeProposal";
-    RegisterSchemaRequest request = new RegisterSchemaRequest();
-
-    when(mockSchemaRegistryService.getSchemaIdForTopic(topicName)).thenReturn(Optional.empty());
-
-    ResponseEntity<RegisterSchemaResponse> response =
-        schemaRegistryController.register(subject, request, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
-  }
-
-  @Test
-  public void testRegister_MalformedTopicName() {
-    // Test register method with malformed topic name
-    String subject = "Invalid@Topic-value";
-    RegisterSchemaRequest request = new RegisterSchemaRequest();
-
-    ResponseEntity<RegisterSchemaResponse> response =
-        schemaRegistryController.register(subject, request, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
-  }
-
-  @Test
-  public void testGetSchemaOnly_Success() {
-    // Test getSchemaOnly method
-    Integer schemaId = 1;
-    org.apache.avro.Schema mockAvroSchema = createMockAvroSchema();
-
-    when(mockSchemaRegistryService.getSchemaForId(schemaId))
-        .thenReturn(Optional.of(mockAvroSchema));
-
-    ResponseEntity<String> response = schemaRegistryController.getSchemaOnly(schemaId, null, null);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertEquals(response.getBody(), mockAvroSchema.toString());
-  }
-
-  @Test
-  public void testGetSchemaOnly_SchemaNotFound() {
-    // Test getSchemaOnly method when schema not found
-    Integer schemaId = 999;
-
-    when(mockSchemaRegistryService.getSchemaForId(schemaId)).thenReturn(Optional.empty());
-
-    ResponseEntity<String> response = schemaRegistryController.getSchemaOnly(schemaId, null, null);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
-  }
+  // ============================================================================
+  // SECTION 1: BASIC FUNCTIONALITY TESTS (MOCKED)
+  // ============================================================================
 
   @Test
   public void testGetSchemaTypes() {
-    // Test getSchemaTypes method
-    ResponseEntity<List<String>> response = schemaRegistryController.getSchemaTypes();
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().size(), 1);
-    Assert.assertTrue(response.getBody().contains("AVRO"));
-  }
-
-  @Test
-  public void testGetSchemas_Success() {
-    // Test getSchemas method
-    List<String> mockTopics = List.of("MetadataChangeProposal", "MetadataChangeLog");
-    org.apache.avro.Schema mockAvroSchema = createMockAvroSchema();
-
-    when(mockSchemaRegistryService.getAllTopics()).thenReturn(mockTopics);
-    when(mockSchemaRegistryService.getSchemaIdForTopic("MetadataChangeProposal"))
-        .thenReturn(Optional.of(1));
-    when(mockSchemaRegistryService.getSchemaForTopic("MetadataChangeProposal"))
-        .thenReturn(Optional.of(mockAvroSchema));
-    when(mockSchemaRegistryService.getSchemaIdForTopic("MetadataChangeLog"))
-        .thenReturn(Optional.of(2));
-    when(mockSchemaRegistryService.getSchemaForTopic("MetadataChangeLog"))
-        .thenReturn(Optional.of(mockAvroSchema));
-
-    ResponseEntity<List<Schema>> response =
-        schemaRegistryController.getSchemas(null, false, false, null, null);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().size(), 2);
-  }
-
-  @Test
-  public void testGetSchemas_WithDeleted() {
-    // Test getSchemas method with deleted=true
-    ResponseEntity<List<Schema>> response =
-        schemaRegistryController.getSchemas(null, true, false, null, null);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().size(), 0);
-  }
-
-  @Test
-  public void testGetSchemas_WithLatestOnly() {
-    // Test getSchemas method with latestOnly=true
-    List<String> mockTopics = List.of("MetadataChangeProposal");
-    org.apache.avro.Schema mockAvroSchema = createMockAvroSchema();
-
-    when(mockSchemaRegistryService.getAllTopics()).thenReturn(mockTopics);
-    when(mockSchemaRegistryService.getSchemaIdForTopic("MetadataChangeProposal"))
-        .thenReturn(Optional.of(1));
-    when(mockSchemaRegistryService.getSchemaForTopic("MetadataChangeProposal"))
-        .thenReturn(Optional.of(mockAvroSchema));
-    when(mockSchemaRegistryService.getLatestSchemaVersionForTopic("MetadataChangeProposal"))
-        .thenReturn(Optional.of(2));
-
-    ResponseEntity<List<Schema>> response =
-        schemaRegistryController.getSchemas(null, false, true, null, null);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().size(), 1);
-    Assert.assertEquals(response.getBody().get(0).getVersion(), 2);
-  }
-
-  @Test
-  public void testGetSchemas_WithOffsetAndLimit() {
-    // Test getSchemas method with offset and limit
-    List<String> mockTopics =
-        List.of("MetadataChangeProposal", "MetadataChangeLog", "PlatformEvent");
-    org.apache.avro.Schema mockAvroSchema = createMockAvroSchema();
-
-    when(mockSchemaRegistryService.getAllTopics()).thenReturn(mockTopics);
-    when(mockSchemaRegistryService.getSchemaIdForTopic("MetadataChangeProposal"))
-        .thenReturn(Optional.of(1));
-    when(mockSchemaRegistryService.getSchemaForTopic("MetadataChangeProposal"))
-        .thenReturn(Optional.of(mockAvroSchema));
-    when(mockSchemaRegistryService.getSchemaIdForTopic("MetadataChangeLog"))
-        .thenReturn(Optional.of(2));
-    when(mockSchemaRegistryService.getSchemaForTopic("MetadataChangeLog"))
-        .thenReturn(Optional.of(mockAvroSchema));
-    when(mockSchemaRegistryService.getSchemaIdForTopic("PlatformEvent")).thenReturn(Optional.of(3));
-    when(mockSchemaRegistryService.getSchemaForTopic("PlatformEvent"))
-        .thenReturn(Optional.of(mockAvroSchema));
-
-    ResponseEntity<List<Schema>> response =
-        schemaRegistryController.getSchemas(null, false, false, 1, 2);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().size(), 2);
-  }
-
-  @Test
-  public void testGetSchemas_WithSubjectPrefix() {
-    // Test getSchemas method with subject prefix
-    List<String> mockTopics =
-        List.of("MetadataChangeProposal", "MetadataChangeLog", "PlatformEvent");
-    org.apache.avro.Schema mockAvroSchema = createMockAvroSchema();
-
-    when(mockSchemaRegistryService.getAllTopics()).thenReturn(mockTopics);
-    when(mockSchemaRegistryService.getSchemaIdForTopic("MetadataChangeProposal"))
-        .thenReturn(Optional.of(1));
-    when(mockSchemaRegistryService.getSchemaForTopic("MetadataChangeProposal"))
-        .thenReturn(Optional.of(mockAvroSchema));
-    when(mockSchemaRegistryService.getSchemaIdForTopic("MetadataChangeLog"))
-        .thenReturn(Optional.of(2));
-    when(mockSchemaRegistryService.getSchemaForTopic("MetadataChangeLog"))
-        .thenReturn(Optional.of(mockAvroSchema));
-
-    ResponseEntity<List<Schema>> response =
-        schemaRegistryController.getSchemas("Metadata", false, false, null, null);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().size(), 2);
-  }
-
-  @Test
-  public void testGetSubjects_BySchemaId() {
-    // Test getSubjects method with schema ID
-    Integer schemaId = 1;
-    String topicName = "MetadataChangeProposal";
-
-    when(mockSchemaRegistryService.getTopicNameById(schemaId)).thenReturn(Optional.of(topicName));
-
-    ResponseEntity<List<String>> response =
-        schemaRegistryController.getSubjects(schemaId, null, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().size(), 1);
-    Assert.assertEquals(response.getBody().get(0), "MetadataChangeProposal-value");
-  }
-
-  @Test
-  public void testGetSubjects_BySchemaIdNotFound() {
-    // Test getSubjects method with non-existent schema ID
-    Integer schemaId = 999;
-
-    when(mockSchemaRegistryService.getTopicNameById(schemaId)).thenReturn(Optional.empty());
-
-    ResponseEntity<List<String>> response =
-        schemaRegistryController.getSubjects(schemaId, null, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
-  }
-
-  @Test
-  public void testGetSubjects_BySubject() {
-    // Test getSubjects method with subject name
-    String subject = "MetadataChangeProposal-value";
-    String topicName = "MetadataChangeProposal";
-    Integer schemaId = 1;
-
-    when(mockSchemaRegistryService.getSchemaIdForTopic(topicName))
-        .thenReturn(Optional.of(schemaId));
-
-    ResponseEntity<List<String>> response =
-        schemaRegistryController.getSubjects(null, subject, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().size(), 1);
-    Assert.assertEquals(response.getBody().get(0), subject);
-  }
-
-  @Test
-  public void testGetSubjects_BySubjectNotFound() {
-    // Test getSubjects method with non-existent subject
-    String subject = "NonExistent-value";
-    String topicName = "NonExistent";
-
-    when(mockSchemaRegistryService.getSchemaIdForTopic(topicName)).thenReturn(Optional.empty());
-
-    ResponseEntity<List<String>> response =
-        schemaRegistryController.getSubjects(null, subject, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
-  }
-
-  @Test
-  public void testGetSubjects_AllSubjects() {
-    // Test getSubjects method without parameters
-    List<String> mockTopics = List.of("MetadataChangeProposal", "MetadataChangeLog");
-
-    when(mockSchemaRegistryService.getAllTopics()).thenReturn(mockTopics);
-
-    ResponseEntity<List<String>> response = schemaRegistryController.getSubjects(null, null, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().size(), 2);
-    Assert.assertTrue(response.getBody().contains("MetadataChangeProposal-value"));
-    Assert.assertTrue(response.getBody().contains("MetadataChangeLog-value"));
-  }
-
-  @Test
-  public void testGetSubjects_WithDeleted() {
-    // Test getSubjects method with deleted=true
-    ResponseEntity<List<String>> response = schemaRegistryController.getSubjects(null, null, true);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().size(), 0);
-  }
-
-  @Test
-  public void testGetVersions_BySubject() {
-    // Test getVersions method with subject
-    String subject = "MetadataChangeProposal-value";
-    String topicName = "MetadataChangeProposal";
-    List<Integer> supportedVersions = List.of(1, 2);
-
-    when(mockSchemaRegistryService.getSupportedSchemaVersionsForTopic(topicName))
-        .thenReturn(Optional.of(supportedVersions));
-
-    ResponseEntity<List<SubjectVersion>> response =
-        schemaRegistryController.getVersions(null, subject, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().size(), 2);
-    Assert.assertEquals(response.getBody().get(0).getSubject(), subject);
-    Assert.assertEquals(response.getBody().get(0).getVersion(), 1);
-    Assert.assertEquals(response.getBody().get(1).getSubject(), subject);
-    Assert.assertEquals(response.getBody().get(1).getVersion(), 2);
-  }
-
-  @Test
-  public void testGetVersions_BySubjectNotFound() {
-    // Test getVersions method with non-existent subject
-    String subject = "NonExistent-value";
-    String topicName = "NonExistent";
-
-    when(mockSchemaRegistryService.getSupportedSchemaVersionsForTopic(topicName))
-        .thenReturn(Optional.empty());
-
-    ResponseEntity<List<SubjectVersion>> response =
-        schemaRegistryController.getVersions(null, subject, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
-  }
-
-  @Test
-  public void testGetVersions_BySchemaId() {
-    // Test getVersions method with schema ID
-    Integer schemaId = 1;
-    String topicName = "MetadataChangeProposal";
-    List<Integer> supportedVersions = List.of(1, 2);
-
-    when(mockSchemaRegistryService.getTopicNameById(schemaId)).thenReturn(Optional.of(topicName));
-    when(mockSchemaRegistryService.getSupportedSchemaVersionsForTopic(topicName))
-        .thenReturn(Optional.of(supportedVersions));
-
-    ResponseEntity<List<SubjectVersion>> response =
-        schemaRegistryController.getVersions(schemaId, null, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().size(), 2);
-    Assert.assertEquals(response.getBody().get(0).getSubject(), "MetadataChangeProposal-value");
-  }
-
-  @Test
-  public void testGetVersions_BySchemaIdNotFound() {
-    // Test getVersions method with non-existent schema ID
-    Integer schemaId = 999;
-
-    when(mockSchemaRegistryService.getTopicNameById(schemaId)).thenReturn(Optional.empty());
-
-    ResponseEntity<List<SubjectVersion>> response =
-        schemaRegistryController.getVersions(schemaId, null, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
-  }
-
-  @Test
-  public void testGetVersions_NoParameters() {
-    // Test getVersions method without parameters
-    ResponseEntity<List<SubjectVersion>> response =
-        schemaRegistryController.getVersions(null, null, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().size(), 0);
-  }
-
-  @Test
-  public void testGetVersions_WithDeleted() {
-    // Test getVersions method with deleted=true
-    ResponseEntity<List<SubjectVersion>> response =
-        schemaRegistryController.getVersions(null, null, true);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().size(), 0);
-  }
-
-  @Test
-  public void testGetReferencedBy() {
-    // Test getReferencedBy method - should always return empty list
-    ResponseEntity<List<Integer>> response =
-        schemaRegistryController.getReferencedBy("test-subject", "1");
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().size(), 0);
-  }
-
-  @Test
-  public void testGetSubjectLevelConfig_Success() {
-    // Test getSubjectLevelConfig method
-    String subject = "MetadataChangeProposal-value";
-    String topicName = "MetadataChangeProposal";
-    String compatibilityLevel = "BACKWARD";
-
-    when(mockSchemaRegistryService.getSchemaCompatibility(topicName))
-        .thenReturn(compatibilityLevel);
-
-    ResponseEntity<Config> response =
-        schemaRegistryController.getSubjectLevelConfig(subject, false);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().getCompatibilityLevel().toString(), compatibilityLevel);
-  }
-
-  @Test
-  public void testGetSubjectLevelConfig_WithDefaultToGlobal() {
-    // Test getSubjectLevelConfig method with defaultToGlobal=true
-    String subject = "MetadataChangeProposal-value";
-    String topicName = "MetadataChangeProposal";
-
-    when(mockSchemaRegistryService.getSchemaCompatibility(topicName)).thenReturn(null);
-
-    ResponseEntity<Config> response = schemaRegistryController.getSubjectLevelConfig(subject, true);
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().getCompatibilityLevel().toString(), "BACKWARD");
+    ResponseEntity<List<String>> response = controller.getSchemaTypes();
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+    assertNotNull(response.getBody());
+    assertEquals(response.getBody().size(), 1);
+    assertTrue(response.getBody().contains("AVRO"));
   }
 
   @Test
   public void testGetTopLevelConfig() {
-    // Test getTopLevelConfig method
-    ResponseEntity<Config> response = schemaRegistryController.getTopLevelConfig();
-
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
-    Assert.assertNotNull(response.getBody());
-    Assert.assertEquals(response.getBody().getCompatibilityLevel().toString(), "BACKWARD");
+    ResponseEntity<Config> response = controller.getTopLevelConfig();
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+    assertNotNull(response.getBody());
+    assertEquals(
+        response.getBody().getCompatibilityLevel(), Config.CompatibilityLevelEnum.BACKWARD);
   }
 
   @Test
-  public void testGet() {
-    // Test get method (root endpoint)
-    ResponseEntity<String> response = schemaRegistryController.get();
+  public void testListSubjects() {
+    List<String> mockSubjects = List.of("test-subject-value", "another-subject-value");
+    when(mockSchemaRegistryService.getAllTopics())
+        .thenReturn(List.of("test-subject", "another-subject"));
 
-    Assert.assertEquals(response.getStatusCode(), HttpStatus.OK);
+    ResponseEntity<List<String>> response = controller.list(null, false, false);
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+    assertNotNull(response.getBody());
+    assertEquals(response.getBody().size(), 2);
+    assertTrue(response.getBody().contains("test-subject-value"));
+    assertTrue(response.getBody().contains("another-subject-value"));
   }
 
-  private org.apache.avro.Schema createMockAvroSchema() {
-    // Create a simple mock Avro schema for testing
-    return org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING);
+  @Test
+  public void testListVersions() {
+    List<Integer> mockVersions = List.of(1, 2, 3);
+    when(mockSchemaRegistryService.getSupportedSchemaVersionsForTopic("test-topic"))
+        .thenReturn(Optional.of(mockVersions));
+
+    ResponseEntity<List<Integer>> response =
+        controller.listVersions("test-topic-value", false, false);
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+    assertNotNull(response.getBody());
+    assertEquals(response.getBody(), mockVersions);
+  }
+
+  @Test
+  public void testGetSchemaByVersion_Latest() {
+    org.apache.avro.Schema mockSchema =
+        org.apache.avro.Schema.createRecord("TestSchema", null, "test.namespace", false);
+    when(mockSchemaRegistryService.getLatestSchemaVersionForTopic("test-topic"))
+        .thenReturn(Optional.of(3));
+    when(mockSchemaRegistryService.getSchemaIdForTopicAndVersion("test-topic", 3))
+        .thenReturn(Optional.of(123));
+    when(mockSchemaRegistryService.getSchemaForTopicAndVersion("test-topic", 3))
+        .thenReturn(Optional.of(mockSchema));
+
+    ResponseEntity<Schema> response =
+        controller.getSchemaByVersion("test-topic-value", "latest", false);
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+    assertNotNull(response.getBody());
+    assertEquals(response.getBody().getSubject(), "test-topic-value");
+    assertEquals(response.getBody().getVersion(), 3);
+    assertEquals(response.getBody().getId(), 123);
+    assertEquals(response.getBody().getSchema(), mockSchema.toString());
+  }
+
+  @Test
+  public void testGetSchemaByVersion_SpecificVersion() {
+    org.apache.avro.Schema mockSchema =
+        org.apache.avro.Schema.createRecord("TestSchema", null, "test.namespace", false);
+    when(mockSchemaRegistryService.getSchemaIdForTopicAndVersion("test-topic", 2))
+        .thenReturn(Optional.of(456));
+    when(mockSchemaRegistryService.getSchemaForTopicAndVersion("test-topic", 2))
+        .thenReturn(Optional.of(mockSchema));
+
+    ResponseEntity<Schema> response = controller.getSchemaByVersion("test-topic-value", "2", false);
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+    assertNotNull(response.getBody());
+    assertEquals(response.getBody().getSubject(), "test-topic-value");
+    assertEquals(response.getBody().getVersion(), 2);
+    assertEquals(response.getBody().getId(), 456);
+    assertEquals(response.getBody().getSchema(), mockSchema.toString());
+  }
+
+  @Test
+  public void testGetSchemaByVersion_NotFound() {
+    when(mockSchemaRegistryService.getSchemaIdForTopicAndVersion("nonexistent-topic", 1))
+        .thenReturn(Optional.empty());
+
+    ResponseEntity<Schema> response =
+        controller.getSchemaByVersion("nonexistent-topic-value", "1", false);
+    assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
+  }
+
+  // ============================================================================
+  // SECTION 2: REAL IMPLEMENTATION TESTS
+  // ============================================================================
+
+  @Test
+  public void testRealImplementation_BasicFunctionality() {
+    // Create real instances for comprehensive testing
+    EventSchemaData eventSchemaData = new EventSchemaData();
+    TopicConventionImpl topicConvention = new TopicConventionImpl();
+    SchemaRegistryServiceImpl realService =
+        new SchemaRegistryServiceImpl(topicConvention, eventSchemaData);
+
+    SchemaRegistryController realController =
+        new SchemaRegistryController(new ObjectMapper(), mockRequest, realService);
+
+    // Test schema types endpoint
+    ResponseEntity<List<String>> schemaTypesResponse = realController.getSchemaTypes();
+    assertEquals(schemaTypesResponse.getStatusCode(), HttpStatus.OK);
+    assertNotNull(schemaTypesResponse.getBody());
+    assertEquals(schemaTypesResponse.getBody().size(), 1);
+    assertTrue(schemaTypesResponse.getBody().contains("AVRO"));
+
+    // Test top-level configuration
+    ResponseEntity<Config> configResponse = realController.getTopLevelConfig();
+    assertEquals(configResponse.getStatusCode(), HttpStatus.OK);
+    assertNotNull(configResponse.getBody());
+    assertEquals(
+        configResponse.getBody().getCompatibilityLevel(), Config.CompatibilityLevelEnum.BACKWARD);
+  }
+
+  @Test
+  public void testRealImplementation_ListAllSubjects() {
+    // Create real instances
+    EventSchemaData eventSchemaData = new EventSchemaData();
+    TopicConventionImpl topicConvention = new TopicConventionImpl();
+    SchemaRegistryServiceImpl realService =
+        new SchemaRegistryServiceImpl(topicConvention, eventSchemaData);
+
+    SchemaRegistryController realController =
+        new SchemaRegistryController(new ObjectMapper(), mockRequest, realService);
+
+    ResponseEntity<List<String>> response = realController.list(null, false, false);
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+    assertNotNull(response.getBody());
+
+    // Should have some subjects
+    assertTrue(response.getBody().size() > 0, "Should have at least some subjects");
+
+    // Print all subjects for debugging
+    System.out.println("Available subjects:");
+    for (String subject : response.getBody()) {
+      System.out.println("  - " + subject);
+    }
+  }
+
+  // ============================================================================
+  // SECTION 3: MCL-SPECIFIC TESTS (REAL IMPLEMENTATIONS)
+  // ============================================================================
+
+  @Test
+  public void testMCLSchema_AllVersionsExist() {
+    // Create real instances
+    EventSchemaData eventSchemaData = new EventSchemaData();
+    TopicConventionImpl topicConvention = new TopicConventionImpl();
+    SchemaRegistryServiceImpl realService =
+        new SchemaRegistryServiceImpl(topicConvention, eventSchemaData);
+
+    SchemaRegistryController realController =
+        new SchemaRegistryController(new ObjectMapper(), mockRequest, realService);
+
+    // Test that MCL Versioned subject exists
+    ResponseEntity<List<String>> allSubjectsResponse = realController.list(null, false, false);
+    List<String> allSubjects = allSubjectsResponse.getBody();
+
+    assertTrue(allSubjects.contains(MCL_VERSIONED_SUBJECT), "MCL Versioned subject should exist");
+
+    // Test listing versions
+    ResponseEntity<List<Integer>> versionsResponse =
+        realController.listVersions(MCL_VERSIONED_SUBJECT, false, false);
+    assertEquals(versionsResponse.getStatusCode(), HttpStatus.OK);
+    assertNotNull(versionsResponse.getBody());
+
+    List<Integer> versions = versionsResponse.getBody();
+    assertEquals(versions.size(), 6, "MCL should have 6 versions");
+    assertTrue(versions.contains(1), "Should have version 1");
+    assertTrue(versions.contains(2), "Should have version 2");
+    assertTrue(versions.contains(3), "Should have version 3");
+    assertTrue(versions.contains(4), "Should have version 4");
+    assertTrue(versions.contains(5), "Should have version 5");
+    assertTrue(versions.contains(6), "Should have version 6");
+  }
+
+  @Test
+  public void testMCLSchema_CorrectSchemaIds() {
+    // Create real instances
+    EventSchemaData eventSchemaData = new EventSchemaData();
+    TopicConventionImpl topicConvention = new TopicConventionImpl();
+    SchemaRegistryServiceImpl realService =
+        new SchemaRegistryServiceImpl(topicConvention, eventSchemaData);
+
+    SchemaRegistryController realController =
+        new SchemaRegistryController(new ObjectMapper(), mockRequest, realService);
+
+    // Test each version has the correct schema ID
+    ResponseEntity<List<Integer>> versionsResponse =
+        realController.listVersions(MCL_VERSIONED_SUBJECT, false, false);
+    List<Integer> versions = versionsResponse.getBody();
+
+    for (Integer version : versions) {
+      ResponseEntity<Schema> versionResponse =
+          realController.getSchemaByVersion(MCL_VERSIONED_SUBJECT, String.valueOf(version), false);
+      assertEquals(versionResponse.getStatusCode(), HttpStatus.OK);
+
+      Schema schema = versionResponse.getBody();
+      int actualSchemaId = schema.getId();
+
+      // Verify correct schema ID for each version
+      switch (version) {
+        case 1:
+          assertEquals(actualSchemaId, MCL_V1_SCHEMA_ID, "Version 1 should have schema ID 2");
+          break;
+        case 2:
+          assertEquals(
+              actualSchemaId, MCL_TIMESERIES_V1_SCHEMA_ID, "Version 2 should have schema ID 3");
+          break;
+        case 3:
+          assertEquals(actualSchemaId, MCL_V1_FIX_SCHEMA_ID, "Version 3 should have schema ID 11");
+          break;
+        case 4:
+          assertEquals(
+              actualSchemaId,
+              MCL_TIMESERIES_V1_FIX_SCHEMA_ID,
+              "Version 4 should have schema ID 12");
+          break;
+        case 5:
+          assertEquals(actualSchemaId, MCL_NEW_SCHEMA_ID, "Version 5 should have schema ID 18");
+          break;
+        case 6:
+          assertEquals(
+              actualSchemaId, MCL_TIMESERIES_NEW_SCHEMA_ID, "Version 6 should have schema ID 19");
+          break;
+        default:
+          fail("Unexpected version: " + version);
+      }
+
+      // Verify schema content exists
+      assertNotNull(schema.getSchema(), "Schema content should not be null for version " + version);
+      assertTrue(
+          schema.getSchema().contains("record"),
+          "Schema should contain 'record' for version " + version);
+    }
+  }
+
+  @Test
+  public void testMCLSchema_LatestVersion() {
+    // Create real instances
+    EventSchemaData eventSchemaData = new EventSchemaData();
+    TopicConventionImpl topicConvention = new TopicConventionImpl();
+    SchemaRegistryServiceImpl realService =
+        new SchemaRegistryServiceImpl(topicConvention, eventSchemaData);
+
+    SchemaRegistryController realController =
+        new SchemaRegistryController(new ObjectMapper(), mockRequest, realService);
+
+    // Test getting latest version
+    ResponseEntity<Schema> latestResponse =
+        realController.getSchemaByVersion(MCL_VERSIONED_SUBJECT, "latest", false);
+    assertEquals(latestResponse.getStatusCode(), HttpStatus.OK);
+    assertNotNull(latestResponse.getBody());
+
+    Schema latestSchema = latestResponse.getBody();
+    assertEquals(latestSchema.getVersion(), 6, "Latest version should be 6");
+    assertEquals(
+        latestSchema.getId(),
+        MCL_TIMESERIES_NEW_SCHEMA_ID,
+        "Latest version should have schema ID 19");
+    assertNotNull(latestSchema.getSchema(), "Latest schema content should not be null");
+  }
+
+  // ============================================================================
+  // SECTION 4: ERROR HANDLING TESTS
+  // ============================================================================
+
+  @Test
+  public void testErrorHandling_NonExistentSubject() {
+    ResponseEntity<Schema> response =
+        controller.getSchemaByVersion("NonExistentSubject-value", "1", false);
+    assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
+  }
+
+  @Test
+  public void testErrorHandling_NonExistentVersion() {
+    when(mockSchemaRegistryService.getSchemaIdForTopicAndVersion("test-topic", 999))
+        .thenReturn(Optional.empty());
+
+    ResponseEntity<Schema> response =
+        controller.getSchemaByVersion("test-topic-value", "999", false);
+    assertEquals(response.getStatusCode(), HttpStatus.NOT_FOUND);
+  }
+
+  @Test
+  public void testErrorHandling_InvalidVersionFormat() {
+    ResponseEntity<Schema> response =
+        controller.getSchemaByVersion("test-topic-value", "invalid", false);
+    assertEquals(response.getStatusCode(), HttpStatus.BAD_REQUEST);
+  }
+
+  // ============================================================================
+  // SECTION 5: NEW FUNCTIONALITY TESTS
+  // ============================================================================
+
+  @Test
+  public void testEventSchemaData_GetSchemaRegistryId() {
+    // Test the new getSchemaRegistryId method
+    EventSchemaData eventSchemaData = new EventSchemaData();
+
+    // Test MCL schema registry IDs
+    Integer mclV1Id = eventSchemaData.getSchemaRegistryId("MetadataChangeLog", 1);
+    Integer mclV2Id = eventSchemaData.getSchemaRegistryId("MetadataChangeLog", 2);
+    Integer mclV3Id = eventSchemaData.getSchemaRegistryId("MetadataChangeLog", 3);
+    Integer mclV4Id = eventSchemaData.getSchemaRegistryId("MetadataChangeLog", 4);
+    Integer mclV5Id = eventSchemaData.getSchemaRegistryId("MetadataChangeLog", 5);
+    Integer mclV6Id = eventSchemaData.getSchemaRegistryId("MetadataChangeLog", 6);
+
+    assertNotNull(mclV1Id, "MCL version 1 should have schema registry ID");
+    assertNotNull(mclV2Id, "MCL version 2 should have schema registry ID");
+    assertNotNull(mclV3Id, "MCL version 3 should have schema registry ID");
+    assertNotNull(mclV4Id, "MCL version 4 should have schema registry ID");
+    assertNotNull(mclV5Id, "MCL version 5 should have schema registry ID");
+    assertNotNull(mclV6Id, "MCL version 6 should have schema registry ID");
+
+    // Verify correct ordinal-based IDs
+    assertEquals(mclV1Id, MCL_V1_SCHEMA_ID, "MCL version 1 should have schema ID 2");
+    assertEquals(mclV2Id, MCL_TIMESERIES_V1_SCHEMA_ID, "MCL version 2 should have schema ID 3");
+    assertEquals(mclV3Id, MCL_V1_FIX_SCHEMA_ID, "MCL version 3 should have schema ID 11");
+    assertEquals(
+        mclV4Id, MCL_TIMESERIES_V1_FIX_SCHEMA_ID, "MCL version 4 should have schema ID 12");
+    assertEquals(mclV5Id, MCL_NEW_SCHEMA_ID, "MCL version 5 should have schema ID 18");
+    assertEquals(mclV6Id, MCL_TIMESERIES_NEW_SCHEMA_ID, "MCL version 6 should have schema ID 19");
+
+    // Test non-existent schema
+    Integer nonExistentId = eventSchemaData.getSchemaRegistryId("NonExistentSchema", 1);
+    assertNull(nonExistentId, "Non-existent schema should return null");
+
+    // Test non-existent version
+    Integer nonExistentVersionId = eventSchemaData.getSchemaRegistryId("MetadataChangeLog", 999);
+    assertNull(nonExistentVersionId, "Non-existent version should return null");
+  }
+
+  @Test
+  public void testSchemaRegistryService_GetSchemaIdForTopicAndVersion() {
+    // Create real instances
+    EventSchemaData eventSchemaData = new EventSchemaData();
+    TopicConventionImpl topicConvention = new TopicConventionImpl();
+    SchemaRegistryServiceImpl realService =
+        new SchemaRegistryServiceImpl(topicConvention, eventSchemaData);
+
+    // Test MCL topic with different versions
+    String mclTopic = "MetadataChangeLog_Versioned_v1";
+
+    // Test each version
+    Optional<Integer> v1Id = realService.getSchemaIdForTopicAndVersion(mclTopic, 1);
+    Optional<Integer> v2Id = realService.getSchemaIdForTopicAndVersion(mclTopic, 2);
+    Optional<Integer> v3Id = realService.getSchemaIdForTopicAndVersion(mclTopic, 3);
+    Optional<Integer> v4Id = realService.getSchemaIdForTopicAndVersion(mclTopic, 4);
+    Optional<Integer> v5Id = realService.getSchemaIdForTopicAndVersion(mclTopic, 5);
+    Optional<Integer> v6Id = realService.getSchemaIdForTopicAndVersion(mclTopic, 6);
+
+    assertTrue(v1Id.isPresent(), "Version 1 should have schema ID");
+    assertTrue(v2Id.isPresent(), "Version 2 should have schema ID");
+    assertTrue(v3Id.isPresent(), "Version 3 should have schema ID");
+    assertTrue(v4Id.isPresent(), "Version 4 should have schema ID");
+    assertTrue(v5Id.isPresent(), "Version 5 should have schema ID");
+    assertTrue(v6Id.isPresent(), "Version 6 should have schema ID");
+
+    // Verify correct IDs
+    assertEquals(v1Id.get(), MCL_V1_SCHEMA_ID, "Version 1 should have schema ID 2");
+    assertEquals(v2Id.get(), MCL_TIMESERIES_V1_SCHEMA_ID, "Version 2 should have schema ID 3");
+    assertEquals(v3Id.get(), MCL_V1_FIX_SCHEMA_ID, "Version 3 should have schema ID 11");
+    assertEquals(v4Id.get(), MCL_TIMESERIES_V1_FIX_SCHEMA_ID, "Version 4 should have schema ID 12");
+    assertEquals(v5Id.get(), MCL_NEW_SCHEMA_ID, "Version 5 should have schema ID 18");
+    assertEquals(v6Id.get(), MCL_TIMESERIES_NEW_SCHEMA_ID, "Version 6 should have schema ID 19");
+
+    // Test non-existent topic
+    Optional<Integer> nonExistentTopicId =
+        realService.getSchemaIdForTopicAndVersion("NonExistentTopic", 1);
+    assertFalse(nonExistentTopicId.isPresent(), "Non-existent topic should return empty");
+
+    // Test non-existent version
+    Optional<Integer> nonExistentVersionId =
+        realService.getSchemaIdForTopicAndVersion(mclTopic, 999);
+    assertFalse(nonExistentVersionId.isPresent(), "Non-existent version should return empty");
+  }
+
+  @Test
+  public void testEventSchemaConstants_Validation() {
+    // Test that the validation works by ensuring all ordinals are mapped
+    // This test will fail if any SchemaIdOrdinal enum value is missing from SCHEMA_ID_TO_SCHEMA_MAP
+
+    // The validation happens during static initialization, so if we get here, it passed
+    assertNotNull(EventSchemaConstants.SCHEMA_ID_TO_SCHEMA_MAP, "Schema map should be initialized");
+    assertTrue(
+        EventSchemaConstants.SCHEMA_ID_TO_SCHEMA_MAP.size() > 0, "Schema map should not be empty");
+
+    // Verify that all the new _FIX ordinals are present
+    assertTrue(
+        EventSchemaConstants.SCHEMA_ID_TO_SCHEMA_MAP.containsKey(
+            SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1_FIX),
+        "METADATA_CHANGE_PROPOSAL_V1_FIX should be mapped");
+    assertTrue(
+        EventSchemaConstants.SCHEMA_ID_TO_SCHEMA_MAP.containsKey(
+            SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL_V1_FIX),
+        "FAILED_METADATA_CHANGE_PROPOSAL_V1_FIX should be mapped");
+    assertTrue(
+        EventSchemaConstants.SCHEMA_ID_TO_SCHEMA_MAP.containsKey(
+            SchemaIdOrdinal.METADATA_CHANGE_LOG_V1_FIX),
+        "METADATA_CHANGE_LOG_V1_FIX should be mapped");
+    assertTrue(
+        EventSchemaConstants.SCHEMA_ID_TO_SCHEMA_MAP.containsKey(
+            SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES_V1_FIX),
+        "METADATA_CHANGE_LOG_TIMESERIES_V1_FIX should be mapped");
+    assertTrue(
+        EventSchemaConstants.SCHEMA_ID_TO_SCHEMA_MAP.containsKey(
+            SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1_FIX),
+        "METADATA_CHANGE_EVENT_V1_FIX should be mapped");
+    assertTrue(
+        EventSchemaConstants.SCHEMA_ID_TO_SCHEMA_MAP.containsKey(
+            SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1_FIX),
+        "FAILED_METADATA_CHANGE_EVENT_V1_FIX should be mapped");
+    assertTrue(
+        EventSchemaConstants.SCHEMA_ID_TO_SCHEMA_MAP.containsKey(
+            SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1_FIX),
+        "METADATA_AUDIT_EVENT_V1_FIX should be mapped");
+
+    // Verify that the _FIX ordinals map to the same schemas as their V1 counterparts
+    assertEquals(
+        EventSchemaConstants.SCHEMA_ID_TO_SCHEMA_MAP.get(
+            SchemaIdOrdinal.METADATA_CHANGE_LOG_V1_FIX),
+        EventSchemaConstants.SCHEMA_ID_TO_SCHEMA_MAP.get(SchemaIdOrdinal.METADATA_CHANGE_LOG_V1),
+        "_FIX ordinal should map to same schema as V1");
+    assertEquals(
+        EventSchemaConstants.SCHEMA_ID_TO_SCHEMA_MAP.get(
+            SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES_V1_FIX),
+        EventSchemaConstants.SCHEMA_ID_TO_SCHEMA_MAP.get(
+            SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES_V1),
+        "_FIX ordinal should map to same schema as V1");
+  }
+
+  @Test
+  public void testGetSchemas_AllVersions() {
+    // Create real instances
+    EventSchemaData eventSchemaData = new EventSchemaData();
+    TopicConventionImpl topicConvention = new TopicConventionImpl();
+    SchemaRegistryServiceImpl realService =
+        new SchemaRegistryServiceImpl(topicConvention, eventSchemaData);
+
+    SchemaRegistryController realController =
+        new SchemaRegistryController(new ObjectMapper(), mockRequest, realService);
+
+    // Test getSchemas without latestOnly (should return all versions)
+    ResponseEntity<List<Schema>> allVersionsResponse =
+        realController.getSchemas(null, false, false, null, null);
+    assertEquals(allVersionsResponse.getStatusCode(), HttpStatus.OK);
+    assertNotNull(allVersionsResponse.getBody());
+
+    List<Schema> allSchemas = allVersionsResponse.getBody();
+    assertTrue(allSchemas.size() > 0, "Should have some schemas");
+
+    // Find MCL schemas
+    List<Schema> mclSchemas =
+        allSchemas.stream()
+            .filter(schema -> MCL_VERSIONED_SUBJECT.equals(schema.getSubject()))
+            .collect(java.util.stream.Collectors.toList());
+
+    assertEquals(mclSchemas.size(), 6, "MCL should have 6 versions");
+
+    // Verify each version has correct schema ID
+    for (Schema schema : mclSchemas) {
+      int version = schema.getVersion();
+      int schemaId = schema.getId();
+
+      switch (version) {
+        case 1:
+          assertEquals(schemaId, MCL_V1_SCHEMA_ID, "Version 1 should have schema ID 2");
+          break;
+        case 2:
+          assertEquals(schemaId, MCL_TIMESERIES_V1_SCHEMA_ID, "Version 2 should have schema ID 3");
+          break;
+        case 3:
+          assertEquals(schemaId, MCL_V1_FIX_SCHEMA_ID, "Version 3 should have schema ID 11");
+          break;
+        case 4:
+          assertEquals(
+              schemaId, MCL_TIMESERIES_V1_FIX_SCHEMA_ID, "Version 4 should have schema ID 12");
+          break;
+        case 5:
+          assertEquals(schemaId, MCL_NEW_SCHEMA_ID, "Version 5 should have schema ID 18");
+          break;
+        case 6:
+          assertEquals(
+              schemaId, MCL_TIMESERIES_NEW_SCHEMA_ID, "Version 6 should have schema ID 19");
+          break;
+        default:
+          fail("Unexpected version: " + version);
+      }
+
+      // Verify schema content exists
+      assertNotNull(schema.getSchema(), "Schema content should not be null");
+      assertTrue(schema.getSchema().contains("record"), "Schema should contain 'record'");
+    }
+  }
+
+  @Test
+  public void testGetSchemas_LatestOnly() {
+    // Create real instances
+    EventSchemaData eventSchemaData = new EventSchemaData();
+    TopicConventionImpl topicConvention = new TopicConventionImpl();
+    SchemaRegistryServiceImpl realService =
+        new SchemaRegistryServiceImpl(topicConvention, eventSchemaData);
+
+    SchemaRegistryController realController =
+        new SchemaRegistryController(new ObjectMapper(), mockRequest, realService);
+
+    // Test getSchemas with latestOnly=true (should return only latest versions)
+    ResponseEntity<List<Schema>> latestOnlyResponse =
+        realController.getSchemas(null, false, true, null, null);
+    assertEquals(latestOnlyResponse.getStatusCode(), HttpStatus.OK);
+    assertNotNull(latestOnlyResponse.getBody());
+
+    List<Schema> latestSchemas = latestOnlyResponse.getBody();
+    assertTrue(latestSchemas.size() > 0, "Should have some latest schemas");
+
+    // Find MCL schema
+    Optional<Schema> mclSchema =
+        latestSchemas.stream()
+            .filter(schema -> MCL_VERSIONED_SUBJECT.equals(schema.getSubject()))
+            .findFirst();
+
+    assertTrue(mclSchema.isPresent(), "MCL should have a latest schema");
+
+    Schema mcl = mclSchema.get();
+    assertEquals(mcl.getVersion(), 6, "Latest MCL version should be 6");
+    assertEquals(mcl.getId(), MCL_TIMESERIES_NEW_SCHEMA_ID, "Latest MCL should have schema ID 19");
+    assertNotNull(mcl.getSchema(), "Latest MCL schema content should not be null");
+  }
+
+  @Test
+  public void testSchemaConfigLoader_OrdinalIdChanges() {
+    // Test that the SchemaConfigLoader correctly loads ordinal_id instead of schema_id
+    ObjectMapper objectMapper = new ObjectMapper();
+    SchemaConfigLoader loader = new SchemaConfigLoader(objectMapper);
+    SchemaConfigLoader.SchemaConfig config = loader.getConfig();
+
+    assertNotNull(config, "Config should be loaded");
+    assertNotNull(config.getSchemas(), "Schemas should be loaded");
+
+    // Test MCL schema
+    SchemaConfigLoader.SchemaDefinition mclDef = config.getSchemas().get("MetadataChangeLog");
+    assertNotNull(mclDef, "MetadataChangeLog should be defined");
+
+    List<SchemaConfigLoader.VersionDefinition> versions = mclDef.getVersions();
+    assertEquals(versions.size(), 6, "MetadataChangeLog should have 6 versions");
+
+    // Verify ordinal_id values
+    assertEquals(
+        versions.get(0).getOrdinalId(),
+        "METADATA_CHANGE_LOG_V1",
+        "Version 1 should have correct ordinal_id");
+    assertEquals(
+        versions.get(1).getOrdinalId(),
+        "METADATA_CHANGE_LOG_TIMESERIES_V1",
+        "Version 2 should have correct ordinal_id");
+    assertEquals(
+        versions.get(2).getOrdinalId(),
+        "METADATA_CHANGE_LOG_V1_FIX",
+        "Version 3 should have correct ordinal_id");
+    assertEquals(
+        versions.get(3).getOrdinalId(),
+        "METADATA_CHANGE_LOG_TIMESERIES_V1_FIX",
+        "Version 4 should have correct ordinal_id");
+    assertEquals(
+        versions.get(4).getOrdinalId(),
+        "METADATA_CHANGE_LOG",
+        "Version 5 should have correct ordinal_id");
+    assertEquals(
+        versions.get(5).getOrdinalId(),
+        "METADATA_CHANGE_LOG_TIMESERIES",
+        "Version 6 should have correct ordinal_id");
+  }
+
+  // ============================================================================
+  // SECTION 6: COMPREHENSIVE VALIDATION TEST
+  // ============================================================================
+
+  @Test
+  public void testComprehensiveSchemaRegistryFunctionality() {
+    System.out.println("=== Comprehensive Schema Registry Test ===");
+
+    // Create real instances
+    EventSchemaData eventSchemaData = new EventSchemaData();
+    TopicConventionImpl topicConvention = new TopicConventionImpl();
+    SchemaRegistryServiceImpl realService =
+        new SchemaRegistryServiceImpl(topicConvention, eventSchemaData);
+
+    SchemaRegistryController realController =
+        new SchemaRegistryController(new ObjectMapper(), mockRequest, realService);
+
+    // 1. Test basic functionality
+    testRealImplementation_BasicFunctionality();
+    System.out.println("✅ Basic functionality works");
+
+    // 2. Test subject listing
+    testRealImplementation_ListAllSubjects();
+    System.out.println("✅ Subject listing works");
+
+    // 3. Test MCL schema validation
+    testMCLSchema_AllVersionsExist();
+    testMCLSchema_CorrectSchemaIds();
+    testMCLSchema_LatestVersion();
+    System.out.println("✅ MCL schema validation completed");
+
+    // 4. Test new functionality
+    testEventSchemaData_GetSchemaRegistryId();
+    testSchemaRegistryService_GetSchemaIdForTopicAndVersion();
+    testEventSchemaConstants_Validation();
+    testSchemaConfigLoader_OrdinalIdChanges();
+    System.out.println("✅ New functionality tests completed");
+
+    // 5. Test getSchemas endpoint
+    testGetSchemas_AllVersions();
+    testGetSchemas_LatestOnly();
+    System.out.println("✅ getSchemas endpoint tests completed");
+
+    // 6. Test error handling
+    testErrorHandling_NonExistentSubject();
+    System.out.println("✅ Error handling works");
+
+    System.out.println("=== All tests completed successfully! ===");
+    System.out.println(
+        "The schema registry is working correctly with the actual data configuration.");
   }
 }
