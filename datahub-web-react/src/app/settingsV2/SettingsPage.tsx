@@ -10,7 +10,7 @@ import {
     UsersThree,
     Wrench,
 } from '@phosphor-icons/react';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Redirect, Route, Switch, useHistory, useLocation, useRouteMatch } from 'react-router';
 import styled from 'styled-components';
 
@@ -90,8 +90,15 @@ export const SettingsPage = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const { config } = useAppConfig();
 
+    // Check if data is loaded
+    // We need to ensure both me.platformPrivileges and config are fully loaded to avoid race conditions
+    const isDataLoaded = me && me.platformPrivileges && config && config.identityManagementConfig !== undefined;
+
     // Get filtered paths based on user privileges
-    const PATHS = getFilteredPaths(me, config);
+    // Memoize to prevent unnecessary recalculations on every render
+    const PATHS = useMemo(() => {
+        return isDataLoaded ? getFilteredPaths(me, config) : [];
+    }, [isDataLoaded, me, config]);
 
     const subRoutes = PATHS.map((p) => p.path.replace('/', ''));
     const currPathName = pathname.replace(path, '');
@@ -276,16 +283,23 @@ export const SettingsPage = () => {
             </NavBarContainer>
             {/* Main Content */}
             <ContentContainer>
-                <Switch>
-                    <Route exact path={path}>
-                        <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${DEFAULT_PATH.path}`} />
-                    </Route>
-                    {PATHS.map((p) => (
-                        <Route path={`${path}/${p.path}`} key={p.path} render={() => p.content} />
-                    ))}
-                    {/* Fallback for any unmatched route - redirect to default */}
-                    <Route render={() => <Redirect to={`${path}/${DEFAULT_PATH.path}`} />} />
-                </Switch>
+                {!isDataLoaded ? (
+                    // Show loading state while waiting for user privileges and config
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                        Loading...
+                    </div>
+                ) : (
+                    <Switch>
+                        <Route exact path={path}>
+                            <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${DEFAULT_PATH.path}`} />
+                        </Route>
+                        {PATHS.map((p) => (
+                            <Route path={`${path}/${p.path}`} key={p.path} render={() => p.content} />
+                        ))}
+                        {/* Fallback for any unmatched route - redirect to default */}
+                        <Route render={() => <Redirect to={`${path}/${DEFAULT_PATH.path}`} />} />
+                    </Switch>
+                )}
             </ContentContainer>
         </PageContainer>
     );
