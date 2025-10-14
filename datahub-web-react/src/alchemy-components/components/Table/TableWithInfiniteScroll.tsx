@@ -22,6 +22,7 @@ interface TableWithInfiniteScrollProps<T> {
     itemToRemove?: (item: T) => boolean;
     itemToUpdate?: { updatedItem: T; shouldUpdate: (item: T) => boolean };
     resetTrigger?: string | number | boolean;
+    emptyState?: React.ReactNode;
 }
 
 export function TableWithInfiniteScroll<T>({
@@ -33,6 +34,7 @@ export function TableWithInfiniteScroll<T>({
     itemToRemove,
     itemToUpdate,
     resetTrigger,
+    emptyState,
     ...props
 }: TableWithInfiniteScrollProps<T>) {
     const {
@@ -69,6 +71,10 @@ export function TableWithInfiniteScroll<T>({
             updateItem(itemToUpdate.updatedItem, itemToUpdate.shouldUpdate);
         }
     }, [itemToUpdate, updateItem]);
+
+    if (!loading && !data.length) {
+        return <>{emptyState}</>;
+    }
 
     return (
         <Table

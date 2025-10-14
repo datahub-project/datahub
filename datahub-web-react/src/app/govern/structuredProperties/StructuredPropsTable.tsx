@@ -123,8 +123,8 @@ const StructuredPropsTable = ({
         setSelectedProperty(undefined);
     };
 
-    if (!loading && !structuredProperties.length) {
-        return <EmptyStructuredProperties isEmptySearch={!!structuredProperties.length} />;
+    if (!loading && !structuredProperties.length && searchQuery) {
+        return <EmptyStructuredProperties isEmptySearch />;
     }
 
     const columns = [
@@ -339,6 +339,7 @@ const StructuredPropsTable = ({
                             : undefined
                     }
                     resetTrigger={searchQuery}
+                    emptyState={<EmptyStructuredProperties />}
                 />
             )}
             <ConfirmationModal
