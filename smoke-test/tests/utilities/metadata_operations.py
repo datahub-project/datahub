@@ -13,24 +13,7 @@ def add_tag(
     sub_resource: Optional[str] = None,
     sub_resource_type: Optional[str] = None,
 ) -> bool:
-    """Add a tag to a resource.
-
-    Args:
-        auth_session: Authenticated session for making requests
-        resource_urn: URN of the resource to tag (dataset, chart, etc.)
-        tag_urn: URN of the tag to add
-        sub_resource: Optional sub-resource identifier (e.g., schema field path)
-        sub_resource_type: Optional sub-resource type (e.g., "DATASET_FIELD")
-
-    Returns:
-        True if the tag was added successfully
-
-    Example:
-        >>> add_tag(auth_session, "urn:li:dataset:(...)", "urn:li:tag:Legacy")
-        >>> add_tag(auth_session, dataset_urn, tag_urn,
-        ...         sub_resource="[version=2.0].field_name",
-        ...         sub_resource_type="DATASET_FIELD")
-    """
+    """Add a tag to a resource."""
     variables: Dict[str, Any] = {
         "input": {"tagUrn": tag_urn, "resourceUrn": resource_urn}
     }
@@ -54,21 +37,7 @@ def remove_tag(
     sub_resource: Optional[str] = None,
     sub_resource_type: Optional[str] = None,
 ) -> bool:
-    """Remove a tag from a resource.
-
-    Args:
-        auth_session: Authenticated session for making requests
-        resource_urn: URN of the resource (dataset, chart, etc.)
-        tag_urn: URN of the tag to remove
-        sub_resource: Optional sub-resource identifier (e.g., schema field path)
-        sub_resource_type: Optional sub-resource type (e.g., "DATASET_FIELD")
-
-    Returns:
-        True if the tag was removed successfully
-
-    Example:
-        >>> remove_tag(auth_session, "urn:li:dataset:(...)", "urn:li:tag:Legacy")
-    """
+    """Remove a tag from a resource."""
     variables: Dict[str, Any] = {
         "input": {"tagUrn": tag_urn, "resourceUrn": resource_urn}
     }
@@ -92,21 +61,7 @@ def add_term(
     sub_resource: Optional[str] = None,
     sub_resource_type: Optional[str] = None,
 ) -> bool:
-    """Add a glossary term to a resource.
-
-    Args:
-        auth_session: Authenticated session for making requests
-        resource_urn: URN of the resource (dataset, chart, etc.)
-        term_urn: URN of the glossary term to add
-        sub_resource: Optional sub-resource identifier (e.g., schema field path)
-        sub_resource_type: Optional sub-resource type (e.g., "DATASET_FIELD")
-
-    Returns:
-        True if the term was added successfully
-
-    Example:
-        >>> add_term(auth_session, dataset_urn, "urn:li:glossaryTerm:SavingAccount")
-    """
+    """Add a glossary term to a resource."""
     variables: Dict[str, Any] = {
         "input": {"termUrn": term_urn, "resourceUrn": resource_urn}
     }
@@ -130,21 +85,7 @@ def remove_term(
     sub_resource: Optional[str] = None,
     sub_resource_type: Optional[str] = None,
 ) -> bool:
-    """Remove a glossary term from a resource.
-
-    Args:
-        auth_session: Authenticated session for making requests
-        resource_urn: URN of the resource (dataset, chart, etc.)
-        term_urn: URN of the glossary term to remove
-        sub_resource: Optional sub-resource identifier (e.g., schema field path)
-        sub_resource_type: Optional sub-resource type (e.g., "DATASET_FIELD")
-
-    Returns:
-        True if the term was removed successfully
-
-    Example:
-        >>> remove_term(auth_session, dataset_urn, "urn:li:glossaryTerm:SavingAccount")
-    """
+    """Remove a glossary term from a resource."""
     variables: Dict[str, Any] = {
         "input": {"termUrn": term_urn, "resourceUrn": resource_urn}
     }
@@ -168,21 +109,7 @@ def update_description(
     sub_resource: Optional[str] = None,
     sub_resource_type: Optional[str] = None,
 ) -> bool:
-    """Update resource description.
-
-    Args:
-        auth_session: Authenticated session for making requests
-        resource_urn: URN of the resource (dataset, chart, etc.)
-        description: New description text
-        sub_resource: Optional sub-resource identifier (e.g., schema field path)
-        sub_resource_type: Optional sub-resource type (e.g., "DATASET_FIELD")
-
-    Returns:
-        True if the description was updated successfully
-
-    Example:
-        >>> update_description(auth_session, dataset_urn, "Updated description")
-    """
+    """Update resource description."""
     variables: Dict[str, Any] = {
         "input": {
             "description": description,
