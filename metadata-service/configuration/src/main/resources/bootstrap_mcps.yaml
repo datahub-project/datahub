@@ -125,3 +125,13 @@ bootstrap:
       mcps_location: "bootstrap_mcps/ingestion-datahub-lineage-features.yaml"
       values_env: "DATAHUB_LINEAGE_FEATURES_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_LINEAGE_FEATURES_REVISION"
+
+    - name: support-group
+      version: v1
+      blocking: false
+      async: false
+      optional: true
+      force: true
+      mcps_location: "bootstrap_mcps/support-group.yaml"
+      values_env: "DATAHUB_SUPPORT_GROUP_BOOTSTRAP_VALUES"
+      revision_env: "DATAHUB_SUPPORT_GROUP_BOOTSTRAP_REVISION"

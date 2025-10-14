@@ -15,6 +15,12 @@ GET           /config                                                         co
 
 # Routes used exclusively by the React application.
 
+# Support Authentication Routes (Important, must be before the tenant SSO routes)
+GET           /authenticate-support                                           controllers.SupportAuthenticationController.authenticateSupport(request: Request)
+GET           /sso-support                                                    controllers.SupportAuthenticationController.ssoSupport(request: Request)
+GET           /callback/oidc_support                                          controllers.SsoSupportCallbackController.handleSupportCallback(request: Request)
+POST          /callback/oidc_support                                          controllers.SsoSupportCallbackController.handleSupportCallback(request: Request)
+
 # Authentication in React
 GET           /authenticate                                                   controllers.AuthenticationController.authenticate(request: Request)
 GET           /sso                                                            controllers.AuthenticationController.sso(request: Request)
