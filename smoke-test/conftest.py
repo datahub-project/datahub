@@ -1,7 +1,7 @@
 import os
 
 import pytest
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from _pytest.nodes import Item
 import requests
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
@@ -12,6 +12,7 @@ from tests.utils import (
     get_frontend_session,
     wait_for_healthcheck_util,
     ingest_file_via_rest,
+    delete_urns,
     delete_urns_from_file,
     wait_for_writes_to_sync,
 )
@@ -57,7 +58,8 @@ def _ingest_cleanup_data_impl(
     graph_client,
     data_file: str,
     test_name: str,
-    cleanup_file: bool = False
+    cleanup_file: bool = False,
+    to_delete_urns: Optional[List[str]] = None
 ):
     """Helper for ingesting test data with automatic cleanup.
 
@@ -101,6 +103,8 @@ def _ingest_cleanup_data_impl(
         yield
         print(f"removing {test_name} test data")
         delete_urns_from_file(graph_client, data_file)
+        if to_delete_urns:
+            delete_urns(graph_client, to_delete_urns)
         wait_for_writes_to_sync()
     finally:
         if cleanup_file and os.path.exists(data_file):

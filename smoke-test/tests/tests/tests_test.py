@@ -5,7 +5,7 @@ import pytest
 import tenacity
 
 from conftest import _ingest_cleanup_data_impl
-from tests.utils import delete_urns, execute_graphql, get_sleep_info
+from tests.utils import execute_graphql, get_sleep_info
 
 sleep_sec, sleep_times = get_sleep_info()
 
@@ -15,9 +15,12 @@ TEST_URNS: List[str] = []
 @pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data(auth_session, graph_client):
     yield from _ingest_cleanup_data_impl(
-        auth_session, graph_client, "tests/tests/data.json", "tests"
+        auth_session,
+        graph_client,
+        "tests/tests/data.json",
+        "tests",
+        to_delete_urns=TEST_URNS,
     )
-    delete_urns(graph_client, TEST_URNS)
 
 
 test_name = "test name"
