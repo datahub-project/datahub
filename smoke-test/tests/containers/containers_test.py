@@ -2,16 +2,15 @@ from typing import Any, Dict
 
 import pytest
 
-from tests.utils import delete_urns_from_file, execute_graphql, ingest_file_via_rest
+from conftest import _ingest_cleanup_data_impl
+from tests.utils import execute_graphql
 
 
 @pytest.fixture(scope="module", autouse=False)
-def ingest_cleanup_data(auth_session, graph_client, request):
-    print("ingesting containers test data")
-    ingest_file_via_rest(auth_session, "tests/containers/data.json")
-    yield
-    print("removing containers test data")
-    delete_urns_from_file(graph_client, "tests/containers/data.json")
+def ingest_cleanup_data(auth_session, graph_client):
+    yield from _ingest_cleanup_data_impl(
+        auth_session, graph_client, "tests/containers/data.json", "containers"
+    )
 
 
 @pytest.mark.dependency()
