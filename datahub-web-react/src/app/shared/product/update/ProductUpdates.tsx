@@ -84,10 +84,9 @@ const StyledCloseRounded = styled(X)`
 export default function ProductUpdates() {
     const isFeatureEnabled = useIsProductAnnouncementEnabled();
     const latestUpdate = useGetLatestProductAnnouncementData();
-    const { title, image, description, ctaText, ctaLink } = latestUpdate;
 
-    const { visible, refetch } = useIsProductAnnouncementVisible(latestUpdate);
-    const dismiss = useDismissProductAnnouncement(latestUpdate, refetch);
+    const { visible, refetch } = useIsProductAnnouncementVisible(latestUpdate?.id);
+    const dismiss = useDismissProductAnnouncement(latestUpdate?.id, refetch);
 
     // Local state to hide immediately on dismiss
     const [isLocallyVisible, setIsLocallyVisible] = useState(false);
@@ -102,6 +101,7 @@ export default function ProductUpdates() {
     };
 
     const trackClick = () => {
+        if (!latestUpdate) return;
         analytics.event({
             type: EventType.ClickProductUpdate,
             id: latestUpdate.id,
@@ -109,7 +109,10 @@ export default function ProductUpdates() {
         });
     };
 
-    if (!isFeatureEnabled || !isLocallyVisible || !latestUpdate.enabled) return null;
+    // Don't show if feature disabled, not locally visible, update not loaded, or update not enabled
+    if (!isFeatureEnabled || !isLocallyVisible || !latestUpdate || !latestUpdate.enabled) return null;
+
+    const { title, image, description, ctaText, ctaLink } = latestUpdate;
 
     return (
         <CardWrapper>
