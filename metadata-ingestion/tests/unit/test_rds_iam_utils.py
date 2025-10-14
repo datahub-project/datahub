@@ -193,32 +193,6 @@ class TestRDSIAMTokenManager:
             assert manager._token_expires_at is not None
             mock_gen.assert_called_once()
 
-    def test_force_refresh(self):
-        aws_config = AwsConnectionConfig(aws_region="us-west-2")
-        full_token = (
-            "test.rds.amazonaws.com:5432/?Action=connect&DBUser=testuser"
-            "&X-Amz-Date=20250101T120000Z&X-Amz-Expires=900"
-        )
-
-        with patch(
-            "datahub.ingestion.source.aws.aws_common.generate_rds_iam_token"
-        ) as mock_gen:
-            mock_gen.return_value = full_token
-
-            manager = RDSIAMTokenManager(
-                endpoint="test.rds.amazonaws.com",
-                username="testuser",
-                port=5432,
-                aws_config=aws_config,
-            )
-            manager._current_token = "old-token"
-
-            token = manager.force_refresh()
-
-            assert token == full_token
-            assert manager._current_token == full_token
-            mock_gen.assert_called_once()
-
     def test_parse_token_expiry(self):
         """Test parsing X-Amz-Date and X-Amz-Expires from token URL."""
         aws_config = AwsConnectionConfig(aws_region="us-west-2")

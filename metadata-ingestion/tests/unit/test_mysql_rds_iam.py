@@ -25,12 +25,12 @@ class TestMySQLRDSIAMConfig:
             "host_port": "test.rds.amazonaws.com:3306",
             "username": "testuser",
             "database": "testdb",
-            "auth_mode": "IAM",
+            "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
         config = MySQLConfig.parse_obj(config_dict)
 
-        assert config.auth_mode == MySQLAuthMode.IAM
+        assert config.auth_mode == MySQLAuthMode.AWS_IAM
         assert config.aws_config is not None
         assert config.aws_config.aws_region == "us-west-2"
 
@@ -40,11 +40,11 @@ class TestMySQLRDSIAMConfig:
             "host_port": "test.rds.amazonaws.com:3306",
             "username": "testuser",
             "database": "testdb",
-            "auth_mode": "IAM",
+            "auth_mode": "AWS_IAM",
         }
         config = MySQLConfig.parse_obj(config_dict)
 
-        assert config.auth_mode == MySQLAuthMode.IAM
+        assert config.auth_mode == MySQLAuthMode.AWS_IAM
         assert config.aws_config is not None
         assert config.aws_config.aws_region is None  # Will be inferred by boto3
 
@@ -72,7 +72,7 @@ class TestMySQLSourceRDSIAM:
             "host_port": "test.rds.amazonaws.com:3306",
             "username": "testuser",
             "database": "testdb",
-            "auth_mode": "IAM",
+            "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
         config = MySQLConfig.parse_obj(config_dict)
@@ -94,7 +94,7 @@ class TestMySQLSourceRDSIAM:
             "host_port": "test.rds.amazonaws.com:3307",
             "username": "testuser",
             "database": "testdb",
-            "auth_mode": "IAM",
+            "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
         config = MySQLConfig.parse_obj(config_dict)
@@ -114,7 +114,7 @@ class TestMySQLSourceRDSIAM:
         config_dict = {
             "host_port": "test.rds.amazonaws.com:3306",
             "database": "testdb",
-            "auth_mode": "IAM",
+            "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
         config = MySQLConfig.parse_obj(config_dict)
@@ -129,7 +129,7 @@ class TestMySQLSourceRDSIAM:
             "host_port": "test.rds.amazonaws.com:invalid",
             "username": "testuser",
             "database": "testdb",
-            "auth_mode": "IAM",
+            "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
         config = MySQLConfig.parse_obj(config_dict)

@@ -69,7 +69,7 @@ class MySQLAuthMode(StrEnum):
     """Authentication mode for MySQL connection."""
 
     PASSWORD = "PASSWORD"
-    IAM = "IAM"
+    AWS_IAM = "AWS_IAM"
 
 
 class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
@@ -82,11 +82,11 @@ class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
         default=MySQLAuthMode.PASSWORD,
         description="Authentication mode to use for the MySQL connection. "
         "Options are 'PASSWORD' (default) for standard username/password authentication, "
-        "or 'IAM' for AWS RDS IAM authentication.",
+        "or 'AWS_IAM' for AWS RDS IAM authentication.",
     )
     aws_config: AwsConnectionConfig = Field(
         default_factory=AwsConnectionConfig,
-        description="AWS configuration for RDS IAM authentication (only used when auth_mode is IAM). "
+        description="AWS configuration for RDS IAM authentication (only used when auth_mode is AWS_IAM). "
         "Provides full control over AWS credentials, region, profiles, role assumption, retry logic, and proxy settings. "
         "If not explicitly configured, boto3 will automatically use the default credential chain and region from "
         "environment variables (AWS_DEFAULT_REGION, AWS_REGION), AWS config files (~/.aws/config), or IAM role metadata.",
@@ -130,9 +130,9 @@ class MySQLSource(TwoTierSQLAlchemySource):
         super().__init__(config, ctx, self.get_platform())
 
         self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
-        if config.auth_mode == MySQLAuthMode.IAM:
-            hostname, parsed_port = parse_host_port(config.host_port, default_port=3306)
-            port = parsed_port if parsed_port is not None else 3306
+        if config.auth_mode == MySQLAuthMode.AWS_IAM:
+            hostname, port = parse_host_port(config.host_port, default_port=3306)
+            assert port is not None
 
             if not config.username:
                 raise ValueError("username is required for RDS IAM authentication")
@@ -159,21 +159,20 @@ class MySQLSource(TwoTierSQLAlchemySource):
         from sqlalchemy import event
 
         if not (
-            self.config.auth_mode == MySQLAuthMode.IAM and self._rds_iam_token_manager
+            self.config.auth_mode == MySQLAuthMode.AWS_IAM
+            and self._rds_iam_token_manager
         ):
             return
 
-        token_manager = self._rds_iam_token_manager
+        def do_connect_listener(_dialect, _conn_rec, _cargs, cparams):
+            assert self._rds_iam_token_manager is not None, (
+                "RDS IAM Token Manager is not initialized"
+            )
+            cparams["password"] = self._rds_iam_token_manager.get_token()
+            cparams["ssl"] = cparams.get("ssl") or True
+            cparams.setdefault("auth_plugin_map", {})["mysql_clear_password"] = None
 
-        def provide_token(
-            dialect: Any, conn_rec: Any, cargs: Any, cparams: Any
-        ) -> None:
-            """Inject fresh RDS IAM token before each connection."""
-            cparams["password"] = token_manager.get_token()
-            cparams["ssl"] = {"ssl": True}
-            cparams["auth_plugin_map"] = {"mysql_clear_password": None}
-
-        event.listen(engine, "do_connect", provide_token)  # type: ignore[misc]
+        event.listen(engine, "do_connect", do_connect_listener)  # type: ignore[misc]
 
     def get_inspectors(self):
         from sqlalchemy import create_engine, inspect

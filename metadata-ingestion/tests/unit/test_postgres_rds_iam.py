@@ -29,12 +29,12 @@ class TestPostgresRDSIAMConfig:
             "host_port": "test.rds.amazonaws.com:5432",
             "username": "testuser",
             "database": "testdb",
-            "auth_mode": "IAM",
+            "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
         config = PostgresConfig.parse_obj(config_dict)
 
-        assert config.auth_mode == PostgresAuthMode.IAM
+        assert config.auth_mode == PostgresAuthMode.AWS_IAM
         assert config.aws_config is not None
         assert config.aws_config.aws_region == "us-west-2"
 
@@ -44,11 +44,11 @@ class TestPostgresRDSIAMConfig:
             "host_port": "test.rds.amazonaws.com:5432",
             "username": "testuser",
             "database": "testdb",
-            "auth_mode": "IAM",
+            "auth_mode": "AWS_IAM",
         }
         config = PostgresConfig.parse_obj(config_dict)
 
-        assert config.auth_mode == PostgresAuthMode.IAM
+        assert config.auth_mode == PostgresAuthMode.AWS_IAM
         assert config.aws_config is not None
         assert config.aws_config.aws_region is None  # Will be inferred by boto3
 
@@ -76,7 +76,7 @@ class TestPostgresSourceRDSIAM:
             "host_port": "test.rds.amazonaws.com:5432",
             "username": "testuser",
             "database": "testdb",
-            "auth_mode": "IAM",
+            "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
         config = PostgresConfig.parse_obj(config_dict)
@@ -98,7 +98,7 @@ class TestPostgresSourceRDSIAM:
             "host_port": "test.rds.amazonaws.com:5433",
             "username": "testuser",
             "database": "testdb",
-            "auth_mode": "IAM",
+            "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
         config = PostgresConfig.parse_obj(config_dict)
@@ -118,7 +118,7 @@ class TestPostgresSourceRDSIAM:
         config_dict = {
             "host_port": "test.rds.amazonaws.com:5432",
             "database": "testdb",
-            "auth_mode": "IAM",
+            "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
         config = PostgresConfig.parse_obj(config_dict)
@@ -133,7 +133,7 @@ class TestPostgresSourceRDSIAM:
             "host_port": "test.rds.amazonaws.com:invalid",
             "username": "testuser",
             "database": "testdb",
-            "auth_mode": "IAM",
+            "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
         config = PostgresConfig.parse_obj(config_dict)
@@ -156,7 +156,7 @@ class TestPostgresSourceRDSIAM:
             "host_port": "test.rds.amazonaws.com:5433",
             "username": "testuser",
             "database": "testdb",
-            "auth_mode": "IAM",
+            "auth_mode": "AWS_IAM",
             "aws_config": {"aws_region": "us-west-2"},
         }
         config = PostgresConfig.parse_obj(config_dict)

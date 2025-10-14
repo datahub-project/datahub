@@ -460,6 +460,10 @@ class AwsConnectionConfig(ConfigModel):
     def get_lakeformation_client(self) -> "LakeFormationClient":
         return self.get_session().client("lakeformation", config=self._aws_config())
 
+    def get_rds_client(self):
+        """Get an RDS client for generating IAM auth tokens."""
+        return self.get_session().client("rds", config=self._aws_config())
+
 
 def generate_rds_iam_token(
     endpoint: str,
@@ -488,7 +492,7 @@ def generate_rds_iam_token(
         ValueError: If AWS credentials are not configured or API call fails
     """
     try:
-        client = aws_config.get_session().client("rds", config=aws_config._aws_config())
+        client = aws_config.get_rds_client()
         token = client.generate_db_auth_token(
             DBHostname=endpoint, Port=port, DBUsername=username
         )
@@ -554,10 +558,7 @@ class RDSIAMTokenManager:
         if self._needs_refresh():
             self._refresh_token()
 
-        if self._current_token is None:
-            raise RuntimeError(
-                "Failed to generate RDS IAM token - token is None after refresh"
-            )
+        assert self._current_token is not None
         return self._current_token
 
     def _needs_refresh(self) -> bool:
@@ -621,21 +622,6 @@ class RDSIAMTokenManager:
         )
         self._token_expires_at = self._parse_token_expiry(self._current_token)
         logger.debug(f"Token will expire at {self._token_expires_at}")
-
-    def force_refresh(self) -> str:
-        """
-        Force token refresh and return new token.
-
-        Returns:
-            Freshly generated authentication token
-
-        Raises:
-            RuntimeError: If token generation fails
-        """
-        self._refresh_token()
-        if self._current_token is None:
-            raise RuntimeError("Failed to generate RDS IAM token after force refresh")
-        return self._current_token
 
 
 class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):
