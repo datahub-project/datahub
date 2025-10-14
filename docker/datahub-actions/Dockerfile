@@ -147,6 +147,7 @@ RUN mkdir -p $DATAHUB_BUNDLED_VENV_PATH && \
 # Copy the self-contained venv build scripts
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
 
 # Make scripts executable
 RUN chmod +x /tmp/build_bundled_venvs_unified.sh && \
