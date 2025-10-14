@@ -26,6 +26,7 @@ from datahub.metadata.schema_classes import (
 )
 from tests.utils import (
     delete_urns_from_file,
+    execute_graphql,
     ingest_file_via_rest,
     wait_for_writes_to_sync,
 )
@@ -190,8 +191,7 @@ def ingest_cleanup_data(auth_session, graph_client, request):
 def test_search_dpi(auth_session, ingest_cleanup_data):
     """Test DPI search and validation of returned fields using GraphQL."""
 
-    json = {
-        "query": """query scrollAcrossEntities($input: ScrollAcrossEntitiesInput!) {
+    query = """query scrollAcrossEntities($input: ScrollAcrossEntitiesInput!) {
             scrollAcrossEntities(input: $input) {
                 nextScrollId
                 count
@@ -232,21 +232,14 @@ def test_search_dpi(auth_session, ingest_cleanup_data):
                     }
                 }
             }
-        }""",
-        "variables": {
-            "input": {"types": ["DATA_PROCESS_INSTANCE"], "query": dpi_id, "count": 10}
-        },
+        }"""
+    variables = {
+        "input": {"types": ["DATA_PROCESS_INSTANCE"], "query": dpi_id, "count": 10}
     }
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
-    )
-    response.raise_for_status()
-    res_data = response.json()
+    res_data = execute_graphql(auth_session, query, variables)
 
     # Basic response structure validation
-    assert res_data, "Response should not be empty"
-    assert "data" in res_data, "Response should contain 'data' field"
     print("RESPONSE DATA:" + str(res_data))
     assert "scrollAcrossEntities" in res_data["data"], (
         "Response should contain 'scrollAcrossEntities' field"
