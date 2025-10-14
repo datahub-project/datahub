@@ -18,7 +18,7 @@
 - **`delete_urns(graph_client, urns)`** - Delete specific URNs from DataHub
 - **`get_sleep_info()`** - Get retry timing for eventual consistency
 - **`wait_for_writes_to_sync()`** - Wait for async operations to complete
-- **`_ingest_cleanup_data_impl(auth_session, graph_client, data_file, test_name, cleanup_file=False, to_delete_urns=None)`** - Helper for ingesting test data with automatic cleanup (in `conftest.py`)
+- **`_ingest_cleanup_data_impl(auth_session, graph_client, data_file, test_name, to_delete_urns=None)`** - Helper for ingesting test data with automatic cleanup (in `conftest.py`)
 
 ### GraphQL Pattern
 
