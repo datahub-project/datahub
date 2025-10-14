@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import DescriptionViewer from '@app/entityV2/summary/documentation/DescriptionViewer';
 import EditDescriptionModal from '@app/entityV2/summary/documentation/EditDescriptionModal';
 import { useDescriptionUtils } from '@app/entityV2/summary/documentation/useDescriptionUtils';
@@ -11,6 +12,9 @@ import { useDocumentationPermission } from '@app/entityV2/summary/documentation/
 import AddLinkModal from '@app/entityV2/summary/links/AddLinkModal';
 import Links from '@app/entityV2/summary/links/Links';
 import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
+import useFileUpload from '@app/shared/hooks/useFileUpload';
+
+import { UploadDownloadScenario } from '@types';
 
 const StyledEditor = styled(Editor)<{ $isEditing?: boolean }>`
     border: none;
@@ -44,6 +48,7 @@ interface Props {
 }
 
 export default function AboutSection({ hideLinksButton }: Props) {
+    const { urn: assetUrn } = useEntityData();
     const history = useHistory();
     const { search, pathname } = useLocation();
     const isEditingDescription = !!queryString.parse(search, { parseBooleans: true }).editingDescription;
@@ -81,6 +86,8 @@ export default function AboutSection({ hideLinksButton }: Props) {
         setUpdatedDescription(displayedDescription);
         removeEditingParam();
     };
+
+    const { uploadFile } = useFileUpload({ scenario: UploadDownloadScenario.AssetDocumentation, assetUrn });
 
     return (
         <div data-testid="about-section">
@@ -123,6 +130,7 @@ export default function AboutSection({ hideLinksButton }: Props) {
                         content={displayedDescription}
                         placeholder={emptyDescriptionText}
                         dataTestId="description-viewer"
+                        uploadFile={uploadFile}
                         readOnly
                     />
                 </DescriptionViewer>

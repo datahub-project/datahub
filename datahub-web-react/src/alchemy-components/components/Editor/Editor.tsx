@@ -27,6 +27,7 @@ import {
 
 import { EditorContainer, EditorTheme } from '@components/components/Editor/EditorTheme';
 import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
+import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
 import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
 import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
 import { DataHubMentionsExtension } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
@@ -50,6 +51,7 @@ type EditorProps = {
     dataTestId?: string;
     onKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void;
     hideBorder?: boolean;
+    uploadFile?: (file: File) => Promise<string>;
 };
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
@@ -64,6 +66,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         dataTestId,
         onKeyDown,
         hideBorder,
+        uploadFile,
     } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
@@ -78,6 +81,13 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new HeadingExtension({}),
             new HistoryExtension({}),
             new HorizontalRuleExtension({}),
+            ...(uploadFile
+                ? [
+                      new FileDragDropExtension({
+                          onFileUpload: uploadFile,
+                      }),
+                  ]
+                : []),
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),
