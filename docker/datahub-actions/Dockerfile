@@ -126,9 +126,50 @@ RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/o
 USER datahub
 # INLINE-END
 
+# =============================================================================
+# PRE-BUILD BUNDLED INGESTION VENVS
+# =============================================================================
+
+FROM ingestion-base-slim AS bundled-vEnvs
+USER 0
+
+# Set up bundled venv configuration
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_CLI_VERSION
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+
+# Create venv directory
+RUN mkdir -p $DATAHUB_BUNDLED_VENV_PATH && \
+    chown -R datahub:datahub $DATAHUB_BUNDLED_VENV_PATH
+
+# Copy the self-contained venv build scripts
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
+
+# Make scripts executable
+RUN chmod +x /tmp/build_bundled_venvs_unified.sh && \
+    chmod +x /tmp/build_bundled_venvs_unified.py
+
+USER datahub
+
+# Build bundled venvs using our self-contained script
+WORKDIR /tmp
+RUN ./build_bundled_venvs_unified.sh
+
+USER datahub
+
+# =============================================================================
+# END BUNDLED VENVS SECTION
+# =============================================================================
+
 FROM ingestion-base-${APP_ENV} AS final
 
 USER root
+
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+COPY --from=bundled-vEnvs $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
 
 COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
@@ -169,47 +210,6 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 # Because uv uses hardlinks for installing packages, keeping the cache around does not
 # really impact image size.
 RUN uv pip install -e '/metadata-ingestion/' -e '/datahub-actions/[all]'
-
-# =============================================================================
-# PRE-BUILD BUNDLED INGESTION VENVS
-# =============================================================================
-
-USER 0
-
-# Set up bundled venv configuration
-ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
-ARG BUNDLED_CLI_VERSION
-ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
-ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
-ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
-
-# Create venv directory
-RUN mkdir -p $DATAHUB_BUNDLED_VENV_PATH && \
-    chown -R datahub:datahub $DATAHUB_BUNDLED_VENV_PATH
-
-# Copy the self-contained venv build scripts
-COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
-COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
-
-# Make scripts executable
-RUN chmod +x /tmp/build_bundled_venvs_unified.sh && \
-    chmod +x /tmp/build_bundled_venvs_unified.py
-
-USER datahub
-
-# Build bundled venvs using our self-contained script
-WORKDIR /tmp
-RUN ./build_bundled_venvs_unified.sh
-
-# Remove build scripts to reduce image size
-USER 0
-RUN rm -rf /tmp/build_bundled_venvs_unified.py /tmp/build_bundled_venvs_unified.sh
-
-USER datahub
-
-# =============================================================================
-# END BUNDLED VENVS SECTION
-# =============================================================================
 
 ENTRYPOINT [ ]
 CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
