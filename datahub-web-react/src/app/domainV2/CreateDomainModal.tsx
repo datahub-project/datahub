@@ -10,7 +10,6 @@ import { UpdatedDomain, useDomainsContext as useDomainsContextV2 } from '@app/do
 import OwnersSection from '@app/domainV2/OwnersSection';
 import DomainSelector from '@app/entityV2/shared/DomainSelector/DomainSelector';
 import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
