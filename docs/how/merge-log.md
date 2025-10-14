@@ -849,3 +849,57 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **79eac47ec5** - fix(upsertLink): reorder fields to be consistent with Saas (#14986)
   *by v-tarasevich-blitz-brain on 2025-10-13*
 
+
+## Upstream Merge Session - 2025-10-14 18:58:50
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-10-14-185848`
+- **Merge Base**: `79eac47ec5aae2ca4120f4a64a3e364e9bfa9ca8`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 13
+- **Strategy**: stacked
+- **Started**: Tue Oct 14 18:58:50 UTC 2025
+
+### Commits Included in This Merge
+- **7e9b1353ac** - fix(ui): Entity text overflow in 'owner of' section (#14934)
+  *by Saketh Varma on 2025-10-14*
+
+- **5f03c94484** - refactor(test): refactor smoke test (#14993)
+  *by Aseem Bansal on 2025-10-14*
+
+- **7ee4085316** - fix(ingest/grafana): filter out invalid input field workunits (#14972)
+  *by Aseem Bansal on 2025-10-14*
+
+- **d50a06329b** - refactor(test): refactor smoke test (#14996)
+  *by Aseem Bansal on 2025-10-14*
+
+- **a85c4ffca8** - refactor(test): refactor smoke test (#14998)
+  *by Aseem Bansal on 2025-10-14*
+
+- **2b9d250c29** - fix(build): add ability to specificy constraints for bundled-venvs (#14999)
+  *by Chakru on 2025-10-14*
+
+- **6e5b3580d8** - fix(python): skip pydantic_core 2.41.3 (#14997)
+  *by Sergio Gómez Villamor on 2025-10-14*
+
+- **4ce4718729** - fix(ingest/mssql): ODBC connection always needs a database name (#14994)
+  *by Michael Maltese on 2025-10-14*
+
+- **c4e104eba2** - feat(dataproduct): output ports (#15000)
+  *by Sergio Gómez Villamor on 2025-10-14*
+
+- **0f71cf0ebf** - chore(iceberg): bump dependency (#15001)
+  *by Sergio Gómez Villamor on 2025-10-14*
+
+- **da0d4dd499** - refactor(test): refactor smoke test (#15003)
+  *by Aseem Bansal on 2025-10-14*
+
+- **559a08c9af** - update tag editing to include name and updated menu (#14884)
+  *by Anna Everhart on 2025-10-14*
+
+- **e25a82abe3** - fix(ui) Move template editable changes to their own files (#14923)
+  *by Chris Collins on 2025-10-14*
+
