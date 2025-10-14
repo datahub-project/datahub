@@ -21,6 +21,10 @@ TIME: int = 1581407189000
 logger = logging.getLogger(__name__)
 
 
+def sync_elastic() -> None:
+    wait_for_writes_to_sync()
+
+
 def get_frontend_session():
     username, password = get_admin_credentials()
     return login_as(username, password)

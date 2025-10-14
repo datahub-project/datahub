@@ -3,24 +3,17 @@ from typing import Any, Dict
 import pytest
 import tenacity
 
-from tests.utils import (
-    delete_entity,
-    delete_urns_from_file,
-    execute_graphql,
-    get_sleep_info,
-    ingest_file_via_rest,
-)
+from conftest import _ingest_cleanup_data_impl
+from tests.utils import delete_entity, execute_graphql, get_sleep_info
 
 sleep_sec, sleep_times = get_sleep_info()
 
 
 @pytest.fixture(scope="module", autouse=False)
-def ingest_cleanup_data(auth_session, graph_client, request):
-    print("ingesting domains test data")
-    ingest_file_via_rest(auth_session, "tests/domains/data.json")
-    yield
-    print("removing domains test data")
-    delete_urns_from_file(graph_client, "tests/domains/data.json")
+def ingest_cleanup_data(auth_session, graph_client):
+    yield from _ingest_cleanup_data_impl(
+        auth_session, graph_client, "tests/domains/data.json", "domains"
+    )
 
 
 @tenacity.retry(
