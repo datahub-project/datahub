@@ -3,6 +3,7 @@ from typing import Any, Dict
 import pytest
 
 from conftest import _ingest_cleanup_data_impl
+from tests.utilities.metadata_operations import add_tag, add_term, update_description
 from tests.utils import execute_graphql
 
 
@@ -143,36 +144,10 @@ def test_update_container(auth_session):
     container_urn = "urn:li:container:SCHEMA"
 
     new_tag = "urn:li:tag:Test"
-
-    add_tag_query = """mutation addTag($input: TagAssociationInput!) {
-            addTag(input: $input)
-        }"""
-    add_tag_variables: Dict[str, Any] = {
-        "input": {
-            "tagUrn": new_tag,
-            "resourceUrn": container_urn,
-        }
-    }
-
-    res_data = execute_graphql(auth_session, add_tag_query, add_tag_variables)
-
-    assert res_data["data"]["addTag"] is True
+    assert add_tag(auth_session, container_urn, new_tag)
 
     new_term = "urn:li:glossaryTerm:Term"
-
-    add_term_query = """mutation addTerm($input: TermAssociationInput!) {
-            addTerm(input: $input)
-        }"""
-    add_term_variables: Dict[str, Any] = {
-        "input": {
-            "termUrn": new_term,
-            "resourceUrn": container_urn,
-        }
-    }
-
-    res_data = execute_graphql(auth_session, add_term_query, add_term_variables)
-
-    assert res_data["data"]["addTerm"] is True
+    assert add_term(auth_session, container_urn, new_term)
 
     new_owner = "urn:li:corpuser:jdoe"
 
@@ -210,22 +185,7 @@ def test_update_container(auth_session):
     assert res_data["data"]["addLink"] is True
 
     new_description = "New description"
-
-    update_description_query = """mutation updateDescription($input: DescriptionUpdateInput!) {
-            updateDescription(input: $input)
-        }"""
-    update_description_variables: Dict[str, Any] = {
-        "input": {
-            "description": new_description,
-            "resourceUrn": container_urn,
-        }
-    }
-
-    res_data = execute_graphql(
-        auth_session, update_description_query, update_description_variables
-    )
-
-    assert res_data["data"]["updateDescription"] is True
+    assert update_description(auth_session, container_urn, new_description)
 
     # Now fetch the container to ensure it was updated
     # Get the container

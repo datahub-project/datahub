@@ -25,6 +25,9 @@ from tests.utils import (
 logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.no_cypress_suite1
+
+from tests.utilities.metadata_operations import update_description
+
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 usage_sample_data = "./test_resources/bigquery_usages_golden.json"
 bq_sample_data = "./sample_bq_data.json"
@@ -825,14 +828,7 @@ def test_update_corp_group_description(auth_session):
     group_urn = "urn:li:corpGroup:bfoo"
 
     # Update Corp Group Description
-    query = """mutation updateDescription($input: DescriptionUpdateInput!) {\n
-            updateDescription(input: $input) }"""
-    variables = {
-        "input": {"description": "My test description", "resourceUrn": group_urn},
-    }
-    res_data = execute_graphql(auth_session, query, variables)
-    print(res_data)
-    assert res_data["data"]["updateDescription"] is True
+    assert update_description(auth_session, group_urn, "My test description")
 
     # Verify the description has been updated
     query = """query corpGroup($urn: String!) {\n
@@ -856,12 +852,7 @@ def test_update_corp_group_description(auth_session):
     )
 
     # Reset Corp Group Description
-    query = """mutation updateDescription($input: DescriptionUpdateInput!) {\n
-            updateDescription(input: $input) }"""
-    variables = {
-        "input": {"description": "", "resourceUrn": group_urn},
-    }
-    execute_graphql(auth_session, query, variables)
+    update_description(auth_session, group_urn, "")
 
 
 @pytest.mark.dependency(
