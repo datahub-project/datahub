@@ -18,7 +18,9 @@ base_requirements = {
     "typing_extensions>=4.8.0",
     # Actual dependencies.
     "typing-inspect",
-    "pydantic>=2.4.0",
+    "pydantic>=2.4.0,<3.0.0",
+    # 2.41.3 https://github.com/pydantic/pydantic-core/issues/1841
+    "pydantic_core!=2.41.3",
     "mixpanel>=4.9.0",
     # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
     "sentry-sdk>=1.33.1",
