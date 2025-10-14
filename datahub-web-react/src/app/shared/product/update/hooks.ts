@@ -46,30 +46,27 @@ export function useIsProductAnnouncementVisible(update: ProductUpdate): ProductA
         fetchPolicy: 'cache-first',
     });
 
-    // Debug logging
-    console.log('[useIsProductAnnouncementVisible] Debug:', {
-        userUrn,
-        productUpdateStepId,
-        loading,
-        error: error?.message,
-        data: data?.batchGetStepStates?.results,
-        stepStateExists: data?.batchGetStepStates?.results?.some((result) => result?.id === productUpdateStepId),
-    });
-
-    if (loading || error) {
-        console.log('[useIsProductAnnouncementVisible] Returning false due to loading or error');
+    // If userUrn is not loaded yet, don't show the announcement (wait for user context to load)
+    if (!userUrn) {
         return {
             visible: false,
             refetch,
         };
     }
 
+    // If query is loading or has an error, don't show yet
+    if (loading || error) {
+        return {
+            visible: false,
+            refetch,
+        };
+    }
+
+    // Show announcement if the step state doesn't exist (user hasn't dismissed it)
     const visible =
         (data?.batchGetStepStates?.results &&
             !data?.batchGetStepStates?.results?.some((result) => result?.id === productUpdateStepId)) ||
         false;
-
-    console.log('[useIsProductAnnouncementVisible] Final visible:', visible);
 
     return {
         visible,
