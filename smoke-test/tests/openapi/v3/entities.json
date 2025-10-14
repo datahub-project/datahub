@@ -277,7 +277,6 @@
         "root\\['scrollId'\\]",
         "root\\['entities'\\]\\[\\d+\\]\\['scrollId'\\]",
         "root\\['totalCount'\\]",
-        "root\\['facets'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['sourceIP'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['telemetryTraceId'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['auditStamp'\\]",
@@ -310,7 +309,8 @@
               }
             }
           }
-        ]
+        ],
+        "facets":[{"field":"entity","aggregations":{"dataset":1}}]
       }
     }
   },
