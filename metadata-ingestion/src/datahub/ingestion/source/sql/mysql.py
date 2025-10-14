@@ -165,12 +165,12 @@ class MySQLSource(TwoTierSQLAlchemySource):
             return
 
         def do_connect_listener(_dialect, _conn_rec, _cargs, cparams):
-            assert self._rds_iam_token_manager is not None, (
+            assert self._rds_iam_token_manager, (
                 "RDS IAM Token Manager is not initialized"
             )
             cparams["password"] = self._rds_iam_token_manager.get_token()
-            cparams["ssl"] = cparams.get("ssl") or True
-            cparams.setdefault("auth_plugin_map", {})["mysql_clear_password"] = None
+            cparams["ssl"] = cparams.get("ssl") or {"ssl": True}
+            cparams["auth_plugin_map"] = {"mysql_clear_password": None}
 
         event.listen(engine, "do_connect", do_connect_listener)  # type: ignore[misc]
 
