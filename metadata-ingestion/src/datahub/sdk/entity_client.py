@@ -108,8 +108,6 @@ class EntityClient:
                     EntityClass = Subscription
                 elif urn.entity_type == "monitor":
                     EntityClass = Monitor
-                elif urn.entity_type == "subscription":
-                    EntityClass = Subscription
                 else:
                     raise SdkUsageError(
                         f"Entity type {urn.entity_type} is not yet supported"
