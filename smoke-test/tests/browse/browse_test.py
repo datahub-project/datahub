@@ -2,7 +2,8 @@ from typing import Any, Dict
 
 import pytest
 
-from tests.utils import delete_urns_from_file, execute_graphql, ingest_file_via_rest
+from conftest import _ingest_cleanup_data_impl
+from tests.utils import execute_graphql
 
 TEST_DATASET_1_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-browse-1,PROD)"
 TEST_DATASET_2_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-browse-2,PROD)"
@@ -10,13 +11,10 @@ TEST_DATASET_3_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-browse-3,PR
 
 
 @pytest.fixture(scope="module", autouse=False)
-def ingest_cleanup_data(graph_client, auth_session, request):
-    print("ingesting browse test data")
-    ingest_file_via_rest(auth_session, "tests/browse/data.json")
-
-    yield
-    print("removing browse test data")
-    delete_urns_from_file(graph_client, "tests/browse/data.json")
+def ingest_cleanup_data(auth_session, graph_client):
+    yield from _ingest_cleanup_data_impl(
+        auth_session, graph_client, "tests/browse/data.json", "browse"
+    )
 
 
 def test_get_browse_paths(auth_session, ingest_cleanup_data):

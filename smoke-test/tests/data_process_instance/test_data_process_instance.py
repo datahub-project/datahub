@@ -6,6 +6,7 @@ from random import randint
 import pytest
 
 import datahub.metadata.schema_classes as models
+from conftest import _ingest_cleanup_data_impl
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
@@ -24,12 +25,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TimeWindowSizeClass,
 )
-from tests.utils import (
-    delete_urns_from_file,
-    execute_graphql,
-    ingest_file_via_rest,
-    wait_for_writes_to_sync,
-)
+from tests.utils import execute_graphql
 
 logger = logging.getLogger(__name__)
 
@@ -172,17 +168,13 @@ def create_test_data(filename: str):
 
 
 @pytest.fixture(scope="module", autouse=False)
-def ingest_cleanup_data(auth_session, graph_client, request):
-    new_file, filename = tempfile.mkstemp(suffix=".json")
+def ingest_cleanup_data(auth_session, graph_client):
+    _, filename = tempfile.mkstemp(suffix=".json")
     try:
         create_test_data(filename)
-        print("ingesting data process instance test data")
-        ingest_file_via_rest(auth_session, filename)
-        wait_for_writes_to_sync()
-        yield
-        print("removing data process instance test data")
-        delete_urns_from_file(graph_client, filename)
-        wait_for_writes_to_sync()
+        yield from _ingest_cleanup_data_impl(
+            auth_session, graph_client, filename, "data_process_instance"
+        )
     finally:
         os.remove(filename)
 

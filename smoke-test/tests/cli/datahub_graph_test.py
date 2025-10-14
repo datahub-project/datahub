@@ -3,6 +3,7 @@ from typing import Optional
 import pytest
 import tenacity
 
+from conftest import _ingest_cleanup_data_impl
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
@@ -21,14 +22,10 @@ graph_2 = "test_resources/graph_dataDiff.json"
 
 
 @pytest.fixture(scope="module", autouse=False)
-def ingest_cleanup_data(graph_client, auth_session, request):
-    print("removing graph test data")
-    delete_urns_from_file(graph_client, "tests/cli/graph_data.json")
-    print("ingesting graph test data")
-    ingest_file_via_rest(auth_session, "tests/cli/graph_data.json")
-    yield
-    print("removing graph test data")
-    delete_urns_from_file(graph_client, "tests/cli/graph_data.json")
+def ingest_cleanup_data(auth_session, graph_client):
+    yield from _ingest_cleanup_data_impl(
+        auth_session, graph_client, "tests/cli/graph_data.json", "graph"
+    )
 
 
 def test_get_aspect_v2(graph_client, ingest_cleanup_data):
