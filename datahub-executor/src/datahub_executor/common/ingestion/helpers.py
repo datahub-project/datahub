@@ -70,7 +70,7 @@ def setup_ingestion_executor(
                 config=FileSecretStoreConfig(
                     basedir=DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR,
                     max_length=DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN,
-                ),
+                ).model_dump(),
             ),
             SecretStoreConfig(
                 type="datahub",
@@ -79,7 +79,7 @@ def setup_ingestion_executor(
                         server=DATAHUB_GMS_URL,
                         token=DATAHUB_GMS_TOKEN,
                     )
-                ),
+                ).model_dump(),
             ),
         ],
         graph_client_config=DatahubClientConfig(
@@ -254,7 +254,7 @@ def handle_ingestion_signal_requests(
                     continue
 
                 signal = ExecutionRequestSignalClass.from_obj(signal_aspect)
-                signal_request = SignalRequest.parse_obj(
+                signal_request = SignalRequest.model_validate(
                     {
                         "exec_id": exec_id,
                         "executor_id": signal.executorId,

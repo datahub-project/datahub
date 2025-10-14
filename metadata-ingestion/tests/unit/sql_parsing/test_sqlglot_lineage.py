@@ -199,6 +199,21 @@ insert into downstream (a, c) select a, c from upstream2
     )
 
 
+def test_insert_with_cte() -> None:
+    assert_sql_result(
+        """
+WITH temp_cte AS (
+    SELECT id, name, value
+    FROM db.schema.source_table
+)
+INSERT INTO db.schema.target_table (id, name, value)
+SELECT id, name, value FROM temp_cte
+""",
+        dialect="tsql",
+        expected_file=RESOURCE_DIR / "test_insert_with_cte.json",
+    )
+
+
 def test_select_with_full_col_name() -> None:
     # In this case, `widget` is a struct column.
     # This also tests the `default_db` functionality.
@@ -1558,4 +1573,23 @@ NATURAL JOIN my_table2 t2
             },
         },
         expected_file=RESOURCE_DIR / "test_natural_join.json",
+    )
+
+
+def test_dremio_quoted_identifiers() -> None:
+    # Test that Dremio SQL with quoted identifiers parses correctly.
+    # This is a regression test for the issue where Dremio was mapped to the
+    # "drill" dialect, which didn't support quoted identifiers properly.
+    assert_sql_result(
+        """\
+WITH "cte_orders" AS (
+    SELECT * FROM "MySource"."sales"."orders"
+    WHERE "status" = 'completed'
+)
+SELECT "cte_orders"."order_id", "customers"."customer_name"
+FROM "cte_orders"
+JOIN "MySource"."sales"."customers" ON "cte_orders"."customer_id" = "customers"."customer_id"
+""",
+        dialect="dremio",
+        expected_file=RESOURCE_DIR / "test_dremio_quoted_identifiers.json",
     )

@@ -2,7 +2,7 @@ import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
-import { DEFAULT_MAX_DOMAIN_VALUE } from '@components/components/BarChart/hooks/usePrepareScales';
+import { DEFAULT_MAX_DOMAIN_VALUE } from '@components/components/BarChart/hooks/usePreparedScales';
 import { getMockedProps } from '@components/components/BarChart/utils';
 import { LineChart } from '@components/components/LineChart/LineChart';
 
@@ -81,6 +81,16 @@ const meta = {
         },
         renderGlyphOnSingleDataPoint: {
             description: 'A function to render a glyph for a single data point',
+        },
+        shouldAdjustYZeroPoint: {
+            description: 'Wheter to adjust Y zero point depending on the data',
+            control: {
+                type: 'boolean',
+            },
+        },
+        yZeroPointThreshold: {
+            description:
+                'The threshold value for zero inclusion to Y-scale. The value is calculated as the percentage of the difference in values ​​to the maximum value.',
         },
     },
 

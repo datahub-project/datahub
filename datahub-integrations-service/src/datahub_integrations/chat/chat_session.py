@@ -48,6 +48,7 @@ from datahub_integrations.chat.reducers.conversation_summarizer import (
 from datahub_integrations.chat.reducers.sliding_window_reducer import (
     SlidingWindowReducer,
 )
+from datahub_integrations.chat.utils import parse_reasoning_message
 from datahub_integrations.gen_ai.bedrock import (
     BedrockModel,
     get_bedrock_client,
@@ -156,7 +157,32 @@ However, do not use any headers (e.g. #, ##, ###, etc.) or tables, as these are 
 
 The first reference to each entity must be formatted as a link to the entity in DataHub.
 
-You may also provide up to {_MAX_SUGGESTIONS} suggestions for questions the user may want to ask as a follow up, but this is not required.
+State only FACTUAL INFORMATION. Do not try to infer connection without proof, do not make assumptions.
+
+CRITICAL - VALIDATION BEFORE CALLING THIS TOOL:
+Before calling this tool, you MUST validate that your response accurately matches what the user requested.
+
+CRITICAL: For fully-qualified entity names (database.schema.table format), the database, schema, AND table name must ALL match exactly. \
+If even one part differs (e.g., different database or schema), it is a DIFFERENT entity, not the same entity.
+
+If the response might not match the user request state this clearly and use conditional/uncertain tone THROUGHOUT \
+your entire response 
+    EXAMPLES: 
+    - User asked for "PROD_DB.FINANCE.revenue_report" but you only found "reporting.finance.revenue_report" 
+        → "I couldn't find PROD_DB.FINANCE.revenue_report. I found reporting.finance.revenue_report which \
+has a similar name but different database. If this is what you meant, here's what I found..."
+    - User asked for "Customer Metrics" dashboard but you found "Customer Analytics" dashboard 
+        → "I couldn't find a dashboard named 'Customer Metrics'. I found 'Customer Analytics' which may be \
+related. If this is what you're looking for, it shows..."
+    - User asked for deprecated datasets but you found deprecated dashboards 
+        → "I couldn't find deprecated datasets, but I did find deprecated dashboards. If you're interested \
+in these instead, here are..."
+
+When stating that the entities are related always provide proof for that, if you don't have proof call them SIMILAR.
+
+You may also provide up to {_MAX_SUGGESTIONS} suggestions for questions the user may want to ask as a follow \
+up, but this is not required. If there is uncertainty that we correctly answered the user's request, \
+clarify this in the suggestions.
 
 IMPORTANT: Keep your response concise and under {MESSAGE_LENGTH_SOFT_LIMIT} characters. \
 If you need to provide more information, focus on the most relevant points and summarize the rest. \
@@ -169,9 +195,11 @@ The assistant is DataHub AI, created by Acryl Data.
 DataHub AI is a helpful assistant that can answer questions relating to \
 metadata management, data discovery, data governance, and data quality within the organization.
 
-DataHub AI provides thorough responses to more complex and open-ended questions or to anything where a long response is requested, but concise responses to simpler questions and tasks.
+DataHub AI provides thorough responses to more complex and open-ended questions or to anything where \
+a long response is requested, but concise responses to simpler questions and tasks.
 
-DataHub AI makes use of the available tools in order to effectively answer the person's question. DataHub AI will typically make multiple tool calls in order to answer a single question, and will stop asking for more tool calls once it has enough information to answer the question.
+DataHub AI makes use of the available tools in order to effectively answer the person's question. \
+DataHub AI will typically make multiple tool calls in order to answer a single question, and will stop asking for more tool calls once it has enough information to answer the question.
 DataHub AI will not make more than 10 tool calls in a single response.
 
 DataHub AI can also answer very basic questions about DataHub itself using its built-in knowledge. \
@@ -184,7 +212,27 @@ DataHub AI provides the shortest answer it can to the person's message, while re
 
 DataHub AI avoids writing lists, but if it does need to write a list, DataHub AI focuses on key info instead of trying to be comprehensive. If DataHub AI can answer the human in 1-3 sentences or a short paragraph, it does. If DataHub AI can write a natural language list of a few comma separated items instead of a numbered or bullet-pointed list, it does so. DataHub AI tries to stay focused and share fewer, high quality examples or ideas rather than many.
 
-For any progress or reasoning updates, always use short, user-friendly, and non-technical statements. Keep each step under 75 characters if possible, and never exceed 300 characters. If a step is too long, provide a concise summary suitable for a progress bar or status update.
+IMPORTANT: Before each tool call, DataHub AI outputs structured reasoning in XML format explaining what it's about to do and why. \
+The reasoning MUST be wrapped in <reasoning></reasoning> tags and include these fields:
+
+<reasoning>
+  <action>Brief description of the tool call about to be made</action>
+  <rationale>Why this tool call is needed</rationale>
+  <user_requested>What the user originally asked for (if applicable)</user_requested>
+  <what_found>What was actually found (if different from user request)</what_found>
+  <exact_match>true/false - Does what was found exactly match what the user requested?</exact_match>
+  <discrepancies>If exact_match is false, list specific differences (database, schema, name, type, etc.)</discrepancies>
+  <proof_of_relation>If claiming entities are related, provide specific proof. If no proof, state "SIMILAR names only"</proof_of_relation>
+  <confidence>high/medium/low</confidence>
+  <warning>Any important caveats or warnings about this action</warning>
+</reasoning>
+
+For tool calls where entity matching is not relevant (e.g., initial searches), you can omit the matching fields.
+
+CRITICAL: For fully-qualified entity names (database.schema.table format), the database, schema, AND table name must ALL match \
+exactly. If even one part differs, it is a DIFFERENT entity, not the same entity.
+- State only FACTUAL INFORMATION. Do not try to infer connection without proof, do not make assumptions.
+
 
 DataHub AI is now being connected with a person."""
 
@@ -263,10 +311,23 @@ def _get_extra_llm_instructions(client: DataHubClient) -> Optional[str]:
             return None
 
     except Exception as e:
-        # GraphQL call failed - re-raise the exception as per requirements
-        raise Exception(
-            f"Failed to fetch AI instructions from GraphQL: {str(e)}"
-        ) from e
+        # Failed to fetch AI instructions from GraphQL.
+        # This is typically because the GMS instance doesn't have the aiAssistant
+        # field in GlobalSettings yet (feature not deployed to this instance).
+        # We log a warning and return None (no extra instructions) rather than
+        # crashing the chat session.
+        #
+        # NOTE: This catches ALL exceptions, which means we might accidentally
+        # suppress other GraphQL errors. This is a temporary solution until all
+        # GMS instances are upgraded to support AI assistant settings (expected
+        # within a couple of months). After that, any errors here would be
+        # unexpected and should be investigated.
+        logger.warning(
+            f"Failed to fetch AI assistant instructions from GraphQL: {e}. "
+            "This is expected if the GMS instance hasn't been upgraded to support "
+            "this feature yet. Proceeding without additional instructions."
+        )
+        return None
 
 
 class FilteredProgressListener:
@@ -299,7 +360,15 @@ class FilteredProgressListener:
 
         for message in history.messages[start_offset:]:
             if isinstance(message, ReasoningMessage):
-                sanitized_text = cls._sanitize_progress_step(message.text)
+                # Parse the reasoning message to extract user-friendly text
+                parsed = parse_reasoning_message(message.text)
+                user_visible_text = parsed.to_user_visible_message()
+
+                # Sanitize and truncate progress messages
+                # Max 1000 chars per step: generous buffer since parsed messages are
+                # typically 50-200 chars. Even with 10 steps (10K chars total), this
+                # stays well within Slack's 3K recommended limit and Teams' 28KB limit.
+                sanitized_text = cls._sanitize_progress_step(user_visible_text)
                 steps.append(truncate(sanitized_text, max_length=1000))
             # elif isinstance(message, ToolCallRequest):
             #     steps.append(self._get_progress_message(message.tool_name))
@@ -554,10 +623,52 @@ class ChatSession:
     ) -> None:
         is_final_response = is_last_block and is_end_turn
         if is_final_response:
-            # TODO: Do we want to force another loop to ensure a tool call?
-            self._add_message(AssistantMessage(text=content_block["text"]))
+            # This is a fallback case where LLM outputs text without using respond_to_user tool
+            # We log this to track when it happens (unexpected behavior)
+            response_text = content_block["text"]
+            self._add_message(AssistantMessage(text=response_text))
+
+            # Log final response as MLflow span to track unexpected direct responses
+            attributes = {
+                "response_length": len(response_text),
+                "message_index": len(self.history.messages),
+                "is_unexpected_direct_response": True,  # Flag that this bypassed respond_to_user
+            }
+
+            # Use message count as span suffix. This is safe because:
+            # 1. history.messages is append-only (even with context reduction)
+            # 2. Each generate_next_message() call creates a new trace
+            # 3. Message count provides useful debugging context
+            with mlflow.start_span(
+                f"assistant_message_{len(self.history.messages)}",
+                span_type=mlflow.entities.SpanType.LLM,
+                attributes=attributes,
+            ) as span:
+                span.set_inputs(
+                    {"context": "Direct LLM response (bypassed respond_to_user tool)"}
+                )
+                span.set_outputs({"response": response_text})
         else:
-            self._add_message(ReasoningMessage(text=content_block["text"]))
+            reasoning_text = content_block["text"]
+            self._add_message(ReasoningMessage(text=reasoning_text))
+
+            # Log reasoning as MLflow span (full XML preserved in outputs)
+            attributes = {
+                "reasoning_length": len(reasoning_text),
+                "message_index": len(self.history.messages),
+            }
+
+            # Use message count as span suffix. This is safe because:
+            # 1. history.messages is append-only (even with context reduction)
+            # 2. Each generate_next_message() call creates a new trace
+            # 3. Message count provides useful debugging context
+            with mlflow.start_span(
+                f"reasoning_step_{len(self.history.messages)}",
+                span_type=mlflow.entities.SpanType.LLM,
+                attributes=attributes,
+            ) as span:
+                span.set_inputs({"context": "LLM internal thinking"})
+                span.set_outputs({"reasoning": reasoning_text})
 
     def _handle_tool_call_request(
         self, content_block: "ContentBlockOutputTypeDef"

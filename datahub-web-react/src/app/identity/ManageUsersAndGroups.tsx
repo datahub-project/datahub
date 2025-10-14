@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -12,6 +12,7 @@ import {
 import { GroupList } from '@app/identity/group/GroupList';
 import InviteUsersModal from '@app/identity/user/InviteUsersModal';
 import { UserAndGroupList } from '@app/identity/user/UserAndGroupList';
+import { markRecommendedUsersAsSeen } from '@app/identity/user/recommendedUsersLocalStorage';
 import { checkIsSsoEnabled } from '@app/settingsV2/platform/sso/utils';
 import { AlchemyRoutedTabs } from '@app/shared/AlchemyRoutedTabs';
 
@@ -63,6 +64,11 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
 
     const userCount = usersData?.listUsers?.total || 0;
     const groupCount = groupsData?.listGroups?.total || 0;
+
+    // Mark that user has visited this page (for Settings badge/dot logic)
+    useEffect(() => {
+        markRecommendedUsersAsSeen();
+    }, []);
 
     const getTabs = () => {
         return [

@@ -261,3 +261,591 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **4fd60c698c** - fix(ui): Render the values instead of urns in Policies Modal (#14613)
   *by Saketh Varma on 2025-09-16*
 
+
+## Upstream Merge Session - 2025-10-03 05:30:49
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-backfill-09-17-2025--remerge-c075d1407cd01226ee835794dceb1a534e754e5f-attempt2`
+- **Merge Base**: `4fd60c698c1db62cf5f2391ccf2bc48c8b65a396`
+- **End Commit**: `c075d1407cd01226ee835794dceb1a534e754e5f`
+- **Total Commits**: 10
+- **Strategy**: stacked
+- **Started**: Fri Oct  3 05:30:49 UTC 2025
+
+### Commits Included in This Merge
+- **e8e97beee6** - fix(ui) Add collection of minor fixes for summary pages and home page (#14771)
+  *by Chris Collins on 2025-09-16*
+
+- **8fafa22c68** - feat(ui) Update home page template editability (#14772)
+  *by Chris Collins on 2025-09-16*
+
+- **0c388dcfa1** - feat(docs) Add feature guide doc for the new Custom Asset Summaries (#14782)
+  *by Chris Collins on 2025-09-16*
+
+- **bd8f335110** - docs(release): Add release notes for version 0.3.14 (#14732)
+  *by Gabe Lyons on 2025-09-16*
+
+- **6d2501ba0a** - Revert "docs(release): Add release notes for version 0.3.14" (#14788)
+  *by Gabe Lyons on 2025-09-16*
+
+- **667b7cb12c** - fix(sdk_v2/lineage): Fix handling of null platform (#14784)
+  *by skrydal on 2025-09-17*
+
+- **002cc398d0** - fix(ingest): change redash sql parse error to warnining (#14785)
+  *by Kevin Karch on 2025-09-17*
+
+- **acffdce986** - feat(dbt): add filtering for materialized nodes based on their physical location (#14689)
+  *by Abdullah on 2025-09-17*
+
+- **e2c5767e39** - fix(ge_profiler): support nonnull_count for complex types (#14631)
+  *by Michael Maltese on 2025-09-17*
+
+- **c075d1407c** - fix(): Fix bundled venv (#14660)
+  *by John Joyce on 2025-09-17*
+
+
+## Upstream Merge Session - 2025-10-03 18:53:51
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-backfill-09-17-2025--remerge-da885c61963c9af37be85265ad103dd049f6b26d`
+- **Merge Base**: `c075d1407cd01226ee835794dceb1a534e754e5f`
+- **End Commit**: `da885c61963c9af37be85265ad103dd049f6b26d`
+- **Total Commits**: 18
+- **Strategy**: stacked
+- **Started**: Fri Oct  3 18:53:51 UTC 2025
+
+### Commits Included in This Merge
+- **eaa472ecf1** - feat(): Adding authenticator for OIDC OAuth  (#14707)
+  *by John Joyce on 2025-09-17*
+
+- **6073e20f92** - docs(): Add documentation for Microsoft Teams Application (#14783)
+  *by John Joyce on 2025-09-17*
+
+- **6fe831387b** - docs(): Updating datahub cloud actions source docs to include support for MCL events (#14786)
+  *by John Joyce on 2025-09-17*
+
+- **29982adc61** - fix(exception): surface exceptions to API response (#14795)
+  *by Aseem Bansal on 2025-09-18*
+
+- **3294e721e1** - feat(summary-tab): use manage summary permission to allow editing documentation and links (#14688)
+  *by purnimagarg1 on 2025-09-18*
+
+- **7341597835** - fix(ui/summary-tab): fix view more button when switching tabs (#14796)
+  *by purnimagarg1 on 2025-09-18*
+
+- **c3768afe3f** - improvement(ui/summary-tab): use editor from component library in CompactMarkdownViewer for consistent styles (#14797)
+  *by purnimagarg1 on 2025-09-18*
+
+- **a1c3af3360** - feat(summary-page): add analytics events for asset summary page (#14798)
+  *by purnimagarg1 on 2025-09-18*
+
+- **9ef4c3945e** - fix(ui): handle edit documentation button on sidebar with new summary page and update permissions (#14799)
+  *by purnimagarg1 on 2025-09-18*
+
+- **df5148a610** - fix(ui): fetch data product info for entity preview (#14800)
+  *by purnimagarg1 on 2025-09-18*
+
+- **a50bb30898** - fix(ui/summary-tab): fix functionality on add assets button in assets module (#14801)
+  *by purnimagarg1 on 2025-09-18*
+
+- **5c07dc6e5a** - feat(superset/preset): propagate chart & dashboard tags to DataHub (#14538)
+  *by Benjamin Maquet on 2025-09-17*
+
+- **d090c1da4a** - fix(summaryTab):  bring fixes from saas (#14764)
+  *by v-tarasevich-blitz-brain on 2025-09-18*
+
+- **6fdeb84785** - fix(summaryTab): fix empty state when assets were deleted (#14777)
+  *by v-tarasevich-blitz-brain on 2025-09-18*
+
+- **524d7994eb** - docs(logical): Add logical models feature guide (#14774)
+  *by Andrew Sikowitz on 2025-09-17*
+
+- **2ccd764ce1** - fix(impact-lineage): separate viz and impact query path (#14773)
+  *by david-leifker on 2025-09-17*
+
+- **ad69b3fd7e** - docs(teams): Update Teams App setup instructions (#14803)
+  *by Gabe Lyons on 2025-09-17*
+
+- **da885c6196** - refactor(ingestion): lookml source migration to use SDKv2 entities (#14710)
+  *by Anush Kumar on 2025-09-17*
+
+
+## Upstream Merge Session - 2025-10-06 16:40:08
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-sep-30-2025`
+- **Merge Base**: `da885c61963c9af37be85265ad103dd049f6b26d`
+- **End Commit**: `b25748eda18cc4d82c76eb42ff773682447bcd21`
+- **Total Commits**: 63
+- **Strategy**: stacked
+- **Started**: Mon Oct  6 16:40:08 UTC 2025
+
+### Commits Included in This Merge
+- **5efad7bdd2** - fix(summaryTab):  UI fixes (#14778)
+  *by v-tarasevich-blitz-brain on 2025-09-18*
+
+- **60dcd8ce21** - Revert "Revert "docs(release): Add release notes for version 0.3.14"" (#14789)
+  *by Gabe Lyons on 2025-09-18*
+
+- **5be17c6444** - feat(ingestion/tableau): parameter to have entity owners as email address of owner (#14724)
+  *by Jonny Dixon on 2025-09-18*
+
+- **478cd97db4** - improvement(ui/summary-tab): handle deleted structured properties in properties header of asset summary (#14805)
+  *by purnimagarg1 on 2025-09-18*
+
+- **8d3e2fa433** - docs(slack): Update Slack setup instructions for token generation (#14745)
+  *by Gabe Lyons on 2025-09-18*
+
+- **7768abc6eb** - Update menu on structured props table to new component (#14655)
+  *by Anna Everhart on 2025-09-18*
+
+- **d268d14ee2** - feat(ui): add summary page feature flag to local storage and make it generic (#14807)
+  *by purnimagarg1 on 2025-09-19*
+
+- **8560c19241** - chore(): bump spring (#14811)
+  *by david-leifker on 2025-09-18*
+
+- **7c1200c704** - refactor(ingestion): looker source migration to use SDKv2 entities (#14693)
+  *by Anush Kumar on 2025-09-18*
+
+- **50a231cd1a** - Update Entity Dropdown to Menu Component (#14656)
+  *by Anna Everhart on 2025-09-18*
+
+- **6bf511d8a8** - fix(ingestion/looker): handle potential None values in explore dataset entity (#14813)
+  *by Anush Kumar on 2025-09-18*
+
+- **109a419969** - feat(ui) Add ability to add links to asset header (#14770)
+  *by Chris Collins on 2025-09-18*
+
+- **5c79114cb2** - feat(ingestion/superset): add HTTP retry configuration to prevent infinite loops (#14818)
+  *by Sergio Gómez Villamor on 2025-09-19*
+
+- **23389d0344** - fix(summary-tab): show correct feedback when trying to add duplicate link (#14817)
+  *by purnimagarg1 on 2025-09-19*
+
+- **d26b335b59** - fix(summaryTab): follow ups from reloading modules PR (#14779)
+  *by v-tarasevich-blitz-brain on 2025-09-19*
+
+- **04b76b5664** - docs(): Update saas vs. oss docs for v0.3.14 (#14814)
+  *by John Joyce on 2025-09-19*
+
+- **01b3ef27d4** - feat(ui): Add context paths for Data Products (#14802)
+  *by Saketh Varma on 2025-09-19*
+
+- **beb93f1dc8** - ci: add username pr-labeler (#14828)
+  *by Deepak Garg on 2025-09-22*
+
+- **082719b197** - docs(bigquery): improve docs about strategies for lineage/usage extraction (#14806)
+  *by Sergio Gómez Villamor on 2025-09-22*
+
+- **3b18fd2369** - chore(deps): fix (org.postgresql:postgresql) (#14831)
+  *by rahul MALAWADKAR on 2025-09-22*
+
+- **9778c10b1b** - test: bring cypress tests for structured properties to OSS (#14832)
+  *by purnimagarg1 on 2025-09-22*
+
+- **b654d93962** - fix(ui): fix link in entity header flashing infinitely (#14820)
+  *by purnimagarg1 on 2025-09-22*
+
+- **d68b86c5d6** - docs(teams): removing stale teams docs (#14810)
+  *by Gabe Lyons on 2025-09-22*
+
+- **c130241c2a** - fix(tests): removing flakey v1 test (#14676)
+  *by Gabe Lyons on 2025-09-22*
+
+- **00bc0db68c** - feat(quickstart): bump min docker req (#14827)
+  *by Deepak Garg on 2025-09-23*
+
+- **a17fc4e0a8** - chore(python): drop pydantic v1 support (#14014)
+  *by Harshal Sheth on 2025-09-23*
+
+- **77fa969b76** - fix(ingestion): avoid pyarrow CVE-2023-47248 (#14819)
+  *by Sergio Gómez Villamor on 2025-09-23*
+
+- **a379f21089** - feat(ui/ingest): bring back exact start time in run history (#14837)
+  *by Adrian Machado on 2025-09-23*
+
+- **ddaebfbde1** - doc(datahub cloud): update recommended versions for cli, helm (#14841)
+  *by Aseem Bansal on 2025-09-23*
+
+- **6a97baeee4** - feat(ingestion/snaplogic): Add snaplogic as a source for metadata ingestion (#14231)
+  *by sabdul on 2025-09-23*
+
+- **9be65bd971** - feat(ingest/tableau): enable extract_lineage_from_unsupported_custom_sql_queries by default (#14717)
+  *by Michael Maltese on 2025-09-23*
+
+- **0f69e96078** - feat(sdk): Added support for Change Audit Stamps in Dashboard and Chart entities (#14815)
+  *by Anush Kumar on 2025-09-23*
+
+- **ec166abade** - tests(snaplogic): fix tests (#14848)
+  *by Sergio Gómez Villamor on 2025-09-23*
+
+- **b0c9662be7** - feature(transformers): Introduce Set browsePathsV2 transformer (#14825)
+  *by skrydal on 2025-09-23*
+
+- **30c16d2e6f** - Update react readme instructions (#14839)
+  *by Adrian Machado on 2025-09-23*
+
+- **b6eab24406** - refactor(ui): Fix typo in onboarding "Quality" pop-up message (#14816)
+  *by Fabio Serragnoli on 2025-09-24*
+
+- **7e868493fe** - fix(ingest/redshift): Fix for missing schema containers during ingestion (#14845)
+  *by Tamas Nemeth on 2025-09-24*
+
+- **6677f7d7ea** - fix(ui/ingest): system source save (#14847)
+  *by Aseem Bansal on 2025-09-24*
+
+- **60d888412f** - feat(ui/ingest): filter for status on run history (#14851)
+  *by Aseem Bansal on 2025-09-24*
+
+- **dac35550cc** - feat(alchemy): updating input with maxSize and Helper Text (#14856)
+  *by Gabe Lyons on 2025-09-24*
+
+- **bd0379b8cb** - fix(security): disable akka dns (#14858)
+  *by david-leifker on 2025-09-24*
+
+- **a1abac5250** - feat(ui/ingest): make filter params part of url for navigation (#14852)
+  *by Aseem Bansal on 2025-09-25*
+
+- **0fa4639857** - fix(sdk): fixes imports for some SaaS classes (#14843)
+  *by Sergio Gómez Villamor on 2025-09-25*
+
+- **941b3c725a** - feat(ingest): add lowercase urn config option to metabase source (#14850)
+  *by Kevin Karch on 2025-09-25*
+
+- **72ee770ae3** - feat(ui) Update summary page editability (#14822)
+  *by Chris Collins on 2025-09-25*
+
+- **55d714e0cd** - fix(ingest/mssql): don't split_statements on keywords inside bracketed identifiers (#14863)
+  *by Michael Maltese on 2025-09-25*
+
+- **a85f83d556** - fix(): fix config value (#14865)
+  *by david-leifker on 2025-09-25*
+
+- **eb066dcf1e** - fix(ingest/gcs): fix a number of issues and add integration tests (#14857)
+  *by Michael Maltese on 2025-09-25*
+
+- **4bf3f0e66d** - feat(Plugin Loader) Add config to control plugin loader when failure happens (#14769)
+  *by Jesse Jia on 2025-09-26*
+
+- **7e9c525448** - fix(ingestion): Fix for module level variable caching in sqllite check (#14861)
+  *by Tamas Nemeth on 2025-09-26*
+
+- **50c5841b50** - fix(schema-registry): fix v1.2.0.1 schema registry bug (#14846)
+  *by david-leifker on 2025-09-26*
+
+- **c18b125a05** - feat(ingestion): Enhanced column lineage extraction for Looker/LookML (#14826)
+  *by Anush Kumar on 2025-09-26*
+
+- **900d7fe244** - docs: hide pydantic_removed_field marked fields from documentation (#14829)
+  *by Sergio Gómez Villamor on 2025-09-28*
+
+- **0b75674ab3** - free up disk space in quickstart verification CI (#14879)
+  *by Chakru on 2025-09-29*
+
+- **8d13b03e85** - feat(sdk/search): add owner filter (#14649)
+  *by Mayuri Nehate on 2025-09-29*
+
+- **e698f0bf1d** - feat(sdk/search): add tags, glossary terms filter (#14873)
+  *by Mayuri Nehate on 2025-09-29*
+
+- **1e749d0c55** - docs(ingest): decode strings for easier getting started (#14830)
+  *by Aseem Bansal on 2025-09-29*
+
+- **795a6828e8** - feat(identity): only suggest users that are active or have displayName (#14867)
+  *by Ben Blazke on 2025-09-29*
+
+- **e9e18e4705** - feat(secret): FileSecretStore and EnvironmentSecretStore (#14882)
+  *by Sergio Gómez Villamor on 2025-09-30*
+
+- **af12c2be37** - docs(snaplogic): Add snaplogic to integration page (#14881)
+  *by sabdul on 2025-09-30*
+
+- **ba56bc9e29** - docs(cli): add details on parameters (#14886)
+  *by Aseem Bansal on 2025-09-30*
+
+- **ddffb85e14** - fix(auth): include dataProcessInstance in policies UI (#14880)
+  *by Chakru on 2025-09-30*
+
+- **b25748eda1** - feat(web): UI pagination for Assertion List page  (#14859)
+  *by Adrian Machado on 2025-09-30*
+
+
+## Upstream Merge Session - 2025-10-11 19:18:34
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-oct-10-2025`
+- **Merge Base**: `b25748eda18cc4d82c76eb42ff773682447bcd21`
+- **End Commit**: `ef0b4a71ce77ec1b7ba7ef35ec9854998be6524c`
+- **Total Commits**: 67
+- **Strategy**: stacked
+- **Started**: Sat Oct 11 19:18:34 UTC 2025
+
+### Commits Included in This Merge
+- **8248999758** - chore(model): remove unused model (#14887)
+  *by Aseem Bansal on 2025-10-01*
+
+- **00caa38adf** - feat(ingestion/sqlglot): preserve CTEs when extracting SELECT from INSERT statements and add corresponding unit test (#14898)
+  *by Anush Kumar on 2025-10-01*
+
+- **04d0a50118** - feat(): Basepath support (#14866)
+  *by david-leifker on 2025-10-01*
+
+- **0f5d5fd358** - fix(protobuf): use DynamicMessage for MESSAGE-type extension defaults (#14900)
+  *by Abe on 2025-10-01*
+
+- **660a4efa5f** - MCL Generation via CDC (#14824)
+  *by Chakru on 2025-10-02*
+
+- **f7ea7f033d** - chore(devenv): upgrade of opensearch to 2.17 and stability improvements (#14895)
+  *by Alex on 2025-10-01*
+
+- **5da54bf14d** - feat(s3/ingest): performance improvements for get_dir_to_process and get_folder_info (#14709)
+  *by Michael Maltese on 2025-10-02*
+
+- **28b866a721** - feat: ConnectionModel and DataHubGraph:get_urns_by_filter and StructuredProperties from saas (#14912)
+  *by Sergio Gómez Villamor on 2025-10-02*
+
+- **5b4a082c03** - fix(ingest/snowflake): Fixed the Snowflake external URL generation issue for privatelink connections. (#14905)
+  *by Tamas Nemeth on 2025-10-02*
+
+- **9f4ec9b220** - ci(nightly): add more profiles to nightly tests (#14907)
+  *by Chakru on 2025-10-03*
+
+- **1d46fc7fb0** - ci(cloudflare): fix workflow check for secret (#14906)
+  *by Chakru on 2025-10-03*
+
+- **9b6ad2263f** - chore(): bump grpc-protobuf (#14915)
+  *by david-leifker on 2025-10-02*
+
+- **78d258383f** - fix(ingest/snowflake): Skip sql parsing if all the features disable in config where it is needed (#14908)
+  *by Tamas Nemeth on 2025-10-03*
+
+- **cecb91b615** - feat(ingest): add high level stage for ingestion (#14862)
+  *by Aseem Bansal on 2025-10-03*
+
+- **1d0e3778a5** - fix(ingest/grafana): add exception handling (#14921)
+  *by Aseem Bansal on 2025-10-03*
+
+- **c88a4a5a48** - config(gms): enable some features by default (#14889)
+  *by Aseem Bansal on 2025-10-03*
+
+- **c7ea813a6e** - ci(reviewers): add petemango to pr-labeller (#14922)
+  *by Peter Wang on 2025-10-03*
+
+- **e244fc56ee** - fix(ci): bump metadata-ingestion runner (#14924)
+  *by david-leifker on 2025-10-03*
+
+- **6cf03160ba** - test(searchBarAutocomplete): add cypress tests (#13333)
+  *by v-tarasevich-blitz-brain on 2025-10-03*
+
+- **e58061c81d** - feat(structuredProperties): add new property to hide properties with emty value (#14870)
+  *by v-tarasevich-blitz-brain on 2025-10-03*
+
+- **37c9ed8564** - feat(structuredProperties): add option to hide properties with empty values (#14872)
+  *by v-tarasevich-blitz-brain on 2025-10-03*
+
+- **d0e0e20cff** - fix(ui) Fix re-expanding entity name after sidebar opens/closes (#14925)
+  *by Chris Collins on 2025-10-03*
+
+- **b4d6877746** - tests(structuredProperties): add cypress tests (#14888)
+  *by v-tarasevich-blitz-brain on 2025-10-03*
+
+- **2d7c009b81** - docs(release-notes): disclaimers for 0.3.14 (#14812)
+  *by Jay on 2025-10-03*
+
+- **eea46700f6** - chore(doc): Fix json schema generation after pydantic v2 move (#14926)
+  *by skrydal on 2025-10-04*
+
+- **0613f8d471** - feat(quickstart): bump min docker req and add validation (#14927)
+  *by Deepak Garg on 2025-10-06*
+
+- **a043d15193** - docs: fix datajob docs inline code format (#14933)
+  *by Hyejin Yoon on 2025-10-07*
+
+- **40b51ac2da** - feat(ingestion): Added Databricks support to Fivetran source (#14897)
+  *by Anush Kumar on 2025-10-06*
+
+- **e847b58472** - feat(ingest): ensure payload size constraints for queryProperties, querySubjects and upstreamLineage aspects (#14919)
+  *by Sergio Gómez Villamor on 2025-10-06*
+
+- **3eac7fab5b** - feat(search): implement multi-client search engine shim for ES8 support (#14904)
+  *by RyanHolstien on 2025-10-06*
+
+- **5d007f04c4** - fix(build): fix "grep: invalid option -- P" error in quickstart (#14916)
+  *by Peter Wang on 2025-10-06*
+
+- **335290dfec** - feat: RelationshipChangeEvent model + attribution action graph + kafka msk iam (all from SaaS) (#14938)
+  *by Sergio Gómez Villamor on 2025-10-07*
+
+- **c092e91223** - feat(ui/ingest): add source errors, warnings (#14939)
+  *by Aseem Bansal on 2025-10-07*
+
+- **5d28c2fd14** - fix(smoke-tests): smoke test fixes for postgres profile (#14940)
+  *by Chakru on 2025-10-07*
+
+- **9c22a4ae62** - fix(web): embedded search list responsiveness (#14913)
+  *by Jay on 2025-10-07*
+
+- **d87f46d686** - fix(entity controller) Fix case sensitivity in entity controller (#14902)
+  *by Jesse Jia on 2025-10-07*
+
+- **f2d3380226** - improvement(summary-tab): hide current property in replace dropdown of property header (#14842)
+  *by purnimagarg1 on 2025-10-07*
+
+- **86e5c13f29** - test(customLinks): add cypress tests (#274) (#14834)
+  *by v-tarasevich-blitz-brain on 2025-10-07*
+
+- **61ab5a8a17** - fix(ui/LineChart): adjust scaling of the line chart for the data with a small difference (#14836)
+  *by v-tarasevich-blitz-brain on 2025-10-07*
+
+- **91b17a7f5b** - feat(customLinks): add upsert link endpoint (#291) (#14854)
+  *by v-tarasevich-blitz-brain on 2025-10-07*
+
+- **d14ccdf57c** - feat(analytics) Support google tag tracking only with ID supplied (#14946)
+  *by Chris Collins on 2025-10-07*
+
+- **b7b4f1c9a5** - feat(uplodaFiles): add feature flag (#14951)
+  *by v-tarasevich-blitz-brain on 2025-10-08*
+
+- **136e4dc0d4** - test(ingestion): add cypress tests for redesigned ingestion flow (#14844)
+  *by purnimagarg1 on 2025-10-08*
+
+- **9e69b3f881** - test(cypress/statsTabV2): add cypress tests (#13495)
+  *by v-tarasevich-blitz-brain on 2025-10-08*
+
+- **0032384342** - test(customLinks): add integration tests (#275) (#14835)
+  *by v-tarasevich-blitz-brain on 2025-10-08*
+
+- **9992722e63** - feat(structuredProperties): refresh structured properties on update (#14910)
+  *by v-tarasevich-blitz-brain on 2025-10-08*
+
+- **5cdb7e2594** - docs(ingestion): Updating breaking changes for LookML and Looker sources (#14947)
+  *by Anush Kumar on 2025-10-08*
+
+- **3caa781540** - chore: add 'askumar27' to PR labeler configuration (#14949)
+  *by Sergio Gómez Villamor on 2025-10-08*
+
+- **0a0fcef047** - fix(protobuf): skip MESSAGE-type options in PropertyVisitor (#14957)
+  *by Abe on 2025-10-08*
+
+- **b6ff38d1c3** - bugfix(setup): pin pydantic version due to incompatibility with pyiceberg (#14959)
+  *by Anush Kumar on 2025-10-08*
+
+- **2a4f57791b** - bugfix(fivetran/unity): move UnityCatalogConnectionConfig import to avoid circular deps with ge_profiler (#14956)
+  *by Anush Kumar on 2025-10-08*
+
+- **cfda03cf6f** - docs(snowflake): use_queries_v2 + some minor fixes (#14944)
+  *by Sergio Gómez Villamor on 2025-10-09*
+
+- **4803e9e9b6** - fix(fivetran/setup): updated fivetran databricks dependencies (#14962)
+  *by Anush Kumar on 2025-10-09*
+
+- **b23571c16f** - Update release notes for v0.3.14.1-acryl (#14958)
+  *by Gabe Lyons on 2025-10-09*
+
+- **d98abe877e** - fix(smoke-test):cleanup existing token and add wait (#14965)
+  *by Deepak Garg on 2025-10-09*
+
+- **26685cba6c** - chore(deps): bump tar-fs from 2.1.3 to 2.1.4 in /docs-website (#14875)
+  *by dependabot[bot] on 2025-10-09*
+
+- **82f1e1d035** - doc(smoke test): add some guideline for smoke test (#14967)
+  *by Aseem Bansal on 2025-10-09*
+
+- **3d210ae34c** - chore(): bump grpc-netty (#14969)
+  *by david-leifker on 2025-10-09*
+
+- **e72f76b536** - ci(): metadata-io instance size (#14876)
+  *by david-leifker on 2025-10-09*
+
+- **06aebfe86f** - fix(ui): Proper url encoding in Impact view filters  (#14963)
+  *by Saketh Varma on 2025-10-10*
+
+- **be7cc44670** - fix(ui): Fix overlapping Modals  (#14964)
+  *by Saketh Varma on 2025-10-10*
+
+- **602f40d01d** - fix: change deprecated filename key to path in example recipe (#14950)
+  *by Túlio Lima on 2025-10-10*
+
+- **7b5680efbc** - fix(ingest): serialisation of structured report (#14973)
+  *by Aseem Bansal on 2025-10-10*
+
+- **c94ea28140** - refactor(policy): Update policy check for get invite token and create invite token (#14941)
+  *by DucNgoQuang on 2025-10-10*
+
+- **a3fae8d1e2** - fix(log): do not consider error if not strict (#14977)
+  *by Aseem Bansal on 2025-10-10*
+
+- **c5d70914cd** - feat(loadIndices): loadIndices upgrade (#14928)
+  *by david-leifker on 2025-10-10*
+
+- **ef0b4a71ce** - fix(impact): add missing executor pool (#14976)
+  *by david-leifker on 2025-10-10*
+
+
+## Upstream Merge Session - 2025-10-14 05:11:27
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-oct-13-2025`
+- **Merge Base**: `ef0b4a71ce77ec1b7ba7ef35ec9854998be6524c`
+- **End Commit**: `79eac47ec5aae2ca4120f4a64a3e364e9bfa9ca8`
+- **Total Commits**: 13
+- **Strategy**: stacked
+- **Started**: Tue Oct 14 05:11:27 UTC 2025
+
+### Commits Included in This Merge
+- **b45d606062** - fix(authentication): fix PlayCacheSessionStore (#14754)
+  *by trialiya on 2025-10-11*
+
+- **e8c144362e** - fix(ingest/dremio): Dremio sql parsing fix (#14974)
+  *by Tamas Nemeth on 2025-10-13*
+
+- **c20d2eb49e** - fix(cli): remove pydantic warning (#14987)
+  *by Aseem Bansal on 2025-10-13*
+
+- **6a167da408** - fix(build): Add --copies flag to Python venv creation for better compatibility (#14120)
+  *by Pedro Silva on 2025-10-13*
+
+- **82338628b6** - fix(smoke-test):cleanup existing token and add wait (#14988)
+  *by Deepak Garg on 2025-10-13*
+
+- **9fb82a73ad** - fix(ingest/deltalake) Deltalake ingestor doesn't delete metadata if the table is deleted.  (#14763)
+  *by alplatonov on 2025-10-13*
+
+- **db4a801f9d** - fix(ci): only applies to master (#14981)
+  *by david-leifker on 2025-10-13*
+
+- **c5cdce2c3d** - fix(upsertLink): remove log (#14984)
+  *by v-tarasevich-blitz-brain on 2025-10-13*
+
+- **d7b73b615d** - refactor(ui) : New great expectation logo (#14983)
+  *by DucNgoQuang on 2025-10-13*
+
+- **e4184fe251** - fix(api): add validation entity type for policy creation (#14955)
+  *by Aseem Bansal on 2025-10-13*
+
+- **ed4d3680a9** - build(actions): optimize docker layer caching for bundled-venvs (#14945)
+  *by Chakru on 2025-10-13*
+
+- **b0581dfe5a** - quickstart Reload improvements (#14982)
+  *by Chakru on 2025-10-13*
+
+- **79eac47ec5** - fix(upsertLink): reorder fields to be consistent with Saas (#14986)
+  *by v-tarasevich-blitz-brain on 2025-10-13*
+

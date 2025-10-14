@@ -111,7 +111,7 @@ def plot_hist(
                 alpha=0.7,
                 color=list(colors),
                 edgecolor="black",
-                label=categories,
+                label=list(categories),
                 stacked=True,
             )
             plt.legend(title=breakdown_col)

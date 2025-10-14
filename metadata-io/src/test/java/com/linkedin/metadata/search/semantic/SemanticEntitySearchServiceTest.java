@@ -32,6 +32,8 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
 import java.io.ByteArrayInputStream;
@@ -46,9 +48,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.client.Request;
-import org.opensearch.client.Response;
-import org.opensearch.client.RestClient;
-import org.opensearch.client.RestHighLevelClient;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -56,8 +55,7 @@ import org.testng.annotations.Test;
 /** Unit tests for SemanticEntitySearchService */
 public class SemanticEntitySearchServiceTest {
 
-  @Mock private RestHighLevelClient mockSearchClient;
-  @Mock private RestClient mockLowLevelClient;
+  @Mock private SearchClientShim<?> searchClientShim;
   @Mock private IndexConvention mockIndexConvention;
   @Mock private EmbeddingProvider mockEmbeddingProvider;
   @Mock private OperationContext mockOpContext;
@@ -65,7 +63,7 @@ public class SemanticEntitySearchServiceTest {
   @Mock private EntitySpec mockEntitySpec;
   @Mock private SearchContext mockSearchContext;
   @Mock private SearchFlags mockSearchFlags;
-  @Mock private Response mockResponse;
+  @Mock private RawResponse mockResponse;
   @Mock private HttpEntity mockHttpEntity;
   @Mock private StatusLine mockStatusLine;
 
@@ -85,7 +83,6 @@ public class SemanticEntitySearchServiceTest {
     objectMapper = new ObjectMapper();
 
     // Setup basic mock behavior
-    when(mockSearchClient.getLowLevelClient()).thenReturn(mockLowLevelClient);
     when(mockIndexConvention.getEntityIndexName(TEST_ENTITY_NAME)).thenReturn(TEST_BASE_INDEX);
     when(mockEmbeddingProvider.embed(anyString(), any())).thenReturn(TEST_EMBEDDING);
     when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
@@ -95,7 +92,7 @@ public class SemanticEntitySearchServiceTest {
     when(mockSearchContext.getSearchFlags()).thenReturn(mockSearchFlags);
     when(mockSearchFlags.isFilterNonLatestVersions()).thenReturn(false);
 
-    service = new SemanticEntitySearchService(mockSearchClient, mockEmbeddingProvider);
+    service = new SemanticEntitySearchService(searchClientShim, mockEmbeddingProvider);
   }
 
   @AfterMethod
@@ -115,11 +112,11 @@ public class SemanticEntitySearchServiceTest {
 
     // Test null embeddingProvider
     assertThrows(
-        NullPointerException.class, () -> new SemanticEntitySearchService(mockSearchClient, null));
+        NullPointerException.class, () -> new SemanticEntitySearchService(searchClientShim, null));
 
     // Test successful construction
     SemanticEntitySearchService validService =
-        new SemanticEntitySearchService(mockSearchClient, mockEmbeddingProvider);
+        new SemanticEntitySearchService(searchClientShim, mockEmbeddingProvider);
     assertNotNull(validService);
   }
 
@@ -169,7 +166,7 @@ public class SemanticEntitySearchServiceTest {
 
     // Verify OpenSearch request was made
     ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    verify(mockLowLevelClient).performRequest(requestCaptor.capture());
+    verify(searchClientShim).performLowLevelRequest(requestCaptor.capture());
     Request capturedRequest = requestCaptor.getValue();
     assertEquals(capturedRequest.getMethod(), "POST");
     assertTrue(capturedRequest.getEndpoint().contains(TEST_SEMANTIC_INDEX));
@@ -197,7 +194,7 @@ public class SemanticEntitySearchServiceTest {
 
     // Verify request contains filter
     ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    verify(mockLowLevelClient).performRequest(requestCaptor.capture());
+    verify(searchClientShim).performLowLevelRequest(requestCaptor.capture());
     // Additional verification of filter inclusion would require parsing the JSON body
   }
 
@@ -258,7 +255,7 @@ public class SemanticEntitySearchServiceTest {
 
   @Test
   public void testSearchOpenSearchIOException() throws IOException {
-    when(mockLowLevelClient.performRequest(any(Request.class)))
+    when(searchClientShim.performLowLevelRequest(any(Request.class)))
         .thenThrow(new IOException("Connection failed"));
 
     assertThrows(
@@ -312,7 +309,7 @@ public class SemanticEntitySearchServiceTest {
 
     // Verify request includes both semantic indices
     ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    verify(mockLowLevelClient).performRequest(requestCaptor.capture());
+    verify(searchClientShim).performLowLevelRequest(requestCaptor.capture());
     Request capturedRequest = requestCaptor.getValue();
     String endpoint = capturedRequest.getEndpoint();
     assertTrue(endpoint.contains("datasetindex_v2_semantic"));
@@ -356,7 +353,7 @@ public class SemanticEntitySearchServiceTest {
 
     // Verify the request was made with default fields
     ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    verify(mockLowLevelClient).performRequest(requestCaptor.capture());
+    verify(searchClientShim).performLowLevelRequest(requestCaptor.capture());
     Request capturedRequest = requestCaptor.getValue();
 
     // Parse the request body to verify _source contains default fields
@@ -408,7 +405,7 @@ public class SemanticEntitySearchServiceTest {
 
     // Verify the request was made with both default and extra fields
     ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    verify(mockLowLevelClient).performRequest(requestCaptor.capture());
+    verify(searchClientShim).performLowLevelRequest(requestCaptor.capture());
     Request capturedRequest = requestCaptor.getValue();
 
     String requestBody = extractRequestBody(capturedRequest);
@@ -438,7 +435,7 @@ public class SemanticEntitySearchServiceTest {
 
     // Should behave the same as default fields only
     ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    verify(mockLowLevelClient).performRequest(requestCaptor.capture());
+    verify(searchClientShim).performLowLevelRequest(requestCaptor.capture());
     Request capturedRequest = requestCaptor.getValue();
 
     String requestBody = extractRequestBody(capturedRequest);
@@ -469,7 +466,7 @@ public class SemanticEntitySearchServiceTest {
 
     // Verify the search request includes both default fields and extra fields
     ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
-    verify(mockLowLevelClient).performRequest(requestCaptor.capture());
+    verify(searchClientShim).performLowLevelRequest(requestCaptor.capture());
     Request capturedRequest = requestCaptor.getValue();
 
     // The request should contain the combined field set (default + extra)
@@ -496,7 +493,7 @@ public class SemanticEntitySearchServiceTest {
     String responseBody = objectMapper.writeValueAsString(responseJson);
     when(mockResponse.getEntity()).thenReturn(mockHttpEntity);
     when(mockHttpEntity.getContent()).thenReturn(new ByteArrayInputStream(responseBody.getBytes()));
-    when(mockLowLevelClient.performRequest(any(Request.class))).thenReturn(mockResponse);
+    when(searchClientShim.performLowLevelRequest(any(Request.class))).thenReturn(mockResponse);
   }
 
   private ObjectNode createMockSearchResponse(int totalHits, String urn, double score) {

@@ -184,6 +184,11 @@ export const SettingsPage = () => {
                         link: `${url}/identities`,
                         isHidden: !showUsersGroups,
                         icon: <UsersThree />,
+                        badge: {
+                            label: 'New',
+                            show: true,
+                            showDot: false, // No blue dot in middle panel, only the pill
+                        },
                     },
                     {
                         type: NavBarMenuItemTypes.Item,

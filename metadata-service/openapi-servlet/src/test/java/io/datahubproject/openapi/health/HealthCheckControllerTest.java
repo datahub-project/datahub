@@ -9,7 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.config.HealthCheckConfiguration;
 import com.linkedin.metadata.boot.BootstrapManager;
-import org.opensearch.client.RestHighLevelClient;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
@@ -17,11 +17,11 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testng.annotations.Test;
@@ -38,9 +38,15 @@ import org.testng.annotations.Test;
 @AutoConfigureMockMvc
 public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests {
 
-  @Autowired private MockMvc mockMvc;
+  @MockitoBean
+  @Qualifier("searchClientShim")
+  private SearchClientShim<?> elasticClient;
 
-  @Autowired private BootstrapManager bootstrapManager;
+  @MockitoBean
+  @Qualifier("bootstrapManager")
+  private BootstrapManager bootstrapManager;
+
+  @Autowired private MockMvc mockMvc;
 
   @SpringBootConfiguration
   @Import({HealthCheckControllerTestConfig.class})
@@ -49,13 +55,6 @@ public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests 
 
   @TestConfiguration
   public static class HealthCheckControllerTestConfig {
-    @MockBean
-    @Qualifier("elasticSearchRestHighLevelClient")
-    private RestHighLevelClient elasticClient;
-
-    @MockBean
-    @Qualifier("bootstrapManager")
-    private BootstrapManager bootstrapManager;
 
     @Bean
     @Primary

@@ -175,7 +175,7 @@ def _evaluate_assertion(
             name=RUN_ASSERTION_TASK_NAME,
             args={
                 "urn": monitor_urn,
-                "assertion_spec": assertion_spec.dict(by_alias=True),
+                "assertion_spec": assertion_spec.model_dump(mode="json"),
                 "context": context.__dict__,
             },
         )
@@ -335,7 +335,7 @@ def handle_evaluate_assertion_urn(
         assertion = result["assertion"]
         assertion_entity = extract_assertion_entity_from_graphql(assertion)
         assertion["entity"] = assertion_entity
-        assertion = Assertion.parse_obj(assertion)
+        assertion = Assertion.model_validate(assertion)
     except Exception as e:
         # on non-existent assertion, graphql is still returning a result in result["assertion"] but the parsing fails
         logger.warning(e)
@@ -375,7 +375,7 @@ def handle_train_assertion_monitor(
     )
 
     try:
-        monitor = Monitor.parse_obj(result["entity"])
+        monitor = Monitor.model_validate(result["entity"])
     except Exception as e:
         logger.warning(e)
         raise fastapi.HTTPException(status_code=500)  # Failed to parse monitor

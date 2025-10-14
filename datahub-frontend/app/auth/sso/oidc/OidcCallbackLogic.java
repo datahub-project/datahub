@@ -1,8 +1,8 @@
 package auth.sso.oidc;
 
 import static auth.AuthUtils.*;
-import static com.linkedin.metadata.Constants.*;
-import static org.pac4j.play.store.PlayCookieSessionStore.*;
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
 import static play.mvc.Results.internalServerError;
 import static utils.FrontendConstants.SSO_LOGIN;
 
@@ -47,7 +47,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -68,6 +67,7 @@ import org.pac4j.core.context.CallContext;
 import org.pac4j.core.context.Cookie;
 import org.pac4j.core.context.FrameworkParameters;
 import org.pac4j.core.context.WebContext;
+import org.pac4j.core.context.session.SessionStore;
 import org.pac4j.core.credentials.Credentials;
 import org.pac4j.core.engine.DefaultCallbackLogic;
 import org.pac4j.core.exception.http.HttpAction;
@@ -77,10 +77,10 @@ import org.pac4j.core.profile.ProfileManager;
 import org.pac4j.core.profile.UserProfile;
 import org.pac4j.core.util.CommonHelper;
 import org.pac4j.core.util.Pac4jConstants;
-import org.pac4j.play.store.PlayCookieSessionStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import play.mvc.Result;
+import utils.SerializationUtils;
 
 /**
  * This class contains the logic that is executed when an OpenID Connect Identity Provider redirects
@@ -204,21 +204,15 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
 
   private void setContextRedirectUrl(CallContext ctx) {
     WebContext context = ctx.webContext();
-    PlayCookieSessionStore sessionStore = (PlayCookieSessionStore) ctx.sessionStore();
+    SessionStore sessionStore = ctx.sessionStore();
 
-    Optional<Cookie> redirectUrl =
-        context.getRequestCookies().stream()
-            .filter(cookie -> REDIRECT_URL_COOKIE_NAME.equals(cookie.getName()))
-            .findFirst();
-    redirectUrl.ifPresent(
-        cookie ->
-            sessionStore.set(
-                context,
-                Pac4jConstants.REQUESTED_URL,
-                sessionStore
-                    .getSerializer()
-                    .deserializeFromBytes(
-                        uncompressBytes(Base64.getDecoder().decode(cookie.getValue())))));
+    context.getRequestCookies().stream()
+        .filter(cookie -> REDIRECT_URL_COOKIE_NAME.equals(cookie.getName()))
+        .map(Cookie::getValue)
+        .map(SerializationUtils::deserializeFoundAction)
+        .findFirst()
+        .ifPresent(
+            foundAction -> sessionStore.set(context, Pac4jConstants.REQUESTED_URL, foundAction));
   }
 
   private Result handleOidcCallback(

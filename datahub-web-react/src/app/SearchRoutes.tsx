@@ -1,5 +1,5 @@
 import React from 'react';
-import { Redirect, Route, Switch } from 'react-router-dom';
+import { Redirect, Route, Switch, useLocation } from 'react-router-dom';
 
 import { ActionRequestsPage } from '@app/actionrequest/ActionRequestsPage';
 import { ActionRequestsPage as ActionRequestsPageV2 } from '@app/actionrequestV2/ActionRequestsPage';
@@ -53,6 +53,7 @@ import { PageRoutes } from '@conf/Global';
  * Container for all searchable page routes
  */
 export const SearchRoutes = (): JSX.Element => {
+    const location = useLocation();
     const entityRegistry = useEntityRegistry();
     const me = useUserContext();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
@@ -84,7 +85,7 @@ export const SearchRoutes = (): JSX.Element => {
 
     return (
         <FinalSearchablePage>
-            <ErrorBoundary resetKeys={[window.location.pathname]}>
+            <ErrorBoundary resetKeys={[location.pathname]}>
                 <Switch>
                     {entities.map((entity) => (
                         <Route

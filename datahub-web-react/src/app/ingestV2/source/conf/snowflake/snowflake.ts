@@ -3,7 +3,7 @@ import { SourceConfig } from '@app/ingestV2/source/conf/types';
 import snowflakeLogo from '@images/snowflakelogo.png';
 
 const placeholderRecipe = `\
-source: 
+source:
     type: snowflake
     config:
         account_id: "example_id"

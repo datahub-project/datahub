@@ -12,7 +12,7 @@ from datahub_executor.coordinator.types import EvaluateAssertionInputSchema
 
 class TestEvaluateAssertionHandler:
     def setup_method(self) -> None:
-        self.input_data = EvaluateAssertionInputSchema.parse_obj(
+        self.input_data = EvaluateAssertionInputSchema.model_validate(
             {
                 "type": "FRESHNESS",
                 "connectionUrn": "urn:li:dataPlatform:snowflake",

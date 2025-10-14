@@ -11,6 +11,7 @@ import { TestNotificationButton } from '@app/shared/notifications/TestNotificati
 import { getTeamsSettingsChannelName } from '@app/shared/subscribe/drawer/utils';
 import { useAppConfig } from '@app/useAppConfig';
 import { useUserContext } from '@src/app/context/useUserContext';
+import { getRuntimeBasePath } from '@utils/runtimeBasePath';
 
 import { useConnectionQuery } from '@graphql/connection.generated';
 import { useGetTeamsOAuthConfigQuery } from '@graphql/teams.generated';
@@ -165,7 +166,7 @@ export const TeamsSinkSettingsSection = ({
         }
 
         // Get current DataHub instance URL
-        const instanceUrl = window.location.origin;
+        const instanceUrl = window.location.origin + getRuntimeBasePath();
 
         // Use shared utility to create OAuth URL for personal notifications
         return createOAuthUrl(

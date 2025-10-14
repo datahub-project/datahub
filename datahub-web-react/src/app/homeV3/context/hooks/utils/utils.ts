@@ -54,3 +54,9 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
         },
     };
 }
+
+export function filterNonExistentStructuredProperties(summaryElements) {
+    return summaryElements.filter((element) =>
+        element.elementType === SummaryElementType.StructuredProperty ? element.structuredProperty?.exists : true,
+    );
+}

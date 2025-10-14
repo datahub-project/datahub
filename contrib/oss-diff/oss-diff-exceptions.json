@@ -1783,10 +1783,6 @@
     "additions": 30,
     "deletions": 11
   },
-  "metadata-ingestion/src/datahub/sdk/entity_client.py": {
-    "additions": 7,
-    "deletions": 4
-  },
   "metadata-ingestion/src/datahub/secret/datahub_secret_store.py": {
     "additions": 4,
     "deletions": 1

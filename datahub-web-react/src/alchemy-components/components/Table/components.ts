@@ -48,7 +48,7 @@ export const TableHeaderCell = styled.th<{
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.medium,
     textAlign: 'start',
-    width: width || 'auto',
+    width,
     maxWidth,
     minWidth,
     borderRight: shouldAddRightBorder ? `1px solid ${colors.gray[1400]}` : borders.none,

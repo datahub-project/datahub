@@ -36,6 +36,17 @@ pytest tests/path/to/file.py::TestClass    # Single test class
 pytest tests/path/to/file.py::TestClass::test_method  # Single test
 ```
 
+## Environment Variables
+
+**Build configuration:**
+
+- `DATAHUB_VENV_USE_COPIES`: Set to `true` to use `--copies` flag when creating Python virtual environments. This copies the Python binary instead of creating a symlink. Useful for Nix environments, immutable filesystems, Windows, or container environments where symlinks don't work correctly. Increases disk usage and setup time, so only enable if needed.
+
+  ```bash
+  export DATAHUB_VENV_USE_COPIES=true
+  ../gradlew :metadata-ingestion:installDev
+  ```
+
 ## Directory Structure
 
 - `src/datahub/`: Source code for the DataHub CLI and ingestion framework

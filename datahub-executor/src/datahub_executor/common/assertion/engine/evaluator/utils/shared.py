@@ -1,9 +1,9 @@
 import base64
 
-from datahub.metadata._urns.urn_defs import DatasetUrn
 from datahub.metadata.urns import (
     AssertionUrn,
     DataHubMetricCubeUrn,
+    DatasetUrn,
     MonitorUrn,
 )
 

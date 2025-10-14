@@ -46,12 +46,12 @@ class ExtendedActionStats(BaseModel):
 
 class AutomationActionConfig(ConfigModel):
     event_processing_rate_limit: int = Field(
-        10,
+        default=10,
         description="Rate limit for processing events. Default is 10 event per rate period.",
     )
 
     event_processing_rate_period: int = Field(
-        1,
+        default=1,
         description="Rate limit period for processing events. Default is 1 second.",
     )
 

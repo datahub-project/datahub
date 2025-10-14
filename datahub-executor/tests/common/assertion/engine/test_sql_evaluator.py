@@ -24,6 +24,7 @@ from datahub_executor.common.types import (
     AssertionStdOperator,
     AssertionStdParameter,
     AssertionStdParameters,
+    AssertionStdParameterType,
     AssertionType,
     AssertionValueChangeType,
     SQLAssertion,
@@ -81,7 +82,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="999", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="999", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -104,7 +107,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.NOT_EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="1000", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="1000", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -127,7 +132,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="1000", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="1000", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -148,7 +155,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="100", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="100", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -178,7 +187,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="200", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="200", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -207,7 +218,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="10", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="10", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -240,7 +253,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="10", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="10", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -269,7 +284,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="10", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="10", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -292,7 +309,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="10", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="10", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -319,7 +338,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="10", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="10", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion

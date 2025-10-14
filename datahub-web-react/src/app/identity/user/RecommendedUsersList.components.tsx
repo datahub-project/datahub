@@ -48,11 +48,12 @@ export const UserInfo = styled.div`
 export const UserDetails = styled.div`
     display: flex;
     flex-direction: column;
+    min-width: 0;
+    flex: 1;
 `;
 
 export const UserEmail = styled(Text)`
     max-width: 320px;
-    font-weight: 620;
     color: ${colors.gray[600]};
     line-height: normal;
     text-overflow: ellipsis;
@@ -69,6 +70,9 @@ export const UserTag = styled.div`
     align-items: center;
     gap: 4px;
     margin-top: 4px;
+    flex-wrap: nowrap;
+    overflow: hidden;
+    width: 100%;
 `;
 
 export const TagIcon = styled.div`
@@ -88,6 +92,8 @@ export const PlatformPillWrapper = styled.div`
     border-radius: 12px;
     font-size: 11px;
     color: ${colors.gray[1700]};
+    padding: 2px 4px;
+    flex-shrink: 0;
 
     &:last-child {
         margin-right: 0;

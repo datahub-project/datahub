@@ -37,10 +37,10 @@ import { useIngestionSourceForEntityQuery } from '@graphql/ingestion.generated';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '@graphql/monitor.generated';
 
 const AssertionListContainer = styled.div`
-    margin: 0px 20px;
-    height: 100%;
     display: flex;
+    height: 100%;
     flex-direction: column;
+    margin: 16px;
     flex: 1;
     overflow: hidden;
 `;
@@ -65,16 +65,25 @@ export const AcrylAssertionList = () => {
 
     const [assertionMonitorData, setAssertionMonitorData] = useState<AssertionWithMonitorDetails[]>([]);
 
-    const { data, refetch, client, loading } = useGetDatasetAssertionsWithMonitorsQuery({
+    const {
+        data,
+        refetch,
+        client,
+        loading: assertionLoading,
+    } = useGetDatasetAssertionsWithMonitorsQuery({
         variables: { urn },
         fetchPolicy: 'cache-first',
     });
-    const { data: contractData, refetch: contractRefetch } = useGetDatasetContractQuery({
+    const {
+        data: contractData,
+        refetch: contractRefetch,
+        loading: contractLoading,
+    } = useGetDatasetContractQuery({
         variables: { urn },
         fetchPolicy: 'cache-first',
     });
 
-    const contract: DataContract = contractData?.dataset?.contract as DataContract;
+    const contract = contractData?.dataset?.contract as DataContract | undefined;
 
     // get filtered Assertion as per the filter object
     const getFilteredAssertions = (assertions: AssertionWithMonitorDetails[]) => {
@@ -109,7 +118,7 @@ export const AcrylAssertionList = () => {
     const canEditSqlAssertionMonitors = privileges?.canEditSqlAssertionMonitors || false;
 
     const renderListTable = () => {
-        if (loading || ingestionSourceLoading) {
+        if (assertionLoading || ingestionSourceLoading || contractLoading) {
             return <TableLoadingSkeleton />;
         }
         if ((visibleAssertions?.assertions || []).length > 0) {
@@ -152,11 +161,12 @@ export const AcrylAssertionList = () => {
 
     return (
         <>
-            <AssertionListTitleContainer
-                privileges={privileges as EntityPrivileges}
-                onCreateAssertion={(params: EntityStagedForAssertion) => setAuthorAssertionForEntity(params)}
-            />
             <AssertionListContainer>
+                <AssertionListTitleContainer
+                    privileges={privileges as EntityPrivileges}
+                    onCreateAssertion={(params: EntityStagedForAssertion) => setAuthorAssertionForEntity(params)}
+                />
+
                 {assertionMonitorData?.length > 0 && (
                     <AcrylAssertionListFilters
                         filterOptions={visibleAssertions?.filterOptions}

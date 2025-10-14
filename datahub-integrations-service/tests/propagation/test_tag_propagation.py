@@ -5,7 +5,6 @@ from unittest.mock import MagicMock
 
 import pytest
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata._urns.urn_defs import SchemaFieldUrn
 from datahub.metadata.com.linkedin.pegasus2avro.common import GlobalTags
 from datahub.metadata.com.linkedin.pegasus2avro.schema import MySqlDDL
 from datahub.metadata.schema_classes import (
@@ -19,6 +18,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     TagAssociationClass,
 )
+from datahub.metadata.urns import SchemaFieldUrn
 from datahub.utilities.urns.urn import Urn
 from datahub_actions.api.action_graph import AcrylDataHubGraph
 from datahub_actions.event.event_envelope import EventEnvelope

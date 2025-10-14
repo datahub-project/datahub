@@ -253,7 +253,7 @@ class TestMetricResolver:
             DatasetVolumeAssertionParameters(
                 source_type=DatasetVolumeSourceType.INFORMATION_SCHEMA
             ),
-            filter_params,
+            filter_params.model_dump(),
         )
 
     def test_get_metric_row_count_from_query(
@@ -290,7 +290,7 @@ class TestMetricResolver:
             entity_urn,
             database_params,
             DatasetVolumeAssertionParameters(source_type=DatasetVolumeSourceType.QUERY),
-            filter_params,
+            filter_params.model_dump(),
         )
 
     def test_get_metric_row_count_invalid_source_type(
@@ -833,7 +833,7 @@ class TestMetricResolver:
             DatasetVolumeAssertionParameters(
                 source_type=DatasetVolumeSourceType.INFORMATION_SCHEMA
             ),
-            filter_params,
+            filter_params.model_dump(),
         )
 
         # Reset mocks
@@ -878,7 +878,7 @@ class TestMetricResolver:
         mock_source_provider: MagicMock,
         mock_source: MagicMock,
     ) -> None:
-        """Test that filter_params are correctly converted to __dict__ when passed to source methods."""
+        """Test that filter_params are correctly converted to model_dump (__dict__) when passed to source methods."""
         # Setup mocks
         mock_connection_provider.get_connection.return_value = MagicMock()
         mock_source_provider.create_source_from_connection.return_value = mock_source
@@ -899,13 +899,13 @@ class TestMetricResolver:
         assert isinstance(metric, Metric)
         assert metric.value == 100
 
-        # Verify that filter_params.__dict__ was passed to get_row_count, not the raw filter_params object
+        # Verify that filter_params.model_dump() was passed to get_row_count, not the raw filter_params object
         mock_source.get_row_count.assert_called_once()
         call_args = mock_source.get_row_count.call_args[0]
 
         # The filter_params should be the 4th argument (after entity_urn, database_params, DatasetVolumeAssertionParameters)
         actual_filter_params = call_args[3]
-        expected_filter_dict = filter_params.__dict__
+        expected_filter_dict = filter_params.model_dump()
 
         # Verify that the actual filter_params passed is the dictionary representation, not the model object
         assert actual_filter_params == expected_filter_dict

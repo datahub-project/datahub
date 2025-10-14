@@ -162,6 +162,7 @@ export const FreshnessResultChart = ({
 
                         return (
                             <Tooltip
+                                key={exclusionWindow.fixedRange.startTimeMillis}
                                 title={
                                     <Text>
                                         <Text weight="bold" color="gray" colorLevel={600}>
@@ -276,6 +277,7 @@ export const FreshnessResultChart = ({
 
                         return (
                             <CandleStick
+                                key={dataPoint.time}
                                 showWarningOverlay={isFalseAlarm || isMissedAlarm}
                                 candleHeight={chartInnerHeight - yOffset}
                                 parentChartHeight={chartInnerHeight}

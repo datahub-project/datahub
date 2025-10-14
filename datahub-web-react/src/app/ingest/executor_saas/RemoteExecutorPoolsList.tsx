@@ -4,7 +4,7 @@ import { Pagination } from 'antd';
 import { ArrowClockwise } from 'phosphor-react';
 import * as QueryString from 'query-string';
 import React, { useEffect, useRef, useState } from 'react';
-import { useHistory } from 'react-router';
+import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { INGESTION_TAB_QUERY_PARAMS } from '@app/ingest/constants';
@@ -138,11 +138,12 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab, showCreatePoolModal, setS
 
     // ---------------------- open source tab with parameters ---------------------- //
     const history = useHistory();
+    const location = useLocation();
     const onViewSourcesForPool = (pool: string) => {
         // first, add pool to query parameters
         const newParams = { [INGESTION_TAB_QUERY_PARAMS.pool]: pool };
         const newSearch = QueryString.stringify(newParams);
-        history.push(`${window.location.pathname}${newSearch ? `?${newSearch}` : ''}`);
+        history.push(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`);
         // then, switch to the correct tab
         onSwitchTab(TabType.Sources);
     };

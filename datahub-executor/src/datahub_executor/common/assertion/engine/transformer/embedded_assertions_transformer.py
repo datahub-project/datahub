@@ -89,7 +89,7 @@ class EmbeddedAssertionsTransformer(AssertionTransformer):
         )
         self.graph.emit_mcp(mcpw)
 
-        return Assertion.parse_obj(
+        return Assertion.model_validate(
             dict(
                 **dict(embedded_assertion_to_run.assertion),
                 urn=assertion.urn,

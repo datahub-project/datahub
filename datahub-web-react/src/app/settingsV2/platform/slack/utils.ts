@@ -1,3 +1,4 @@
+import { History } from 'history';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 
@@ -61,15 +62,18 @@ export const encodeSlackConnection = (config: SlackConnection, isUsingAppConfigT
 /**
  * Performs a hard browser redirect to the Slack install link.
  */
-export const redirectToSlackInstall = (queryParams?: { requestMinimalSlackPermissions: string }) => {
+export const redirectToSlackInstall = (history: History, queryParams?: { requestMinimalSlackPermissions: string }) => {
     const params = queryParams && new URLSearchParams(queryParams);
-    window.location.replace(`${SLACK_INSTALL_REDIRECT_PATH}${params ? `?${params.toString()}` : ''}`);
+    history.replace(`${SLACK_INSTALL_REDIRECT_PATH}${params ? `?${params.toString()}` : ''}`);
 };
 
 /**
  * Performs a hard browser redirect to the Slack refresh-installation link.
  */
-export const redirectToSlackRefreshInstallation = (queryParams?: { requestMinimalSlackPermissions: string }) => {
+export const redirectToSlackRefreshInstallation = (
+    history: History,
+    queryParams?: { requestMinimalSlackPermissions: string },
+) => {
     const params = queryParams && new URLSearchParams(queryParams);
-    window.location.replace(`${SLACK_REFRESH_INSTALLATION_REDIRECT_PATH}${params ? `?${params.toString()}` : ''}`);
+    history.replace(`${SLACK_REFRESH_INSTALLATION_REDIRECT_PATH}${params ? `?${params.toString()}` : ''}`);
 };

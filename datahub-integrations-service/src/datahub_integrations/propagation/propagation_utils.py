@@ -42,11 +42,11 @@ class PropagationDirective(BaseModel):
         description="Origin entity for the association. This is the entity that triggered the propagation.",
     )
     via: Optional[str] = Field(
-        None,
+        default=None,
         description="Via entity for the association. This is the direct entity that the propagation came through.",
     )
     actor: Optional[str] = Field(
-        None,
+        default=None,
         description="Actor that triggered the propagation through the original association.",
     )
 

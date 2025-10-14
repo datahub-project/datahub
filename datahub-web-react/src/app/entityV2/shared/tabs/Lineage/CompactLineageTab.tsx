@@ -14,8 +14,6 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { LineageDirection, LineageSearchPath } from '@types';
 
-// Unfortunately, we have to artificially bound the height.
-// Accounts for search bar, controls header, and padding.
 const Container = styled.div`
     flex: 1;
     overflow: hidden;

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.config;
 
+import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.executors.PurgeLegacyExecutors;
 import com.linkedin.metadata.entity.EntityService;

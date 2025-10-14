@@ -138,6 +138,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                 extra={
                     isSchemaEditable && (
                         <SectionActionButton
+                            dataTestId="edit-field-description"
                             onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();

@@ -4,6 +4,7 @@ from typing import Iterator
 
 import datahub.metadata.schema_classes as models
 import git
+import pydantic
 import pytest
 
 from datahub_integrations.actions.replay_source import read_events_file
@@ -33,7 +34,7 @@ def sample_dbt_repo_raw(
     config = GitHubRepoConfig(
         github_repo_org="hsheth2",
         github_repo_name="sample-dbt",
-        auth="fake",
+        auth=pydantic.SecretStr("fake"),
     )
 
     repo = GitHubRepoWrapper(config, base_temp_dir=base_temp_dir)

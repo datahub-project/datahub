@@ -1242,7 +1242,9 @@ def test_rebuild_assertion(
 ) -> None:
     """Test rebuilding an assertion with updated info."""
     # Arrange
-    mock_assertion_class.parse_obj.return_value = cast(Assertion, mock_field_assertion)
+    mock_assertion_class.model_validate.return_value = cast(
+        Assertion, mock_field_assertion
+    )
 
     # Act
     result = trainer._rebuild_assertion(
@@ -1251,10 +1253,10 @@ def test_rebuild_assertion(
     )
 
     # Assert
-    mock_assertion_class.parse_obj.assert_called_once()
+    mock_assertion_class.model_validate.assert_called_once()
 
-    # Check that the correct parameters were passed to parse_obj
-    parsed_obj = mock_assertion_class.parse_obj.call_args[0][0]
+    # Check that the correct parameters were passed to model_validate
+    parsed_obj = mock_assertion_class.model_validate.call_args[0][0]
     assert parsed_obj["urn"] == mock_field_assertion.urn
     assert parsed_obj["entity"] == mock_field_assertion.entity
     assert parsed_obj["connectionUrn"] == mock_field_assertion.connection_urn

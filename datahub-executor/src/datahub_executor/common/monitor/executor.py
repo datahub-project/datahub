@@ -63,7 +63,7 @@ class MonitorExecutor:
     @METRIC("WORKER_MONITOR_TRAINING_EXECUTOR_REQUESTS").time()  # type: ignore
     def evaluate_monitor_training(self, execution_request: ExecutionRequest) -> None:
         if execution_request.name == RUN_MONITOR_TRAINING_TASK_NAME:
-            monitor = Monitor.parse_obj(execution_request.args["monitor"])
+            monitor = Monitor.model_validate(execution_request.args["monitor"])
             self.engine.train(monitor)
         else:
             raise Exception(

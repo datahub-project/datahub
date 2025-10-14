@@ -22,6 +22,8 @@ import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -34,6 +36,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -111,6 +114,12 @@ public class UpdateIndicesService implements SearchIndicesService {
     this.searchDiffMode = searchDiffMode;
     this.structuredPropertiesHookEnabled = structuredPropertiesHookEnabled;
     this.structuredPropertiesWriteEnabled = structuredPropertiesWriteEnabled;
+  }
+
+  @Override
+  public void handleChangeEvents(
+      @Nonnull OperationContext opContext, @Nonnull Collection<MetadataChangeLog> events) {
+    events.forEach(event -> handleChangeEvent(opContext, event));
   }
 
   @Override
@@ -341,7 +350,7 @@ public class UpdateIndicesService implements SearchIndicesService {
     }
 
     if (searchDocument.isEmpty()) {
-      log.info("Search document for urn: {} aspect: {} was empty", urn, aspect);
+      log.warn("Search document for urn: {} aspect: {} was empty", urn, aspect);
       return;
     }
 
@@ -484,5 +493,24 @@ public class UpdateIndicesService implements SearchIndicesService {
     }
 
     elasticSearchService.upsertDocument(opContext, entityName, searchDocument.get(), docId);
+  }
+
+  /**
+   * Flushes any pending operations in the bulk processor to ensure all data is written to
+   * Elasticsearch. This is particularly important for loadIndices operations where we want to
+   * ensure all data is persisted.
+   */
+  public void flush() {
+    try {
+      // Access the bulk processor through the ElasticSearchService's ESWriteDAO
+      ESWriteDAO writeDAO = elasticSearchService.getEsWriteDAO();
+      ESBulkProcessor bulkProcessor = writeDAO.getBulkProcessor();
+
+      bulkProcessor.flush();
+      log.info("Successfully flushed bulk processor");
+    } catch (Exception e) {
+      log.error("Failed to flush bulk processor", e);
+      throw new RuntimeException("Failed to flush bulk processor", e);
+    }
   }
 }

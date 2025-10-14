@@ -80,11 +80,17 @@ if prompt := st.chat_input("Type your message here..."):
     _chat_session()._add_message(user_message)
 
     # Generate bot response
+    def update_progress(messages):
+        """Update status to show all reasoning messages on separate lines."""
+        if messages:
+            # Update label with current step count
+            status.update(label=f"💭 Thinking... ({len(messages)} steps)", state="running")
+            # Append the latest message (messages accumulate naturally in the status widget)
+            status.write(f"{len(messages)}. {messages[-1]}")
+    
     with (
         st.status("Generating response...", expanded=True) as status,
-        _chat_session().set_progress_callback(
-            lambda messages: status.update(label="\n".join(messages))
-        ),
+        _chat_session().set_progress_callback(update_progress),
     ):
         try:
             response = _chat_session().generate_next_message()

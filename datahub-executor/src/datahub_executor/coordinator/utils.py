@@ -75,7 +75,7 @@ def extract_assertion_monitor_parameters(
     for spec in assertion_specs:
         if safe_get(spec, ["assertion", "urn"]) == assertion_urn:
             parameters = safe_get(spec, ["parameters"], {})
-            return AssertionEvaluationParameters.parse_obj(parameters)
+            return AssertionEvaluationParameters.model_validate(parameters)
 
     raise Exception(
         f"Found no valid monitor parameters for assertion with urn {assertion_urn}. Unable to run!"

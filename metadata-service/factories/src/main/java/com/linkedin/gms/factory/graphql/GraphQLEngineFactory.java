@@ -20,7 +20,6 @@ import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
-import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.datacontract.DataContractServiceFactory;
@@ -67,6 +66,7 @@ import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import com.linkedin.metadata.version.GitVersion;
@@ -78,7 +78,6 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -90,7 +89,6 @@ import software.amazon.awssdk.services.sts.StsClient;
 
 @Configuration
 @Import({
-  RestHighLevelClientFactory.class,
   IndexConventionFactory.class,
   RecommendationServiceFactory.class,
   EntityRegistryFactory.class,
@@ -108,8 +106,8 @@ import software.amazon.awssdk.services.sts.StsClient;
 })
 public class GraphQLEngineFactory {
   @Autowired
-  @Qualifier("elasticSearchRestHighLevelClient")
-  private RestHighLevelClient elasticClient;
+  @Qualifier("searchClientShim")
+  private SearchClientShim<?> elasticClient;
 
   @Autowired
   @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)

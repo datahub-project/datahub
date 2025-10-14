@@ -42,7 +42,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DatahubClientConfig
@@ -239,7 +239,7 @@ def exp_cdf(series: polars.Series) -> polars.Series:
 
 
 @dataclass
-class DatahubUsageFeatureReport(IngestionStageReport, StatefulIngestionReport):
+class DatahubUsageFeatureReport(StatefulIngestionReport, IngestionStageReport):
     dataset_platforms_count: Dict[str, int] = field(
         default_factory=lambda: defaultdict(lambda: 0)
     )
@@ -738,17 +738,20 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 return pa.dictionary(index_type=pa.int32(), value_type=pa.string())
             elif isinstance(polars_dtype, polars.Struct):
                 return pa.struct(
-                    {
-                        field.name: convert_dtype(field.dtype)
+                    [
+                        pa.field(field.name, convert_dtype(field.dtype))
                         for field in polars_dtype.fields
-                    }
+                    ]
                 )
             elif isinstance(polars_dtype, polars.List):
                 return pa.list_(convert_dtype(polars_dtype.inner))
             else:
                 raise ValueError(f"Unsupported Polars dtype: {polars_dtype}")
 
-        fields = [(name, convert_dtype(dtype)) for name, dtype in polars_schema.items()]
+        fields = [
+            pa.field(name, convert_dtype(dtype))
+            for name, dtype in polars_schema.items()
+        ]
         return pa.schema(fields)
 
     def batch_write_parquet(
@@ -971,26 +974,27 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.user_usage_enabled:
-            self.report.new_stage("generate user usage")
-            yield from self.generate_user_usage_mcps()
+            with self.report.new_stage("generate user usage"):
+                yield from self.generate_user_usage_mcps()
 
         if self.config.dataset_usage_enabled:
-            self.report.new_stage("generate dataset usage")
-            yield from self.generate_dataset_usage_mcps()
+            with self.report.new_stage("generate dataset usage"):
+                yield from self.generate_dataset_usage_mcps()
 
         if self.config.dashboard_usage_enabled:
-            self.report.new_stage("generate dashboard usage")
-            yield from self.generate_dashboard_usage_mcps()
+            with self.report.new_stage("generate dashboard usage"):
+                yield from self.generate_dashboard_usage_mcps()
 
         if self.config.chart_usage_enabled:
-            self.report.new_stage("generate chart usage")
-            yield from self.generate_chart_usage_mcps()
+            with self.report.new_stage("generate chart usage"):
+                yield from self.generate_chart_usage_mcps()
 
         if self.config.query_usage_enabled:
-            self.report.new_stage("generate query usage")
-            yield from self.generate_query_usage_mcps()
+            with self.report.new_stage("generate query usage"):
+                yield from self.generate_query_usage_mcps()
 
-        self.report.new_stage("end so time is calculated for last stage")
+        with self.report.new_stage("end so time is calculated for last stage"):
+            pass
 
     def generate_mcp_from_lazyframe(
         self, lazy_frame: polars.LazyFrame
@@ -2091,5 +2095,5 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 )
                 time.sleep(delay)
 
-    def get_report(self) -> SourceReport:
+    def get_report(self) -> "DatahubUsageFeatureReport":
         return self.report

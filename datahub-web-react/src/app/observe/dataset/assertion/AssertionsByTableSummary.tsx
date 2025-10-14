@@ -23,6 +23,7 @@ import { Header } from '@app/observe/dataset/shared/shared';
 import { useSyncFiltersWithQueryParams } from '@app/observe/dataset/shared/util';
 import BaseEntityFilter from '@app/searchV2/filtersV2/filters/BaseEntityFilter/BaseEntityFilter';
 import {
+    CONTAINER_FILTER_NAME,
     DOMAINS_FILTER_NAME,
     GLOSSARY_TERMS_FILTER_NAME,
     OWNERS_FILTER_NAME,
@@ -64,10 +65,14 @@ const EmptyStateContainer = styled.div`
     height: 80%;
 `;
 
+type Props = {
+    isAnomalyDetectionEnabled: boolean;
+};
+
 /**
  * A component which displays a summary of the datasets that are failing some assertions
  */
-export const AssertionsByTableSummary = () => {
+export const AssertionsByTableSummary = ({ isAnomalyDetectionEnabled }: Props) => {
     const userContext = useUserContext();
     const entityRegistry = useEntityRegistry();
 
@@ -110,6 +115,7 @@ export const AssertionsByTableSummary = () => {
         domains: selectedDomains,
         owners: selectedOwnership,
         platforms: selectedPlatforms,
+        containers: selectedContainers,
         terms: selectedTerms,
         tags: selectedTags,
     } = filterOptions;
@@ -128,6 +134,9 @@ export const AssertionsByTableSummary = () => {
     const setSelectedPlatforms = (platforms: string[]) => {
         setFilterOptions((options) => ({ ...options, platforms }));
     };
+    const setSelectedContainers = (containers: string[]) => {
+        setFilterOptions((options) => ({ ...options, containers }));
+    };
     const setSelectedTerms = (terms: string[]) => {
         setFilterOptions((options) => ({ ...options, terms }));
     };
@@ -142,6 +151,7 @@ export const AssertionsByTableSummary = () => {
         selectedDomains.length > 0 ||
         selectedOwnership.length > 0 ||
         selectedPlatforms.length > 0 ||
+        selectedContainers.length > 0 ||
         selectedTerms.length > 0 ||
         selectedTags.length > 0;
 
@@ -157,6 +167,7 @@ export const AssertionsByTableSummary = () => {
             selectedDomains,
             selectedOwnership,
             selectedPlatforms,
+            selectedContainers,
             selectedTerms,
             selectedTags,
         ],
@@ -179,6 +190,10 @@ export const AssertionsByTableSummary = () => {
 
         if (selectedPlatforms.length > 0) {
             andFilters.push({ field: PLATFORM_FILTER_NAME, values: selectedPlatforms });
+        }
+
+        if (selectedContainers.length > 0) {
+            andFilters.push({ field: CONTAINER_FILTER_NAME, values: selectedContainers });
         }
 
         if (selectedTerms.length > 0) {
@@ -230,7 +245,13 @@ export const AssertionsByTableSummary = () => {
                     Create Assertions to detect data quality issues.
                 </Text>
                 <Text size="lg" color="gray">
-                    Tip: Use <i>&lsquo;Bulk Create&rsquo;</i> to set up AI Anomaly Detection.
+                    {isAnomalyDetectionEnabled ? (
+                        <>
+                            Tip: Use <i>&lsquo;Bulk Create&rsquo;</i> to set up AI Anomaly Detection.
+                        </>
+                    ) : (
+                        'Be the first to know when your data breaks.'
+                    )}
                 </Text>
                 <a href={ASSERTIONS_DOCS_LINK} target="_blank" rel="noreferrer">
                     <Text size="lg" weight="semiBold">
@@ -269,6 +290,7 @@ export const AssertionsByTableSummary = () => {
                 />
 
                 {/* ************************* Filter Options ************************* */}
+                {/* TODO: generalize the filter options so we don't have to copy and paste for each filter */}
                 <FilterOptionsWrapper>
                     {viewUrn && (
                         <Tooltip title="You may change or remove the view via the search bar at the very top of the page.">
@@ -399,6 +421,37 @@ export const AssertionsByTableSummary = () => {
                                 tabType: 'AssertionsByAsset',
                                 filterType: 'filter',
                                 filterSubType: 'assetPlatforms',
+                                content: {
+                                    filterValues: selectedValues,
+                                },
+                            });
+                        }}
+                    />
+
+                    {/* ----------- Containers ----------- */}
+                    <BaseEntityFilter
+                        entityTypes={[EntityType.Container]}
+                        renderEntity={(entity) => tryGetDisplayName(entity) || entity.urn}
+                        filterName="Container"
+                        fieldName={CONTAINER_FILTER_NAME}
+                        facetState={{ facet: facets?.find((facet) => facet.field === CONTAINER_FILTER_NAME) }}
+                        appliedFilters={{
+                            filters: [
+                                {
+                                    field: CONTAINER_FILTER_NAME,
+                                    values: selectedContainers,
+                                    condition: FilterOperator.In,
+                                },
+                            ],
+                        }}
+                        onUpdate={(values) => {
+                            const selectedValues = values.filters?.[0]?.values ?? [];
+                            setSelectedContainers(selectedValues);
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'AssertionsByAsset',
+                                filterType: 'filter',
+                                filterSubType: 'assetContainers',
                                 content: {
                                     filterValues: selectedValues,
                                 },

@@ -143,7 +143,7 @@ class FieldAssertionEvaluator(AssertionEvaluator):
                     "path": dataset_field_parameters.changed_rows_field.path,
                     "type": dataset_field_parameters.changed_rows_field.type,
                     "native_type": dataset_field_parameters.changed_rows_field.native_type,
-                    "filter": filter.__dict__ if filter else None,
+                    "filter": filter.model_dump() if filter else None,
                     "database": database_params,
                 },
                 prev_high_watermark_value,
@@ -393,7 +393,7 @@ class FieldAssertionEvaluator(AssertionEvaluator):
                     f"Failed to evaluate FIELD Assertion. "
                     f"Unsupported FIELD Assertion Type {field_assertion.type} provided."
                 ),
-                parameters=parameters.dataset_field_parameters.__dict__,
+                parameters=parameters.dataset_field_parameters.model_dump(),
             )
 
     def _evaluate_internal_field_metric(

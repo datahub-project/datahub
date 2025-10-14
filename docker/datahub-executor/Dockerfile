@@ -2,7 +2,9 @@
 # APP_ENV can be prod or dev
 ARG APP_ENV=prod
 ARG PYTHON_VERSION=3.10
+# BASE_IMAGE can be full or slim
 
+ARG BASE_IMAGE=full
 # INLINE-BEGIN @/docker/snippets/ingestion_base
 # This is the "base" image workflow.
 # While it has a bunch of intermediate stages, it "exports" a couple
@@ -35,10 +37,16 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
         echo "Creating new user datahub with UID 1000"; \
         adduser --disabled-password --uid 1000 --gid 1000 --home $HOME datahub; \
     fi && \
-    # Create and set proper permissions for datahub directories
     mkdir -p $HOME && \
     chown -R datahub:datahub $HOME && \
     chmod g-s $HOME
+
+# Debug: Show actual datahub user info
+RUN echo "=== DataHub User Debug Info ===" && \
+    date && \
+    getent passwd datahub && \
+    getent group datahub && \
+    id datahub
 
 # Setup the PPA for alternative Python versions.
 # TODO: Eventually we should switch to using uv's support for python-build-standalone.
@@ -73,9 +81,16 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTH
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
+# Configure pip/uv index URLs. Defaults to public PyPI but can be overridden at build time.
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
-RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
+ARG PIP_EXTRA_INDEX_URL=""
+# Persist settings for subsequent build layers and for optional venv builds
+ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
+ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+# Also configure pip globally inside the image so tools without env still use the mirror
+RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
+    if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
 
 USER datahub
 WORKDIR $HOME
@@ -126,7 +141,59 @@ RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/o
 USER datahub
 # INLINE-END
 
-FROM ingestion-base-full AS build
+
+# =============================================================================
+# PRE-BUILD BUNDLED INGESTION VENVS (optional; default off)
+# =============================================================================
+FROM ingestion-base-slim AS bundled-vEnvs
+
+USER 0
+
+# Control whether to build venvs in this image (default: is to build)
+ARG BUILD_BUNDLED_VENVS=true
+
+# Set up bundled venv configuration
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_CLI_VERSION
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+
+# Create venv directory and ensure ownership
+RUN mkdir -p $DATAHUB_BUNDLED_VENV_PATH && \
+    chown -R datahub:datahub $DATAHUB_BUNDLED_VENV_PATH
+
+# Copy the self-contained venv build scripts into a stable location for reuse
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /usr/local/bin/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /usr/local/bin/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
+
+# Make scripts executable
+RUN chmod +x /usr/local/bin/build_bundled_venvs_unified.sh && \
+    chmod +x /usr/local/bin/build_bundled_venvs_unified.py
+
+USER datahub
+
+# Optionally build bundled venvs (keeps scripts in image regardless)
+RUN if [ "${BUILD_BUNDLED_VENVS}" = "true" ]; then \
+      /usr/local/bin/build_bundled_venvs_unified.sh ; \
+    else \
+      echo "Skipping bundled venv build (BUILD_BUNDLED_VENVS=${BUILD_BUNDLED_VENVS})" ; \
+    fi
+
+# =============================================================================
+# END DEFAULT VENVS SECTION
+# =============================================================================
+
+
+FROM ingestion-base-${BASE_IMAGE} AS build
+
+USER root
+
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+
+COPY --from=bundled-vEnvs $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
+COPY --from=bundled-vEnvs /usr/local/bin/build_bundled_venvs_unified.sh /usr/local/bin/build_bundled_venvs_unified.sh
 
 USER 0
 # Install Microsoft SQL Server ODBC driver
@@ -147,7 +214,7 @@ COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
 # RUN ln -svT "/usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture)" /usr/lib/jvm/default-jvm
 # ENV JAVA_HOME=/usr/lib/jvm/default-jvm
 
-# Install external deps in a cacheble layer
+# Install external deps in a cacheable layer
 USER datahub
 COPY ./datahub-executor/requirements.txt /datahub-executor/
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor \
@@ -155,8 +222,8 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-execu
 USER 0
 
 COPY --chown=datahub ./datahub-executor /datahub-executor
-COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
-COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /acryl-cloud
+# copy to match requirements.txt entry: ../metadata-ingestion-modules/acryl-cloud (relative to /datahub-executor)
+COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
 COPY --chown=datahub ./docker/datahub-executor/start.sh /start_datahub_executor.sh
 COPY --chown=datahub ./docker/datahub-executor/health_status.py /health_status
 COPY --chown=datahub ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
@@ -170,8 +237,7 @@ ARG RELEASE_VERSION
 
 RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
-    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 \
-    && python /version_updater.py --directory /datahub-executor/ --version "$RELEASE_VERSION" --expected-update-count 2
+    python /version_updater.py --directory /datahub-executor/ --version "$RELEASE_VERSION" --expected-update-count 2
 
 
 # Embed build info into the image
@@ -181,46 +247,9 @@ USER datahub
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-executor \
   uv pip install -r requirements.txt
 
-
-# =============================================================================
-# PRE-BUILD BUNDLED INGESTION VENVS
-# =============================================================================
-
-USER 0
-
-# Set up bundled venv configuration
-ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
-ARG BUNDLED_CLI_VERSION
-ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
-ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
-ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
-
-# Create venv directory
-RUN mkdir -p $DATAHUB_BUNDLED_VENV_PATH && \
-    chown -R datahub:datahub $DATAHUB_BUNDLED_VENV_PATH
-
-# Copy the self-contained venv build scripts
-COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
-COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
-
-# Make scripts executable
-RUN chmod +x /tmp/build_bundled_venvs_unified.sh && \
-    chmod +x /tmp/build_bundled_venvs_unified.py
-
-USER datahub
-
-# Build bundled venvs using our self-contained script
-RUN /tmp/build_bundled_venvs_unified.sh
-
-# Remove build scripts to reduce image size
-USER 0
-RUN rm -rf /tmp/build_bundled_venvs_unified.py /tmp/build_bundled_venvs_unified.sh
-
-USER datahub
-
-# =============================================================================
-# END DEFAULT VENVS SECTION
-# =============================================================================
+RUN echo "Debug output:" && \
+  uv pip list && \
+  uv pip show acryl-datahub
 
 ## Production Image Built From Build Image
 FROM build AS prod-install
@@ -232,17 +261,13 @@ FROM build AS dev-install
 # Dummy stage for development. Assumes most of the code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
 
-ENV PYTHONPATH="/metadata-ingestion/src:/datahub-executor/src/datahub_executor:${PYTHONPATH}"
-ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-executor/src/datahub_executor --reload-dir /metadata-ingestion/src"
+ENV PYTHONPATH="/metadata-ingestion-modules/acryl-cloud/src:/datahub-executor/src/datahub_executor:${PYTHONPATH}"
+ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-executor/src/datahub_executor --reload-dir /metadata-ingestion-modules/acryl-cloud/src"
 ENV DEBUGPY_ENABLED=true
 
 FROM ${APP_ENV}-install AS final
 
-# Workaround for the issue created by renaming _schema_classes.py to _internal_schema_classes:
-RUN ln -s \
-  /metadata-ingestion/src/datahub/metadata/_internal_schema_classes.py \
-  /metadata-ingestion/src/datahub/metadata/_schema_classes.py
-
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9004/health || exit 1
 ENTRYPOINT []
 CMD exec dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_executor.sh
+

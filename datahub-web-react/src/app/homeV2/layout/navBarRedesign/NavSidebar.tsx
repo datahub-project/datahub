@@ -36,6 +36,8 @@ import {
 } from '@app/homeV2/layout/navBarRedesign/types';
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
+import { hasSeenRecommendedUsers } from '@app/identity/user/recommendedUsersLocalStorage';
+import { useRecommendedUsersCount } from '@app/identity/user/useRecommendedUsersCount';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { ZendeskWidget } from '@app/shared/ZendeskWidget';
@@ -53,6 +55,7 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
 import { generateReleaseNotesLink } from '@src/conf/utils';
 import { EntityType } from '@src/types.generated';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import AcrylIcon from '@images/acryl-light-mark.svg?react';
 
@@ -86,7 +89,7 @@ const Spacer = styled.div`
     flex: 1;
 `;
 
-const DEFAULT_LOGO = '/assets/logos/acryl-dark-mark.svg';
+const DEFAULT_LOGO = 'assets/logos/acryl-dark-mark.svg';
 
 const MenuWrapper = styled.div`
     margin-top: 14px;
@@ -156,6 +159,13 @@ export const NavSidebar = () => {
     const {
         state: { unfinishedTaskCount },
     } = userContext;
+
+    // Check for recommended users to show "New" badge on Settings
+    // Only query if user has identity management permissions
+    const canManageIdentities = me?.platformPrivileges?.manageIdentities || false;
+    const { recommendedUsersCount } = useRecommendedUsersCount({ skip: !canManageIdentities });
+    const hasSeenRecommendations = hasSeenRecommendedUsers();
+    const showSettingsBadge = recommendedUsersCount > 0 && !hasSeenRecommendations;
 
     const HelpContentMenuItems = themeConfig.content.menu.items.map((value) => ({
         title: value.label,
@@ -351,6 +361,11 @@ export const NavSidebar = () => {
                 selectedIcon: <Gear weight="fill" />,
                 key: 'settings',
                 link: '/settings',
+                badge: {
+                    label: 'New',
+                    show: showSettingsBadge,
+                    showDot: true, // Show blue dot in left nav
+                },
             },
             {
                 type: NavBarMenuItemTypes.Dropdown,
@@ -389,7 +404,7 @@ export const NavSidebar = () => {
                         type: NavBarMenuItemTypes.DropdownElement,
                         title: 'GraphQL',
                         description: 'Explore the GraphQL API',
-                        link: HelpLinkRoutes.GRAPHIQL || null,
+                        link: resolveRuntimePath(HelpLinkRoutes.GRAPHIQL),
                         isExternalLink: true,
                         key: 'helpGraphQL',
                     },
@@ -397,7 +412,7 @@ export const NavSidebar = () => {
                         type: NavBarMenuItemTypes.DropdownElement,
                         title: 'OpenAPI',
                         description: 'Explore the OpenAPI endpoints',
-                        link: HelpLinkRoutes.OPENAPI,
+                        link: resolveRuntimePath(HelpLinkRoutes.OPENAPI),
                         isExternalLink: true,
                         key: 'helpOpenAPI',
                     },
@@ -440,7 +455,7 @@ export const NavSidebar = () => {
                 icon: <SignOut data-testid="log-out-menu-item" />,
                 key: 'signOut',
                 onClick: logout,
-                href: '/logOut',
+                href: resolveRuntimePath('/logOut'),
                 dataTestId: 'nav-sidebar-sign-out',
             },
         ],

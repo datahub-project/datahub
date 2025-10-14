@@ -28,7 +28,31 @@ mkdir -p "$DATAHUB_BUNDLED_VENV_PATH"
 
 # Use the self-contained Python script to generate and create venvs
 echo "Running bundled venv builder..."
-python /tmp/build_bundled_venvs_unified.py
+
+# Determine the Python helper location from common candidates
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PY_HELPER_CANDIDATES=(
+  "${SCRIPT_DIR}/build_bundled_venvs_unified.py"
+  "/usr/local/bin/build_bundled_venvs_unified.py"
+  "./build_bundled_venvs_unified.py"
+)
+
+PY_HELPER=""
+for cand in "${PY_HELPER_CANDIDATES[@]}"; do
+  if [ -f "$cand" ]; then
+    PY_HELPER="$cand"
+    break
+  fi
+done
+
+if [ -z "$PY_HELPER" ]; then
+  echo "ERROR: Could not locate build_bundled_venvs_unified.py in any known location."
+  echo "Checked: ${PY_HELPER_CANDIDATES[*]}"
+  exit 2
+fi
+
+echo "Using Python helper: $PY_HELPER"
+python "$PY_HELPER"
 
 # Verify the venvs were created
 echo ""

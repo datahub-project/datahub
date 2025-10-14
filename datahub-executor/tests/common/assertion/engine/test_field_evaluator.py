@@ -156,7 +156,9 @@ class TestFieldEvaluator:
                 ),
                 operator=AssertionStdOperator.EQUAL_TO,
                 parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(value="999", type="NUMBER"),
+                    value=AssertionStdParameter(
+                        value="999", type=AssertionStdParameterType.NUMBER
+                    ),
                 ),
                 fail_threshold=FieldValuesFailThreshold(
                     type=FieldValuesFailThresholdType.COUNT,

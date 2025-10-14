@@ -13,7 +13,7 @@ import { getModalDomContainer } from '@utils/focus';
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { CorpUser, Entity, EntityType, FacetFilterInput, OwnerEntityType, OwnershipTypeEntity } from '@types';
+import { CorpUser, Entity, EntityType, OwnerEntityType, OwnershipTypeEntity } from '@types';
 
 const SelectInput = styled(Select)`
     width: 480px;
@@ -149,17 +149,21 @@ export const EditOwnersModal = ({
     const { recommendedData } = useGetRecommendations([EntityType.CorpGroup, EntityType.CorpUser]);
     const inputEl = useRef(null);
 
-    // Invokes the search API as the owner types with optional filters
-    const handleSearch = (type: EntityType, text: string, searchQuery: any, filters?: FacetFilterInput[]) => {
+    // Invokes the search API as the owner types
+    const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
+        const input = addUserFiltersToSearchInput(
+            {
+                type,
+                query: text,
+                start: 0,
+                count: 5,
+            },
+            type,
+        );
+
         searchQuery({
             variables: {
-                input: {
-                    type,
-                    query: text,
-                    start: 0,
-                    count: 5,
-                    ...(filters && filters.length > 0 && { filters }),
-                },
+                input,
             },
         });
     };

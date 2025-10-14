@@ -7,15 +7,19 @@ It also contains our style guide, which can be consumed by engineers.
 
 ### File Structure
 
-- What should our top-level folders be?
-    - `app`: components that implement the entire application
-        - Based on nav page
-        - Each new high-level page gets a new top-level folder
-        - Nested pages are within the same top-level folder
-    - `graphql`: graphql files and generated types
-    - `images`: all custom images
-    - `conf` / `fonts` / `providers` / `utils`: do we need these?
-    - When do we create a new one?
+#### Top-level Folders
+
+- `app`: components that implement the entire application
+    - Based on nav page
+    - Each new high-level page gets a new top-level folder
+    - Nested pages are within the same top-level folder
+- `graphql`: graphql files and generated types
+- `images`: all custom images
+- `conf` / `fonts` / `providers` / `utils`: supporting configuration and utilities
+- When do we create a new one?
+
+#### File Organization Rules
+
 - What to put in `index.ts(x)`?
     - Do not create these files
 - Where to put tests?
@@ -29,15 +33,24 @@ It also contains our style guide, which can be consumed by engineers.
     - For standalone, reusable hooks: `hookName.ts(x)`
     - Try not to write hooks that generate JSX, but sometimes it may make sense
 - Where to put types?
-    - Types only used once should be in the same file where they’re used
+    - Types only used once should be in the same file where they're used
     - Shared types go in `folderName/folderName.types.ts`
 - Where to put helper components?
     - If the component is only used once and is small: `parent/SourceFile.components.tsx`
         - e.g. `search/SearchPage.components.tsx`
-    - If a component is shared / large and doesn’t have its own children: `parent/NewComponent.tsx`
+    - If a component is shared / large and doesn't have its own children: `parent/NewComponent.tsx`
         - e.g. `search/SearchPageHeader.tsx`
     - If the component has its own child components, put it in a new folder:`parent/NewComponent/NewComponent.tsx`
         - e.g. `search/SearchCard/SearchCard.tsx`
+
+#### SaaS vs OSS Code
+
+- Always lean towards separating the SaaS code into its own file
+- SaaS files should have a '._acryl._' in the name
+    - e.g. `File.utils.acryl.ts`, or `Queries.acryl.graphql`
+- They can also be separated in to their own `acryl` subfolder for cleaner separation
+    - e.g. `search/SearchCard/acryl/SearchCard.components.tsx` for the SaaS search card elements
+    - e.g. `search/SearchCard/acryl/SearchCard.tsx` for the main search card
 
 ### Component Library
 
@@ -94,6 +107,9 @@ It also contains our style guide, which can be consumed by engineers.
     - Styled components
     - Props
     - Main component
+- Inline SaaS-only code
+    - Each code block that is SaaS-only should always be moved to a .saas. file
+        - i.e., inline component in an OSS component should be MySaasComponent.saas.tsx
 
 ### Code Conventions
 

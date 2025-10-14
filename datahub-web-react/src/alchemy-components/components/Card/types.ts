@@ -15,4 +15,5 @@ export interface CardProps {
     isEmpty?: boolean;
     style?: React.CSSProperties;
     isCardClickable?: boolean;
+    dataTestId?: string;
 }

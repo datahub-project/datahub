@@ -23,6 +23,7 @@ export default function TimeRangeSelect({ options, values, loading, onUpdate, ch
 
     return (
         <SimpleSelect
+            dataTestId="timerange-select"
             icon="CalendarToday"
             placeholder="Choose time range"
             options={options}

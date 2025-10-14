@@ -1,5 +1,5 @@
 import { Typography } from 'antd';
-import { ColumnType } from 'antd/lib/table';
+import { ColumnsType } from 'antd/es/table';
 import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
@@ -50,7 +50,7 @@ export const useAssertionsTableColumns = ({
     refetch,
     isEntityReachable,
 }: {
-    contract: DataContract;
+    contract: DataContract | undefined;
     canEditSqlAssertions: boolean;
     canEditAssertions: boolean;
     canEditMonitors: boolean;
@@ -114,8 +114,9 @@ export const useAssertionsTableColumns = ({
         },
         [contract, canEditSqlAssertions, canEditAssertions, canEditMonitors, refetch, isEntityReachable],
     );
+
     return useMemo(() => {
-        const columns: ColumnType<AssertionListTableRow>[] = [
+        const columns: ColumnsType<AssertionListTableRow> = [
             {
                 title: 'Name',
                 dataIndex: 'name',

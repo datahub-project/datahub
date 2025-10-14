@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import ActiveTasks from '@app/entity/shared/entityForm/ActiveTasks';
@@ -70,6 +71,7 @@ export default function FormByQuestion({ closeModal }: Props) {
 
     const isV2 = useIsThemeV2();
 
+    const location = useLocation();
     const showSearchFiltersV2 = useIsSearchV2();
     const { query, unionType, filters, viewUrn, page } = useGetSearchQueryInputs();
     const { filterMode, setFilterMode } = useFilterMode(filters, unionType);
@@ -89,7 +91,7 @@ export default function FormByQuestion({ closeModal }: Props) {
         onChangeQuery,
     } = useSearchPage({
         searchResults: resultItems,
-        currentPath: window.location.pathname,
+        currentPath: location.pathname,
         selectedEntities,
         setSelectedEntities,
         defaultIsSelectMode: true,

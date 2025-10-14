@@ -161,7 +161,10 @@ class HookGenerator:
             else:
                 print(f"Warning: Unsupported project type {project.type} for {project.path}")
 
-        config = {"repos": [{"repo": "local", "hooks": hooks}]}
+        config = {
+            "default_install_hook_types": ["pre-commit"],
+            "repos": [{"repo": "local", "hooks": hooks}]
+        }
         
         # Merge override hooks if they exist
         if self.override_file and os.path.exists(self.override_file):
@@ -193,7 +196,7 @@ class HookGenerator:
         return {
             "id": f"{project.project_id}-lint-fix",
             "name": f"{project.path} Lint Fix",
-            "entry": f"./gradlew {project.gradle_path}:lintFix",
+            "entry": f".github/scripts/pre-commit-wrapper.sh ./gradlew {project.gradle_path}:lintFix",
             "language": "system",
             "files": f"^{project.path}/.*\\.(py|toml)$",
             "pass_filenames": False,
@@ -204,7 +207,7 @@ class HookGenerator:
         return {
             "id": f"{project.project_id}-spotless",
             "name": f"{project.path} Spotless Apply",
-            "entry": f"./gradlew {project.gradle_path}:spotlessApply",
+            "entry": f".github/scripts/pre-commit-wrapper.sh ./gradlew {project.gradle_path}:spotlessApply",
             "language": "system",
             "files": f"^{project.path}/.*\\.java$",
             "pass_filenames": False,
@@ -215,7 +218,7 @@ class HookGenerator:
         return {
             "id": f"{project.project_id}-{project.taskName}",
             "name": f"{project.taskName}",
-            "entry": f"./gradlew {project.gradle_path}:{project.taskName}",
+            "entry": f".github/scripts/pre-commit-wrapper.sh ./gradlew {project.gradle_path}:{project.taskName}",
             "language": "system",
             "files": project.filePattern,
             "pass_filenames": False,

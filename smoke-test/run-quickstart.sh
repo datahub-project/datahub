@@ -28,6 +28,12 @@ export COMPOSE_FILE="../docker/profiles/docker-compose.acryl-smoke.yml"
 export DATAHUB_LOCAL_GMS_ENV="$(pwd)/smoke.gms.env"
 
 THEME_V2_DEFAULT=false \
+SHOW_HAS_SIBLINGS_FILTER=false \
+SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN=false \
+SHOW_INGESTION_PAGE_REDESIGN=false \
+SHOW_HOME_PAGE_REDESIGN=false \
+SEARCH_BAR_API_VARIANT=AUTOCOMPLETE_FOR_MULTIPLE \
+DATAHUB_TELEMETRY_ENABLED=false \
 DOCKER_COMPOSE_BASE="file://$( dirname "$DIR" )" \
 DATAHUB_SEARCH_IMAGE="$DATAHUB_SEARCH_IMAGE" DATAHUB_SEARCH_TAG="$DATAHUB_SEARCH_TAG" \
 XPACK_SECURITY_ENABLED="$XPACK_SECURITY_ENABLED" ELASTICSEARCH_USE_SSL="$ELASTICSEARCH_USE_SSL" \
@@ -42,4 +48,4 @@ DATAHUB_EXECUTOR_ROLE_ARN="arn:aws:iam::795586375822:role/ci-smoke-test" \
 DATAHUB_EXECUTOR_VERSION=${DATAHUB_EXECUTOR_VERSION:=${DATAHUB_VERSION}} \
 DATAHUB_REMOTE_EXECUTOR_VERSION=${DATAHUB_REMOTE_EXECUTOR_VERSION:=${DATAHUB_VERSION}} \
 DATAHUB_SMOKETEST_EXECUTOR_ID=${DATAHUB_SMOKETEST_EXECUTOR_ID:=remote-ci} \
-docker compose --project-directory ../docker/profiles --profile quickstart-consumers up -d --quiet-pull --wait --wait-timeout 900
+docker compose --project-directory ../docker/profiles --profile ${PROFILE_NAME:-quickstart-consumers} up -d --quiet-pull --wait --wait-timeout 900

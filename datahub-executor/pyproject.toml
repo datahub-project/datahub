@@ -12,12 +12,15 @@ authors = [
 requires-python = "==3.10.*"
 
 dependencies = [
-  "acryl-datahub[base,snowflake,bigquery,redshift,s3,unity-catalog]",
-  "fastapi==0.95.2",
+  # 1.3.0: Pydantic v2 was introduced in 1.2.0.10 and later RCs fixed in OSS some missing code from /metadata-ingestion SaaS
+  "acryl-datahub[base,snowflake,bigquery,redshift,s3,unity-catalog]>=1.3.0",
+  "acryl-datahub-actions>=1.3.0",
+
+  "fastapi>=0.100.0",  # FastAPI 0.100+ supports pydantic v2
   "uvicorn[standard]>=0.23.2",
   "loguru==0.7.2",
   "apscheduler @ git+https://github.com/acryldata/apscheduler-fork.git@ak--crontab-fix",
-  "pydantic==1.10.19",
+  "pydantic>=2.4.0",
   "snowflake-connector-python>2.8.2",
   "pytz==2024.1",
   "croniter==1.3.15",
@@ -29,8 +32,7 @@ dependencies = [
   "celery[redis,sqs]==5.4.0",
   "kombu==5.4.0",              # Note: 5.4.1 silently breaks
   "watchdog==3.0.0",
-  "acryl-datahub-actions==0.2.1",
-  "acryl-executor==0.2.9",
+  "acryl-executor==0.2.10",
   "pycurl==7.45.3",
   "psutil>=7.0.0",
   "pandas>=1.2.0",
@@ -62,6 +64,13 @@ dev = [
   "types-PyYAML",
   "faker",
   "types-pytz",
+  "celery-types",
+  "types-psutil",
+  "scipy-stubs",
+  "pandas-stubs",
+  "joblib-stubs",
+  "types-tqdm",
+  "botocore-types",
 ]
 
 [tool.uv.pip]

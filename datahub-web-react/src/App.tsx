@@ -3,7 +3,6 @@ import '@src/AppV2.less';
 
 import { ApolloClient, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
-import * as Sentry from '@sentry/react';
 import Cookies from 'js-cookie';
 import React from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
@@ -17,11 +16,14 @@ import CustomThemeProvider from '@src/CustomThemeProvider';
 import { GlobalCfg } from '@src/conf';
 import { useCustomTheme } from '@src/customThemeContext';
 import possibleTypesResult from '@src/possibleTypes.generated';
+import { getRuntimeBasePath, removeRuntimePath, resolveRuntimePath } from '@utils/runtimeBasePath';
 
 /*
 	Construct Apollo Client
 */
-const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
+const httpLink = createHttpLink({
+    uri: resolveRuntimePath(`/api/v2/graphql`),
+});
 
 const errorLink = onError((error) => {
     const { networkError } = error;
@@ -30,8 +32,9 @@ const errorLink = onError((error) => {
         if (serverError.statusCode === ErrorCodes.Unauthorized) {
             isLoggedInVar(false);
             Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
-            const currentPath = window.location.pathname + window.location.search;
-            window.location.replace(`${PageRoutes.AUTHENTICATE}?redirect_uri=${encodeURIComponent(currentPath)}`);
+            const currentPath = removeRuntimePath(window.location.pathname) + window.location.search;
+            const authUrl = resolveRuntimePath(PageRoutes.AUTHENTICATE);
+            window.location.replace(`${authUrl}?redirect_uri=${encodeURIComponent(currentPath)}`);
         }
     }
     // Disabled behavior for now -> Components are expected to handle their errors.
@@ -72,6 +75,21 @@ const client = new ApolloClient({
             ActionWorkflowFormRequestField: {
                 keyFields: false, // Disable normalization for this type
             },
+            Assertion: {
+                keyFields: ['urn'],
+                fields: {
+                    runEvents: {
+                        // Disable caching this field until we deep dive into
+                        // all the places where it is used.
+                        merge: false,
+                    },
+                    relationships: {
+                        // Disable caching this field until we deep dive into
+                        // all the places where it is used.
+                        merge: false,
+                    },
+                },
+            },
         },
         // need to define possibleTypes to allow us to use Apollo cache with union types
         possibleTypes: possibleTypesResult.possibleTypes,
@@ -87,11 +105,6 @@ const client = new ApolloClient({
     },
 });
 
-Sentry.init({
-    dsn: 'https://50799ff93031aceb3246b8b31ca063ad@o4504487219363840.ingest.us.sentry.io/4508738535424000',
-    defaultIntegrations: false, // no default error/performance capture
-});
-
 export const InnerApp: React.VFC = () => {
     return (
         <HelmetProvider>
@@ -99,7 +112,7 @@ export const InnerApp: React.VFC = () => {
                 <Helmet>
                     <title>{useCustomTheme().theme?.content?.title}</title>
                 </Helmet>
-                <Router>
+                <Router basename={getRuntimeBasePath()}>
                     <Routes />
                 </Router>
             </CustomThemeProvider>

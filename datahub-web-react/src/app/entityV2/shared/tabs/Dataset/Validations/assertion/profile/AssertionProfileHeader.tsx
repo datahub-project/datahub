@@ -44,7 +44,7 @@ const Title = styled.div`
 type Props = {
     assertion: Assertion;
     monitor?: Monitor;
-    contract?: DataContract;
+    contract?: DataContract | null;
     result?: AssertionResult;
     canEditAssertion: boolean;
     canEditMonitor: boolean;

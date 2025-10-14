@@ -5,7 +5,7 @@ import pathlib
 import tempfile
 import time
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple, Union, cast
 
 import boto3
 import duckdb
@@ -73,7 +73,9 @@ class FileStoreBackedDatasetConfig(ConfigModel):
     store_platform: str = "s3"
     file_name: str = "data"
     file_extension: str = "parquet"
-    file_compression: str = "snappy"
+    file_compression: Literal[
+        "gzip", "bz2", "brotli", "lz4", "zstd", "snappy", "none"
+    ] = "snappy"
     file_overwrite_existing: bool = True
     snapshot_partitioning_strategy: str = PartitioningStrategy.DATE
     generate_presigned_url: bool = True
@@ -119,9 +121,14 @@ class DataHubBasedS3Dataset:
         self.local_file_path: str = (
             config.file if config.file else self._initialize_local_file()
         )
-        self.file_writer = None
+        self.file_writer: Optional[pq.ParquetWriter] = None
         self.schema = (
-            pa.schema([(x.name, x.type) for x in self.dataset_metadata.schemaFields])
+            pa.schema(
+                [
+                    pa.field(x.name, BaseModelRow.string_to_pyarrow_type(x.type))
+                    for x in self.dataset_metadata.schemaFields
+                ]
+            )
             if self.dataset_metadata.schemaFields
             else None
         )
@@ -163,14 +170,28 @@ class DataHubBasedS3Dataset:
                     self.schema = row.arrow_schema()
                 else:
                     # hail mary: infer schema from the first row and cast everything to string
-                    self.schema = pa.schema([(key, pa.string()) for key in row])
+                    self.schema = pa.schema([pa.field(key, pa.string()) for key in row])
                     self.stringify_row = True
 
             self._initialize_local_file()
+            # Map compression names to PyArrow format (most are direct mappings)
+            compression_map = {
+                "gzip": "gzip",
+                "bz2": "brotli",  # PyArrow doesn't support bz2, use brotli
+                "brotli": "brotli",
+                "lz4": "lz4",
+                "zstd": "zstd",
+                "snappy": "snappy",
+                "none": "none",
+            }
+            compression = cast(
+                Literal["gzip", "bz2", "brotli", "lz4", "zstd", "snappy", "none"],
+                compression_map.get(self.config.file_compression, "snappy"),
+            )
             self.file_writer = pq.ParquetWriter(
                 self.local_file_path,
                 self.schema,
-                compression=self.config.file_compression,
+                compression=compression,
             )
         if isinstance(row, (BaseModel, BaseModelRow)):
             # for anything extending BaseModel, we want to use the dict representation
@@ -396,7 +417,9 @@ class DataHubBasedS3Dataset:
                 assert dataset_profiles.fieldProfiles is not None
                 dataset_profiles.fieldProfiles.append(field_profile)
             logger.info("Generated dataset profile")
-            schema_metadata = self._generate_schema_metadata(columns)
+            schema_metadata = self._generate_schema_metadata(
+                [(col[0], col[1]) for col in columns]
+            )
         return dataset_profiles, schema_metadata
 
     def register_dataset(

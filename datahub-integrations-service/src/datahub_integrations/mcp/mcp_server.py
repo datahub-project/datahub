@@ -37,6 +37,7 @@ from pydantic import BaseModel
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
 DESCRIPTION_LENGTH_HARD_LIMIT = 1000
+QUERY_LENGTH_HARD_LIMIT = 5000
 
 
 def sanitize_html_content(text: str) -> str:
@@ -110,6 +111,15 @@ def truncate_descriptions(
     elif isinstance(data, list):
         for item in data:
             truncate_descriptions(item)
+
+
+def truncate_query(query: str) -> str:
+    """
+    Truncate a SQL query if it exceeds the maximum length.
+    """
+    return truncate_with_ellipsis(
+        query, QUERY_LENGTH_HARD_LIMIT, suffix="... [truncated]"
+    )
 
 
 # See https://github.com/jlowin/fastmcp/issues/864#issuecomment-3103678258
@@ -324,10 +334,17 @@ def clean_get_entity_response(raw_response: dict) -> dict:
                 if field.get("isPartOfKey") is False:
                     field.pop("isPartOfKey", None)
 
+    # Truncate long view definition to prevent context window issues
+    if response and (view_properties := response.get("viewProperties")):
+        if view_properties.get("logic"):
+            view_properties["logic"] = truncate_query(view_properties["logic"])
+
     return response
 
 
-@mcp.tool(description="Get an entity by its DataHub URN.")
+@mcp.tool(
+    description="Get detailed information about any entity by its DataHub URN. Supports all entity types including datasets, assertions, incidents, dashboards, charts, users, groups, and more. The response fields vary based on the entity type."
+)
 @async_background
 def get_entity(urn: str) -> dict:
     client = get_datahub_client()
@@ -663,6 +680,12 @@ def get_dataset_queries(
         if query.get("subjects"):
             query["subjects"] = _deduplicate_subjects(query["subjects"])
 
+        # Truncate long SQL queries to prevent context window issues
+        if queryProperties := query.get("properties"):
+            queryProperties["statement"]["value"] = truncate_query(
+                queryProperties["statement"]["value"]
+            )
+
     return clean_gql_response(result)
 
 
@@ -684,6 +707,7 @@ class AssetLineageDirective(BaseModel):
     downstream: bool
     max_hops: int
     extra_filters: Optional[Filter]
+    max_results: int
 
 
 class AssetLineageAPI:
@@ -721,7 +745,7 @@ class AssetLineageAPI:
         variables = {
             "urn": asset_lineage_directive.urn,
             "start": 0,
-            "count": 30,
+            "count": asset_lineage_directive.max_results,
             "types": types,
             "orFilters": compiled_filters,
             "searchFlags": {"skipHighlighting": True, "maxAggValues": 3},
@@ -774,6 +798,7 @@ def get_lineage(
     filters: Optional[Filter | str] = None,
     upstream: bool = True,
     max_hops: int = 1,
+    max_results: int = 30,
 ) -> dict:
     client = get_datahub_client()
     # NOTE: See comment in search tool for why we parse filters as strings.
@@ -790,6 +815,7 @@ def get_lineage(
         downstream=not upstream,
         max_hops=max_hops,
         extra_filters=filters,
+        max_results=max_results,
     )
     lineage = lineage_api.get_lineage(asset_lineage_directive)
     inject_urls_for_urns(client._graph, lineage, ["*.searchResults[].entity"])

@@ -42,7 +42,7 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
         "${venv_name}/bin/python -m pip install --upgrade uv"
 }
 
-task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
+task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion-modules:acryl-cloud:codegen']) {
     inputs.file file('pyproject.toml')
     outputs.file("${venv_name}/.build_install_sentinel")
     commandLine 'bash', '-x', '-c',
@@ -63,12 +63,12 @@ task installDev(type: Exec, dependsOn: [install]) {
         "touch ${venv_name}/.build_install_dev_sentinel"
 }
 
-task lockfileUpdate(type: Exec, dependsOn: environmentSetup) {
+task lockfileUpdate(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion-modules:acryl-cloud:codegen']) {
     commandLine 'bash', '-c',
         "set +x && source ${venv_name}/bin/activate && set -x && " +
         "./scripts/lockfile.sh"
 }
-task lockfileCheck(type: Exec, dependsOn: environmentSetup) {
+task lockfileCheck(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion-modules:acryl-cloud:codegen']) {
     commandLine 'bash', '-c',
         "set +x && source ${venv_name}/bin/activate && set -x && " +
         "./scripts/lockfile-check.sh"
@@ -79,7 +79,7 @@ task lint(type: Exec, dependsOn: installDev) {
         "set +x && source ${venv_name}/bin/activate &&  set -x &&" +
         "ruff check src/ tests/ scripts/ && " +
         "ruff format --check src/ tests/ scripts/ && " +
-        "mypy src/ tests/"
+        "mypy --config-file=mypy.ini src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
@@ -126,7 +126,6 @@ docker {
         include "datahub-executor/scripts/smoke-test-helper.py"
         include "datahub-executor/pyproject.toml"
         include "datahub-executor/requirements*"
-        include "metadata-ingestion/**"
         include "metadata-ingestion-modules/acryl-cloud/**"
         include "python-build/**"
 
@@ -135,7 +134,17 @@ docker {
     }
     additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
 
-    def dockerBuildArgs = [DOCKER_VERSION: "${version}-slim", RELEASE_VERSION: python_docker_version, BASE_IMAGE: "${docker_registry}/datahub-ingestion", BUNDLED_CLI_VERSION: cliVersion]
+    def dockerBuildArgs = [DOCKER_VERSION: "${version}-slim", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: cliVersion]
+
+    // For testing other variants locally, pass this property to override. We do not want to quickstarts to have to build all variants. CI will build all variants due to -PmatrixBuild=true
+    defaultVariant = project.getProperties().getOrDefault('datahubExecutorVariant', 'full')
+
+    variants = [
+      "slim": [suffix: "-slim", args: [BUILD_BUNDLED_VENVS: 'true', BASE_IMAGE: 'slim']],
+      "slim-unbundled": [suffix: "-slim-unbundled", args: [BUILD_BUNDLED_VENVS: 'false', BASE_IMAGE: 'slim']],
+      "full-unbundled":  [suffix: "-unbundled", args: [BUILD_BUNDLED_VENVS: 'false', BASE_IMAGE: 'full']],
+      "full": [suffix: "", args: [BUILD_BUNDLED_VENVS: 'true', BASE_IMAGE: 'full']]
+    ]
 
     // Add build args if they are defined (needed for some CI or enterprise environments)
     if (project.hasProperty('pipMirrorUrl')) {

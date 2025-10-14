@@ -3,6 +3,8 @@ import logging
 import time
 from typing import Dict, Iterable, List, Optional, Type
 
+# Import _Aspect directly from codegen - importing from schema_classes does not work for mypy
+from datahub._codegen.aspect import _Aspect
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.filters import SearchFilterRule
@@ -13,7 +15,6 @@ from datahub.metadata.schema_classes import (
     GenericAspectClass,
     MetadataAttributionClass,
     SchemaMetadataClass,
-    _Aspect,
 )
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.utilities.urns.urn import Urn, guess_entity_type

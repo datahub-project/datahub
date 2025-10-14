@@ -327,19 +327,42 @@ class TestGetExtraLLMInstructions:
         # Verify
         assert result is None
 
-    def test_graphql_exception_raises(self) -> None:
-        """Test that GraphQL exceptions are propagated."""
+    def test_graphql_exception_returns_none(self) -> None:
+        """Test that GraphQL exceptions return None with warning (temporary behavior)."""
+        # Changed behavior: We now catch all exceptions and return None instead of
+        # raising, to handle cases where GMS instances don't have aiAssistant field yet.
+        # This is a temporary solution until all instances are upgraded.
         mock_client = MagicMock(spec=DataHubClient)
         mock_graph = MagicMock()
         mock_graph.execute_graphql.side_effect = Exception("GraphQL connection error")
         mock_client._graph = mock_graph
 
-        # Execute and verify exception is raised
-        with pytest.raises(Exception) as exc_info:
-            _get_extra_llm_instructions(mock_client)
+        # Execute - should return None instead of raising
+        result = _get_extra_llm_instructions(mock_client)
 
-        assert "Failed to fetch AI instructions from GraphQL" in str(exc_info.value)
-        assert "GraphQL connection error" in str(exc_info.value)
+        # Verify
+        assert result is None
+
+    def test_undefined_aiassistant_field_returns_none(self) -> None:
+        """Test that validation error for undefined aiAssistant field returns None with warning."""
+        # This simulates the error when a GMS instance doesn't have the aiAssistant field yet
+        mock_client = MagicMock(spec=DataHubClient)
+        mock_graph = MagicMock()
+        error_message = (
+            "Error executing graphql query: [{'message': "
+            '"Validation error (FieldUndefined@[globalSettings/aiAssistant]) : '
+            "Field 'aiAssistant' in type 'GlobalSettings' is undefined\", "
+            "'locations': [{'line': 4, 'column': 13}], "
+            "'extensions': {'classification': 'ValidationError'}}]"
+        )
+        mock_graph.execute_graphql.side_effect = Exception(error_message)
+        mock_client._graph = mock_graph
+
+        # Execute - should return None instead of raising
+        result = _get_extra_llm_instructions(mock_client)
+
+        # Verify
+        assert result is None
 
     def test_caching_behavior(self) -> None:
         """Test that results are cached and reused."""

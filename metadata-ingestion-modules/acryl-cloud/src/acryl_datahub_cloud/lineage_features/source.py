@@ -3,7 +3,6 @@ import os
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Iterable, List, Set
 
 from opensearchpy import OpenSearch
@@ -53,6 +52,12 @@ class LineageFeaturesSourceConfig(ConfigModel):
     retry_delay_seconds: int = 5
     retry_backoff_multiplier: float = 2.0
 
+    # Cleanup old features when they have not been updated for this many days
+    # This is required because we only emit this feature for cases where we find a lineage
+    # in the graph index
+    cleanup_batch_size: int = 100
+    cleanup_old_features_days: int = 2
+
     @validator("max_retries")
     def validate_max_retries(cls, v: int) -> int:
         if v < 1:
@@ -79,6 +84,12 @@ class LineageExtractGraphSourceReport(SourceReport, IngestionStageReport):
     downstream_count: int = 0
     edges_scanned: int = 0
     skipped_materialized_urns_count: int = 0
+    zero_upstream_count: int = 0
+    zero_downstream_count: int = 0
+    has_asset_level_lineage_count: int = 0
+    zero_asset_level_lineage_count: int = 0
+    cleanup_old_features_time: int = 0
+    cleanup_old_features_count: int = 0
 
 
 @platform_name(id="datahub", platform_name="DataHub")
@@ -255,7 +266,6 @@ class DataHubLineageFeaturesSource(Source):
         with self.report.new_stage("Load valid URNs"):
             self.populate_valid_urns()
 
-        timestamp = datetime.now(tz=timezone.utc)
         server = self._create_opensearch_client_with_retry()
 
         query = {
@@ -326,7 +336,58 @@ class DataHubLineageFeaturesSource(Source):
         self._update_report()
         self._delete_pit_with_retry(server, pit)
 
-        self.report.new_stage("start emission of lineage features")
+        with self.report.new_stage("emission of lineage features"):
+            yield from self._emit_lineage_features()
+
+        with self.report.new_stage("cleanup old lineage features"):
+            yield from self._cleanup_old_features()
+
+    def _cleanup_old_features(self) -> Iterable[MetadataWorkUnit]:
+        """
+        This is required because we only emit this feature for cases where we find a lineage
+        in the graph index
+        """
+        cutoff_time = int(
+            (time.time() - (self.config.cleanup_old_features_days * 24 * 60 * 60))
+            * 1000
+        )
+        self.report.cleanup_old_features_time = cutoff_time
+
+        for urn in self.ctx.require_graph("Cleanup old features").get_urns_by_filter(
+            extraFilters=[
+                {
+                    "field": "hasAssetLevelLineageFeature",
+                    "negated": False,
+                    "condition": "EQUAL",
+                    "values": ["true"],
+                },
+                {
+                    "field": "lineageFeaturesComputedAt",
+                    "negated": False,
+                    "condition": "LESS_THAN",
+                    "values": [str(cutoff_time)],
+                },
+            ],
+            batch_size=self.config.cleanup_batch_size,
+        ):
+            # Emit lineage features with zero upstreams and downstreams for cleanup
+            wu = MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=LineageFeaturesClass(
+                    upstreamCount=0,
+                    downstreamCount=0,
+                    hasAssetLevelLineage=False,
+                    computedAt=AuditStampClass(
+                        time=int(time.time() * 1000),
+                        actor=SYSTEM_ACTOR,
+                    ),
+                ),
+            ).as_workunit()
+            self.report.cleanup_old_features_count += 1
+            self.report.report_workunit(wu)
+            yield wu
+
+    def _emit_lineage_features(self) -> Iterable[MetadataWorkUnit]:
         # In Python 3.9, can be replaced by `self.self.upstream_counts.keys() | self.downstream_counts.keys()`
         for urn in set(self.upstream_counts.keys()).union(
             self.downstream_counts.keys()
@@ -337,21 +398,31 @@ class DataHubLineageFeaturesSource(Source):
             logger.debug(
                 f"{urn}: {self.upstream_counts[urn]}, {self.downstream_counts[urn]}"
             )
+            if self.upstream_counts[urn] == 0:
+                self.report.zero_upstream_count += 1
+            if self.downstream_counts[urn] == 0:
+                self.report.zero_downstream_count += 1
+            has_asset_level_lineage = (
+                self.upstream_counts[urn] > 0 or self.downstream_counts[urn] > 0
+            )
+            if has_asset_level_lineage:
+                self.report.has_asset_level_lineage_count += 1
+            else:
+                self.report.zero_asset_level_lineage_count += 1
             wu = MetadataChangeProposalWrapper(
                 entityUrn=urn,
                 aspect=LineageFeaturesClass(
                     upstreamCount=self.upstream_counts[urn],
                     downstreamCount=self.downstream_counts[urn],
+                    hasAssetLevelLineage=has_asset_level_lineage,
                     computedAt=AuditStampClass(
-                        time=int(timestamp.timestamp() * 1000),
+                        time=int(time.time() * 1000),
                         actor=SYSTEM_ACTOR,
                     ),
                 ),
             ).as_workunit()
             self.report.report_workunit(wu)
             yield wu
-        # So previous stage's calculations are done
-        self.report.new_stage("end emission of lineage features")
 
     def get_report(self) -> SourceReport:
         return self.report

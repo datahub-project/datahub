@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-The DataHub chat integrations (Slack and Teams) currently experience token limit errors when chat histories grow too long, resulting in poor user experience where users must start new conversations. Current error handling is reactive - errors are only caught after expensive LLM API calls fail with `ChatSessionMaxTokensExceededError`.
+The DataHub chat integrations (Slack and Teams) currently experience token limit errors when chat histories grow too long, resulting in poor user experience where users must start new conversations. Additionally, individual tool responses can exceed context window limits, causing immediate failures even in short conversations. Current error handling is reactive - errors are only caught after expensive LLM API calls fail with `ChatSessionMaxTokensExceededError`.
 
 ### Current Issues
 
@@ -11,6 +11,8 @@ The DataHub chat integrations (Slack and Teams) currently experience token limit
 - **No Proactive Management**: No token estimation or history management before LLM calls
 - **Duplicated Logic**: Slack and Teams would need separate solutions for the same problem
 - **API Waste**: Failed API calls due to token limits waste compute and increase latency
+- **Tool Response Bloat**: Individual tool responses can exceed context limits, causing immediate conversation failures
+- **No Tool-Level Optimization**: Large tool outputs are not managed at the source, leading to context pollution
 
 ### Technical Context
 
@@ -33,7 +35,13 @@ The DataHub chat integrations (Slack and Teams) currently experience token limit
 
 ### Architecture Overview
 
-The solution implements three core abstractions: `TokenCountEstimator` for character-based token estimation with LRU caching, `ChatContextReducer` for context preparation with MLflow integration, and a **dual history architecture** in `ChatHistory` that maintains both original messages and reduced context. This integrates with `ChatSession._prepare_messages()` via `create_default_context_reducer_chain()` to proactively manage token limits before LLM API calls while preserving complete audit trails.
+The solution implements a multi-layered approach to context management: **tool-level response handling** for individual large responses, **context reduction** for accumulated chat history, and **dual history architecture** for complete audit trails. The architecture includes:
+
+1. **Tool-Level Response Management**: Strategies to handle large individual tool responses before they enter chat history
+2. **Context Reduction**: `TokenCountEstimator` for character-based token estimation with LRU caching, `ChatContextReducer` for context preparation with MLflow integration
+3. **Dual History Architecture**: `ChatHistory` maintains both original messages and reduced context for complete audit trails
+
+This integrates with `ChatSession._prepare_messages()` via `create_default_context_reducer_chain()` and tool execution via `_handle_tool_call_request()` to proactively manage token limits at both the tool response level and accumulated history level while preserving complete audit trails.
 
 ### Core Abstractions
 
@@ -137,6 +145,25 @@ class ChatContextReducer(ABC):
         """Check if context reduction is needed."""
         return self.token_estimator.estimate_history_tokens(history) > self.config.llm_token_limit
 ```
+
+#### 4. Tool Response Handler
+
+**Approach**: Abstract framework for handling large tool responses before they enter chat history.
+
+**Key Concepts:**
+
+- Response size validation and processing
+- Tool-specific configuration and strategies
+- Integration with tool execution pipeline
+- Token estimation for response size checking
+
+**Benefits:**
+
+- **Proactive Prevention**: Handles large responses before they enter chat history
+- **Tool-Specific Logic**: Can implement different strategies per tool type
+- **Configurable**: Different limits and strategies per tool
+- **Performance**: Prevents context pollution at the source
+- **User Experience**: Maintains conversation flow without context errors
 
 ### Implementation Strategies
 
@@ -312,6 +339,107 @@ class SemanticChunkingReducer(ChatContextReducer):
 
 **Implementation Priority:** This approach is very complex and should be considered only after exhausting simpler strategies. Focus on tool-level optimization and basic reduction strategies first.
 
+### Tool Response Handling Strategies
+
+When individual tool responses exceed context window limits, we need specialized strategies to handle large tool outputs. This is a specific problem that requires different approaches than chat history reduction - tool-specific implementations and framework-level error handling.
+
+#### Tool Response Strategy 1: Tool-Level Response Truncation (Recommended)
+
+**Approach**: Implement response truncation within individual tool implementations, similar to how descriptions are currently truncated.
+
+**Key Concepts:**
+
+- Tool-specific truncation logic built into each tool
+- Intelligent truncation preserving most important information
+- Similar to existing description truncation patterns
+- No framework-level configuration needed
+
+**Pros:**
+
+- **Tool-Specific Logic**: Each tool can implement optimal truncation for its response type
+- **Proven Pattern**: Similar to existing description truncation approach
+- **Low Latency**: No additional framework overhead
+- **Maintains Context**: Tools can preserve most relevant information
+
+**Cons:**
+
+- **Tool Modification Required**: Each tool needs custom truncation logic
+- **Data Loss**: May lose some information in truncated sections
+- **Maintenance**: Truncation logic needs to be maintained per tool
+
+#### Tool Response Strategy 2: Post-Tool Response Summarization
+
+**Approach**: Framework-level summarization that considers conversation intent, user's question, and agent's reasoning so far.
+
+**Key Concepts:**
+
+- Framework-level LLM summarization of large responses
+- Context-aware summarization based on conversation intent
+- Similar to ToolOutputReducer approach
+- More complex than truncation, not recommended as first option
+
+**Pros:**
+
+- **Intelligent Summarization**: Preserves key information through LLM processing
+- **Context-Aware**: Considers conversation intent and user's question
+- **Framework-Level**: Single implementation for all tools
+- **User-Friendly**: Provides meaningful summaries
+
+**Cons:**
+
+- **Complexity**: Requires conversation context analysis
+- **Additional Latency**: Extra LLM call for summarization
+- **Cost**: Additional API costs for summarization
+- **Not First Choice**: More complex than truncation approach
+
+#### Tool Response Strategy 3: Streaming/Pagination at Tool Level
+
+**Approach**: Tool-specific pagination support for tools that return large lists or datasets.
+
+**Key Concepts:**
+
+- Tool-specific pagination implementation
+- Support for tools returning large lists (e.g., search results)
+- Controlled response size through pagination
+- Built into individual tool implementations
+
+**Pros:**
+
+- **Controlled Size**: Guarantees response size limits
+- **Tool-Specific**: Each tool can implement optimal pagination
+- **Efficient**: Only fetches necessary data
+- **Scalable**: Works well with large datasets
+
+**Cons:**
+
+- **Tool Modification Required**: Tools must implement pagination support
+- **User Experience**: May require multiple interactions for full data
+- **Implementation Effort**: Each tool needs custom pagination logic
+
+#### Tool Response Strategy 4: Error at Tool Wrapper Level
+
+**Approach**: Framework-level error handling that converts large tool results to tool result errors, forcing the agent to choose alternative paths.
+
+**Key Concepts:**
+
+- Framework-level validation of tool response size
+- Convert oversized responses to tool result errors
+- Force agent to retry with smaller requests or alternate paths
+- Complements Tool Response Strategy 3 (pagination)
+
+**Pros:**
+
+- **Framework-Level**: Single implementation for all tools
+- **Forces Alternative Paths**: Agent must find different approaches
+- **No Data Loss**: Preserves original response integrity
+- **Simple Implementation**: Minimal complexity
+
+**Cons:**
+
+- **Poor UX**: Users must retry with different parameters
+- **No Automatic Recovery**: Requires manual intervention
+- **Potential Retry Loops**: Agent may struggle to find right parameters
+
 ### Integration Points
 
 #### ChatSession Integration
@@ -424,6 +552,36 @@ Implementations:
 - ✅ Edge case handling for Bedrock API requirements (`adjust_remaining_messages`)
 - ✅ Dual history architecture for reliable telemetry
 
+#### Phase 3: Tool Response Handling ✅ COMPLETED
+
+Tool-Specific Implementations:
+
+- ✅ Implement truncation logic within individual tools (similar to description truncation)
+- Add pagination support to tools that return large lists/datasets
+- Tool-specific response size management based on tool requirements
+- Maintain existing tool patterns and interfaces
+
+Framework-Level Error Handling:
+
+- ✅ Implement response size validation at tool wrapper level
+- ✅ Convert oversized responses to tool result errors
+- ✅ Force agent to choose alternative paths for large responses
+- ✅ Integrate with existing error handling patterns
+
+Advanced Features (Future):
+
+- Framework-level summarization considering conversation context
+- Context-aware response processing based on user intent
+- Tool-specific response optimization strategies
+
+#### Phase 4: Advanced Tool Response Features
+
+- Tool-specific response handlers (e.g., DataHub search results, lineage data)
+- Dynamic response size limits based on conversation context
+- User preference-based tool response handling
+- Streaming response support for real-time data
+- Response caching for repeated tool calls
+
 ### Future Iterations
 
 Based on testing and telemetry, additional implementations can be developed:
@@ -467,8 +625,12 @@ datahub_integrations/chat/
 3. ✅ **Error Handling**: Bedrock API edge case handling via `adjust_remaining_messages()`
 4. ✅ **MLflow Telemetry**: Full telemetry integration with detailed reduction metadata tracking
 5. ✅ **Dual History Architecture**: Complete audit trail preservation with `reduced_history` field
+6. ✅ **Tool-Specific Response Handling**: Implement truncation and pagination within individual tools
+7. ✅ **Framework-Level Error Handling**: Add response size validation at tool wrapper level
+8. ✅ **Tool Response Error Handling**: Convert oversized responses to tool result errors
+9. **Tool Response Telemetry**: MLflow integration for tool response processing monitoring
 
-## Testing Plan ✅ COMPLETED
+## Testing Plan
 
 - ✅ **Token Estimation Tests**: Mock-based testing with character-based estimation (1.3 \* len(text) / 4)
 - ✅ **Reducer Trigger Tests**: Comprehensive test coverage for both reducers with needs_reduction() validation
@@ -477,6 +639,9 @@ datahub_integrations/chat/
 - ✅ **Summarization Tests**: Full LLM-based summarization with Bedrock integration, existing/new summary handling
 - ✅ **Window Reduction Tests**: Message preservation, adjustment logic, and intent message handling
 - ✅ **MLflow Integration Tests**: Span creation and metadata tracking validation
+- ✅ **Tool-Specific Response Tests**: Test truncation and pagination within individual tools
+- ✅ **Framework Error Handling Tests**: Test response size validation and error conversion
+- ✅ **Tool Response Error Tests**: Test conversion of oversized responses to tool result errors
 - 📋 **Performance Tests on Eval Corpus**: Planned for production telemetry analysis
 
 ### Testing Scenarios ✅ IMPLEMENTED
@@ -488,6 +653,10 @@ datahub_integrations/chat/
 - ✅ **Edge Cases**: Tool call balancing via adjust_remaining_messages(), human/summary message preservation
 - ✅ **Multiple Reductions**: Reducer chain supports multiple reducers applied sequentially
 - ✅ **Followup Questions**: Reduced history persists across conversation turns via dual history architecture
+- ✅ **Tool-Specific Truncation**: Large tool responses get truncated within individual tool implementations
+- **Tool-Specific Pagination**: Tools supporting pagination return controlled-size responses with metadata
+- ✅ **Framework Error Handling**: Tool responses exceeding limits get converted to tool result errors
+- ✅ **Agent Retry Logic**: Agent chooses alternative paths when tool responses are too large
 
 ## Telemetry Plan
 

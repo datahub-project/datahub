@@ -74,6 +74,16 @@ export const AssertionResultsTable = ({ assertion, monitor, openAssertionNote }:
         };
     });
 
+    if (loading) {
+        return (
+            <Container>
+                <StyledTimeline>
+                    <AssertionResultsLoadingItems />
+                </StyledTimeline>
+            </Container>
+        );
+    }
+
     if (visibleRuns.length === 0) {
         return <NoResultsSummary />;
     }
@@ -81,28 +91,23 @@ export const AssertionResultsTable = ({ assertion, monitor, openAssertionNote }:
     return (
         <Container>
             <StyledTimeline>
-                {loading && !timelineItems.length ? (
-                    <AssertionResultsLoadingItems />
-                ) : (
-                    [
-                        // SaaS only //
-                        maybeAssertionPredictionItem ? (
-                            <Timeline.Item
-                                key={maybeAssertionPredictionItem.key}
-                                dot={maybeAssertionPredictionItem.dot}
-                                color={maybeAssertionPredictionItem.color}
-                            >
-                                {maybeAssertionPredictionItem.children}
-                            </Timeline.Item>
-                        ) : null,
-                        // end SaaS only //
-                        timelineItems.map((item) => (
-                            <Timeline.Item key={item.key} dot={item.dot} color={item.color}>
-                                {item.children}
-                            </Timeline.Item>
-                        )),
-                    ]
-                )}
+                {
+                    // SaaS only //
+                    maybeAssertionPredictionItem ? (
+                        <Timeline.Item
+                            key={maybeAssertionPredictionItem.key}
+                            dot={maybeAssertionPredictionItem.dot}
+                            color={maybeAssertionPredictionItem.color}
+                        >
+                            {maybeAssertionPredictionItem.children}
+                        </Timeline.Item>
+                    ) : null
+                }
+                {timelineItems.map((item) => (
+                    <Timeline.Item key={item.key} dot={item.dot} color={item.color}>
+                        {item.children}
+                    </Timeline.Item>
+                ))}
             </StyledTimeline>
             {showMore && (
                 <ShowMoreButton

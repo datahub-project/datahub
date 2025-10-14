@@ -76,10 +76,10 @@ type Props = {
 export const AssertionName = ({
     assertion,
     monitor,
+    contract,
     lastEvaluation,
     lastEvaluationUrl,
     platform,
-    contract,
     onClickProfileButton,
 }: Props) => {
     const entityRegistry = useEntityRegistry();

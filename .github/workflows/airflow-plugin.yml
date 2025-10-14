@@ -31,7 +31,7 @@ env:
 
 jobs:
   airflow-plugin:
-    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-2' || 'ubuntu-latest' }}
     timeout-minutes: 30
     env:
       DATAHUB_TELEMETRY_ENABLED: false

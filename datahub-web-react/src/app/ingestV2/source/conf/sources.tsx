@@ -19,6 +19,7 @@ import sacConfig from '@app/ingestV2/source/conf/sac/sac';
 import snowflakeConfig from '@app/ingestV2/source/conf/snowflake/snowflake';
 import tableauConfig from '@app/ingestV2/source/conf/tableau/tableau';
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 const baseUrl = window.location.origin;
 
@@ -32,7 +33,7 @@ source:
 sink:
   type: datahub-rest
   config:
-    server: "${baseUrl}/api/gms"`;
+    server: "${baseUrl}${resolveRuntimePath(`/api/gms`)}"`;
 
 export const SOURCE_TEMPLATE_CONFIGS: Array<SourceConfig> = [
     bigqueryConfig,

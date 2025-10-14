@@ -12,6 +12,7 @@ import { IntroduceYourself } from '@app/homeV2/introduce/IntroduceYourself';
 import { useSetUserPersona } from '@app/homeV2/persona/useUserPersona';
 import { HomePage as HomePageV3 } from '@app/homeV3/HomePage';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
+import { useSentryInit } from '@app/hooks/useSentryInit';
 import { useSetUserTitle } from '@app/identity/user/useUserTitle';
 import { OnboardingContextProvider } from '@app/onboarding/OnboardingContextProvider';
 import { useIsThemeV2, useSetThemeIsV2 } from '@app/useIsThemeV2';
@@ -28,6 +29,7 @@ const StyledLayout = styled(Layout)`
  * Container for all views behind an authentication wall.
  */
 export const ProtectedRoutes = (): JSX.Element => {
+    useSentryInit();
     useSetAppTheme();
     useSetThemeIsV2();
     useSetUserPersona();
@@ -49,7 +51,7 @@ export const ProtectedRoutes = (): JSX.Element => {
 
     useEffect(() => {
         if (location.pathname.indexOf('/Validation') !== -1) {
-            history.replace(getRedirectUrl(NEW_ROUTE_MAP));
+            history.replace(getRedirectUrl(NEW_ROUTE_MAP, location));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location]);

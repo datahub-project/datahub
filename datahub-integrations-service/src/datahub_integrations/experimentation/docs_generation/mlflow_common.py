@@ -1,7 +1,7 @@
 from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
 
 import functools
-from typing import Optional
+from typing import List, Optional
 
 import mlflow
 import pandas as pd
@@ -93,7 +93,7 @@ def get_human_eval_result_or_none(run_name: str) -> Optional[pd.DataFrame]:
 
 def get_latest_human_eval_result_or_none() -> Optional[pd.DataFrame]:
     try:
-        human_evals = mlflow.search_runs(
+        human_evals: List[Run] = mlflow.search_runs(  # type: ignore[assignment]  # output_format="list" guarantees List[Run]
             experiment_names=[EXPERIMENT_NAME],
             filter_string="attributes.run_name LIKE 'human_annotations%'",
             output_format="list",
