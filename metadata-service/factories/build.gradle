@@ -48,7 +48,7 @@ dependencies {
   implementation externalDependency.awsRds
 
   // AWS SDK for S3 file serving
-  implementation platform('software.amazon.awssdk:bom:2.23.6')
+  implementation platform(externalDependency.awsSdk2Bom)
   implementation 'software.amazon.awssdk:regions'
   implementation 'software.amazon.awssdk:sts'
   implementation 'software.amazon.awssdk:s3'
