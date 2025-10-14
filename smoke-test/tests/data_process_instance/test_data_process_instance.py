@@ -24,7 +24,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TimeWindowSizeClass,
 )
-from tests.utils import execute_graphql, wait_for_writes_to_sync
+from tests.utils import execute_graphql
 
 logger = logging.getLogger(__name__)
 
@@ -164,7 +164,6 @@ def create_test_data(filename: str):
     for mcp in mcps:
         file_emitter.emit(mcp)
     file_emitter.close()
-    wait_for_writes_to_sync()
 
 
 @pytest.fixture(scope="module", autouse=False)
