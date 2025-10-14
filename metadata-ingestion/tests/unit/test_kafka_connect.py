@@ -19,6 +19,7 @@ from datahub.ingestion.source.kafka_connect.sink_connectors import (
 )
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     ConfluentJDBCSourceConnector,
+    MongoSourceConnector,
 )
 
 logger = logging.getLogger(__name__)
@@ -545,3 +546,44 @@ class TestIntegration:
         assert len(lineages) == 1
         lineage = lineages[0]
         assert lineage.target_dataset == "test-project.test.test-topic"
+
+
+class TestMongoSourceConnector:
+    """Test Mongo source connector lineage extraction."""
+
+    def create_mock_manifest(
+        self, config: Dict[str, str], topic_names: List[str]
+    ) -> ConnectorManifest:
+        """Helper to create a mock connector manifest."""
+        return ConnectorManifest(
+            name="mongo-source-connector",
+            type="source",
+            config=config,
+            tasks={},
+            topic_names=topic_names,
+        )
+
+    def test_mongo_source_lineage_with_dots_in_topic_prefix(self) -> None:
+        """Test Mongo Source connector with a topic containing dots in the topic prefix."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+            "topic.prefix": "prod.mongo.avro",
+            "database": "my-new-database",
+        }
+        topic_name = "prod.mongo.avro.my-new-database.users"
+
+        manifest: ConnectorManifest = self.create_mock_manifest(
+            connector_config, [topic_name]
+        )
+        config: Mock = Mock(spec=KafkaConnectSourceConfig)
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector: MongoSourceConnector = MongoSourceConnector(manifest, config, report)
+        lineages: List = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        lineage = lineages[0]
+        assert lineage.source_platform == "mongodb"
+        assert lineage.source_dataset == "my-new-database.users"
+        assert lineage.target_platform == "kafka"
+        assert lineage.target_dataset == topic_name
