@@ -1,7 +1,9 @@
+from typing import Any, Dict
+
 import pytest
 import tenacity
 
-from tests.utils import get_root_urn, get_sleep_info
+from tests.utils import execute_graphql, get_root_urn, get_sleep_info
 
 TEST_POLICY_NAME = "Updated Platform Policy"
 
@@ -70,85 +72,69 @@ def _ensure_policy_present(auth_session, new_urn):
 
 
 def test_frontend_policy_operations(auth_session):
-    json = {
-        "query": """mutation createPolicy($input: PolicyUpdateInput!) {\n
-            createPolicy(input: $input) }""",
-        "variables": {
-            "input": {
-                "type": "METADATA",
-                "name": "Test Metadata Policy",
-                "description": "My Metadaata Policy",
-                "state": "ACTIVE",
-                "resources": {"type": "dataset", "allResources": True},
-                "privileges": ["EDIT_ENTITY_TAGS"],
-                "actors": {
-                    "users": [get_root_urn()],
-                    "resourceOwners": False,
-                    "allUsers": False,
-                    "allGroups": False,
-                },
-            }
-        },
+    create_policy_query = """mutation createPolicy($input: PolicyUpdateInput!) {
+            createPolicy(input: $input) }"""
+    create_policy_variables: Dict[str, Any] = {
+        "input": {
+            "type": "METADATA",
+            "name": "Test Metadata Policy",
+            "description": "My Metadaata Policy",
+            "state": "ACTIVE",
+            "resources": {"type": "dataset", "allResources": True},
+            "privileges": ["EDIT_ENTITY_TAGS"],
+            "actors": {
+                "users": [get_root_urn()],
+                "resourceOwners": False,
+                "allUsers": False,
+                "allGroups": False,
+            },
+        }
     }
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    res_data = execute_graphql(
+        auth_session, create_policy_query, create_policy_variables
     )
-    response.raise_for_status()
-    res_data = response.json()
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["createPolicy"]
 
     new_urn = res_data["data"]["createPolicy"]
 
-    update_json = {
-        "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
-            updatePolicy(urn: $urn, input: $input) }""",
-        "variables": {
-            "urn": new_urn,
-            "input": {
-                "type": "METADATA",
-                "state": "ACTIVE",
-                "name": "Test Metadata Policy",
-                "description": "Updated Metadaata Policy",
-                "privileges": ["EDIT_ENTITY_TAGS", "EDIT_ENTITY_GLOSSARY_TERMS"],
-                "actors": {
-                    "resourceOwners": False,
-                    "allUsers": True,
-                    "allGroups": False,
-                },
+    update_policy_query = """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {
+            updatePolicy(urn: $urn, input: $input) }"""
+    update_policy_variables: Dict[str, Any] = {
+        "urn": new_urn,
+        "input": {
+            "type": "METADATA",
+            "state": "ACTIVE",
+            "name": "Test Metadata Policy",
+            "description": "Updated Metadaata Policy",
+            "privileges": ["EDIT_ENTITY_TAGS", "EDIT_ENTITY_GLOSSARY_TERMS"],
+            "actors": {
+                "resourceOwners": False,
+                "allUsers": True,
+                "allGroups": False,
             },
         },
     }
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=update_json
+    res_data = execute_graphql(
+        auth_session, update_policy_query, update_policy_variables
     )
-    response.raise_for_status()
-    res_data = response.json()
 
     # Check updated was submitted successfully
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["updatePolicy"]
     assert res_data["data"]["updatePolicy"] == new_urn
 
     _ensure_policy_present(auth_session, new_urn)
 
     # Now test that the policy can be deleted
-    json = {
-        "query": """mutation deletePolicy($urn: String!) {\n
-            deletePolicy(urn: $urn) }""",
-        "variables": {"urn": new_urn},
-    }
+    delete_policy_query = """mutation deletePolicy($urn: String!) {
+            deletePolicy(urn: $urn) }"""
+    delete_policy_variables: Dict[str, Any] = {"urn": new_urn}
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    res_data = execute_graphql(
+        auth_session, delete_policy_query, delete_policy_variables
     )
-    response.raise_for_status()
-    res_data = response.json()
 
     res_data = listPolicies(auth_session)
 
@@ -165,45 +151,39 @@ def test_frontend_policy_operations(auth_session):
 
 
 def listPolicies(auth_session):
-    json = {
-        "query": """query listPolicies($input: ListPoliciesInput!) {\n
-            listPolicies(input: $input) {\n
-                start\n
-                count\n
-                total\n
-                policies {\n
-                    urn\n
-                    type\n
-                    name\n
-                    description\n
-                    state\n
-                    resources {\n
-                      type\n
-                      allResources\n
-                      resources\n
-                    }\n
-                    privileges\n
-                    actors {\n
-                      users\n
-                      groups\n
-                      allUsers\n
-                      allGroups\n
-                      resourceOwners\n
-                    }\n
-                    editable\n
-                }\n
-            }\n
-        }""",
-        "variables": {
-            "input": {
-                "start": 0,
-                "count": 20,
+    query = """query listPolicies($input: ListPoliciesInput!) {
+            listPolicies(input: $input) {
+                start
+                count
+                total
+                policies {
+                    urn
+                    type
+                    name
+                    description
+                    state
+                    resources {
+                      type
+                      allResources
+                      resources
+                    }
+                    privileges
+                    actors {
+                      users
+                      groups
+                      allUsers
+                      allGroups
+                      resourceOwners
+                    }
+                    editable
+                }
             }
-        },
+        }"""
+    variables: Dict[str, Any] = {
+        "input": {
+            "start": 0,
+            "count": 20,
+        }
     }
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
-    )
-    response.raise_for_status()
 
-    return response.json()
+    return execute_graphql(auth_session, query, variables)
