@@ -175,7 +175,7 @@ def _evaluate_assertion(
             name=RUN_ASSERTION_TASK_NAME,
             args={
                 "urn": monitor_urn,
-                "assertion_spec": assertion_spec.model_dump(mode="json"),
+                "assertion_spec": assertion_spec.model_dump(by_alias=True),
                 "context": context.__dict__,
             },
         )
