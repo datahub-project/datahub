@@ -11,6 +11,8 @@ from tests.utils import (
     TestSessionWrapper,
     get_frontend_session,
     wait_for_healthcheck_util,
+    ingest_file_via_rest,
+    delete_urns_from_file,
 )
 
 # Disable telemetry
@@ -47,6 +49,57 @@ def graph_client(auth_session) -> DataHubGraph:
 @pytest.fixture(scope="session")
 def openapi_graph_client(auth_session) -> DataHubGraph:
     return build_graph_client(auth_session, openapi_ingestion=True)
+
+
+def _ingest_cleanup_data_impl(
+    auth_session,
+    graph_client,
+    data_file: str,
+    test_name: str,
+    cleanup_file: bool = False
+):
+    """Helper for ingesting test data with automatic cleanup.
+
+    Args:
+        auth_session: The authenticated session
+        graph_client: The DataHub graph client
+        data_file: Path to the data file to ingest
+        test_name: Name of the test (for logging)
+        cleanup_file: If True, delete the file after cleanup (for temp files)
+
+    Usage in test files:
+        @pytest.fixture(scope="module", autouse=True)
+        def ingest_cleanup_data(auth_session, graph_client):
+            yield from _ingest_cleanup_data_impl(
+                auth_session, graph_client,
+                "tests/tags_and_terms/data.json",
+                "tags_and_terms"
+            )
+
+        For temp files:
+
+        import tempfile
+
+        @pytest.fixture(scope="module")
+        def ingest_cleanup_data(auth_session, graph_client):
+            _, filename = tempfile.mkstemp(suffix=".json")
+            create_test_data(filename)
+            yield from _ingest_cleanup_data_impl(
+                auth_session, graph_client,
+                filename,
+                "test_name",
+                cleanup_file=True
+            )
+    """
+    try:
+        print(f"ingesting {test_name} test data")
+        ingest_file_via_rest(auth_session, data_file)
+        yield
+        print(f"removing {test_name} test data")
+        delete_urns_from_file(graph_client, data_file)
+    finally:
+        if cleanup_file and os.path.exists(data_file):
+            os.remove(data_file)
 
 
 

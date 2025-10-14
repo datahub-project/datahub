@@ -9,6 +9,7 @@
 
 ## Common Utilities
 
+
 ### Core Utilities (`tests/utils.py`)
 
 - **`execute_graphql(auth_session, query, variables)`** - Execute GraphQL queries with standard error handling
@@ -16,6 +17,7 @@
 - **`delete_urns_from_file(graph_client, file_path)`** - Clean up entities from JSON file
 - **`get_sleep_info()`** - Get retry timing for eventual consistency
 - **`wait_for_writes_to_sync()`** - Wait for async operations to complete
+- `conftest.py` contains `_ingest_cleanup_data_impl` which is a wrapper on top of `ingest_file_via_rest` and `delete_urns_from_file`
 
 ### GraphQL Pattern
 

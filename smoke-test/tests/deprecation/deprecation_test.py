@@ -2,21 +2,15 @@ from typing import Any, Dict
 
 import pytest
 
-from tests.utils import (
-    delete_urns_from_file,
-    execute_graphql,
-    get_root_urn,
-    ingest_file_via_rest,
-)
+from conftest import _ingest_cleanup_data_impl
+from tests.utils import execute_graphql, get_root_urn
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ingest_cleanup_data(auth_session, graph_client, request):
-    print("ingesting deprecation test data")
-    ingest_file_via_rest(auth_session, "tests/deprecation/data.json")
-    yield
-    print("removing deprecation test data")
-    delete_urns_from_file(graph_client, "tests/deprecation/data.json")
+def ingest_cleanup_data(auth_session, graph_client):
+    yield from _ingest_cleanup_data_impl(
+        auth_session, graph_client, "tests/deprecation/data.json", "deprecation"
+    )
 
 
 @pytest.mark.dependency()
