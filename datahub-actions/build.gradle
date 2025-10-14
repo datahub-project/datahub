@@ -121,33 +121,34 @@ task cleanPythonCache(type: Exec) {
     "find src -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
 }
 
-docker {
-  dependsOn ':metadata-ingestion:codegen'
-  name "${docker_registry}/${docker_repo}:${versionTag}"
-  dockerfile file("${rootProject.projectDir}/docker/datahub-actions/Dockerfile")
-  files fileTree(rootProject.projectDir) {
-    exclude "datahub-actions/scripts/**"
-    exclude "datahub-actions/build/**"
-    exclude "datahub-actions/venv/**"
-    exclude "datahub-actions/tests/**"
-    exclude "**/*.xml"
-    include ".dockerignore"
-    include "docker/datahub-actions/**"
-    include "docker/snippets/**"
-    include "metadata-ingestion/**"
-    include "datahub-actions/**"
-    include "python-build/**"
-  }.exclude {
-    i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
-  }
-  additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
-
-  defaultVariant = "slim"
-  variants = [
-    "slim": [suffix: "-slim", args: [APP_ENV: "slim", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: cliVersion]],
-    "full": [suffix: "", args: [APP_ENV: "full", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: cliVersion]]
-  ]
-}
+//OSS Merge notes: This docker image is not used saas.
+//docker {
+//  dependsOn ':metadata-ingestion:codegen'
+//  name "${docker_registry}/${docker_repo}:${versionTag}"
+//  dockerfile file("${rootProject.projectDir}/docker/datahub-actions/Dockerfile")
+//  files fileTree(rootProject.projectDir) {
+//    exclude "datahub-actions/scripts/**"
+//    exclude "datahub-actions/build/**"
+//    exclude "datahub-actions/venv/**"
+//    exclude "datahub-actions/tests/**"
+//    exclude "**/*.xml"
+//    include ".dockerignore"
+//    include "docker/datahub-actions/**"
+//    include "docker/snippets/**"
+//    include "metadata-ingestion/**"
+//    include "datahub-actions/**"
+//    include "python-build/**"
+//  }.exclude {
+//    i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
+//  }
+//  additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
+//
+//  defaultVariant = "slim"
+//  variants = [
+//    "slim": [suffix: "-slim", args: [APP_ENV: "slim", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: cliVersion]],
+//    "full": [suffix: "", args: [APP_ENV: "full", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: cliVersion]]
+//  ]
+//}
 
 build.dependsOn install
 check.dependsOn lint
