@@ -172,3 +172,15 @@ mutation updateDocPropagationSettings($input: UpdateDocPropagationSettingsInput!
 mutation updateApplicationsSettings($input: UpdateApplicationsSettingsInput!) {
     updateApplicationsSettings(input: $input)
 }
+
+query getLatestProductUpdate {
+    latestProductUpdate {
+        enabled
+        id
+        title
+        description
+        image
+        ctaText
+        ctaLink
+    }
+}
