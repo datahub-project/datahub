@@ -8,27 +8,10 @@ import { UrnManager } from './urnManager';
 import { sortEntitiesByHierarchy } from '../../glossary.utils';
 import { parseOwnershipFromColumns, createOwnershipPatchOperations } from './ownershipParsingUtils';
 import { HierarchyNameResolver } from './hierarchyUtils';
+import { PatchBuilder, OwnershipTypeInput, ComprehensivePatchInput, ArrayPrimaryKeyInput } from './patchBuilder';
 
-// Types for comprehensive import
-export interface ComprehensivePatchInput {
-  urn?: string;
-  entityType: string;
-  aspectName: string;
-  patch: PatchOperation[];
-  arrayPrimaryKeys?: ArrayPrimaryKeyInput[];
-  forceGenericPatch?: boolean;
-}
-
-export interface ArrayPrimaryKeyInput {
-  arrayField: string;
-  keys: string[];
-}
-
-export interface OwnershipTypeInput {
-  name: string;
-  description: string;
-  urn: string;
-}
+// Re-export types for backward compatibility
+export type { ComprehensivePatchInput, ArrayPrimaryKeyInput, OwnershipTypeInput };
 
 export interface ComprehensiveImportPlan {
   ownershipTypes: OwnershipTypeInput[];
@@ -111,25 +94,10 @@ function extractOwnershipTypes(
 
 /**
  * Create ownership type patches
+ * @deprecated Wrapper function - uses PatchBuilder.createOwnershipTypePatches
  */
 function createOwnershipTypePatches(ownershipTypes: OwnershipTypeInput[]): ComprehensivePatchInput[] {
-  return ownershipTypes.map(ownershipType => ({
-    urn: ownershipType.urn,
-    entityType: 'ownershipType',
-    aspectName: 'ownershipTypeInfo',
-    patch: [
-      { op: 'ADD' as const, path: '/name', value: ownershipType.name },
-      { op: 'ADD' as const, path: '/description', value: ownershipType.description },
-      { op: 'ADD' as const, path: '/created', value: JSON.stringify({
-        time: Date.now(),
-        actor: 'urn:li:corpuser:datahub' // Will be replaced with actual user
-      })},
-      { op: 'ADD' as const, path: '/lastModified', value: JSON.stringify({
-        time: Date.now(),
-        actor: 'urn:li:corpuser:datahub' // Will be replaced with actual user
-      })}
-    ]
-  }));
+  return PatchBuilder.createOwnershipTypePatches(ownershipTypes);
 }
 
 /**
@@ -407,83 +375,8 @@ function createOwnershipPatches(
   return patches;
 }
 
-/**
- * Create parent relationship patches
- */
-function createParentRelationshipPatches(
-  entities: Entity[],
-  urnMap: Map<string, string>,
-  existingEntities: Entity[]
-): ComprehensivePatchInput[] {
-  const patches: ComprehensivePatchInput[] = [];
-  
-  // Create lookup map for existing entities
-  const existingUrnMap = new Map<string, string>();
-  existingEntities.forEach(entity => {
-    if (entity.urn) {
-      existingUrnMap.set(entity.name.toLowerCase(), entity.urn);
-    }
-  });
-  
-  entities.forEach(entity => {
-    if (entity.parentNames.length === 0) return;
-    
-    const parentUrns: string[] = [];
-    
-    entity.parentNames.forEach(parentName => {
-      // Use HierarchyNameResolver to find parent entity (handles hierarchical names)
-      const parentEntity = HierarchyNameResolver.findParentEntity(parentName, existingEntities);
-      
-      let parentUrn: string | undefined;
-      
-      if (parentEntity) {
-        // Parent found in existing entities
-        parentUrn = parentEntity.urn;
-      } else {
-        // Check entities in current batch
-        const actualParentName = HierarchyNameResolver.parseHierarchicalName(parentName);
-        const batchParent = entities.find(e => 
-          e.name.toLowerCase() === actualParentName.toLowerCase() && 
-          e.status === 'new'
-        );
-        if (batchParent) {
-          parentUrn = urnMap.get(batchParent.id);
-        }
-      }
-      
-      if (parentUrn) {
-        parentUrns.push(parentUrn);
-      } else {
-        const actualParentName = HierarchyNameResolver.parseHierarchicalName(parentName);
-        console.warn(`Parent entity "${parentName}" (resolved to "${actualParentName}") not found for "${entity.name}"`);
-      }
-    });
-    
-    if (parentUrns.length > 0) {
-      const urn = UrnManager.resolveEntityUrn(entity, urnMap);
-      // For parent relationships, we only support one parent per entity
-      // Take the first parent if multiple are specified
-      const parentUrn = parentUrns[0];
-      
-      const parentPatches: PatchOperation[] = [{
-        op: 'ADD' as const,
-        path: '/parentNode',
-        value: parentUrn
-      }];
-      
-      const aspectName = entity.type === 'glossaryTerm' ? 'glossaryTermInfo' : 'glossaryNodeInfo';
-      
-      patches.push({
-        urn,
-        entityType: entity.type,
-        aspectName,
-        patch: parentPatches
-      });
-    }
-  });
-  
-  return patches;
-}
+// NOTE: createParentRelationshipPatches() has been removed as dead code.
+// Parent relationships are now handled directly in createEntityPatches() above.
 
 /**
  * Create related term patches
