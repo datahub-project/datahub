@@ -3,7 +3,11 @@ import { message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
+import useFileUpload from '@app/shared/hooks/useFileUpload';
+
+import { UploadDownloadScenario } from '@types';
 
 const StyledEditor = styled(Editor)`
     border: none;
@@ -41,6 +45,8 @@ export default function EditDescriptionModal({
     closeModal,
 }: Props) {
     const canEditDescription = useDocumentationPermission();
+    const { urn: assetUrn } = useEntityData();
+    const { uploadFile } = useFileUpload({ scenario: UploadDownloadScenario.AssetDocumentation, assetUrn });
     return (
         <Modal
             title="Edit Description"
@@ -75,6 +81,7 @@ export default function EditDescriptionModal({
                 hideHighlightToolbar
                 onChange={(description) => setUpdatedDescription(description)}
                 toolbarStyles={toolbarStyles}
+                uploadFile={uploadFile}
             />
         </Modal>
     );

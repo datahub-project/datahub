@@ -132,13 +132,17 @@ const turndownService = new TurndownService({
 
             const { url, name, type } = extractFileAttributes(node);
 
+            // Wrap URL in angle brackets to support spaces and special characters in URLs
+            // This is standard markdown syntax for URLs with spaces
+            const encodedUrl = `<${url}>`;
+
             // Check if this is an image file
             if (type.startsWith('image/')) {
-                // Create standard markdown image syntax: ![filename](url)
-                return `![${name}](${url})`;
+                // Create standard markdown image syntax: ![filename](<url>)
+                return `![${name}](${encodedUrl})`;
             }
-            // Create standard markdown link syntax: [filename](url)
-            return `[${name}](${url})`;
+            // Create standard markdown link syntax: [filename](<url>)
+            return `[${name}](${encodedUrl})`;
         },
     })
     /* Add support for underline */
