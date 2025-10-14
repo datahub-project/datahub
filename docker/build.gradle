@@ -61,7 +61,9 @@ ext {
             captureContainersOutputToFiles: project.file('build/container-logs')
     ]
 
-    // declarative task configuration
+  // OSS Merge notes: :datahub-actions is not used in SaaS
+
+  // declarative task configuration
     quickstart_configs = [
             'quickstart': [
                     profile: 'quickstart-consumers',
@@ -69,19 +71,17 @@ ext {
                             ':datahub-frontend',
                             ':metadata-jobs:mce-consumer-job',
                             ':metadata-jobs:mae-consumer-job',
-                            ':datahub-actions',
                     ]
             ],
             'quickstartCLI': [
                     profile: 'quickstart',
                     modules: python_services_modules + backend_profile_modules + [
                             ':datahub-frontend',
-                            ':datahub-actions',
                     ]
             ],
             'quickstartDebug': [
                     profile: 'debug',
-                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend'],
                     isDebug: true,
                     additionalEnv: [
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
@@ -89,7 +89,7 @@ ext {
             ],
             'quickstartDebugRemoteExecutor': [
                     profile: 'debug-aws',
-                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend'],
                     isDebug: true,
                     additionalEnv: [
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
@@ -101,7 +101,7 @@ ext {
             ],
             'quickstartCypress': [
                     profile: 'debug',
-                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend'],
                     isDebug: true,
                     additionalEnv: [
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
@@ -121,7 +121,6 @@ ext {
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
                                                         ':metadata-jobs:mce-consumer-job',
                                                         ':metadata-jobs:mae-consumer-job',
-                                                        ':datahub-actions',
                     ],
 
             ],
@@ -130,7 +129,6 @@ ext {
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
                                                                                   ':metadata-jobs:mce-consumer-job',
                                                                                   ':metadata-jobs:mae-consumer-job',
-                                                                                  ':datahub-actions'
                     ],
                     isDebug: true,
             ],
@@ -138,9 +136,7 @@ ext {
                     profile: 'debug-consumers',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
                                                                           ':metadata-jobs:mce-consumer-job',
-                                                                          ':metadata-jobs:mae-consumer-job',
-                                                                          ':datahub-actions'
-                    ],
+                                                                          ':metadata-jobs:mae-consumer-job'],
                     isDebug: true,
                     additionalEnv: [
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
@@ -151,7 +147,6 @@ ext {
                     modules: (backend_profile_modules - [':docker:mysql-setup']) + [
                             ':docker:postgres-setup',
                             ':datahub-frontend',
-                            ':datahub-actions',
                     ]
             ],
             'quickstartPgCdc': [
@@ -159,7 +154,6 @@ ext {
                 modules: (python_services_modules + backend_profile_modules - [':docker:mysql-setup']) + [
                     ':docker:postgres-setup',
                     ':datahub-frontend',
-                    ':datahub-actions',
                 ]
             ],
             'quickstartPgDebug': [
@@ -181,15 +175,11 @@ ext {
 
             'quickstartSlim': [
                     profile: 'quickstart-backend',
-                    modules: backend_profile_modules + [
-                        ':datahub-actions',
-                    ]
+                    modules: backend_profile_modules
             ],
             'quickstartSpark': [
                     profile: 'quickstart-backend',
-                    modules: backend_profile_modules + [
-                            ':datahub-actions',
-                    ],
+                    modules: backend_profile_modules,
                     additionalEnv: [
                             'DATAHUB_ACTIONS_IMAGE': '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion',
                             'ACTIONS_EXTRA_PACKAGES': 'acryl-datahub-actions[executor] acryl-datahub-actions',
@@ -204,7 +194,7 @@ ext {
             ],
             'quickstartBackendDebug': [
                 profile: 'debug-backend-aws',
-                modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                modules: python_services_modules + backend_profile_modules + [':datahub-frontend'],
                 isDebug: true,
                 additionalEnv: [
                         DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
@@ -216,7 +206,6 @@ ext {
                         ':datahub-frontend',
                         ':metadata-jobs:mce-consumer-job',
                         ':metadata-jobs:mae-consumer-job',
-                        ':datahub-actions',
                         ':docker:datahub-ingestion',
                         ':docker:postgres-setup'
                     ]
