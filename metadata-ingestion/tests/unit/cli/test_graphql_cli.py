@@ -18,7 +18,6 @@ from datahub.cli.graphql_cli import (
     _convert_type_to_json,
     _dict_to_graphql_input,
     _extract_base_type_name,
-    _fetch_schema_operations,
     _fetch_type_recursive,
     _find_operation_by_name,
     _find_type_by_name,
@@ -534,10 +533,24 @@ class TestGraphQLCommand:
             in result.output
         )
 
+    @patch("datahub.cli.graphql_cli._get_schema_via_introspection")
     @patch("datahub.cli.graphql_cli.get_default_graph")
-    def test_graphql_operation_execution_with_mock_error(self, mock_get_graph):
+    def test_graphql_operation_execution_with_mock_error(
+        self, mock_get_graph, mock_schema
+    ):
         """Test that operation-based execution works but fails with mock serialization error."""
         mock_client = Mock()
+        # Mock schema introspection to return a valid schema
+        mock_schema.return_value = {
+            "queryType": {
+                "fields": [
+                    {
+                        "name": "searchAcrossEntities",
+                        "args": [{"name": "input", "type": {"kind": "NON_NULL"}}],
+                    }
+                ]
+            }
+        }
         # Mock the execute_graphql to raise a JSON serialization error like in real scenario
         mock_client.execute_graphql.side_effect = TypeError(
             "Object of type Mock is not JSON serializable"
@@ -1960,20 +1973,6 @@ class TestCoverageImprovementTargets:
 
             assert "Schema loading failed" in str(exc_info.value)
 
-    def test_fetch_schema_operations_exception_fallback(self):
-        """Test exception handling in schema operations fetch."""
-        mock_client = Mock()
-        mock_client.execute_graphql.side_effect = Exception("Connection failed")
-
-        with patch(
-            "datahub.cli.graphql_cli._parse_graphql_operations_from_files"
-        ) as mock_parse:
-            mock_parse.return_value = {"test": "fallback"}
-
-            result = _fetch_schema_operations(mock_client)
-            assert result == {"test": "fallback"}
-            mock_parse.assert_called_once_with(None)
-
 
 class TestCLIArgumentValidationAndEdgeCases:
     """Test CLI argument validation and edge case handling."""
@@ -2124,10 +2123,12 @@ class TestMainCLIFunction:
 
         with (
             patch("datahub.cli.graphql_cli.get_default_graph"),
-            patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema,
+            patch(
+                "datahub.cli.graphql_cli._get_schema_via_introspection"
+            ) as mock_schema,
             patch("datahub.cli.graphql_cli._handle_list_operations") as mock_handler,
         ):
-            mock_schema.return_value = ({"test": "schema"}, False)
+            mock_schema.return_value = {"test": "schema"}
 
             # Call CLI command with --list-operations
             result = runner.invoke(graphql, ["--list-operations", "--format", "human"])
@@ -2143,10 +2144,12 @@ class TestMainCLIFunction:
 
         with (
             patch("datahub.cli.graphql_cli.get_default_graph"),
-            patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema,
+            patch(
+                "datahub.cli.graphql_cli._get_schema_via_introspection"
+            ) as mock_schema,
             patch("datahub.cli.graphql_cli._handle_list_queries") as mock_handler,
         ):
-            mock_schema.return_value = ({"test": "schema"}, False)
+            mock_schema.return_value = {"test": "schema"}
 
             # Call CLI command with --list-queries
             result = runner.invoke(graphql, ["--list-queries", "--format", "json"])
@@ -2162,10 +2165,12 @@ class TestMainCLIFunction:
 
         with (
             patch("datahub.cli.graphql_cli.get_default_graph"),
-            patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema,
+            patch(
+                "datahub.cli.graphql_cli._get_schema_via_introspection"
+            ) as mock_schema,
             patch("datahub.cli.graphql_cli._handle_list_mutations") as mock_handler,
         ):
-            mock_schema.return_value = ({"test": "schema"}, False)
+            mock_schema.return_value = {"test": "schema"}
 
             # Call CLI command with --list-mutations and --no-pretty
             result = runner.invoke(
@@ -2261,13 +2266,12 @@ class TestMainCLIFunction:
 
         with (
             patch("datahub.cli.graphql_cli.get_default_graph"),
-            patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema,
+            patch(
+                "datahub.cli.graphql_cli._get_schema_via_introspection"
+            ) as mock_schema,
             patch("datahub.cli.graphql_cli._handle_list_operations") as mock_handler,
         ):
-            mock_schema.return_value = (
-                {"test": "schema"},
-                True,
-            )  # Test using_fallback=True
+            mock_schema.return_value = {"test": "schema"}
 
             # Call CLI command with both --list-queries and --list-mutations
             result = runner.invoke(
@@ -2379,25 +2383,6 @@ class TestCLIFilePathHandling:
         finally:
             os.unlink(temp_path)
 
-    def test_schema_discovery_fallback_paths(self):
-        """Test schema file discovery fallback mechanism."""
-        runner = CliRunner()
-
-        with (
-            patch("datahub.cli.graphql_cli.get_default_graph") as mock_client,
-            patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema,
-            patch("datahub.cli.graphql_cli._handle_list_operations"),
-        ):
-            mock_schema.return_value = ({"test": "schema"}, False)
-
-            # This should trigger schema discovery when no custom path is provided
-            result = runner.invoke(graphql, ["--list-operations", "--format", "json"])
-
-            # Should execute successfully
-            assert result.exit_code == 0
-            # Verify schema discovery was called
-            mock_schema.assert_called_once_with(mock_client.return_value, None)
-
 
 class TestCLIOutputFormatting:
     """Test CLI output formatting and pretty-printing to improve coverage."""
@@ -2448,10 +2433,12 @@ class TestCLIOutputFormatting:
 
         with (
             patch("datahub.cli.graphql_cli.get_default_graph"),
-            patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema,
+            patch(
+                "datahub.cli.graphql_cli._get_schema_via_introspection"
+            ) as mock_schema,
             patch("datahub.cli.graphql_cli._handle_list_operations") as mock_handler,
         ):
-            mock_schema.return_value = ({"test": "schema"}, False)
+            mock_schema.return_value = {"test": "schema"}
 
             # Call CLI command with --no-pretty flag
             result = runner.invoke(

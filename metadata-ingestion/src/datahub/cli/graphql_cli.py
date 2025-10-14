@@ -77,10 +77,7 @@ def _is_file_path(value: str) -> bool:
     if not value or len(value) < 2:
         return False
 
-    # Resolve the path to handle relative paths correctly
     resolved_path = Path(value).resolve()
-
-    # Check if the path exists as a file
     return resolved_path.exists()
 
 
@@ -246,30 +243,6 @@ def _parse_operations_from_content(
         operations.append(operation)
 
     return operations
-
-
-def _fetch_schema_operations(
-    client: Any, custom_schema_path: Optional[str] = None
-) -> Dict[str, Any]:
-    """Fetch available operations from GraphQL schema via introspection with fallback."""
-    try:
-        # Make two separate requests to avoid "bad faith" introspection protection
-        query_result = client.execute_graphql(QUERY_INTROSPECTION)
-        mutation_result = client.execute_graphql(MUTATION_INTROSPECTION)
-
-        # Combine results
-        schema = {}
-        if query_result and "__schema" in query_result:
-            schema.update(query_result["__schema"])
-        if mutation_result and "__schema" in mutation_result:
-            schema.update(mutation_result["__schema"])
-
-        logger.debug("Successfully fetched schema via introspection")
-        return schema
-    except Exception as e:
-        logger.warning(f"GraphQL introspection failed: {e}")
-        logger.info("Falling back to local schema files")
-        return _parse_graphql_operations_from_files(custom_schema_path)
 
 
 def _format_operation_list(
@@ -1015,40 +988,14 @@ def _get_schema_via_introspection(client: Any) -> Dict[str, Any]:
         ) from e
 
 
-def _get_schema_with_fallback(
-    client: Any, schema_path: Optional[str]
-) -> Tuple[Dict[str, Any], bool]:
-    """Get GraphQL schema via introspection or fallback to files (for operation execution)."""
-    try:
-        schema = _get_schema_via_introspection(client)
-        return schema, False
-    except click.ClickException:
-        # For operation execution, fallback to local files is acceptable
-        logger.warning(
-            "GraphQL introspection failed, falling back to local schema files"
-        )
-        logger.info("Note: Using local schema files may not reflect current API state")
-        schema = _parse_graphql_operations_from_files(schema_path)
-        return schema, True
-
-
 def _handle_list_operations(
     schema: Dict[str, Any],
-    using_fallback: bool,
-    schema_path: Optional[str],
     format: str,
     pretty: bool,
 ) -> None:
     """Handle --list-operations and combined --list-queries --list-mutations."""
     if format == "json":
         json_output = _convert_operations_list_to_json(schema)
-        if using_fallback:
-            json_output["meta"] = {
-                "source": "fallback",
-                "note": "Using fallback operation list (introspection not available)",
-            }
-            if schema_path:
-                json_output["meta"]["schema_path"] = schema_path
         click.echo(
             json.dumps(json_output, indent=2 if pretty else None, sort_keys=True)
         )
@@ -1065,14 +1012,6 @@ def _handle_list_operations(
         )
 
         output = []
-        if using_fallback:
-            fallback_msg = (
-                "Note: Using fallback operation list (introspection not available)"
-            )
-            if schema_path:
-                fallback_msg += f" - schema path: {schema_path}"
-            output.append(fallback_msg + "\n")
-
         if query_fields:
             output.append(_format_operation_list(query_fields, "Queries"))
         if mutation_fields:
@@ -1083,8 +1022,6 @@ def _handle_list_operations(
 
 def _handle_list_queries(
     schema: Dict[str, Any],
-    using_fallback: bool,
-    schema_path: Optional[str],
     format: str,
     pretty: bool,
 ) -> None:
@@ -1099,13 +1036,6 @@ def _handle_list_queries(
                 ]
             }
         }
-        if using_fallback:
-            json_output["meta"] = {
-                "source": "fallback",
-                "note": "Using fallback operation list (introspection not available)",
-            }
-            if schema_path:
-                json_output["meta"]["schema_path"] = schema_path
         click.echo(
             json.dumps(json_output, indent=2 if pretty else None, sort_keys=True)
         )
@@ -1115,20 +1045,11 @@ def _handle_list_queries(
             if schema.get("queryType")
             else []
         )
-        if using_fallback:
-            fallback_msg = (
-                "Note: Using fallback operation list (introspection not available)"
-            )
-            if schema_path:
-                fallback_msg += f" - schema path: {schema_path}"
-            click.echo(fallback_msg + "\n")
         click.echo(_format_operation_list(query_fields, "Queries"))
 
 
 def _handle_list_mutations(
     schema: Dict[str, Any],
-    using_fallback: bool,
-    schema_path: Optional[str],
     format: str,
     pretty: bool,
 ) -> None:
@@ -1143,13 +1064,6 @@ def _handle_list_mutations(
                 ]
             }
         }
-        if using_fallback:
-            json_output["meta"] = {
-                "source": "fallback",
-                "note": "Using fallback operation list (introspection not available)",
-            }
-            if schema_path:
-                json_output["meta"]["schema_path"] = schema_path
         click.echo(
             json.dumps(json_output, indent=2 if pretty else None, sort_keys=True)
         )
@@ -1159,13 +1073,6 @@ def _handle_list_mutations(
             if schema.get("mutationType")
             else []
         )
-        if using_fallback:
-            fallback_msg = (
-                "Note: Using fallback operation list (introspection not available)"
-            )
-            if schema_path:
-                fallback_msg += f" - schema path: {schema_path}"
-            click.echo(fallback_msg + "\n")
         click.echo(_format_operation_list(mutation_fields, "Mutations"))
 
 
@@ -1225,8 +1132,6 @@ def _handle_describe_json_output(
     types_map: Optional[Dict[str, Dict[str, Any]]],
     describe: str,
     recurse: bool,
-    using_fallback: bool,
-    schema_path: Optional[str],
     pretty: bool,
 ) -> None:
     """Handle JSON output for describe functionality."""
@@ -1234,14 +1139,6 @@ def _handle_describe_json_output(
 
     # Add metadata
     json_output["meta"] = {"query": describe, "recursive": recurse}
-
-    if using_fallback and operation_info:
-        json_output["meta"]["source"] = "fallback"
-        json_output["meta"]["note"] = (
-            "Using fallback operation list (introspection not available)"
-        )
-        if schema_path:
-            json_output["meta"]["schema_path"] = schema_path
 
     click.echo(json.dumps(json_output, indent=2 if pretty else None, sort_keys=True))
 
@@ -1253,19 +1150,8 @@ def _handle_describe_human_output(
     type_info: Optional[Dict[str, Any]],
     describe: str,
     recurse: bool,
-    using_fallback: bool,
-    schema_path: Optional[str],
 ) -> None:
     """Handle human-readable output for describe functionality."""
-    # Show fallback message if applicable
-    if using_fallback and operation_info:
-        fallback_msg = (
-            "Note: Using fallback operation list (introspection not available)"
-        )
-        if schema_path:
-            fallback_msg += f" - schema path: {schema_path}"
-        click.echo(fallback_msg + "\n")
-
     output_sections = []
 
     # Show operation details if found
@@ -1329,8 +1215,6 @@ def _handle_describe(
     schema: Dict[str, Any],
     client: Any,
     describe: str,
-    using_fallback: bool,
-    schema_path: Optional[str],
     recurse: bool,
     format: str,
     pretty: bool,
@@ -1339,11 +1223,8 @@ def _handle_describe(
     operation_info, type_info = _search_operation_and_type(schema, client, describe)
 
     if not operation_info and not type_info:
-        available_msg = "Use --list-operations to see available operations or try a specific type name."
-        if using_fallback:
-            available_msg += " (using fallback list)"
         raise click.ClickException(
-            f"'{describe}' not found as an operation or type. {available_msg}"
+            f"'{describe}' not found as an operation or type. Use --list-operations to see available operations or try a specific type name."
         )
 
     if format == "json":
@@ -1359,8 +1240,6 @@ def _handle_describe(
             types_map,
             describe,
             recurse,
-            using_fallback,
-            schema_path,
             pretty,
         )
     else:
@@ -1371,8 +1250,6 @@ def _handle_describe(
             type_info,
             describe,
             recurse,
-            using_fallback,
-            schema_path,
         )
 
 
@@ -1380,7 +1257,10 @@ def _execute_operation(
     client: Any, operation: str, variables: Optional[str], schema_path: Optional[str]
 ) -> Dict[str, Any]:
     """Execute a named GraphQL operation."""
-    schema, _ = _get_schema_with_fallback(client, schema_path)
+    if schema_path:
+        schema = _parse_graphql_operations_from_files(schema_path)
+    else:
+        schema = _get_schema_via_introspection(client)
 
     # Find the operation
     operation_info = _find_operation_by_name(schema, operation)
@@ -1496,30 +1376,24 @@ def graphql(
     # Schema introspection commands
     if list_operations or list_queries or list_mutations or describe:
         if schema_path:
-            # User explicitly requested local schema files
             schema = _parse_graphql_operations_from_files(schema_path)
-            using_fallback = True
         else:
-            # User expects live introspection data
             schema = _get_schema_via_introspection(client)
-            using_fallback = False
 
         if list_operations or (list_queries and list_mutations):
-            _handle_list_operations(schema, using_fallback, schema_path, format, pretty)
+            _handle_list_operations(schema, format, pretty)
             return
         elif list_queries:
-            _handle_list_queries(schema, using_fallback, schema_path, format, pretty)
+            _handle_list_queries(schema, format, pretty)
             return
         elif list_mutations:
-            _handle_list_mutations(schema, using_fallback, schema_path, format, pretty)
+            _handle_list_mutations(schema, format, pretty)
             return
         elif describe:
             _handle_describe(
                 schema,
                 client,
                 describe,
-                using_fallback,
-                schema_path,
                 recurse,
                 format,
                 pretty,

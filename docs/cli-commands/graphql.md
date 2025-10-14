@@ -348,13 +348,14 @@ datahub graphql --query 'query GetUsers($urns: [String!]!) {
 
 ## Schema Introspection
 
-DataHub's GraphQL CLI uses intelligent introspection to understand the available operations and types. When introspection is unavailable, it falls back to parsing local GraphQL schema files.
+DataHub's GraphQL CLI provides two modes for schema discovery:
 
-### Fallback Behavior
+### Schema Discovery Modes
 
-1. **Introspection** (primary): Queries the live GraphQL endpoint
-2. **Schema Files** (fallback): Parses `.graphql` files from the schema directory
-3. **Hardcoded Operations** (last resort): Uses a minimal set of known operations
+1. **Live Introspection** (default): Queries the live GraphQL endpoint when no `--schema-path` is provided
+2. **Local Schema Files**: Uses `.graphql` files from the specified directory when `--schema-path` is provided
+
+**Note:** These modes are mutually exclusive with no fallback between them. If introspection fails, the command will fail with an error. If local schema files are invalid, the command will fail with an error.
 
 ### Schema File Structure
 
