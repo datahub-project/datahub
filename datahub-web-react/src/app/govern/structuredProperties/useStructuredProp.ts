@@ -55,13 +55,13 @@ export default function useStructuredProp({
     };
 
     const handleSelectUpdateChange = (field, values) => {
-        const entity = selectedProperty as StructuredPropertyEntity;
+        const entity = selectedProperty;
         let initialValues: string[] = [];
 
-        if (field === 'entityTypes') initialValues = entity.definition.entityTypes.map((type) => type.urn);
+        if (field === 'entityTypes') initialValues = entity?.definition?.entityTypes?.map((type) => type.urn) || [];
 
         if (field.includes('typeQualifier'))
-            initialValues = entity.definition.typeQualifier?.allowedTypes?.map((type) => type.urn) || [];
+            initialValues = entity?.definition?.typeQualifier?.allowedTypes?.map((type) => type.urn) || [];
 
         const updatedValues = [...initialValues, ...values.filter((value) => !initialValues.includes(value))];
 

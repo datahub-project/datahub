@@ -77,12 +77,10 @@ describe('useStructuredProp', () => {
                 setCardinality: vi.fn(),
                 setSelectedValueType: vi.fn(),
                 selectedProperty: {
-                    entity: {
-                        definition: {
-                            entityTypes: [],
-                            typeQualifier: {
-                                allowedTypes: [],
-                            },
+                    definition: {
+                        entityTypes: [],
+                        typeQualifier: {
+                            allowedTypes: [],
                         },
                     },
                 } as any,
@@ -163,10 +161,8 @@ describe('useStructuredProp', () => {
                 setCardinality: vi.fn(),
                 setSelectedValueType: vi.fn(),
                 selectedProperty: {
-                    entity: {
-                        definition: {
-                            entityTypes: [{ urn: 'urn:li:entityType:DATASET' }],
-                        },
+                    definition: {
+                        entityTypes: [{ urn: 'urn:li:entityType:DATASET' }],
                     },
                 } as any,
             }),
@@ -183,11 +179,9 @@ describe('useStructuredProp', () => {
                 setCardinality: vi.fn(),
                 setSelectedValueType: vi.fn(),
                 selectedProperty: {
-                    entity: {
-                        definition: {
-                            typeQualifier: {
-                                allowedTypes: [{ urn: 'urn:li:entityType:DATASET' }],
-                            },
+                    definition: {
+                        typeQualifier: {
+                            allowedTypes: [{ urn: 'urn:li:entityType:DATASET' }],
                         },
                     },
                 } as any,
@@ -251,10 +245,8 @@ describe('useStructuredProp', () => {
                 setCardinality: vi.fn(),
                 setSelectedValueType: vi.fn(),
                 selectedProperty: {
-                    entity: {
-                        definition: {
-                            entityTypes: [{ urn: 'urn1' }],
-                        },
+                    definition: {
+                        entityTypes: [{ urn: 'urn1' }],
                     },
                 } as any,
             }),
@@ -273,11 +265,9 @@ describe('useStructuredProp', () => {
                 setCardinality: vi.fn(),
                 setSelectedValueType: vi.fn(),
                 selectedProperty: {
-                    entity: {
-                        definition: {
-                            typeQualifier: {
-                                allowedTypes: [{ urn: 'urn1' }],
-                            },
+                    definition: {
+                        typeQualifier: {
+                            allowedTypes: [{ urn: 'urn1' }],
                         },
                     },
                 } as any,
@@ -385,10 +375,8 @@ describe('useStructuredProp', () => {
                 setCardinality: vi.fn(),
                 setSelectedValueType: vi.fn(),
                 selectedProperty: {
-                    entity: {
-                        definition: {
-                            entityTypes: [],
-                        },
+                    definition: {
+                        entityTypes: [],
                     },
                 } as any,
             }),
@@ -587,11 +575,9 @@ describe('useStructuredProp', () => {
                 setCardinality: vi.fn(),
                 setSelectedValueType: vi.fn(),
                 selectedProperty: {
-                    entity: {
-                        definition: {
-                            entityTypes: [],
-                            typeQualifier: { allowedTypes: [] },
-                        },
+                    definition: {
+                        entityTypes: [],
+                        typeQualifier: { allowedTypes: [] },
                     },
                 } as any,
             }),
