@@ -1,12 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.index;
 
 import com.google.common.collect.Maps;
-import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntitySettingsBuilder;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -22,40 +17,11 @@ import lombok.extern.slf4j.Slf4j;
 public class DelegatingSettingsBuilder implements SettingsBuilder {
 
   private final List<SettingsBuilder> builders;
-  private final boolean v2Enabled;
-  private final boolean v3Enabled;
-  @Nonnull private final IndexConvention indexConvention;
 
-  public DelegatingSettingsBuilder(
-      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
-      @Nonnull IndexConfiguration indexConfiguration,
-      @Nonnull IndexConvention indexConvention) {
-
-    this.v2Enabled =
-        entityIndexConfiguration.getV2() != null && entityIndexConfiguration.getV2().isEnabled();
-    this.v3Enabled =
-        entityIndexConfiguration.getV3() != null && entityIndexConfiguration.getV3().isEnabled();
-    this.indexConvention = indexConvention;
-
-    this.builders = new ArrayList<>();
-
-    if (v2Enabled) {
-      this.builders.add(new LegacySettingsBuilder(indexConfiguration, indexConvention));
-    }
-
-    if (v3Enabled) {
-      try {
-        this.builders.add(
-            new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention));
-      } catch (IOException e) {
-        log.error("Failed to initialize MultiEntitySettingsBuilder", e);
-        throw new RuntimeException("Failed to initialize MultiEntitySettingsBuilder", e);
-      }
-    }
-
+  public DelegatingSettingsBuilder(@Nonnull List<SettingsBuilder> builders) {
+    this.builders = new ArrayList<>(builders);
     if (this.builders.isEmpty()) {
-      log.warn(
-          "Neither v2 nor v3 entity index is enabled. SettingsBuilder will return empty settings.");
+      log.warn("No settings builders provided. SettingsBuilder will return empty settings.");
     }
   }
 

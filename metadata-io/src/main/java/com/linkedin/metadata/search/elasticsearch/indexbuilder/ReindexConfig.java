@@ -152,15 +152,7 @@ public class ReindexConfig {
           .collect(
               Collectors.toMap(
                   Map.Entry::getKey,
-                  e -> {
-                    if (e.getValue() instanceof Map) {
-                      return sortMap((Map<String, Object>) e.getValue());
-                    } else if (e.getValue() instanceof List) {
-                      return sortList((List<?>) e.getValue());
-                    } else {
-                      return String.valueOf(e.getValue());
-                    }
-                  },
+                  e -> sortObject(e.getValue()),
                   (oldValue, newValue) -> newValue,
                   TreeMap::new));
     }
@@ -169,18 +161,17 @@ public class ReindexConfig {
       if (input == null) {
         return new ArrayList<>();
       }
-      return input.stream()
-          .map(
-              item -> {
-                if (item instanceof Map) {
-                  return sortMap((Map<String, Object>) item);
-                } else if (item instanceof List) {
-                  return sortList((List<?>) item);
-                } else {
-                  return String.valueOf(item);
-                }
-              })
-          .collect(Collectors.toList());
+      return input.stream().map(ReindexConfigBuilder::sortObject).collect(Collectors.toList());
+    }
+
+    private static Object sortObject(Object item) {
+      if (item instanceof Map) {
+        return sortMap((Map<String, Object>) item);
+      } else if (item instanceof List) {
+        return sortList((List<?>) item);
+      } else {
+        return String.valueOf(item);
+      }
     }
   }
 

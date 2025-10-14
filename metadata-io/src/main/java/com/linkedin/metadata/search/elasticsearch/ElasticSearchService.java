@@ -16,8 +16,8 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.search.elasticsearch.index.DelegatingSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.*;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
@@ -45,6 +45,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Getter private final SearchServiceConfiguration searchServiceConfig;
   private final ElasticSearchConfiguration elasticSearchConfiguration;
   private final MappingsBuilder mappingsBuilder;
+  private final SettingsBuilder settingsBuilder;
 
   public static final SearchFlags DEFAULT_SERVICE_SEARCH_FLAGS =
       new SearchFlags()
@@ -87,13 +88,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
 
     return indexBuilder.buildReindexConfigs(
-        opContext,
-        new DelegatingSettingsBuilder(
-            elasticSearchConfiguration.getEntityIndex(),
-            elasticSearchConfiguration.getIndex(),
-            opContext.getSearchContext().getIndexConvention()),
-        mappingsBuilder,
-        properties);
+        opContext, settingsBuilder, mappingsBuilder, properties);
   }
 
   /**
@@ -107,14 +102,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull OperationContext opContext, Urn urn, StructuredPropertyDefinition property) {
 
     return indexBuilder.buildReindexConfigsWithNewStructProp(
-        opContext,
-        new DelegatingSettingsBuilder(
-            elasticSearchConfiguration.getEntityIndex(),
-            elasticSearchConfiguration.getIndex(),
-            opContext.getSearchContext().getIndexConvention()),
-        mappingsBuilder,
-        urn,
-        property);
+        opContext, settingsBuilder, mappingsBuilder, urn, property);
   }
 
   @Override

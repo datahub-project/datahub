@@ -72,6 +72,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
 import java.net.URISyntaxException;
@@ -134,21 +135,24 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
   @BeforeClass
   public void setup() throws RemoteInvocationException, URISyntaxException {
+    IndexConvention indexConvention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder()
+                .prefix("lineage_search_service_test")
+                .hashIdAlgo("MD5")
+                .build(),
+            SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
+
     operationContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
                 new SnapshotEntityRegistry(new Snapshot()),
-                new IndexConventionImpl(
-                    IndexConventionImpl.IndexConventionConfig.builder()
-                        .prefix("lineage_search_service_test")
-                        .hashIdAlgo("MD5")
-                        .build(),
-                    SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION))
+                SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build())
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
     IndexConfiguration indexConfiguration = new IndexConfiguration();
     indexConfiguration.setMinSearchFilterLength(3);
-    IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.isV2EntityIndex(anyString())).thenReturn(true);
-    settingsBuilder = new LegacySettingsBuilder(indexConfiguration, indexConvention);
+    IndexConvention mockIndexConvention = mock(IndexConvention.class);
+    when(mockIndexConvention.isV2EntityIndex(anyString())).thenReturn(true);
+    settingsBuilder = new LegacySettingsBuilder(indexConfiguration, mockIndexConvention);
     elasticSearchService = buildEntitySearchService();
     elasticSearchService.reindexAll(operationContext, Collections.emptySet());
     cacheManager = new ConcurrentMapCacheManager();
@@ -242,6 +246,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             TEST_SEARCH_SERVICE_CONFIG,
             TEST_ES_SEARCH_CONFIG,
             new LegacyMappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
+            settingsBuilder,
             searchDAO,
             browseDAO,
             writeDAO);

@@ -45,6 +45,7 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
@@ -58,6 +59,7 @@ import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeWindowSize;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
 import java.net.URISyntaxException;
@@ -127,15 +129,18 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
                 .getClassLoader()
                 .getResourceAsStream("test-entity-registry.yml"));
 
+    IndexConvention indexConvention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder()
+                .prefix("es_timeseries_aspect_service_test")
+                .hashIdAlgo("MD5")
+                .build(),
+            SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
+
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
             entityRegistry,
-            new IndexConventionImpl(
-                IndexConventionImpl.IndexConventionConfig.builder()
-                    .prefix("es_timeseries_aspect_service_test")
-                    .hashIdAlgo("MD5")
-                    .build(),
-                SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION));
+            SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build());
 
     elasticSearchTimeseriesAspectService = buildService();
     elasticSearchTimeseriesAspectService.reindexAll(opContext, Collections.emptySet());

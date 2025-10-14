@@ -15,6 +15,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.MapDataSchema;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
@@ -164,6 +165,22 @@ public class ESUtils {
   private ESUtils() {}
 
   /**
+   * Builds a map of field names to their types based on entity registry. This method extracts field
+   * types from searchable annotations with fallback to ES mappings for all entities in the
+   * registry.
+   *
+   * @param mappingsBuilder mappings builder instance to use for extracting field types
+   * @param entityRegistry entity registry to extract field types from
+   * @return map of field names to their searchable field types
+   */
+  public static Map<String, Set<SearchableAnnotation.FieldType>> buildSearchableFieldTypes(
+      @Nonnull EntityRegistry entityRegistry, @Nonnull MappingsBuilder mappingsBuilder) {
+    List<EntitySpec> entitySpecs =
+        entityRegistry.getEntitySpecs().values().stream().collect(Collectors.toList());
+    return buildSearchableFieldTypes(mappingsBuilder, entityRegistry, entitySpecs);
+  }
+
+  /**
    * Builds a map of field names to their types based on entity specs. This method extracts field
    * types from searchable annotations with fallback to ES mappings.
    *
@@ -279,6 +296,25 @@ public class ESUtils {
                   merged.addAll(set2);
                   return merged;
                 }));
+  }
+
+  /**
+   * Builds a map of PathSpec to field paths based on entity registry. This method aggregates field
+   * paths from all entity specs using the existing EntitySpec.getSearchableFieldPathMap() method.
+   *
+   * @param entityRegistry entity registry to extract field paths from
+   * @return map of PathSpec to their field paths
+   */
+  public static Map<PathSpec, String> buildSearchableFieldPaths(
+      @Nonnull EntityRegistry entityRegistry) {
+    Map<PathSpec, String> searchableFieldPaths = new HashMap<>();
+
+    // Use the existing EntitySpec.getSearchableFieldPathMap() method for each entity
+    for (EntitySpec entitySpec : entityRegistry.getEntitySpecs().values()) {
+      searchableFieldPaths.putAll(entitySpec.getSearchableFieldPathMap());
+    }
+
+    return searchableFieldPaths;
   }
 
   private static Set<SearchableAnnotation.FieldType> fallbackMappingToAnnotation(

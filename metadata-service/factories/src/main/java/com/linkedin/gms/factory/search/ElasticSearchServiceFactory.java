@@ -6,7 +6,7 @@ import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
@@ -85,14 +85,17 @@ public class ElasticSearchServiceFactory {
       final ElasticSearchConfiguration elasticSearchConfiguration,
       @Nullable final CustomSearchConfiguration customSearchConfiguration,
       final ESSearchDAO esSearchDAO,
-      final ESWriteDAO esWriteDAO)
+      final ESWriteDAO esWriteDAO,
+      @Qualifier("mappingsBuilder") final MappingsBuilder mappingsBuilder,
+      @Qualifier("settingsBuilder") final SettingsBuilder settingsBuilder)
       throws IOException {
 
     return new ElasticSearchService(
         components.getIndexBuilder(),
         configurationProvider.getSearchService(),
         configurationProvider.getElasticSearch(),
-        new DelegatingMappingsBuilder(elasticSearchConfiguration.getEntityIndex()),
+        mappingsBuilder,
+        settingsBuilder,
         esSearchDAO,
         new ESBrowseDAO(
             components.getSearchClient(),

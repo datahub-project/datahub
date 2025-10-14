@@ -1,18 +1,23 @@
 package com.linkedin.metadata.search.elasticsearch.index;
 
 import static io.datahubproject.test.search.SearchTestUtils.V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION;
+import static io.datahubproject.test.search.SearchTestUtils.createDelegatingMappingsBuilder;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacyMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -34,8 +39,22 @@ public class DelegatingMappingsBuilderTest {
     // Use the real OperationContext from TestOperationContexts
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
-    // Initialize DelegatingMappingsBuilder with configuration
-    delegatingMappingsBuilder = new DelegatingMappingsBuilder(entityIndexConfiguration);
+    // Initialize DelegatingMappingsBuilder with actual builders
+    List<MappingsBuilder> builders = new ArrayList<>();
+    if (entityIndexConfiguration.getV2().isEnabled()) {
+      builders.add(new LegacyMappingsBuilder(entityIndexConfiguration));
+    }
+    if (entityIndexConfiguration.getV3().isEnabled()) {
+      try {
+        builders.add(new MultiEntityMappingsBuilder(entityIndexConfiguration));
+      } catch (IOException e) {
+        throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
+      }
+    }
+    if (builders.isEmpty()) {
+      builders.add(new NoOpMappingsBuilder());
+    }
+    delegatingMappingsBuilder = new DelegatingMappingsBuilder(builders);
   }
 
   @Test
@@ -57,7 +76,9 @@ public class DelegatingMappingsBuilderTest {
     when(disabledConfig.getV2()).thenReturn(v2Config);
     when(disabledConfig.getV3()).thenReturn(v3Config);
 
-    DelegatingMappingsBuilder disabledBuilder = new DelegatingMappingsBuilder(disabledConfig);
+    // Create DelegatingMappingsBuilder with empty builders list (should add NoOpMappingsBuilder)
+    List<MappingsBuilder> builders = new ArrayList<>();
+    DelegatingMappingsBuilder disabledBuilder = new DelegatingMappingsBuilder(builders);
     assertNotNull(
         disabledBuilder, "DelegatingMappingsBuilder should be created with disabled versions");
   }
@@ -84,7 +105,10 @@ public class DelegatingMappingsBuilderTest {
     when(v2OnlyConfig.getV2()).thenReturn(v2Config);
     when(v2OnlyConfig.getV3()).thenReturn(v3Config);
 
-    DelegatingMappingsBuilder v2OnlyBuilder = new DelegatingMappingsBuilder(v2OnlyConfig);
+    // Create DelegatingMappingsBuilder with only v2 builder
+    List<MappingsBuilder> builders = new ArrayList<>();
+    builders.add(new LegacyMappingsBuilder(v2OnlyConfig));
+    DelegatingMappingsBuilder v2OnlyBuilder = new DelegatingMappingsBuilder(builders);
     Collection<IndexMapping> result = v2OnlyBuilder.getMappings(operationContext);
 
     assertNotNull(result, "Result should not be null");
@@ -107,7 +131,14 @@ public class DelegatingMappingsBuilderTest {
                     .build())
             .build();
 
-    DelegatingMappingsBuilder v3OnlyBuilder = new DelegatingMappingsBuilder(v3OnlyConfig);
+    // Create DelegatingMappingsBuilder with only v3 builder
+    List<MappingsBuilder> builders = new ArrayList<>();
+    try {
+      builders.add(new MultiEntityMappingsBuilder(v3OnlyConfig));
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
+    }
+    DelegatingMappingsBuilder v3OnlyBuilder = new DelegatingMappingsBuilder(builders);
     Collection<IndexMapping> result = v3OnlyBuilder.getMappings(operationContext);
 
     assertNotNull(result, "Result should not be null");
@@ -189,7 +220,13 @@ public class DelegatingMappingsBuilderTest {
     when(invalidConfig.getV3()).thenReturn(v3Config);
 
     // This should throw RuntimeException wrapping IOException
-    new DelegatingMappingsBuilder(invalidConfig);
+    List<MappingsBuilder> builders = new ArrayList<>();
+    try {
+      builders.add(new MultiEntityMappingsBuilder(invalidConfig));
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
+    }
+    new DelegatingMappingsBuilder(builders);
   }
 
   @Test(expectedExceptions = RuntimeException.class)
@@ -206,7 +243,14 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // This should throw RuntimeException wrapping IOException from MultiEntityMappingsBuilder
-    new DelegatingMappingsBuilder(config);
+    List<MappingsBuilder> builders = new ArrayList<>();
+    builders.add(new LegacyMappingsBuilder(config));
+    try {
+      builders.add(new MultiEntityMappingsBuilder(config));
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
+    }
+    new DelegatingMappingsBuilder(builders);
   }
 
   @Test
@@ -223,7 +267,13 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // This should work fine as mappingConfig is null
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    List<MappingsBuilder> builders = new ArrayList<>();
+    try {
+      builders.add(new MultiEntityMappingsBuilder(config));
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
+    }
+    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(builders);
     assertNotNull(
         builder,
         "DelegatingMappingsBuilder should be created successfully with null mappingConfig");
@@ -243,7 +293,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // This should work fine as mappingConfig is empty
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
     assertNotNull(
         builder,
         "DelegatingMappingsBuilder should be created successfully with empty mappingConfig");
@@ -263,7 +313,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // This should work fine as mappingConfig is whitespace
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
     assertNotNull(
         builder,
         "DelegatingMappingsBuilder should be created successfully with whitespace mappingConfig");
@@ -283,7 +333,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // This should throw RuntimeException wrapping IOException from malformed config
-    new DelegatingMappingsBuilder(config);
+    createDelegatingMappingsBuilder(config);
   }
 
   @Test
@@ -300,7 +350,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     try {
-      new DelegatingMappingsBuilder(config);
+      createDelegatingMappingsBuilder(config);
       fail("Expected RuntimeException to be thrown");
     } catch (RuntimeException e) {
       // Verify the exception message contains the expected text
@@ -326,7 +376,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // Create a DelegatingMappingsBuilder with v2 enabled only
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
 
     // Mock the first builder to throw an exception
     MappingsBuilder mockBuilder = mock(MappingsBuilder.class);
@@ -364,7 +414,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // Create a DelegatingMappingsBuilder with v2 enabled only
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
 
     // Mock the first builder to throw a specific exception
     RuntimeException originalException = new RuntimeException("Builder initialization failed");
@@ -416,7 +466,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // Create a DelegatingMappingsBuilder with v2 enabled only
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
 
     // Mock the first builder to throw IOException
     IOException ioException = new IOException("File not found");
@@ -455,7 +505,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // Create a DelegatingMappingsBuilder with v2 enabled only
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
 
     // Mock the first builder to throw IllegalArgumentException
     IllegalArgumentException illegalArgException = new IllegalArgumentException("Invalid argument");
@@ -495,7 +545,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // Create a DelegatingMappingsBuilder with both v2 and v3 enabled
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
 
     // Create mock builders that return different mappings
     MappingsBuilder mockBuilder1 = mock(MappingsBuilder.class);
@@ -544,7 +594,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // Create a DelegatingMappingsBuilder with both v2 and v3 enabled
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
 
     // Create mock builders that return different mappings
     MappingsBuilder mockBuilder1 = mock(MappingsBuilder.class);
@@ -615,7 +665,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // Create a DelegatingMappingsBuilder with both v2 and v3 enabled
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
 
     // Create mock builders that return mappings for different indices
     MappingsBuilder mockBuilder1 = mock(MappingsBuilder.class);
@@ -676,7 +726,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // Create a DelegatingMappingsBuilder with both v2 and v3 enabled
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
 
     // Create mock builders that return mappings with different field counts
     MappingsBuilder mockBuilder1 = mock(MappingsBuilder.class);
@@ -727,7 +777,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // Create a DelegatingMappingsBuilder with both versions disabled
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
 
     // Use reflection to clear the builders list to test the empty case
     try {
@@ -763,7 +813,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // Create a DelegatingMappingsBuilder with both v2 and v3 enabled
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
 
     // Create mock builders where the first one fails
     MappingsBuilder mockBuilder1 = mock(MappingsBuilder.class);
@@ -806,7 +856,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // Create a DelegatingMappingsBuilder with both v2 and v3 enabled
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
 
     // Create mock builders where the first one fails
     MappingsBuilder mockBuilder1 = mock(MappingsBuilder.class);
@@ -863,7 +913,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // Create a DelegatingMappingsBuilder with both v2 and v3 enabled
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
 
     // Create mock builders where the first one throws IOException
     MappingsBuilder mockBuilder1 = mock(MappingsBuilder.class);
@@ -907,7 +957,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // Create a DelegatingMappingsBuilder with both v2 and v3 enabled
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
 
     // Create mock builders where the first one throws IllegalArgumentException
     MappingsBuilder mockBuilder1 = mock(MappingsBuilder.class);
@@ -950,7 +1000,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // Create a DelegatingMappingsBuilder with both v2 and v3 enabled
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
 
     // Create mock builders that return inconsistent mappings
     MappingsBuilder mockBuilder1 = mock(MappingsBuilder.class);
@@ -1001,7 +1051,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // Create a DelegatingMappingsBuilder with both v2 and v3 enabled
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
 
     // Create mock builders that return inconsistent mappings
     MappingsBuilder mockBuilder1 = mock(MappingsBuilder.class);
@@ -1076,7 +1126,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV3()).thenReturn(v3Config);
 
     // Create a DelegatingMappingsBuilder with both v2 and v3 enabled
-    DelegatingMappingsBuilder builder = new DelegatingMappingsBuilder(config);
+    DelegatingMappingsBuilder builder = createDelegatingMappingsBuilder(config);
 
     // Create mock builders that return mappings with different field counts
     MappingsBuilder mockBuilder1 = mock(MappingsBuilder.class);
@@ -1112,6 +1162,12 @@ public class DelegatingMappingsBuilderTest {
 
     // This should throw RuntimeException wrapping IllegalStateException
     builder.getIndexMappingsWithNewStructuredProperty(operationContext, null, null);
+  }
+
+  // Helper method to create DelegatingMappingsBuilder with configuration
+  private DelegatingMappingsBuilder createDelegatingMappingsBuilder(
+      EntityIndexConfiguration config) {
+    return io.datahubproject.test.search.SearchTestUtils.createDelegatingMappingsBuilder(config);
   }
 
   private IndexMapping createMockIndexMapping(String indexName, Map<String, Object> mappings) {
@@ -1770,7 +1826,7 @@ public class DelegatingMappingsBuilderTest {
     when(config.getV2()).thenReturn(v2Config);
     when(config.getV3()).thenReturn(v3Config);
 
-    return new DelegatingMappingsBuilder(config);
+    return createDelegatingMappingsBuilder(config);
   }
 
   private void injectMockBuilders(

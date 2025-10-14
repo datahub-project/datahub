@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.index;
 
+import static io.datahubproject.test.search.SearchTestUtils.createDelegatingSettingsBuilder;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -39,12 +40,16 @@ public class DelegatingSettingsBuilderTest {
     when(v3Config.getAnalyzerConfig()).thenReturn("");
   }
 
+  /** Helper method to create a DelegatingSettingsBuilder with the current configuration. */
+  private DelegatingSettingsBuilder createDelegatingSettingsBuilder() {
+    return io.datahubproject.test.search.SearchTestUtils.createDelegatingSettingsBuilder(
+        entityIndexConfiguration, indexConfiguration, indexConvention);
+  }
+
   @Test
   public void testConstructorWithBothV2AndV3Enabled() throws IOException {
     // Test constructor with both v2 and v3 enabled
-    DelegatingSettingsBuilder builder =
-        new DelegatingSettingsBuilder(
-            entityIndexConfiguration, indexConfiguration, indexConvention);
+    DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
     assertNotNull(builder, "DelegatingSettingsBuilder should be created successfully");
   }
@@ -54,9 +59,7 @@ public class DelegatingSettingsBuilderTest {
     // Test constructor with only v2 enabled
     when(v3Config.isEnabled()).thenReturn(false);
 
-    DelegatingSettingsBuilder builder =
-        new DelegatingSettingsBuilder(
-            entityIndexConfiguration, indexConfiguration, indexConvention);
+    DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
     assertNotNull(builder, "DelegatingSettingsBuilder should be created successfully");
   }
@@ -66,9 +69,7 @@ public class DelegatingSettingsBuilderTest {
     // Test constructor with only v3 enabled
     when(v2Config.isEnabled()).thenReturn(false);
 
-    DelegatingSettingsBuilder builder =
-        new DelegatingSettingsBuilder(
-            entityIndexConfiguration, indexConfiguration, indexConvention);
+    DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
     assertNotNull(builder, "DelegatingSettingsBuilder should be created successfully");
   }
@@ -79,9 +80,7 @@ public class DelegatingSettingsBuilderTest {
     when(v2Config.isEnabled()).thenReturn(false);
     when(v3Config.isEnabled()).thenReturn(false);
 
-    DelegatingSettingsBuilder builder =
-        new DelegatingSettingsBuilder(
-            entityIndexConfiguration, indexConfiguration, indexConvention);
+    DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
     assertNotNull(builder, "DelegatingSettingsBuilder should be created successfully");
   }
@@ -89,9 +88,7 @@ public class DelegatingSettingsBuilderTest {
   @Test
   public void testGetSettingsWithV2Index() throws IOException {
     // Test getSettings with v2 index
-    DelegatingSettingsBuilder builder =
-        new DelegatingSettingsBuilder(
-            entityIndexConfiguration, indexConfiguration, indexConvention);
+    DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
     // Mock the settings builders to return different settings
     Map<String, Object> v2Settings = new HashMap<>();
@@ -114,9 +111,7 @@ public class DelegatingSettingsBuilderTest {
   @Test
   public void testGetSettingsWithV3Index() throws IOException {
     // Test getSettings with v3 index
-    DelegatingSettingsBuilder builder =
-        new DelegatingSettingsBuilder(
-            entityIndexConfiguration, indexConfiguration, indexConvention);
+    DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
     // Mock the index convention to identify v3 index
     when(indexConvention.isV2EntityIndex("datasetindex_v3")).thenReturn(false);
@@ -132,9 +127,7 @@ public class DelegatingSettingsBuilderTest {
   @Test
   public void testGetSettingsWithNonEntityIndex() throws IOException {
     // Test getSettings with non-entity index
-    DelegatingSettingsBuilder builder =
-        new DelegatingSettingsBuilder(
-            entityIndexConfiguration, indexConfiguration, indexConvention);
+    DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
     // Mock the index convention to identify non-entity index
     when(indexConvention.isV2EntityIndex("timeseriesindex_v1")).thenReturn(false);
@@ -149,9 +142,7 @@ public class DelegatingSettingsBuilderTest {
   @Test
   public void testGetSettingsWithBothBuildersReturningSettings() throws IOException {
     // Test getSettings when both builders return settings (should validate consistency)
-    DelegatingSettingsBuilder builder =
-        new DelegatingSettingsBuilder(
-            entityIndexConfiguration, indexConfiguration, indexConvention);
+    DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
     // Mock the index convention to identify both v2 and v3 indices
     when(indexConvention.isV2EntityIndex("datasetindex_v2")).thenReturn(true);
@@ -168,9 +159,7 @@ public class DelegatingSettingsBuilderTest {
     // Test getSettings when builders return inconsistent settings
     // This test would require more complex mocking to simulate inconsistent settings
     // For now, we'll test the basic functionality
-    DelegatingSettingsBuilder builder =
-        new DelegatingSettingsBuilder(
-            entityIndexConfiguration, indexConfiguration, indexConvention);
+    DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
     when(indexConvention.isV2EntityIndex("datasetindex_v2")).thenReturn(true);
     when(indexConvention.isV3EntityIndex("datasetindex_v2")).thenReturn(true);
@@ -186,9 +175,7 @@ public class DelegatingSettingsBuilderTest {
     when(v2Config.isEnabled()).thenReturn(false);
     when(v3Config.isEnabled()).thenReturn(false);
 
-    DelegatingSettingsBuilder builder =
-        new DelegatingSettingsBuilder(
-            entityIndexConfiguration, indexConfiguration, indexConvention);
+    DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
     Map<String, Object> result = builder.getSettings(indexConfiguration, "any_index");
 
@@ -199,9 +186,7 @@ public class DelegatingSettingsBuilderTest {
   @Test
   public void testSettingsConsistency() throws IOException {
     // Test that settings are consistent across multiple calls
-    DelegatingSettingsBuilder builder =
-        new DelegatingSettingsBuilder(
-            entityIndexConfiguration, indexConfiguration, indexConvention);
+    DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
     when(indexConvention.isV2EntityIndex("datasetindex_v2")).thenReturn(true);
     when(indexConvention.isV3EntityIndex("datasetindex_v2")).thenReturn(false);
@@ -215,9 +200,7 @@ public class DelegatingSettingsBuilderTest {
   @Test
   public void testSettingsBuilderInterface() throws IOException {
     // Test that DelegatingSettingsBuilder properly implements SettingsBuilder interface
-    DelegatingSettingsBuilder builder =
-        new DelegatingSettingsBuilder(
-            entityIndexConfiguration, indexConfiguration, indexConvention);
+    DelegatingSettingsBuilder builder = createDelegatingSettingsBuilder();
 
     assertTrue(
         builder instanceof SettingsBuilder,

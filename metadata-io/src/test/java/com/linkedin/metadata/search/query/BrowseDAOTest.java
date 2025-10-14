@@ -19,10 +19,12 @@ import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
@@ -60,14 +62,17 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
   @BeforeMethod
   public void setup() throws RemoteInvocationException, URISyntaxException {
     mockClient = mock(SearchClientShim.class);
+    IndexConvention indexConvention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder()
+                .prefix("es_browse_dao_test")
+                .hashIdAlgo("MD5")
+                .build(),
+            SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
+
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
-            new IndexConventionImpl(
-                IndexConventionImpl.IndexConventionConfig.builder()
-                    .prefix("es_browse_dao_test")
-                    .hashIdAlgo("MD5")
-                    .build(),
-                SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION));
+            SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build());
     browseDAO =
         new ESBrowseDAO(
             mockClient,

@@ -32,9 +32,6 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchSuggestion;
 import com.linkedin.metadata.search.SearchSuggestionArray;
-import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
@@ -61,7 +58,6 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.unit.TimeValue;
@@ -118,10 +114,6 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nonnull SearchServiceConfiguration searchServiceConfig) {
-    MappingsBuilder mappingsBuilder =
-        configs.getEntityIndex() != null
-            ? new DelegatingMappingsBuilder(configs.getEntityIndex())
-            : new NoOpMappingsBuilder();
     this.entitySpecs = entitySpecs;
     this.entityNames = entitySpecs.stream().map(EntitySpec::getName).collect(Collectors.toList());
     Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations =
@@ -136,22 +128,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
     aggregationQueryBuilder =
         new AggregationQueryBuilder(configs.getSearch(), entitySearchAnnotations);
     this.searchServiceConfig = searchServiceConfig;
-    this.searchableFieldTypes =
-        ESUtils.buildSearchableFieldTypes(
-            mappingsBuilder, opContext.getEntityRegistry(), entitySpecs);
-    searchableFieldPaths =
-        this.entitySpecs.stream()
-            .flatMap(entitySpec -> entitySpec.getSearchableFieldPathMap().entrySet().stream())
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    Map.Entry::getValue,
-                    (s1, s2) -> {
-                      if (!StringUtils.equals(s1, s2)) {
-                        log.error("Merging values {} and {}, field paths should be unique", s1, s2);
-                      }
-                      return s1;
-                    }));
+    searchableFieldTypes = opContext.getSearchContext().getSearchableFieldTypes();
+    searchableFieldPaths = opContext.getSearchContext().getSearchableFieldPaths();
     this.queryFilterRewriteChain = queryFilterRewriteChain;
     this.customizedQueryHandler =
         CustomizedQueryHandler.builder(configs.getSearch().getCustom(), customSearchConfiguration)

@@ -4,6 +4,8 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS_DISABLED;
 import static io.datahubproject.test.search.SearchTestUtils.V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION;
+import static io.datahubproject.test.search.SearchTestUtils.createDelegatingMappingsBuilder;
+import static io.datahubproject.test.search.SearchTestUtils.createDelegatingSettingsBuilder;
 import static org.testng.Assert.*;
 
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
@@ -142,7 +144,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     // Create operation context with our index convention
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization().toBuilder()
-            .searchContext(SearchContext.builder().indexConvention(indexConvention).build())
+            .searchContext(SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build())
             .build(
                 TestOperationContexts.systemContextNoSearchAuthorization()
                     .getSessionAuthentication(),
@@ -151,11 +153,15 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     // Setup DelegatingSettingsBuilder and DelegatingMappingsBuilder
     IndexConfiguration indexConfiguration = new IndexConfiguration();
     indexConfiguration.setMinSearchFilterLength(3);
+
+    // Create DelegatingSettingsBuilder using utility method
     delegatingSettingsBuilder =
-        new DelegatingSettingsBuilder(
+        createDelegatingSettingsBuilder(
             V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION, indexConfiguration, indexConvention);
+
+    // Create DelegatingMappingsBuilder using utility method
     delegatingMappingsBuilder =
-        new DelegatingMappingsBuilder(V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION);
+        createDelegatingMappingsBuilder(V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION);
   }
 
   @BeforeMethod

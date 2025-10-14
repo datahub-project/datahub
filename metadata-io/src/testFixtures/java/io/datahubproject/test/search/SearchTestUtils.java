@@ -38,11 +38,22 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
+import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.DelegatingSettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacyMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntitySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -458,5 +469,71 @@ public class SearchTestUtils {
   @FunctionalInterface
   public interface DataAvailabilityChecker {
     boolean check() throws Exception;
+  }
+
+  /**
+   * Creates a DelegatingSettingsBuilder with the appropriate settings builders based on the entity
+   * index configuration. This utility method encapsulates the common pattern of creating a list of
+   * SettingsBuilder implementations and passing them to DelegatingSettingsBuilder constructor.
+   *
+   * @param entityIndexConfiguration the entity index configuration to determine which builders to
+   *     include
+   * @param indexConfiguration the index configuration for LegacySettingsBuilder
+   * @param indexConvention the index convention for the builders
+   * @return a DelegatingSettingsBuilder instance
+   * @throws RuntimeException if MultiEntitySettingsBuilder initialization fails
+   */
+  public static DelegatingSettingsBuilder createDelegatingSettingsBuilder(
+      EntityIndexConfiguration entityIndexConfiguration,
+      IndexConfiguration indexConfiguration,
+      IndexConvention indexConvention) {
+
+    List<SettingsBuilder> settingsBuilders = new ArrayList<>();
+
+    if (entityIndexConfiguration.getV2().isEnabled()) {
+      settingsBuilders.add(new LegacySettingsBuilder(indexConfiguration, indexConvention));
+    }
+    if (entityIndexConfiguration.getV3().isEnabled()) {
+      try {
+        settingsBuilders.add(
+            new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention));
+      } catch (IOException e) {
+        throw new RuntimeException("Failed to initialize MultiEntitySettingsBuilder", e);
+      }
+    }
+
+    return new DelegatingSettingsBuilder(settingsBuilders);
+  }
+
+  /**
+   * Creates a DelegatingMappingsBuilder with the appropriate mappings builders based on the entity
+   * index configuration. This utility method encapsulates the common pattern of creating a list of
+   * MappingsBuilder implementations and passing them to DelegatingMappingsBuilder constructor.
+   *
+   * @param entityIndexConfiguration the entity index configuration to determine which builders to
+   *     include
+   * @return a DelegatingMappingsBuilder instance
+   * @throws RuntimeException if MultiEntityMappingsBuilder initialization fails
+   */
+  public static DelegatingMappingsBuilder createDelegatingMappingsBuilder(
+      EntityIndexConfiguration entityIndexConfiguration) {
+
+    List<MappingsBuilder> builders = new ArrayList<>();
+
+    if (entityIndexConfiguration.getV2().isEnabled()) {
+      builders.add(new LegacyMappingsBuilder(entityIndexConfiguration));
+    }
+    if (entityIndexConfiguration.getV3().isEnabled()) {
+      try {
+        builders.add(new MultiEntityMappingsBuilder(entityIndexConfiguration));
+      } catch (IOException e) {
+        throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
+      }
+    }
+
+    // Add NoOpMappingsBuilder as fallback
+    builders.add(new NoOpMappingsBuilder());
+
+    return new DelegatingMappingsBuilder(builders);
   }
 }

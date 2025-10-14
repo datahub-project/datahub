@@ -6,6 +6,7 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.createDelegatingMappingsBuilder;
 import static io.datahubproject.test.search.config.SearchTestContainerConfiguration.REFRESH_INTERVAL_SECONDS;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anySet;
@@ -32,6 +33,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacyMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -42,6 +44,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -133,8 +136,20 @@ public class SampleDataFixtureConfiguration {
 
     OperationContext testOpContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
+    // Create real SearchContext using ESUtils methods
+    MappingsBuilder mappingsBuilder = createMappingsBuilder();
+    SearchContext searchContext =
+        SearchContext.builder()
+            .indexConvention(indexConvention)
+            .searchableFieldTypes(
+                ESUtils.buildSearchableFieldTypes(
+                    testOpContext.getEntityRegistry(), mappingsBuilder))
+            .searchableFieldPaths(
+                ESUtils.buildSearchableFieldPaths(testOpContext.getEntityRegistry()))
+            .build();
+
     return testOpContext.toBuilder()
-        .searchContext(SearchContext.builder().indexConvention(indexConvention).build())
+        .searchContext(searchContext)
         .build(testOpContext.getSessionAuthentication(), true);
   }
 
@@ -144,9 +159,29 @@ public class SampleDataFixtureConfiguration {
 
     OperationContext testOpContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
+    // Create real SearchContext using ESUtils methods
+    MappingsBuilder mappingsBuilder = createMappingsBuilder();
+    SearchContext searchContext =
+        SearchContext.builder()
+            .indexConvention(indexConvention)
+            .searchableFieldTypes(
+                ESUtils.buildSearchableFieldTypes(
+                    testOpContext.getEntityRegistry(), mappingsBuilder))
+            .searchableFieldPaths(
+                ESUtils.buildSearchableFieldPaths(testOpContext.getEntityRegistry()))
+            .build();
+
     return testOpContext.toBuilder()
-        .searchContext(SearchContext.builder().indexConvention(indexConvention).build())
+        .searchContext(searchContext)
         .build(testOpContext.getSessionAuthentication(), true);
+  }
+
+  /**
+   * Helper method to create a MappingsBuilder for the fixture tests. This creates a
+   * DelegatingMappingsBuilder with both v2 and v3 mappings builders.
+   */
+  private MappingsBuilder createMappingsBuilder() {
+    return createDelegatingMappingsBuilder(SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
   }
 
   @Bean
@@ -206,6 +241,7 @@ public class SampleDataFixtureConfiguration {
         TEST_SEARCH_SERVICE_CONFIG,
         TEST_ES_SEARCH_CONFIG,
         new LegacyMappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
+        new LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention),
         searchDAO,
         browseDAO,
         esWriteDAO);

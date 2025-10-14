@@ -1,7 +1,6 @@
 package com.linkedin.gms.factory.entity.update.indices;
 
 import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
-import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -9,13 +8,13 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
-import com.linkedin.metadata.service.UpdateIndicesV2Strategy;
-import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import javax.annotation.Nullable;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -41,52 +40,19 @@ public class UpdateIndicesServiceFactory {
   @Value("${elasticsearch.search.graph.graphStatusEnabled}")
   private boolean graphStatusEnabled;
 
-  @Value("${elasticsearch.entityIndex.v2.enabled:true}")
-  private boolean v2Enabled;
-
-  @Value("${elasticsearch.entityIndex.v2.cleanup:false}")
-  private boolean v2Cleanup;
-
-  @Value("${elasticsearch.entityIndex.v3.enabled:true}")
-  private boolean v3Enabled;
-
-  @Value("${elasticsearch.entityIndex.v3.cleanup:false}")
-  private boolean v3Cleanup;
-
-  /** Creates a collection of UpdateIndicesStrategy instances based on configuration. */
+  /** Creates a collection of UpdateIndicesStrategy instances based on Spring beans. */
   private Collection<UpdateIndicesStrategy> createStrategies(
-      ElasticSearchService elasticSearchService,
-      SearchDocumentTransformer searchDocumentTransformer,
-      TimeseriesAspectService timeseriesAspectService,
-      String idHashAlgo) {
+      @Qualifier("updateIndicesV2Strategy") @Nullable UpdateIndicesStrategy v2Strategy,
+      @Qualifier("updateIndicesV3Strategy") @Nullable UpdateIndicesStrategy v3Strategy) {
 
     Collection<UpdateIndicesStrategy> strategies = new ArrayList<>();
 
-    // Create V2 strategy if enabled
-    if (v2Enabled) {
-      EntityIndexVersionConfiguration v2Config =
-          EntityIndexVersionConfiguration.builder().enabled(true).cleanup(v2Cleanup).build();
-      strategies.add(
-          new UpdateIndicesV2Strategy(
-              v2Config,
-              elasticSearchService,
-              searchDocumentTransformer,
-              timeseriesAspectService,
-              idHashAlgo));
+    if (v2Strategy != null) {
+      strategies.add(v2Strategy);
     }
 
-    // Create V3 strategy if enabled
-    if (v3Enabled) {
-      EntityIndexVersionConfiguration v3Config =
-          EntityIndexVersionConfiguration.builder().enabled(true).cleanup(v3Cleanup).build();
-      strategies.add(
-          new UpdateIndicesV3Strategy(
-              v3Config,
-              elasticSearchService,
-              searchDocumentTransformer,
-              timeseriesAspectService,
-              idHashAlgo,
-              v2Enabled)); // Pass v2Enabled flag to avoid duplication
+    if (v3Strategy != null) {
+      strategies.add(v3Strategy);
     }
 
     return strategies;
@@ -106,11 +72,11 @@ public class UpdateIndicesServiceFactory {
       SearchDocumentTransformer searchDocumentTransformer,
       @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
       @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
-          final List<String> fineGrainedLineageNotAllowedForPlatforms) {
+          final List<String> fineGrainedLineageNotAllowedForPlatforms,
+      @Qualifier("updateIndicesV2Strategy") @Nullable UpdateIndicesStrategy v2Strategy,
+      @Qualifier("updateIndicesV3Strategy") @Nullable UpdateIndicesStrategy v3Strategy) {
 
-    Collection<UpdateIndicesStrategy> strategies =
-        createStrategies(
-            entitySearchService, searchDocumentTransformer, timeseriesAspectService, idHashAlgo);
+    Collection<UpdateIndicesStrategy> strategies = createStrategies(v2Strategy, v3Strategy);
 
     return new UpdateIndicesService(
         new UpdateGraphIndicesService(
@@ -137,11 +103,11 @@ public class UpdateIndicesServiceFactory {
       final EntityService<?> entityService,
       @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
       @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
-          final List<String> fineGrainedLineageNotAllowedForPlatforms) {
+          final List<String> fineGrainedLineageNotAllowedForPlatforms,
+      @Qualifier("updateIndicesV2Strategy") @Nullable UpdateIndicesStrategy v2Strategy,
+      @Qualifier("updateIndicesV3Strategy") @Nullable UpdateIndicesStrategy v3Strategy) {
 
-    Collection<UpdateIndicesStrategy> strategies =
-        createStrategies(
-            entitySearchService, searchDocumentTransformer, timeseriesAspectService, idHashAlgo);
+    Collection<UpdateIndicesStrategy> strategies = createStrategies(v2Strategy, v3Strategy);
 
     UpdateIndicesService updateIndicesService =
         new UpdateIndicesService(

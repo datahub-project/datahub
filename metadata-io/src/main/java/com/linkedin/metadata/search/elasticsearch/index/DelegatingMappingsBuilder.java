@@ -2,15 +2,11 @@ package com.linkedin.metadata.search.elasticsearch.index;
 
 import com.google.common.collect.Maps;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacyMappingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -32,35 +28,11 @@ import lombok.extern.slf4j.Slf4j;
 public class DelegatingMappingsBuilder implements MappingsBuilder {
 
   private final List<MappingsBuilder> builders;
-  private final boolean v2Enabled;
-  private final boolean v3Enabled;
 
-  public DelegatingMappingsBuilder(@Nonnull EntityIndexConfiguration entityIndexConfiguration) {
-    this.v2Enabled =
-        entityIndexConfiguration.getV2() != null && entityIndexConfiguration.getV2().isEnabled();
-    this.v3Enabled =
-        entityIndexConfiguration.getV3() != null && entityIndexConfiguration.getV3().isEnabled();
-
-    this.builders = new ArrayList<>();
-
-    // Initialize v2 builder if enabled
-    if (v2Enabled) {
-      this.builders.add(new LegacyMappingsBuilder(entityIndexConfiguration));
-    }
-
-    // Initialize v3 builder if enabled
-    if (v3Enabled) {
-      try {
-        this.builders.add(new MultiEntityMappingsBuilder(entityIndexConfiguration));
-      } catch (IOException e) {
-        log.error("Failed to initialize MultiEntityMappingsBuilder", e);
-        throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
-      }
-    }
-
-    // If no builders are available, use NoOpMappingsBuilder
+  public DelegatingMappingsBuilder(@Nonnull List<MappingsBuilder> builders) {
+    this.builders = new ArrayList<>(builders);
     if (this.builders.isEmpty()) {
-      log.warn("Neither v2 nor v3 entity index is enabled. Using NoOpMappingsBuilder.");
+      log.warn("No mappings builders provided. Using NoOpMappingsBuilder.");
       this.builders.add(new NoOpMappingsBuilder());
     }
   }
