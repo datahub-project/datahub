@@ -6,6 +6,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import org.apache.avro.generic.GenericRecord;
@@ -21,13 +22,17 @@ public class KafkaConsumerPool {
   @Getter private final Set<KafkaConsumer<String, GenericRecord>> activeConsumers = new HashSet<>();
   @Getter private volatile boolean shuttingDown = false;
 
+  private final ReentrantLock activeConsumersLock = new ReentrantLock();
+
+  private final ReentrantLock poolManagementLock = new ReentrantLock();
+
   public KafkaConsumerPool(
       final ConsumerFactory<String, GenericRecord> consumerFactory,
       final int initialPoolSize,
       final int maxPoolSize) {
     this.consumerFactory = consumerFactory;
     this.maxPoolSize = maxPoolSize;
-    this.consumerPool = new LinkedBlockingQueue<>();
+    this.consumerPool = new LinkedBlockingQueue<>(maxPoolSize);
 
     // Initialize the pool with initial consumers
     for (int i = 0; i < initialPoolSize; i++) {
@@ -40,9 +45,14 @@ public class KafkaConsumerPool {
     totalConsumersCreated.incrementAndGet();
     KafkaConsumer<String, GenericRecord> consumer =
         (KafkaConsumer<String, GenericRecord>) consumerFactory.createConsumer();
-    synchronized (activeConsumers) {
+
+    activeConsumersLock.lock();
+    try {
       activeConsumers.add(consumer);
+    } finally {
+      activeConsumersLock.unlock();
     }
+
     return consumer;
   }
 
@@ -58,10 +68,18 @@ public class KafkaConsumerPool {
 
     // If no consumer is available, create a new one if we haven't hit the max pool size
     if (consumer == null) {
-      if (totalConsumersCreated.get() < maxPoolSize) {
-        consumer = createConsumer();
-      } else {
-        // Wait for a consumer to be returned
+      poolManagementLock.lock();
+      try {
+
+        if (totalConsumersCreated.get() < maxPoolSize && !shuttingDown) {
+          consumer = createConsumer();
+        }
+      } finally {
+        poolManagementLock.unlock();
+      }
+
+      // If still null, wait for a consumer to be returned
+      if (consumer == null) {
         consumer = consumerPool.poll(time, timeUnit);
       }
     }
@@ -76,42 +94,63 @@ public class KafkaConsumerPool {
     }
 
     // Verify this is actually one of our consumers
-    synchronized (activeConsumers) {
-      if (!activeConsumers.contains(consumer)) {
-        // Not our consumer, don't add to pool
-        return;
-      }
+    boolean isOurConsumer;
+    activeConsumersLock.lock();
+    try {
+      isOurConsumer = activeConsumers.contains(consumer);
+    } finally {
+      activeConsumersLock.unlock();
+    }
+
+    if (!isOurConsumer) {
+      // Not our consumer, don't add to pool
+      return;
     }
 
     if (shuttingDown) {
       // Pool is shutting down, close the consumer instead of returning it
-      consumer.close();
+      closeAndRemoveConsumer(consumer);
       return;
     }
 
     // Try to return to pool, if it fails close the consumer
     if (!consumerPool.offer(consumer)) {
+      closeAndRemoveConsumer(consumer);
+    }
+  }
+
+  private void closeAndRemoveConsumer(KafkaConsumer<String, GenericRecord> consumer) {
+    try {
       consumer.close();
-      synchronized (activeConsumers) {
+    } finally {
+      activeConsumersLock.lock();
+      try {
         activeConsumers.remove(consumer);
+        totalConsumersCreated.decrementAndGet();
+      } finally {
+        activeConsumersLock.unlock();
       }
     }
   }
 
   // Shutdown all consumers
   public void shutdownPool() {
-    shuttingDown = true;
+    poolManagementLock.lock();
+    try {
+      shuttingDown = true;
+    } finally {
+      poolManagementLock.unlock();
+    }
 
-    synchronized (activeConsumers) {
+    activeConsumersLock.lock();
+    try {
       // Close all consumers (both in pool and borrowed)
       for (KafkaConsumer<String, GenericRecord> consumer : activeConsumers) {
-        try {
-          consumer.close();
-        } catch (Exception e) {
-          // Log but continue closing others
-        }
+        closeAndRemoveConsumer(consumer);
       }
       activeConsumers.clear();
+    } finally {
+      activeConsumersLock.unlock();
     }
 
     consumerPool.clear();
