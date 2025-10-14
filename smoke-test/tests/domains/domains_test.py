@@ -4,6 +4,7 @@ import pytest
 import tenacity
 
 from tests.utils import (
+    delete_entity,
     delete_urns_from_file,
     execute_graphql,
     get_sleep_info,
@@ -42,10 +43,7 @@ def _ensure_more_domains(
 @pytest.mark.dependency()
 def test_create_list_get_domain(auth_session):
     # Setup: Delete the domain (if exists)
-    response = auth_session.post(
-        f"{auth_session.gms_url()}/entities?action=delete",
-        json={"urn": "urn:li:domain:test id"},
-    )
+    delete_entity(auth_session, "urn:li:domain:test id")
 
     # Get count of existing secrets
     list_domains_query = """query listDomains($input: ListDomainsInput!) {
@@ -125,14 +123,7 @@ def test_create_list_get_domain(auth_session):
     assert domain["properties"]["name"] == domain_name
     assert domain["properties"]["description"] == domain_description
 
-    delete_json = {"urn": domain_urn}
-
-    # Cleanup: Delete the domain
-    response = auth_session.post(
-        f"{auth_session.gms_url()}/entities?action=delete", json=delete_json
-    )
-
-    response.raise_for_status()
+    delete_entity(auth_session, domain_urn)
 
 
 @pytest.mark.dependency(depends=["test_create_list_get_domain"])

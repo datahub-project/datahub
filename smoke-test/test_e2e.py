@@ -768,31 +768,22 @@ def test_update_corp_group_properties(auth_session):
     group_urn = "urn:li:corpGroup:bfoo"
 
     # Update Corp Group Description
-    json = {
-        "query": """mutation updateCorpGroupProperties($urn: String!, $input: CorpGroupUpdateInput!) {\n
-            updateCorpGroupProperties(urn: $urn, input: $input) { urn } }""",
-        "variables": {
-            "urn": group_urn,
-            "input": {
-                "description": "My test description",
-                "slack": "test_group_slack",
-                "email": "test_group_email@email.com",
-            },
+    query = """mutation updateCorpGroupProperties($urn: String!, $input: CorpGroupUpdateInput!) {\n
+            updateCorpGroupProperties(urn: $urn, input: $input) { urn } }"""
+    variables = {
+        "urn": group_urn,
+        "input": {
+            "description": "My test description",
+            "slack": "test_group_slack",
+            "email": "test_group_email@email.com",
         },
     }
-
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
-    )
-    response.raise_for_status()
-    res_data = response.json()
+    res_data = execute_graphql(auth_session, query, variables)
     print(res_data)
-    assert "errors" not in res_data
     assert res_data["data"]["updateCorpGroupProperties"] is not None
 
     # Verify the description has been updated
-    json = {
-        "query": """query corpGroup($urn: String!) {\n
+    query = """query corpGroup($urn: String!) {\n
             corpGroup(urn: $urn) {\n
                 urn\n
                 editableProperties {\n
@@ -801,17 +792,11 @@ def test_update_corp_group_properties(auth_session):
                     email\n
                 }\n
             }\n
-        }""",
-        "variables": {"urn": group_urn},
-    }
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
-    )
-    response.raise_for_status()
-    res_data = response.json()
+        }"""
+    variables = {"urn": group_urn}
+    res_data = execute_graphql(auth_session, query, variables)
 
     assert res_data
-    assert "errors" not in res_data
     assert res_data["data"]
     assert res_data["data"]["corpGroup"]
     assert res_data["data"]["corpGroup"]["editableProperties"]
@@ -822,19 +807,13 @@ def test_update_corp_group_properties(auth_session):
     }
 
     # Reset the editable properties
-    json = {
-        "query": """mutation updateCorpGroupProperties($urn: String!, $input: CorpGroupUpdateInput!) {\n
-            updateCorpGroupProperties(urn: $urn, input: $input) { urn } }""",
-        "variables": {
-            "urn": group_urn,
-            "input": {"description": "", "slack": "", "email": ""},
-        },
+    query = """mutation updateCorpGroupProperties($urn: String!, $input: CorpGroupUpdateInput!) {\n
+            updateCorpGroupProperties(urn: $urn, input: $input) { urn } }"""
+    variables = {
+        "urn": group_urn,
+        "input": {"description": "", "slack": "", "email": ""},
     }
-
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
-    )
-    response.raise_for_status()
+    execute_graphql(auth_session, query, variables)
 
 
 @pytest.mark.dependency(
@@ -846,43 +825,28 @@ def test_update_corp_group_description(auth_session):
     group_urn = "urn:li:corpGroup:bfoo"
 
     # Update Corp Group Description
-    json = {
-        "query": """mutation updateDescription($input: DescriptionUpdateInput!) {\n
-            updateDescription(input: $input) }""",
-        "variables": {
-            "input": {"description": "My test description", "resourceUrn": group_urn},
-        },
+    query = """mutation updateDescription($input: DescriptionUpdateInput!) {\n
+            updateDescription(input: $input) }"""
+    variables = {
+        "input": {"description": "My test description", "resourceUrn": group_urn},
     }
-
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
-    )
-    response.raise_for_status()
-    res_data = response.json()
+    res_data = execute_graphql(auth_session, query, variables)
     print(res_data)
-    assert "errors" not in res_data
     assert res_data["data"]["updateDescription"] is True
 
     # Verify the description has been updated
-    json = {
-        "query": """query corpGroup($urn: String!) {\n
+    query = """query corpGroup($urn: String!) {\n
             corpGroup(urn: $urn) {\n
                 urn\n
                 editableProperties {\n
                     description\n
                 }\n
             }\n
-        }""",
-        "variables": {"urn": group_urn},
-    }
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
-    )
-    response.raise_for_status()
-    res_data = response.json()
+        }"""
+    variables = {"urn": group_urn}
+    res_data = execute_graphql(auth_session, query, variables)
 
     assert res_data
-    assert "errors" not in res_data
     assert res_data["data"]
     assert res_data["data"]["corpGroup"]
     assert res_data["data"]["corpGroup"]["editableProperties"]
@@ -892,18 +856,12 @@ def test_update_corp_group_description(auth_session):
     )
 
     # Reset Corp Group Description
-    json = {
-        "query": """mutation updateDescription($input: DescriptionUpdateInput!) {\n
-            updateDescription(input: $input) }""",
-        "variables": {
-            "input": {"description": "", "resourceUrn": group_urn},
-        },
+    query = """mutation updateDescription($input: DescriptionUpdateInput!) {\n
+            updateDescription(input: $input) }"""
+    variables = {
+        "input": {"description": "", "resourceUrn": group_urn},
     }
-
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
-    )
-    response.raise_for_status()
+    execute_graphql(auth_session, query, variables)
 
 
 @pytest.mark.dependency(
@@ -913,36 +871,24 @@ def test_update_corp_group_description(auth_session):
     ]
 )
 def test_remove_user(auth_session):
-    json = {
-        "query": """mutation removeUser($urn: String!) {\n
-            removeUser(urn: $urn) }""",
-        "variables": {"urn": "urn:li:corpuser:jdoe"},
-    }
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
-    )
-    response.raise_for_status()
+    query = """mutation removeUser($urn: String!) {\n
+            removeUser(urn: $urn) }"""
+    variables = {"urn": "urn:li:corpuser:jdoe"}
+    execute_graphql(auth_session, query, variables)
 
-    json = {
-        "query": """query corpUser($urn: String!) {\n
+    query = """query corpUser($urn: String!) {\n
             corpUser(urn: $urn) {\n
                 urn\n
                 properties {\n
                     firstName\n
                 }\n
             }\n
-        }""",
-        "variables": {"urn": "urn:li:corpuser:jdoe"},
-    }
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
-    )
-    response.raise_for_status()
-    res_data = response.json()
+        }"""
+    variables = {"urn": "urn:li:corpuser:jdoe"}
+    res_data = execute_graphql(auth_session, query, variables)
 
     assert res_data
-    assert "errors" not in res_data
     assert res_data["data"]
     assert res_data["data"]["corpUser"]
     assert res_data["data"]["corpUser"]["properties"] is None
@@ -957,16 +903,10 @@ def test_remove_user(auth_session):
 def test_remove_group(auth_session):
     group_urn = "urn:li:corpGroup:bfoo"
 
-    json = {
-        "query": """mutation removeGroup($urn: String!) {\n
-            removeGroup(urn: $urn) }""",
-        "variables": {"urn": group_urn},
-    }
-
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
-    )
-    response.raise_for_status()
+    query = """mutation removeGroup($urn: String!) {\n
+            removeGroup(urn: $urn) }"""
+    variables = {"urn": group_urn}
+    execute_graphql(auth_session, query, variables)
 
     _ensure_group_not_present(auth_session, group_urn)
 
@@ -978,39 +918,28 @@ def test_remove_group(auth_session):
     ]
 )
 def test_create_group(auth_session):
-    json = {
-        "query": """mutation createGroup($input: CreateGroupInput!) {\n
-            createGroup(input: $input) }""",
-        "variables": {
-            "input": {
-                "id": "test-id",
-                "name": "Test Group",
-                "description": "My test group",
-            }
-        },
+
+    query = """mutation createGroup($input: CreateGroupInput!) {\n
+            createGroup(input: $input) }"""
+    variables = {
+        "input": {
+            "id": "test-id",
+            "name": "Test Group",
+            "description": "My test group",
+        }
     }
+    execute_graphql(auth_session, query, variables)
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
-    )
-    response.raise_for_status()
-
-    json = {
-        "query": """query corpGroup($urn: String!) {\n
+    query = """query corpGroup($urn: String!) {\n
             corpGroup(urn: $urn) {\n
                 urn\n
                 properties {\n
                     displayName\n
                 }\n
             }\n
-        }""",
-        "variables": {"urn": "urn:li:corpGroup:test-id"},
-    }
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
-    )
-    response.raise_for_status()
-    res_data = response.json()
+        }"""
+    variables = {"urn": "urn:li:corpGroup:test-id"}
+    res_data = execute_graphql(auth_session, query, variables)
 
     assert res_data
     assert res_data["data"]

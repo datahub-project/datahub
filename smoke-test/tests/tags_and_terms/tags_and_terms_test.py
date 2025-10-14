@@ -297,51 +297,27 @@ def test_update_schemafield(auth_session):
     }
 
     # dataset schema tags
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_schema_json_tags
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
+    query_tags: str = dataset_schema_json_tags["query"]  # type: ignore
+    variables_tags: Dict[str, Any] = dataset_schema_json_tags["variables"]  # type: ignore
+    res_data = execute_graphql(auth_session, query_tags, variables_tags)
     assert res_data["data"]["dataset"]["editableSchemaMetadata"] is None
 
-    add_json = {
-        "query": """mutation addTag($input: TagAssociationInput!) {\n
+    add_query = """mutation addTag($input: TagAssociationInput!) {\n
             addTag(input: $input)
-        }""",
-        "variables": {
-            "input": {
-                "tagUrn": "urn:li:tag:Legacy",
-                "resourceUrn": dataset_urn,
-                "subResource": "[version=2.0].[type=boolean].field_bar",
-                "subResourceType": "DATASET_FIELD",
-            }
-        },
+        }"""
+    add_variables: Dict[str, Any] = {
+        "input": {
+            "tagUrn": "urn:li:tag:Legacy",
+            "resourceUrn": dataset_urn,
+            "subResource": "[version=2.0].[type=boolean].field_bar",
+            "subResourceType": "DATASET_FIELD",
+        }
     }
-
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=add_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
+    res_data = execute_graphql(auth_session, add_query, add_variables)
     assert res_data["data"]["addTag"] is True
 
     # Refetch the dataset schema
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_schema_json_tags
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
+    res_data = execute_graphql(auth_session, query_tags, variables_tags)
     assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {
         "editableSchemaFieldInfo": [
             {
@@ -360,80 +336,45 @@ def test_update_schemafield(auth_session):
         ]
     }
 
-    remove_json = {
-        "query": """mutation removeTag($input: TagAssociationInput!) {\n
+    remove_query = """mutation removeTag($input: TagAssociationInput!) {\n
             removeTag(input: $input)
-        }""",
-        "variables": {
-            "input": {
-                "tagUrn": "urn:li:tag:Legacy",
-                "resourceUrn": dataset_urn,
-                "subResource": "[version=2.0].[type=boolean].field_bar",
-                "subResourceType": "DATASET_FIELD",
-            }
-        },
+        }"""
+    remove_variables: Dict[str, Any] = {
+        "input": {
+            "tagUrn": "urn:li:tag:Legacy",
+            "resourceUrn": dataset_urn,
+            "subResource": "[version=2.0].[type=boolean].field_bar",
+            "subResourceType": "DATASET_FIELD",
+        }
     }
-
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=remove_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
+    res_data = execute_graphql(auth_session, remove_query, remove_variables)
     print(res_data)
-
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["removeTag"] is True
 
     # Refetch the dataset
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_schema_json_tags
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
+    res_data = execute_graphql(auth_session, query_tags, variables_tags)
     assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {
         "editableSchemaFieldInfo": [{"globalTags": {"tags": []}}]
     }
 
-    add_json = {
-        "query": """mutation addTerm($input: TermAssociationInput!) {\n
+    add_query = """mutation addTerm($input: TermAssociationInput!) {\n
             addTerm(input: $input)
-        }""",
-        "variables": {
-            "input": {
-                "termUrn": "urn:li:glossaryTerm:SavingAccount",
-                "resourceUrn": dataset_urn,
-                "subResource": "[version=2.0].[type=boolean].field_bar",
-                "subResourceType": "DATASET_FIELD",
-            }
-        },
+        }"""
+    add_variables = {
+        "input": {
+            "termUrn": "urn:li:glossaryTerm:SavingAccount",
+            "resourceUrn": dataset_urn,
+            "subResource": "[version=2.0].[type=boolean].field_bar",
+            "subResourceType": "DATASET_FIELD",
+        }
     }
-
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=add_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
+    res_data = execute_graphql(auth_session, add_query, add_variables)
     assert res_data["data"]["addTerm"] is True
 
     # Refetch the dataset schema
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_schema_json_terms
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
+    query_terms: str = dataset_schema_json_terms["query"]  # type: ignore
+    variables_terms: Dict[str, Any] = dataset_schema_json_terms["variables"]  # type: ignore
+    res_data = execute_graphql(auth_session, query_terms, variables_terms)
     assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {
         "editableSchemaFieldInfo": [
             {
@@ -451,50 +392,28 @@ def test_update_schemafield(auth_session):
         ]
     }
 
-    remove_json = {
-        "query": """mutation removeTerm($input: TermAssociationInput!) {\n
+    remove_query = """mutation removeTerm($input: TermAssociationInput!) {\n
             removeTerm(input: $input)
-        }""",
-        "variables": {
-            "input": {
-                "termUrn": "urn:li:glossaryTerm:SavingAccount",
-                "resourceUrn": dataset_urn,
-                "subResource": "[version=2.0].[type=boolean].field_bar",
-                "subResourceType": "DATASET_FIELD",
-            }
-        },
+        }"""
+    remove_variables = {
+        "input": {
+            "termUrn": "urn:li:glossaryTerm:SavingAccount",
+            "resourceUrn": dataset_urn,
+            "subResource": "[version=2.0].[type=boolean].field_bar",
+            "subResourceType": "DATASET_FIELD",
+        }
     }
-
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=remove_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
+    res_data = execute_graphql(auth_session, remove_query, remove_variables)
     assert res_data["data"]["removeTerm"] is True
 
     # Refetch the dataset
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_schema_json_terms
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
+    res_data = execute_graphql(auth_session, query_terms, variables_terms)
     assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {
         "editableSchemaFieldInfo": [{"glossaryTerms": {"terms": []}}]
     }
 
     # dataset schema tags
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_schema_json_tags
-    )
-    response.raise_for_status()
-    res_data = response.json()
+    res_data = execute_graphql(auth_session, query_tags, variables_tags)
 
     update_description_json = {
         "query": """mutation updateDescription($input: DescriptionUpdateInput!) {\n
@@ -511,41 +430,20 @@ def test_update_schemafield(auth_session):
     }
 
     # fetch no description
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql",
-        json=dataset_schema_json_description,
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
+    query_description: str = dataset_schema_json_description["query"]  # type: ignore
+    variables_description: Dict[str, Any] = dataset_schema_json_description["variables"]  # type: ignore
+    res_data = execute_graphql(auth_session, query_description, variables_description)
     assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {
         "editableSchemaFieldInfo": [{"description": None}]
     }
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=update_description_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
+    update_query: str = update_description_json["query"]  # type: ignore
+    update_variables: Dict[str, Any] = update_description_json["variables"]  # type: ignore
+    res_data = execute_graphql(auth_session, update_query, update_variables)
     assert res_data["data"]["updateDescription"] is True
 
     # Refetch the dataset
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql",
-        json=dataset_schema_json_description,
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["dataset"]
+    res_data = execute_graphql(auth_session, query_description, variables_description)
     assert res_data["data"]["dataset"]["editableSchemaMetadata"] == {
         "editableSchemaFieldInfo": [{"description": "new description"}]
     }
