@@ -416,17 +416,28 @@ def freshness_stub_entity_client(
 
 
 class MockSearchClient:
-    """Mock search client that returns empty results by default."""
+    """Mock search client that returns appropriate monitor URNs based on the filter."""
+
+    def __init__(self, monitor_entity: Optional[Monitor] = None):
+        self.monitor_entity = monitor_entity
 
     def get_urns(self, filter=None, **kwargs):
-        """Return empty list by default."""
+        """Return monitor URN if a monitor entity is configured."""
+        if self.monitor_entity and self.monitor_entity.urn:
+            return iter([self.monitor_entity.urn])
         return iter([])
 
 
 class StubDataHubClient:
     def __init__(self, entity_client: Optional[StubEntityClient] = None) -> None:
         self.entities = entity_client or StubEntityClient()
-        self.search = MockSearchClient()
+        # Pass the monitor entity to search so it can return the correct URN
+        monitor_entity = (
+            self.entities.monitor_entity
+            if hasattr(self.entities, "monitor_entity")
+            else None
+        )
+        self.search = MockSearchClient(monitor_entity=monitor_entity)
 
 
 @pytest.fixture
