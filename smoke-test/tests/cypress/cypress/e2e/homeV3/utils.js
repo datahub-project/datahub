@@ -211,5 +211,5 @@ export function dragAndDropModuleToNewRow(moduleId) {
 }
 
 export function waitUntilTemplateIsLoaded() {
-  cy.getWithTestId("home-template-wrapper");
+  cy.getWithTestId("template-wrapper");
 }
