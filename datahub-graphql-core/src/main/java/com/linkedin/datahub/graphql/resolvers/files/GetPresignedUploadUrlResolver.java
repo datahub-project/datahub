@@ -14,11 +14,8 @@ import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.metadata.config.S3Configuration;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.Arrays;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -29,16 +26,10 @@ public class GetPresignedUploadUrlResolver
 
   private final S3Util s3Util;
   private final S3Configuration s3Configuration;
-  private final Set<String> allowedFileExtensions;
 
   public GetPresignedUploadUrlResolver(S3Util s3Util, S3Configuration s3Configuration) {
     this.s3Util = s3Util;
     this.s3Configuration = s3Configuration;
-    this.allowedFileExtensions =
-        Arrays.stream(s3Configuration.getAllowedFileExtensions().split(","))
-            .map(String::trim)
-            .map(String::toLowerCase)
-            .collect(Collectors.toSet());
   }
 
   @Override
@@ -86,23 +77,8 @@ public class GetPresignedUploadUrlResolver
   private void validateInput(final QueryContext context, final GetPresignedUploadUrlInput input) {
     UploadDownloadScenario scenario = input.getScenario();
 
-    validateFileName(input.getFileName());
-
     if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION) {
       validateInputForAssetDocumentationScenario(context, input);
-    }
-  }
-
-  private void validateFileName(final String fileName) {
-    String fileExtension = "";
-    int i = fileName.lastIndexOf('.');
-    if (i > 0) {
-      fileExtension = fileName.substring(i + 1);
-    }
-
-    if (!allowedFileExtensions.contains(fileExtension.toLowerCase())) {
-      throw new IllegalArgumentException(
-          String.format("Unsupported file extension: %s", fileExtension));
     }
   }
 

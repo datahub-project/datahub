@@ -16,7 +16,4 @@ public class S3Configuration {
 
   /** Path prefix for asset uploads in S3 */
   public String assetPathPrefix;
-
-  /** Comma-separated list of allowed file extensions for upload */
-  public String allowedFileExtensions;
 }
