@@ -777,6 +777,11 @@ class AssertionsClient:
             monitor_urns = list(self.client.search.get_urns(filter=monitor_filter))
 
             if monitor_urns:
+                # Log if there are multiple monitors found, because this is unexpected
+                if len(monitor_urns) > 1:
+                    logger.warning(
+                        f"Multiple monitors found for assertion {urn}, which should never happen: {monitor_urns}"
+                    )
                 # Use the first matching monitor
                 monitor_urn = MonitorUrn.from_string(str(monitor_urns[0]))
                 entity = self.client.entities.get(monitor_urn)
@@ -787,7 +792,7 @@ class AssertionsClient:
             logger.debug(f"Could not find monitor for assertion {urn}: {e}")
             pass
 
-        # If no monitor found via search, fall back to trying to use the asseriton urn
+        # If no monitor found via search, fall back to creating a new monitor with the dataset urn and assertion urn
         if monitor_urn is None:
             monitor_urn = Monitor._ensure_id(id=(dataset_urn, urn))
 

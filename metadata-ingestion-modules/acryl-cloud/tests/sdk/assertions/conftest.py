@@ -415,9 +415,18 @@ def freshness_stub_entity_client(
     )
 
 
+class MockSearchClient:
+    """Mock search client that returns empty results by default."""
+
+    def get_urns(self, filter=None, **kwargs):
+        """Return empty list by default."""
+        return iter([])
+
+
 class StubDataHubClient:
     def __init__(self, entity_client: Optional[StubEntityClient] = None) -> None:
         self.entities = entity_client or StubEntityClient()
+        self.search = MockSearchClient()
 
 
 @pytest.fixture
