@@ -14,7 +14,6 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
-from tests.utils import get_sleep_info
 
 logger = logging.getLogger(__name__)
 
@@ -91,9 +90,6 @@ def create_test_data(filename: str, chart_urn: str, upstream_schema_field_urn: s
         file_emitter.emit(mcps)
 
     file_emitter.close()
-
-
-sleep_sec, sleep_times = get_sleep_info()
 
 
 @pytest.fixture(scope="module")

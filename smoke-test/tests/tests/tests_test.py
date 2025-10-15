@@ -2,12 +2,9 @@ import time
 from typing import Any, Dict, List
 
 import pytest
-import tenacity
 
 from conftest import _ingest_cleanup_data_impl
-from tests.utils import execute_graphql, get_sleep_info
-
-sleep_sec, sleep_times = get_sleep_info()
+from tests.utils import execute_graphql, with_test_retry
 
 TEST_URNS: List[str] = []
 
@@ -178,9 +175,7 @@ def test_update_test(auth_session):
     }
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def test_list_tests_retries(auth_session):
     list_tests_query = """query listTests($input: ListTestsInput!) {
           listTests(input: $input) {
