@@ -1,7 +1,8 @@
-package com.datahub.files;
+package io.datahubproject.openapi.v1.files;
 
-import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.utils.aws.S3Util;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import lombok.extern.slf4j.Slf4j;
@@ -16,9 +17,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "DataHub Files API", description = "An API to expose DataHub files")
 @Slf4j
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/openapi/v1/files")
 public class FilesController {
 
   @Autowired
@@ -29,7 +31,6 @@ public class FilesController {
   @Qualifier("configurationProvider")
   private ConfigurationProvider configProvider;
 
-  private static final int DEFAULT_EXPIRATION_SECONDS = 3600; // 1 hour
   private static final int MAX_EXPIRATION_SECONDS = 604800; // 7 days
 
   /**
@@ -40,7 +41,7 @@ public class FilesController {
    * @param request HTTP servlet request
    * @return Redirect response to the presigned S3 URL
    */
-  @GetMapping("/files/{folder}/{fileId}")
+  @GetMapping("/{folder}/{fileId}")
   public ResponseEntity<Void> getFile(
       @PathVariable("folder") String folder,
       @PathVariable("fileId") String fileId,
@@ -49,7 +50,9 @@ public class FilesController {
     // TODO: Add permission checks
 
     // Validate and set expiration time
-    int expiration = expirationSeconds != null ? expirationSeconds : DEFAULT_EXPIRATION_SECONDS;
+    final int defaultExpirationSeconds =
+        configProvider.getDatahub().getS3().getPresignedDownloadUrlExpirationSeconds();
+    int expiration = expirationSeconds != null ? expirationSeconds : defaultExpirationSeconds;
     if (expiration <= 0 || expiration > MAX_EXPIRATION_SECONDS) {
       log.warn(
           "Invalid expiration time: {}. Must be between 1 and {} seconds",

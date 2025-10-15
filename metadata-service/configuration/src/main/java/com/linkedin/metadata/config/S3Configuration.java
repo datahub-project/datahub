@@ -14,6 +14,9 @@ public class S3Configuration {
   /** Expiration in seconds for presigned upload URLs */
   public Integer presignedUploadUrlExpirationSeconds;
 
+  /** Expiration in seconds for presigned download URLs */
+  public Integer presignedDownloadUrlExpirationSeconds;
+
   /** Path prefix for asset uploads in S3 */
   public String assetPathPrefix;
 }
