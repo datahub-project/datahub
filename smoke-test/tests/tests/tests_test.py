@@ -47,7 +47,7 @@ def create_test(auth_session, test_id="test id"):
             "name": test_name,
             "category": test_category,
             "description": test_description,
-            "definition": {"json": "{}"},
+            "definition": {"json": test_definition_json},
         }
     }
 
@@ -108,6 +108,10 @@ def test_create_test(auth_session):
               definition {
                 json
               }
+              results {
+                passingCount
+                failingCount
+              }
             }
         }"""
     get_test_variables: Dict[str, Any] = {"urn": test_urn}
@@ -149,7 +153,7 @@ def test_update_test(auth_session):
             "name": test_name,
             "category": test_category,
             "description": test_description,
-            "definition": {"json": "{}"},
+            "definition": {"json": test_definition_json},
         },
     }
 
@@ -166,6 +170,10 @@ def test_update_test(auth_session):
               description
               definition {
                 json
+              }
+              results {
+                passingCount
+                failingCount
               }
             }
         }"""
