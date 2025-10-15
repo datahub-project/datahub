@@ -191,9 +191,9 @@ public class OidcConfigs extends SsoConfigs {
   }
 
   public static class Builder extends SsoConfigs.Builder<Builder> {
-    private String clientId;
-    private String clientSecret;
-    private String discoveryUri;
+    protected String clientId;
+    protected String clientSecret;
+    protected String discoveryUri;
     private String userNameClaim = DEFAULT_OIDC_USERNAME_CLAIM;
     private String userNameClaimRegex = DEFAULT_OIDC_USERNAME_CLAIM_REGEX;
     private String scope = DEFAULT_OIDC_SCOPE;

@@ -4,6 +4,7 @@ import static auth.AuthUtils.*;
 import static utils.ConfigUtil.*;
 
 import auth.sso.SsoManager;
+import auth.sso.SsoSupportManager;
 import client.AuthServiceClient;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -169,6 +170,17 @@ public class AuthModule extends AbstractModule {
         new SsoManager(
             configs, systemAuthentication, getSsoSettingsRequestUrl(configs), httpClient);
     manager.initializeSsoProvider();
+    return manager;
+  }
+
+  @Provides
+  @Singleton
+  protected SsoSupportManager provideSsoSupportManager(
+      Authentication systemAuthentication, CloseableHttpClient httpClient) {
+    SsoSupportManager manager =
+        new SsoSupportManager(
+            configs, systemAuthentication, getSsoSettingsRequestUrl(configs), httpClient);
+    manager.initializeSupportSsoProvider();
     return manager;
   }
 
