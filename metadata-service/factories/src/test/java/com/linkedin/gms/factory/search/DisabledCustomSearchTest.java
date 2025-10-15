@@ -26,7 +26,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-@SpringBootTest(classes = {ElasticSearchServiceFactory.class})
+@SpringBootTest(classes = {ElasticSearchServiceFactory.class, MappingsBuilderFactory.class})
 @EnableConfigurationProperties(ConfigurationProvider.class)
 @TestPropertySource(
     locations = "classpath:/application.yaml",

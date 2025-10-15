@@ -897,7 +897,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.v3.analyzerConfig",
           "elasticsearch.entityIndex.v3.mappingConfig",
           "elasticsearch.entityIndex.v3.cleanup",
-          "elasticsearch.entityIndex.v3.maxFieldsLimit"
+          "elasticsearch.entityIndex.v3.maxFieldsLimit",
+
+          // Metadata Change Log configuration
+          "metadataChangeLog.consumer.batch.enabled",
+          "metadataChangeLog.consumer.batch.size"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to

@@ -17,6 +17,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.MappingsBuilderFactory;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
@@ -61,7 +62,12 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-@SpringBootTest(classes = {ConfigurationProvider.class, GraphQLEngineFactory.class})
+@SpringBootTest(
+    classes = {
+      ConfigurationProvider.class,
+      GraphQLEngineFactory.class,
+      MappingsBuilderFactory.class
+    })
 @ContextConfiguration(classes = GraphQLEngineFactoryTest.TestConfig.class)
 @TestPropertySource(
     locations = "classpath:/application.yaml",

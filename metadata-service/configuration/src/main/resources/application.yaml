@@ -1063,6 +1063,12 @@ metadataChangeProposal:
       multiplier: ${MCP_TIMESERIES_MULTIPLIER:10}
       maxIntervalMs:  ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
 
+metadataChangeLog:
+  consumer:
+    batch:
+      enabled: ${MCL_CONSUMER_BATCH_ENABLED:false}
+      size: ${MCL_CONSUMER_BATCH_SIZE:1048576}
+
 eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}
 
