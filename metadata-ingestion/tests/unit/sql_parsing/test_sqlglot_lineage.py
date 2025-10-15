@@ -1249,7 +1249,7 @@ INSERT INTO my_table (id, month, total_cost, area)
 
 
 def test_teradata_insert_into_values() -> None:
-    # Test for Teradata INSERT VALUES with complex values including strings and timestamps
+    # Test INSERT VALUES with complex values including strings and timestamps
     assert_sql_result(
         """\
 INSERT INTO operations_temp.loss_backup (val_name, amount_type, field_number, amount_status, col_status, duration, time_code) 

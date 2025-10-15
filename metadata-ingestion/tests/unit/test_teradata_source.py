@@ -69,6 +69,98 @@ class TestTeradataConfig:
         config = TeradataConfig.parse_obj(config_dict)
         assert config.include_queries is True
 
+    def test_time_window_defaults_applied(self):
+        """Test that BaseTimeWindowConfig defaults are automatically applied."""
+        config_dict = {
+            "username": "test_user",
+            "password": "test_password",
+            "host_port": "localhost:1025",
+            "include_table_lineage": True,
+            "include_usage_statistics": True,
+        }
+
+        config = TeradataConfig.parse_obj(config_dict)
+
+        assert config.start_time is not None
+        assert config.end_time is not None
+        assert isinstance(config.start_time, datetime)
+        assert isinstance(config.end_time, datetime)
+        assert config.end_time > config.start_time
+
+    def test_incremental_lineage_config_support(self):
+        """Test that incremental_lineage configuration parameter is supported."""
+        config_dict = {
+            "username": "test_user",
+            "password": "test_password",
+            "host_port": "localhost:1025",
+            "include_table_lineage": True,
+            "include_usage_statistics": True,
+            "incremental_lineage": True,
+        }
+
+        config = TeradataConfig.parse_obj(config_dict)
+
+        assert hasattr(config, "incremental_lineage")
+        assert config.incremental_lineage is True
+
+        config_dict_false = {
+            **_base_config(),
+            "incremental_lineage": False,
+        }
+        config_false = TeradataConfig.parse_obj(config_dict_false)
+        assert config_false.incremental_lineage is False
+
+        config_default = TeradataConfig.parse_obj(_base_config())
+        assert config_default.incremental_lineage is False
+
+    def test_config_inheritance_chain(self):
+        """Test that TeradataConfig properly inherits from all required base classes."""
+        config_dict = {
+            "username": "test_user",
+            "password": "test_password",
+            "host_port": "localhost:1025",
+            "incremental_lineage": True,
+        }
+
+        config = TeradataConfig.parse_obj(config_dict)
+
+        # Verify inheritance from BaseTimeWindowConfig
+        assert hasattr(config, "start_time")
+        assert hasattr(config, "end_time")
+        assert hasattr(config, "bucket_duration")
+
+        # Verify inheritance from BaseTeradataConfig
+        assert hasattr(config, "scheme")
+
+        # Verify inheritance from TwoTierSQLAlchemyConfig
+        assert hasattr(config, "host_port")
+
+    def test_user_original_recipe_compatibility(self):
+        """Test that a user's original recipe configuration is parsed correctly."""
+        user_recipe_config = {
+            "host_port": "vmvantage1720:1025",
+            "username": "dbc",
+            "password": "dbc",
+            "include_table_lineage": True,
+            "include_usage_statistics": True,
+            "incremental_lineage": True,
+            "stateful_ingestion": {"enabled": True, "fail_safe_threshold": 90},
+        }
+
+        config = TeradataConfig.parse_obj(user_recipe_config)
+
+        assert config.host_port == "vmvantage1720:1025"
+        assert config.username == "dbc"
+        assert config.include_table_lineage is True
+        assert config.include_usage_statistics is True
+        assert config.incremental_lineage is True
+        assert config.start_time is not None
+        assert config.end_time is not None
+        assert config.start_time < config.end_time
+        assert config.stateful_ingestion is not None
+        assert config.stateful_ingestion.enabled is True
+        assert config.stateful_ingestion.fail_safe_threshold == 90
+
 
 class TestTeradataSource:
     """Test Teradata source functionality."""
@@ -326,6 +418,45 @@ class TestTeradataSource:
 
                 mock_aggregator.close.assert_called_once()
                 mock_super_close.assert_called_once()
+
+    def test_make_lineage_queries_with_time_defaults(self):
+        """Test that _make_lineage_queries works with automatic time defaults."""
+        config_dict = {
+            "username": "test_user",
+            "password": "test_password",
+            "host_port": "localhost:1025",
+            "include_table_lineage": True,
+            "include_usage_statistics": True,
+        }
+
+        config = TeradataConfig.parse_obj(config_dict)
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            with patch.object(
+                source, "_check_historical_table_exists", return_value=False
+            ):
+                queries = source._make_lineage_queries()
+
+            assert len(queries) > 0
+            query = queries[0]
+            assert "TIMESTAMP" in query
+            assert "None" not in query
+
+            import re
+
+            timestamp_pattern = r"TIMESTAMP '[^']+'"
+            matches = re.findall(timestamp_pattern, query)
+            assert len(matches) >= 2
 
 
 class TestSQLInjectionSafety:
@@ -1496,267 +1627,3 @@ class TestStreamingQueryReconstruction:
         entry.default_database = default_database
         entry.session_id = session_id or f"session_{query_id}"
         return entry
-
-
-class TestTeradataRegressionFixes:
-    """Test suite for regression fixes in Teradata source.
-
-    This class tests the fixes for two critical issues:
-    1. Time window defaults not being applied correctly
-    2. Missing incremental lineage support
-    """
-
-    def test_time_window_defaults_applied(self):
-        """Test that BaseTimeWindowConfig defaults are automatically applied.
-
-        This test ensures that the fix for the time window issue works correctly.
-        Previously, start_time and end_time were None before pydantic validation,
-        causing malformed SQL queries.
-        """
-        # Configuration without explicit time ranges (user's original recipe scenario)
-        config_dict = {
-            "username": "test_user",
-            "password": "test_password",
-            "host_port": "localhost:1025",
-            "include_table_lineage": True,
-            "include_usage_statistics": True,
-        }
-
-        config = TeradataConfig.parse_obj(config_dict)
-
-        # Verify that BaseTimeWindowConfig defaults are applied
-        assert config.start_time is not None, (
-            "start_time should not be None after pydantic validation"
-        )
-        assert config.end_time is not None, (
-            "end_time should not be None after pydantic validation"
-        )
-
-        # Verify they are datetime objects
-        assert isinstance(config.start_time, datetime), (
-            "start_time should be a datetime object"
-        )
-        assert isinstance(config.end_time, datetime), (
-            "end_time should be a datetime object"
-        )
-
-        # Verify reasonable defaults (end_time should be after start_time)
-        assert config.end_time > config.start_time, (
-            "end_time should be after start_time"
-        )
-
-        # Verify they can be used in SQL queries (both formats work fine)
-        # Test both formatting approaches work
-        formatted_str = config.start_time.strftime("%Y-%m-%d %H:%M:%S")
-        direct_str = str(config.start_time)
-
-        assert len(formatted_str) > 0, "strftime formatting should work"
-        assert len(direct_str) > 0, "direct string conversion should work"
-        assert "None" not in formatted_str, "formatted time should not contain 'None'"
-        assert "None" not in direct_str, "direct string should not contain 'None'"
-
-    def test_incremental_lineage_config_support(self):
-        """Test that incremental_lineage configuration parameter is supported.
-
-        This test ensures that the fix for missing incremental lineage support works.
-        Previously, incremental_lineage parameter was ignored because TeradataConfig
-        didn't inherit from IncrementalLineageConfigMixin.
-        """
-        # Test with incremental_lineage enabled (user's original recipe scenario)
-        config_dict = {
-            "username": "test_user",
-            "password": "test_password",
-            "host_port": "localhost:1025",
-            "include_table_lineage": True,
-            "include_usage_statistics": True,
-            "incremental_lineage": True,
-        }
-
-        config = TeradataConfig.parse_obj(config_dict)
-
-        # Verify incremental_lineage attribute exists and is set correctly
-        assert hasattr(config, "incremental_lineage"), (
-            "Config should have incremental_lineage attribute"
-        )
-        assert config.incremental_lineage is True, (
-            "incremental_lineage should be True when explicitly set"
-        )
-
-        # Test with incremental_lineage disabled
-        config_dict_false = {
-            "username": "test_user",
-            "password": "test_password",
-            "host_port": "localhost:1025",
-            "incremental_lineage": False,
-        }
-
-        config_false = TeradataConfig.parse_obj(config_dict_false)
-        assert config_false.incremental_lineage is False, (
-            "incremental_lineage should be False when explicitly set to False"
-        )
-
-        # Test default value when not specified
-        config_dict_default = {
-            "username": "test_user",
-            "password": "test_password",
-            "host_port": "localhost:1025",
-            # incremental_lineage not specified
-        }
-
-        config_default = TeradataConfig.parse_obj(config_dict_default)
-        assert config_default.incremental_lineage is False, (
-            "incremental_lineage should default to False"
-        )
-
-    def test_make_lineage_queries_with_time_defaults(self):
-        """Test that _make_lineage_queries works with automatic time defaults.
-
-        This is an integration test that verifies the time window fix works
-        end-to-end in the actual query generation method.
-        """
-        config_dict = {
-            "username": "test_user",
-            "password": "test_password",
-            "host_port": "localhost:1025",
-            "include_table_lineage": True,
-            "include_usage_statistics": True,
-            # No explicit start_time/end_time - should use defaults
-        }
-
-        config = TeradataConfig.parse_obj(config_dict)
-
-        with patch(
-            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
-        ) as mock_aggregator_class:
-            mock_aggregator = MagicMock()
-            mock_aggregator_class.return_value = mock_aggregator
-
-            with patch(
-                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
-            ):
-                source = TeradataSource(config, PipelineContext(run_id="test"))
-
-            # Mock the historical table check to avoid database connection
-            with patch.object(
-                source, "_check_historical_table_exists", return_value=False
-            ):
-                queries = source._make_lineage_queries()
-
-            # Verify that queries were generated (not empty due to None times)
-            assert len(queries) > 0, "Should generate at least one query"
-
-            # Verify that the generated query contains properly formatted timestamps
-            query = queries[0]
-            assert "TIMESTAMP" in query, "Query should contain TIMESTAMP clauses"
-            assert "None" not in query, "Query should not contain 'None' values"
-
-            # Verify the query contains valid timestamp values (both formats work)
-            import re
-
-            # Look for TIMESTAMP literals with any valid datetime format
-            timestamp_pattern = r"TIMESTAMP '[^']+'"
-            matches = re.findall(timestamp_pattern, query)
-            assert len(matches) >= 2, (
-                "Query should contain at least 2 TIMESTAMP literals"
-            )
-
-    def test_config_inheritance_chain(self):
-        """Test that TeradataConfig properly inherits from all required base classes.
-
-        This test verifies the inheritance fix that enables incremental lineage support.
-        """
-        config_dict = {
-            "username": "test_user",
-            "password": "test_password",
-            "host_port": "localhost:1025",
-            "incremental_lineage": True,
-        }
-
-        config = TeradataConfig.parse_obj(config_dict)
-
-        # Verify inheritance from BaseTimeWindowConfig
-        assert hasattr(config, "start_time"), (
-            "Should inherit start_time from BaseTimeWindowConfig"
-        )
-        assert hasattr(config, "end_time"), (
-            "Should inherit end_time from BaseTimeWindowConfig"
-        )
-        assert hasattr(config, "bucket_duration"), (
-            "Should inherit bucket_duration from BaseTimeWindowConfig"
-        )
-
-        # Verify inheritance from IncrementalLineageConfigMixin
-        assert hasattr(config, "incremental_lineage"), (
-            "Should inherit incremental_lineage from IncrementalLineageConfigMixin"
-        )
-
-        # Verify inheritance from BaseTeradataConfig
-        assert hasattr(config, "scheme"), (
-            "Should inherit scheme from BaseTeradataConfig"
-        )
-
-        # Verify inheritance from TwoTierSQLAlchemyConfig
-        assert hasattr(config, "host_port"), (
-            "Should inherit host_port from TwoTierSQLAlchemyConfig"
-        )
-
-    def test_user_original_recipe_compatibility(self):
-        """Test that the user's exact original recipe configuration is parsed correctly.
-
-        This test verifies that the user's actual configuration that was failing
-        before the fixes now works correctly during configuration parsing.
-        """
-        # User's exact original recipe that was failing
-        user_recipe_config = {
-            "host_port": "vmvantage1720:1025",
-            "username": "dbc",
-            "password": "dbc",
-            "include_table_lineage": True,
-            "include_usage_statistics": True,
-            "incremental_lineage": True,  # This was causing validation errors before
-            "stateful_ingestion": {"enabled": True, "fail_safe_threshold": 90},
-        }
-
-        # This should now work without any errors (was failing before the fixes)
-        config = TeradataConfig.parse_obj(user_recipe_config)
-
-        # Verify all the key configurations are preserved
-        assert config.host_port == "vmvantage1720:1025"
-        assert config.username == "dbc"
-        assert config.include_table_lineage is True
-        assert config.include_usage_statistics is True
-        assert (
-            config.incremental_lineage is True
-        )  # This was being ignored before the fix
-
-        # Verify time defaults are applied automatically (this was the main bug)
-        assert config.start_time is not None, "start_time should be automatically set"
-        assert config.end_time is not None, "end_time should be automatically set"
-        assert config.start_time < config.end_time, (
-            "start_time should be before end_time"
-        )
-
-        # Verify time values work with both formatting approaches
-        start_time_str = str(config.start_time)
-        end_time_str = str(config.end_time)
-
-        assert len(start_time_str) > 0, "start_time should convert to string"
-        assert len(end_time_str) > 0, "end_time should convert to string"
-        assert start_time_str < end_time_str, (
-            "string comparison should work for ordering"
-        )
-
-        # Verify stateful ingestion config is preserved
-        assert config.stateful_ingestion is not None
-        assert config.stateful_ingestion.enabled is True
-        assert config.stateful_ingestion.fail_safe_threshold == 90
-
-        # Verify the combination of features works (incremental + stateful + time windows)
-        assert config.incremental_lineage and config.start_time is not None
-        assert hasattr(config, "incremental_lineage") and hasattr(config, "start_time")
-
-        # Test that this config could be used for query generation
-        sample_query_fragment = f"WHERE timestamp >= TIMESTAMP '{start_time_str}' AND timestamp < TIMESTAMP '{end_time_str}'"
-        assert "TIMESTAMP" in sample_query_fragment
-        assert "None" not in sample_query_fragment
-        assert len(sample_query_fragment) > 50  # Should be a substantial query fragment
