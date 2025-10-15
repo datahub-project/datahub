@@ -15,7 +15,7 @@ from datahub_integrations.experimentation.docs_generation.eval_common import (
     AIJudgeVerdict,
     HumanGuidelines,
 )
-from datahub_integrations.gen_ai.bedrock import BedrockModel, call_bedrock_llm
+from datahub_integrations.gen_ai.bedrock import call_bedrock_llm
 from datahub_integrations.gen_ai.description_context import (
     ColumnMetadataInfo,
     ExtractedTableInfo,
@@ -23,6 +23,7 @@ from datahub_integrations.gen_ai.description_context import (
     transform_table_info_for_llm,
 )
 from datahub_integrations.gen_ai.description_v3 import LARGE_TABLE_THRESHOLD
+from datahub_integrations.gen_ai.model_config import BedrockModel
 
 AI_JUDGE_MODEL = BedrockModel.CLAUDE_4_SONNET
 

@@ -3,6 +3,7 @@ from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INIT
 from typing import List, Optional
 
 import asyncer
+from datahub_integrations.gen_ai.model_config import BedrockModel
 import mlflow
 import mlflow.metrics
 import pandas as pd
@@ -20,7 +21,6 @@ from datahub_integrations.experimentation.chatbot.eval_helpers import (
 )
 from datahub_integrations.experimentation.chatbot.judge import (
     CHATBOT_AI_JUDGE_MODEL,
-    BedrockModel,
     LLMJudgeResponse,
     chatbot_llm_judge_evaluation,
 )

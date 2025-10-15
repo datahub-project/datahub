@@ -9,7 +9,8 @@ from datahub_integrations.gen_ai.description_v3 import (
     generate_table_description,
     get_extra_documentation_instructions,
 )
-from datahub_integrations.gen_ai.litellm import LiteLLM, LiteLLMModel
+from datahub_integrations.gen_ai.litellm import LiteLLM
+from datahub_integrations.gen_ai.model_config import LiteLLMModel
 from datahub_integrations.gen_ai.suggest_query_description import generate_query_desc
 
 

@@ -8,13 +8,8 @@ from datahub_integrations.gen_ai.description_v3 import (
 )
 from datahub_integrations.gen_ai.litellm import (
     LiteLLM,
-    LiteLLMModel,
-    get_litellm_model_env_variable,
 )
-
-QUERY_DESCRIPTION_GENERATION_MODEL: LiteLLMModel | str = get_litellm_model_env_variable(
-    "QUERY_DESCRIPTION_GENERATION_BEDROCK_MODEL", LiteLLMModel.CLAUDE_35_SONNET
-)
+from datahub_integrations.gen_ai.model_config import model_config
 
 
 @dataclasses.dataclass
@@ -95,7 +90,9 @@ Additional Requirements:
 """
 
     litellm = LiteLLM(
-        model=QUERY_DESCRIPTION_GENERATION_MODEL, max_tokens=500, temperature=0.3
+        model=model_config.documentation_ai.query_description_model,
+        max_tokens=500,
+        temperature=0.3,
     )
 
     description = litellm.call_lite_llm(prompt=base_prompt)

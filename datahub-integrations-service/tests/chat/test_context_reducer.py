@@ -13,7 +13,6 @@ from datahub_integrations.chat.chat_history import (
     ToolCallRequest,
     ToolResult,
 )
-from datahub_integrations.chat.chat_session import CHAT_SUMMARIZATION_MODEL
 from datahub_integrations.chat.context_reducer import (
     ContextReducerConfig,
     TokenCountEstimator,
@@ -24,6 +23,7 @@ from datahub_integrations.chat.reducers.conversation_summarizer import (
 from datahub_integrations.chat.reducers.sliding_window_reducer import (
     SlidingWindowReducer,
 )
+from datahub_integrations.gen_ai.model_config import model_config
 
 
 class TestConversationSummarizer:
@@ -50,7 +50,7 @@ class TestConversationSummarizer:
             token_estimator=token_estimator,
             config=config,
             num_recent_messages_to_keep=3,
-            summarization_model=CHAT_SUMMARIZATION_MODEL,
+            summarization_model=model_config.chat_assistant_ai.summary_model,
         )
 
     def test_split_at_context_fit_all_messages_fit(

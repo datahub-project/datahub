@@ -4,9 +4,9 @@ from litellm import completion
 
 from datahub_integrations.gen_ai.litellm import (
     LiteLLM,
-    LiteLLMModel,
     LiteLLMPromptMessage,
 )
+from datahub_integrations.gen_ai.model_config import LiteLLMModel
 
 
 class TestLiteLLM:
