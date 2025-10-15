@@ -94,7 +94,7 @@ sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
     # but not longer do.
-    "sqlglot[rs]==27.12.0",
+    "sqlglot[rs]==27.27.0",
     "patchy==2.8.0",
 }
 
