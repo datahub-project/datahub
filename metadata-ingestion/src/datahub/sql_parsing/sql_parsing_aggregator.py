@@ -1340,11 +1340,25 @@ class SqlParsingAggregator(Closeable):
                 upstreams.setdefault(upstream, query.query_id)
 
             for lineage_info in query.column_lineage:
-                for upstream_ref in lineage_info.upstreams:
-                    cll[lineage_info.downstream.column].setdefault(
-                        SchemaFieldUrn(upstream_ref.table, upstream_ref.column),
-                        query.query_id,
+                if (
+                    not lineage_info.downstream.column
+                    or not lineage_info.downstream.column.strip()
+                ):
+                    logger.debug(
+                        f"Skipping lineage entry with empty downstream column in query {query.query_id}"
                     )
+                    continue
+
+                for upstream_ref in lineage_info.upstreams:
+                    if upstream_ref.column:
+                        cll[lineage_info.downstream.column].setdefault(
+                            SchemaFieldUrn(upstream_ref.table, upstream_ref.column),
+                            query.query_id,
+                        )
+                    else:
+                        logger.debug(
+                            f"Skipping empty column reference in lineage for query {query.query_id}"
+                        )
 
         # Finally, we can build our lineage edge.
         required_queries = OrderedSet[QueryId]()
