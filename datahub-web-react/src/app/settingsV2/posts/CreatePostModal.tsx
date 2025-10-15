@@ -158,7 +158,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             title={titleText}
             open
             onCancel={onCloseModal}
-            width={740}
+            width={700}
             footer={
                 <ModalButtonContainer>
                     <Button color="gray" onClick={onCloseModal} variant="text">
