@@ -2138,10 +2138,44 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "inviteToken": invite_token,
         }
 
+        logger.debug(f"Creating user with email={email} at URL: {signup_url}")
+        logger.debug(
+            f"Signup payload: {json.dumps({**signup_payload, 'password': '***'})}"
+        )
+
         try:
-            self._post_generic(url=signup_url, payload_dict=signup_payload)
+            response = self._session.post(signup_url, json=signup_payload)
+            logger.debug(f"Response status code: {response.status_code}")
+            logger.debug(f"Response headers: {dict(response.headers)}")
+            logger.debug(f"Response content length: {len(response.text)}")
+
+            response.raise_for_status()
+
+            # The /signUp endpoint returns 200 with empty body on success
+            logger.debug("User created successfully")
+
+        except HTTPError as http_err:
+            error_details = {
+                "url": signup_url,
+                "status_code": response.status_code,
+                "response_text": response.text[:500],
+            }
+            try:
+                error_json = response.json()
+                error_details["error_response"] = error_json
+                error_msg = error_json.get("message", str(http_err))
+            except JSONDecodeError:
+                error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+
+            raise OperationalError(
+                f"Failed to create user: {error_msg}",
+                error_details,
+            ) from http_err
         except Exception as e:
-            raise OperationalError(f"Failed to create user: {str(e)}", {}) from e
+            raise OperationalError(
+                f"Failed to create user: {str(e)}",
+                {"url": signup_url, "error_type": type(e).__name__},
+            ) from e
 
     def _assign_role_to_user(self, user_urn: str, role: str) -> None:
         """
@@ -2201,6 +2235,15 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             OperationalError: If user creation fails
             ValueError: If role is invalid
         """
+        # Validate role before creating user
+        if role:
+            normalized_role = role.capitalize()
+            valid_roles = ["Admin", "Editor", "Reader"]
+            if normalized_role not in valid_roles:
+                raise ValueError(
+                    f"Invalid role '{role}'. Must be one of: {', '.join(valid_roles)}"
+                )
+
         user_urn = f"urn:li:corpuser:{email}"
 
         invite_token = self._get_invite_token()

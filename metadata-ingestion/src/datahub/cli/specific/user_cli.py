@@ -123,8 +123,26 @@ def add(email: str, display_name: str, password: bool, role: str) -> None:
             click.secho(f"Error: {str(e)}", fg="red")
             raise SystemExit(1) from e
         except OperationalError as e:
-            click.secho(f"Error: {str(e)}", fg="red")
+            # OperationalError has message and info dict
+            error_msg = e.message if hasattr(e, "message") else str(e.args[0])
+            click.secho(f"Error: {error_msg}", fg="red")
+
+            # Show additional error details if available
+            if hasattr(e, "info") and e.info:
+                logger.debug(f"Error details: {e.info}")
+                if "status_code" in e.info:
+                    click.secho(f"  HTTP Status: {e.info['status_code']}", fg="red")
+                if "response_text" in e.info:
+                    click.secho(
+                        f"  Response: {e.info['response_text'][:200]}", fg="red"
+                    )
+
+            click.secho(
+                "\nTip: Run with DATAHUB_DEBUG=1 environment variable for detailed logs",
+                fg="yellow",
+            )
             raise SystemExit(1) from e
         except Exception as e:
             click.secho(f"Unexpected error: {str(e)}", fg="red")
+            logger.exception("Unexpected error during user creation")
             raise SystemExit(1) from e
