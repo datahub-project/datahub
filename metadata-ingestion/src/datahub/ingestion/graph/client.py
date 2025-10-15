@@ -30,6 +30,7 @@ from typing_extensions import deprecated
 
 from datahub._codegen.aspect import _Aspect
 from datahub.cli import config_utils
+from datahub.cli.cli_utils import guess_frontend_url_from_gms_url
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
@@ -2070,6 +2071,150 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         )
 
         return res["reportAssertionResult"]
+
+    def _get_invite_token(self) -> str:
+        """
+        Retrieve an invite token for user creation.
+
+        Returns:
+            Invite token string
+
+        Raises:
+            OperationalError: If invite token retrieval fails
+        """
+        get_invite_token_query = """
+            query getInviteToken($input: GetInviteTokenInput!) {
+                getInviteToken(input: $input) {
+                    inviteToken
+                }
+            }
+        """
+
+        try:
+            invite_token_response = self.execute_graphql(
+                query=get_invite_token_query,
+                variables={"input": {}},
+            )
+            invite_token = invite_token_response.get("getInviteToken", {}).get(
+                "inviteToken"
+            )
+            if not invite_token:
+                raise OperationalError(
+                    "Failed to retrieve invite token. Ensure you have admin permissions.",
+                    {},
+                )
+            return invite_token
+        except Exception as e:
+            raise OperationalError(
+                f"Failed to retrieve invite token: {str(e)}", {}
+            ) from e
+
+    def _create_user_with_token(
+        self,
+        email: str,
+        display_name: str,
+        password: str,
+        invite_token: str,
+    ) -> None:
+        """
+        Create a user using the signup endpoint.
+
+        Args:
+            email: User's email address
+            display_name: Full display name for the user
+            password: User's password
+            invite_token: Invite token for user creation
+
+        Raises:
+            OperationalError: If user creation fails
+        """
+        frontend_url = guess_frontend_url_from_gms_url(self._gms_server)
+        signup_url = f"{frontend_url}/signUp"
+        signup_payload = {
+            "email": email,
+            "fullName": display_name,
+            "password": password,
+            "title": "Other",
+            "inviteToken": invite_token,
+        }
+
+        try:
+            self._post_generic(url=signup_url, payload_dict=signup_payload)
+        except Exception as e:
+            raise OperationalError(f"Failed to create user: {str(e)}", {}) from e
+
+    def _assign_role_to_user(self, user_urn: str, role: str) -> None:
+        """
+        Assign a role to a user.
+
+        Args:
+            user_urn: User URN
+            role: Role to assign (Admin, Editor, or Reader)
+
+        Raises:
+            ValueError: If role is invalid
+        """
+        normalized_role = role.capitalize()
+        valid_roles = ["Admin", "Editor", "Reader"]
+        if normalized_role not in valid_roles:
+            raise ValueError(
+                f"Invalid role '{role}'. Must be one of: {', '.join(valid_roles)}"
+            )
+
+        role_urn = f"urn:li:dataHubRole:{normalized_role}"
+
+        batch_assign_role_mutation = """
+            mutation batchAssignRole($input: BatchAssignRoleInput!) {
+                batchAssignRole(input: $input)
+            }
+        """
+
+        try:
+            self.execute_graphql(
+                query=batch_assign_role_mutation,
+                variables={"input": {"roleUrn": role_urn, "actors": [user_urn]}},
+            )
+        except Exception as e:
+            logger.warning(f"Role assignment failed for user {user_urn}: {str(e)}")
+            raise
+
+    def create_native_user(
+        self,
+        email: str,
+        display_name: str,
+        password: str,
+        role: Optional[str] = None,
+    ) -> str:
+        """
+        Create a native DataHub user with email/password authentication.
+
+        Args:
+            email: User's email address (will be used as user ID)
+            display_name: Full display name for the user
+            password: User's password
+            role: Optional role to assign (Admin, Editor, or Reader)
+
+        Returns:
+            User URN of the created user (urn:li:corpuser:{email})
+
+        Raises:
+            OperationalError: If user creation fails
+            ValueError: If role is invalid
+        """
+        user_urn = f"urn:li:corpuser:{email}"
+
+        invite_token = self._get_invite_token()
+        self._create_user_with_token(email, display_name, password, invite_token)
+
+        if role:
+            try:
+                self._assign_role_to_user(user_urn, role)
+            except Exception as e:
+                logger.warning(
+                    f"User {email} created successfully, but role assignment failed: {str(e)}"
+                )
+
+        return user_urn
 
     def close(self) -> None:
         self._make_schema_resolver.cache_clear()

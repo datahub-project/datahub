@@ -7,6 +7,7 @@ from click_default_group import DefaultGroup
 
 from datahub.api.entities.corpuser.corpuser import CorpUser, CorpUserGenerationConfig
 from datahub.cli.specific.file_loader import load_file
+from datahub.configuration.common import OperationalError
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.upgrade import upgrade
@@ -55,3 +56,75 @@ def upsert(file: Path, override_editable: bool) -> None:
                     f"Update failed for id {user_config.get('id')}. due to {e}",
                     fg="red",
                 )
+
+
+@user.command(name="add")
+@click.option("--email", required=True, type=str, help="User's email address")
+@click.option(
+    "--display-name", required=True, type=str, help="User's full display name"
+)
+@click.option(
+    "--password",
+    is_flag=True,
+    default=False,
+    help="Prompt for password (hidden input)",
+)
+@click.option(
+    "--role",
+    required=False,
+    type=click.Choice(
+        ["Admin", "Editor", "Reader", "admin", "editor", "reader"], case_sensitive=False
+    ),
+    help="Optional role to assign (Admin, Editor, or Reader)",
+)
+@upgrade.check_upgrade
+def add(email: str, display_name: str, password: bool, role: str) -> None:
+    """Create a native DataHub user with email/password authentication"""
+
+    if not password:
+        click.secho(
+            "Error: --password flag is required to prompt for password input",
+            fg="red",
+        )
+        raise SystemExit(1)
+
+    password_value = click.prompt(
+        "Enter password", hide_input=True, confirmation_prompt=True
+    )
+
+    with get_default_graph(ClientMode.CLI) as graph:
+        user_urn = f"urn:li:corpuser:{email}"
+
+        if graph.exists(user_urn):
+            click.secho(
+                f"User with email {email} already exists (urn: {user_urn})", fg="yellow"
+            )
+            raise SystemExit(0)
+
+        try:
+            created_user_urn = graph.create_native_user(
+                email=email,
+                display_name=display_name,
+                password=password_value,
+                role=role,
+            )
+
+            if role:
+                click.secho(
+                    f"Successfully created user {email} with role {role.capitalize()} (URN: {created_user_urn})",
+                    fg="green",
+                )
+            else:
+                click.secho(
+                    f"Successfully created user {email} (URN: {created_user_urn})",
+                    fg="green",
+                )
+        except ValueError as e:
+            click.secho(f"Error: {str(e)}", fg="red")
+            raise SystemExit(1) from e
+        except OperationalError as e:
+            click.secho(f"Error: {str(e)}", fg="red")
+            raise SystemExit(1) from e
+        except Exception as e:
+            click.secho(f"Unexpected error: {str(e)}", fg="red")
+            raise SystemExit(1) from e
