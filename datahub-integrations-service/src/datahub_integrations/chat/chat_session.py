@@ -50,11 +50,10 @@ from datahub_integrations.chat.reducers.sliding_window_reducer import (
 )
 from datahub_integrations.chat.utils import parse_reasoning_message
 from datahub_integrations.gen_ai.bedrock import (
-    BedrockModel,
     get_bedrock_client,
-    get_bedrock_model_env_variable,
 )
 from datahub_integrations.gen_ai.linkify import auto_fix_chat_links
+from datahub_integrations.gen_ai.model_config import model_config
 from datahub_integrations.mcp.mcp_server import (
     get_datahub_client,
     mcp,
@@ -88,16 +87,8 @@ assert MESSAGE_LENGTH_HARD_LIMIT >= 1.5 * MESSAGE_LENGTH_SOFT_LIMIT
 
 _MAX_SUGGESTIONS = 4
 
-CHATBOT_MODEL = get_bedrock_model_env_variable(
-    "CHATBOT_MODEL", BedrockModel.CLAUDE_37_SONNET
-)
-
 CLAUDE_TOKEN_LIMIT = int(200e3)
 ProgressCallback = Callable[[List[str]], None]
-
-CHAT_SUMMARIZATION_MODEL = get_bedrock_model_env_variable(
-    "CHAT_SUMMARIZATION_MODEL", BedrockModel.CLAUDE_37_SONNET
-)
 
 
 class ChatSessionMaxTokensExceededError(Exception):
@@ -431,11 +422,8 @@ class ChatSession:
         }
 
     def _get_model_id(self) -> str:
-        return (
-            CHATBOT_MODEL.value
-            if isinstance(CHATBOT_MODEL, BedrockModel)
-            else CHATBOT_MODEL
-        )
+        # Use the new model configuration for chat assistant
+        return model_config.chat_assistant_ai.model
 
     @classmethod
     def is_respond_to_user(cls, message: Message) -> TypeGuard[ToolResult]:
@@ -765,7 +753,7 @@ def create_default_context_reducer_chain(
             estimator,
             config,
             num_recent_messages_to_keep=5,
-            summarization_model=CHAT_SUMMARIZATION_MODEL,
+            summarization_model=model_config.chat_assistant_ai.summary_model,
         ),
         SlidingWindowReducer(estimator, config, max_messages=10),
     ]

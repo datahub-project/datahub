@@ -146,8 +146,8 @@ which will contain artifact `ai_judge_accuracy.json` that captures overall metri
 
 - **Metrics**: See `eval_config/metrics_config.yaml` for metrics configuration
 - **Environment Variables**:
-  - `DESCRIPTION_GENERATION_BEDROCK_MODEL`: Model for table/column descriptions
-  - `QUERY_DESCRIPTION_GENERATION_BEDROCK_MODEL`: Model for query descriptions
+  - `DESCRIPTION_GENERATION_MODEL`: Model for table/column descriptions
+  - `QUERY_DESCRIPTION_GENERATION_MODEL`: Model for query descriptions
 
 ## Troubleshooting
 

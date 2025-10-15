@@ -1075,6 +1075,35 @@ Reference Links:
 | `SEMANTIC_SEARCH_ENABLED`          | `false` | Enable semantic search capabilities (requires DataHub Cloud with semantic search support)                                    | Integrations Service |
 | `DATAHUB_MCP_DISABLE_DEFAULT_VIEW` | `false` | Disable automatic application of organization's default global view to MCP search operations (by default, views are applied) | Integrations Service |
 
+## AI Model Configuration
+
+### Core AI Configuration
+
+| Environment Variable                      | Default | Description                                                       | Components           |
+| ----------------------------------------- | ------- | ----------------------------------------------------------------- | -------------------- |
+| `ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX` | `us`    | Cross-region inference prefix for Anthropic models (us, eu, apac) | Integrations Service |
+
+### Documentation Generation AI
+
+| Environment Variable                 | Default                                                | Description                            | Components           |
+| ------------------------------------ | ------------------------------------------------------ | -------------------------------------- | -------------------- |
+| `DESCRIPTION_GENERATION_MODEL`       | `bedrock/us.anthropic.claude-3-haiku-20240307-v1:0`    | Model for documentation generation     | Integrations Service |
+| `QUERY_DESCRIPTION_GENERATION_MODEL` | `bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0` | Model for query description generation | Integrations Service |
+
+### Chat Assistant AI
+
+| Environment Variable       | Default                                        | Description                       | Components           |
+| -------------------------- | ---------------------------------------------- | --------------------------------- | -------------------- |
+| `CHATBOT_MODEL`            | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` | Model for DataHub chat assistant  | Integrations Service |
+| `CHAT_SUMMARIZATION_MODEL` | `us.anthropic.claude-3-7-sonnet-20250219-v1:0` | Model for chat summary generation | Integrations Service |
+| `CHATBOT_PLANNING_ENABLED` | `true`                                         | Whether planning mode is enabled  | Integrations Service |
+
+### Term Suggestion AI
+
+| Environment Variable    | Default                                        | Description                                             | Components           |
+| ----------------------- | ---------------------------------------------- | ------------------------------------------------------- | -------------------- |
+| `TERM_SUGGESTION_MODEL` | `us.anthropic.claude-3-7-sonnet-20250219-v1:0` | Model for classification and term suggestion automation | Integrations Service |
+
 ---
 
 ## Notes

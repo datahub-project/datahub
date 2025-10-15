@@ -29,10 +29,9 @@ from datahub_integrations.gen_ai.description_context import (
 from datahub_integrations.gen_ai.linkify import auto_fix_entity_mention_links
 from datahub_integrations.gen_ai.litellm import (
     LiteLLM,
-    LiteLLMModel,
     LiteLLMPromptMessage,
-    get_litellm_model_env_variable,
 )
+from datahub_integrations.gen_ai.model_config import model_config
 
 # Initialize MLflow for @mlflow.trace decorators in this module
 initialize_mlflow()
@@ -43,10 +42,6 @@ MAX_COLUMNS_PER_BATCH = int(
 )
 ANYIO_THREAD_COUNT = 100
 LARGE_TABLE_THRESHOLD = 100
-
-DEFAULT_MODEL: LiteLLMModel | str = get_litellm_model_env_variable(
-    "DESCRIPTION_GENERATION_LITELLM_MODEL", LiteLLMModel.CLAUDE_3_HAIKU
-)
 
 DEFAULT_TEMPERATURE = 0.3
 DEFAULT_MAX_TOKENS = 4096
@@ -359,7 +354,7 @@ def generate_entity_descriptions_for_urn_eval_v3(
     column_descriptions = None
 
     litellm = LiteLLM(
-        model=DEFAULT_MODEL,
+        model=model_config.documentation_ai.model,
         max_tokens=DEFAULT_MAX_TOKENS,
         temperature=DEFAULT_TEMPERATURE,
     )

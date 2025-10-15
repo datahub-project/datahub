@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING, Sequence
 
 from loguru import logger
 
-from datahub_integrations.gen_ai.bedrock import BedrockModel, get_bedrock_client
+from datahub_integrations.gen_ai.bedrock import get_bedrock_client
+from datahub_integrations.gen_ai.model_config import BedrockModel
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime.type_defs import (

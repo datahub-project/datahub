@@ -20,7 +20,7 @@ from datahub_integrations.chat.context_reducer import (
     ContextReducerConfig,
     TokenCountEstimator,
 )
-from datahub_integrations.gen_ai.bedrock import BedrockModel
+from datahub_integrations.gen_ai.model_config import BedrockModel
 
 _CREATE_SUMMARY_SYSTEM_PROMPT = """\
 You are a helpful AI assistant tasked with summarizing conversations.
