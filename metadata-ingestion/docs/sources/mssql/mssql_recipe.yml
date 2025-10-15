@@ -10,7 +10,7 @@ source:
     password: pass
 
     # This is recommended to improve lineage quality. Ignores case-sensitivity when constructing internal identifiers.
-    convert_urns_to_lowercase: True
+    convert_urns_to_lowercase: true
 
     # Options
     # Uncomment if you need to use encryption with pytds
@@ -26,7 +26,7 @@ sink:
 #------------------------------------------------------------------------
 #Example: using ingestion with ODBC and encryption
 #This requires you to have already installed the Microsoft ODBC Driver for SQL Server.
-#See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-development-environment-for-pyodbc-python-development?view=sql-server-ver15
+#See https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server
 # ------------------------------------------------------------------------
 
 source:
@@ -41,12 +41,11 @@ source:
     password: password
 
     # Options
-    use_odbc: "True"
+    use_odbc: true
     uri_args:
-      driver: "ODBC Driver 17 for SQL Server"
+      driver: "ODBC Driver 18 for SQL Server"
       Encrypt: "yes"
-      TrustServerCertificate: "Yes"
-      ssl: "True"
+      TrustServerCertificate: "yes" # for self-signed certificates
 
 sink:
   # sink configs
