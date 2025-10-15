@@ -89,8 +89,7 @@ public class SsoSupportCallbackController extends CallbackController {
         this.ec.current());
   }
 
-  public CompletionStage<Result> handleSupportCallback(Http.Request request) {
-    String protocol = "oidc_support"; // Always oidc_support for support callbacks
+  public CompletionStage<Result> handleSupportCallback(String protocol, Http.Request request) {
     log.debug("handleSupportCallback called with protocol: {}", protocol);
 
     if (shouldHandleSupportCallback(protocol)) {
@@ -106,7 +105,7 @@ public class SsoSupportCallbackController extends CallbackController {
                       e);
                   String basePath =
                       BasePathUtils.normalizeBasePath(configs.getString("datahub.basePath"));
-                  String loginUrl = BasePathUtils.addBasePath("/login-support", basePath);
+                  String loginUrl = BasePathUtils.addBasePath("/login", basePath);
                   return Results.redirect(
                           String.format(
                               "%s?error_msg=%s",
@@ -173,11 +172,11 @@ public class SsoSupportCallbackController extends CallbackController {
 
     updateConfig();
 
-    // Handle the specific case where protocol is "oidc_support" but actual protocol is OIDC
-    if ("oidc_support".equals(protocol)
+    // Handle the specific case where protocol is "oidc" for support OIDC
+    if ("oidc".equals(protocol)
         && SsoProvider.SsoProtocol.OIDC.equals(
             ssoSupportManager.getSupportSsoProvider().protocol())) {
-      log.debug("Handling oidc_support protocol with OIDC provider");
+      log.debug("Handling oidc protocol with OIDC provider");
       return true;
     }
 

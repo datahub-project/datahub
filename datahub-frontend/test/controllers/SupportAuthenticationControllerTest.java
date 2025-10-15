@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import auth.AuthUtils;
 import auth.sso.SsoProvider;
 import auth.sso.SsoSupportManager;
 import client.AuthServiceClient;
@@ -173,7 +174,247 @@ public class SupportAuthenticationControllerTest {
     // Assert
     assertNotNull(result);
     assertEquals(303, result.status()); // Redirect status
-    assertTrue(result.redirectLocation().orElse("").contains("/login-support"));
+    assertTrue(result.redirectLocation().orElse("").contains("/login"));
     assertTrue(result.redirectLocation().orElse("").contains("error_msg"));
+  }
+
+  @Test
+  public void testAuthenticateSupportWithSsoDisabled() {
+    // Arrange
+    Http.Request request = mock(Http.Request.class);
+    Http.Session session = mock(Http.Session.class);
+    when(request.session()).thenReturn(session);
+    when(ssoSupportManager.isSupportSsoEnabled()).thenReturn(false);
+
+    // Act
+    Result result = controller.authenticateSupport(request);
+
+    // Assert
+    assertNotNull(result);
+    assertEquals(303, result.status()); // Redirect status
+    assertTrue(result.redirectLocation().orElse("").contains("/login"));
+    assertTrue(result.redirectLocation().orElse("").contains("error_msg"));
+    assertTrue(result.redirectLocation().orElse("").contains("Support SSO is not configured"));
+  }
+
+  @Test
+  public void testAuthenticateSupportWithValidSession() {
+    // Arrange
+    Http.Request request = mock(Http.Request.class);
+    Http.Session session = mock(Http.Session.class);
+    when(request.session()).thenReturn(session);
+    when(request.getQueryString("redirect_uri")).thenReturn("/dashboard");
+
+    // Mock AuthUtils.hasValidSessionCookie to return true
+    try (var mockedStatic = mockStatic(AuthUtils.class)) {
+      mockedStatic.when(() -> AuthUtils.hasValidSessionCookie(request)).thenReturn(true);
+
+      // Act
+      Result result = controller.authenticateSupport(request);
+
+      // Assert
+      assertNotNull(result);
+      assertEquals(303, result.status()); // Redirect status
+      assertEquals("/dashboard", result.redirectLocation().orElse(""));
+    }
+  }
+
+  @Test
+  public void testAuthenticateSupportWithInvalidRedirectUri() {
+    // Arrange
+    Http.Request request = mock(Http.Request.class);
+    Http.Session session = mock(Http.Session.class);
+    when(request.session()).thenReturn(session);
+    when(request.getQueryString("redirect_uri")).thenReturn("https://malicious.com/steal");
+    when(ssoSupportManager.isSupportSsoEnabled()).thenReturn(false);
+
+    // Act
+    Result result = controller.authenticateSupport(request);
+
+    // Assert
+    assertNotNull(result);
+    assertEquals(303, result.status()); // Redirect status
+    assertTrue(result.redirectLocation().orElse("").contains("/login"));
+    assertTrue(result.redirectLocation().orElse("").contains("error_msg"));
+  }
+
+  @Test
+  public void testAuthenticateSupportWithLogOutRedirect() {
+    // Arrange
+    Http.Request request = mock(Http.Request.class);
+    Http.Session session = mock(Http.Session.class);
+    when(request.session()).thenReturn(session);
+    when(request.getQueryString("redirect_uri")).thenReturn("/logOut");
+    when(ssoSupportManager.isSupportSsoEnabled()).thenReturn(false);
+
+    // Act
+    Result result = controller.authenticateSupport(request);
+
+    // Assert
+    assertNotNull(result);
+    assertEquals(303, result.status()); // Redirect status
+    assertTrue(result.redirectLocation().orElse("").contains("/login"));
+    assertTrue(result.redirectLocation().orElse("").contains("error_msg"));
+  }
+
+  @Test
+  public void testAuthenticateSupportWithSsoEnabledButNoRedirect() {
+    // Arrange
+    Http.Request request = mock(Http.Request.class);
+    Http.Session session = mock(Http.Session.class);
+    when(request.session()).thenReturn(session);
+    when(request.getQueryString("redirect_uri")).thenReturn("/dashboard");
+    when(ssoSupportManager.isSupportSsoEnabled()).thenReturn(true);
+
+    SsoProvider mockProvider = mock(SsoProvider.class);
+    Client mockClient = mock(Client.class);
+    when(ssoSupportManager.getSupportSsoProvider()).thenReturn(mockProvider);
+    when(mockProvider.client()).thenReturn(mockClient);
+    when(mockClient.getName()).thenReturn("oidc-support");
+
+    CallContext mockCallContext = mock(CallContext.class);
+    PlayWebContext mockWebContext = mock(PlayWebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+    when(mockWebContext.getRequestCookies()).thenReturn(new java.util.ArrayList<>());
+
+    // Create a spy to mock the buildCallContext method
+    SupportAuthenticationController spyController = spy(controller);
+    doReturn(mockCallContext).when(spyController).buildCallContext(any(Http.RequestHeader.class));
+
+    // Mock client to return empty optional (no redirect)
+    when(mockClient.getRedirectionAction(any(CallContext.class))).thenReturn(Optional.empty());
+
+    // Act
+    Result result = spyController.authenticateSupport(request);
+
+    // Assert
+    assertNotNull(result);
+    assertEquals(303, result.status()); // Redirect status
+    assertTrue(result.redirectLocation().orElse("").contains("/login"));
+    assertTrue(result.redirectLocation().orElse("").contains("error_msg"));
+    assertTrue(result.redirectLocation().orElse("").contains("missing redirect from idp"));
+  }
+
+  @Test
+  public void testAuthenticateSupportWithSsoEnabledButException() {
+    // Arrange
+    Http.Request request = mock(Http.Request.class);
+    Http.Session session = mock(Http.Session.class);
+    when(request.session()).thenReturn(session);
+    when(request.getQueryString("redirect_uri")).thenReturn("/dashboard");
+    when(ssoSupportManager.isSupportSsoEnabled()).thenReturn(true);
+
+    SsoProvider mockProvider = mock(SsoProvider.class);
+    Client mockClient = mock(Client.class);
+    when(ssoSupportManager.getSupportSsoProvider()).thenReturn(mockProvider);
+    when(mockProvider.client()).thenReturn(mockClient);
+    when(mockClient.getName()).thenReturn("oidc-support");
+
+    CallContext mockCallContext = mock(CallContext.class);
+    PlayWebContext mockWebContext = mock(PlayWebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+    when(mockWebContext.getRequestCookies()).thenReturn(new java.util.ArrayList<>());
+
+    // Create a spy to mock the buildCallContext method
+    SupportAuthenticationController spyController = spy(controller);
+    doReturn(mockCallContext).when(spyController).buildCallContext(any(Http.RequestHeader.class));
+
+    // Mock client to throw exception
+    when(mockClient.getRedirectionAction(any(CallContext.class)))
+        .thenThrow(new RuntimeException("SSO configuration error"));
+
+    // Act
+    Result result = spyController.authenticateSupport(request);
+
+    // Assert
+    assertNotNull(result);
+    assertEquals(303, result.status()); // Redirect status
+    assertTrue(result.redirectLocation().orElse("").contains("/login"));
+    assertTrue(result.redirectLocation().orElse("").contains("error_msg"));
+
+    assertTrue(
+        result
+            .redirectLocation()
+            .orElse("")
+            .contains("Failed+to+redirect+to+Support+Single+Sign-On+provider"));
+  }
+
+  @Test
+  public void testSsoSupportWithSsoEnabledButNoRedirect() {
+    // Arrange
+    Http.Request request = mock(Http.Request.class);
+    Http.Session session = mock(Http.Session.class);
+    when(request.session()).thenReturn(session);
+    when(ssoSupportManager.isSupportSsoEnabled()).thenReturn(true);
+
+    SsoProvider mockProvider = mock(SsoProvider.class);
+    Client mockClient = mock(Client.class);
+    when(ssoSupportManager.getSupportSsoProvider()).thenReturn(mockProvider);
+    when(mockProvider.client()).thenReturn(mockClient);
+    when(mockClient.getName()).thenReturn("oidc-support");
+
+    CallContext mockCallContext = mock(CallContext.class);
+    PlayWebContext mockWebContext = mock(PlayWebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+    when(mockWebContext.getRequestCookies()).thenReturn(new java.util.ArrayList<>());
+
+    // Create a spy to mock the buildCallContext method
+    SupportAuthenticationController spyController = spy(controller);
+    doReturn(mockCallContext).when(spyController).buildCallContext(any(Http.RequestHeader.class));
+
+    // Mock client to return empty optional (no redirect)
+    when(mockClient.getRedirectionAction(any(CallContext.class))).thenReturn(Optional.empty());
+
+    // Act
+    Result result = spyController.ssoSupport(request);
+
+    // Assert
+    assertNotNull(result);
+    assertEquals(303, result.status()); // Redirect status
+    assertTrue(result.redirectLocation().orElse("").contains("/login"));
+    assertTrue(result.redirectLocation().orElse("").contains("error_msg"));
+    assertTrue(result.redirectLocation().orElse("").contains("missing redirect from idp"));
+  }
+
+  @Test
+  public void testSsoSupportWithSsoEnabledButException() {
+    // Arrange
+    Http.Request request = mock(Http.Request.class);
+    Http.Session session = mock(Http.Session.class);
+    when(request.session()).thenReturn(session);
+    when(ssoSupportManager.isSupportSsoEnabled()).thenReturn(true);
+
+    SsoProvider mockProvider = mock(SsoProvider.class);
+    Client mockClient = mock(Client.class);
+    when(ssoSupportManager.getSupportSsoProvider()).thenReturn(mockProvider);
+    when(mockProvider.client()).thenReturn(mockClient);
+    when(mockClient.getName()).thenReturn("oidc-support");
+
+    CallContext mockCallContext = mock(CallContext.class);
+    PlayWebContext mockWebContext = mock(PlayWebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+    when(mockWebContext.getRequestCookies()).thenReturn(new java.util.ArrayList<>());
+
+    // Create a spy to mock the buildCallContext method
+    SupportAuthenticationController spyController = spy(controller);
+    doReturn(mockCallContext).when(spyController).buildCallContext(any(Http.RequestHeader.class));
+
+    // Mock client to throw exception
+    when(mockClient.getRedirectionAction(any(CallContext.class)))
+        .thenThrow(new RuntimeException("SSO configuration error"));
+
+    // Act
+    Result result = spyController.ssoSupport(request);
+
+    // Assert
+    assertNotNull(result);
+    assertEquals(303, result.status()); // Redirect status
+    assertTrue(result.redirectLocation().orElse("").contains("/login"));
+    assertTrue(result.redirectLocation().orElse("").contains("error_msg"));
+    assertTrue(
+        result
+            .redirectLocation()
+            .orElse("")
+            .contains("Failed+to+redirect+to+Support+Single+Sign-On+provider"));
   }
 }

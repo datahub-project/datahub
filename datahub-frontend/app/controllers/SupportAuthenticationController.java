@@ -77,13 +77,13 @@ public class SupportAuthenticationController extends Controller {
   }
 
   /**
-   * Gets the support login URL with proper base path.
+   * Gets the login URL with proper base path for error redirects.
    *
-   * @return the full support login URL with base path
+   * @return the full login URL with base path
    */
   @Nonnull
-  private String getSupportLoginUrl() {
-    return BasePathUtils.addBasePath("/login-support", this.basePath);
+  private String getLoginUrl() {
+    return BasePathUtils.addBasePath("/login", this.basePath);
   }
 
   /**
@@ -126,13 +126,13 @@ public class SupportAuthenticationController extends Controller {
       return redirectToSupportIdentityProvider(request, redirectPath)
           .orElse(
               Results.redirect(
-                  getSupportLoginUrl()
+                  getLoginUrl()
                       + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_NO_REDIRECT_MESSAGE)));
     }
 
     // Support SSO is not configured - return error
     return Results.redirect(
-        getSupportLoginUrl()
+        getLoginUrl()
             + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_DISABLED_ERROR_MESSAGE));
   }
 
@@ -143,11 +143,11 @@ public class SupportAuthenticationController extends Controller {
       return redirectToSupportIdentityProvider(request, "/")
           .orElse(
               Results.redirect(
-                  getSupportLoginUrl()
+                  getLoginUrl()
                       + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_NO_REDIRECT_MESSAGE)));
     }
     return Results.redirect(
-        getSupportLoginUrl()
+        getLoginUrl()
             + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_DISABLED_ERROR_MESSAGE));
   }
 
@@ -196,7 +196,7 @@ public class SupportAuthenticationController extends Controller {
           Results.redirect(
               String.format(
                   "%s?error_msg=%s",
-                  getSupportLoginUrl(),
+                  getLoginUrl(),
                   URLEncoder.encode(
                       "Failed to redirect to Support Single Sign-On provider. Please contact your DataHub Administrator, "
                           + "or refer to server logs for more information.",

@@ -14,7 +14,7 @@ import org.pac4j.oidc.profile.OidcProfileDefinition;
 /** A Pac4j OIDC client wrapper for support staff authentication that extends OidcProvider. */
 @Slf4j
 public class OidcSupportProvider extends OidcProvider {
-  private static final String OIDC_SUPPORT_CLIENT_NAME = "oidc_support";
+  private static final String OIDC_SUPPORT_CLIENT_NAME = "oidc";
 
   public OidcSupportProvider(final OidcSupportConfigs configs) {
     super(configs);
@@ -77,7 +77,7 @@ public class OidcSupportProvider extends OidcProvider {
     // Use the configs directly since OidcSupportConfigs extends OidcConfigs
     final CustomOidcClient oidcClient = new CustomOidcClient(oidcConfiguration, configs());
     oidcClient.setName(OIDC_SUPPORT_CLIENT_NAME);
-    oidcClient.setCallbackUrl(configs().getAuthBaseUrl() + "/callback");
+    oidcClient.setCallbackUrl(configs().getAuthBaseUrl() + "/support/callback");
     oidcClient.setCallbackUrlResolver(new PathParameterCallbackUrlResolver());
     oidcClient.addAuthorizationGenerator(
         new auth.sso.oidc.OidcAuthorizationGenerator(new OidcProfileDefinition(), configs()));

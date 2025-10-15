@@ -61,7 +61,7 @@ public class OidcSupportProviderTest {
     Client client = provider.client();
     assertNotNull(client);
     assertTrue(client instanceof CustomOidcClient);
-    assertEquals("oidc_support", client.getName());
+    assertEquals("oidc", client.getName());
   }
 
   @Test
@@ -74,11 +74,11 @@ public class OidcSupportProviderTest {
     Client client = provider.client();
     assertNotNull(client);
 
-    // Verify the client has the correct name (hardcoded to oidc_support)
-    assertEquals("oidc_support", client.getName());
+    // Verify the client has the correct name (hardcoded to oidc)
+    assertEquals("oidc", client.getName());
 
     // Verify callback URL is set correctly
-    String expectedCallbackUrl = "https://datahub.example.com/callback";
+    String expectedCallbackUrl = "https://datahub.example.com/support/callback/oidc";
     // Note: We can't directly test the callback URL as it's set internally,
     // but we can verify the client is properly configured
     assertNotNull(client);
