@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Dict, Iterable, List, Optional, Union
 
@@ -22,6 +23,7 @@ from datahub.ingestion.api.source import (
     StructuredLogCategory,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.fivetran.config import (
     KNOWN_DATA_PLATFORM_MAPPING,
     Constant,
@@ -35,6 +37,7 @@ from datahub.ingestion.source.fivetran.fivetran_query import (
     MAX_JOBS_PER_CONNECTOR,
     MAX_TABLE_LINEAGE_PER_CONNECTOR,
 )
+from datahub.ingestion.source.fivetran.fivetran_rest_api import FivetranAPIClient
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -49,6 +52,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DatasetUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
+from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
 
 # Logger instance
@@ -76,8 +80,11 @@ class FivetranSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = FivetranSourceReport()
-
         self.audit_log = FivetranLogAPI(self.config.fivetran_log_config)
+        self.api_client: Optional[FivetranAPIClient] = None
+
+        if self.config.api_config:
+            self.api_client = FivetranAPIClient(self.config.api_config)
 
     def _extend_lineage(self, connector: Connector, datajob: DataJob) -> Dict[str, str]:
         input_dataset_urn_list: List[Union[str, DatasetUrn]] = []
@@ -131,16 +138,32 @@ class FivetranSource(StatefulIngestionSourceBase):
                 if source_details.include_schema_in_urn
                 else lineage.source_table.split(".", 1)[1]
             )
-            input_dataset_urn = DatasetUrn.create_from_ids(
-                platform_id=source_details.platform,
-                table_name=(
-                    f"{source_details.database.lower()}.{source_table}"
-                    if source_details.database
-                    else source_table
-                ),
-                env=source_details.env,
-                platform_instance=source_details.platform_instance,
-            )
+            # Special Handling for Google Sheets Connectors
+            if (
+                connector.connector_type == Constant.GOOGLE_SHEETS_CONNECTOR_TYPE
+                and self.api_client
+            ):
+                # Get Google Sheet dataset details from Fivetran API
+                # This is cached in the api_client
+                gsheets_conn_details = self.api_client.get_connection_details_by_id(
+                    connector.connector_id
+                )
+                input_dataset_urn = DatasetUrn.create_from_ids(
+                    platform_id=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
+                    table_name=f"{gsheets_conn_details.config.sheet_id_from_url}.{gsheets_conn_details.config.named_range}",
+                    env=source_details.env,
+                )
+            else:
+                input_dataset_urn = DatasetUrn.create_from_ids(
+                    platform_id=source_details.platform,
+                    table_name=(
+                        f"{source_details.database.lower()}.{source_table}"
+                        if source_details.database
+                        else source_table
+                    ),
+                    env=source_details.env,
+                    platform_instance=source_details.platform_instance,
+                )
             input_dataset_urn_list.append(input_dataset_urn)
 
             destination_table = (
@@ -295,6 +318,50 @@ class FivetranSource(StatefulIngestionSourceBase):
         self, connector: Connector
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         self.report.report_connectors_scanned()
+
+        """
+        -------------------------------------------------------
+        Special Handling for Google Sheets Connectors
+        -------------------------------------------------------
+        Google Sheets source is not supported by Datahub yet.   
+        As a workaround, we are emitting a dataset entity for the Google Sheet
+        and adding it to the lineage. This workaround needs to be removed once 
+        Datahub supports Google Sheets source natively.
+        -------------------------------------------------------
+        """
+        if (
+            connector.connector_type == Constant.GOOGLE_SHEETS_CONNECTOR_TYPE
+            and self.api_client
+        ):
+            # Get Google Sheet dataset details from Fivetran API
+            gsheets_conn_details = self.api_client.get_connection_details_by_id(
+                connector.connector_id
+            )
+            yield Dataset(
+                name=f"{gsheets_conn_details.config.sheet_id_from_url}.{gsheets_conn_details.config.named_range}",
+                platform=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
+                env=self.config.env,
+                display_name=gsheets_conn_details.config.named_range,
+                external_url=gsheets_conn_details.config.sheet_id,
+                created=gsheets_conn_details.created_at,
+                last_modified=gsheets_conn_details.source_sync_details.last_synced,
+                subtype=DatasetSubTypes.GOOGLE_SHEETS,
+                custom_properties={
+                    "ingested_by": "fivetran source",
+                    "connector_id": gsheets_conn_details.id,
+                    "connector_type": gsheets_conn_details.service,
+                    "paused": str(gsheets_conn_details.paused),
+                    "sync_frequency": str(gsheets_conn_details.sync_frequency),
+                    "destination_id": gsheets_conn_details.group_id,
+                    "warnings": json.dumps(
+                        [
+                            warning.model_dump()
+                            for warning in gsheets_conn_details.status.warnings
+                        ]
+                    ),
+                },
+            )
+
         # Create dataflow entity with same name as connector name
         dataflow = self._generate_dataflow_from_connector(connector)
         yield dataflow

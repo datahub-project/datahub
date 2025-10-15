@@ -68,6 +68,7 @@ class Constant:
     SUCCESSFUL = "SUCCESSFUL"
     FAILURE_WITH_TASK = "FAILURE_WITH_TASK"
     CANCELED = "CANCELED"
+    GOOGLE_SHEETS_CONNECTOR_TYPE = "google_sheets"
 
 
 KNOWN_DATA_PLATFORM_MAPPING = {
@@ -95,6 +96,17 @@ class DatabricksDestinationConfig(UnityCatalogConnectionConfig):
         if warehouse_id is None or (warehouse_id and warehouse_id.strip() == ""):
             raise ValueError("Fivetran requires warehouse_id to be set")
         return warehouse_id
+
+
+class FivetranAPIConfig(ConfigModel):
+    api_key: str = Field(description="Fivetran API key")
+    api_secret: str = Field(description="Fivetran API secret")
+    base_url: str = Field(
+        default="https://api.fivetran.com", description="Fivetran API base URL"
+    )
+    request_timeout_sec: int = Field(
+        default=30, description="Request timeout in seconds"
+    )
 
 
 class FivetranLogConfig(ConfigModel):
@@ -232,6 +244,11 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
     destination_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
         description="A mapping of destination id to its platform/instance/env details.",
+    )
+
+    api_config: Optional[FivetranAPIConfig] = Field(
+        default=None,
+        description="Fivetran REST API configuration, used to provide wider support for connections.",
     )
 
     @pydantic.root_validator(pre=True)
