@@ -67,6 +67,7 @@ from acryl_datahub_cloud.sdk.errors import SDKUsageError
 from datahub.errors import ItemNotFoundError
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn, MonitorUrn
+from datahub.sdk.search_filters import FilterDsl
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
@@ -321,6 +322,7 @@ class AssertionsClient:
                 incident_behavior=incident_behavior,
                 tags=tags,
                 created_by=updated_by,
+                enabled=enabled if enabled is not None else True,
             )
 
         # 3. Check for any issues e.g. different dataset urns
@@ -407,6 +409,7 @@ class AssertionsClient:
                 tags=tags,
                 created_by=updated_by,
                 schedule=schedule,
+                enabled=enabled if enabled is not None else True,
             )
 
         # 3. Check for any issues e.g. different dataset urns
@@ -494,6 +497,7 @@ class AssertionsClient:
                 schedule=schedule,
                 freshness_schedule_check_type=freshness_schedule_check_type,
                 lookback_window=lookback_window,
+                enabled=enabled if enabled is not None else True,
             )
 
         # 3. Check for any issues e.g. different dataset urns
@@ -584,6 +588,7 @@ class AssertionsClient:
                 schedule=schedule,
                 criteria_condition=parsed_criteria.condition,
                 criteria_parameters=parsed_criteria.parameters,
+                enabled=enabled if enabled is not None else True,
             )
 
         # 3. Check for any issues e.g. different dataset urns
@@ -686,6 +691,7 @@ class AssertionsClient:
                 tags=tags,
                 created_by=updated_by,
                 schedule=schedule,
+                enabled=enabled if enabled is not None else True,
             )
 
         # 3. Check for any issues e.g. different dataset urns
@@ -759,16 +765,31 @@ class AssertionsClient:
         except ItemNotFoundError:
             pass
 
-        # Get monitor entity
-        monitor_urn = Monitor._ensure_id(id=(dataset_urn, urn))
+        # Get monitor entity by searching for monitors where assertionUrn equals the assertion urn
+        monitor_urn: Optional[MonitorUrn] = None
         maybe_monitor_entity: Optional[Monitor] = None
         try:
-            entity = self.client.entities.get(monitor_urn)
-            if entity is not None:
-                assert isinstance(entity, Monitor)
-                maybe_monitor_entity = entity
-        except ItemNotFoundError:
+            # Search for monitor entities with assertionUrn matching the assertion urn
+            monitor_filter = FilterDsl.and_(
+                FilterDsl.entity_type("monitor"),
+                FilterDsl.custom_filter("assertionUrn", "EQUAL", [str(urn)]),
+            )
+            monitor_urns = list(self.client.search.get_urns(filter=monitor_filter))
+
+            if monitor_urns:
+                # Use the first matching monitor
+                monitor_urn = MonitorUrn.from_string(str(monitor_urns[0]))
+                entity = self.client.entities.get(monitor_urn)
+                if entity is not None:
+                    assert isinstance(entity, Monitor)
+                    maybe_monitor_entity = entity
+        except ItemNotFoundError as e:
+            logger.debug(f"Could not find monitor for assertion {urn}: {e}")
             pass
+
+        # If no monitor found via search, fall back to trying to use the asseriton urn
+        if monitor_urn is None:
+            monitor_urn = Monitor._ensure_id(id=(dataset_urn, urn))
 
         return maybe_assertion_entity, monitor_urn, maybe_monitor_entity
 
@@ -2749,6 +2770,7 @@ class AssertionsClient:
                 incident_behavior=incident_behavior,
                 tags=tags,
                 created_by=updated_by,
+                enabled=enabled if enabled is not None else True,
             )
 
         # 3. Check for any issues e.g. different dataset urns
@@ -3704,6 +3726,7 @@ class AssertionsClient:
                 incident_behavior=incident_behavior,
                 tags=tags,
                 created_by=updated_by,
+                enabled=enabled if enabled is not None else True,
             )
 
         # 3. Check for any issues e.g. different dataset urns

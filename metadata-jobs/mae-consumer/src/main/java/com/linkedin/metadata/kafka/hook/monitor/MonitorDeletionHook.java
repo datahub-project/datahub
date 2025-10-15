@@ -15,6 +15,7 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nonnull;
@@ -115,6 +116,24 @@ public class MonitorDeletionHook implements MetadataChangeLogHook {
                 assertionUrn, monitorUrn),
             e);
       }
+    }
+
+    // delete associated dataHubMetricCube
+    try {
+      String serializedMonitorUrn = Base64.getEncoder().encodeToString(monitorUrn.toString().getBytes());
+      Urn metricCubeUrn = Urn.createFromString(String.format("urn:li:dataHubMetricCube:%s", serializedMonitorUrn));
+      log.info(
+          String.format(
+              "Found a dataHubMetricCube associated with monitor being removed urn %s. Removing dataHubMetricCube %s",
+              monitorUrn, metricCubeUrn));
+      entityClient.deleteEntity(systemOperationContext, metricCubeUrn);
+    } catch (Exception e) {
+      log.error(
+          String.format(
+              "Caught exception while attempting to delete dataHubMetricCube associated with removed monitor urn %s! "
+                  + "This means that a stale dataHubMetricCube may remain.",
+              monitorUrn),
+          e);
     }
   }
 

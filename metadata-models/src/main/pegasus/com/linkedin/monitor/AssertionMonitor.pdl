@@ -9,6 +9,12 @@ record AssertionMonitor {
     * This will always have 1 reference. Modelling error caused it to be an array.
     * If it is != 1 then we have data corruption.
     */
+    @Searchable = {
+        "/assertions/*/assertion": {
+            "fieldName": "assertionUrn",
+            "fieldType": "URN"
+        }
+    }
     assertions: array[AssertionEvaluationSpec]
 
     /**
