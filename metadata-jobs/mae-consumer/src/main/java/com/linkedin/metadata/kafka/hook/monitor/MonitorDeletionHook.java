@@ -120,8 +120,10 @@ public class MonitorDeletionHook implements MetadataChangeLogHook {
 
     // delete associated dataHubMetricCube
     try {
-      String serializedMonitorUrn = Base64.getEncoder().encodeToString(monitorUrn.toString().getBytes());
-      Urn metricCubeUrn = Urn.createFromString(String.format("urn:li:dataHubMetricCube:%s", serializedMonitorUrn));
+      String serializedMonitorUrn =
+          Base64.getEncoder().encodeToString(monitorUrn.toString().getBytes());
+      Urn metricCubeUrn =
+          Urn.createFromString(String.format("urn:li:dataHubMetricCube:%s", serializedMonitorUrn));
       log.info(
           String.format(
               "Found a dataHubMetricCube associated with monitor being removed urn %s. Removing dataHubMetricCube %s",

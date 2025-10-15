@@ -44,4 +44,3 @@ public class ReindexMonitorInfo implements NonBlockingSystemUpgrade {
     return _steps;
   }
 }
-

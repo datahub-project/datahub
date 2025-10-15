@@ -28,4 +28,3 @@ public class ReindexMonitorInfoConfig {
         opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
   }
 }
-

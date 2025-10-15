@@ -40,4 +40,3 @@ public class ReindexMonitorInfoStep extends AbstractMCLStep {
     return "urn:li:" + MONITOR_ENTITY_NAME + ":%";
   }
 }
-

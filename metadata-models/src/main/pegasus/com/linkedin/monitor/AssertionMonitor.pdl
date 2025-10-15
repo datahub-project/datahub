@@ -10,7 +10,7 @@ record AssertionMonitor {
     * If it is != 1 then we have data corruption.
     */
     @Searchable = {
-        "/assertions/*/assertion": {
+        "/*/assertion": {
             "fieldName": "assertionUrn",
             "fieldType": "URN"
         }
