@@ -189,7 +189,7 @@ public class OidcSupportCallbackLogic extends DefaultCallbackLogic {
     return Pair.of(ctx, httpActionAdapter.adapt(action, webContext));
   }
 
-  private void setContextRedirectUrl(CallContext ctx) {
+  void setContextRedirectUrl(CallContext ctx) {
     WebContext context = ctx.webContext();
     PlayCookieSessionStore sessionStore = (PlayCookieSessionStore) ctx.sessionStore();
 
@@ -208,7 +208,7 @@ public class OidcSupportCallbackLogic extends DefaultCallbackLogic {
                         uncompressBytes(Base64.getDecoder().decode(cookie.getValue())))));
   }
 
-  private Result handleOidcSupportCallback(
+  Result handleOidcSupportCallback(
       final OperationContext opContext,
       final CallContext ctx,
       final OidcSupportConfigs oidcSupportConfigs,
@@ -290,7 +290,7 @@ public class OidcSupportCallbackLogic extends DefaultCallbackLogic {
         "Failed to authenticate current user. Cannot find valid identity provider profile in session.");
   }
 
-  private String extractUserNameOrThrow(
+  String extractUserNameOrThrow(
       final OidcSupportConfigs oidcSupportConfigs, final CommonProfile profile) {
     // Ensure that the attribute exists (was returned by IdP)
     if (!profile.containsAttribute(oidcSupportConfigs.getUserNameClaim())) {
@@ -385,7 +385,7 @@ public class OidcSupportCallbackLogic extends DefaultCallbackLogic {
    * @param configs The support OIDC configuration
    * @return The group name to use
    */
-  private String extractGroupFromClaim(CommonProfile profile, OidcSupportConfigs configs) {
+  String extractGroupFromClaim(CommonProfile profile, OidcSupportConfigs configs) {
     String groupClaim = configs.getGroupClaim();
 
     if (groupClaim == null || groupClaim.isEmpty()) {
@@ -421,7 +421,7 @@ public class OidcSupportCallbackLogic extends DefaultCallbackLogic {
   }
 
   /** Creates a support group with the specified name */
-  private CorpGroupSnapshot createSupportGroup(OidcSupportConfigs configs, String groupName) {
+  CorpGroupSnapshot createSupportGroup(OidcSupportConfigs configs, String groupName) {
     final CorpGroupInfo corpGroupInfo = new CorpGroupInfo();
     corpGroupInfo.setAdmins(new CorpuserUrnArray());
     corpGroupInfo.setGroups(new CorpGroupUrnArray());
@@ -439,13 +439,13 @@ public class OidcSupportCallbackLogic extends DefaultCallbackLogic {
     return corpGroupSnapshot;
   }
 
-  private GroupMembership createSupportGroupMembership(final CorpGroupSnapshot supportGroup) {
+  GroupMembership createSupportGroupMembership(final CorpGroupSnapshot supportGroup) {
     final GroupMembership groupMembershipAspect = new GroupMembership();
     groupMembershipAspect.setGroups(new UrnArray(Arrays.asList(supportGroup.getUrn())));
     return groupMembershipAspect;
   }
 
-  private void updateGroupMembership(
+  void updateGroupMembership(
       @Nonnull OperationContext opContext, Urn urn, GroupMembership groupMembership) {
     log.debug(String.format("Updating group membership for support user %s", urn));
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
@@ -462,7 +462,7 @@ public class OidcSupportCallbackLogic extends DefaultCallbackLogic {
     }
   }
 
-  private Optional<String> extractRegexGroup(final String patternStr, final String target) {
+  Optional<String> extractRegexGroup(final String patternStr, final String target) {
     final Pattern pattern = Pattern.compile(patternStr);
     final Matcher matcher = pattern.matcher(target);
     if (matcher.find()) {
@@ -479,7 +479,7 @@ public class OidcSupportCallbackLogic extends DefaultCallbackLogic {
    * @param configs The support OIDC configuration
    * @return The role value from the claim, or null if not found
    */
-  private String extractRoleFromClaim(CommonProfile profile, OidcSupportConfigs configs) {
+  String extractRoleFromClaim(CommonProfile profile, OidcSupportConfigs configs) {
     try {
       String roleClaim = configs.getRoleClaim();
       Object roleValue = profile.getAttribute(roleClaim);
@@ -506,7 +506,7 @@ public class OidcSupportCallbackLogic extends DefaultCallbackLogic {
    * @param userUrn The user URN
    * @param roleName The role name to assign
    */
-  private void assignRoleToUser(OperationContext opContext, CorpuserUrn userUrn, String roleName) {
+  void assignRoleToUser(OperationContext opContext, CorpuserUrn userUrn, String roleName) {
     try {
       // Create the role URN
       DataHubRoleUrn roleUrn = new DataHubRoleUrn(roleName);

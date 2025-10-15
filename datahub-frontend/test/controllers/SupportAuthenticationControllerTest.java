@@ -2,7 +2,9 @@ package controllers;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.pac4j.core.client.IndirectClient.ATTEMPTED_AUTHENTICATION_SUFFIX;
 
 import auth.AuthUtils;
 import auth.sso.SsoProvider;
@@ -17,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.context.CallContext;
+import org.pac4j.core.context.WebContext;
 import org.pac4j.core.exception.http.FoundAction;
 import org.pac4j.play.PlayWebContext;
 import org.pac4j.play.store.PlayCookieSessionStore;
@@ -416,5 +419,134 @@ public class SupportAuthenticationControllerTest {
             .redirectLocation()
             .orElse("")
             .contains("Failed+to+redirect+to+Support+Single+Sign-On+provider"));
+  }
+
+  @Test
+  public void testRedirectToSupportIdentityProviderWithVerboseError() throws Exception {
+    // Arrange
+    Http.Request request = mock(Http.Request.class);
+    Http.Session session = mock(Http.Session.class);
+    when(request.session()).thenReturn(session);
+    when(request.getQueryString("redirect_uri")).thenReturn("/dashboard");
+    when(ssoSupportManager.isSupportSsoEnabled()).thenReturn(true);
+
+    SsoProvider mockProvider = mock(SsoProvider.class);
+    Client mockClient = mock(Client.class);
+    when(ssoSupportManager.getSupportSsoProvider()).thenReturn(mockProvider);
+    when(mockProvider.client()).thenReturn(mockClient);
+    when(mockClient.getName()).thenReturn("oidc-support");
+
+    CallContext mockCallContext = mock(CallContext.class);
+    PlayWebContext mockWebContext = mock(PlayWebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+    when(mockWebContext.getRequestCookies()).thenReturn(new java.util.ArrayList<>());
+
+    // Create a spy to mock the buildCallContext method
+    SupportAuthenticationController spyController = spy(controller);
+    doReturn(mockCallContext).when(spyController).buildCallContext(any(Http.RequestHeader.class));
+
+    // Mock client to throw exception
+    RuntimeException testException = new RuntimeException("SSO configuration error");
+    when(mockClient.getRedirectionAction(any(CallContext.class))).thenThrow(testException);
+
+    // Create a controller with verbose logging enabled
+    Config verboseConfig =
+        ConfigFactory.parseMap(
+            java.util.Map.of("auth.verbose.logging", true, "datahub.basePath", "/datahub"));
+    SupportAuthenticationController verboseController =
+        new SupportAuthenticationController(verboseConfig);
+    verboseController.playCookieSessionStore = playCookieSessionStore;
+    verboseController.ssoSupportManager = ssoSupportManager;
+    verboseController.authClient = authClient;
+
+    // Create a spy for the verbose controller
+    SupportAuthenticationController spyVerboseController = spy(verboseController);
+    doReturn(mockCallContext)
+        .when(spyVerboseController)
+        .buildCallContext(any(Http.RequestHeader.class));
+
+    // Act
+    Result result = spyVerboseController.ssoSupport(request);
+
+    // Assert
+    assertNotNull(result);
+    assertEquals(303, result.status()); // Redirect status
+    assertTrue(result.redirectLocation().orElse("").contains("/login"));
+    assertTrue(result.redirectLocation().orElse("").contains("error_msg"));
+    assertTrue(
+        result
+            .redirectLocation()
+            .orElse("")
+            .contains("Failed+to+redirect+to+Support+Single+Sign-On+provider"));
+  }
+
+  @Test
+  public void testConfigurePac4jSessionStoreWithPreviousAttempt() throws Exception {
+    // Arrange
+    Http.Request request = mock(Http.Request.class);
+    Http.Session session = mock(Http.Session.class);
+    when(request.session()).thenReturn(session);
+    when(request.getQueryString("redirect_uri")).thenReturn("/dashboard");
+    when(ssoSupportManager.isSupportSsoEnabled()).thenReturn(true);
+
+    SsoProvider mockProvider = mock(SsoProvider.class);
+    Client mockClient = mock(Client.class);
+    when(ssoSupportManager.getSupportSsoProvider()).thenReturn(mockProvider);
+    when(mockProvider.client()).thenReturn(mockClient);
+    when(mockClient.getName()).thenReturn("oidc");
+
+    CallContext mockCallContext = mock(CallContext.class);
+    PlayWebContext mockWebContext = mock(PlayWebContext.class);
+    when(mockCallContext.webContext()).thenReturn(mockWebContext);
+
+    // Create a spy to mock the buildCallContext method
+    SupportAuthenticationController spyController = spy(controller);
+    doReturn(mockCallContext).when(spyController).buildCallContext(any(Http.RequestHeader.class));
+
+    // Mock the session store to return a previous attempt
+    when(playCookieSessionStore.get(
+            any(WebContext.class), eq("oidc" + ATTEMPTED_AUTHENTICATION_SUFFIX)))
+        .thenReturn(Optional.of("previous-attempt"));
+
+    // Act - call ssoSupport which should trigger configurePac4jSessionStore
+    spyController.ssoSupport(request);
+
+    // Assert - verify that the session store was called to clear the previous attempt
+    verify(playCookieSessionStore)
+        .set(any(WebContext.class), eq("oidc" + ATTEMPTED_AUTHENTICATION_SUFFIX), eq(""));
+  }
+
+  @Test
+  public void testAddRedirectCookie() throws Exception {
+    // Mock dependencies
+    Result initialResult = mock(Result.class);
+    CallContext mockCallContext = mock(CallContext.class);
+    PlayCookieSessionStore mockSessionStore = mock(PlayCookieSessionStore.class);
+    org.pac4j.core.util.serializer.Serializer mockSerializer =
+        mock(org.pac4j.core.util.serializer.Serializer.class);
+
+    String redirectPath = "/dashboard";
+
+    // Setup mocks
+    when(mockCallContext.sessionStore()).thenReturn(mockSessionStore);
+    when(mockSessionStore.getSerializer()).thenReturn(mockSerializer);
+    when(mockSerializer.serializeToBytes(any())).thenReturn("test-serialized-data".getBytes());
+
+    // Mock the result with cookies
+    Result resultWithCookies = mock(Result.class);
+    when(initialResult.withCookies(any(Http.Cookie.class))).thenReturn(resultWithCookies);
+
+    // Execute the test
+    Result result = controller.addRedirectCookie(initialResult, mockCallContext, redirectPath);
+
+    // Verify the result
+    assertNotNull(result);
+    assertEquals(resultWithCookies, result);
+
+    // Verify that withCookies was called
+    verify(initialResult).withCookies(any(Http.Cookie.class));
+
+    // Verify serializer was called
+    verify(mockSerializer).serializeToBytes(any(FoundAction.class));
   }
 }
