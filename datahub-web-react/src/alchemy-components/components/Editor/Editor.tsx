@@ -67,7 +67,13 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new HeadingExtension({}),
             new HistoryExtension({}),
             new HorizontalRuleExtension({}),
-            new FileDragDropExtension({ onFileUpload: uploadFile }),
+            ...(uploadFile
+                ? [
+                      new FileDragDropExtension({
+                          onFileUpload: uploadFile,
+                      }),
+                  ]
+                : []),
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),
