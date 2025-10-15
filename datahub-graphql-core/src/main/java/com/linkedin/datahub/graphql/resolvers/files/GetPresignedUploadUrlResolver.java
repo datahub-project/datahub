@@ -11,32 +11,35 @@ import com.linkedin.datahub.graphql.generated.GetPresignedUploadUrlResponse;
 import com.linkedin.datahub.graphql.generated.UploadDownloadScenario;
 import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
 import com.linkedin.datahub.graphql.util.S3Util;
+import com.linkedin.metadata.config.S3Configuration;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import lombok.RequiredArgsConstructor;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 @Slf4j
-@RequiredArgsConstructor
 @Component
 public class GetPresignedUploadUrlResolver
     implements DataFetcher<CompletableFuture<GetPresignedUploadUrlResponse>> {
 
-  private static final int EXPIRATION_SECONDS = 60 * 60; // 60 minutes
-  private static final Set<String> ALLOWED_FILE_EXTENSIONS =
-      new HashSet<>(
-          Arrays.asList(
-              "pdf", "jpeg", "jpg", "png", "pptx", "docx", "xls", "xml", "ppt", "gif", "xlsx",
-              "bmp", "doc", "rtf", "gz", "zip", "mp4", "mp3", "wmv", "tiff", "txt", "md", "csv"));
-
   private final S3Util s3Util;
-  private final String bucketName;
+  private final S3Configuration s3Configuration;
+  private final Set<String> allowedFileExtensions;
+
+  public GetPresignedUploadUrlResolver(S3Util s3Util, S3Configuration s3Configuration) {
+    this.s3Util = s3Util;
+    this.s3Configuration = s3Configuration;
+    this.allowedFileExtensions =
+        Arrays.stream(s3Configuration.getAllowedFileExtensions().split(","))
+            .map(String::trim)
+            .map(String::toLowerCase)
+            .collect(Collectors.toSet());
+  }
 
   @Override
   public CompletableFuture<GetPresignedUploadUrlResponse> get(DataFetchingEnvironment environment)
@@ -44,6 +47,8 @@ public class GetPresignedUploadUrlResolver
     if (s3Util == null) {
       throw new IllegalArgumentException("S3Util isn't provided");
     }
+
+    String bucketName = s3Configuration.getBucketName();
 
     if (bucketName == null || bucketName.isEmpty()) {
       throw new IllegalArgumentException("Bucket name isn't provided");
@@ -63,7 +68,11 @@ public class GetPresignedUploadUrlResolver
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           String presignedUploadUrl =
-              s3Util.generatePresignedUploadUrl(bucketName, s3Key, EXPIRATION_SECONDS, contentType);
+              s3Util.generatePresignedUploadUrl(
+                  bucketName,
+                  s3Key,
+                  s3Configuration.getPresignedUploadUrlExpirationSeconds(),
+                  contentType);
 
           GetPresignedUploadUrlResponse result = new GetPresignedUploadUrlResponse();
           result.setUrl(presignedUploadUrl);
@@ -91,7 +100,7 @@ public class GetPresignedUploadUrlResolver
       fileExtension = fileName.substring(i + 1);
     }
 
-    if (!ALLOWED_FILE_EXTENSIONS.contains(fileExtension.toLowerCase())) {
+    if (!allowedFileExtensions.contains(fileExtension.toLowerCase())) {
       throw new IllegalArgumentException(
           String.format("Unsupported file extension: %s", fileExtension));
     }
@@ -119,7 +128,9 @@ public class GetPresignedUploadUrlResolver
     UploadDownloadScenario scenario = input.getScenario();
 
     if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION) {
-      return String.format("%s/product-assets/%s", bucketName, fileId);
+      return String.format(
+          "%s/%s/%s",
+          s3Configuration.getBucketName(), s3Configuration.getAssetPathPrefix(), fileId);
     } else {
       throw new IllegalArgumentException("Unsupported upload scenario: " + scenario);
     }

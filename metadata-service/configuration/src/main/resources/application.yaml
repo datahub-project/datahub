@@ -160,6 +160,9 @@ datahub:
   s3:
     bucketName: ${DATAHUB_BUCKET_NAME:#{null}} # The S3 bucket name to use for storing data
     roleArn: ${DATAHUB_ROLE_ARN:#{null}} # The AWS IAM role ARN to assume for S3 access
+    presignedUploadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_UPLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
+    assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product-assets}
+    allowedFileExtensions: ${DATAHUB_S3_ALLOWED_FILE_EXTENSIONS:pdf,jpeg,jpg,png,pptx,docx,xls,xml,ppt,gif,xlsx,bmp,doc,rtf,gz,zip,mp4,mp3,wmv,tiff,txt,md,csv}
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
