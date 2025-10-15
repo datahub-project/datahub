@@ -65,6 +65,7 @@ export const EditorContainer = styled.div<{ $readOnly?: boolean }>`
     flex: 1 1 auto;
     border: ${(props) => (props.$readOnly ? `none` : `1px solid ${ANTD_GRAY[4.5]}`)};
     border-radius: 12px;
+    overflow: auto;
 
     .remirror-theme,
     .remirror-editor-wrapper {

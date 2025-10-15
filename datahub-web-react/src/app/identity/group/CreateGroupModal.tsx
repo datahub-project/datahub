@@ -5,10 +5,9 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { Editor as MarkdownEditor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button } from '@src/alchemy-components';
+import { Button, Editor } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 import { useAddGroupMembersMutation, useCreateGroupMutation } from '@graphql/group.generated';
@@ -20,7 +19,7 @@ type Props = {
     onCreate: (group: CorpGroup) => void;
 };
 
-const StyledEditor = styled(MarkdownEditor)`
+const StyledEditor = styled(Editor)`
     border: 1px solid ${ANTD_GRAY[4]};
 `;
 

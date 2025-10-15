@@ -48,7 +48,6 @@ export default function QueryBuilderForm({ state, updateState }: Props) {
     };
 
     const updateDescription = (description) => {
-        console.log(description);
         updateState({
             ...state,
             description,

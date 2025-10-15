@@ -22,6 +22,7 @@ const EditorSourceWrapper = styled.div`
     display: flex;
     flex-direction: column;
     flex: 1;
+    padding: 0 8px;
 `;
 
 type DescriptionEditorProps = {

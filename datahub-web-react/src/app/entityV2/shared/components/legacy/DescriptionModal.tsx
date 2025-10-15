@@ -1,5 +1,5 @@
-import { Editor } from '@components';
-import { Button, Form, Modal, Typography } from 'antd';
+import { Editor, Modal } from '@components';
+import { Form, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -52,19 +52,16 @@ export default function UpdateDescriptionModal({
             width={900}
             onCancel={onClose}
             okText={isAddDesc ? 'Submit' : 'Update'}
-            footer={
-                <>
-                    <Button onClick={onClose}>Cancel</Button>
-                    <Button
-                        type="primary"
-                        onClick={() => onSubmit(updatedDesc)}
-                        disabled={updatedDesc === description}
-                        data-testid="description-modal-update-button"
-                    >
-                        Publish
-                    </Button>
-                </>
-            }
+            buttons={[
+                { text: 'Cancel', variant: 'outline', onClick: onClose },
+                {
+                    text: 'Publish',
+                    variant: 'filled',
+                    onClick: () => onSubmit(updatedDesc),
+                    disabled: updatedDesc === description,
+                    buttonDataTestId: 'description-modal-update-button',
+                },
+            ]}
         >
             <Form layout="vertical">
                 {!isAddDesc && description && original && (
