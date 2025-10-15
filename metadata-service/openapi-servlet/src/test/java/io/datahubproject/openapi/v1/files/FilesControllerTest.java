@@ -1,4 +1,4 @@
-package com.datahub.files;
+package io.datahubproject.openapi.v1.files;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -7,10 +7,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.testng.Assert.assertNotNull;
 
-import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.S3Configuration;
+import com.linkedin.metadata.utils.aws.S3Util;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
