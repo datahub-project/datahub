@@ -10,7 +10,7 @@ import {
   UseGraphQLOperationsReturn 
 } from '../../glossary.types';
 
-// GraphQL query for fetching glossary entities
+// GraphQL query for fetching glossary entities (with pagination support)
 const UNIFIED_GLOSSARY_QUERY = gql`
   query getUnifiedGlossaryData($input: ScrollAcrossEntitiesInput!) {
     scrollAcrossEntities(input: $input) {
@@ -275,7 +275,7 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
   const apolloClient = useApolloClient();
 
   /**
-   * Execute unified glossary query
+   * Execute unified glossary query with scrolling support for large result sets
    */
   const executeUnifiedGlossaryQuery = useCallback(async (
     variables: {
@@ -283,19 +283,56 @@ export function useGraphQLOperations(): UseGraphQLOperationsReturn {
         types: string[];
         query: string;
         count: number;
+        scrollId?: string;
       }
     }
   ): Promise<GraphQLEntity[]> => {
     try {
-      const { data } = await apolloClient.query({
-        query: UNIFIED_GLOSSARY_QUERY,
-        variables,
-        fetchPolicy: 'network-only',
-      });
+      const allEntities: GraphQLEntity[] = [];
+      let scrollId: string | null = variables.input.scrollId || null;
+      let hasMore = true;
+      
+      // Fetch in batches with scrolling to avoid timeout
+      // Using smaller batch size (50) due to deep nested relationship data
+      const BATCH_SIZE = 50;
+      
+      while (hasMore) {
+        const { data } = await apolloClient.query({
+          query: UNIFIED_GLOSSARY_QUERY,
+          variables: {
+            input: {
+              ...variables.input,
+              count: Math.min(variables.input.count - allEntities.length, BATCH_SIZE),
+              scrollId: scrollId || undefined,
+            }
+          },
+          fetchPolicy: 'network-only',
+        });
 
-      return data?.scrollAcrossEntities?.searchResults?.map((result: any) => result.entity) || [];
-    } catch (error) {
+        const results = data?.scrollAcrossEntities?.searchResults?.map((result: any) => result.entity) || [];
+        allEntities.push(...results);
+        
+        // Check if there are more results
+        const total = data?.scrollAcrossEntities?.total || 0;
+        scrollId = data?.scrollAcrossEntities?.nextScrollId;
+        
+        // Continue if we haven't reached the requested count and there are more results available
+        hasMore = allEntities.length < Math.min(variables.input.count, total) && scrollId != null;
+      }
+
+      return allEntities;
+    } catch (error: any) {
       console.error('Failed to execute unified glossary query:', error);
+      
+      // Provide more detailed error information
+      if (error.networkError) {
+        throw new Error(`Network error: ${error.networkError.message || 'Failed to connect to server'}. The query may be too complex or the server may be unresponsive.`);
+      }
+      
+      if (error.message?.includes('JSON')) {
+        throw new Error('Server returned invalid response. This may be due to a timeout or server error. Try reducing the amount of data being fetched.');
+      }
+      
       throw error;
     }
   }, [apolloClient]);

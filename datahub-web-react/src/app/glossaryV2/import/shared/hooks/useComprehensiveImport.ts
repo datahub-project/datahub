@@ -188,9 +188,14 @@ export const useComprehensiveImport = ({
       const relationshipPatches = patchInputs.filter(input => input.aspectName === 'addRelatedTerms');
       
       // 4. Execute regular patch operations
+      // Count only entities being created/updated (not existing unchanged entities)
+      const totalEntities = entitiesToProcess.length;
+      const totalOwnershipTypes = plan.ownershipTypes.length;
+      const totalItems = totalEntities + totalOwnershipTypes;
+      
       updateProgress({ 
         currentPhase: 'Executing comprehensive import...',
-        total: patchInputs.length,
+        total: totalItems,
         processed: 0
       });
       
@@ -244,18 +249,12 @@ export const useComprehensiveImport = ({
         }
       }
       
-               // 4. Process results - Check if any operations failed
-      
-      const totalEntities = plan.entities.length;
-      const totalOwnershipTypes = plan.ownershipTypes.length;
-      const totalOperations = totalEntities + totalOwnershipTypes;
-      
+      // 5. Process results - Check if any operations failed
       // Check if any results indicate failure
       const failedResults = results.filter((result: any) => !result.success);
       const successfulResults = results.filter((result: any) => result.success);
       
-               if (failedResults.length > 0) {
-        
+      if (failedResults.length > 0) {
         // Aggregate duplicate errors to avoid showing the same error multiple times
         const errorMap = new Map<string, { count: number; firstResult: any }>();
         
@@ -279,21 +278,21 @@ export const useComprehensiveImport = ({
           });
         });
         
+        // Count entities processed (not patch operations)
         updateProgress({
-          processed: patchInputs.length,
-          successful: successfulResults.length,
+          processed: totalItems,
+          successful: totalItems - failedResults.length,
           failed: failedResults.length,
           currentPhase: 'Import completed with errors'
         });
       } else {
         // All operations succeeded
         updateProgress({
-          processed: patchInputs.length,
-          successful: totalOperations,
+          processed: totalItems,
+          successful: totalItems,
           failed: 0,
           currentPhase: 'Import completed successfully'
         });
-        
       }
       
     } catch (error) {
@@ -301,10 +300,8 @@ export const useComprehensiveImport = ({
       
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
-      // Since the mutation is atomic, if it fails, all entities failed
-      const totalEntities = currentPlanRef.current?.entities?.length || 0;
-      const totalOwnershipTypes = currentPlanRef.current?.ownershipTypes?.length || 0;
-      const totalOperations = totalEntities + totalOwnershipTypes;
+      // Get the total from the current progress state (already set to correct value)
+      const currentTotal = progress.total;
       
       addError({
         entityId: 'comprehensive-import',
@@ -315,9 +312,10 @@ export const useComprehensiveImport = ({
       });
       
       updateProgress({
+        total: currentTotal,
         processed: 0,
         successful: 0,
-        failed: totalOperations,
+        failed: currentTotal,
         currentPhase: 'Import failed - all operations rolled back'
       });
     }

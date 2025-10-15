@@ -140,12 +140,38 @@ function validateParentChildConsistency(
     entityMap.set(entity.name.toLowerCase(), entity);
   });
 
+  // Calculate the actual depth of each entity by traversing the hierarchy
+  const calculateDepth = (entityName: string, visited = new Set<string>()): number => {
+    const entity = entityMap.get(entityName.toLowerCase());
+    if (!entity) return 0;
+    
+    // Prevent infinite recursion in case of circular dependencies
+    if (visited.has(entityName.toLowerCase())) {
+      return 0;
+    }
+    visited.add(entityName.toLowerCase());
+    
+    if (entity.parentNames.length === 0) {
+      return 0; // Root level
+    }
+    
+    // Depth is 1 + max depth of any parent
+    const parentDepths = entity.parentNames.map(parentName => 
+      calculateDepth(parentName, new Set(visited))
+    );
+    return 1 + Math.max(...parentDepths, 0);
+  };
+
   entities.forEach(entity => {
+    const entityDepth = calculateDepth(entity.name);
+    
     entity.parentNames.forEach(parentName => {
       const parentEntity = entityMap.get(parentName.toLowerCase());
       if (parentEntity) {
-        // Check if parent is actually a parent (not a child)
-        if (parentEntity.level >= entity.level) {
+        const parentDepth = calculateDepth(parentName);
+        
+        // Parent should be at a shallower level (lower depth) than child
+        if (parentDepth >= entityDepth) {
           errors.push({
             field: 'parent_nodes',
             message: `Entity "${entity.name}" has parent "${parentName}" at same or deeper level, creating invalid hierarchy`,
