@@ -25,12 +25,6 @@ dependencies {
   implementation externalDependency.charle
   implementation externalDependency.jetbrains
   implementation externalDependency.opentelemetryApi
-
-  testImplementation externalDependency.springBootTest
-  testImplementation externalDependency.testng
-  testImplementation externalDependency.mockito
-  testImplementation externalDependency.springBoot
-  testImplementation externalDependency.logbackClassic
 }
 
 configurations.all{
