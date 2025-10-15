@@ -38,7 +38,7 @@ plugins = {
     | aws_common
     | {
         "opensearch-py==2.4.2",
-        "polars==1.30.0",
+        "polars==1.34.0",
         "elasticsearch==7.13.4",
         "numpy<2",
         "scipy<=1.14.1",
