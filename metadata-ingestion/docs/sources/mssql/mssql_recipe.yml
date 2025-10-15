@@ -49,3 +49,28 @@ source:
 
 sink:
   # sink configs
+
+#------------------------------------------------------------------------
+#Example: authenticating via an Azure Service Principal
+#This requires you to have already installed the Microsoft ODBC Driver for SQL Server.
+#See https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server
+# ------------------------------------------------------------------------
+
+source:
+  type: mssql-odbc
+  config:
+    # Coordinates
+    host_port: my-mssql-managed-instance.a1b22c333d44.database.windows.net:3342
+
+    # Credentials
+    username: <CLIENT_ID>@<TENANT_ID>
+    password: <CLIENT_SECRET>
+
+    # Options
+    use_odbc: true
+    uri_args:
+      driver: "ODBC Driver 18 for SQL Server"
+      Authentication: "ActiveDirectoryServicePrincipal"
+
+sink:
+  # sink configs
