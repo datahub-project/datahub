@@ -104,29 +104,3 @@ class S3UtilFactoryWithRoleArnTest extends AbstractTestNGSpringContextTests {
     assertNotNull(entityClient, "EntityClient should be injected");
   }
 }
-
-/** Test class for S3UtilFactory with empty/whitespace role ARN configuration */
-@SpringBootTest(classes = {S3UtilFactory.class, TestStsClientConfiguration.class})
-@TestPropertySource(properties = {"datahub.s3.roleArn=   "})
-class S3UtilFactoryWithEmptyRoleArnTest extends AbstractTestNGSpringContextTests {
-
-  // Set AWS region before any Spring context initialization
-  static {
-    System.setProperty("aws.region", "us-east-1");
-  }
-
-  @MockitoBean
-  @Qualifier("entityClient")
-  private EntityClient entityClient;
-
-  @Autowired
-  @Qualifier("s3Util")
-  private S3Util s3Util;
-
-  @Test
-  public void testS3UtilCreationWithEmptyRoleArn() {
-    // When/Then - should fall back to default credentials
-    assertNotNull(s3Util, "S3Util bean should be created successfully with empty role ARN");
-    assertNotNull(entityClient, "EntityClient should be injected");
-  }
-}

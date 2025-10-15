@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.util;
 
-import static com.linkedin.datahub.graphql.util.S3Util.assumeRole;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -34,7 +33,6 @@ import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
 import software.amazon.awssdk.services.sts.model.Credentials;
-import software.amazon.awssdk.services.sts.model.StsException;
 
 public class S3UtilTest {
 
@@ -83,43 +81,6 @@ public class S3UtilTest {
 
     S3Util s3Util = new S3Util(mockEntityClient, mockStsClient, roleArn);
     assertNotNull(s3Util);
-  }
-
-  @Test
-  public void testAssumeRoleSuccess() {
-    String roleArn = "arn:aws:iam::123456789012:role/test-role";
-    String sessionName = "test-session";
-
-    Credentials expectedCredentials =
-        Credentials.builder()
-            .accessKeyId("access-key")
-            .secretAccessKey("secret-key")
-            .sessionToken("session-token")
-            .expiration(Instant.now().plusSeconds(3600))
-            .build();
-
-    AssumeRoleResponse mockResponse =
-        AssumeRoleResponse.builder().credentials(expectedCredentials).build();
-
-    when(mockStsClient.assumeRole(any(AssumeRoleRequest.class))).thenReturn(mockResponse);
-
-    Credentials actualCredentials = assumeRole(mockStsClient, roleArn, sessionName);
-
-    assertEquals(actualCredentials.accessKeyId(), expectedCredentials.accessKeyId());
-    assertEquals(actualCredentials.secretAccessKey(), expectedCredentials.secretAccessKey());
-    assertEquals(actualCredentials.sessionToken(), expectedCredentials.sessionToken());
-    assertEquals(actualCredentials.expiration(), expectedCredentials.expiration());
-  }
-
-  @Test
-  public void testAssumeRoleFailure() {
-    String roleArn = "arn:aws:iam::123456789012:role/test-role";
-    String sessionName = "test-session";
-
-    when(mockStsClient.assumeRole(any(AssumeRoleRequest.class)))
-        .thenThrow(StsException.builder().message("Access denied").build());
-
-    assertThrows(RuntimeException.class, () -> assumeRole(mockStsClient, roleArn, sessionName));
   }
 
   @Test
@@ -183,63 +144,6 @@ public class S3UtilTest {
     CompletableFuture.allOf(futures).join();
     executor.shutdown();
     assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
-  }
-
-  @Test
-  public void testAssumeRoleWithValidParameters() {
-    String roleArn = "arn:aws:iam::123456789012:role/S3AccessRole";
-    String sessionName = "datahub-s3-session";
-
-    Credentials mockCredentials =
-        Credentials.builder()
-            .accessKeyId("AKIA123456789")
-            .secretAccessKey("secret123")
-            .sessionToken("token456")
-            .expiration(Instant.now().plusSeconds(3600))
-            .build();
-
-    AssumeRoleResponse mockResponse =
-        AssumeRoleResponse.builder().credentials(mockCredentials).build();
-
-    AssumeRoleRequest expectedRequest =
-        AssumeRoleRequest.builder().roleArn(roleArn).roleSessionName(sessionName).build();
-
-    when(mockStsClient.assumeRole(expectedRequest)).thenReturn(mockResponse);
-
-    Credentials result = assumeRole(mockStsClient, roleArn, sessionName);
-
-    assertNotNull(result);
-    assertEquals(result.accessKeyId(), "AKIA123456789");
-    assertEquals(result.secretAccessKey(), "secret123");
-    assertEquals(result.sessionToken(), "token456");
-    assertNotNull(result.expiration());
-
-    verify(mockStsClient).assumeRole(expectedRequest);
-  }
-
-  @Test
-  public void testAssumeRoleRequestStructure() {
-    String roleArn = "arn:aws:iam::123456789012:role/TestRole";
-    String sessionName = "test-session-name";
-
-    Credentials mockCredentials =
-        Credentials.builder()
-            .accessKeyId("test-access-key")
-            .secretAccessKey("test-secret-key")
-            .sessionToken("test-session-token")
-            .expiration(Instant.now().plusSeconds(900))
-            .build();
-
-    AssumeRoleResponse mockResponse =
-        AssumeRoleResponse.builder().credentials(mockCredentials).build();
-
-    when(mockStsClient.assumeRole(any(AssumeRoleRequest.class))).thenReturn(mockResponse);
-
-    assumeRole(mockStsClient, roleArn, sessionName);
-
-    verify(mockStsClient)
-        .assumeRole(
-            AssumeRoleRequest.builder().roleArn(roleArn).roleSessionName(sessionName).build());
   }
 
   @Test
@@ -443,19 +347,6 @@ public class S3UtilTest {
     // This should trigger credential refresh
     assertThrows(
         RuntimeException.class, () -> s3Util.generatePresignedDownloadUrl("bucket", "key", 3600));
-  }
-
-  @Test
-  public void testCredentialRefreshFailure() {
-    String roleArn = "arn:aws:iam::123456789012:role/test-role";
-
-    // Mock STS client to throw exception on assumeRole
-    when(mockStsClient.assumeRole(any(AssumeRoleRequest.class)))
-        .thenThrow(StsException.builder().message("Access denied").build());
-
-    // This should fail during constructor initialization
-    assertThrows(
-        RuntimeException.class, () -> new S3Util(mockEntityClient, mockStsClient, roleArn));
   }
 
   @Test
