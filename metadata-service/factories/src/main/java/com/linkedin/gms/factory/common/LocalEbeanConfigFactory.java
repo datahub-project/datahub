@@ -50,6 +50,9 @@ public class LocalEbeanConfigFactory {
   @Value("${ebean.postgresUseIamAuth:false}")
   private Boolean postgresUseIamAuth;
 
+  @Value("${ebean.captureStackTrace:false}")
+  private Boolean captureStackTrace;
+
   public static DataSourcePoolListener getListenerToTrackCounts(
       MetricUtils metricUtils, String metricName) {
     final String counterName = "ebeans_connection_pool_size_" + metricName;
@@ -80,6 +83,7 @@ public class LocalEbeanConfigFactory {
     dataSourceConfig.setMaxAgeMinutes(ebeanMaxAgeMinutes);
     dataSourceConfig.setLeakTimeMinutes(ebeanLeakTimeMinutes);
     dataSourceConfig.setWaitTimeoutMillis(ebeanWaitTimeoutMillis);
+    dataSourceConfig.setCaptureStackTrace(captureStackTrace);
     dataSourceConfig.setListener(getListenerToTrackCounts(metricUtils, "main"));
     // Adding IAM auth access for AWS Postgres
     if (postgresUseIamAuth) {
