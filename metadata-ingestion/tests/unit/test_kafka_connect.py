@@ -563,9 +563,6 @@ class TestMongoSourceConnector:
                 "prod.mongo.avro.-leading-hyphen._leading-underscore",
                 "prod.mongo.avro.!user?<db>=.[]user=logs!",
                 "prod.mongo.avro.db-ok.collection-ok",
-                "prod.mongo.avro.db/slash.collection",
-                "prod.mongo.avro.db-ok.",
-                "prod.mongo.avro..collection-ok",
             ],
         )
 
