@@ -27,7 +27,7 @@ public class DataHubFileMapperTest {
     gmsFileInfo.setOriginalFileName("file.png");
     gmsFileInfo.setMimeType("image/png");
     gmsFileInfo.setSizeInBytes(1024L);
-    gmsFileInfo.setScenario(FileUploadScenario.DOCUMENTATION);
+    gmsFileInfo.setScenario(FileUploadScenario.ASSET_DOCUMENTATION);
 
     // Create audit stamp
     AuditStamp created = new AuditStamp();
@@ -60,7 +60,7 @@ public class DataHubFileMapperTest {
     assertEquals(result.getInfo().getSizeInBytes(), Long.valueOf(1024L));
     assertEquals(
         result.getInfo().getScenario(),
-        com.linkedin.datahub.graphql.generated.FileUploadScenario.DOCUMENTATION);
+        com.linkedin.datahub.graphql.generated.UploadDownloadScenario.ASSET_DOCUMENTATION);
 
     // Verify audit stamp
     assertNotNull(result.getInfo().getCreated());
@@ -84,7 +84,7 @@ public class DataHubFileMapperTest {
     gmsFileInfo.setOriginalFileName("file.png");
     gmsFileInfo.setMimeType("image/png");
     gmsFileInfo.setSizeInBytes(1024L);
-    gmsFileInfo.setScenario(FileUploadScenario.DOCUMENTATION);
+    gmsFileInfo.setScenario(FileUploadScenario.ASSET_DOCUMENTATION);
     gmsFileInfo.setReferencedByAsset(assetUrn);
     gmsFileInfo.setSchemaField(schemaFieldUrn);
 
@@ -128,7 +128,7 @@ public class DataHubFileMapperTest {
     gmsFileInfo.setOriginalFileName("file.png");
     gmsFileInfo.setMimeType("image/png");
     gmsFileInfo.setSizeInBytes(1024L);
-    gmsFileInfo.setScenario(FileUploadScenario.DOCUMENTATION);
+    gmsFileInfo.setScenario(FileUploadScenario.ASSET_DOCUMENTATION);
     gmsFileInfo.setLastDownloadedTime(System.currentTimeMillis());
     gmsFileInfo.setUnreferencedSince(System.currentTimeMillis() - 86400000L); // 1 day ago
 
@@ -185,7 +185,7 @@ public class DataHubFileMapperTest {
     gmsFileInfo.setOriginalFileName("file.png");
     gmsFileInfo.setMimeType("image/png");
     gmsFileInfo.setSizeInBytes(1024L);
-    gmsFileInfo.setScenario(FileUploadScenario.DOCUMENTATION);
+    gmsFileInfo.setScenario(FileUploadScenario.ASSET_DOCUMENTATION);
 
     // Create audit stamp
     AuditStamp created = new AuditStamp();
