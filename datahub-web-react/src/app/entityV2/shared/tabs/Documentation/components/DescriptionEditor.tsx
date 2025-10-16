@@ -22,7 +22,6 @@ const EditorSourceWrapper = styled.div`
     display: flex;
     flex-direction: column;
     flex: 1;
-    padding: 0 8px;
 `;
 
 type DescriptionEditorProps = {
@@ -202,6 +201,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                         content={updatedDescription}
                         onChange={handleEditorChange}
                         placeholder="Describe this asset to make it more discoverable. Tag @user or reference @asset to make your docs come to life!"
+                        hideBorder
                     />
                 </EditorContainer>
                 <SourceDescription />

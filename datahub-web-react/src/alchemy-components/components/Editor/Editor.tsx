@@ -49,6 +49,7 @@ type EditorProps = {
     toolbarStyles?: React.CSSProperties;
     dataTestId?: string;
     onKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void;
+    hideBorder?: boolean;
 };
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
@@ -62,6 +63,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         toolbarStyles,
         dataTestId,
         onKeyDown,
+        hideBorder,
     } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
@@ -107,7 +109,13 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     }, [readOnly, content]);
 
     return (
-        <EditorContainer className={className} data-testid={dataTestId} $readOnly={readOnly} onKeyDown={onKeyDown}>
+        <EditorContainer
+            className={className}
+            data-testid={dataTestId}
+            $readOnly={readOnly}
+            onKeyDown={onKeyDown}
+            $hideBorder={hideBorder}
+        >
             <ThemeProvider theme={EditorTheme}>
                 <Remirror
                     classNames={['ant-typography']}
