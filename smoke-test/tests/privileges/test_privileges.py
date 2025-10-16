@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 from tests.privileges.utils import (
@@ -7,6 +9,8 @@ from tests.privileges.utils import (
     create_group,
     create_user,
     create_user_policy,
+    get_current_user_info,
+    log_policies,
     remove_group,
     remove_policy,
     remove_secret,
@@ -23,6 +27,8 @@ from tests.utils import (
     wait_for_writes_to_sync,
     with_test_retry,
 )
+
+logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.no_cypress_suite1
 
@@ -70,15 +76,32 @@ def privileges_and_test_user_setup(admin_session):
 
 @with_test_retry(max_attempts=10)
 def _ensure_cant_perform_action(session, json, assertion_key):
+    logger.info(f"Testing that action '{assertion_key}' is FORBIDDEN (expecting 403)")
+
     action_response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     action_response.raise_for_status()
     action_data = action_response.json()
+
+    logger.debug(f"Response status code: {action_response.status_code}")
+
+    if "errors" not in action_data:
+        logger.error("Expected 'errors' key in response but got successful response!")
+        logger.error(f"Full response: {action_data}")
+        logger.error(f"Assertion key: {assertion_key}")
+
+        # Try to get current user info to understand why they have access
+        user_info = get_current_user_info(session)
+        if user_info:
+            logger.error(
+                f"Current user has managePolicies={user_info['privileges'].get('managePolicies')}"
+            )
 
     assert action_data["errors"][0]["extensions"]["code"] == 403, action_data["errors"][
         0
     ]
     assert action_data["errors"][0]["extensions"]["type"] == "UNAUTHORIZED"
     assert action_data["data"][assertion_key] is None
+    logger.info(f"Action '{assertion_key}' correctly returned 403")
 
 
 @with_test_retry(max_attempts=10)
@@ -390,6 +413,23 @@ def test_privilege_to_create_and_manage_policies():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
     user_session = login_as("user", "user")
+
+    # Log initial user privilege state
+    logger.info("=" * 80)
+    logger.info("Starting test_privilege_to_create_and_manage_policies")
+    logger.info("=" * 80)
+
+    user_info = get_current_user_info(user_session)
+    if user_info:
+        logger.info(
+            f"Initial user privileges: managePolicies={user_info['privileges'].get('managePolicies')}"
+        )
+        logger.info(f"User URN: {user_info['urn']}")
+    else:
+        logger.warning("Could not retrieve user info")
+
+    # Log all active policies at test start
+    log_policies(admin_session, "(before test starts)")
 
     # Verify new user can't create a policy
     create_policy = {
