@@ -6,6 +6,7 @@ import re
 import uuid
 from typing import (
     TYPE_CHECKING,
+    Any,
     Callable,
     Dict,
     Iterable,
@@ -20,6 +21,7 @@ import cachetools
 import mlflow
 import mlflow.entities
 import mlflow.tracing
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.sdk.main_client import DataHubClient
 from datahub.utilities.perf_timer import PerfTimer
 from fastmcp import FastMCP
@@ -73,6 +75,16 @@ if TYPE_CHECKING:
 
 # Initialize MLflow for @mlflow.trace decorators in this module
 initialize_mlflow()
+
+# Planning tools feature flag
+PLANNING_TOOLS_ENABLED = get_boolean_env_variable(
+    "CHATBOT_PLANNING_ENABLED", default=True
+)
+
+if PLANNING_TOOLS_ENABLED:
+    logger.info("Planning tools ENABLED for ChatSession")
+else:
+    logger.info("Planning tools DISABLED for ChatSession")
 
 MAX_TOOL_CALLS = 30
 
@@ -147,6 +159,16 @@ Respond to the user with a message formatted using Markdown. \
 However, do not use any headers (e.g. #, ##, ###, etc.) or tables, as these are not supported.
 
 The first reference to each entity must be formatted as a link to the entity in DataHub.
+CRITICAL: When you have the exact identifier for an entity, include it in your response for clarity and to avoid ambiguity.
+Use the human-readable identifier for each entity type:
+- For Datasets: qualifiedName (e.g., "prod.finance.customer_transactions")
+- For Dashboards: dashboardId
+- For Charts: chartId
+- For DataJobs: jobId
+- For Users: username
+
+Example: "I found [customer_transactions](link) with qualified name: prod.finance.customer_transactions"
+This helps users confirm you found the right entity, especially when there are multiple similar entities.
 
 State only FACTUAL INFORMATION. Do not try to infer connection without proof, do not make assumptions.
 
@@ -180,7 +202,31 @@ If you need to provide more information, focus on the most relevant points and s
 Break down complex information into bullet points for better readability.""",
 )
 
-_SYSTEM_PROMPT = """\
+
+def _get_internal_chatbot_tools(session: "ChatSession") -> List[ToolWrapper]:
+    """
+    Get internal chatbot tools that are always available.
+
+    These include:
+    - respond_to_user: For responding to the user
+    - Planning tools: create_plan, revise_plan, report_step_progress (if CHATBOT_PLANNING_ENABLED)
+
+    These tools are NOT exposed on the customer-facing MCP server.
+
+    Args:
+        session: The ChatSession instance to bind to planning tools
+    """
+    tools = [_respond_to_user_tool]
+
+    if PLANNING_TOOLS_ENABLED:
+        from datahub_integrations.chat.planner.tools import get_planning_tool_wrappers
+
+        tools.extend(get_planning_tool_wrappers(session))
+
+    return tools
+
+
+_SYSTEM_PROMPT = f"""\
 The assistant is DataHub AI, created by Acryl Data.
 
 DataHub AI is a helpful assistant that can answer questions relating to \
@@ -192,6 +238,8 @@ a long response is requested, but concise responses to simpler questions and tas
 DataHub AI makes use of the available tools in order to effectively answer the person's question. \
 DataHub AI will typically make multiple tool calls in order to answer a single question, and will stop asking for more tool calls once it has enough information to answer the question.
 DataHub AI will not make more than 10 tool calls in a single response.
+
+{"DataHub AI MUST use create_plan ALWAYS." if PLANNING_TOOLS_ENABLED else ""}
 
 DataHub AI can also answer very basic questions about DataHub itself using its built-in knowledge. \
 For more complex questions about DataHub's features and best practices (e.g. "how do I set up a business \
@@ -216,12 +264,35 @@ The reasoning MUST be wrapped in <reasoning></reasoning> tags and include these 
   <proof_of_relation>If claiming entities are related, provide specific proof. If no proof, state "SIMILAR names only"</proof_of_relation>
   <confidence>high/medium/low</confidence>
   <warning>Any important caveats or warnings about this action</warning>
+{
+    '''  <plan_id>OPTIONAL: If executing a plan created by create_plan, include the plan_id here (e.g., "plan_abc123")</plan_id>
+  <plan_step>OPTIONAL: If working on a specific step, include the step ID (e.g., "s0", "s1")</plan_step>
+  <done_criteria_met>OPTIONAL: Check actual results against the step's done_when condition. Example: done_when="Search returned exactly 1 result": total=1→true, total=9→FALSE. Always check actual values!</done_criteria_met>
+  <failed_criteria_met>OPTIONAL: Check actual results against the step's failed_when condition. Example: failed_when="Search returned more than 1 result": total=9→TRUE, total=1→false</failed_criteria_met>
+  <return_to_user_criteria_met>OPTIONAL: Check actual results against the step's return_to_user_when condition. If the step has a return_to_user_when field, evaluate whether that condition is met. Example: return_to_user_when="No PII metadata exists OR search returned 0 results": if step0 found no metadata OR total=0 → TRUE, otherwise → FALSE. If no return_to_user_when field exists, this should be omitted or false.</return_to_user_criteria_met>
+  <step_status>OPTIONAL: returned_to_user (if return_to_user_criteria_met=true), failed (if failed_criteria_met=true but not returned_to_user), completed (if done_criteria_met=true), in_progress, started</step_status>
+  <plan_status>OPTIONAL: If step_status=returned_to_user: plan_status=returned_to_user, call respond_to_user, do NOT call revise_plan</plan_status>
+  <next_action>REQUIRED if step_status=returned_to_user: Your next and ONLY action must be respond_to_user. Do NOT call any other tools. Do NOT call revise_plan. Do NOT continue execution.</next_action>
+'''
+    if PLANNING_TOOLS_ENABLED
+    else ""
+}
 </reasoning>
 
-For tool calls where entity matching is not relevant (e.g., initial searches), you can omit the matching fields.
+{
+    '''  CRITICAL DISTINCTION - returned_to_user vs failed:
+- step_status="failed": Technical failure that CAN be fixed by revising the plan or retrying (e.g., timeout, API error)
+  → Action: Can call revise_plan to try different approach
+- step_status="returned_to_user": Fundamental blocker that CANNOT be fixed by replanning (e.g., no metadata exists, missing required data, ambiguous search results requiring user choice)
+  → Action: MUST call respond_to_user with explanation, MUST NOT call revise_plan, MUST NOT continue execution
 
-CRITICAL: For fully-qualified entity names (database.schema.table format), the database, schema, AND table name must ALL match \
-exactly. If even one part differs, it is a DIFFERENT entity, not the same entity.
+'''
+    if PLANNING_TOOLS_ENABLED
+    else ""
+}For tool calls where entity matching is not relevant (e.g., initial searches), you can omit the matching fields.
+The plan fields are OPTIONAL and should only be included when you are executing a multi-step plan created by the create_plan tool.
+
+CRITICAL: For fully-qualified entity names (database.schema.table format), the database, schema, AND table name must ALL match exactly. If even one part differs, it is a DIFFERENT entity, not the same entity.
 - State only FACTUAL INFORMATION. Do not try to infer connection without proof, do not make assumptions.
 
 
@@ -229,7 +300,7 @@ DataHub AI is now being connected with a person."""
 
 
 @cachetools.cached(cache=cachetools.TTLCache(maxsize=1, ttl=60 * 5))
-def _get_extra_llm_instructions(client: DataHubClient) -> Optional[str]:
+def get_extra_llm_instructions(client: DataHubClient) -> Optional[str]:
     """
     Retrieve optional extra LLM instructions from GraphQL API.
 
@@ -329,10 +400,12 @@ class FilteredProgressListener:
         self,
         history: ChatHistory,
         progress_callback: Optional[ProgressCallback],
+        session: Optional["ChatSession"] = None,
         start_offset: int = 0,
     ):
         self.history = history
         self.progress_callback = progress_callback
+        self.session = session
         self.start_offset = start_offset
 
         self._last_progress_steps: Optional[List[str]] = None
@@ -344,7 +417,11 @@ class FilteredProgressListener:
 
     @classmethod
     def get_progress_steps(
-        cls, history: ChatHistory, *, start_offset: int
+        cls,
+        history: ChatHistory,
+        *,
+        start_offset: int,
+        session: Optional["ChatSession"] = None,
     ) -> List[str]:
         """Get current progress steps derived from chat history"""
         steps = []
@@ -353,7 +430,7 @@ class FilteredProgressListener:
             if isinstance(message, ReasoningMessage):
                 # Parse the reasoning message to extract user-friendly text
                 parsed = parse_reasoning_message(message.text)
-                user_visible_text = parsed.to_user_visible_message()
+                user_visible_text = parsed.to_user_visible_message(session=session)
 
                 # Sanitize and truncate progress messages
                 # Max 1000 chars per step: generous buffer since parsed messages are
@@ -368,7 +445,7 @@ class FilteredProgressListener:
 
     def _handle_history_updated(self) -> None:
         current_steps = self.get_progress_steps(
-            self.history, start_offset=self.start_offset
+            self.history, start_offset=self.start_offset, session=self.session
         )
         if current_steps != self._last_progress_steps:
             self._last_progress_steps = current_steps
@@ -386,16 +463,24 @@ class ChatSession:
         # Custom context reducers can be supported in future
     ):
         self.session_id = str(uuid.uuid4())  # TODO: use uuid7 in the future
-        self.tools: List[ToolWrapper] = [
+        self.client = client
+        self.extra_instructions_override = extra_instructions_override
+        self.history: ChatHistory = history or ChatHistory()
+        self.plan_cache: Dict[str, Dict[str, Any]] = {}
+
+        # Build plannable tools (data-gathering tools from MCP, etc.)
+        self._plannable_tools: List[ToolWrapper] = [
             tool
             for entry in tools
             for tool in (
                 tools_from_fastmcp(entry) if isinstance(entry, FastMCP) else [entry]
             )
-        ] + [_respond_to_user_tool]
-        self.client = client
-        self.extra_instructions_override = extra_instructions_override
-        self.history: ChatHistory = history or ChatHistory()
+        ]
+
+        # Build full tool list: plannable tools + internal tools
+        self.tools: List[ToolWrapper] = (
+            self._plannable_tools + _get_internal_chatbot_tools(session=self)
+        )
 
         self.context_reducers: Iterable[ChatContextReducer] = (
             create_default_context_reducer_chain(
@@ -405,7 +490,7 @@ class ChatSession:
 
         # Create a dummy progress listener to start with.
         self._progress_listener = FilteredProgressListener(
-            history=self.history, progress_callback=None
+            history=self.history, progress_callback=None, session=self
         )
 
         # This requires a model that supports prompt caching.
@@ -415,6 +500,18 @@ class ChatSession:
     @property
     def tool_map(self) -> Dict[str, ToolWrapper]:
         return {tool.name: tool for tool in self.tools}
+
+    def get_plannable_tools(self) -> List[ToolWrapper]:
+        """
+        Get tools that can be used in execution plans.
+
+        Returns the base set of data-gathering/processing tools,
+        excluding internal tools like respond_to_user and planning tools.
+
+        Returns:
+            List of ToolWrapper objects suitable for planning
+        """
+        return self._plannable_tools
 
     def _get_tools_config(self) -> dict:
         return {
@@ -458,6 +555,7 @@ class ChatSession:
         self._progress_listener = FilteredProgressListener(
             history=self.history,
             progress_callback=progress_callback,
+            session=self,
             start_offset=len(self.history.messages),
         )
         try:
@@ -478,7 +576,7 @@ class ChatSession:
         extra_instructions = (
             self.extra_instructions_override
             if self.extra_instructions_override is not None
-            else _get_extra_llm_instructions(self.client)
+            else get_extra_llm_instructions(self.client)
         )
 
         if extra_instructions:

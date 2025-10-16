@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Simple test script for documentation generation with hardcoded URNs.
+Simple example script for documentation generation with hardcoded URNs.
 
 This is the quickest way to test documentation generation:
-    python test_generation_simple.py
+    python example_generation_simple.py
 """
 
 import os
@@ -33,11 +33,11 @@ MOCK_INSTRUCTIONS = "Always mention data quality and compliance considerations. 
 USE_MOCK_INSTRUCTIONS = False  # Set to False to fetch from GraphQL
 
 
-def test_generation():
-    """Test documentation generation with a hardcoded URN."""
+def run_example():
+    """Run documentation generation example with a hardcoded URN."""
     
     print("=" * 80)
-    print("DOCUMENTATION GENERATION TEST")
+    print("DOCUMENTATION GENERATION EXAMPLE")
     print("=" * 80)
     
     # Show AWS configuration
@@ -157,4 +157,4 @@ if __name__ == "__main__":
     # Query example
     # TEST_URN = "urn:li:query:61705a7013ab63277266251565750876"
     
-    test_generation()
+    run_example()

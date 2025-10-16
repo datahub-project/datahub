@@ -2,7 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 from datahub.sdk.main_client import DataHubClient
 
 from datahub_integrations.chat.chat_history import ChatHistory, HumanMessage
@@ -13,7 +12,7 @@ from datahub_integrations.mcp.mcp_server import mcp
 class TestChatSessionIntegration:
     """Test ChatSession integration with extra LLM instructions."""
 
-    @patch("datahub_integrations.chat.chat_session._get_extra_llm_instructions")
+    @patch("datahub_integrations.chat.chat_session.get_extra_llm_instructions")
     def test_chat_session_uses_extra_instructions_from_graphql(
         self, mock_get_instructions: MagicMock
     ) -> None:
@@ -43,7 +42,7 @@ class TestChatSessionIntegration:
         # Verify the function was called with the client
         mock_get_instructions.assert_called_once_with(mock_client)
 
-    @patch("datahub_integrations.chat.chat_session._get_extra_llm_instructions")
+    @patch("datahub_integrations.chat.chat_session.get_extra_llm_instructions")
     def test_chat_session_handles_no_extra_instructions(
         self, mock_get_instructions: MagicMock
     ) -> None:
@@ -89,7 +88,7 @@ class TestChatSessionIntegration:
 
         # Get system messages
         with patch(
-            "datahub_integrations.chat.chat_session._get_extra_llm_instructions"
+            "datahub_integrations.chat.chat_session.get_extra_llm_instructions"
         ) as mock_get:
             mock_get.return_value = "GraphQL instructions - should not be used"
             system_messages = chat_session._get_system_messages()
@@ -99,15 +98,13 @@ class TestChatSessionIntegration:
             assert "Override: Be extra helpful." in system_messages[1]["text"]
             mock_get.assert_not_called()
 
-    @patch("datahub_integrations.chat.chat_session._get_extra_llm_instructions")
+    @patch("datahub_integrations.chat.chat_session.get_extra_llm_instructions")
     def test_chat_session_handles_graphql_error_gracefully(
         self, mock_get_instructions: MagicMock
     ) -> None:
         """Test that ChatSession handles GraphQL errors appropriately."""
         # Setup - simulate GraphQL error
-        mock_get_instructions.side_effect = Exception(
-            "Failed to fetch AI instructions from GraphQL"
-        )
+        mock_get_instructions.return_value = None  # Function now returns None on error
 
         mock_client = MagicMock(spec=DataHubClient)
         mock_graph = MagicMock()
@@ -120,8 +117,8 @@ class TestChatSessionIntegration:
             history=ChatHistory(messages=[HumanMessage(text="Test message")]),
         )
 
-        # Get system messages should raise the exception
-        with pytest.raises(Exception) as exc_info:
-            chat_session._get_system_messages()
+        # Get system messages should handle gracefully (return None)
+        system_messages = chat_session._get_system_messages()
 
-        assert "Failed to fetch AI instructions from GraphQL" in str(exc_info.value)
+        # Should work fine with no extra instructions (returns None on error)
+        assert len(system_messages) == 1  # Only base prompt

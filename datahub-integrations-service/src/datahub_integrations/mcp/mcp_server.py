@@ -493,6 +493,7 @@ def enhanced_search(
     num_results: int = 10,
 ) -> dict:
     """Enhanced search across DataHub entities with semantic and keyword capabilities.
+    Results are ordered by relevance and importance - examine top results first.
 
     This tool supports two search strategies with different strengths:
 
@@ -521,13 +522,19 @@ def enhanced_search(
     - Use keyword when: user provides specific names (/q user_events, /q revenue_jan_2024)
     - Use keyword when: searching for technical terms, boolean logic, or exact identifiers
 
-    Returns both a truncated list of results and facets/aggregations that can be used to iteratively refine the search filters.
-    To explore the data catalog and get aggregate statistics, use the wildcard '*' as the query and set `filters: null`. This provides
-    facets showing platform distribution, entity types, and other aggregate insights across the entire catalog, plus a representative
-    sample of entities.
+    FACET EXPLORATION - Discover metadata without returning results:
+    - Set num_results=0 to get ONLY facets (no search results)
+    - Facets show ALL tags, glossaryTerms, platforms, domains used in the catalog
+    - Example: search(query="*", filters={"entity_type": ["DATASET"]}, num_results=0)
+      → Returns facets showing all tags/glossaryTerms applied to datasets
+    - Use this to discover what metadata exists before doing filtered searches
 
-    A typical workflow will involve multiple calls to this search tool, with each call refining the filters based on the facets/aggregations returned in the previous call.
-    After the final search is performed, you'll want to use the other tools to get more details about the relevant entities.
+    TYPICAL WORKFLOW:
+    1. Facet exploration: search(query="*", filters={"entity_type": ["DATASET"]}, num_results=0)
+       → Examine tags/glossaryTerms facets to see what metadata exists
+    2. Filtered search: search(query="*", filters={"tag": ["urn:li:tag:pii"]}, num_results=30)
+       → Get entities with specific tag using URN from step 1
+    3. Get details: Use get_entity() on specific results
 
     Here are some example filters:
     - All Looker assets
@@ -561,6 +568,13 @@ def enhanced_search(
     - Semantic: "financial performance metrics" → finds revenue_kpis, profit_analysis, financial_dashboards
     - Keyword: /q financial_performance_metrics → finds exact table name matches
     - Keyword: /q (financial OR revenue) AND metrics → complex boolean logic
+
+    LIMITATIONS:
+    Cannot sort by specific fields like downstream_count or query_count.
+
+    Note: Search results are already ranked by importance - frequently queried and
+    high-usage entities appear first. For "most important tables", search by
+    importance tags/terms or use the top-ranked results from a broad search.
     """
     return _search_implementation(query, filters, num_results, search_strategy)
 
@@ -572,6 +586,7 @@ def search(
     num_results: int = 10,
 ) -> dict:
     """Search across DataHub entities using structured full-text search.
+    Results are ordered by relevance and importance - examine top results first.
 
     SEARCH SYNTAX:
     - Structured full-text search - **always start queries with /q**
@@ -588,13 +603,19 @@ def search(
     - Fast and precise for exact matching, technical terms, and complex queries
     - Best for: entity names, identifiers, column names, or any search needing boolean logic
 
-    Returns both a truncated list of results and facets/aggregations that can be used to iteratively refine the search filters.
-    To explore the data catalog and get aggregate statistics, use the wildcard '*' as the query and set `filters: null`. This provides
-    facets showing platform distribution, entity types, and other aggregate insights across the entire catalog, plus a representative
-    sample of entities.
+    FACET EXPLORATION - Discover metadata without returning results:
+    - Set num_results=0 to get ONLY facets (no search results)
+    - Facets show ALL tags, glossaryTerms, platforms, domains used in the catalog
+    - Example: search(query="*", filters={"entity_type": ["DATASET"]}, num_results=0)
+      → Returns facets showing all tags/glossaryTerms applied to datasets
+    - Use this to discover what metadata exists before doing filtered searches
 
-    A typical workflow will involve multiple calls to this search tool, with each call refining the filters based on the facets/aggregations returned in the previous call.
-    After the final search is performed, you'll want to use the other tools to get more details about the relevant entities.
+    TYPICAL WORKFLOW:
+    1. Facet exploration: search(query="*", filters={"entity_type": ["DATASET"]}, num_results=0)
+       → Examine tags/glossaryTerms facets to see what metadata exists
+    2. Filtered search: search(query="*", filters={"tag": ["urn:li:tag:pii"]}, num_results=30)
+       → Get entities with specific tag using URN from step 1
+    3. Get details: Use get_entity() on specific results
 
     Here are some example filters:
     - All Looker assets
@@ -643,17 +664,115 @@ def search(
     - /q customer+behavior → finds tables with both terms (works with customer_behavior fields)
     - /q customer OR user → finds tables with either term
     - /q (financial OR revenue) AND metrics → complex boolean logic
+
+    LIMITATIONS:
+    Cannot sort by specific fields like downstream_count or query_count.
+
+    Note: Search results are already ranked by importance - frequently queried and
+    high-usage entities appear first. For "most important tables", search by
+    importance tags/terms or use the top-ranked results from a broad search.
     """
     return _search_implementation(query, filters, num_results, "keyword")
 
 
-@mcp.tool(
-    description="Use this tool to get the SQL queries associated with a dataset or a dataset column."
-)
 @async_background
 def get_dataset_queries(
-    urn: str, column: Optional[str] = None, start: int = 0, count: int = 10
+    urn: str,
+    column: Optional[str] = None,
+    source: Optional[Literal["MANUAL", "SYSTEM"]] = None,
+    start: int = 0,
+    count: int = 10,
 ) -> dict:
+    """Get SQL queries associated with a dataset or column to understand usage patterns.
+
+    This tool retrieves actual SQL queries that reference a specific dataset or column.
+    Useful for understanding how data is used, common JOIN patterns, typical filters,
+    and aggregation logic.
+
+    PARAMETERS:
+
+    source - Filter by query origin:
+    - "MANUAL": Queries written by users in query editors (real SQL patterns)
+    - "SYSTEM": Queries extracted from BI tools/dashboards (production usage)
+    - null: Return both types (default)
+
+    COMMON USE CASES:
+
+    1. SQL Generation - Learn real query patterns:
+       get_dataset_queries(urn, source="MANUAL", count=5-10)
+       → See how users actually write SQL against this table
+       → Discover common JOINs, aggregations, filters
+       → Match organizational SQL conventions and patterns
+
+    2. Production usage analysis:
+       get_dataset_queries(urn, source="SYSTEM", count=20)
+       → See how dashboards and reports query this data
+       → Understand which queries run in production
+       → Identify critical query patterns
+
+    3. Column usage patterns:
+       get_dataset_queries(urn, column="customer_id", source="MANUAL", count=5)
+       → See how a specific column is used in queries
+       → Learn filtering and grouping patterns for that column
+       → Discover relationships via JOIN patterns
+
+    4. General usage exploration:
+       get_dataset_queries(urn, count=10)
+       → Get mix of manual and system queries
+       → Understand overall table usage
+
+    EXAMPLES:
+
+    - Get manual queries for SQL generation:
+      get_dataset_queries(
+          urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.sales.orders,PROD)",
+          source="MANUAL",
+          count=10
+      )
+
+    - Get dashboard queries (production usage):
+      get_dataset_queries(
+          urn="urn:li:dataset:(...)",
+          source="SYSTEM",
+          count=20
+      )
+
+    - Column-specific query patterns:
+      get_dataset_queries(
+          urn="urn:li:dataset:(...)",
+          column="created_at",
+          source="MANUAL",
+          count=5
+      )
+
+    RESPONSE STRUCTURE:
+    - total: Total number of queries matching criteria
+    - start: Starting offset
+    - count: Number of results returned
+    - queries: Array of query objects with:
+      - urn: Query identifier
+      - properties.statement.value: The actual SQL text
+      - properties.statement.language: Query language (SQL, etc.)
+      - properties.source: MANUAL or SYSTEM
+      - properties.name: Optional query name
+      - platform: Source platform
+      - subjects: Referenced datasets/columns (deduplicated to dataset URNs)
+
+    ANALYZING RETRIEVED QUERIES:
+    Once you retrieve queries, examine the SQL statements to identify:
+    - JOIN patterns: Which tables are joined? On what keys?
+    - Aggregations: Common SUM, COUNT, AVG, GROUP BY patterns
+    - Filters: Typical WHERE clauses, date range logic
+    - Column usage: Which columns appear frequently vs rarely
+    - CTEs and subqueries: Complex query structures
+
+    BEST PRACTICES:
+    - For SQL generation: Use source="MANUAL" (count=5-10) to see real user patterns
+    - For production analysis: Use source="SYSTEM" to see dashboard/report queries
+    - Start with moderate count (5-10) to avoid overwhelming context
+    - If no queries found (total=0), proceed without query examples - not all tables have queries
+    - Parse the SQL statements yourself to find patterns - they are not full-text searchable
+    """
     client = get_datahub_client()
 
     urn = maybe_convert_to_schema_field_urn(urn, column)
@@ -665,8 +784,16 @@ def get_dataset_queries(
 
     # Set up variables for the query
     variables = {
-        "input": {"start": start, "count": count, "orFilters": compiled_filters}
+        "input": {
+            "start": start,
+            "count": count,
+            "orFilters": compiled_filters,
+        }
     }
+
+    # Add optional source filter
+    if source is not None:
+        variables["input"]["source"] = source
 
     # Execute the GraphQL query
     result = _execute_graphql(
@@ -734,7 +861,9 @@ class AssetLineageAPI:
             raise ValueError(f"Invalid number of hops: {max_hops}")
 
     def get_lineage(
-        self, asset_lineage_directive: AssetLineageDirective
+        self,
+        asset_lineage_directive: AssetLineageDirective,
+        query: Optional[str] = None,
     ) -> Dict[str, Any]:
         result: Dict[str, Any] = {}
 
@@ -744,6 +873,7 @@ class AssetLineageAPI:
         types, compiled_filters = compile_filters(filter)
         variables = {
             "urn": asset_lineage_directive.urn,
+            "query": query or "*",
             "start": 0,
             "count": asset_lineage_directive.max_results,
             "types": types,
@@ -789,12 +919,36 @@ Set upstream to True for upstream lineage, False for downstream lineage.
 Set `column: null` to get lineage for entire dataset or for entity type other than dataset.
 Setting max_hops to 3 is equivalent to unlimited hops.
 Usage and format of filters is same as that in search tool.
+
+QUERY PARAMETER - Search within lineage results:
+You can filter lineage results using the `query` parameter with same /q syntax as search tool:
+- /q workspace.growthgestaofin → find tables in specific schema
+- /q customer+transactions → find entities with both terms
+- /q looker OR tableau → find dashboards on either platform
+- /q * → get all lineage results (default)
+
+Examples:
+- Find specific table in 643 downstreams: query="workspace.growthgestaofin.qs_retention"
+- Find Looker dashboards in lineage: query="/q tag:looker"
+- Get all results: query="*" or omit parameter
+
+COUNT PARAMETER - Control result size:
+- Default: 30 results
+- For aggregation: count=30 is sufficient (facets computed on ALL items server-side)
+- For finding specific item: Increase count or use query to filter
+- Example: count=100 for larger result sets
+
+WHEN TO USE QUERY vs COUNT:
+- User asks "is X affected?" → Use query to filter for X specifically
+- Large lineage (>30 items) → Keep count=30, use facets for aggregation
+- Need complete list → Increase count only if total ≤100
 """
 )
 @async_background
 def get_lineage(
     urn: str,
     column: Optional[str],
+    query: Optional[str] = None,
     filters: Optional[Filter | str] = None,
     upstream: bool = True,
     max_hops: int = 1,
@@ -817,7 +971,7 @@ def get_lineage(
         extra_filters=filters,
         max_results=max_results,
     )
-    lineage = lineage_api.get_lineage(asset_lineage_directive)
+    lineage = lineage_api.get_lineage(asset_lineage_directive, query=query)
     inject_urls_for_urns(client._graph, lineage, ["*.searchResults[].entity"])
     truncate_descriptions(lineage)
     return lineage
@@ -843,3 +997,8 @@ def register_search_tools(mcp_instance: FastMCP) -> None:
 
 # Register search tools on the global MCP instance
 register_search_tools(mcp)
+
+# Register get_dataset_queries tool
+mcp.tool(name="get_dataset_queries", description=get_dataset_queries.__doc__)(
+    get_dataset_queries
+)

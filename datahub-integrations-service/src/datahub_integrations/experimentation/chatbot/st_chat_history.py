@@ -99,5 +99,7 @@ def st_chat_history(
                 st.caption(f"Summary · {_token_count(message.text)}")
                 st.markdown(message.text)
         else:
-            st.error(f"Unknown message type: {type(message)}")
+            st.error(
+                f"Unknown message type: {type(message)} isHumanMessage:{isinstance(message, HumanMessage)}"
+            )
             assert_never(message)

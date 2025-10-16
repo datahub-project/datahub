@@ -393,3 +393,105 @@ class TestParseReasoningMessage:
         assert "⚠️" in message
         assert "Different database" in message
         assert "[Confidence: medium]" in message
+
+    def test_parse_xml_with_plan_fields(self) -> None:
+        """Test parsing XML with plan-related fields."""
+        xml_text = """<reasoning>
+  <action>Search for dataset</action>
+  <rationale>Need to find the entity</rationale>
+  <plan_id>plan_abc123</plan_id>
+  <plan_step>s0</plan_step>
+  <step_status>in_progress</step_status>
+  <confidence>high</confidence>
+</reasoning>"""
+
+        parsed = parse_reasoning_message(xml_text)
+
+        assert parsed.action == "Search for dataset"
+        assert parsed.rationale == "Need to find the entity"
+        assert parsed.plan_id == "plan_abc123"
+        assert parsed.plan_step == "s0"
+        assert parsed.step_status == "in_progress"
+        assert parsed.confidence == "high"
+
+    def test_parse_xml_with_only_plan_id(self) -> None:
+        """Test parsing XML with only plan_id (no step info)."""
+        xml_text = """<reasoning>
+  <action>Create plan</action>
+  <plan_id>plan_xyz789</plan_id>
+</reasoning>"""
+
+        parsed = parse_reasoning_message(xml_text)
+
+        assert parsed.action == "Create plan"
+        assert parsed.plan_id == "plan_xyz789"
+        assert parsed.plan_step is None
+        assert parsed.step_status is None
+
+    def test_parse_xml_with_complete_plan_info(self) -> None:
+        """Test parsing XML with all plan fields populated."""
+        xml_text = """<reasoning>
+  <action>Get downstream lineage</action>
+  <rationale>Need to find affected dashboards</rationale>
+  <plan_id>plan_def456</plan_id>
+  <plan_step>s2</plan_step>
+  <step_status>completed</step_status>
+  <confidence>high</confidence>
+  <warning>Found 100+ downstream assets</warning>
+</reasoning>"""
+
+        parsed = parse_reasoning_message(xml_text)
+
+        assert parsed.action == "Get downstream lineage"
+        assert parsed.rationale == "Need to find affected dashboards"
+        assert parsed.plan_id == "plan_def456"
+        assert parsed.plan_step == "s2"
+        assert parsed.step_status == "completed"
+        assert parsed.confidence == "high"
+        assert parsed.warning == "Found 100+ downstream assets"
+
+    def test_parse_xml_plan_fields_with_whitespace(self) -> None:
+        """Test that plan fields are trimmed of whitespace."""
+        xml_text = """<reasoning>
+  <action>Execute step</action>
+  <plan_id>  plan_abc123  </plan_id>
+  <plan_step>  s1  </plan_step>
+  <step_status>  started  </step_status>
+</reasoning>"""
+
+        parsed = parse_reasoning_message(xml_text)
+
+        assert parsed.plan_id == "plan_abc123"
+        assert parsed.plan_step == "s1"
+        assert parsed.step_status == "started"
+
+    def test_parse_xml_empty_plan_fields(self) -> None:
+        """Test that empty plan field tags are treated as None."""
+        xml_text = """<reasoning>
+  <action>Test action</action>
+  <plan_id></plan_id>
+  <plan_step></plan_step>
+  <step_status></step_status>
+</reasoning>"""
+
+        parsed = parse_reasoning_message(xml_text)
+
+        # Empty tags should be None, not empty strings
+        assert parsed.plan_id is None
+        assert parsed.plan_step is None
+        assert parsed.step_status is None
+
+    def test_parsed_reasoning_with_plan_fields_in_constructor(self) -> None:
+        """Test creating ParsedReasoning with plan fields directly."""
+        parsed = ParsedReasoning(
+            action="Search",
+            plan_id="plan_test123",
+            plan_step="s0",
+            step_status="in_progress",
+            raw_text="<reasoning>test</reasoning>",
+        )
+
+        assert parsed.action == "Search"
+        assert parsed.plan_id == "plan_test123"
+        assert parsed.plan_step == "s0"
+        assert parsed.step_status == "in_progress"

@@ -44,8 +44,35 @@ class AssistantMessage(_BaseMessage):
 
 
 class ReasoningMessage(_BaseMessage):
+    """
+    Internal reasoning message from the LLM.
+
+    Can optionally include plan coordination fields to track progress
+    through multi-step plans created by the planning tools.
+    """
+
     type: Literal["internal"] = "internal"
     text: str
+
+    # Optional plan coordination fields
+    plan_id: Optional[str] = Field(
+        default=None,
+        description="ID of the plan being executed (e.g., 'plan_abc123')",
+    )
+    plan_step: Optional[str] = Field(
+        default=None,
+        description="Current step ID being worked on (e.g., 's0', 's1')",
+    )
+    step_status: Optional[Literal["started", "in_progress", "completed", "failed"]] = (
+        Field(
+            default=None,
+            description="Status of the current step",
+        )
+    )
+    plan_status: Optional[Literal["active", "completed", "failed", "revised"]] = Field(
+        default=None,
+        description="Overall status of the plan",
+    )
 
     def to_obj(self) -> dict:
         return {
