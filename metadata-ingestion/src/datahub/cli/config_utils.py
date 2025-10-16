@@ -76,11 +76,28 @@ class DatahubConfig(BaseModel):
 
 
 def _get_config_from_env() -> Tuple[Optional[str], Optional[str]]:
+<<<<<<< HEAD
     host = get_gms_host()
     port = get_gms_port()
     token = get_gms_token()
     protocol = get_gms_protocol()
     url = get_gms_url()
+=======
+    host = os.environ.get(ENV_METADATA_HOST)
+    port = os.environ.get(ENV_METADATA_PORT)
+    token = os.environ.get(ENV_METADATA_TOKEN)
+    protocol = os.environ.get(ENV_METADATA_PROTOCOL, "http")
+    url = os.environ.get(ENV_METADATA_HOST_URL)
+
+    logger.info(
+        f"[DEBUG] Environment variables: "
+        f"{ENV_METADATA_HOST_URL}={url}, "
+        f"{ENV_METADATA_HOST}={host}, "
+        f"{ENV_METADATA_PORT}={port}, "
+        f"{ENV_METADATA_TOKEN}={'SET' if token else 'NOT_SET'}"
+    )
+
+>>>>>>> b80c47acd5 (changes to debug failures)
     if port is not None:
         url = f"{protocol}://{host}:{port}"
         return url, token
@@ -104,6 +121,11 @@ def load_client_config() -> DatahubClientConfig:
     gms_host_env, gms_token_env = _get_config_from_env()
     if gms_host_env:
         # TODO We should also load system auth credentials here.
+        token_preview = f"{gms_token_env[:20]}..." if gms_token_env else "None"
+        logger.info(
+            f"[DEBUG] Loading config from environment variables: "
+            f"server={gms_host_env}, token={token_preview}"
+        )
         return DatahubClientConfig(server=gms_host_env, token=gms_token_env)
 
     if _should_skip_config():
@@ -118,6 +140,13 @@ def load_client_config() -> DatahubClientConfig:
             client_config_dict
         ).gms
 
+        token_preview = (
+            f"{datahub_config.token[:20]}..." if datahub_config.token else "None"
+        )
+        logger.info(
+            f"[DEBUG] Loading config from {CONDENSED_DATAHUB_CONFIG_PATH}: "
+            f"server={datahub_config.server}, token={token_preview}"
+        )
         return datahub_config
     except ValidationError as e:
         click.echo(f"Error loading your {CONDENSED_DATAHUB_CONFIG_PATH}")

@@ -33,14 +33,28 @@ def datahub_user_add(
     if role:
         add_args.extend(["--role", role])
 
+    gms_url = auth_session.gms_url()
+    gms_token = auth_session.gms_token()
+    token_preview = f"{gms_token[:20]}..." if gms_token else "None"
+
+    print(
+        f"[DEBUG TEST] Running user add command with: "
+        f"GMS_URL={gms_url}, TOKEN={token_preview}, email={email}"
+    )
+
     result = run_datahub_cmd(
         add_args,
         input=f"{password}\n{password}\n",
         env={
-            "DATAHUB_GMS_URL": auth_session.gms_url(),
-            "DATAHUB_GMS_TOKEN": auth_session.gms_token(),
+            "DATAHUB_GMS_URL": gms_url,
+            "DATAHUB_GMS_TOKEN": gms_token,
         },
     )
+
+    if result.exit_code != 0:
+        print(f"[DEBUG TEST] User add failed with exit code {result.exit_code}")
+        print(f"[DEBUG TEST] Output: {result.output[:500]}")
+
     return result
 
 

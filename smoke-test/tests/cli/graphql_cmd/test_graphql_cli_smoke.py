@@ -138,13 +138,27 @@ class TestGraphQLCLIIntegration:
 
     def _run_authenticated_graphql(self, args: list[str]) -> tuple[int, str, str]:
         """Run GraphQL CLI with proper authentication."""
+        gms_url = self.auth_session.gms_url()
+        gms_token = self.auth_session.gms_token()
+        token_preview = f"{gms_token[:20]}..." if gms_token else "None"
+
+        print(
+            f"[DEBUG TEST] Running GraphQL command with: "
+            f"GMS_URL={gms_url}, TOKEN={token_preview}"
+        )
+
         result = run_datahub_cmd(
             args,
             env={
-                "DATAHUB_GMS_URL": self.auth_session.gms_url(),
-                "DATAHUB_GMS_TOKEN": self.auth_session.gms_token(),
+                "DATAHUB_GMS_URL": gms_url,
+                "DATAHUB_GMS_TOKEN": gms_token,
             },
         )
+
+        if result.exit_code != 0:
+            print(f"[DEBUG TEST] Command failed with exit code {result.exit_code}")
+            print(f"[DEBUG TEST] Stderr: {result.stderr[:500]}")
+
         return result.exit_code, result.stdout, result.stderr
 
     def test_graphql_schema_introspection(self):

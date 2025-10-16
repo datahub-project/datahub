@@ -28,9 +28,13 @@ def build_auth_session():
 
 @pytest.fixture(scope="session")
 def auth_session():
+    print("[DEBUG CONFTEST] Building auth session")
     auth_session = build_auth_session()
+    print(f"[DEBUG CONFTEST] Auth session created, GMS URL: {auth_session.gms_url()}")
     yield auth_session
+    print("[DEBUG CONFTEST] Destroying auth session")
     auth_session.destroy()
+    print("[DEBUG CONFTEST] Auth session destroyed")
 
 
 def build_graph_client(auth_session, openapi_ingestion=False):
