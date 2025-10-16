@@ -45,7 +45,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - Anyway, **there are no changes needed for iceberg recipes orchestrated via the Managed Ingestion UI**
 - Auto-detection for SearchClientShim requires permission for the cluster info endpoint on ElasticSearch/OpenSearch. If you are using a restrictive account to access your cluster, you may need to directly configure the engine type rather than relying on auto-detection. These are the two environment variables needed to be configured for GMS as well as MCE & MAE consumers (available in helm charts as well):
   - ELASTICSEARCH_SHIM_ENGINE_TYPE & ELASTICSEARCH_SHIM_AUTO_DETECT (.Values.global.elasticsearch.engineType and .Values.global.elasticsearch.autoDetect respectively for helm)
-  - Allowed values: ELASTICSEARCH_SHIM_ENGINE_TYPE["ELASTICSEARCH_7", "ELASTICSEARCH_8", "OPENSEARCH_2"] , ELASTICSEARCH_SHIM_AUTO_DETECT["true","false"]
+  - Allowed values: ELASTICSEARCH_SHIM_ENGINE_TYPE["ELASTICSEARCH_7", "ELASTICSEARCH_8", "OPENSEARCH_2", "AUTO_DETECT"] , ELASTICSEARCH_SHIM_AUTO_DETECT["true","false"]
 
 ### Known Issues
 
