@@ -181,6 +181,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                             event.stopPropagation();
                         }}
                         actionPrivilege={canEditDomains || canProposeDomains}
+                        dataTestId="set-domain-button"
                     />
                 }
             />

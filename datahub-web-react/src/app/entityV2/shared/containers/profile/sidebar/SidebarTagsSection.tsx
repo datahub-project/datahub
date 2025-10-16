@@ -77,6 +77,7 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
                             event.stopPropagation();
                         }}
                         actionPrivilege={canEditTags || canProposeTags}
+                        dataTestId="add-tags-button"
                     />
                 }
             />

@@ -67,6 +67,7 @@ class TestUnityCatalogSource:
             report=source.report,
             hive_metastore_proxy=source.hive_metastore_proxy,
             lineage_data_source=minimal_config.lineage_data_source,
+            usage_data_source=minimal_config.usage_data_source,
             databricks_api_page_size=0,  # Default value
         )
 
@@ -87,6 +88,7 @@ class TestUnityCatalogSource:
             report=source.report,
             hive_metastore_proxy=source.hive_metastore_proxy,
             lineage_data_source=config_with_page_size.lineage_data_source,
+            usage_data_source=config_with_page_size.usage_data_source,
             databricks_api_page_size=75,  # Custom value
         )
 
@@ -129,6 +131,7 @@ class TestUnityCatalogSource:
             report=source.report,
             hive_metastore_proxy=None,  # Should be None when disabled
             lineage_data_source=config.lineage_data_source,
+            usage_data_source=config.usage_data_source,
             databricks_api_page_size=200,
         )
 

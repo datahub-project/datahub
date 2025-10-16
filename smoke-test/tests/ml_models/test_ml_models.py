@@ -16,7 +16,6 @@ from datahub.metadata.schema_classes import (
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
 )
-from tests.utils import get_sleep_info
 
 logger = logging.getLogger(__name__)
 
@@ -73,9 +72,6 @@ def create_test_data(filename: str):
         file_emitter.emit(mcps)
 
     file_emitter.close()
-
-
-sleep_sec, sleep_times = get_sleep_info()
 
 
 @pytest.fixture(scope="module", autouse=False)

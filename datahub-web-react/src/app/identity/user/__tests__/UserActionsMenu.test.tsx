@@ -29,7 +29,7 @@ vi.mock('antd', () => ({
                                 data-testid={
                                     item.key === 'resend-invitation'
                                         ? 'resend-invitation-menu-item'
-                                        : `menu-item-${item.key}`
+                                        : `menu-test-item-${item.key}`
                                 }
                                 style={{ opacity: item.disabled ? '0.5' : '1' }}
                                 onClick={item.disabled ? undefined : item.onClick}
@@ -80,7 +80,7 @@ vi.mock('@src/alchemy-components', () => ({
                 {menu.items?.map((item: any) => (
                     <div
                         key={item.key}
-                        data-testid={item['data-testid'] || `menu-item-${item.key}`}
+                        data-testid={item['data-testid'] || `menu-test-item-${item.key}`}
                         style={{ opacity: item.disabled ? '0.5' : '1' }}
                         onClick={item.disabled ? undefined : item.onClick}
                         onKeyDown={item.disabled ? undefined : item.onClick}
@@ -101,7 +101,9 @@ vi.mock('@src/alchemy-components', () => ({
                     <div
                         key={item.key}
                         data-testid={
-                            item.key === 'resend-invitation' ? 'resend-invitation-menu-item' : `menu-item-${item.key}`
+                            item.key === 'resend-invitation'
+                                ? 'resend-invitation-menu-item'
+                                : `menu-test-item-${item.key}`
                         }
                         style={{ opacity: item.disabled ? '0.5' : '1' }}
                         onClick={item.disabled ? undefined : item.onClick}
@@ -408,7 +410,7 @@ describe('UserActionsMenu', () => {
                 { apolloMocks: [createMockRevokeUserInvitationMutation()] },
             );
 
-            expect(screen.getByTestId('menu-item-reset')).toBeInTheDocument();
+            expect(screen.getByTestId('menu-test-item-reset')).toBeInTheDocument();
         });
 
         it('shows copy urn option for all users', () => {
@@ -423,7 +425,7 @@ describe('UserActionsMenu', () => {
                 { apolloMocks: [createMockRevokeUserInvitationMutation()] },
             );
 
-            expect(screen.getByTestId('menu-item-copyurn')).toBeInTheDocument();
+            expect(screen.getByTestId('menu-test-item-copyurn')).toBeInTheDocument();
         });
 
         it('shows delete option for all users', () => {
@@ -438,7 +440,7 @@ describe('UserActionsMenu', () => {
                 { apolloMocks: [createMockRevokeUserInvitationMutation()] },
             );
 
-            expect(screen.getByTestId('menu-item-delete')).toBeInTheDocument();
+            expect(screen.getByTestId('menu-test-item-delete')).toBeInTheDocument();
         });
     });
 

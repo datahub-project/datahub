@@ -89,7 +89,7 @@ export default function AddEditLinkModal({
                         },
                     ]}
                 >
-                    <Input label="URL" placeholder="https://" isRequired />
+                    <Input label="URL" placeholder="https://" inputTestId="url-input" isRequired />
                 </Form.Item>
                 <Form.Item
                     name="label"
@@ -100,7 +100,12 @@ export default function AddEditLinkModal({
                         },
                     ]}
                 >
-                    <Input label="Label" placeholder="A short label for this link" isRequired />
+                    <Input
+                        label="Label"
+                        placeholder="A short label for this link"
+                        inputTestId="label-input"
+                        isRequired
+                    />
                 </Form.Item>
             </Form>
         </Modal>
