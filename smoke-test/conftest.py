@@ -4,7 +4,7 @@ import pytest
 from typing import List, Optional, Tuple
 from _pytest.nodes import Item
 import requests
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph, get_default_graph
 
 from tests.test_result_msg import send_message
 from tests.utils import (
@@ -51,6 +51,18 @@ def graph_client(auth_session) -> DataHubGraph:
 @pytest.fixture(scope="session")
 def openapi_graph_client(auth_session) -> DataHubGraph:
     return build_graph_client(auth_session, openapi_ingestion=True)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def clear_graph_cache():
+    """Clear the get_default_graph LRU cache before each test.
+
+    This ensures that tests using run_datahub_cmd() with custom environment
+    variables get a fresh DataHubGraph instance instead of a cached one with
+    stale credentials.
+    """
+    get_default_graph.cache_clear()
+    yield
 
 
 def _ingest_cleanup_data_impl(
