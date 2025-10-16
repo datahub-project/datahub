@@ -452,29 +452,17 @@ class TestSessionWrapper:
             },
         }
 
-        logger.info(
-            f"[DEBUG] Generating GMS token for actor: {actor_urn} "
-            f"at URL: {self._frontend_url}/api/v2/graphql"
-        )
-
         response = self._upstream.post(
             f"{self._frontend_url}/api/v2/graphql", json=json
         )
         response.raise_for_status()
-
-        token_id = response.json()["data"]["createAccessToken"]["metadata"]["id"]
-        token = response.json()["data"]["createAccessToken"]["accessToken"]
-        token_preview = f"{token[:20]}..." if token else "None"
-
-        logger.info(
-            f"[DEBUG] Successfully generated GMS token: id={token_id}, token={token_preview}"
+        return (
+            response.json()["data"]["createAccessToken"]["metadata"]["id"],
+            response.json()["data"]["createAccessToken"]["accessToken"],
         )
-
-        return (token_id, token)
 
     def destroy(self):
         if self._gms_token_id:
-            logger.info(f"[DEBUG] Revoking GMS token: id={self._gms_token_id}")
             json = {
                 "query": """mutation revokeAccessToken($tokenId: String!) {
                 revokeAccessToken(tokenId: $tokenId)
@@ -486,10 +474,5 @@ class TestSessionWrapper:
                 f"{self._frontend_url}/api/v2/graphql", json=json
             )
             response.raise_for_status()
-            logger.info(
-                f"[DEBUG] Successfully revoked GMS token: id={self._gms_token_id}"
-            )
             # Clear the token ID after successful revocation to prevent double-call issues
             self._gms_token_id = None
-        else:
-            logger.info("[DEBUG] destroy() called but no token_id to revoke")
