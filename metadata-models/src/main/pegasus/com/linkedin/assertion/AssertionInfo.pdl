@@ -3,7 +3,6 @@ namespace com.linkedin.assertion
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
 import com.linkedin.common.AuditStamp
-import com.linkedin.common.Urn
 
 /**
  * Information about an assertion
