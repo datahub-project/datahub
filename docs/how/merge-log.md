@@ -903,3 +903,42 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **e25a82abe3** - fix(ui) Move template editable changes to their own files (#14923)
   *by Chris Collins on 2025-10-14*
 
+
+## Upstream Merge Session - 2025-10-16 06:16:49
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-10-16-061648`
+- **Merge Base**: `e25a82abe3f12747951e0b12ae38dec0690e9c2e`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 8
+- **Strategy**: stacked
+- **Started**: Thu Oct 16 06:16:49 UTC 2025
+
+### Commits Included in This Merge
+- **f9913cd944** - feat(cli): graphql command (#14781)
+  *by Shirshanka Das on 2025-10-14*
+
+- **60f0abb72a** - choir(ingestion/sqlparser): Bump sqlglot to v27.27.0 (#15008)
+  *by Tamas Nemeth on 2025-10-15*
+
+- **18d3eec8d7** - feat(ingest/unity): Use sql to extract query history for usage (#14953)
+  *by Tamas Nemeth on 2025-10-15*
+
+- **ffd2e761b1** - fix(doc): Update permissions in redshift quickstart doc (#14909)
+  *by Tamas Nemeth on 2025-10-15*
+
+- **f02ef04e6d** - fix(ingest/teradata):  Fix Teradata lineage URN generation to prevent extra database prefixes (#14715)
+  *by Tamas Nemeth on 2025-10-15*
+
+- **673bed6595** - test(summaryTab): cypress tests (#14808)
+  *by v-tarasevich-blitz-brain on 2025-10-15*
+
+- **f2321d5df9** - fix(externalEvents): fixes timeout issues for external events api (#14979)
+  *by RyanHolstien on 2025-10-15*
+
+- **3b0c34f84d** - refactor(test): refactor smoke test (#15010)
+  *by Aseem Bansal on 2025-10-16*
+
