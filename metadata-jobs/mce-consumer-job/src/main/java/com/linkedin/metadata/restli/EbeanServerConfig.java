@@ -44,6 +44,9 @@ public class EbeanServerConfig {
   @Value("${ebean.postgresUseIamAuth:false}")
   private Boolean postgresUseIamAuth;
 
+  @Value("${ebean.captureStackTrace:false}")
+  private Boolean captureStackTrace;
+
   @Bean("ebeanDataSourceConfig")
   @Primary
   public DataSourceConfig buildDataSourceConfig(
@@ -61,6 +64,7 @@ public class EbeanServerConfig {
     dataSourceConfig.setMaxAgeMinutes(ebeanMaxAgeMinutes);
     dataSourceConfig.setLeakTimeMinutes(ebeanLeakTimeMinutes);
     dataSourceConfig.setWaitTimeoutMillis(ebeanWaitTimeoutMillis);
+    dataSourceConfig.setCaptureStackTrace(captureStackTrace);
     dataSourceConfig.setListener(getListenerToTrackCounts(metricUtils, "mce-consumer"));
     // Adding IAM auth access for AWS Postgres
     if (postgresUseIamAuth) {
