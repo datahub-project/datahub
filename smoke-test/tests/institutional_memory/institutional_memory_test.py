@@ -1,15 +1,17 @@
 import pytest
 
-from tests.utils import delete_urns_from_file, get_admin_username, ingest_file_via_rest
+from conftest import _ingest_cleanup_data_impl
+from tests.utils import execute_graphql, get_admin_username
 
 
 @pytest.fixture(scope="function", autouse=True)
-def ingest_cleanup_data(auth_session, graph_client, request):
-    print("ingesting institutional memory test data")
-    ingest_file_via_rest(auth_session, "tests/institutional_memory/data.json")
-    yield
-    print("removing institutional memory test data")
-    delete_urns_from_file(graph_client, "tests/institutional_memory/data.json")
+def ingest_cleanup_data(auth_session, graph_client):
+    yield from _ingest_cleanup_data_impl(
+        auth_session,
+        graph_client,
+        "tests/institutional_memory/data.json",
+        "institutional_memory",
+    )
 
 
 TEST_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,institutional-memory-sample-dataset,PROD)"
@@ -60,19 +62,8 @@ mutation upsertLink($input: UpsertLinkInput!) {\n
 ADMIN_USERNAME = get_admin_username()
 
 
-def execute_query(auth_session, query, variables):
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql",
-        json={"query": query, "variables": variables},
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    return res_data
-
-
 def test_get_institutional_memory(auth_session):
-    res_data = execute_query(auth_session, QUERY_LIST, {"urn": TEST_DATASET_URN})
+    res_data = execute_graphql(auth_session, QUERY_LIST, {"urn": TEST_DATASET_URN})
 
     assert res_data
     assert "errors" not in res_data
@@ -94,7 +85,7 @@ def test_get_institutional_memory(auth_session):
 
 
 def test_add_institutional_memory(auth_session):
-    res_data = execute_query(
+    res_data = execute_graphql(
         auth_session,
         MUTATION_ADD,
         {
@@ -112,7 +103,7 @@ def test_add_institutional_memory(auth_session):
     assert res_data["data"]
     assert res_data["data"]["addLink"]
 
-    res_data = execute_query(auth_session, QUERY_LIST, {"urn": TEST_DATASET_URN})
+    res_data = execute_graphql(auth_session, QUERY_LIST, {"urn": TEST_DATASET_URN})
 
     assert res_data
     assert "errors" not in res_data
@@ -147,7 +138,7 @@ def test_add_institutional_memory(auth_session):
 
 
 def test_update_institutional_memory(auth_session):
-    res_data = execute_query(
+    res_data = execute_graphql(
         auth_session,
         MUTATION_UPDATE,
         {
@@ -167,7 +158,7 @@ def test_update_institutional_memory(auth_session):
     assert res_data["data"]
     assert res_data["data"]["updateLink"]
 
-    res_data = execute_query(auth_session, QUERY_LIST, {"urn": TEST_DATASET_URN})
+    res_data = execute_graphql(auth_session, QUERY_LIST, {"urn": TEST_DATASET_URN})
 
     assert res_data
     assert "errors" not in res_data
@@ -195,7 +186,7 @@ def test_update_institutional_memory(auth_session):
 
 
 def test_remove_institutional_memory(auth_session):
-    res_data = execute_query(
+    res_data = execute_graphql(
         auth_session,
         MUTATION_REMOVE,
         {
@@ -212,7 +203,7 @@ def test_remove_institutional_memory(auth_session):
     assert res_data["data"]
     assert res_data["data"]["removeLink"]
 
-    res_data = execute_query(auth_session, QUERY_LIST, {"urn": TEST_DATASET_URN})
+    res_data = execute_graphql(auth_session, QUERY_LIST, {"urn": TEST_DATASET_URN})
 
     assert res_data
     assert "errors" not in res_data
@@ -221,7 +212,7 @@ def test_remove_institutional_memory(auth_session):
 
 
 def test_upsert_institutional_memory(auth_session):
-    res_data = execute_query(
+    res_data = execute_graphql(
         auth_session,
         MUTATION_UPSERT,
         {
@@ -241,7 +232,7 @@ def test_upsert_institutional_memory(auth_session):
     assert res_data["data"]
     assert res_data["data"]["upsertLink"]
 
-    res_data = execute_query(
+    res_data = execute_graphql(
         auth_session,
         MUTATION_UPSERT,
         {
@@ -261,7 +252,7 @@ def test_upsert_institutional_memory(auth_session):
     assert res_data["data"]
     assert res_data["data"]["upsertLink"]
 
-    res_data = execute_query(auth_session, QUERY_LIST, {"urn": TEST_DATASET_URN})
+    res_data = execute_graphql(auth_session, QUERY_LIST, {"urn": TEST_DATASET_URN})
 
     assert res_data
     assert "errors" not in res_data
