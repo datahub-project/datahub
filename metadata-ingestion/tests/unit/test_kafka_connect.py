@@ -551,39 +551,40 @@ class TestIntegration:
 class TestMongoSourceConnector:
     """Test Mongo source connector lineage extraction."""
 
-    def create_mock_manifest(
-        self, config: Dict[str, str], topic_names: List[str]
-    ) -> ConnectorManifest:
+    def create_mock_manifest(self, config: Dict[str, str]) -> ConnectorManifest:
         """Helper to create a mock connector manifest."""
         return ConnectorManifest(
             name="mongo-source-connector",
             type="source",
             config=config,
             tasks={},
-            topic_names=topic_names,
+            topic_names=[
+                "prod.mongo.avro.my-new-database.users",
+                "prod.mongo.avro.-leading-hyphen._leading-underscore",
+                "prod.mongo.avro.!user?<db>=.[]user=logs!",
+                "prod.mongo.avro.db-ok.collection-ok",
+                "prod.mongo.avro.db/slash.collection",
+                "prod.mongo.avro.db-ok.",
+                "prod.mongo.avro..collection-ok",
+            ],
         )
 
-    def test_mongo_source_lineage_with_dots_in_topic_prefix(self) -> None:
-        """Test Mongo Source connector with a topic containing dots in the topic prefix."""
+    def test_mongo_source_lineage_topic_parsing(self) -> None:
+        """Test MongoDB topic name parsing with various patterns including special characters and filtering of invalid topics."""
         connector_config: Dict[str, str] = {
             "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
             "topic.prefix": "prod.mongo.avro",
-            "database": "my-new-database",
         }
-        topic_name = "prod.mongo.avro.my-new-database.users"
 
-        manifest: ConnectorManifest = self.create_mock_manifest(
-            connector_config, [topic_name]
-        )
+        manifest: ConnectorManifest = self.create_mock_manifest(connector_config)
         config: Mock = Mock(spec=KafkaConnectSourceConfig)
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector: MongoSourceConnector = MongoSourceConnector(manifest, config, report)
         lineages: List = connector.extract_lineages()
 
-        assert len(lineages) == 1
-        lineage = lineages[0]
-        assert lineage.source_platform == "mongodb"
-        assert lineage.source_dataset == "my-new-database.users"
-        assert lineage.target_platform == "kafka"
-        assert lineage.target_dataset == topic_name
+        assert len(lineages) == 4
+        assert lineages[0].source_dataset == "my-new-database.users"
+        assert lineages[1].source_dataset == "-leading-hyphen._leading-underscore"
+        assert lineages[2].source_dataset == "!user?<db>=.[]user=logs!"
+        assert lineages[3].source_dataset == "db-ok.collection-ok"

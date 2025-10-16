@@ -412,7 +412,7 @@ class MongoSourceConnector(BaseConnector):
 
         # Escape topic_prefix to handle cases where it contains dots
         # Some users configure topic.prefix like "my.mongodb" which breaks the regex
-        topic_naming_pattern = rf"{re.escape(topic_prefix)}\.([\w-]+)\.([\w-]+)"
+        topic_naming_pattern = rf"{re.escape(topic_prefix)}\.([^/\\\.\"$]+)\.([^$]+)$"
 
         if not self.connector_manifest.topic_names:
             return lineages
