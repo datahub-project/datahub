@@ -133,16 +133,28 @@ export const LinkList = ({ refetch }: LinkListProps) => {
         <>
             {links.length > 0 && (
                 <List
+                    data-testid="link-list"
                     size="large"
                     dataSource={links}
                     renderItem={(link) => (
                         <LinkListItem
                             extra={
                                 <LinkButtonsContainer>
-                                    <Button onClick={() => onEdit(link)} type="text" shape="circle">
+                                    <Button
+                                        onClick={() => onEdit(link)}
+                                        type="text"
+                                        shape="circle"
+                                        data-testid="edit-link-button"
+                                    >
                                         <Pencil size={16} color={colors.gray[500]} />
                                     </Button>
-                                    <Button onClick={() => handleDeleteLink(link)} type="text" shape="circle" danger>
+                                    <Button
+                                        onClick={() => handleDeleteLink(link)}
+                                        type="text"
+                                        shape="circle"
+                                        data-testid="remove-link-button"
+                                        danger
+                                    >
                                         <DeleteOutlined />
                                     </Button>
                                 </LinkButtonsContainer>

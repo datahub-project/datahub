@@ -732,6 +732,61 @@ def test_create_snowsight_base_url_ap_northeast_1():
     assert result == "https://app.snowflake.com/ap-northeast-1.aws/account_locator/"
 
 
+def test_create_snowsight_base_url_privatelink_aws():
+    result = SnowsightUrlBuilder(
+        "test_acct", "aws_us_east_1", privatelink=True
+    ).snowsight_base_url
+    assert result == "https://app.snowflake.com/us-east-1/test_acct/"
+
+
+def test_create_snowsight_base_url_privatelink_gcp():
+    result = SnowsightUrlBuilder(
+        "test_account", "gcp_us_central1", privatelink=True
+    ).snowsight_base_url
+    assert result == "https://app.snowflake.com/us-central1.gcp/test_account/"
+
+
+def test_create_snowsight_base_url_privatelink_azure():
+    result = SnowsightUrlBuilder(
+        "test_account", "azure_eastus2", privatelink=True
+    ).snowsight_base_url
+    assert result == "https://app.snowflake.com/east-us-2.azure/test_account/"
+
+
+def test_snowsight_privatelink_external_urls():
+    url_builder = SnowsightUrlBuilder(
+        account_locator="test_acct",
+        region="aws_us_east_1",
+        privatelink=True,
+    )
+
+    # Test database URL
+    db_url = url_builder.get_external_url_for_database("TEST_DB")
+    assert (
+        db_url
+        == "https://app.snowflake.com/us-east-1/test_acct/#/data/databases/TEST_DB/"
+    )
+
+    # Test schema URL
+    schema_url = url_builder.get_external_url_for_schema("TEST_SCHEMA", "TEST_DB")
+    assert (
+        schema_url
+        == "https://app.snowflake.com/us-east-1/test_acct/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/"
+    )
+
+    # Test table URL
+    table_url = url_builder.get_external_url_for_table(
+        "TEST_TABLE",
+        "TEST_SCHEMA",
+        "TEST_DB",
+        domain=SnowflakeObjectDomain.TABLE,
+    )
+    assert (
+        table_url
+        == "https://app.snowflake.com/us-east-1/test_acct/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TEST_TABLE/"
+    )
+
+
 def test_snowflake_utils() -> None:
     assert_doctest(datahub.ingestion.source.snowflake.snowflake_utils)
 
