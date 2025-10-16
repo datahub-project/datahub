@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 def run_concurrent_tests(
     test_cases: List[Any],
     test_fn: Callable[[Any], None],
-    num_workers: int = 3,
+    num_workers: int = 5,
     test_name: str = "test",
 ) -> None:
     """
@@ -20,7 +20,7 @@ def run_concurrent_tests(
     Args:
         test_cases: List of test case parameters (e.g., entity types)
         test_fn: Test function that takes a single test case parameter
-        num_workers: Number of concurrent workers (default: 3)
+        num_workers: Number of concurrent workers (default: 5)
         test_name: Name of the test for logging purposes
 
     Raises:
@@ -65,7 +65,7 @@ def run_concurrent_tests(
 def run_concurrent_tests_with_args(
     test_cases: List[tuple],
     test_fn: Callable[..., None],
-    num_workers: int = 3,
+    num_workers: int = 5,
     test_name: str = "test",
 ) -> None:
     """
@@ -74,7 +74,7 @@ def run_concurrent_tests_with_args(
     Args:
         test_cases: List of tuples containing test case arguments
         test_fn: Test function that takes unpacked arguments from each tuple
-        num_workers: Number of concurrent workers (default: 3)
+        num_workers: Number of concurrent workers (default: 5)
         test_name: Name of the test for logging purposes
 
     Raises:
