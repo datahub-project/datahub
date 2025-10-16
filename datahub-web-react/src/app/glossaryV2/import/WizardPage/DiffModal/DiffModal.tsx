@@ -72,7 +72,6 @@ const createTableColumns = () => [
     title: (
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <Text weight="medium">Existing Data</Text>
-        <Badge color="blue" size="sm" count={1} />
       </div>
     ),
     key: 'existing',
@@ -122,7 +121,6 @@ const createTableColumns = () => [
     title: (
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <Text weight="medium">Imported Data</Text>
-        <Badge color="green" size="sm" count={1} />
       </div>
     ),
     key: 'imported',

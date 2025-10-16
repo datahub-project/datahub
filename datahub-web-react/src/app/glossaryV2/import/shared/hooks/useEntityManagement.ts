@@ -23,8 +23,12 @@ import {
   detectCircularDependencies,
   findOrphanedEntities
 } from '../../glossary.utils';
+import { useEntityComparison } from './useEntityComparison';
 
 export function useEntityManagement(): UseEntityManagementReturn {
+  // Import compareEntityData from useEntityComparison to avoid duplication
+  const { compareEntityData } = useEntityComparison();
+
   /**
    * Convert CSV data to Entity objects
    */
@@ -92,8 +96,9 @@ export function useEntityManagement(): UseEntityManagementReturn {
           });
         } else {
           // Check if data has changed
-          const hasChanges = compareEntityData(importedEntity.data, existingEntity.data);
-          if (hasChanges) {
+          // Note: compareEntityData returns true if entities are the SAME
+          const areEqual = compareEntityData(importedEntity.data, existingEntity.data);
+          if (!areEqual) {
             updatedEntities.push({
               ...importedEntity,
               status: 'updated'
@@ -114,7 +119,7 @@ export function useEntityManagement(): UseEntityManagementReturn {
       updatedEntities,
       conflicts
     };
-  }, []);
+  }, [compareEntityData]);
 
   /**
    * Create lookup maps for hierarchy management
@@ -243,32 +248,4 @@ export function useEntityManagement(): UseEntityManagementReturn {
     buildHierarchyMaps,
     validateEntity
   };
-}
-
-/**
- * Helper function to compare two EntityData objects
- */
-function compareEntityData(data1: EntityData, data2: EntityData): boolean {
-  const fieldsToCompare: (keyof EntityData)[] = [
-    'entity_type',
-    'name',
-    'description',
-    'term_source',
-    'source_ref',
-    'source_url',
-    'ownership_users',
-    'ownership_groups',
-    'parent_nodes',
-    'related_contains',
-    'related_inherits',
-    'domain_urn',
-    'domain_name',
-    'custom_properties'
-  ];
-
-  return fieldsToCompare.every(field => {
-    const value1 = data1[field] || '';
-    const value2 = data2[field] || '';
-    return value1.trim() === value2.trim();
-  });
 }

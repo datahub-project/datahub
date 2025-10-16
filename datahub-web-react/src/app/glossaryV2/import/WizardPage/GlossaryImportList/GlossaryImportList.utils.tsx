@@ -3,16 +3,187 @@ import { Button, Input, Pill, SimpleSelect } from '@components';
 import { Column } from '@components/components/Table/types';
 import { Entity } from '../../glossary.types';
 
+// ============================================
+// CONFIGURATION
+// ============================================
+
+/**
+ * Configuration for an editable column
+ */
+interface EditableColumnConfig {
+    key: string;
+    title: string;
+    width: number;
+    minWidth?: number;
+    placeholder: string;
+    sortable?: boolean;
+}
+
+/**
+ * Standardized editable column definitions
+ */
+const EDITABLE_COLUMNS: EditableColumnConfig[] = [
+    {
+        key: 'description',
+        title: 'Description',
+        width: 250,
+        minWidth: 200,
+        placeholder: 'Enter description',
+        sortable: true,
+    },
+    {
+        key: 'term_source',
+        title: 'Term Source',
+        width: 180,
+        minWidth: 150,
+        placeholder: 'Enter term source',
+        sortable: true,
+    },
+    {
+        key: 'source_ref',
+        title: 'Source Ref',
+        width: 140,
+        minWidth: 120,
+        placeholder: 'Enter source reference',
+        sortable: true,
+    },
+    {
+        key: 'source_url',
+        title: 'Source URL',
+        width: 180,
+        minWidth: 150,
+        placeholder: 'Enter source URL',
+        sortable: true,
+    },
+    {
+        key: 'ownership_users',
+        title: 'Ownership (Users)',
+        width: 180,
+        minWidth: 150,
+        placeholder: 'Enter ownership users (comma-separated)',
+        sortable: true,
+    },
+    {
+        key: 'ownership_groups',
+        title: 'Ownership (Groups)',
+        width: 230,
+        minWidth: 200,
+        placeholder: 'Enter ownership groups (comma-separated)',
+        sortable: true,
+    },
+    {
+        key: 'related_contains',
+        title: 'Related Contains',
+        width: 230,
+        minWidth: 200,
+        placeholder: 'Enter related terms (comma-separated)',
+        sortable: true,
+    },
+    {
+        key: 'related_inherits',
+        title: 'Related Inherits',
+        width: 180,
+        minWidth: 150,
+        placeholder: 'Enter inherited terms (comma-separated)',
+        sortable: true,
+    },
+    {
+        key: 'domain_name',
+        title: 'Domain Name',
+        width: 180,
+        minWidth: 150,
+        placeholder: 'Enter domain name',
+        sortable: true,
+    },
+    {
+        key: 'custom_properties',
+        title: 'Custom Properties',
+        width: 250,
+        minWidth: 200,
+        placeholder: 'Enter custom properties (JSON format)',
+        sortable: true,
+    },
+];
+
+// ============================================
+// COMPONENTS
+// ============================================
+
+/**
+ * Generic editable cell renderer
+ * Handles all the boilerplate for editable fields with proper state management
+ */
+const EditableCell = ({
+    record,
+    field,
+    isEditing,
+    editingValue,
+    handleCellEdit,
+    handleCellChange,
+    handleCellSave,
+    placeholder,
+    displayValue,
+}: {
+    record: Entity;
+    field: string;
+    isEditing: (rowId: string, field: string) => boolean;
+    editingValue: string;
+    handleCellEdit: (rowId: string, field: string) => void;
+    handleCellChange: (value: string) => void;
+    handleCellSave: (rowId: string, field: string, value: string) => void;
+    placeholder: string;
+    displayValue?: string;
+}) => {
+    const editing = isEditing(record.id, field);
+    
+    if (editing) {
+        const currentValue = editingValue;
+        
+        return (
+            <Input
+                value={currentValue}
+                setValue={(value) => {
+                    const stringValue = typeof value === 'function' ? value(currentValue) : value;
+                    handleCellChange(stringValue);
+                }}
+                onBlur={() => handleCellSave(record.id, field, currentValue)}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                        handleCellSave(record.id, field, currentValue);
+                    }
+                    if (e.key === 'Escape') {
+                        handleCellSave(record.id, field, record.data[field] || '');
+                    }
+                }}
+                placeholder={placeholder}
+                label=""
+                autoFocus
+            />
+        );
+    }
+    
+    return (
+        <div 
+            onClick={() => handleCellEdit(record.id, field)}
+            style={{ cursor: 'pointer' }}
+        >
+            {displayValue !== undefined ? displayValue : (record.data[field] || '-')}
+        </div>
+    );
+};
+
+// ============================================
+// HELPERS
+// ============================================
+
 /**
  * Helper function to build fully qualified hierarchical name
- * Recursively traverses parent hierarchy to build the complete path
  */
 const buildFullyQualifiedName = (
     entity: Entity,
     allEntities: Entity[],
     visited: Set<string> = new Set()
 ): string => {
-    // Prevent infinite loops
     if (visited.has(entity.name)) {
         return entity.name;
     }
@@ -23,44 +194,47 @@ const buildFullyQualifiedName = (
         return entity.name;
     }
 
-    // Get the first (primary) parent
     const parents = parentPath.split(',').map(p => p.trim()).filter(Boolean);
     if (parents.length === 0) {
         return entity.name;
     }
 
     const primaryParentName = parents[0];
-    
-    // Find the parent entity
     const parentEntity = allEntities.find(e => e.name === primaryParentName);
     
     if (parentEntity) {
-        // Recursively build the parent's qualified name
         const parentQualifiedName = buildFullyQualifiedName(parentEntity, allEntities, new Set(visited));
         return `${parentQualifiedName}.${entity.name}`;
     }
     
-    // Parent not found in current entities, just use the parent name
     return `${primaryParentName}.${entity.name}`;
 };
 
-export const getTableColumns = (
-    isEditing: (rowId: string, field: string) => boolean,
-    handleCellEdit: (rowId: string, field: string) => void,
-    handleCellSave: (rowId: string, field: string, value: string) => void,
-    handleShowDiff: (entity: Entity) => void,
-    handleExpandRow: (record: any) => void,
-    expandedRowKeys: string[],
-    allEntities: Entity[]
-): Column<Entity & { _indentLevel?: number; _indentSize?: number; children?: Entity[] }>[] => [
-    {
+// ============================================
+// COLUMN FACTORIES
+// ============================================
+
+/**
+ * Entity with hierarchy metadata for rendering
+ */
+type EntityWithHierarchy = Entity & { 
+    children?: Entity[]; 
+    _indentSize?: number;
+    _indentLevel?: number;
+};
+
+/**
+ * Create the diff button column
+ */
+function createDiffColumn(handleShowDiff: (entity: Entity) => void): Column<Entity> {
+    return {
         title: 'Diff',
         key: 'diff',
-        render: (record) => (
+        render: (record: Entity) => (
             <Button
                 variant="text"
                 size="sm"
-                onClick={(e) => {
+                onClick={(e: React.MouseEvent) => {
                     e.stopPropagation();
                     handleShowDiff(record);
                 }}
@@ -70,33 +244,34 @@ export const getTableColumns = (
         ),
         width: '80px',
         minWidth: '60px',
-        alignment: 'center',
-    },
-    {
+        alignment: 'center' as const,
+    };
+}
+
+/**
+ * Create the status pill column
+ */
+function createStatusColumn(): Column<Entity> {
+    return {
         title: 'Status',
         key: 'status',
-        render: (record) => {
-            const getStatusColor = (status: string) => {
-                switch (status) {
-                    case 'new':
-                        return 'green';
-                    case 'updated':
-                        return 'blue';
-                    case 'conflict':
-                        return 'red';
-                    default:
-                        return 'gray';
-                }
+        render: (record: Entity) => {
+            type PillColor = 'green' | 'blue' | 'red' | 'gray';
+            const statusColors: Record<string, PillColor> = {
+                new: 'green',
+                updated: 'blue',
+                conflict: 'red',
+                existing: 'gray',
             };
-
+            
             const getStatusLabel = (status: string) => {
                 return status.charAt(0).toUpperCase() + status.slice(1);
             };
-
+            
             return (
                 <Pill
                     label={getStatusLabel(record.status)}
-                    color={getStatusColor(record.status)}
+                    color={statusColors[record.status] || 'gray'}
                     size="sm"
                     variant="filled"
                 />
@@ -104,73 +279,79 @@ export const getTableColumns = (
         },
         width: '100px',
         minWidth: '80px',
-        alignment: 'left',
-        sorter: (a, b) => a.status.localeCompare(b.status),
-    },
-    {
+        alignment: 'left' as const,
+        sorter: (a: Entity, b: Entity) => a.status.localeCompare(b.status),
+    };
+}
+
+/**
+ * Create Name column with expand/collapse functionality
+ */
+function createNameColumn(
+    isEditing: (rowId: string, field: string) => boolean,
+    handleCellEdit: (rowId: string, field: string) => void,
+    handleCellChange: (value: string) => void,
+    handleCellSave: (rowId: string, field: string, value: string) => void,
+    handleExpandRow: (record: any) => void,
+    expandedRowKeys: string[],
+    allEntities: Entity[],
+    editingValue: string
+): Column<EntityWithHierarchy> {
+    return {
         title: 'Name',
         key: 'name',
-        render: (record) => {
+        render: (record: EntityWithHierarchy) => {
             const hasChildren = record.children && record.children.length > 0;
             const isExpanded = expandedRowKeys.includes(record.name);
             
+            const expandButton = hasChildren ? (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handleExpandRow(record);
+                    }}
+                    style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '2px',
+                        marginRight: '4px',
+                        display: 'flex',
+                        alignItems: 'center'
+                    }}
+                >
+                    {isExpanded ? '▼' : '▶'}
+                </button>
+            ) : null;
+
             if (isEditing(record.id, 'name')) {
                 return (
                     <div style={{ paddingLeft: `${record._indentSize || 0}px`, display: 'flex', alignItems: 'center' }}>
-                        {hasChildren && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleExpandRow(record);
-                                }}
-                                style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    padding: '2px',
-                                    marginRight: '4px',
-                                    display: 'flex',
-                                    alignItems: 'center'
-                                }}
-                            >
-                                {isExpanded ? '▼' : '▶'}
-                            </button>
-                        )}
+                        {expandButton}
                         <Input
-                            value={record.name}
+                            value={editingValue}
                             setValue={(value) => {
-                                const stringValue = typeof value === 'function' ? value('') : value;
-                                handleCellSave(record.id, 'name', stringValue);
+                                const stringValue = typeof value === 'function' ? value(editingValue) : value;
+                                handleCellChange(stringValue);
+                            }}
+                            onBlur={() => handleCellSave(record.id, 'name', editingValue)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    handleCellSave(record.id, 'name', editingValue);
+                                }
                             }}
                             placeholder="Enter name"
                             label=""
+                            autoFocus
                         />
                     </div>
                 );
             }
-            const fullyQualifiedName = buildFullyQualifiedName(record, allEntities);
 
+            const fullyQualifiedName = buildFullyQualifiedName(record, allEntities);
             return (
                 <div style={{ paddingLeft: `${record._indentSize || 0}px`, display: 'flex', alignItems: 'center' }}>
-                    {hasChildren && (
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleExpandRow(record);
-                            }}
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                padding: '2px',
-                                marginRight: '4px',
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}
-                        >
-                            {isExpanded ? '▼' : '▶'}
-                        </button>
-                    )}
+                    {expandButton}
                     <span title={fullyQualifiedName}>{fullyQualifiedName}</span>
                 </div>
             );
@@ -179,8 +360,18 @@ export const getTableColumns = (
         minWidth: '150px',
         alignment: 'left',
         sorter: (a, b) => a.name.localeCompare(b.name),
-    },
-    {
+    };
+}
+
+/**
+ * Create Entity Type column with select dropdown
+ */
+function createEntityTypeColumn(
+    isEditing: (rowId: string, field: string) => boolean,
+    handleCellEdit: (rowId: string, field: string) => void,
+    handleCellSave: (rowId: string, field: string, value: string) => void
+): Column<Entity> {
+    return {
         title: 'Entity Type',
         key: 'entity_type',
         render: (record) => {
@@ -202,324 +393,77 @@ export const getTableColumns = (
                     onClick={() => handleCellEdit(record.id, 'entity_type')}
                     style={{ cursor: 'pointer' }}
                 >
-                    {record.data.entity_type === 'glossaryNode' ? 'Term Group' : 'Term'}
+                    {record.data.entity_type}
                 </div>
             );
         },
-        width: '120px',
-        minWidth: '100px',
+        width: '180px',
+        minWidth: '150px',
         alignment: 'left',
         sorter: (a, b) => a.data.entity_type.localeCompare(b.data.entity_type),
-    },
-    {
-        title: 'Description',
-        key: 'description',
-        render: (record) => {
-            if (isEditing(record.id, 'description')) {
-                return (
-                    <Input
-                        value={record.data.description}
-                        setValue={(value) => {
-                            const stringValue = typeof value === 'function' ? value('') : value;
-                            handleCellSave(record.id, 'description', stringValue);
-                        }}
-                        placeholder="Enter description"
-                        label=""
-                    />
-                );
-            }
-            return (
-                <div 
-                    onClick={() => handleCellEdit(record.id, 'description')}
-                    style={{ cursor: 'pointer' }}
-                >
-                    {record.data.description}
-                </div>
-            );
-        },
-        width: '250px',
-        minWidth: '200px',
-        alignment: 'left',
-        sorter: (a, b) => a.data.description.localeCompare(b.data.description),
-    },
-    {
-        title: 'Term Source',
-        key: 'term_source',
-        render: (record) => {
-            if (isEditing(record.id, 'term_source')) {
-                return (
-                    <Input
-                        value={record.data.term_source || ''}
-                        setValue={(value) => {
-                            const stringValue = typeof value === 'function' ? value('') : value;
-                            handleCellSave(record.id, 'term_source', stringValue);
-                        }}
-                        placeholder="Enter term source"
-                        label=""
-                    />
-                );
-            }
-            return (
-                <div 
-                    onClick={() => handleCellEdit(record.id, 'term_source')}
-                    style={{ cursor: 'pointer' }}
-                >
-                    {record.data.term_source || '-'}
-                </div>
-            );
-        },
-        width: '140px',
-        minWidth: '120px',
-        alignment: 'left',
-        sorter: (a, b) => (a.data.term_source || '').localeCompare(b.data.term_source || ''),
-    },
-    {
-        title: 'Source Ref',
-        key: 'source_ref',
-        render: (record) => {
-            if (isEditing(record.id, 'source_ref')) {
-                return (
-                    <Input
-                        value={record.data.source_ref || ''}
-                        setValue={(value) => {
-                            const stringValue = typeof value === 'function' ? value('') : value;
-                            handleCellSave(record.id, 'source_ref', stringValue);
-                        }}
-                        placeholder="Enter source reference"
-                        label=""
-                    />
-                );
-            }
-            return (
-                <div 
-                    onClick={() => handleCellEdit(record.id, 'source_ref')}
-                    style={{ cursor: 'pointer' }}
-                >
-                    {record.data.source_ref || '-'}
-                </div>
-            );
-        },
-        width: '140px',
-        minWidth: '120px',
-        alignment: 'left',
-        sorter: (a, b) => (a.data.source_ref || '').localeCompare(b.data.source_ref || ''),
-    },
-    {
-        title: 'Source URL',
-        key: 'source_url',
-        render: (record) => {
-            if (isEditing(record.id, 'source_url')) {
-                return (
-                    <Input
-                        value={record.data.source_url || ''}
-                        setValue={(value) => {
-                            const stringValue = typeof value === 'function' ? value('') : value;
-                            handleCellSave(record.id, 'source_url', stringValue);
-                        }}
-                        placeholder="Enter source URL"
-                        label=""
-                    />
-                );
-            }
-            return (
-                <div 
-                    onClick={() => handleCellEdit(record.id, 'source_url')}
-                    style={{ cursor: 'pointer' }}
-                >
-                    {record.data.source_url || '-'}
-                </div>
-            );
-        },
-        width: '180px',
-        minWidth: '150px',
-        alignment: 'left',
-        sorter: (a, b) => (a.data.source_url || '').localeCompare(b.data.source_url || ''),
-    },
-    {
-        title: 'Ownership (Users)',
-        key: 'ownership_users',
-        render: (record) => {
-            if (isEditing(record.id, 'ownership_users')) {
-                return (
-                    <Input
-                        value={record.data.ownership_users || ''}
-                        setValue={(value) => {
-                            const stringValue = typeof value === 'function' ? value('') : value;
-                            handleCellSave(record.id, 'ownership_users', stringValue);
-                        }}
-                        placeholder="Enter ownership users (comma-separated)"
-                        label=""
-                    />
-                );
-            }
-            return (
-                <div 
-                    onClick={() => handleCellEdit(record.id, 'ownership_users')}
-                    style={{ cursor: 'pointer' }}
-                >
-                    {record.data.ownership_users || '-'}
-                </div>
-            );
-        },
-        width: '180px',
-        minWidth: '150px',
-        alignment: 'left',
-        sorter: (a, b) => (a.data.ownership_users || '').localeCompare(b.data.ownership_users || ''),
-    },
-    {
-        title: 'Ownership (Groups)',
-        key: 'ownership_groups',
-        render: (record) => {
-            if (isEditing(record.id, 'ownership_groups')) {
-                return (
-                    <Input
-                        value={record.data.ownership_groups || ''}
-                        setValue={(value) => {
-                            const stringValue = typeof value === 'function' ? value('') : value;
-                            handleCellSave(record.id, 'ownership_groups', stringValue);
-                        }}
-                        placeholder="Enter ownership groups (comma-separated)"
-                        label=""
-                    />
-                );
-            }
-            return (
-                <div 
-                    onClick={() => handleCellEdit(record.id, 'ownership_groups')}
-                    style={{ cursor: 'pointer' }}
-                >
-                    {record.data.ownership_groups || '-'}
-                </div>
-            );
-        },
-        width: '180px',
-        minWidth: '150px',
-        alignment: 'left',
-        sorter: (a, b) => (a.data.ownership_groups || '').localeCompare(b.data.ownership_groups || ''),
-    },
-    {
-        title: 'Related Contains',
-        key: 'related_contains',
-        render: (record) => {
-            if (isEditing(record.id, 'related_contains')) {
-                return (
-                    <Input
-                        value={record.data.related_contains || ''}
-                        setValue={(value) => {
-                            const stringValue = typeof value === 'function' ? value('') : value;
-                            handleCellSave(record.id, 'related_contains', stringValue);
-                        }}
-                        placeholder="Enter related terms (comma-separated)"
-                        label=""
-                    />
-                );
-            }
-            return (
-                <div 
-                    onClick={() => handleCellEdit(record.id, 'related_contains')}
-                    style={{ cursor: 'pointer' }}
-                >
-                    {record.data.related_contains || '-'}
-                </div>
-            );
-        },
-        width: '180px',
-        minWidth: '150px',
-        alignment: 'left',
-        sorter: (a, b) => (a.data.related_contains || '').localeCompare(b.data.related_contains || ''),
-    },
-    {
-        title: 'Related Inherits',
-        key: 'related_inherits',
-        render: (record) => {
-            if (isEditing(record.id, 'related_inherits')) {
-                return (
-                    <Input
-                        value={record.data.related_inherits || ''}
-                        setValue={(value) => {
-                            const stringValue = typeof value === 'function' ? value('') : value;
-                            handleCellSave(record.id, 'related_inherits', stringValue);
-                        }}
-                        placeholder="Enter inherited terms (comma-separated)"
-                        label=""
-                    />
-                );
-            }
-            return (
-                <div 
-                    onClick={() => handleCellEdit(record.id, 'related_inherits')}
-                    style={{ cursor: 'pointer' }}
-                >
-                    {record.data.related_inherits || '-'}
-                </div>
-            );
-        },
-        width: '180px',
-        minWidth: '150px',
-        alignment: 'left',
-        sorter: (a, b) => (a.data.related_inherits || '').localeCompare(b.data.related_inherits || ''),
-    },
-    {
-        title: 'Domain Name',
-        key: 'domain_name',
-        render: (record) => {
-            if (isEditing(record.id, 'domain_name')) {
-                return (
-                    <Input
-                        value={record.data.domain_name || ''}
-                        setValue={(value) => {
-                            const stringValue = typeof value === 'function' ? value('') : value;
-                            handleCellSave(record.id, 'domain_name', stringValue);
-                        }}
-                        placeholder="Enter domain name"
-                        label=""
-                    />
-                );
-            }
-            return (
-                <div 
-                    onClick={() => handleCellEdit(record.id, 'domain_name')}
-                    style={{ cursor: 'pointer' }}
-                >
-                    {record.data.domain_name || '-'}
-                </div>
-            );
-        },
-        width: '140px',
-        minWidth: '120px',
-        alignment: 'left',
-        sorter: (a, b) => (a.data.domain_name || '').localeCompare(b.data.domain_name || ''),
-    },
-    {
-        title: 'Custom Properties',
-        key: 'custom_properties',
-        render: (record) => {
-            if (isEditing(record.id, 'custom_properties')) {
-                return (
-                    <Input
-                        value={record.data.custom_properties || ''}
-                        setValue={(value) => {
-                            const stringValue = typeof value === 'function' ? value('') : value;
-                            handleCellSave(record.id, 'custom_properties', stringValue);
-                        }}
-                        placeholder="Enter custom properties (JSON format)"
-                        label=""
-                    />
-                );
-            }
-            return (
-                <div 
-                    onClick={() => handleCellEdit(record.id, 'custom_properties')}
-                    style={{ cursor: 'pointer' }}
-                >
-                    {record.data.custom_properties || '-'}
-                </div>
-            );
-        },
-        width: '250px',
-        minWidth: '200px',
-        alignment: 'left',
-        sorter: (a, b) => (a.data.custom_properties || '').localeCompare(b.data.custom_properties || ''),
-    },
-];
+    };
+}
+
+// ============================================
+// MAIN EXPORT
+// ============================================
+
+/**
+ * Main function to generate all table columns
+ * Assembles all column types (diff, status, name, type, and editable fields)
+ */
+export const getTableColumns = (
+    isEditing: (rowId: string, field: string) => boolean,
+    handleCellEdit: (rowId: string, field: string) => void,
+    handleCellChange: (value: string) => void,
+    handleCellSave: (rowId: string, field: string, value: string) => void,
+    handleShowDiff: (entity: Entity) => void,
+    handleExpandRow: (record: any) => void,
+    expandedRowKeys: string[],
+    allEntities: Entity[],
+    editingValue: string
+): Column<EntityWithHierarchy>[] => {
+    // Static columns
+    const staticColumns = [
+        createDiffColumn(handleShowDiff),
+        createStatusColumn(),
+        createNameColumn(
+            isEditing,
+            handleCellEdit,
+            handleCellChange,
+            handleCellSave,
+            handleExpandRow,
+            expandedRowKeys,
+            allEntities,
+            editingValue
+        ),
+        createEntityTypeColumn(isEditing, handleCellEdit, handleCellSave),
+    ];
+
+    // Editable columns from config
+    const editableColumns: Column<EntityWithHierarchy>[] = EDITABLE_COLUMNS.map(config => ({
+        title: config.title,
+        key: config.key,
+        render: (record: EntityWithHierarchy) => (
+            <EditableCell
+                record={record}
+                field={config.key}
+                isEditing={isEditing}
+                editingValue={editingValue}
+                handleCellEdit={handleCellEdit}
+                handleCellChange={handleCellChange}
+                handleCellSave={handleCellSave}
+                placeholder={config.placeholder}
+            />
+        ),
+        width: `${config.width}px`,
+        minWidth: `${config.minWidth || config.width}px`,
+        alignment: 'left' as const,
+        sorter: config.sortable 
+            ? (a: EntityWithHierarchy, b: EntityWithHierarchy) => (a.data[config.key] || '').localeCompare(b.data[config.key] || '')
+            : undefined,
+    }));
+
+    return [...staticColumns, ...editableColumns];
+};
 

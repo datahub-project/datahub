@@ -1,13 +1,14 @@
 import { Button, SearchBar, SimpleSelect, Table } from '@components';
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 import { Entity } from '../../glossary.types';
-import { EntityDetailsModal } from '../EntityDetailsModal/EntityDetailsModal';
 import { DiffModal } from '../DiffModal/DiffModal';
 import { ImportProgressModal } from '../ImportProgressModal/ImportProgressModal';
-import { HierarchyNameResolver } from '../../shared/utils/hierarchyUtils';
 import { getTableColumns } from './GlossaryImportList.utils';
+import { useEntitySearch, GLOSSARY_SEARCHABLE_FIELDS } from '../../shared/hooks/useEntitySearch';
+import { useModal } from '../../shared/hooks/useModal';
+import { useHierarchicalData } from '../../shared/hooks/useHierarchicalData';
 
 const StyledTabToolbar = styled.div`
     display: flex;
@@ -96,260 +97,118 @@ export default function GlossaryImportList({
     progress,
     isProcessing,
 }: GlossaryImportListProps) {
+    // Search state
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [searchInput, setSearchInput] = useState('');
     const searchInputRef = useRef<any>(null);
     const [statusFilter, setStatusFilter] = useState<string>('0');
-    const [editingCell, setEditingCell] = useState<{ rowId: string; field: string } | null>(null);
-    const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
-    const [isModalVisible, setIsModalVisible] = useState(false);
-    const [isDiffModalVisible, setIsDiffModalVisible] = useState(false);
-    const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
+    
+    // Editing state
+    const [editingCell, setEditingCell] = useState<{ rowId: string; field: string; value: string } | null>(null);
+    
+    // Modal management with custom hook
+    const diffModal = useModal<Entity>();
 
-    useEffect(() => {
-        if (query?.length) {
-            setSearchInput(query);
-            setTimeout(() => {
-                searchInputRef.current?.focus?.();
-            }, 0);
-        }
-    }, [query]);
+    // Debounced search
+    useDebounce(() => setQuery(searchInput), 300, [searchInput]);
 
     const handleSearchInputChange = (value: string) => {
         setSearchInput(value);
     };
 
-    useDebounce(
-        () => {
-            setQuery(searchInput);
-        },
-        300,
-        [searchInput]
-    );
-
-    const filteredEntities = useMemo(() => {
-        let filtered = entities;
-
-        if (query) {
-            const searchLower = query.toLowerCase();
-            filtered = filtered.filter(entity => 
-                entity.name.toLowerCase().includes(searchLower) ||
-                entity.data.description.toLowerCase().includes(searchLower) ||
-                entity.data.term_source.toLowerCase().includes(searchLower) ||
-                entity.data.source_ref.toLowerCase().includes(searchLower) ||
-                entity.data.source_url.toLowerCase().includes(searchLower) ||
-                entity.data.ownership_users.toLowerCase().includes(searchLower) ||
-                entity.data.ownership_groups.toLowerCase().includes(searchLower) ||
-                entity.data.related_contains.toLowerCase().includes(searchLower) ||
-                entity.data.related_inherits.toLowerCase().includes(searchLower) ||
-                entity.data.domain_name.toLowerCase().includes(searchLower) ||
-                entity.data.custom_properties.toLowerCase().includes(searchLower)
-            );
+    useEffect(() => {
+        if (query?.length) {
+            setSearchInput(query);
+            setTimeout(() => searchInputRef.current?.focus?.(), 0);
         }
+    }, [query]);
 
-        if (statusFilter !== '0') {
-            const statusMap = ['', 'new', 'updated', 'conflict'];
-            const targetStatus = statusMap[parseInt(statusFilter)];
-            filtered = filtered.filter(entity => entity.status === targetStatus);
-        }
+    // Search and filter with custom hook
+    const filteredEntities = useEntitySearch({
+        entities,
+        query,
+        searchFields: GLOSSARY_SEARCHABLE_FIELDS,
+        statusFilter,
+    });
 
-        return filtered;
-    }, [entities, query, statusFilter]);
+    // Hierarchical data management with custom hook
+    const {
+        hierarchicalData,
+        flattenedData,
+        expandedKeys,
+        expandAll,
+        collapseAll,
+        toggleExpand,
+    } = useHierarchicalData({
+        entities: filteredEntities,
+    });
 
-    const handleShowDiff = (entity: Entity) => {
-        setSelectedEntity(entity);
-        setIsDiffModalVisible(true);
-    };
-
-    const handleCloseDiff = () => {
-        setIsDiffModalVisible(false);
-        setSelectedEntity(null);
-    };
-
-    const handleCloseDetails = () => {
-        setIsModalVisible(false);
-        setSelectedEntity(null);
-    };
-
+    // Editing handlers
     const isEditing = (rowId: string, field: string) => {
         return editingCell?.rowId === rowId && editingCell?.field === field;
     };
 
     const handleCellEdit = (rowId: string, field: string) => {
-        setEditingCell({ rowId, field });
+        const entity = entities.find(e => e.id === rowId);
+        const currentValue = entity?.data[field] || '';
+        setEditingCell({ rowId, field, value: currentValue });
+    };
+
+    const handleCellChange = (value: string) => {
+        if (editingCell) {
+            setEditingCell({ ...editingCell, value });
+        }
     };
 
     const handleCellSave = (rowId: string, field: string, value: string) => {
-        if (field === 'name') {
-            const entityBeingEdited = entities.find(entity => entity.id === rowId);
-            if (!entityBeingEdited) return;
-            
-            const oldName = entityBeingEdited.data.name;
-            const newName = value;
-            
-            let updatedEntities = entities.map(entity => 
-                entity.id === rowId 
-                    ? { ...entity, data: { ...entity.data, [field]: value } }
-                    : entity
-            );
-            
-            const nameChanges = new Map<string, string>();
-            nameChanges.set(oldName, newName);
-            
-            // Iteratively update all descendants at all levels by doing multiple passes
-            let hasChanges = true;
-            while (hasChanges) {
-                hasChanges = false;
-                updatedEntities = updatedEntities.map(entity => {
-                    const parentNewName = nameChanges.get(entity.data.parent_nodes);
-                    if (parentNewName) {
-                        hasChanges = true;
-                        nameChanges.set(entity.data.name, entity.data.name);
-                        return {
-                            ...entity,
-                            data: {
-                                ...entity.data,
-                                parent_nodes: parentNewName
-                            }
-                        };
-                    }
-                    return entity;
-                });
+        setEntities(entities.map(entity => {
+            if (entity.id === rowId) {
+                return {
+                    ...entity,
+                    data: { ...entity.data, [field]: value },
+                };
             }
-            
-            setEntities(updatedEntities);
-        } else {
-            setEntities(entities.map(entity => 
-                entity.id === rowId 
-                    ? { ...entity, data: { ...entity.data, [field]: value } }
-                    : entity
-            ));
-        }
+            return entity;
+        }));
         setEditingCell(null);
     };
 
-    const handleExpandAll = () => {
-        const collectExpandableKeys = (entities: (Entity & { children?: Entity[] })[]): string[] => {
-            const keys: string[] = [];
-            entities.forEach(entity => {
-                if (entity.children && entity.children.length > 0) {
-                    keys.push(entity.name);
-                    keys.push(...collectExpandableKeys(entity.children));
-                }
-            });
-            return keys;
-        };
-        
-        const allExpandableKeys = collectExpandableKeys(hierarchicalData);
-        setExpandedRowKeys(allExpandableKeys);
-    };
-
-    const handleCollapseAll = () => {
-        setExpandedRowKeys([]);
-    };
-
-    const organizeEntitiesHierarchically = (entities: Entity[]) => {
-        const entityMap = new Map<string, Entity & { children: Entity[] }>();
-        const rootEntities: (Entity & { children: Entity[] })[] = [];
-
-        entities.forEach(entity => {
-            entityMap.set(entity.name, { ...entity, children: [] });
-        });
-
-        const findParentEntity = (parentPath: string): (Entity & { children: Entity[] }) | null => {
-            const actualParentName = HierarchyNameResolver.parseHierarchicalName(parentPath);
-            return entityMap.get(actualParentName) || null;
-        };
-
-        entities.forEach(entity => {
-            const parentNames = entity.data.parent_nodes?.split(',').map(name => name.trim()).filter(Boolean) || [];
-            
-            if (parentNames.length === 0) {
-                rootEntities.push(entityMap.get(entity.name)!);
-            } else {
-                const parentName = parentNames[0];
-                const parentEntity = findParentEntity(parentName);
-                if (parentEntity) {
-                    parentEntity.children.push(entityMap.get(entity.name)!);
-                } else {
-                    rootEntities.push(entityMap.get(entity.name)!);
-                }
-            }
-        });
-
-        return rootEntities;
-    };
-
-    const hierarchicalData = useMemo(() => {
-        return organizeEntitiesHierarchically(filteredEntities);
-    }, [filteredEntities]);
-
-    const handleExpandRow = (record: any) => {
-        const key = record.name;
-        setExpandedRowKeys(prev => 
-            prev.includes(key) 
-                ? prev.filter(k => k !== key)
-                : [...prev, key]
-        );
-    };
-
-    const addIndentation = (record: Entity, level: number = 0): Entity & { _indentLevel: number; _indentSize: number } => {
-        const indentSize = level * 20; // 20px per level
-        return {
-            ...record,
-            _indentLevel: level,
-            _indentSize: indentSize
-        };
-    };
-
-    const flattenedData = useMemo(() => {
-        const flatten = (entities: (Entity & { children: Entity[] })[], level: number = 0): (Entity & { _indentLevel: number; _indentSize: number })[] => {
-            const result: (Entity & { _indentLevel: number; _indentSize: number })[] = [];
-            entities.forEach(entity => {
-                result.push(addIndentation(entity, level));
-                if (entity.children && entity.children.length > 0 && expandedRowKeys.includes(entity.name)) {
-                    const childrenWithType = entity.children as (Entity & { children: Entity[] })[];
-                    result.push(...flatten(childrenWithType, level + 1));
-                }
-            });
-            return result;
-        };
-        return flatten(hierarchicalData);
-    }, [hierarchicalData, expandedRowKeys]);
-
+    // Table columns
     const tableColumns = getTableColumns(
         isEditing,
         handleCellEdit,
+        handleCellChange,
         handleCellSave,
-        handleShowDiff,
-        handleExpandRow,
-        expandedRowKeys,
-        entities
+        diffModal.open,
+        (record) => toggleExpand(record.name),
+        expandedKeys,
+        entities,
+        editingCell?.value || ''
     );
 
+    // Status filter options
+    const statusOptions = [
+        { value: '0', label: 'All' },
+        { value: '1', label: 'New' },
+        { value: '2', label: 'Updated' },
+        { value: '3', label: 'Conflict' },
+    ];
+
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <>
             <StyledTabToolbar>
                 <SearchContainer>
                     <StyledSearchBar
-                        placeholder="Search entities..."
+                        ref={searchInputRef}
                         value={searchInput}
                         onChange={handleSearchInputChange}
-                        ref={searchInputRef}
+                        placeholder="Search entities..."
                     />
                     <StyledSimpleSelect
+                        options={statusOptions}
                         values={[statusFilter]}
-                        isMultiSelect={false}
-                        options={[
-                            { label: 'All', value: '0' },
-                            { label: 'New', value: '1' },
-                            { label: 'Updated', value: '2' },
-                            { label: 'Conflict', value: '3' },
-                        ]}
                         onUpdate={(values) => setStatusFilter(values[0] || '0')}
                         showClear={false}
-                        width="fit-content"
-                        size="lg"
                     />
                 </SearchContainer>
                 <FilterButtonsContainer>
@@ -357,7 +216,7 @@ export default function GlossaryImportList({
                         variant="text"
                         size="sm"
                         icon={{ icon: 'CaretDown', source: 'phosphor' }}
-                        onClick={handleExpandAll}
+                        onClick={expandAll}
                         disabled={hierarchicalData.filter(e => e.children && e.children.length > 0).length === 0}
                     >
                         Expand All
@@ -366,17 +225,17 @@ export default function GlossaryImportList({
                         variant="text"
                         size="sm"
                         icon={{ icon: 'CaretUp', source: 'phosphor' }}
-                        onClick={handleCollapseAll}
-                        disabled={expandedRowKeys.length === 0}
+                        onClick={collapseAll}
+                        disabled={expandedKeys.length === 0}
                     >
                         Collapse All
                     </Button>
                 </FilterButtonsContainer>
             </StyledTabToolbar>
-    
+
             <TableContainer>
                 <Table
-                    columns={tableColumns}
+                    columns={tableColumns as any}
                     data={flattenedData}
                     showHeader
                     isScrollable
@@ -385,21 +244,13 @@ export default function GlossaryImportList({
                 />
             </TableContainer>
 
-            {isModalVisible && selectedEntity && (
-                <EntityDetailsModal
-                    visible={isModalVisible}
-                    onClose={handleCloseDetails}
-                    entityData={selectedEntity.data}
-                    onSave={() => {}}
-                />
-            )}
 
-            {isDiffModalVisible && selectedEntity && (
+            {diffModal.isOpen && diffModal.data && (
                 <DiffModal
-                    visible={isDiffModalVisible}
-                    onClose={handleCloseDiff}
-                    entity={selectedEntity}
-                    existingEntity={selectedEntity.existingEntity || null}
+                    visible={diffModal.isOpen}
+                    onClose={diffModal.close}
+                    entity={diffModal.data}
+                    existingEntity={diffModal.data.existingEntity || null}
                 />
             )}
 
@@ -409,7 +260,7 @@ export default function GlossaryImportList({
                 progress={progress}
                 isProcessing={isProcessing}
             />
-        </div>
+        </>
     );
 }
 

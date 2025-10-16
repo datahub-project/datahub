@@ -282,7 +282,53 @@ export function findDuplicateNames(entities: EntityData[]): ValidationResult {
 }
 
 /**
- * Convert GraphQL entity to our Entity format
+ * Convert relationship array to comma-separated hierarchical names.
+ * 
+ * Used for displaying related terms with their parent context.
+ * Example: "Parent.Child" instead of just "Child"
+ * 
+ * @param relationships - Array of relationship objects from GraphQL
+ * @returns Comma-separated string of hierarchical names, or empty string
+ */
+export function convertRelationshipsToHierarchicalNames(relationships: any[]): string {
+  if (!relationships || relationships.length === 0) return '';
+  
+  return relationships
+    .map((rel: any) => {
+      const entity = rel?.entity;
+      if (!entity) return '';
+      
+      const name = entity.properties?.name || entity.name || '';
+      const parentNodes = entity.parentNodes?.nodes || [];
+      
+      if (name) {
+        // Include parent context if available
+        if (parentNodes.length > 0) {
+          const parentName = parentNodes[0].properties?.name || '';
+          return parentName ? `${parentName}.${name}` : name;
+        }
+        return name;
+      }
+      
+      return '';
+    })
+    .filter(name => name)
+    .join(',');
+}
+
+/**
+ * Convert GraphQL entity to our Entity format.
+ * 
+ * This is a GENERAL-PURPOSE converter used across the application.
+ * It includes ALL parent nodes (entire ancestry chain) and uses
+ * hierarchy-based ID generation.
+ * 
+ * NOTE: For CSV comparison use cases, see WizardPage.tsx which has
+ * a specialized inline converter that extracts only immediate parents
+ * and converts relationships to names for display purposes.
+ * 
+ * @param graphqlEntity - GraphQL entity response
+ * @returns Normalized Entity object
  */
 export function convertGraphQLEntityToEntity(graphqlEntity: GraphQLEntity): Entity {
   const isGlossaryTerm = graphqlEntity.__typename === 'GlossaryTerm';

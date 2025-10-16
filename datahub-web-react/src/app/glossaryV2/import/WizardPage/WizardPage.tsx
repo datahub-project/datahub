@@ -9,6 +9,7 @@ import { useCsvProcessing } from '../shared/hooks/useCsvProcessing';
 import { useEntityManagement } from '../shared/hooks/useEntityManagement';
 import { useGraphQLOperations } from '../shared/hooks/useGraphQLOperations';
 import { useEntityComparison } from '../shared/hooks/useEntityComparison';
+import { convertRelationshipsToHierarchicalNames } from '../glossary.utils';
 import { useApolloClient } from '@apollo/client';
 import DropzoneTable from './DropzoneTable/DropzoneTable';
 import { BreadcrumbHeader } from '../shared/components/BreadcrumbHeader';
@@ -133,32 +134,13 @@ export const WizardPage = () => {
                     }
                 });
 
-                const convertRelationshipUrnsToNames = (relationships: any[]): string => {
-                    if (!relationships || relationships.length === 0) return '';
-                    
-                    return relationships
-                        .map((rel: any) => {
-                            const entity = rel?.entity;
-                            if (!entity) return '';
-                            
-                            const name = entity.properties?.name || entity.name || '';
-                            const parentNodes = entity.parentNodes?.nodes || [];
-                            
-                            if (name) {
-                                if (parentNodes.length > 0) {
-                                    const parentName = parentNodes[0].properties?.name || '';
-                                    return parentName ? `${parentName}.${name}` : name;
-                                } else {
-                                    return name;
-                                }
-                            }
-                            
-                            return '';
-                        })
-                        .filter(name => name)
-                        .join(',');
-                };
-
+                // Convert GraphQL entities for CSV comparison
+                // This is a SPECIALIZED converter specific to the CSV import comparison flow.
+                // Key differences from glossary.utils.convertGraphQLEntityToEntity():
+                // 1. Uses URN as ID (existing entities need their URN preserved)
+                // 2. Extracts ONLY immediate parent (for accurate CSV matching)
+                // 3. Converts relationships to hierarchical names (for display/comparison)
+                // 4. Leaves domain empty (not needed for comparison)
                 const convertedExistingEntities: Entity[] = existingEntities.map((entity: any) => {
                     const isTerm = entity.__typename === 'GlossaryTerm';
                     const properties = entity.properties || {};
@@ -198,8 +180,8 @@ export const WizardPage = () => {
                               `${owner.owner.username || owner.owner.name || owner.owner.urn}:${owner.ownershipType?.info?.name || 'NONE'}`
                             ).join('|') || '',
                             parent_nodes: immediateParentName || '',
-                            related_contains: convertRelationshipUrnsToNames(entity.contains?.relationships || []),
-                            related_inherits: convertRelationshipUrnsToNames(entity.inherits?.relationships || []),
+                            related_contains: convertRelationshipsToHierarchicalNames(entity.contains?.relationships || []),
+                            related_inherits: convertRelationshipsToHierarchicalNames(entity.inherits?.relationships || []),
                             domain_urn: '', // TODO: Extract from domain aspect
                             domain_name: '', // TODO: Extract from domain aspect
                             custom_properties: properties.customProperties?.map((cp: any) => `${cp.key}:${cp.value}`).join(',') || '',
