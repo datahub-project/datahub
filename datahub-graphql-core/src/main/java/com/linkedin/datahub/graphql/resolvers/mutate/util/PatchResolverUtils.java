@@ -83,61 +83,10 @@ public class PatchResolverUtils {
               || (arrayPrimaryKeys != null && !arrayPrimaryKeys.isEmpty());
 
       if (useGenericPatch) {
-        // Convert to GenericJsonPatch format (same as OpenAPI)
-        List<GenericJsonPatch.PatchOp> patchOps =
-            validatedOperations.stream()
-                .map(
-                    op -> {
-                      GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
-                      patchOp.setOp(op.getOp().toString().toLowerCase());
-                      patchOp.setPath(op.getPath());
-                      // Always set value for ADD operations (Jakarta JSON Patch requirement)
-                      if (op.getOp().toString().equals("ADD") || op.getValue() != null) {
-                        if (op.getValue() != null) {
-                          // Handle empty string specially to preserve it
-                          if (op.getValue().equals("\"\"") || op.getValue().equals("")) {
-                            patchOp.setValue(""); // Preserve empty string
-                          } else {
-                            // Try to parse as JSON, fallback to string
-                            try {
-                              ObjectMapper mapper = context.getOperationContext().getObjectMapper();
-                              JsonNode valueNode = mapper.readTree(op.getValue());
-                              patchOp.setValue(mapper.treeToValue(valueNode, Object.class));
-                            } catch (JsonProcessingException e) {
-                              patchOp.setValue(op.getValue());
-                            }
-                          }
-                        } else {
-                          // For ADD operations with null value, set explicit null
-                          patchOp.setValue(null);
-                        }
-                      }
-                      return patchOp;
-                    })
-                .collect(Collectors.toList());
-
-        // Convert arrayPrimaryKeys if provided
-        Map<String, List<String>> arrayPrimaryKeysMap = new HashMap<>();
-        if (arrayPrimaryKeys != null) {
-          arrayPrimaryKeys.forEach(
-              key -> arrayPrimaryKeysMap.put(key.getArrayField(), key.getKeys()));
-        }
-
-        // Create GenericJsonPatch
-        GenericJsonPatch genericJsonPatch =
-            GenericJsonPatch.builder()
-                .patch(patchOps)
-                .arrayPrimaryKeys(arrayPrimaryKeysMap)
-                .forceGenericPatch(forceGenericPatch != null ? forceGenericPatch : false)
-                .build();
-
-        // Convert to JsonNode and serialize (same as OpenAPI does)
-        ObjectMapper mapper = context.getOperationContext().getObjectMapper();
-        JsonNode patchNode = mapper.valueToTree(genericJsonPatch);
-        return GenericRecordUtils.serializePatch(patchNode);
+        return createGenericJsonPatchAspect(validatedOperations, arrayPrimaryKeys, forceGenericPatch, context);
       } else {
         // Use traditional JsonPatch approach for backward compatibility
-        return createLegacyPatchAspect(patchOperations, context);
+        return createLegacyPatchAspect(validatedOperations, context);
       }
     } catch (Exception e) {
       throw new RuntimeException("Failed to create patch aspect", e);
@@ -147,12 +96,8 @@ public class PatchResolverUtils {
   /** Legacy patch aspect creation method using traditional JsonPatch */
   @Nonnull
   private static GenericAspect createLegacyPatchAspect(
-      @Nonnull List<PatchOperationInput> patchOperations, @Nonnull QueryContext context) {
+      @Nonnull List<PatchOperationInput> validatedOperations, @Nonnull QueryContext context) {
     try {
-      // Validate and transform patch operations for entity-specific rules
-      List<PatchOperationInput> validatedOperations =
-          validateAndTransformPatchOperations(patchOperations, context);
-
       // Convert patch operations to JSON patch format
       List<Map<String, Object>> patchOps =
           validatedOperations.stream()
@@ -206,19 +151,7 @@ public class PatchResolverUtils {
     patchOp.put("path", operation.getPath());
 
     if (operation.getValue() != null) {
-      // Handle empty string specially to preserve it
-      if (operation.getValue().equals("\"\"") || operation.getValue().equals("")) {
-        patchOp.put("value", ""); // Preserve empty string
-      } else {
-        // Try to parse as JSON, fallback to string
-        try {
-          ObjectMapper mapper = context.getOperationContext().getObjectMapper();
-          JsonNode valueNode = mapper.readTree(operation.getValue());
-          patchOp.put("value", mapper.treeToValue(valueNode, Object.class));
-        } catch (JsonProcessingException e) {
-          patchOp.put("value", operation.getValue());
-        }
-      }
+      patchOp.put("value", processPatchValue(operation.getValue(), context));
     }
 
     if (operation.getFrom() != null) {
@@ -511,5 +444,89 @@ public class PatchResolverUtils {
     }
 
     return transformed;
+  }
+
+  /**
+   * Creates a GenericJsonPatch aspect from validated operations
+   *
+   * @param validatedOperations List of validated patch operations
+   * @param arrayPrimaryKeys Optional array primary keys
+   * @param forceGenericPatch Whether to force generic patch
+   * @param context Query context
+   * @return GenericAspect for GenericJsonPatch
+   */
+  @Nonnull
+  private static GenericAspect createGenericJsonPatchAspect(
+      @Nonnull List<PatchOperationInput> validatedOperations,
+      @Nullable List<ArrayPrimaryKeyInput> arrayPrimaryKeys,
+      @Nullable Boolean forceGenericPatch,
+      @Nonnull QueryContext context) {
+    try {
+      // Convert to GenericJsonPatch format (same as OpenAPI)
+      List<GenericJsonPatch.PatchOp> patchOps =
+          validatedOperations.stream()
+              .map(
+                  op -> {
+                    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+                    patchOp.setOp(op.getOp().toString().toLowerCase());
+                    patchOp.setPath(op.getPath());
+                    // Always set value for ADD operations (Jakarta JSON Patch requirement)
+                    if (op.getOp().toString().equals("ADD") || op.getValue() != null) {
+                      patchOp.setValue(processPatchValue(op.getValue(), context));
+                    }
+                    return patchOp;
+                  })
+              .collect(Collectors.toList());
+
+      // Convert arrayPrimaryKeys if provided
+      Map<String, List<String>> arrayPrimaryKeysMap = new HashMap<>();
+      if (arrayPrimaryKeys != null) {
+        arrayPrimaryKeys.forEach(
+            key -> arrayPrimaryKeysMap.put(key.getArrayField(), key.getKeys()));
+      }
+
+      // Create GenericJsonPatch
+      GenericJsonPatch genericJsonPatch =
+          GenericJsonPatch.builder()
+              .patch(patchOps)
+              .arrayPrimaryKeys(arrayPrimaryKeysMap)
+              .forceGenericPatch(forceGenericPatch != null ? forceGenericPatch : false)
+              .build();
+
+      // Convert to JsonNode and serialize (same as OpenAPI does)
+      ObjectMapper mapper = context.getOperationContext().getObjectMapper();
+      JsonNode patchNode = mapper.valueToTree(genericJsonPatch);
+      return GenericRecordUtils.serializePatch(patchNode);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to create GenericJsonPatch aspect", e);
+    }
+  }
+
+  /**
+   * Processes patch operation values with consistent JSON parsing and empty string handling
+   *
+   * @param value Raw value from patch operation
+   * @param context Query context for object mapper
+   * @return Processed value object
+   */
+  @Nullable
+  private static Object processPatchValue(@Nullable String value, @Nonnull QueryContext context) {
+    if (value == null) {
+      return null;
+    }
+
+    // Handle empty string specially to preserve it
+    if (value.equals("\"\"") || value.equals("")) {
+      return ""; // Preserve empty string
+    }
+
+    // Try to parse as JSON, fallback to string
+    try {
+      ObjectMapper mapper = context.getOperationContext().getObjectMapper();
+      JsonNode valueNode = mapper.readTree(value);
+      return mapper.treeToValue(valueNode, Object.class);
+    } catch (JsonProcessingException e) {
+      return value; // Fallback to string
+    }
   }
 }
