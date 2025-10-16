@@ -117,7 +117,6 @@ def load_client_config() -> DatahubClientConfig:
         datahub_config: DatahubClientConfig = DatahubConfig.parse_obj(
             client_config_dict
         ).gms
-
         return datahub_config
     except ValidationError as e:
         click.echo(f"Error loading your {CONDENSED_DATAHUB_CONFIG_PATH}")
