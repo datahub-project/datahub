@@ -1,0 +1,7 @@
+mutation createDataHubFile($input: CreateDataHubFileInput!) {
+    createDataHubFile(input: $input) {
+        file {
+			urn
+		}
+    }
+}

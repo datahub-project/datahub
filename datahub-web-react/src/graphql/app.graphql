@@ -155,6 +155,7 @@ query getPresignedUploadUrl($input: GetPresignedUploadUrlInput!) {
     getPresignedUploadUrl(input: $input) {
         url
         fileId
+        filePath
     }
 }
 

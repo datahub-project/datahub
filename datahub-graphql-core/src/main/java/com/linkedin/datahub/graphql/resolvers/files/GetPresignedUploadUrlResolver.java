@@ -28,6 +28,7 @@ import org.springframework.stereotype.Component;
 public class GetPresignedUploadUrlResolver
     implements DataFetcher<CompletableFuture<GetPresignedUploadUrl>> {
 
+  private static final String FILE_ID_SEPARATOR = "__";
   private static final int EXPIRATION_SECONDS = 60 * 60; // 60 minutes
   private static final Set<String> ALLOWED_FILE_EXTENSIONS =
       new HashSet<>(
@@ -68,6 +69,8 @@ public class GetPresignedUploadUrlResolver
           GetPresignedUploadUrl result = new GetPresignedUploadUrl();
           result.setUrl(presignedUploadUrl);
           result.setFileId(newFileId);
+          result.setFilePath(
+              s3Key); // TODO prepend bucket name if we have to get rid of it in the s3Key
           return result;
         },
         this.getClass().getSimpleName(),
@@ -111,7 +114,8 @@ public class GetPresignedUploadUrlResolver
   }
 
   private String generateNewFileId(final GetPresignedUploadUrlInput input) {
-    return String.format("%s-%s", UUID.randomUUID().toString(), input.getFileName());
+    return String.format(
+        "%s%s%s", UUID.randomUUID().toString(), FILE_ID_SEPARATOR, input.getFileName());
   }
 
   private String getS3Key(

@@ -51,6 +51,7 @@ enum UploadDownloadScenario {
 type GetPresignedUploadUrl {
   url: String!
   fileId: String!
+  filePath: String!
 }
 
 """

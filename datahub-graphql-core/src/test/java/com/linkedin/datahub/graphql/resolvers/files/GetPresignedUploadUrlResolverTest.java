@@ -147,6 +147,7 @@ public class GetPresignedUploadUrlResolverTest {
 
     assertEquals(result.getFileId(), extractedFileId);
     assertTrue(result.getFileId().contains(testFileName));
+    assertEquals(result.getFilePath(), capturedS3Key);
   }
 
   @Test
