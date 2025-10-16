@@ -2111,6 +2111,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
     def _create_user_with_token(
         self,
+        user_urn: str,
         email: str,
         display_name: str,
         password: str,
@@ -2120,6 +2121,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         Create a user using the signup endpoint.
 
         Args:
+            user_urn: User URN (urn:li:corpuser:{user_id})
             email: User's email address
             display_name: Full display name for the user
             password: User's password
@@ -2131,6 +2133,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         frontend_url = guess_frontend_url_from_gms_url(self._gms_server)
         signup_url = f"{frontend_url}/signUp"
         signup_payload = {
+            "userUrn": user_urn,
             "email": email,
             "fullName": display_name,
             "password": password,
@@ -2138,7 +2141,9 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "inviteToken": invite_token,
         }
 
-        logger.debug(f"Creating user with email={email} at URL: {signup_url}")
+        logger.debug(
+            f"Creating user with URN={user_urn}, email={email} at URL: {signup_url}"
+        )
         logger.debug(
             f"Signup payload: {json.dumps({**signup_payload, 'password': '***'})}"
         )
@@ -2214,6 +2219,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
     def create_native_user(
         self,
+        user_id: str,
         email: str,
         display_name: str,
         password: str,
@@ -2223,13 +2229,14 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         Create a native DataHub user with email/password authentication.
 
         Args:
-            email: User's email address (will be used as user ID)
+            user_id: User identifier (will be used in the URN)
+            email: User's email address
             display_name: Full display name for the user
             password: User's password
             role: Optional role to assign (Admin, Editor, or Reader)
 
         Returns:
-            User URN of the created user (urn:li:corpuser:{email})
+            User URN of the created user (urn:li:corpuser:{user_id})
 
         Raises:
             OperationalError: If user creation fails
@@ -2244,10 +2251,12 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     f"Invalid role '{role}'. Must be one of: {', '.join(valid_roles)}"
                 )
 
-        user_urn = f"urn:li:corpuser:{email}"
+        user_urn = f"urn:li:corpuser:{user_id}"
 
         invite_token = self._get_invite_token()
-        self._create_user_with_token(email, display_name, password, invite_token)
+        self._create_user_with_token(
+            user_urn, email, display_name, password, invite_token
+        )
 
         if role:
             try:

@@ -22,6 +22,8 @@ def datahub_user_add(
     display_name: str,
     password: str,
     role: str | None = None,
+    user_id: str | None = None,
+    email_as_id: bool = False,
 ) -> Any:
     """Run the datahub user add command."""
     add_args: List[str] = [
@@ -33,6 +35,12 @@ def datahub_user_add(
         display_name,
         "--password",
     ]
+
+    if user_id:
+        add_args.extend(["--id", user_id])
+    elif email_as_id:
+        add_args.append("--email-as-id")
+
     if role:
         add_args.extend(["--role", role])
 
@@ -75,7 +83,9 @@ def test_user_add_without_role(auth_session: Any, test_users_cleanup: Any) -> No
 
     test_users_cleanup(email)
 
-    result = datahub_user_add(auth_session, email, display_name, password)
+    result = datahub_user_add(
+        auth_session, email, display_name, password, email_as_id=True
+    )
 
     assert result.exit_code == 0
     assert "Successfully created user" in result.output
@@ -93,7 +103,9 @@ def test_user_add_with_admin_role(auth_session: Any, test_users_cleanup: Any) ->
 
     test_users_cleanup(email)
 
-    result = datahub_user_add(auth_session, email, display_name, password, role="Admin")
+    result = datahub_user_add(
+        auth_session, email, display_name, password, role="Admin", email_as_id=True
+    )
 
     assert result.exit_code == 0
     assert "Successfully created user" in result.output
@@ -113,7 +125,7 @@ def test_user_add_with_editor_role(auth_session: Any, test_users_cleanup: Any) -
     test_users_cleanup(email)
 
     result = datahub_user_add(
-        auth_session, email, display_name, password, role="editor"
+        auth_session, email, display_name, password, role="editor", email_as_id=True
     )
 
     assert result.exit_code == 0
@@ -134,7 +146,7 @@ def test_user_add_with_reader_role(auth_session: Any, test_users_cleanup: Any) -
     test_users_cleanup(email)
 
     result = datahub_user_add(
-        auth_session, email, display_name, password, role="READER"
+        auth_session, email, display_name, password, role="READER", email_as_id=True
     )
 
     assert result.exit_code == 0
@@ -154,12 +166,16 @@ def test_user_add_duplicate_user(auth_session: Any, test_users_cleanup: Any) -> 
 
     test_users_cleanup(email)
 
-    first_result = datahub_user_add(auth_session, email, display_name, password)
+    first_result = datahub_user_add(
+        auth_session, email, display_name, password, email_as_id=True
+    )
     assert first_result.exit_code == 0
 
     wait_for_writes_to_sync()
 
-    second_result = datahub_user_add(auth_session, email, display_name, password)
+    second_result = datahub_user_add(
+        auth_session, email, display_name, password, email_as_id=True
+    )
     assert second_result.exit_code == 0
     assert "already exists" in second_result.output
     assert email in second_result.output
@@ -177,6 +193,7 @@ def test_user_add_without_password_flag(auth_session: Any) -> None:
         email,
         "--display-name",
         display_name,
+        "--email-as-id",
     ]
 
     result = run_datahub_cmd(
@@ -189,3 +206,108 @@ def test_user_add_without_password_flag(auth_session: Any) -> None:
 
     assert result.exit_code == 1
     assert "password flag is required" in result.output.lower()
+
+
+def test_user_add_with_explicit_id(auth_session: Any, test_users_cleanup: Any) -> None:
+    """Test creating a user with explicit --id option."""
+    email = generate_test_email()
+    user_id = f"testuser_{uuid.uuid4().hex[:8]}"
+    display_name = "Test User With ID"
+    password = "testpassword123"
+
+    # Cleanup with the user ID, not email
+    test_users_cleanup(user_id)
+
+    result = datahub_user_add(
+        auth_session, email, display_name, password, user_id=user_id
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created user" in result.output
+    assert user_id in result.output
+    assert "URN:" in result.output
+
+    wait_for_writes_to_sync()
+
+
+def test_user_add_without_id_or_flag(auth_session: Any) -> None:
+    """Test that not providing --id or --email-as-id results in error."""
+    email = generate_test_email()
+    display_name = "Test User No ID"
+
+    add_args: List[str] = [
+        "user",
+        "add",
+        "--email",
+        email,
+        "--display-name",
+        display_name,
+        "--password",
+    ]
+
+    result = run_datahub_cmd(
+        add_args,
+        input="password123\npassword123\n",
+        env={
+            "DATAHUB_GMS_URL": auth_session.gms_url(),
+            "DATAHUB_GMS_TOKEN": auth_session.gms_token(),
+        },
+    )
+
+    assert result.exit_code == 1
+    assert "must specify either --id or --email-as-id" in result.output.lower()
+
+
+def test_user_add_with_both_id_and_flag(auth_session: Any) -> None:
+    """Test that providing both --id and --email-as-id results in error."""
+    email = generate_test_email()
+    display_name = "Test User Both Options"
+
+    add_args: List[str] = [
+        "user",
+        "add",
+        "--email",
+        email,
+        "--id",
+        "testuser",
+        "--email-as-id",
+        "--display-name",
+        display_name,
+        "--password",
+    ]
+
+    result = run_datahub_cmd(
+        add_args,
+        input="password123\npassword123\n",
+        env={
+            "DATAHUB_GMS_URL": auth_session.gms_url(),
+            "DATAHUB_GMS_TOKEN": auth_session.gms_token(),
+        },
+    )
+
+    assert result.exit_code == 1
+    assert "cannot specify both --id and --email-as-id" in result.output.lower()
+
+
+def test_user_add_id_different_from_email(
+    auth_session: Any, test_users_cleanup: Any
+) -> None:
+    """Test creating a user where ID is different from email."""
+    email = "john.doe@company.com"
+    user_id = "jdoe"
+    display_name = "John Doe"
+    password = "securepass123"
+
+    test_users_cleanup(user_id)
+
+    result = datahub_user_add(
+        auth_session, email, display_name, password, user_id=user_id, role="Editor"
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created user" in result.output
+    assert user_id in result.output
+    assert "Editor" in result.output
+    assert f"urn:li:corpuser:{user_id}" in result.output
+
+    wait_for_writes_to_sync()

@@ -58,8 +58,81 @@ def upsert(file: Path, override_editable: bool) -> None:
                 )
 
 
+def validate_user_id_options(user_id: str | None, email_as_id: bool, email: str) -> str:
+    """
+    Validate user ID options and return the final user ID to use.
+
+    Args:
+        user_id: Optional explicit user ID
+        email_as_id: Whether to use email as the user ID
+        email: User's email address
+
+    Returns:
+        The final user ID to use for the URN
+
+    Raises:
+        ValueError: If validation fails (neither or both options provided)
+    """
+    if not user_id and not email_as_id:
+        raise ValueError("Must specify either --id or --email-as-id flag")
+
+    if user_id and email_as_id:
+        raise ValueError("Cannot specify both --id and --email-as-id flag")
+
+    return email if email_as_id else user_id
+
+
+def create_native_user_in_datahub(
+    graph,
+    user_id: str,
+    email: str,
+    display_name: str,
+    password: str,
+    role: str | None = None,
+) -> str:
+    """
+    Create a native DataHub user.
+
+    Args:
+        graph: DataHubGraph client
+        user_id: User identifier (used in URN)
+        email: User's email address
+        display_name: User's full display name
+        password: User's password
+        role: Optional role to assign (Admin, Editor, or Reader)
+
+    Returns:
+        The created user's URN
+
+    Raises:
+        ValueError: If user already exists or role is invalid
+        OperationalError: If user creation fails due to API/network errors
+    """
+    user_urn = f"urn:li:corpuser:{user_id}"
+
+    if graph.exists(user_urn):
+        raise ValueError(f"User with ID {user_id} already exists (urn: {user_urn})")
+
+    created_user_urn = graph.create_native_user(
+        user_id=user_id,
+        email=email,
+        display_name=display_name,
+        password=password,
+        role=role,
+    )
+
+    return created_user_urn
+
+
 @user.command(name="add")
+@click.option("--id", "user_id", type=str, help="User identifier (used in URN)")
 @click.option("--email", required=True, type=str, help="User's email address")
+@click.option(
+    "--email-as-id",
+    is_flag=True,
+    default=False,
+    help="Use email address as user ID (alternative to --id)",
+)
 @click.option(
     "--display-name", required=True, type=str, help="User's full display name"
 )
@@ -78,8 +151,21 @@ def upsert(file: Path, override_editable: bool) -> None:
     help="Optional role to assign (Admin, Editor, or Reader)",
 )
 @upgrade.check_upgrade
-def add(email: str, display_name: str, password: bool, role: str) -> None:
+def add(
+    user_id: str,
+    email: str,
+    email_as_id: bool,
+    display_name: str,
+    password: bool,
+    role: str,
+) -> None:
     """Create a native DataHub user with email/password authentication"""
+
+    try:
+        final_user_id = validate_user_id_options(user_id, email_as_id, email)
+    except ValueError as e:
+        click.secho(f"Error: {str(e)}", fg="red")
+        raise SystemExit(1) from e
 
     if not password:
         click.secho(
@@ -93,41 +179,28 @@ def add(email: str, display_name: str, password: bool, role: str) -> None:
     )
 
     with get_default_graph(ClientMode.CLI) as graph:
-        user_urn = f"urn:li:corpuser:{email}"
-
-        if graph.exists(user_urn):
-            click.secho(
-                f"User with email {email} already exists (urn: {user_urn})", fg="yellow"
-            )
-            raise SystemExit(0)
-
         try:
-            created_user_urn = graph.create_native_user(
-                email=email,
-                display_name=display_name,
-                password=password_value,
-                role=role,
+            created_user_urn = create_native_user_in_datahub(
+                graph, final_user_id, email, display_name, password_value, role
             )
 
             if role:
                 click.secho(
-                    f"Successfully created user {email} with role {role.capitalize()} (URN: {created_user_urn})",
+                    f"Successfully created user {final_user_id} with role {role.capitalize()} (URN: {created_user_urn})",
                     fg="green",
                 )
             else:
                 click.secho(
-                    f"Successfully created user {email} (URN: {created_user_urn})",
+                    f"Successfully created user {final_user_id} (URN: {created_user_urn})",
                     fg="green",
                 )
         except ValueError as e:
             click.secho(f"Error: {str(e)}", fg="red")
             raise SystemExit(1) from e
         except OperationalError as e:
-            # OperationalError has message and info dict
             error_msg = e.message if hasattr(e, "message") else str(e.args[0])
             click.secho(f"Error: {error_msg}", fg="red")
 
-            # Show additional error details if available
             if hasattr(e, "info") and e.info:
                 logger.debug(f"Error details: {e.info}")
                 if "status_code" in e.info:
