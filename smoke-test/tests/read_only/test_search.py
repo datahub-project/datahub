@@ -3,6 +3,7 @@ from urllib.parse import quote
 import pytest
 
 from tests.test_result_msg import add_datahub_stats
+from tests.utilities.metadata_operations import get_search_results
 from tests.utils import get_gms_url
 
 BASE_URL_V3 = f"{get_gms_url()}/openapi/v3"
@@ -10,52 +11,6 @@ BASE_URL_V3 = f"{get_gms_url()}/openapi/v3"
 default_headers = {
     "Content-Type": "application/json",
 }
-
-ENTITY_TO_MAP = {
-    "chart": "CHART",
-    "dataset": "DATASET",
-    "dashboard": "DASHBOARD",
-    "dataJob": "DATA_JOB",
-    "dataFlow": "DATA_FLOW",
-    "container": "CONTAINER",
-    "tag": "TAG",
-    "corpUser": "CORP_USER",
-    "mlFeature": "MLFEATURE",
-    "glossaryTerm": "GLOSSARY_TERM",
-    "domain": "DOMAIN",
-    "mlPrimaryKey": "MLPRIMARY_KEY",
-    "corpGroup": "CORP_GROUP",
-    "mlFeatureTable": "MLFEATURE_TABLE",
-    "glossaryNode": "GLOSSARY_NODE",
-    "mlModel": "MLMODEL",
-}
-
-
-def _get_search_result(auth_session, entity: str):
-    json = {
-        "query": """
-        query search($input: SearchInput!) {
-            search(input: $input) {
-                total
-                searchResults {
-                    entity {
-                        urn
-                    }
-                }
-            }
-        }
-        """,
-        "variables": {"input": {"type": ENTITY_TO_MAP.get(entity), "query": "*"}},
-    }
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
-    )
-    print(f"Response text was {response.text}")
-    res_data = response.json()
-    assert res_data, f"response data was {res_data}"
-    assert res_data["data"], f"response data was {res_data}"
-    assert res_data["data"]["search"], f"response data was {res_data}"
-    return res_data["data"]["search"]
 
 
 @pytest.mark.read_only
@@ -81,7 +36,7 @@ def _get_search_result(auth_session, entity: str):
     ],
 )
 def test_search_works(auth_session, entity_type, api_name):
-    search_result = _get_search_result(auth_session, entity_type)
+    search_result = get_search_results(auth_session, entity_type)
     num_entities = search_result["total"]
     add_datahub_stats(f"num-{entity_type}", num_entities)
     if num_entities == 0:
@@ -138,7 +93,7 @@ def test_search_works(auth_session, entity_type, api_name):
     ],
 )
 def test_openapi_v3_entity(auth_session, entity_type):
-    search_result = _get_search_result(auth_session, entity_type)
+    search_result = get_search_results(auth_session, entity_type)
     num_entities = search_result["total"]
     if num_entities == 0:
         print(f"[WARN] No results for {entity_type}")

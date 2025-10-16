@@ -62,6 +62,7 @@ from datahub.ingestion.source.iceberg.iceberg import (
     IcebergProfiler,
     IcebergSource,
     IcebergSourceConfig,
+    ToAvroSchemaIcebergVisitor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
 from datahub.metadata.schema_classes import (
@@ -553,6 +554,70 @@ def test_avro_decimal_bytes_nullable() -> None:
     )
 
 
+def test_visit_timestamp_ns() -> None:
+    """
+    Test the visit_timestamp_ns method for handling nanosecond precision timestamps.
+    This method was added in pyiceberg 0.10.0 to support nanosecond precision timestamps.
+    """
+    visitor = ToAvroSchemaIcebergVisitor()
+
+    # Create a mock type object that behaves like TimestampNsType from pyiceberg 0.10.0+
+    # The string representation follows pyiceberg's pattern: "timestampns"
+    class MockTimestampNsType:
+        def __str__(self) -> str:
+            return "timestampns"
+
+    mock_type = MockTimestampNsType()
+    result = visitor.visit_timestamp_ns(mock_type)
+
+    # Verify the Avro schema structure
+    assert result["type"] == "long"
+    assert result["logicalType"] == "timestamp-micros"
+    assert result["native_data_type"] == "timestampns"
+
+
+def test_visit_timestamptz_ns() -> None:
+    """
+    Test the visit_timestamptz_ns method for handling nanosecond precision timestamps with timezone.
+    This method was added in pyiceberg 0.10.0 to support nanosecond precision timestamps with timezone.
+    """
+    visitor = ToAvroSchemaIcebergVisitor()
+
+    # Create a mock type object that behaves like TimestamptzNsType from pyiceberg 0.10.0+
+    # The string representation follows pyiceberg's pattern: "timestamptzns"
+    class MockTimestamptzNsType:
+        def __str__(self) -> str:
+            return "timestamptzns"
+
+    mock_type = MockTimestamptzNsType()
+    result = visitor.visit_timestamptz_ns(mock_type)
+
+    # Verify the Avro schema structure
+    assert result["type"] == "long"
+    assert result["logicalType"] == "timestamp-micros"
+    assert result["native_data_type"] == "timestamptzns"
+
+
+def test_visit_unknown() -> None:
+    """
+    Test the visit_unknown method for handling unknown/unsupported types.
+    This is a fallback method for types that don't have specific visitor implementations.
+    """
+    visitor = ToAvroSchemaIcebergVisitor()
+
+    # Create a mock type object representing an unknown type
+    class MockUnknownType:
+        def __str__(self) -> str:
+            return "unknown_custom_type"
+
+    mock_type = MockUnknownType()
+    result = visitor.visit_unknown(mock_type)
+
+    # Verify the Avro schema structure - unknown types are mapped to string
+    assert result["type"] == "string"
+    assert result["native_data_type"] == "unknown_custom_type"
+
+
 class MockCatalog:
     def __init__(
         self,
@@ -643,6 +708,7 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
                         location="s3://abcdefg/namespaceA/table1",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
@@ -659,6 +725,7 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
                         location="s3://abcdefg/namespaceB/table2",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table2",
                     io=PyArrowFileIO(),
@@ -671,6 +738,7 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
                         location="s3://abcdefg/namespaceB/table3",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table3",
                     io=PyArrowFileIO(),
@@ -685,6 +753,7 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
                         location="s3://abcdefg/namespaceC/table4",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceC/table4",
                     io=PyArrowFileIO(),
@@ -699,6 +768,7 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
                         location="s3://abcdefg/namespaceA/table5",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table5",
                     io=PyArrowFileIO(),
@@ -751,6 +821,7 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
                         location="s3://abcdefg/namespaceA/table1",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
@@ -766,6 +837,7 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
                         location="s3://abcdefg/namespaceB/table2",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table2",
                     io=PyArrowFileIO(),
@@ -778,6 +850,7 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
                         location="s3://abcdefg/namespaceB/table3",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table3",
                     io=PyArrowFileIO(),
@@ -792,6 +865,7 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
                         location="s3://abcdefg/namespaceC/table4",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceC/table4",
                     io=PyArrowFileIO(),
@@ -806,6 +880,7 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
                         location="s3://abcdefg/namespaceA/table5",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table5",
                     io=PyArrowFileIO(),
@@ -858,6 +933,7 @@ def test_known_exception_while_listing_tables() -> None:
                         location="s3://abcdefg/namespaceA/table1",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
@@ -874,6 +950,7 @@ def test_known_exception_while_listing_tables() -> None:
                         location="s3://abcdefg/namespaceB/table2",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table2",
                     io=PyArrowFileIO(),
@@ -886,6 +963,7 @@ def test_known_exception_while_listing_tables() -> None:
                         location="s3://abcdefg/namespaceB/table3",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table3",
                     io=PyArrowFileIO(),
@@ -900,6 +978,7 @@ def test_known_exception_while_listing_tables() -> None:
                         location="s3://abcdefg/namespaceC/table4",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceC/table4",
                     io=PyArrowFileIO(),
@@ -914,6 +993,7 @@ def test_known_exception_while_listing_tables() -> None:
                         location="s3://abcdefg/namespaceA/table5",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table5",
                     io=PyArrowFileIO(),
@@ -968,6 +1048,7 @@ def test_unknown_exception_while_listing_tables() -> None:
                         location="s3://abcdefg/namespaceA/table1",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
@@ -983,6 +1064,7 @@ def test_unknown_exception_while_listing_tables() -> None:
                         location="s3://abcdefg/namespaceB/table2",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table2",
                     io=PyArrowFileIO(),
@@ -995,6 +1077,7 @@ def test_unknown_exception_while_listing_tables() -> None:
                         location="s3://abcdefg/namespaceB/table3",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table3",
                     io=PyArrowFileIO(),
@@ -1009,6 +1092,7 @@ def test_unknown_exception_while_listing_tables() -> None:
                         location="s3://abcdefg/namespaceC/table4",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceC/table4",
                     io=PyArrowFileIO(),
@@ -1023,6 +1107,7 @@ def test_unknown_exception_while_listing_tables() -> None:
                         location="s3://abcdefg/namespaceA/table5",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table5",
                     io=PyArrowFileIO(),
@@ -1076,6 +1161,7 @@ def test_proper_run_with_multiple_namespaces() -> None:
                         location="s3://abcdefg/namespaceA/table1",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
@@ -1124,6 +1210,7 @@ def test_filtering() -> None:
                         location="s3://abcdefg/namespace1/table_xyz",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespace1/table_xyz",
                     io=PyArrowFileIO(),
@@ -1136,6 +1223,7 @@ def test_filtering() -> None:
                         location="s3://abcdefg/namespace1/JKLtable",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespace1/JKLtable",
                     io=PyArrowFileIO(),
@@ -1148,6 +1236,7 @@ def test_filtering() -> None:
                         location="s3://abcdefg/namespace1/table_abcd",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespace1/table_abcd",
                     io=PyArrowFileIO(),
@@ -1160,6 +1249,7 @@ def test_filtering() -> None:
                         location="s3://abcdefg/namespace1/aaabcd",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespace1/aaabcd",
                     io=PyArrowFileIO(),
@@ -1174,6 +1264,7 @@ def test_filtering() -> None:
                         location="s3://abcdefg/namespace2/foo",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespace2/foo",
                     io=PyArrowFileIO(),
@@ -1186,6 +1277,7 @@ def test_filtering() -> None:
                         location="s3://abcdefg/namespace2/bar",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespace2/bar",
                     io=PyArrowFileIO(),
@@ -1200,6 +1292,7 @@ def test_filtering() -> None:
                         location="s3://abcdefg/namespace3/sales",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespace3/sales",
                     io=PyArrowFileIO(),
@@ -1212,6 +1305,7 @@ def test_filtering() -> None:
                         location="s3://abcdefg/namespace3/products",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespace3/products",
                     io=PyArrowFileIO(),
@@ -1278,6 +1372,7 @@ def test_handle_expected_exceptions() -> None:
                         location="s3://abcdefg/namespaceA/table1",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
@@ -1290,6 +1385,7 @@ def test_handle_expected_exceptions() -> None:
                         location="s3://abcdefg/namespaceA/table2",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table2",
                     io=PyArrowFileIO(),
@@ -1302,6 +1398,7 @@ def test_handle_expected_exceptions() -> None:
                         location="s3://abcdefg/namespaceA/table3",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table3",
                     io=PyArrowFileIO(),
@@ -1314,6 +1411,7 @@ def test_handle_expected_exceptions() -> None:
                         location="s3://abcdefg/namespaceA/table4",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table4",
                     io=PyArrowFileIO(),
@@ -1378,6 +1476,7 @@ def test_handle_unexpected_exceptions() -> None:
                         location="s3://abcdefg/namespaceA/table1",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
@@ -1390,6 +1489,7 @@ def test_handle_unexpected_exceptions() -> None:
                         location="s3://abcdefg/namespaceA/table2",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table2",
                     io=PyArrowFileIO(),
@@ -1402,6 +1502,7 @@ def test_handle_unexpected_exceptions() -> None:
                         location="s3://abcdefg/namespaceA/table3",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table3",
                     io=PyArrowFileIO(),
@@ -1414,6 +1515,7 @@ def test_handle_unexpected_exceptions() -> None:
                         location="s3://abcdefg/namespaceA/table4",
                         last_column_id=0,
                         schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table4",
                     io=PyArrowFileIO(),
