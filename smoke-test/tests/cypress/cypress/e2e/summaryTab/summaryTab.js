@@ -1,6 +1,6 @@
 import * as utils from "./utils";
 
-const USERNAME = Cypress.env("ADMIN_USERNAME");
+const USER_DISPLAY_NAME = Cypress.env("ADMIN_DISPLAY_NAME");
 
 const TEST_ASSET_NAME = "SampleCypressHiveDataset";
 const TEST_ASSET_URN =
@@ -110,7 +110,7 @@ describe("summary tab", () => {
 
     testPropertiesSection([
       { name: "Created", type: "CREATED" },
-      { name: "Owners", type: "OWNERS", value: USERNAME },
+      { name: "Owners", type: "OWNERS", value: USER_DISPLAY_NAME },
     ]);
 
     testAboutSection();
@@ -152,7 +152,7 @@ describe("summary tab", () => {
 
     testPropertiesSection([
       { name: "Created", type: "CREATED" },
-      { name: "Owners", type: "OWNERS", value: USERNAME },
+      { name: "Owners", type: "OWNERS", value: USER_DISPLAY_NAME },
     ]);
 
     testAboutSection();
@@ -201,7 +201,7 @@ describe("summary tab", () => {
 
     testPropertiesSection([
       { name: "Created", type: "CREATED" },
-      { name: "Owners", type: "OWNERS", value: USERNAME },
+      { name: "Owners", type: "OWNERS", value: USER_DISPLAY_NAME },
       { name: "Domain", type: "DOMAIN", value: domainName },
     ]);
 
@@ -216,7 +216,7 @@ describe("summary tab", () => {
     utils.deleteOpenedGlossaryNode();
   });
 
-  it("data product", () => {
+  it.only("data product", () => {
     const testId = getTestId();
     const domainName = `Testing`;
     const dataProductName = `dp_${testId}`;
@@ -245,7 +245,7 @@ describe("summary tab", () => {
 
     testPropertiesSection([
       { name: "Created", type: "CREATED" },
-      { name: "Owners", type: "OWNERS", value: USERNAME },
+      { name: "Owners", type: "OWNERS", value: USER_DISPLAY_NAME },
       { name: "Domain", type: "DOMAIN", value: domainName },
       { name: "Tags", type: "TAGS", value: tagName },
       { name: "Glossary Terms", type: "GLOSSARY_TERMS", value: termName },

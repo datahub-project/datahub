@@ -27,7 +27,7 @@ export function deleteOpenedEntity() {
         cy.getWithTestId("view-more-button").click();
       }
     });
-  cy.getWithTestId("entity-menu-delete-button").click();
+  cy.getWithTestId("entity-menu-delete-button").should("be.visible").click();
   cy.clickOptionWithText("Yes");
 }
 
