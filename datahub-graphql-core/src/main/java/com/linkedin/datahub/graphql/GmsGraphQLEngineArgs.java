@@ -25,6 +25,7 @@ import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
+import com.linkedin.metadata.service.DataHubFileService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
@@ -96,6 +97,7 @@ public class GmsGraphQLEngineArgs {
   ApplicationService applicationService;
   PageTemplateService pageTemplateService;
   PageModuleService pageModuleService;
+  DataHubFileService dataHubFileService;
   boolean systemTelemetryEnabled;
   MetricUtils metricUtils;
   S3Util s3Util;

@@ -83,6 +83,7 @@ import com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.versioning.LinkAssetVersionResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.versioning.UnlinkAssetVersionResolver;
 import com.linkedin.datahub.graphql.resolvers.files.GetPresignedUploadUrlResolver;
+import com.linkedin.datahub.graphql.resolvers.file.CreateDataHubFileResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchAssignFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchRemoveFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.CreateDynamicFormAssignmentResolver;
@@ -289,6 +290,7 @@ import com.linkedin.datahub.graphql.types.entitytype.EntityTypeType;
 import com.linkedin.datahub.graphql.types.ermodelrelationship.CreateERModelRelationshipResolver;
 import com.linkedin.datahub.graphql.types.ermodelrelationship.ERModelRelationshipType;
 import com.linkedin.datahub.graphql.types.ermodelrelationship.UpdateERModelRelationshipResolver;
+import com.linkedin.datahub.graphql.types.file.DataHubFileType;
 import com.linkedin.datahub.graphql.types.form.FormType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
@@ -333,6 +335,7 @@ import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
+import com.linkedin.metadata.service.DataHubFileService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
@@ -419,6 +422,7 @@ public class GmsGraphQLEngine {
   private final ApplicationService applicationService;
   private final PageTemplateService pageTemplateService;
   private final PageModuleService pageModuleService;
+  private final DataHubFileService dataHubFileService;
 
   private final BusinessAttributeService businessAttributeService;
   private final FeatureFlags featureFlags;
@@ -487,6 +491,7 @@ public class GmsGraphQLEngine {
   private final ExecutionRequestType executionRequestType;
   private final PageTemplateType dataHubPageTemplateType;
   private final PageModuleType dataHubPageModuleType;
+  private final DataHubFileType dataHubFileType;
 
   private final GraphQLConfiguration graphQLConfiguration;
   private final MetricUtils metricUtils;
@@ -553,6 +558,7 @@ public class GmsGraphQLEngine {
     this.applicationService = args.applicationService;
     this.pageTemplateService = args.pageTemplateService;
     this.pageModuleService = args.pageModuleService;
+    this.dataHubFileService = args.dataHubFileService;
     this.formService = args.formService;
     this.restrictedService = args.restrictedService;
     this.connectionService = args.connectionService;
@@ -623,6 +629,7 @@ public class GmsGraphQLEngine {
     this.executionRequestType = new ExecutionRequestType(entityClient);
     this.dataHubPageTemplateType = new PageTemplateType(entityClient);
     this.dataHubPageModuleType = new PageModuleType(entityClient);
+    this.dataHubFileType = new DataHubFileType(entityClient);
     this.graphQLConfiguration = args.graphQLConfiguration;
     this.metricUtils = args.metricUtils;
     this.s3Util = args.s3Util;
@@ -679,7 +686,8 @@ public class GmsGraphQLEngine {
                 applicationType,
                 executionRequestType,
                 dataHubPageTemplateType,
-                dataHubPageModuleType));
+                dataHubPageModuleType,
+                dataHubFileType));
     this.loadableTypes = new ArrayList<>(entityTypes);
     this.loadableTypes.add(ingestionSourceType);
     // Extend loadable types with types from the plugins
@@ -787,6 +795,7 @@ public class GmsGraphQLEngine {
     configureVersionSetResolvers(builder);
     configureGlobalHomePageSettingsResolvers(builder);
     configurePageTemplateResolvers(builder);
+    configureDataHubFileResolvers(builder);
     configureAssetSettingsResolver(builder);
   }
 
@@ -1410,6 +1419,8 @@ public class GmsGraphQLEngine {
                   "deletePageTemplate", new DeletePageTemplateResolver(this.pageTemplateService))
               .dataFetcher("upsertPageModule", new UpsertPageModuleResolver(this.pageModuleService))
               .dataFetcher("deletePageModule", new DeletePageModuleResolver(this.pageModuleService))
+              .dataFetcher(
+                  "createDataHubFile", new CreateDataHubFileResolver(this.dataHubFileService))
               .dataFetcher("setLogicalParent", new SetLogicalParentResolver(this.entityClient))
               .dataFetcher(
                   "updateDocPropagationSettings",
@@ -3651,6 +3662,47 @@ public class GmsGraphQLEngine {
     builder.type(
         "DataHubPageModule",
         typeWiring -> typeWiring.dataFetcher("exists", new EntityExistsResolver(entityService)));
+  }
+
+  private void configureDataHubFileResolvers(final RuntimeWiring.Builder builder) {
+    builder
+        .type(
+            "CreateDataHubFileResponse",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "file",
+                    new LoadableTypeResolver<>(
+                        dataHubFileType,
+                        (env) -> {
+                          final CreateDataHubFileResponse response = env.getSource();
+                          return response.getFile() != null ? response.getFile().getUrn() : null;
+                        })))
+        .type(
+            "DataHubFile",
+            typeWiring ->
+                typeWiring
+                    .dataFetcher(
+                        "relationships", new EntityRelationshipsResultResolver(graphClient))
+                    .dataFetcher("exists", new EntityExistsResolver(entityService)));
+    builder.type(
+        "DataHubFileInfo",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "referencedByAsset",
+                    new EntityTypeResolver(
+                        entityTypes,
+                        (env) -> ((DataHubFileInfo) env.getSource()).getReferencedByAsset()))
+                .dataFetcher(
+                    "schemaField",
+                    new LoadableTypeResolver<>(
+                        schemaFieldType,
+                        (env) -> {
+                          final DataHubFileInfo fileInfo = env.getSource();
+                          return fileInfo.getSchemaField() != null
+                              ? fileInfo.getSchemaField().getUrn()
+                              : null;
+                        })));
   }
 
   private void configureAssetSettingsResolver(final RuntimeWiring.Builder builder) {
