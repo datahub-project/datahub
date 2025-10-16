@@ -26,9 +26,6 @@ record SqlAssertionInfo {
     /**
     * The entity targeted by this SQL check.
     */
-    @Searchable = {
-      "fieldType": "URN"
-    }
     @Relationship = {
       "name": "Asserts",
       "entityTypes": [ "dataset" ]

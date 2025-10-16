@@ -26,9 +26,6 @@ record FieldAssertionInfo {
     /**
     * The entity targeted by this Field check.
     */
-    @Searchable = {
-      "fieldType": "URN"
-    }
     @Relationship = {
       "name": "Asserts",
       "entityTypes": [ "dataset" ]

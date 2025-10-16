@@ -3,6 +3,9 @@ namespace com.linkedin.assertion
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
 import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+
 
 /**
  * Information about an assertion
@@ -113,4 +116,13 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     * An optional human-readable description of the assertion
     */
     description: optional string
+
+    /**
+    * The entity targeted by this assertion. Newly added field, automatically set by mutation
+    */
+    @Searchable = {
+      "fieldType": "URN",
+      "fieldName": "entity"
+    }
+    entity: optional Urn
 }
