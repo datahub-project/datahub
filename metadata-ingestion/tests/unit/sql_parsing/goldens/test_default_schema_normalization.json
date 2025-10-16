@@ -16,8 +16,12 @@
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.test_lineage2,PROD)",
                 "column": "PatientId",
-                "column_type": null,
-                "native_column_type": "INTEGER()"
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT"
             },
             "upstreams": [
                 {
@@ -34,8 +38,12 @@
             "downstream": {
                 "table": "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.test_lineage2,PROD)",
                 "column": "BMI",
-                "column_type": null,
-                "native_column_type": "FLOAT()"
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "FLOAT"
             },
             "upstreams": [
                 {
