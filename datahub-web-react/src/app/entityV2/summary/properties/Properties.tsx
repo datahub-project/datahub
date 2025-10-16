@@ -26,7 +26,7 @@ export default function Properties() {
     );
 
     return (
-        <Container>
+        <Container data-testid="properties-section">
             {propertyItems.map((propertyItem) => (
                 <PropertyRenderer
                     property={propertyItem.property}

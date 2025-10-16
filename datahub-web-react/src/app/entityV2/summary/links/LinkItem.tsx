@@ -49,14 +49,15 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
     const hasLinkPermissions = useLinkPermission();
 
     const createdBy = link.actor;
+    const label = link.description || link.label;
 
     return (
-        <a href={link.url} target="_blank" rel="noreferrer">
+        <a href={link.url} target="_blank" rel="noreferrer" data-testid={`${link.url}-${label}`}>
             <LinkContainer>
                 <LeftSection>
                     <Icon icon="LinkSimple" source="phosphor" color="primary" size="lg" />
-                    <Text color="primary" lineHeight="normal">
-                        {link.description || link.label}
+                    <Text color="primary" lineHeight="normal" data-testid="link-label">
+                        {label}
                     </Text>
                 </LeftSection>
                 <RightSection>
@@ -76,6 +77,7 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
                                     setSelectedLink(link);
                                     setShowEditLinkModal(true);
                                 }}
+                                data-testid="edit-link-button"
                             />
                             <StyledIcon
                                 icon="Trash"
@@ -87,6 +89,7 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
                                     setSelectedLink(link);
                                     setShowConfirmDelete(true);
                                 }}
+                                data-testid="remove-link-button"
                             />
                         </>
                     )}

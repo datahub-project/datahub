@@ -50,6 +50,7 @@ export default function DomainsSidebarHeader() {
                         icon={{ icon: 'Plus', source: 'phosphor' }}
                         onClick={() => setIsCreatingDomain(true)}
                         disabled={!canCreateDomains}
+                        data-testid="sidebar-create-domain-button"
                     />
                 </span>
             </Tooltip>

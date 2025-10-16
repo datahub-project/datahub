@@ -285,7 +285,14 @@ export const SetDomainModal = ({
                     open
                     onCancel={onModalClose}
                     buttons={[
-                        { text: 'Cancel', key: 'Cancel', variant: 'text', onClick: onModalClose, type: 'button' },
+                        {
+                            text: 'Cancel',
+                            key: 'Cancel',
+                            variant: 'text',
+                            onClick: onModalClose,
+                            type: 'button',
+                            buttonDataTestId: 'cancel-button',
+                        },
                         {
                             text: 'Propose',
                             key: 'Propose',
@@ -302,8 +309,10 @@ export const SetDomainModal = ({
                             onClick: onOk,
                             disabled: !canEdit || selectedDomain === undefined,
                             id: 'setDomainButton',
+                            buttonDataTestId: 'submit-button',
                         },
                     ]}
+                    dataTestId="set-domain-modal"
                 >
                     <Form component={false}>
                         <Form.Item>
@@ -333,6 +342,7 @@ export const SetDomainModal = ({
                                         />
                                     }
                                     options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}
+                                    data-testid="set-domain-select"
                                 />
                                 <BrowserWrapper isHidden={!isShowingDomainNavigator}>
                                     <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
