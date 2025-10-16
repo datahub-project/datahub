@@ -7,8 +7,6 @@ import com.linkedin.common.Urn
 
 /**
  * Information about an assertion
- *
- * Acryl Only: Did you update AssertionWithoutAnnotations.pdl? If not, please update it.
  */
 @Aspect = {
   "name": "assertionInfo"
