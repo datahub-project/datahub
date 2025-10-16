@@ -43,9 +43,6 @@ record VolumeAssertionInfo {
     /**
     * The entity targeted by this Volume check.
     */
-    @Searchable = {
-      "fieldType": "URN"
-    }
     @Relationship = {
       "name": "Asserts",
       "entityTypes": [ "dataset" ]

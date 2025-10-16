@@ -96,7 +96,7 @@ def test_list_dataset_incidents(auth_session):
                     "type": "ASSERTION_FAILURE",
                     "source": {
                         "urn": "urn:li:assertion:assertion-test",
-                        "info": {"type": "DATASET"},
+                        "info": None,
                     },
                 },
                 "entity": {"urn": TEST_DATASET_URN},

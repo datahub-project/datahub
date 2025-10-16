@@ -8,6 +8,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.actionrequest.validation.ActionRequestWorkflowRequestValidator;
+import com.linkedin.metadata.aspect.hooks.AssertionInfoMutator;
 import com.linkedin.metadata.aspect.hooks.ExtendedModelStructuredPropertyMutator;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
@@ -488,6 +489,23 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(ALL)
                             .aspectName(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public MutationHook assertionInfoMutator() {
+    return new AssertionInfoMutator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(AssertionInfoMutator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, UPSERT, UPDATE, RESTATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ASSERTION_ENTITY_NAME)
+                            .aspectName(ASSERTION_INFO_ASPECT_NAME)
                             .build()))
                 .build());
   }
