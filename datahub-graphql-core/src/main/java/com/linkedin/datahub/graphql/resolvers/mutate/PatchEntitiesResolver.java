@@ -81,7 +81,7 @@ public class PatchEntitiesResolver
     PatchResolverUtils.checkBatchAuthorization(inputs, context);
 
     // Create batch of MetadataChangeProposals using common utility method
-    final List<MetadataChangeProposal> mcps = 
+    final List<MetadataChangeProposal> mcps =
         PatchResolverUtils.createPatchEntitiesMcps(inputs, context, _entityRegistry);
 
     // Apply all patches using GraphQL standard batch approach
@@ -116,5 +116,4 @@ public class PatchEntitiesResolver
 
     return patchResults;
   }
-
 }

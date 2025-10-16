@@ -68,7 +68,7 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
 
     // Create MCPs using common utility method
     final List<PatchEntityInput> inputs = List.of(input);
-    final List<MetadataChangeProposal> mcps = 
+    final List<MetadataChangeProposal> mcps =
         PatchResolverUtils.createPatchEntitiesMcps(inputs, context, _entityRegistry);
 
     // Apply the patch
@@ -83,10 +83,7 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
 
       if (result == null) {
         return new PatchEntityResult(
-            input.getUrn(),
-            null,
-            false,
-            "Failed to apply patch: ingestProposal returned null");
+            input.getUrn(), null, false, "Failed to apply patch: ingestProposal returned null");
       }
 
       // Extract entity name from the patch operations
@@ -95,11 +92,7 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
       return new PatchEntityResult(input.getUrn(), entityName, true, null);
     } catch (Exception e) {
       return new PatchEntityResult(
-          input.getUrn(),
-          null,
-          false,
-          "Failed to apply patch: " + e.getMessage());
+          input.getUrn(), null, false, "Failed to apply patch: " + e.getMessage());
     }
   }
-
 }

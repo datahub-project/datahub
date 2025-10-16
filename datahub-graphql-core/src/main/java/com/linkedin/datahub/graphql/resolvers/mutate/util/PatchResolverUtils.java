@@ -1,14 +1,14 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -18,11 +18,11 @@ import com.linkedin.datahub.graphql.generated.PatchOperationInput;
 import com.linkedin.datahub.graphql.generated.PatchOperationType;
 import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
 import com.linkedin.datahub.graphql.generated.SystemMetadataInput;
-import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -41,9 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class PatchResolverUtils {
 
-  /**
-   * Resolves entity URN from input - requires a valid URN to be provided
-   */
+  /** Resolves entity URN from input - requires a valid URN to be provided */
   @Nonnull
   public static Urn resolveEntityUrn(@Nonnull String urn, @Nullable String entityType)
       throws Exception {
@@ -76,9 +74,9 @@ public class PatchResolverUtils {
       @Nonnull QueryContext context) {
     try {
       // Validate and transform patch operations for entity-specific rules
-      List<PatchOperationInput> validatedOperations = validateAndTransformPatchOperations(
-          patchOperations, context);
-      
+      List<PatchOperationInput> validatedOperations =
+          validateAndTransformPatchOperations(patchOperations, context);
+
       // Check if we should use GenericJsonPatch (like OpenAPI does)
       boolean useGenericPatch =
           (forceGenericPatch != null && forceGenericPatch)
@@ -152,9 +150,9 @@ public class PatchResolverUtils {
       @Nonnull List<PatchOperationInput> patchOperations, @Nonnull QueryContext context) {
     try {
       // Validate and transform patch operations for entity-specific rules
-      List<PatchOperationInput> validatedOperations = validateAndTransformPatchOperations(
-          patchOperations, context);
-      
+      List<PatchOperationInput> validatedOperations =
+          validateAndTransformPatchOperations(patchOperations, context);
+
       // Convert patch operations to JSON patch format
       List<Map<String, Object>> patchOps =
           validatedOperations.stream()
@@ -271,8 +269,7 @@ public class PatchResolverUtils {
       @Nullable List<StringMapEntryInput> headers)
       throws JsonProcessingException {
 
-    final MetadataChangeProposal mcp =
-        new MetadataChangeProposal();
+    final MetadataChangeProposal mcp = new MetadataChangeProposal();
     mcp.setEntityUrn(entityUrn);
     mcp.setAspectName(aspectName);
     mcp.setEntityType(entityUrn.getEntityType());
@@ -339,6 +336,7 @@ public class PatchResolverUtils {
 
   /**
    * Creates MetadataChangeProposals for patch operations
+   *
    * @param inputs List of patch entity inputs
    * @param context Query context
    * @param entityRegistry Entity registry for validation
@@ -395,7 +393,8 @@ public class PatchResolverUtils {
 
         log.debug("Created MCP for input {}: {}", i, entityUrn);
       } catch (Exception e) {
-        log.error("Failed to create MCP for input {} ({}): {}", i, input.getUrn(), e.getMessage(), e);
+        log.error(
+            "Failed to create MCP for input {} ({}): {}", i, input.getUrn(), e.getMessage(), e);
         throw new RuntimeException(
             "Failed to create MCP for input " + i + ": " + e.getMessage(), e);
       }
@@ -406,14 +405,14 @@ public class PatchResolverUtils {
 
   /**
    * Checks authorization for patch operations
+   *
    * @param input Patch entity input
    * @param context Query context
    * @return true if authorized, false otherwise
    */
   public static boolean isAuthorizedForPatch(
-      @Nonnull PatchEntityInput input, 
-      @Nonnull QueryContext context) {
-    
+      @Nonnull PatchEntityInput input, @Nonnull QueryContext context) {
+
     // For patch operations, we need EDIT_ENTITY_PRIVILEGE
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
@@ -431,23 +430,19 @@ public class PatchResolverUtils {
       }
     }
 
-    return AuthorizationUtils.isAuthorized(
-        context,
-        entityType,
-        input.getUrn(),
-        orPrivilegeGroups);
+    return AuthorizationUtils.isAuthorized(context, entityType, input.getUrn(), orPrivilegeGroups);
   }
 
   /**
    * Checks authorization for all entities in a batch
+   *
    * @param inputs List of patch entity inputs
    * @param context Query context
    * @throws AuthorizationException if any entity is not authorized
    */
   public static void checkBatchAuthorization(
-      @Nonnull List<PatchEntityInput> inputs,
-      @Nonnull QueryContext context) {
-    
+      @Nonnull List<PatchEntityInput> inputs, @Nonnull QueryContext context) {
+
     for (int i = 0; i < inputs.size(); i++) {
       PatchEntityInput input = inputs.get(i);
       if (!isAuthorizedForPatch(input, context)) {
@@ -461,49 +456,52 @@ public class PatchResolverUtils {
 
   /**
    * Validates and transforms patch operations for entity-specific rules
+   *
    * @param operations List of patch operations to validate
    * @param context Query context
    * @return List of validated and transformed patch operations
    */
   @Nonnull
   private static List<PatchOperationInput> validateAndTransformPatchOperations(
-      @Nonnull List<PatchOperationInput> operations, 
-      @Nonnull QueryContext context) {
-    
+      @Nonnull List<PatchOperationInput> operations, @Nonnull QueryContext context) {
+
     return operations.stream()
-        .map(op -> {
-          // Handle glossary-specific validation
-          if (isGlossaryDefinitionOperation(op)) {
-            return transformGlossaryDefinitionOperation(op);
-          }
-          return op;
-        })
+        .map(
+            op -> {
+              // Handle glossary-specific validation
+              if (isGlossaryDefinitionOperation(op)) {
+                return transformGlossaryDefinitionOperation(op);
+              }
+              return op;
+            })
         .collect(Collectors.toList());
   }
 
   /**
    * Checks if a patch operation is targeting a glossary definition field
+   *
    * @param op Patch operation to check
    * @return true if this is a glossary definition operation
    */
   private static boolean isGlossaryDefinitionOperation(@Nonnull PatchOperationInput op) {
-    return "/definition".equals(op.getPath()) && 
-           (op.getOp() == PatchOperationType.ADD || 
-            op.getOp() == PatchOperationType.REPLACE);
+    return "/definition".equals(op.getPath())
+        && (op.getOp() == PatchOperationType.ADD || op.getOp() == PatchOperationType.REPLACE);
   }
 
   /**
    * Transforms a glossary definition operation to handle null values properly
+   *
    * @param op Original patch operation
    * @return Transformed patch operation
    */
   @Nonnull
-  private static PatchOperationInput transformGlossaryDefinitionOperation(@Nonnull PatchOperationInput op) {
+  private static PatchOperationInput transformGlossaryDefinitionOperation(
+      @Nonnull PatchOperationInput op) {
     PatchOperationInput transformed = new PatchOperationInput();
     transformed.setOp(op.getOp());
     transformed.setPath(op.getPath());
     transformed.setFrom(op.getFrom());
-    
+
     // Convert null to empty string for glossary definitions
     String value = op.getValue();
     if (value == null || "null".equals(value) || "\"null\"".equals(value)) {
@@ -511,7 +509,7 @@ public class PatchResolverUtils {
     } else {
       transformed.setValue(value);
     }
-    
+
     return transformed;
   }
 }
