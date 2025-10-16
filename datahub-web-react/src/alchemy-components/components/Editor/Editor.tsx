@@ -47,9 +47,10 @@ type EditorProps = {
     placeholder?: string;
     hideHighlightToolbar?: boolean;
     toolbarStyles?: React.CSSProperties;
+    dataTestId?: string;
 };
 
-export const Editor = forwardRef((props: EditorProps, ref) => {
+export const Editor = forwardRef(({ dataTestId, ...props }: EditorProps, ref) => {
     const { content, readOnly, onChange, className, placeholder, hideHighlightToolbar, toolbarStyles } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
@@ -95,7 +96,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     }, [readOnly, content]);
 
     return (
-        <EditorContainer className={className}>
+        <EditorContainer className={className} data-testid={dataTestId}>
             <ThemeProvider theme={EditorTheme}>
                 <Remirror
                     classNames={['ant-typography']}

@@ -14,11 +14,12 @@ logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.no_cypress_suite1
 
+from tests.utilities.metadata_operations import update_description
 from tests.utils import (
     execute_graphql,
     get_kafka_broker_url,
     get_kafka_schema_registry,
-    get_sleep_info,
+    with_test_retry,
     ingest_file_via_rest,
     get_frontend_session,
     get_admin_credentials,
@@ -34,12 +35,8 @@ restli_default_headers = {
 }
 kafka_post_ingestion_wait_sec = 30
 
-sleep_sec, sleep_times = get_sleep_info()
 
-
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def _ensure_user_present(auth_session, urn: str):
     response = auth_session.get(
         f"{auth_session.gms_url()}/entities/{urllib.parse.quote(urn)}",
@@ -57,9 +54,7 @@ def _ensure_user_present(auth_session, urn: str):
     return data
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def _ensure_user_relationship_present(auth_session, urn, relationships):
     query = """query corpUser($urn: String!) {
         corpUser(urn: $urn) {
@@ -77,9 +72,7 @@ def _ensure_user_relationship_present(auth_session, urn, relationships):
     assert res_data["data"]["corpUser"]["relationships"]["total"] == relationships
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def _ensure_dataset_present(
         auth_session: Any,
     urn: str,
@@ -100,9 +93,7 @@ def _ensure_dataset_present(
     return res_data
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def _ensure_group_not_present(auth_session, urn: str) -> Any:
     query = """query corpGroup($urn: String!) {
         corpGroup(urn: $urn) {
@@ -826,14 +817,7 @@ def test_update_corp_group_description(auth_session):
     group_urn = "urn:li:corpGroup:bfoo"
 
     # Update Corp Group Description
-    query = """mutation updateDescription($input: DescriptionUpdateInput!) {\n
-            updateDescription(input: $input) }"""
-    variables = {
-        "input": {"description": "My test description", "resourceUrn": group_urn},
-    }
-    res_data = execute_graphql(auth_session, query, variables)
-    print(res_data)
-    assert res_data["data"]["updateDescription"] is True
+    assert update_description(auth_session, group_urn, "My test description")
 
     # Verify the description has been updated
     query = """query corpGroup($urn: String!) {\n
@@ -857,12 +841,7 @@ def test_update_corp_group_description(auth_session):
     )
 
     # Reset Corp Group Description
-    query = """mutation updateDescription($input: DescriptionUpdateInput!) {\n
-            updateDescription(input: $input) }"""
-    variables = {
-        "input": {"description": "", "resourceUrn": group_urn},
-    }
-    execute_graphql(auth_session, query, variables)
+    update_description(auth_session, group_urn, "")
 
 
 @pytest.mark.dependency(
