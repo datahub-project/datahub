@@ -211,7 +211,7 @@ public class DataHubFileTypeTest {
     assertNotNull(result1.getData().getInfo());
     assertEquals(
         result1.getData().getInfo().getScenario(),
-        com.linkedin.datahub.graphql.generated.FileUploadScenario.DOCUMENTATION);
+        com.linkedin.datahub.graphql.generated.UploadDownloadScenario.ASSET_DOCUMENTATION);
     assertNotNull(result1.getData().getInfo().getCreated());
     assertNotNull(result1.getData().getInfo().getReferencedByAsset());
     assertNotNull(result1.getData().getInfo().getSchemaField());
@@ -224,7 +224,7 @@ public class DataHubFileTypeTest {
     gmsFileInfo.setOriginalFileName(fileName);
     gmsFileInfo.setMimeType("image/png");
     gmsFileInfo.setSizeInBytes(1024L);
-    gmsFileInfo.setScenario(FileUploadScenario.DOCUMENTATION);
+    gmsFileInfo.setScenario(FileUploadScenario.ASSET_DOCUMENTATION);
 
     // Create audit stamp
     AuditStamp created = new AuditStamp();
@@ -252,7 +252,7 @@ public class DataHubFileTypeTest {
     gmsFileInfo.setOriginalFileName("complex-file.pdf");
     gmsFileInfo.setMimeType("application/pdf");
     gmsFileInfo.setSizeInBytes(2048L);
-    gmsFileInfo.setScenario(FileUploadScenario.DOCUMENTATION);
+    gmsFileInfo.setScenario(FileUploadScenario.ASSET_DOCUMENTATION);
     gmsFileInfo.setReferencedByAsset(
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)"));
     gmsFileInfo.setSchemaField(

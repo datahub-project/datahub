@@ -11,11 +11,12 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateDataHubFileInput;
 import com.linkedin.datahub.graphql.generated.CreateDataHubFileResponse;
-import com.linkedin.datahub.graphql.generated.FileUploadScenario;
+import com.linkedin.datahub.graphql.generated.UploadDownloadScenario;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.file.DataHubFileInfo;
+import com.linkedin.file.FileUploadScenario;
 import com.linkedin.metadata.service.DataHubFileService;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
@@ -42,7 +43,7 @@ public class CreateDataHubFileResolverTest {
     input.setOriginalFileName(TEST_FILE_NAME);
     input.setMimeType(TEST_MIME_TYPE);
     input.setSizeInBytes(TEST_SIZE);
-    input.setScenario(FileUploadScenario.DOCUMENTATION);
+    input.setScenario(UploadDownloadScenario.ASSET_DOCUMENTATION);
 
     Urn fileUrn = UrnUtils.getUrn(TEST_FILE_URN);
     when(mockService.createDataHubFile(
@@ -64,7 +65,7 @@ public class CreateDataHubFileResolverTest {
     fileInfo.setOriginalFileName(TEST_FILE_NAME);
     fileInfo.setMimeType(TEST_MIME_TYPE);
     fileInfo.setSizeInBytes(TEST_SIZE);
-    fileInfo.setScenario(com.linkedin.file.FileUploadScenario.DOCUMENTATION);
+    fileInfo.setScenario(FileUploadScenario.ASSET_DOCUMENTATION);
 
     AuditStamp auditStamp = new AuditStamp();
     auditStamp.setTime(System.currentTimeMillis());
@@ -115,7 +116,7 @@ public class CreateDataHubFileResolverTest {
     input.setOriginalFileName(TEST_FILE_NAME);
     input.setMimeType(TEST_MIME_TYPE);
     input.setSizeInBytes(TEST_SIZE);
-    input.setScenario(FileUploadScenario.DOCUMENTATION);
+    input.setScenario(UploadDownloadScenario.ASSET_DOCUMENTATION);
     input.setReferencedByAsset("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
     input.setSchemaField(
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,test,PROD),testField)");
@@ -145,7 +146,7 @@ public class CreateDataHubFileResolverTest {
     fileInfo.setOriginalFileName(TEST_FILE_NAME);
     fileInfo.setMimeType(TEST_MIME_TYPE);
     fileInfo.setSizeInBytes(TEST_SIZE);
-    fileInfo.setScenario(com.linkedin.file.FileUploadScenario.DOCUMENTATION);
+    fileInfo.setScenario(FileUploadScenario.ASSET_DOCUMENTATION);
     fileInfo.setReferencedByAsset(assetUrn);
     fileInfo.setSchemaField(schemaFieldUrn);
 
@@ -198,7 +199,7 @@ public class CreateDataHubFileResolverTest {
     input.setOriginalFileName(TEST_FILE_NAME);
     input.setMimeType(TEST_MIME_TYPE);
     input.setSizeInBytes(TEST_SIZE);
-    input.setScenario(FileUploadScenario.DOCUMENTATION);
+    input.setScenario(UploadDownloadScenario.ASSET_DOCUMENTATION);
 
     when(mockService.createDataHubFile(
             any(), any(), any(), any(), any(), any(), any(), any(), any()))
@@ -225,7 +226,7 @@ public class CreateDataHubFileResolverTest {
     input.setOriginalFileName(TEST_FILE_NAME);
     input.setMimeType(TEST_MIME_TYPE);
     input.setSizeInBytes(TEST_SIZE);
-    input.setScenario(FileUploadScenario.DOCUMENTATION);
+    input.setScenario(UploadDownloadScenario.ASSET_DOCUMENTATION);
     // Don't set optional fields
 
     Urn fileUrn = UrnUtils.getUrn(TEST_FILE_URN);
@@ -248,7 +249,7 @@ public class CreateDataHubFileResolverTest {
     fileInfo.setOriginalFileName(TEST_FILE_NAME);
     fileInfo.setMimeType(TEST_MIME_TYPE);
     fileInfo.setSizeInBytes(TEST_SIZE);
-    fileInfo.setScenario(com.linkedin.file.FileUploadScenario.DOCUMENTATION);
+    fileInfo.setScenario(FileUploadScenario.ASSET_DOCUMENTATION);
 
     AuditStamp auditStamp = new AuditStamp();
     auditStamp.setTime(System.currentTimeMillis());
