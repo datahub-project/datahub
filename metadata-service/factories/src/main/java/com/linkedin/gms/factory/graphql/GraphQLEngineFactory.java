@@ -36,6 +36,7 @@ import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
+import com.linkedin.metadata.service.DataHubFileService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
@@ -219,6 +220,10 @@ public class GraphQLEngineFactory {
   private PageModuleService pageModuleService;
 
   @Autowired
+  @Qualifier("dataHubFileService")
+  private DataHubFileService dataHubFileService;
+
+  @Autowired
   @Qualifier("s3Util")
   private S3Util s3Util;
 
@@ -280,6 +285,7 @@ public class GraphQLEngineFactory {
     args.setApplicationService(applicationService);
     args.setPageTemplateService(pageTemplateService);
     args.setPageModuleService(pageModuleService);
+    args.setDataHubFileService(dataHubFileService);
     args.setGraphQLConfiguration(configProvider.getGraphQL());
     args.setBusinessAttributeService(businessAttributeService);
     args.setChromeExtensionConfiguration(configProvider.getChromeExtension());
