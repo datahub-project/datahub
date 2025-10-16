@@ -70,7 +70,7 @@ public class DataHubFileMapper implements ModelMapper<EntityResponse, DataHubFil
     graphqlFileInfo.setMimeType(gmsFileInfo.getMimeType());
     graphqlFileInfo.setSizeInBytes(gmsFileInfo.getSizeInBytes());
     graphqlFileInfo.setScenario(
-        com.linkedin.datahub.graphql.generated.FileUploadScenario.valueOf(
+        com.linkedin.datahub.graphql.generated.UploadDownloadScenario.valueOf(
             gmsFileInfo.getScenario().toString()));
 
     if (gmsFileInfo.getReferencedByAsset() != null) {
