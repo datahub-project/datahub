@@ -35,6 +35,9 @@ def admin_session(auth_session):
 @pytest.fixture(scope="module", autouse=True)
 def privileges_and_test_user_setup(admin_session):
     """Fixture to execute setup before and tear down after all tests are run"""
+    # Clean up any leftover test policies from previous failed runs
+    clear_polices(admin_session)
+
     # Disable 'All users' privileges
     set_base_platform_privileges_policy_status("INACTIVE", admin_session)
     set_view_dataset_sensitive_info_policy_status("INACTIVE", admin_session)
@@ -391,13 +394,13 @@ def test_privilege_to_create_and_manage_policies():
     # Verify new user can't create a policy
     create_policy = {
         "query": """mutation createPolicy($input: PolicyUpdateInput!) {
-            createPolicy(input: $input) 
+            createPolicy(input: $input)
         }""",
         "variables": {
             "input": {
                 "type": "PLATFORM",
-                "name": "Policy Name",
-                "description": "Policy Description",
+                "name": "Test Policy Name",
+                "description": "Test Policy Description",
                 "state": "ACTIVE",
                 "resources": {"filter": {"criteria": []}},
                 "privileges": ["MANAGE_POLICIES"],
@@ -431,8 +434,8 @@ def test_privilege_to_create_and_manage_policies():
             "input": {
                 "type": "PLATFORM",
                 "state": "INACTIVE",
-                "name": "Policy Name test",
-                "description": "Policy Description updated",
+                "name": "Test Policy Name Updated",
+                "description": "Test Policy Description Updated",
                 "privileges": ["MANAGE_POLICIES"],
                 "actors": {
                     "users": [],
