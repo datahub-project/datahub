@@ -1,3 +1,5 @@
+from typing import Any, Sequence
+
 from bson import ObjectId
 from deepdiff import DeepDiff
 
@@ -7,7 +9,7 @@ EXCLUDE_SCHEMA_FIELDS = [r"root\[.+\]\['types'\]", r"root\[.+\]\['delimited_name
 
 
 def test_construct_schema_basic_types():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {"name": "apple", "rating": 10, "tasty": True},
         {"name": "orange", "rating": 9, "tasty": True},
         {"name": "kiwi", "rating": 8, "tasty": False},
@@ -30,7 +32,7 @@ def test_construct_schema_basic_types():
 
 
 def test_construct_schema_nullable_fields():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {"name": "apple", "rating": 10},
         {"name": "orange", "rating": 9, "color": "orange"},
         {"name": "kiwi"},
@@ -46,7 +48,7 @@ def test_construct_schema_nullable_fields():
 
 
 def test_construct_schema_with_none_values():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {"name": "apple", "rating": 10},
         {"name": "orange", "rating": None},
         {"name": "kiwi", "rating": 8},
@@ -60,7 +62,7 @@ def test_construct_schema_with_none_values():
 
 
 def test_construct_schema_mixed_types():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {"mixedType": 2},
         {"mixedType": "abc"},
         {"mixedType": {"fieldA": "a"}},
@@ -74,7 +76,7 @@ def test_construct_schema_mixed_types():
 
 
 def test_construct_schema_int_float_coercion():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {"value": 10},
         {"value": 3.14},
         {"value": 42},
@@ -88,7 +90,7 @@ def test_construct_schema_int_float_coercion():
 
 
 def test_construct_schema_nested_objects():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {"user": {"name": "alice", "age": 30}},
         {"user": {"name": "bob", "age": 25}},
     ]
@@ -111,7 +113,7 @@ def test_construct_schema_nested_objects():
 
 
 def test_construct_schema_simple_arrays():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {"varieties": ["honey crisp", "red delicious", "fuji"]},
         {"varieties": ["clementine", "navel"]},
     ]
@@ -124,7 +126,7 @@ def test_construct_schema_simple_arrays():
 
 
 def test_construct_schema_arrays_with_nested_objects():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {
             "items": [
                 {"name": "item1", "price": 10.5},
@@ -156,7 +158,7 @@ def test_construct_schema_arrays_with_nested_objects():
 
 
 def test_construct_schema_arrays_with_nested_objects_nullable_fields():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {
             "items": [
                 {"name": "item1", "price": 10.5, "discount": 0.1},
@@ -178,7 +180,7 @@ def test_construct_schema_arrays_with_nested_objects_nullable_fields():
 
 
 def test_construct_schema_empty_arrays():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {"items": []},
         {"items": [{"name": "item1"}]},
     ]
@@ -196,7 +198,7 @@ def test_construct_schema_empty_arrays():
 
 
 def test_construct_schema_deeply_nested_objects():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {
             "level1": {
                 "level2": {
@@ -220,7 +222,7 @@ def test_construct_schema_deeply_nested_objects():
 
 
 def test_construct_schema_default_delimiter():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {"user": {"name": "alice", "profile": {"city": "NYC"}}},
     ]
 
@@ -231,7 +233,7 @@ def test_construct_schema_default_delimiter():
 
 
 def test_construct_schema_custom_delimiter():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {"user": {"name": "alice"}},
     ]
 
@@ -241,7 +243,7 @@ def test_construct_schema_custom_delimiter():
 
 
 def test_construct_schema_mongodb_example():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {
             "_id": ObjectId("68ed590bfe328426c34f8802"),
             "name": "apple",
@@ -328,7 +330,7 @@ def test_construct_schema_mongodb_example():
 
 
 def test_construct_schema_complex_nested_arrays():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {
             "products": [
                 {
@@ -422,7 +424,7 @@ def test_construct_schema_complex_nested_arrays():
 
 
 def test_construct_schema_array_with_varying_field_counts():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {
             "orders": [
                 {"id": 1, "amount": 100.0, "status": "completed", "discount": 10.0},
@@ -472,7 +474,7 @@ def test_construct_schema_array_with_varying_field_counts():
 
 
 def test_construct_schema_array_with_mixed_item_types():
-    collection = [
+    collection: Sequence[dict[str, Any]] = [
         {"data": [1, "string", 3.14, {"nested": "object"}]},
     ]
 
@@ -488,14 +490,14 @@ def test_construct_schema_array_with_mixed_item_types():
 
 
 def test_construct_schema_empty_collection():
-    collection = []
+    collection: Sequence[dict[str, Any]] = []
 
     schema = construct_schema(collection)
     assert len(schema) == 0
 
 
 def test_construct_schema_empty_documents():
-    collection = [{}, {}, {}]
+    collection: Sequence[dict[str, Any]] = [{}, {}, {}]
 
     schema = construct_schema(collection)
     assert len(schema) == 0
