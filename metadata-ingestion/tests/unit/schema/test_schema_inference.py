@@ -96,7 +96,7 @@ def test_construct_schema_nested_objects():
     schema = construct_schema(collection)
 
     assert schema[("user",)]["type"] is dict
-    assert schema[("user",)]["count"] == 2
+    assert schema[("user",)]["count"] == 3
     assert not schema[("user",)]["nullable"]
 
     assert schema[("user", "name")]["type"] is str
@@ -141,7 +141,7 @@ def test_construct_schema_arrays_with_nested_objects():
     schema = construct_schema(collection)
 
     assert schema[("items",)]["type"] is list
-    assert schema[("items",)]["count"] == 2
+    assert schema[("items",)]["count"] == 4
     assert not schema[("items",)]["nullable"]
 
     assert schema[("items", "name")]["type"] is str
@@ -366,7 +366,7 @@ def test_construct_schema_complex_nested_arrays():
             {
                 ("products",): {
                     "type": list,
-                    "count": 2,
+                    "count": 5,
                     "nullable": False,
                 },
                 ("products", "name"): {
@@ -376,7 +376,7 @@ def test_construct_schema_complex_nested_arrays():
                 },
                 ("products", "specs"): {
                     "type": dict,
-                    "count": 3,
+                    "count": 4,
                     "nullable": False,
                 },
                 ("products", "specs", "cpu"): {
@@ -401,7 +401,7 @@ def test_construct_schema_complex_nested_arrays():
                 },
                 ("products", "reviews"): {
                     "type": list,
-                    "count": 2,
+                    "count": 4,
                     "nullable": True,
                 },
                 ("products", "reviews", "rating"): {
@@ -441,7 +441,7 @@ def test_construct_schema_array_with_varying_field_counts():
             {
                 ("orders",): {
                     "type": list,
-                    "count": 1,
+                    "count": 5,
                     "nullable": False,
                 },
                 ("orders", "id"): {
@@ -479,7 +479,7 @@ def test_construct_schema_array_with_mixed_item_types():
     schema = construct_schema(collection)
 
     assert schema[("data",)]["type"] is list
-    assert schema[("data",)]["count"] == 1
+    assert schema[("data",)]["count"] == 2
     assert not schema[("data",)]["nullable"]
 
     assert schema[("data", "nested")]["type"] is str

@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, defaultdict
 from typing import Any, Counter as CounterType, Dict, Sequence, Tuple, Union
 
 from typing_extensions import TypedDict
@@ -86,6 +86,7 @@ def is_nullable_collection(
 def construct_schema(
     collection: Sequence[Dict[str, Any]], delimiter: str = "."
 ) -> Dict[Tuple[str, ...], SchemaDescription]:
+    # print(f"PIOTR\n\n{collection}")
     """
     Construct (infer) a schema from a collection of documents.
 
@@ -104,9 +105,11 @@ def construct_schema(
             string to concatenate field names by
     """
 
-    schema: Dict[Tuple[str, ...], BasicSchemaDescription] = {}
+    schema: Dict[Tuple[str, ...], BasicSchemaDescription] = defaultdict(
+        lambda: {"types": Counter(), "count": 0}
+    )
 
-    def append_to_schema(doc: Dict[str, Any], parent_prefix: Tuple[str, ...]) -> None:
+    def append_to_schema(doc: Dict[str, Any], parent_prefix: Tuple[str, ...]) -> int:
         """
         Recursively update the schema with a document, which may/may not contain nested fields.
 
@@ -118,18 +121,24 @@ def construct_schema(
                 prefix of fields that the document is under, pass an empty tuple when initializing
         """
 
+        # we want to make sure that parents of nested structures are included first, before their children, so that
+        # they are displayed properly in the UI, also in the event of trimming the list (which happens, for example,
+        # in mongodb ingestor)
+        max_count = 0
         for key, value in doc.items():
             new_parent_prefix = parent_prefix + (key,)
 
             # if nested value, look at the types within
             if isinstance(value, dict):
-                append_to_schema(value, new_parent_prefix)
+                max_count = max(append_to_schema(value, new_parent_prefix), max_count)
             # if array of values, check what types are within
             if isinstance(value, list):
                 for item in value:
                     # if dictionary, add it as a nested object
                     if isinstance(item, dict):
-                        append_to_schema(item, new_parent_prefix)
+                        max_count = max(
+                            append_to_schema(item, new_parent_prefix), max_count
+                        )
 
             # don't record None values (counted towards nullable)
             if value is not None:
@@ -143,6 +152,14 @@ def construct_schema(
                     # update the type count
                     schema[new_parent_prefix]["types"].update({type(value): 1})
                     schema[new_parent_prefix]["count"] += 1
+            max_count = max(schema[new_parent_prefix]["count"], max_count)
+
+        if parent_prefix != ():
+            schema[parent_prefix]["count"] = max(
+                schema[parent_prefix]["count"], max_count
+            )
+
+        return max_count
 
     for document in collection:
         append_to_schema(document, ())
