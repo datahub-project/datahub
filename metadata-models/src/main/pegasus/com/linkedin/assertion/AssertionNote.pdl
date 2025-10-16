@@ -1,0 +1,16 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.AuditStamp
+
+
+record AssertionNote {
+    /**
+    * The note to give technical owners more context about the assertion, and how to troubleshoot it.
+    */
+    content: string
+
+    /**
+    * The time at which the note was last modified.
+    */
+    lastModified: AuditStamp
+}
