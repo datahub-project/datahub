@@ -317,6 +317,7 @@ ebean:
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
   postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
   batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
+  captureStackTrace: ${EBEAN_CAPTURE_STACKTRACE:false}
 
 # Only required if entityService.impl is cassandra
 cassandra:
