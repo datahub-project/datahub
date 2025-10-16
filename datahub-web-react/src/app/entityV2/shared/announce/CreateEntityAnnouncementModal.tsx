@@ -61,7 +61,7 @@ const ModalTitle = styled.div`
 `;
 
 const StyledModal = styled(Modal)`
-    width: 680px !important;
+    width: 720px !important;
 `;
 
 export default function CreateEntityAnnouncementModal({
