@@ -30,6 +30,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #15005: `SqlParsingBuilder` is removed, use `SqlParsingAggregator` instead
 - #14710: LookML ingestion source migrated to SDKv2 resulting in:
   - `browsePaths` aspect replaced with `browsePathsV2`
   - Only emits MCPs
