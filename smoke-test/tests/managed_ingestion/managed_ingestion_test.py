@@ -2,11 +2,8 @@ import json
 from typing import Any, Dict
 
 import pytest
-import tenacity
 
-from tests.utils import execute_graphql, get_sleep_info
-
-sleep_sec, sleep_times = get_sleep_info()
+from tests.utils import execute_graphql, with_test_retry
 
 
 def _get_ingestionSources(auth_session):
@@ -26,9 +23,7 @@ def _get_ingestionSources(auth_session):
     return res_data
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def _ensure_ingestion_source_count(auth_session, expected_count):
     res_data = _get_ingestionSources(auth_session)
     after_count = res_data["data"]["listIngestionSources"]["total"]
@@ -36,9 +31,7 @@ def _ensure_ingestion_source_count(auth_session, expected_count):
     return after_count
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def _ensure_secret_increased(auth_session, before_count):
     query = """query listSecrets($input: ListSecretsInput!) {\n
             listSecrets(input: $input) {\n
@@ -60,9 +53,7 @@ def _ensure_secret_increased(auth_session, before_count):
     assert after_count == before_count + 1
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def _ensure_secret_not_present(auth_session):
     # Get the secret value back
     query = """query getSecretValues($input: GetSecretValuesInput!) {\n
@@ -80,9 +71,7 @@ def _ensure_secret_not_present(auth_session):
     assert len(secret_value_arr) == 0
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def _ensure_ingestion_source_present(
     auth_session, ingestion_source_urn, num_execs=None
 ):
@@ -111,9 +100,7 @@ def _ensure_ingestion_source_present(
     return res_data
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def _ensure_execution_request_present(auth_session, execution_request_urn):
     query = """query executionRequest($urn: String!) {\n
             executionRequest(urn: $urn) {\n
