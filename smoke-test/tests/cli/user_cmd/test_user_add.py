@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Any, List
 
@@ -6,6 +7,8 @@ import pytest
 from datahub.ingestion.graph.client import DataHubGraph
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import run_datahub_cmd
+
+logger = logging.getLogger(__name__)
 
 
 def generate_test_email() -> str:
@@ -59,7 +62,7 @@ def test_users_cleanup(auth_session: Any, graph_client: DataHubGraph):
         try:
             graph_client.hard_delete_entity(user_urn)
         except Exception as e:
-            print(f"Failed to clean up user {user_urn}: {e}")
+            logger.warning(f"Failed to clean up user {user_urn}: {e}")
 
     wait_for_writes_to_sync()
 
