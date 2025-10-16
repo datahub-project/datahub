@@ -182,8 +182,8 @@ export const WizardPage = () => {
                             parent_nodes: immediateParentName || '',
                             related_contains: convertRelationshipsToHierarchicalNames(entity.contains?.relationships || []),
                             related_inherits: convertRelationshipsToHierarchicalNames(entity.inherits?.relationships || []),
-                            domain_urn: '', // TODO: Extract from domain aspect
-                            domain_name: '', // TODO: Extract from domain aspect
+                            domain_urn: entity.domain?.domain.urn || '',
+                            domain_name: entity.domain?.domain.properties.name || '',
                             custom_properties: properties.customProperties?.map((cp: any) => `${cp.key}:${cp.value}`).join(',') || '',
                             status: 'existing'
                         },
