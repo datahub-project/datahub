@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, List, Optional
 
 import pymysql  # noqa: F401
 from pydantic.fields import Field
-from sqlalchemy import util
+from sqlalchemy import event, util
 from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine.reflection import Inspector
@@ -156,8 +156,6 @@ class MySQLSource(TwoTierSQLAlchemySource):
         self, engine: "Engine", database_name: Optional[str] = None
     ) -> None:
         """Setup SQLAlchemy event listener to inject RDS IAM tokens."""
-        from sqlalchemy import event
-
         if not (
             self.config.auth_mode == MySQLAuthMode.AWS_IAM
             and self._rds_iam_token_manager
@@ -169,7 +167,11 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 "RDS IAM Token Manager is not initialized"
             )
             cparams["password"] = self._rds_iam_token_manager.get_token()
+            # PyMySQL requires SSL to be enabled for RDS IAM authentication.
+            # Preserve any existing SSL configuration, otherwise enable with default settings.
             cparams["ssl"] = cparams.get("ssl") or {"ssl": True}
+            # Setting auth_plugin_map to None disables PyMySQL's default authentication plugin,
+            # which is necessary for RDS IAM tokens to work correctly with mysql_clear_password.
             cparams["auth_plugin_map"] = {"mysql_clear_password": None}
 
         event.listen(engine, "do_connect", do_connect_listener)  # type: ignore[misc]

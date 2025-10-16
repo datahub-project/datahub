@@ -21,4 +21,4 @@ Follow the [AWS RDS IAM Database Authentication](https://docs.aws.amazon.com/Ama
 
 **Configuration:**
 
-Set `auth_mode: "IAM"` in your recipe and optionally configure `aws_config` for AWS credentials and region (see example below). If `aws_config` is not specified, boto3 will automatically use the default credential chain from environment variables, AWS config files, or IAM role metadata.
+Set `auth_mode: "AWS_IAM"` in your recipe and optionally configure `aws_config` for AWS credentials and region (see example below). If `aws_config` is not specified, boto3 will automatically use the default credential chain from environment variables, AWS config files, or IAM role metadata.

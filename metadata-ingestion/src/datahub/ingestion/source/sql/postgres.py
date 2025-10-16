@@ -14,7 +14,7 @@ import sqlalchemy.dialects.postgresql as custom_types
 from geoalchemy2 import Geometry  # noqa: F401
 from pydantic import BaseModel
 from pydantic.fields import Field
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.engine.reflection import Inspector
 
 if TYPE_CHECKING:
@@ -218,8 +218,6 @@ class PostgresSource(SQLAlchemySource):
         self, engine: "Engine", database_name: Optional[str] = None
     ) -> None:
         """Setup SQLAlchemy event listener to inject RDS IAM tokens."""
-        from sqlalchemy import event
-
         if not (
             self.config.auth_mode == PostgresAuthMode.AWS_IAM
             and self._rds_iam_token_manager
