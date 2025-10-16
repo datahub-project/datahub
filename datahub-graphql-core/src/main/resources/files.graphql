@@ -1,0 +1,47 @@
+extend type Query {
+  """
+  Generates a presigned url to upload files
+  """
+  getPresignedUploadUrl(
+    input: GetPresignedUploadUrlInput!
+  ): GetPresignedUploadUrl!
+}
+
+"""
+Input for the getUploadPresignedUrl query.
+"""
+input GetPresignedUploadUrlInput {
+  """
+  Original name of the file to upload
+  """
+  fileName: String!
+
+  """
+  The scenario for the upload (e.g., ASSET_DOCUMENTATION, PROFILE_IMAGE).
+  """
+  scenario: UploadDownloadScenario!
+  """
+  The URN of the asset associated with the upload (required when scenario is ASSET_DOCUMENTATION).
+  """
+  assetUrn: String
+
+  """
+  Optional content type of file e.g. "application/pdf"
+  """
+  contentType: String
+}
+
+"""
+Enum to specify the context of the upload.
+"""
+enum UploadDownloadScenario {
+  """
+  Upload for asset documentation.
+  """
+  ASSET_DOCUMENTATION
+}
+
+type GetPresignedUploadUrl {
+  url: String!
+  fileId: String!
+}
