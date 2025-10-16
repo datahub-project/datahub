@@ -35,6 +35,7 @@ class DatasetSubTypes(StrEnum):
     SLACK_CHANNEL = "Slack Channel"
     PROJECTIONS = "Projections"
     GOOGLE_SHEETS = "Google Sheets"
+    GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"

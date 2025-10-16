@@ -1,4 +1,3 @@
-import json
 import logging
 from typing import Dict, Iterable, List, Optional, Union
 
@@ -44,10 +43,16 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
+    UpstreamLineage,
+)
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    UpstreamClass,
 )
 from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DatasetUrn
 from datahub.sdk.dataflow import DataFlow
@@ -57,6 +62,7 @@ from datahub.sdk.entity import Entity
 
 # Logger instance
 logger = logging.getLogger(__name__)
+CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
 
 
 @platform_name("Fivetran")
@@ -337,11 +343,11 @@ class FivetranSource(StatefulIngestionSourceBase):
             gsheets_conn_details = self.api_client.get_connection_details_by_id(
                 connector.connector_id
             )
-            yield Dataset(
-                name=f"{gsheets_conn_details.config.sheet_id_from_url}.{gsheets_conn_details.config.named_range}",
+            gsheets_dataset = Dataset(
+                name=gsheets_conn_details.config.sheet_id_from_url,
                 platform=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
                 env=self.config.env,
-                display_name=gsheets_conn_details.config.named_range,
+                display_name=gsheets_conn_details.config.sheet_id_from_url,
                 external_url=gsheets_conn_details.config.sheet_id,
                 created=gsheets_conn_details.created_at,
                 last_modified=gsheets_conn_details.source_sync_details.last_synced,
@@ -349,18 +355,40 @@ class FivetranSource(StatefulIngestionSourceBase):
                 custom_properties={
                     "ingested_by": "fivetran source",
                     "connector_id": gsheets_conn_details.id,
-                    "connector_type": gsheets_conn_details.service,
-                    "paused": str(gsheets_conn_details.paused),
-                    "sync_frequency": str(gsheets_conn_details.sync_frequency),
-                    "destination_id": gsheets_conn_details.group_id,
-                    "warnings": json.dumps(
-                        [
-                            warning.model_dump()
-                            for warning in gsheets_conn_details.status.warnings
-                        ]
-                    ),
                 },
             )
+            gsheets_named_range_dataset = Dataset(
+                name=f"{gsheets_conn_details.config.sheet_id_from_url}.{gsheets_conn_details.config.named_range}",
+                platform=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
+                env=self.config.env,
+                display_name=gsheets_conn_details.config.named_range,
+                external_url=gsheets_conn_details.config.sheet_id,
+                created=gsheets_conn_details.created_at,
+                last_modified=gsheets_conn_details.source_sync_details.last_synced,
+                subtype=DatasetSubTypes.GOOGLE_SHEETS_NAMED_RANGE,
+                custom_properties={
+                    "ingested_by": "fivetran source",
+                    "connector_id": gsheets_conn_details.id,
+                },
+                upstreams=UpstreamLineage(
+                    upstreams=[
+                        UpstreamClass(
+                            dataset=str(gsheets_dataset.urn),
+                            type=DatasetLineageTypeClass.VIEW,
+                            auditStamp=AuditStamp(
+                                time=int(
+                                    gsheets_conn_details.created_at.timestamp() * 1000
+                                ),
+                                actor=CORPUSER_DATAHUB,
+                            ),
+                        )
+                    ],
+                    fineGrainedLineages=None,
+                ),
+            )
+
+            yield gsheets_dataset
+            yield gsheets_named_range_dataset
 
         # Create dataflow entity with same name as connector name
         dataflow = self._generate_dataflow_from_connector(connector)
