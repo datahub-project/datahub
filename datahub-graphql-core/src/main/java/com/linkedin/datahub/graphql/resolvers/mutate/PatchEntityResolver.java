@@ -3,28 +3,23 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.PatchEntityInput;
 import com.linkedin.datahub.graphql.generated.PatchEntityResult;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.PatchResolverUtils;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
-import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.AuditStampUtils;
-import com.linkedin.mxe.GenericAspect;
+import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -63,43 +58,18 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
   private PatchEntityResult patchEntity(
       @Nonnull PatchEntityInput input, @Nonnull QueryContext context) throws Exception {
 
-    // Handle URN resolution
-    final Urn entityUrn =
-        PatchResolverUtils.resolveEntityUrn(input.getUrn(), input.getEntityType());
     final Authentication authentication = context.getAuthentication();
 
-    // Check authorization using GraphQL authorization pattern
-    if (!isAuthorized(input, context)) {
+    // Check authorization using common utility method
+    if (!PatchResolverUtils.isAuthorizedForPatch(input, context)) {
       throw new AuthorizationException(
           authentication.getActor().toUrnStr() + " is unauthorized to update entities.");
     }
 
-    // Validate aspect exists
-    final AspectSpec aspectSpec =
-        _entityRegistry
-            .getEntitySpec(entityUrn.getEntityType())
-            .getAspectSpec(input.getAspectName());
-    if (aspectSpec == null) {
-      throw new IllegalArgumentException(
-          "Aspect "
-              + input.getAspectName()
-              + " not found for entity type "
-              + entityUrn.getEntityType());
-    }
-
-    // Create patch aspect using the same pattern as OpenAPI
-    final GenericAspect patchAspect =
-        PatchResolverUtils.createPatchAspect(
-            input.getPatch(), input.getArrayPrimaryKeys(), input.getForceGenericPatch(), context);
-
-    // Create MetadataChangeProposal
-    final MetadataChangeProposal mcp =
-        PatchResolverUtils.createMetadataChangeProposal(
-            entityUrn,
-            input.getAspectName(),
-            patchAspect,
-            input.getSystemMetadata(),
-            input.getHeaders());
+    // Create MCPs using common utility method
+    final List<PatchEntityInput> inputs = List.of(input);
+    final List<MetadataChangeProposal> mcps = 
+        PatchResolverUtils.createPatchEntitiesMcps(inputs, context, _entityRegistry);
 
     // Apply the patch
     try {
@@ -107,13 +77,13 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
       IngestResult result =
           _entityService.ingestProposal(
               context.getOperationContext(),
-              mcp,
+              mcps.get(0),
               AuditStampUtils.createAuditStamp(actor.toString()),
               false); // synchronous for GraphQL
 
       if (result == null) {
         return new PatchEntityResult(
-            entityUrn != null ? entityUrn.toString() : input.getUrn(),
+            input.getUrn(),
             null,
             false,
             "Failed to apply patch: ingestProposal returned null");
@@ -122,38 +92,14 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
       // Extract entity name from the patch operations
       String entityName = PatchResolverUtils.extractEntityName(input.getPatch());
 
-      return new PatchEntityResult(entityUrn.toString(), entityName, true, null);
+      return new PatchEntityResult(input.getUrn(), entityName, true, null);
     } catch (Exception e) {
       return new PatchEntityResult(
-          entityUrn != null ? entityUrn.toString() : input.getUrn(),
+          input.getUrn(),
           null,
           false,
           "Failed to apply patch: " + e.getMessage());
     }
   }
 
-  private boolean isAuthorized(@Nonnull PatchEntityInput input, @Nonnull QueryContext context) {
-    // For patch operations, we need EDIT_ENTITY_PRIVILEGE
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()))));
-
-    // Use entity type from URN if not provided in input
-    String entityType = input.getEntityType();
-    if (entityType == null && input.getUrn() != null) {
-      try {
-        entityType = UrnUtils.getUrn(input.getUrn()).getEntityType();
-      } catch (Exception e) {
-        log.warn("Failed to extract entity type from URN: {}", input.getUrn(), e);
-      }
-    }
-
-    return AuthorizationUtils.isAuthorized(
-        context,
-        entityType,
-        input.getUrn(),
-        orPrivilegeGroups);
-  }
 }

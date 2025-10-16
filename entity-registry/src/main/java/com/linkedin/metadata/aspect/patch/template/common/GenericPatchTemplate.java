@@ -53,24 +53,6 @@ public class GenericPatchTemplate<T extends RecordTemplate> extends CompoundKeyT
   }
 
   public T applyPatch(RecordTemplate recordTemplate) throws IOException {
-    T result = super.applyPatch(recordTemplate, genericJsonPatch.getJsonPatch());
-
-    // Convert null strings to empty strings for glossary aspects (mimic createGlossaryTerm
-    // behavior)
-    if (result instanceof com.linkedin.glossary.GlossaryTermInfo) {
-      com.linkedin.glossary.GlossaryTermInfo termInfo =
-          (com.linkedin.glossary.GlossaryTermInfo) result;
-      if (termInfo.hasDefinition() && termInfo.getDefinition() == null) {
-        termInfo.setDefinition("");
-      }
-    } else if (result instanceof com.linkedin.glossary.GlossaryNodeInfo) {
-      com.linkedin.glossary.GlossaryNodeInfo nodeInfo =
-          (com.linkedin.glossary.GlossaryNodeInfo) result;
-      if (nodeInfo.hasDefinition() && nodeInfo.getDefinition() == null) {
-        nodeInfo.setDefinition("");
-      }
-    }
-
-    return result;
+    return super.applyPatch(recordTemplate, genericJsonPatch.getJsonPatch());
   }
 }
