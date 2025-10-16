@@ -194,7 +194,8 @@ class PostgresSource(SQLAlchemySource):
         self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
         if config.auth_mode == PostgresAuthMode.AWS_IAM:
             hostname, port = parse_host_port(config.host_port, default_port=5432)
-            assert port is not None
+            if port is None:
+                raise ValueError("Port must be specified for RDS IAM authentication")
 
             if not config.username:
                 raise ValueError("username is required for RDS IAM authentication")
@@ -225,9 +226,8 @@ class PostgresSource(SQLAlchemySource):
             return
 
         def do_connect_listener(_dialect, _conn_rec, _cargs, cparams):
-            assert self._rds_iam_token_manager, (
-                "RDS IAM Token Manager is not initialized"
-            )
+            if not self._rds_iam_token_manager:
+                raise RuntimeError("RDS IAM Token Manager is not initialized")
             cparams["password"] = self._rds_iam_token_manager.get_token()
             if cparams.get("sslmode") not in ("require", "verify-ca", "verify-full"):
                 cparams["sslmode"] = "require"

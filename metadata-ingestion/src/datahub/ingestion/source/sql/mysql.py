@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, List, Optional
 
 import pymysql  # noqa: F401
 from pydantic.fields import Field
-from sqlalchemy import event, util
+from sqlalchemy import create_engine, event, inspect, util
 from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine.reflection import Inspector
@@ -132,7 +132,8 @@ class MySQLSource(TwoTierSQLAlchemySource):
         self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
         if config.auth_mode == MySQLAuthMode.AWS_IAM:
             hostname, port = parse_host_port(config.host_port, default_port=3306)
-            assert port is not None
+            if port is None:
+                raise ValueError("Port must be specified for RDS IAM authentication")
 
             if not config.username:
                 raise ValueError("username is required for RDS IAM authentication")
@@ -163,12 +164,13 @@ class MySQLSource(TwoTierSQLAlchemySource):
             return
 
         def do_connect_listener(_dialect, _conn_rec, _cargs, cparams):
-            assert self._rds_iam_token_manager, (
-                "RDS IAM Token Manager is not initialized"
-            )
+            if not self._rds_iam_token_manager:
+                raise RuntimeError("RDS IAM Token Manager is not initialized")
             cparams["password"] = self._rds_iam_token_manager.get_token()
             # PyMySQL requires SSL to be enabled for RDS IAM authentication.
             # Preserve any existing SSL configuration, otherwise enable with default settings.
+            # The {"ssl": True} dict is a workaround to make PyMySQL recognize that SSL
+            # should be enabled, since the library requires a truthy value in the ssl parameter.
             cparams["ssl"] = cparams.get("ssl") or {"ssl": True}
             # Setting auth_plugin_map to None disables PyMySQL's default authentication plugin,
             # which is necessary for RDS IAM tokens to work correctly with mysql_clear_password.
@@ -177,8 +179,6 @@ class MySQLSource(TwoTierSQLAlchemySource):
         event.listen(engine, "do_connect", do_connect_listener)  # type: ignore[misc]
 
     def get_inspectors(self):
-        from sqlalchemy import create_engine, inspect
-
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
 
