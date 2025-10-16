@@ -18,7 +18,7 @@ source:
     #     sslmode: "verify-full"
 
     # AWS RDS IAM Authentication (alternative to password)
-    # auth_mode: "IAM"
+    # auth_mode: "AWS_IAM"
     # aws_config:
     #   aws_region: us-west-2
 
