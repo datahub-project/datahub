@@ -39,10 +39,19 @@ public class ProductUpdateService {
 
   public ProductUpdateService(
       @Nullable final String jsonUrl, @Nonnull final String fallbackResource) {
+    this(
+        jsonUrl,
+        fallbackResource,
+        HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(HTTP_TIMEOUT_SECONDS)).build());
+  }
+
+  public ProductUpdateService(
+      @Nullable final String jsonUrl,
+      @Nonnull final String fallbackResource,
+      @Nonnull final HttpClient httpClient) {
     this.jsonUrl = jsonUrl;
     this.fallbackResource = fallbackResource;
-    this.httpClient =
-        HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(HTTP_TIMEOUT_SECONDS)).build();
+    this.httpClient = httpClient;
     this.objectMapper = new ObjectMapper();
     this.cache =
         CacheBuilder.newBuilder().expireAfterWrite(CACHE_TTL_HOURS, TimeUnit.HOURS).build();

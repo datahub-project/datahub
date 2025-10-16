@@ -1,211 +1,282 @@
 package com.linkedin.metadata.service;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.Optional;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+/**
+ * Tests for ProductUpdateService focusing on HTTP fetching, caching behavior, and fallback logic.
+ */
 public class ProductUpdateServiceTest {
+
+  private static final String TEST_RESOURCE_PATH = "product-update-for-test.json";
+  private static final String TEST_URL = "https://example.com/product-update.json";
+
+  private static final String MOCK_PRODUCT_JSON_V1 =
+      "{"
+          + "\"enabled\": true,"
+          + "\"id\": \"remote-v1\","
+          + "\"title\": \"Remote Update V1\","
+          + "\"description\": \"First remote version\""
+          + "}";
+
+  private static final String MOCK_PRODUCT_JSON_V2 =
+      "{"
+          + "\"enabled\": true,"
+          + "\"id\": \"remote-v2\","
+          + "\"title\": \"Remote Update V2\","
+          + "\"description\": \"Second remote version\""
+          + "}";
+
+  @Mock private HttpClient mockHttpClient;
+  @Mock private HttpResponse<String> mockHttpResponse;
 
   private ProductUpdateService service;
   private ObjectMapper objectMapper;
 
   @BeforeMethod
   public void setupTest() {
+    MockitoAnnotations.openMocks(this);
     objectMapper = new ObjectMapper();
   }
 
   @Test
-  public void testGetLatestProductUpdateFromClasspath() throws Exception {
-    // Setup - no URL configured, should use classpath fallback
-    service = new ProductUpdateService(null, "product-update-fallback.json");
+  public void testSuccessfulRemoteFetchIsCached() throws Exception {
+    // Setup - mock successful HTTP response
+    when(mockHttpClient.<String>send(any(HttpRequest.class), any())).thenReturn(mockHttpResponse);
+    when(mockHttpResponse.statusCode()).thenReturn(200);
+    when(mockHttpResponse.body()).thenReturn(MOCK_PRODUCT_JSON_V1);
 
-    // Execute
-    Optional<JsonNode> result = service.getLatestProductUpdate();
+    service = new ProductUpdateService(TEST_URL, TEST_RESOURCE_PATH, mockHttpClient);
 
-    // Verify - this will succeed if the fallback resource exists, or fail gracefully
-    // In a real test environment, you'd mock the classpath resource
-    assertNotNull(result);
-  }
-
-  @Test
-  public void testGetLatestProductUpdateEmptyUrl() throws Exception {
-    // Setup - empty URL should use classpath fallback
-    service = new ProductUpdateService("", "product-update-fallback.json");
-
-    // Execute
-    Optional<JsonNode> result = service.getLatestProductUpdate();
-
-    // Verify
-    assertNotNull(result);
-  }
-
-  @Test
-  public void testGetLatestProductUpdateWhitespaceUrl() throws Exception {
-    // Setup - whitespace URL should use classpath fallback
-    service = new ProductUpdateService("   ", "product-update-fallback.json");
-
-    // Execute
-    Optional<JsonNode> result = service.getLatestProductUpdate();
-
-    // Verify
-    assertNotNull(result);
-  }
-
-  @Test
-  public void testClearCache() {
-    // Setup
-    service = new ProductUpdateService(null, "product-update-fallback.json");
-
-    // Execute - should not throw exception
-    service.clearCache();
-
-    // Verify - no exception thrown
-  }
-
-  @Test
-  public void testClearCacheMultipleTimes() {
-    // Setup
-    service = new ProductUpdateService(null, "product-update-fallback.json");
-
-    // Execute - should not throw exception when called multiple times
-    service.clearCache();
-    service.clearCache();
-    service.clearCache();
-
-    // Verify - no exception thrown
-  }
-
-  @Test
-  public void testServiceInitialization() {
-    // Test with URL
-    service = new ProductUpdateService("https://example.com/updates.json", "fallback.json");
-    assertNotNull(service);
-
-    // Test without URL
-    service = new ProductUpdateService(null, "fallback.json");
-    assertNotNull(service);
-
-    // Test with empty URL
-    service = new ProductUpdateService("", "fallback.json");
-    assertNotNull(service);
-  }
-
-  @Test
-  public void testGetLatestProductUpdateFallsBackOnError() throws Exception {
-    // Setup - invalid URL that will fail
-    service =
-        new ProductUpdateService(
-            "http://invalid-url-that-does-not-exist.local", "product-update-fallback.json");
-
-    // Execute - should fall back to classpath
-    Optional<JsonNode> result = service.getLatestProductUpdate();
-
-    // Verify - should return result from fallback (or empty if fallback doesn't exist)
-    assertNotNull(result);
-  }
-
-  @Test
-  public void testGetLatestProductUpdateCaching() throws Exception {
-    // Setup
-    service = new ProductUpdateService(null, "product-update-fallback.json");
-
-    // Execute multiple times
+    // Execute - fetch multiple times
     Optional<JsonNode> result1 = service.getLatestProductUpdate();
     Optional<JsonNode> result2 = service.getLatestProductUpdate();
     Optional<JsonNode> result3 = service.getLatestProductUpdate();
 
-    // Verify - all results should be present (either from cache or fresh)
-    assertNotNull(result1);
-    assertNotNull(result2);
-    assertNotNull(result3);
+    // Verify - HTTP should only be called once (cached after first fetch)
+    verify(mockHttpClient, times(1)).<String>send(any(HttpRequest.class), any());
 
-    // If results are present, they should be equal (from cache)
-    if (result1.isPresent() && result2.isPresent() && result3.isPresent()) {
-      assertEquals(result1.get().toString(), result2.get().toString());
-      assertEquals(result2.get().toString(), result3.get().toString());
-    }
+    // All results should be the remote version
+    assertTrue(result1.isPresent());
+    assertTrue(result2.isPresent());
+    assertTrue(result3.isPresent());
+    assertEquals(result1.get().get("id").asText(), "remote-v1");
+    assertEquals(result2.get().get("id").asText(), "remote-v1");
+    assertEquals(result3.get().get("id").asText(), "remote-v1");
   }
 
   @Test
-  public void testClearCacheForcesRefresh() throws Exception {
-    // Setup
-    service = new ProductUpdateService(null, "product-update-fallback.json");
+  public void testClearCacheRefetchesFromRemote() throws Exception {
+    // Setup - mock HTTP to return V1 first, then V2
+    when(mockHttpClient.<String>send(any(HttpRequest.class), any())).thenReturn(mockHttpResponse);
+    when(mockHttpResponse.statusCode()).thenReturn(200);
+    when(mockHttpResponse.body()).thenReturn(MOCK_PRODUCT_JSON_V1).thenReturn(MOCK_PRODUCT_JSON_V2);
 
-    // Execute - get, clear, get again
+    service = new ProductUpdateService(TEST_URL, TEST_RESOURCE_PATH, mockHttpClient);
+
+    // Execute - fetch, clear cache, fetch again
     Optional<JsonNode> result1 = service.getLatestProductUpdate();
     service.clearCache();
     Optional<JsonNode> result2 = service.getLatestProductUpdate();
 
-    // Verify - both should succeed
-    assertNotNull(result1);
-    assertNotNull(result2);
+    // Verify - HTTP should be called twice (once before clear, once after)
+    verify(mockHttpClient, times(2)).<String>send(any(HttpRequest.class), any());
+
+    // Results should reflect the different versions
+    assertTrue(result1.isPresent());
+    assertTrue(result2.isPresent());
+    assertEquals(result1.get().get("id").asText(), "remote-v1");
+    assertEquals(result2.get().get("id").asText(), "remote-v2");
   }
 
   @Test
-  public void testGetLatestProductUpdateWithNonExistentFallback() {
-    // Setup - fallback resource that doesn't exist
-    service = new ProductUpdateService(null, "non-existent-resource.json");
+  public void testRemoteFetchFailsFallsBackToClasspath() throws Exception {
+    // Setup - mock HTTP failure
+    when(mockHttpClient.<String>send(any(HttpRequest.class), any()))
+        .thenThrow(new IOException("Connection failed"));
+
+    service = new ProductUpdateService(TEST_URL, TEST_RESOURCE_PATH, mockHttpClient);
 
     // Execute
     Optional<JsonNode> result = service.getLatestProductUpdate();
 
-    // Verify - should return empty Optional
+    // Verify - should fall back to classpath resource
+    assertTrue(result.isPresent());
+    assertEquals(result.get().get("id").asText(), "test-product-update");
+  }
+
+  @Test
+  public void testRemoteReturnsNon200FallsBackToClasspath() throws Exception {
+    // Setup - mock HTTP 404 response
+    when(mockHttpClient.<String>send(any(HttpRequest.class), any())).thenReturn(mockHttpResponse);
+    when(mockHttpResponse.statusCode()).thenReturn(404);
+
+    service = new ProductUpdateService(TEST_URL, TEST_RESOURCE_PATH, mockHttpClient);
+
+    // Execute
+    Optional<JsonNode> result = service.getLatestProductUpdate();
+
+    // Verify - should fall back to classpath resource
+    assertTrue(result.isPresent());
+    assertEquals(result.get().get("id").asText(), "test-product-update");
+  }
+
+  @Test
+  public void testRemoteReturnsEmptyBodyFallsBackToClasspath() throws Exception {
+    // Setup - mock empty response body
+    when(mockHttpClient.<String>send(any(HttpRequest.class), any())).thenReturn(mockHttpResponse);
+    when(mockHttpResponse.statusCode()).thenReturn(200);
+    when(mockHttpResponse.body()).thenReturn("");
+
+    service = new ProductUpdateService(TEST_URL, TEST_RESOURCE_PATH, mockHttpClient);
+
+    // Execute
+    Optional<JsonNode> result = service.getLatestProductUpdate();
+
+    // Verify - should fall back to classpath resource
+    assertTrue(result.isPresent());
+    assertEquals(result.get().get("id").asText(), "test-product-update");
+  }
+
+  @Test
+  public void testAfterRemoteFailsClearCacheRetries() throws Exception {
+    // Setup - mock HTTP to fail first, then succeed
+    when(mockHttpClient.<String>send(any(HttpRequest.class), any()))
+        .thenThrow(new IOException("Connection failed"))
+        .thenReturn(mockHttpResponse);
+    when(mockHttpResponse.statusCode()).thenReturn(200);
+    when(mockHttpResponse.body()).thenReturn(MOCK_PRODUCT_JSON_V1);
+
+    service = new ProductUpdateService(TEST_URL, TEST_RESOURCE_PATH, mockHttpClient);
+
+    // Execute - first fetch fails and falls back, clear cache, fetch again succeeds
+    Optional<JsonNode> result1 = service.getLatestProductUpdate();
+    service.clearCache();
+    Optional<JsonNode> result2 = service.getLatestProductUpdate();
+
+    // Verify - HTTP should be attempted twice
+    verify(mockHttpClient, times(2)).<String>send(any(HttpRequest.class), any());
+
+    // First result should be fallback, second should be remote
+    assertTrue(result1.isPresent());
+    assertTrue(result2.isPresent());
+    assertEquals(result1.get().get("id").asText(), "test-product-update");
+    assertEquals(result2.get().get("id").asText(), "remote-v1");
+  }
+
+  @Test
+  public void testNoUrlConfiguredUsesFallback() throws Exception {
+    // Setup - no URL configured
+    service = new ProductUpdateService(null, TEST_RESOURCE_PATH, mockHttpClient);
+
+    // Execute
+    Optional<JsonNode> result = service.getLatestProductUpdate();
+
+    // Verify - should not attempt HTTP, should use fallback
+    verify(mockHttpClient, never()).<String>send(any(HttpRequest.class), any());
+    assertTrue(result.isPresent());
+    assertEquals(result.get().get("id").asText(), "test-product-update");
+  }
+
+  @Test
+  public void testEmptyUrlUsesFallback() throws Exception {
+    // Setup - empty URL
+    service = new ProductUpdateService("", TEST_RESOURCE_PATH, mockHttpClient);
+
+    // Execute
+    Optional<JsonNode> result = service.getLatestProductUpdate();
+
+    // Verify - should not attempt HTTP, should use fallback
+    verify(mockHttpClient, never()).<String>send(any(HttpRequest.class), any());
+    assertTrue(result.isPresent());
+    assertEquals(result.get().get("id").asText(), "test-product-update");
+  }
+
+  @Test
+  public void testWhitespaceUrlUsesFallback() throws Exception {
+    // Setup - whitespace URL
+    service = new ProductUpdateService("   ", TEST_RESOURCE_PATH, mockHttpClient);
+
+    // Execute
+    Optional<JsonNode> result = service.getLatestProductUpdate();
+
+    // Verify - should not attempt HTTP, should use fallback
+    verify(mockHttpClient, never()).<String>send(any(HttpRequest.class), any());
+    assertTrue(result.isPresent());
+    assertEquals(result.get().get("id").asText(), "test-product-update");
+  }
+
+  @Test
+  public void testNonExistentFallbackReturnsEmpty() throws Exception {
+    // Setup - no URL and non-existent fallback
+    service = new ProductUpdateService(null, "non-existent-resource.json", mockHttpClient);
+
+    // Execute
+    Optional<JsonNode> result = service.getLatestProductUpdate();
+
+    // Verify - should return empty when fallback doesn't exist
     assertNotNull(result);
     assertFalse(result.isPresent());
   }
 
   @Test
-  public void testMultipleInstancesIndependentCaches() throws Exception {
-    // Setup - create two service instances
-    ProductUpdateService service1 = new ProductUpdateService(null, "product-update-fallback.json");
-    ProductUpdateService service2 = new ProductUpdateService(null, "product-update-fallback.json");
+  public void testMultipleInstancesHaveIndependentCaches() throws Exception {
+    // Setup - two service instances with mocked responses
+    when(mockHttpClient.<String>send(any(HttpRequest.class), any())).thenReturn(mockHttpResponse);
+    when(mockHttpResponse.statusCode()).thenReturn(200);
+    when(mockHttpResponse.body()).thenReturn(MOCK_PRODUCT_JSON_V1);
 
-    // Execute - get from both, clear one, get again
+    ProductUpdateService service1 =
+        new ProductUpdateService(TEST_URL, TEST_RESOURCE_PATH, mockHttpClient);
+    ProductUpdateService service2 =
+        new ProductUpdateService(TEST_URL, TEST_RESOURCE_PATH, mockHttpClient);
+
+    // Execute - fetch from both, clear one, fetch again
     service1.getLatestProductUpdate();
     service2.getLatestProductUpdate();
     service1.clearCache();
+    service1.getLatestProductUpdate();
+    service2.getLatestProductUpdate();
 
-    // Execute again
-    Optional<JsonNode> result1 = service1.getLatestProductUpdate();
-    Optional<JsonNode> result2 = service2.getLatestProductUpdate();
-
-    // Verify - both should work independently
-    assertNotNull(result1);
-    assertNotNull(result2);
+    // Verify - service1 should fetch twice (initial + after clear), service2 only once (cached)
+    // Total HTTP calls: 3 (1 from service1 initial, 1 from service2 initial, 1 from service1 after
+    // clear)
+    verify(mockHttpClient, times(3)).<String>send(any(HttpRequest.class), any());
   }
 
   @Test
-  public void testServiceWithValidJsonUrl() {
-    // Setup - this tests that the service can be constructed with a valid URL
-    // In a real test, you'd mock the HTTP client
-    service =
-        new ProductUpdateService(
-            "https://raw.githubusercontent.com/datahub-project/datahub/master/docs/product-update.json",
-            "product-update-fallback.json");
-
-    // Verify service is created
-    assertNotNull(service);
-  }
-
-  @Test
-  public void testGetLatestProductUpdateReturnsValidJson() throws Exception {
+  public void testFallbackJsonStructure() throws Exception {
     // Setup
-    service = new ProductUpdateService(null, "product-update-fallback.json");
+    service = new ProductUpdateService(null, TEST_RESOURCE_PATH, mockHttpClient);
 
     // Execute
     Optional<JsonNode> result = service.getLatestProductUpdate();
 
-    // Verify - if result is present, it should be valid JSON
-    if (result.isPresent()) {
-      JsonNode json = result.get();
-      assertNotNull(json);
-      // JSON should be an object or array
-      assertTrue(json.isObject() || json.isArray());
-    }
+    // Verify - validate expected JSON structure from test resource
+    assertTrue(result.isPresent());
+    JsonNode json = result.get();
+
+    assertTrue(json.isObject());
+    assertTrue(json.has("id"));
+    assertTrue(json.has("enabled"));
+    assertTrue(json.has("title"));
+    assertTrue(json.has("description"));
+
+    assertEquals(json.get("id").asText(), "test-product-update");
+    assertTrue(json.get("enabled").asBoolean());
+    assertEquals(json.get("title").asText(), "Test Product Update");
   }
 }

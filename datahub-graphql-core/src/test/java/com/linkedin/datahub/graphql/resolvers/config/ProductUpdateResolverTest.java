@@ -249,6 +249,7 @@ public class ProductUpdateResolverTest {
   public void testGetProductUpdateUsesCache() throws Exception {
     // Setup
     when(mockFeatureFlags.isShowProductUpdates()).thenReturn(true);
+    when(mockDataFetchingEnvironment.getArgument("refreshCache")).thenReturn(null);
 
     String jsonString =
         "{" + "\"enabled\": true," + "\"id\": \"v1.0.0\"," + "\"title\": \"What's New\"" + "}";
@@ -264,6 +265,68 @@ public class ProductUpdateResolverTest {
     verify(mockProductUpdateService, times(3)).getLatestProductUpdate();
     // But clearCache should never be called by this resolver
     verify(mockProductUpdateService, never()).clearCache();
+  }
+
+  @Test
+  public void testGetProductUpdateWithRefreshCacheTrue() throws Exception {
+    // Setup
+    when(mockFeatureFlags.isShowProductUpdates()).thenReturn(true);
+    when(mockDataFetchingEnvironment.getArgument("refreshCache")).thenReturn(true);
+
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"description\": \"New features\""
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+    when(mockProductUpdateService.getLatestProductUpdate()).thenReturn(Optional.of(jsonNode));
+
+    // Execute
+    ProductUpdate result = resolver.get(mockDataFetchingEnvironment).get();
+
+    // Verify
+    verify(mockProductUpdateService).clearCache(); // Should clear cache first
+    verify(mockProductUpdateService).getLatestProductUpdate();
+    assertNotNull(result);
+    assertEquals(result.getId(), "v1.0.0");
+    assertEquals(result.getTitle(), "What's New");
+  }
+
+  @Test
+  public void testGetProductUpdateWithRefreshCacheFalse() throws Exception {
+    // Setup
+    when(mockFeatureFlags.isShowProductUpdates()).thenReturn(true);
+    when(mockDataFetchingEnvironment.getArgument("refreshCache")).thenReturn(false);
+
+    String jsonString =
+        "{" + "\"enabled\": true," + "\"id\": \"v1.0.0\"," + "\"title\": \"What's New\"" + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+    when(mockProductUpdateService.getLatestProductUpdate()).thenReturn(Optional.of(jsonNode));
+
+    // Execute
+    ProductUpdate result = resolver.get(mockDataFetchingEnvironment).get();
+
+    // Verify
+    verify(mockProductUpdateService, never()).clearCache(); // Should NOT clear cache
+    verify(mockProductUpdateService).getLatestProductUpdate();
+    assertNotNull(result);
+  }
+
+  @Test
+  public void testGetProductUpdateRefreshCacheWhenFeatureDisabled() throws Exception {
+    // Setup - even if refreshCache is true, feature flag should be checked first
+    when(mockFeatureFlags.isShowProductUpdates()).thenReturn(false);
+    when(mockDataFetchingEnvironment.getArgument("refreshCache")).thenReturn(true);
+
+    // Execute
+    ProductUpdate result = resolver.get(mockDataFetchingEnvironment).get();
+
+    // Verify - nothing should be called because feature is disabled
+    verify(mockProductUpdateService, never()).clearCache();
+    verify(mockProductUpdateService, never()).getLatestProductUpdate();
+    assertNull(result);
   }
 
   @Test

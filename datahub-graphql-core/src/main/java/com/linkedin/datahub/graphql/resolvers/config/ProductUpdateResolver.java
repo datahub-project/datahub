@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.config;
 
-import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.ProductUpdate;
 import com.linkedin.metadata.service.ProductUpdateService;
@@ -16,6 +15,8 @@ import lombok.extern.slf4j.Slf4j;
  * <p>Attempts to fetch from remote URL (with 6-hour cache), falling back to bundled classpath
  * resource if unavailable. Returns null only if both remote and fallback fail, or if the feature is
  * disabled.
+ *
+ * <p>Supports an optional {@code refreshCache} argument to clear the cache before fetching.
  */
 @Slf4j
 public class ProductUpdateResolver implements DataFetcher<CompletableFuture<ProductUpdate>> {
@@ -32,7 +33,8 @@ public class ProductUpdateResolver implements DataFetcher<CompletableFuture<Prod
 
   @Override
   public CompletableFuture<ProductUpdate> get(DataFetchingEnvironment environment) {
-    final QueryContext context = environment.getContext();
+    final Boolean refreshCache = environment.getArgument("refreshCache");
+    final boolean shouldRefresh = refreshCache != null && refreshCache;
 
     return CompletableFuture.supplyAsync(
         () -> {
@@ -42,19 +44,30 @@ public class ProductUpdateResolver implements DataFetcher<CompletableFuture<Prod
               return null;
             }
 
+            if (shouldRefresh) {
+              log.info("Clearing product update cache and refetching");
+              _productUpdateService.clearCache();
+            }
+
             ProductUpdate productUpdate =
                 ProductUpdateParser.parseProductUpdate(
                     _productUpdateService.getLatestProductUpdate());
 
             if (productUpdate != null) {
-              log.debug("Successfully resolved product update: {}", productUpdate.getId());
+              log.debug(
+                  "Successfully {} product update: {}",
+                  shouldRefresh ? "refreshed" : "resolved",
+                  productUpdate.getId());
             }
 
             return productUpdate;
 
           } catch (Exception e) {
-            log.warn("Failed to resolve product update: {}", e.getMessage());
-            log.debug("Product update resolution error details", e);
+            log.warn(
+                "Failed to {} product update: {}",
+                shouldRefresh ? "refresh" : "resolve",
+                e.getMessage());
+            log.debug("Product update error details", e);
             return null;
           }
         });

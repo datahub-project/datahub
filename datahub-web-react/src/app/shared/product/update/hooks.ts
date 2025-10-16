@@ -46,16 +46,8 @@ export function useIsProductAnnouncementVisible(update: ProductUpdate): ProductA
         fetchPolicy: 'cache-first',
     });
 
-    // If userUrn is not loaded yet, don't show the announcement (wait for user context to load)
-    if (!userUrn) {
-        return {
-            visible: false,
-            refetch,
-        };
-    }
-
-    // If query is loading or has an error, don't show yet
-    if (loading || error) {
+    // If query is loading or has an error or userUrn is not loaded yet, don't show the announcement (wait for user context to load)
+    if (!userUrn || loading || error) {
         return {
             visible: false,
             refetch,
