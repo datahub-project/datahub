@@ -224,7 +224,7 @@ project.ext.externalDependency = [
     'mockitoInline': 'org.mockito:mockito-inline:4.11.0',
     'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
     'mockServerClient': 'org.mock-server:mockserver-client-java:5.11.2',
-    'mysqlConnector': 'com.mysql:mysql-connector-j:9.2.0',
+    'mysqlConnector': 'com.mysql:mysql-connector-j:9.4.0',
     'testContainersNeo4j': 'org.testcontainers:neo4j:' + testContainersVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
     'neo4jApocCore': 'org.neo4j.procedure:apoc-core:' + neo4jApocVersion,
