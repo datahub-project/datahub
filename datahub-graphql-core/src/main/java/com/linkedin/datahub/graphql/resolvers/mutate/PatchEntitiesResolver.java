@@ -11,6 +11,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.PatchEntityInput;
 import com.linkedin.datahub.graphql.generated.PatchEntityResult;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.PatchResolverUtils;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.GenericAspect;
+import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -82,7 +84,7 @@ public class PatchEntitiesResolver
     final Authentication authentication = context.getAuthentication();
     log.info("Processing batch patch for {} entities", inputs.size());
 
-    // Resolve URNs for all inputs (either provided or auto-generated)
+    // Resolve URNs for all inputs
     final List<Urn> entityUrns = new ArrayList<>();
     for (int i = 0; i < inputs.size(); i++) {
       PatchEntityInput input = inputs.get(i);
@@ -102,7 +104,7 @@ public class PatchEntitiesResolver
       PatchEntityInput input = inputs.get(i);
 
       if (!isAuthorized(input, context)) {
-        throw new com.linkedin.datahub.graphql.exception.AuthorizationException(
+        throw new AuthorizationException(
             authentication.getActor().toUrnStr()
                 + " is unauthorized to update entity "
                 + input.getUrn());
@@ -110,7 +112,7 @@ public class PatchEntitiesResolver
     }
 
     // Create batch of MetadataChangeProposals
-    final List<com.linkedin.mxe.MetadataChangeProposal> mcps = new ArrayList<>();
+    final List<MetadataChangeProposal> mcps = new ArrayList<>();
 
     for (int i = 0; i < inputs.size(); i++) {
       final PatchEntityInput input = inputs.get(i);
@@ -139,7 +141,7 @@ public class PatchEntitiesResolver
                 context);
 
         // Create MetadataChangeProposal
-        final com.linkedin.mxe.MetadataChangeProposal mcp =
+        final MetadataChangeProposal mcp =
             PatchResolverUtils.createMetadataChangeProposal(
                 entityUrn,
                 input.getAspectName(),
@@ -185,7 +187,6 @@ public class PatchEntitiesResolver
       PatchResolverUtils.validateNameForEntityType(input.getEntityType(), entityName);
 
       // Since we used batch processing, all entities succeeded if we reached this point
-      // Use resolved URN instead of input URN (which may be null for auto-generated)
       patchResults.add(new PatchEntityResult(resolvedUrn.toString(), entityName, true, null));
     }
 
@@ -203,7 +204,7 @@ public class PatchEntitiesResolver
     return AuthorizationUtils.isAuthorized(
         context,
         input.getEntityType(),
-        input.getUrn() != null ? input.getUrn() : "urn:li:" + input.getEntityType() + ":new",
+        input.getUrn(),
         orPrivilegeGroups);
   }
 }

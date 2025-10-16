@@ -63,7 +63,7 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
   private PatchEntityResult patchEntity(
       @Nonnull PatchEntityInput input, @Nonnull QueryContext context) throws Exception {
 
-    // Handle URN resolution - either provided or auto-generated
+    // Handle URN resolution
     final Urn entityUrn =
         PatchResolverUtils.resolveEntityUrn(input.getUrn(), input.getEntityType());
     final Authentication authentication = context.getAuthentication();
@@ -93,7 +93,7 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
             input.getPatch(), input.getArrayPrimaryKeys(), input.getForceGenericPatch(), context);
 
     // Create MetadataChangeProposal
-    final com.linkedin.mxe.MetadataChangeProposal mcp =
+    final MetadataChangeProposal mcp =
         PatchResolverUtils.createMetadataChangeProposal(
             entityUrn,
             input.getAspectName(),
@@ -153,7 +153,7 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
     return AuthorizationUtils.isAuthorized(
         context,
         entityType,
-        input.getUrn() != null ? input.getUrn() : "urn:li:" + entityType + ":new",
+        input.getUrn(),
         orPrivilegeGroups);
   }
 }

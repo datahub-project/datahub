@@ -22,8 +22,6 @@ import jakarta.json.JsonPatchBuilder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -32,20 +30,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class PatchResolverUtils {
 
-  // Entity types that support auto-generated URNs (simple string URNs)
-  public static final Set<String> AUTO_GENERATE_ALLOWED_ENTITY_TYPES =
-      Set.of(
-          "glossaryTerm",
-          "glossaryNode",
-          "container",
-          "notebook",
-          "domain",
-          "dataProduct",
-          "ownershipType");
-
   /**
-   * Resolves entity URN from input - either provided URN or auto-generated for supported entity
-   * types
+   * Resolves entity URN from input - requires a valid URN to be provided
    */
   @Nonnull
   public static Urn resolveEntityUrn(@Nonnull String urn, @Nullable String entityType)
@@ -53,29 +39,10 @@ public class PatchResolverUtils {
     if (urn != null && !urn.isEmpty()) {
       // Use provided URN
       return UrnUtils.getUrn(urn);
-    } else if (entityType != null && !entityType.isEmpty()) {
-      // Auto-generate URN for the specified entity type
-
-      // Only allow auto-generation for safe entity types
-      if (!AUTO_GENERATE_ALLOWED_ENTITY_TYPES.contains(entityType)) {
-        throw new IllegalArgumentException(
-            "Auto-generated URNs are only supported for entity types: "
-                + AUTO_GENERATE_ALLOWED_ENTITY_TYPES
-                + ". Entity type '"
-                + entityType
-                + "' requires a structured URN. "
-                + "Please provide a specific URN for this entity type.");
-      }
-
-      // Generate GUID for the entity
-      String guid = UUID.randomUUID().toString();
-      String newUrn = String.format("urn:li:%s:%s", entityType, guid);
-
-      return UrnUtils.getUrn(newUrn);
     } else {
       throw new IllegalArgumentException(
-          "Either 'urn' or 'entityType' must be provided. "
-              + "Use 'urn' for existing entities or 'entityType' to auto-generate a URN for new entities.");
+          "URN must be provided for patch operations. "
+              + "Please provide a valid URN for the entity you want to patch.");
     }
   }
 

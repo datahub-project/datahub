@@ -110,55 +110,6 @@ public class PatchEntityResolverTest {
   }
 
   @Test
-  public void testPatchEntityAutoGenerateUrn() throws Exception {
-    // Arrange - test auto-generation by not providing URN but providing entityType
-    PatchEntityInput input = new PatchEntityInput();
-    input.setUrn(null); // No URN provided
-    input.setEntityType("glossaryTerm"); // But entityType is provided
-    input.setAspectName("glossaryTermInfo");
-    input.setPatch(
-        List.of(createPatchOperation(PatchOperationType.REPLACE, "/name", "\"Updated Name\"")));
-
-    when(_environment.getArgument("input")).thenReturn(input);
-
-    IngestResult mockResult = mock(IngestResult.class);
-    when(_entityService.ingestProposal(any(), any(), any(), eq(false))).thenReturn(mockResult);
-
-    // Mock entity registry
-    com.linkedin.metadata.models.EntitySpec mockEntitySpec =
-        mock(com.linkedin.metadata.models.EntitySpec.class);
-    AspectSpec mockAspectSpec = mock(AspectSpec.class);
-    when(_entityRegistry.getEntitySpec("glossaryTerm")).thenReturn(mockEntitySpec);
-    when(mockEntitySpec.getAspectSpec("glossaryTermInfo")).thenReturn(mockAspectSpec);
-
-    // Mock authorization result
-    AuthorizationResult mockAuthResult = mock(AuthorizationResult.class);
-    when(mockAuthResult.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    when(_operationContext.authorize(any(), any(), any())).thenReturn(mockAuthResult);
-
-    // Act
-    CompletableFuture<PatchEntityResult> future = _resolver.get(_environment);
-    PatchEntityResult result = future.get();
-
-    // Debug output
-    System.out.println("Auto-generated URN test - Result: " + result);
-    System.out.println("Auto-generated URN test - Success: " + result.getSuccess());
-    System.out.println("Auto-generated URN test - Error: " + result.getError());
-    System.out.println("Auto-generated URN test - Generated URN: " + result.getUrn());
-
-    // Assert
-    assertNotNull(result);
-    assertTrue(result.getUrn().startsWith("urn:li:glossaryTerm:")); // Should be auto-generated
-    assertTrue(
-        result.getSuccess(),
-        "Expected success=true but got success="
-            + result.getSuccess()
-            + ", error="
-            + result.getError());
-    assertNull(result.getError());
-  }
-
-  @Test
   public void testPatchEntityFailure() throws Exception {
     // Arrange
     PatchEntityInput input = new PatchEntityInput();
