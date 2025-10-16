@@ -28,7 +28,7 @@ def test_create_native_user_success(mock_test_connection):
         mock_session_post.return_value = mock_response
 
         user_urn = graph.create_native_user(
-            email=email, display_name=display_name, password=password
+            user_id=email, email=email, display_name=display_name, password=password
         )
 
         assert user_urn == f"urn:li:corpuser:{email}"
@@ -66,7 +66,11 @@ def test_create_native_user_with_role(mock_test_connection):
         mock_session_post.return_value = mock_response
 
         user_urn = graph.create_native_user(
-            email=email, display_name=display_name, password=password, role=role
+            user_id=email,
+            email=email,
+            display_name=display_name,
+            password=password,
+            role=role,
         )
 
         assert user_urn == f"urn:li:corpuser:{email}"
@@ -114,6 +118,7 @@ def test_create_native_user_role_normalization(mock_test_connection):
             mock_session_post.return_value = mock_response
 
             graph.create_native_user(
+                user_id=email,
                 email=email,
                 display_name=display_name,
                 password=password,
@@ -151,6 +156,7 @@ def test_create_native_user_invalid_role(mock_test_connection):
 
         with pytest.raises(ValueError, match="Invalid role"):
             graph.create_native_user(
+                user_id=email,
                 email=email,
                 display_name=display_name,
                 password=password,
@@ -172,7 +178,7 @@ def test_create_native_user_no_invite_token(mock_test_connection):
 
         with pytest.raises(OperationalError, match="invite token"):
             graph.create_native_user(
-                email=email, display_name=display_name, password=password
+                user_id=email, email=email, display_name=display_name, password=password
             )
 
 
@@ -196,7 +202,7 @@ def test_create_native_user_signup_failure(mock_test_connection):
 
         with pytest.raises(OperationalError, match="Failed to create user"):
             graph.create_native_user(
-                email=email, display_name=display_name, password=password
+                user_id=email, email=email, display_name=display_name, password=password
             )
 
 
@@ -225,7 +231,11 @@ def test_create_native_user_role_assignment_failure(mock_test_connection):
         mock_session_post.return_value = mock_response
 
         user_urn = graph.create_native_user(
-            email=email, display_name=display_name, password=password, role=role
+            user_id=email,
+            email=email,
+            display_name=display_name,
+            password=password,
+            role=role,
         )
 
         assert user_urn == f"urn:li:corpuser:{email}"

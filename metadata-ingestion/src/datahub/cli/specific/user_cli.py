@@ -8,7 +8,7 @@ from click_default_group import DefaultGroup
 from datahub.api.entities.corpuser.corpuser import CorpUser, CorpUserGenerationConfig
 from datahub.cli.specific.file_loader import load_file
 from datahub.configuration.common import OperationalError
-from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.upgrade import upgrade
 
@@ -79,11 +79,15 @@ def validate_user_id_options(user_id: str | None, email_as_id: bool, email: str)
     if user_id and email_as_id:
         raise ValueError("Cannot specify both --id and --email-as-id flag")
 
-    return email if email_as_id else user_id
+    if email_as_id:
+        return email
+
+    assert user_id is not None
+    return user_id
 
 
 def create_native_user_in_datahub(
-    graph,
+    graph: DataHubGraph,
     user_id: str,
     email: str,
     display_name: str,
