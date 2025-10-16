@@ -105,7 +105,7 @@ type DataHubFileInfo {
   """
   The scenario/context in which this file was uploaded
   """
-  scenario: FileUploadScenario!
+  scenario: UploadDownloadScenario!
 
   """
   Optional entity this file is associated with
@@ -131,16 +131,6 @@ type DataHubFileInfo {
   Audit stamp for when and by whom this file was created
   """
   created: ResolvedAuditStamp!
-}
-
-"""
-The scenario/context in which a file was uploaded
-"""
-enum FileUploadScenario {
-  """
-  File uploaded for entity documentation
-  """
-  DOCUMENTATION
 }
 
 """
@@ -175,7 +165,7 @@ input CreateDataHubFileInput {
   """
   The scenario/context in which this file was uploaded
   """
-  scenario: FileUploadScenario!
+  scenario: UploadDownloadScenario!
 
   """
   Optional URN of the entity this file is associated with
