@@ -21,6 +21,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./gradlew :metadata-ingestion:lintFix       # Python linting auto-fix (ruff only)
 ```
 
+If you are using git worktrees then exclude this as that might cause git related failures when running any gradle command.
+
+```
+./gradlew ... -x generateGitPropertiesGlobal
+```
+
+**IMPORTANT: Verifying Python code changes:**
+
+- **ALWAYS use `./gradlew :metadata-ingestion:lintFix`** to verify Python code changes
+- **NEVER use `python3 -m py_compile`** - it doesn't catch style issues or type errors
+- lintFix runs ruff formatting and fixing automatically, ensuring code quality
+- For smoke-test changes, the lintFix command will also check those files
+
 **Development setup:**
 
 ```bash
