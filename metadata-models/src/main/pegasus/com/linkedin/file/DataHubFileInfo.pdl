@@ -49,7 +49,7 @@ record DataHubFileInfo {
     /**
      * File uploaded for entity documentation
      */
-    DOCUMENTATION
+    ASSET_DOCUMENTATION
   }
 
   /**
