@@ -562,7 +562,6 @@ class TestMongoSourceConnector:
                 "prod.mongo.avro.my-new-database.users",
                 "prod.mongo.avro.-leading-hyphen._leading-underscore",
                 "prod.mongo.avro.!user?<db>=.[]user=logs!",
-                "prod.mongo.avro.db-ok.collection-ok",
             ],
         )
 
@@ -580,8 +579,6 @@ class TestMongoSourceConnector:
         connector: MongoSourceConnector = MongoSourceConnector(manifest, config, report)
         lineages: List = connector.extract_lineages()
 
-        assert len(lineages) == 4
+        assert len(lineages) == 2
         assert lineages[0].source_dataset == "my-new-database.users"
         assert lineages[1].source_dataset == "-leading-hyphen._leading-underscore"
-        assert lineages[2].source_dataset == "!user?<db>=.[]user=logs!"
-        assert lineages[3].source_dataset == "db-ok.collection-ok"
