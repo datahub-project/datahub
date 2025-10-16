@@ -46,7 +46,7 @@ echo "TEST_STRATEGY: $TEST_STRATEGY, BATCH_COUNT: $BATCH_COUNT, BATCH_NUMBER: $B
 # increase, the batch_count config (in docker-unified.yml) may need adjustment.
 if [[ "${TEST_STRATEGY}" == "pytests" ]]; then
   #pytests only - github test matrix runs pytests in one of the runners when applicable.
-  pytest -rP --durations=20 -vv --continue-on-collection-errors --reruns 1 --reruns-delay 5 --junit-xml=junit.smoke-pytests.xml -k 'not test_run_cypress'
+  pytest -rP --durations=20 -vv --continue-on-collection-errors --reruns 1 --reruns-delay 1 --junit-xml=junit.smoke-pytests.xml -k 'not test_run_cypress'
 elif [[ "${TEST_STRATEGY}" == "cypress" ]]; then
   # run only cypress tests. The test inspects BATCH_COUNT and BATCH_NUMBER and runs only a subset of tests in that batch.
   # github workflow test matrix will invoke this in multiple runners for each batch.
