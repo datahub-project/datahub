@@ -216,7 +216,7 @@ describe("summary tab", () => {
     utils.deleteOpenedGlossaryNode();
   });
 
-  it.only("data product", () => {
+  it("data product", () => {
     const testId = getTestId();
     const domainName = `Testing`;
     const dataProductName = `dp_${testId}`;
