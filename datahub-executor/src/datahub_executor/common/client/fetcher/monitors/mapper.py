@@ -138,7 +138,7 @@ def generate_assertion_tasks(monitor: Monitor) -> List[ExecutionRequestSchedule]
             name=RUN_ASSERTION_TASK_NAME,
             args={
                 "urn": monitor.urn,
-                "assertion_spec": assertion_spec.model_dump(mode="json"),
+                "assertion_spec": assertion_spec.model_dump(by_alias=True),
                 "context": context.__dict__,
             },
         )
@@ -187,7 +187,7 @@ def generate_training_tasks(raw_monitor: Monitor) -> List[ExecutionRequestSchedu
                 name=RUN_MONITOR_TRAINING_TASK_NAME,
                 args={
                     "urn": monitor.urn,
-                    "monitor": monitor.model_dump(mode="json"),
+                    "monitor": monitor.model_dump(by_alias=True),
                     "context": context.__dict__,
                 },
             )

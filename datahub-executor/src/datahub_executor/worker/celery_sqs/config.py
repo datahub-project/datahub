@@ -1,7 +1,6 @@
 import io
 import logging
 import pickle
-import re
 import types
 from typing import Any, Dict, List
 
@@ -21,104 +20,32 @@ from datahub_executor.config import (
 
 logger = logging.getLogger(__name__)
 
-_SCHEMA_RE = re.compile(r"schema_classes")
-
 
 class SchemaPickler(pickle._Pickler):
-    """
-    Custom pickler for DataHub executor that provides Pydantic v2 to v1 backwards compatibility.
-
-    This pickler ensures that Pydantic v2 models can be correctly deserialized by systems
-    expecting Pydantic v1 model state format. This is essential for coordinator-worker
-    communication where different environments may have different Pydantic versions.
-
-    Key compatibility features:
-    - Translates Pydantic v2 model state to v1 format during pickling
-    - Handles field alias mapping from v2 to v1 naming conventions
-    - Converts private attributes (__pydantic_private__ -> __private_attribute_values__)
-    - Translates fields_set tracking (__pydantic_fields_set__ -> __fields_set__)
-    - Provides module name translation for acryl_datahub_cloud -> datahub
-
-    Environment Variables:
-    - DATAHUB_EXECUTOR_PICKLE_COMPAT_MODE: Enable/disable compatibility mode
-      * "True" or "1": Enable compatibility translation (default for mixed environments)
-      * "False" or "0": Disable compatibility (for homogeneous v2 environments)
-
-    Supported Models:
-    - ExecutionRequest: Primary model for Celery task communication
-    - MetadataChangeLogClass: Used for ingestion tasks
-    - Any Pydantic v2 model with __pydantic_fields_set__ attribute
-
-    Usage:
-    The pickler is automatically used by Celery for task serialization when configured
-    with the 'pickle_custom' serializer. No manual instantiation required.
-    """
-
-    def save(self, obj, save_persistent_id=True):
+    def save(self, obj: Any, save_persistent_id: bool = True) -> None:
         getstate = getattr(obj, "__getstate__", None)
-        original_getstate = getstate
         try:
-            if DATAHUB_EXECUTOR_PICKLE_COMPAT_MODE and self._is_pydantic_v2_model(obj):
-                # Translate v2 state to v1 for backward compatibility
-                # Capture reference to pickler instance
-                self_ref = self
-
-                def __getstate__(self):
-                    try:
-                        # Get original state first
-                        _state = (
-                            original_getstate()
-                            if original_getstate is not None
-                            else {
-                                "__dict__": obj.__dict__.copy(),
-                                "__pydantic_fields_set__": getattr(
-                                    obj, "__pydantic_fields_set__", set()
-                                ),
-                                "__pydantic_extra__": getattr(
-                                    obj, "__pydantic_extra__", None
-                                ),
-                                "__pydantic_private__": getattr(
-                                    obj, "__pydantic_private__", None
-                                ),
-                            }
+            if DATAHUB_EXECUTOR_PICKLE_COMPAT_MODE:
+                if self._is_pydantic_v2_model(obj) and getstate is not None:
+                    # Translate v2 state to v1
+                    def __getstate__(self):
+                        _state = getstate()
+                        _state["__private_attribute_values__"] = (
+                            _state.get("__pydantic_private__", {}) or {}
                         )
-
-                        return self_ref._translate_pydantic_v2_to_v1_state(_state, obj)
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to translate Pydantic v2 to v1 state for {type(obj).__name__}: {e}"
+                        _state["__fields_set__"] = (
+                            _state.get("__pydantic_fields_set__", set()) or set()
                         )
-                        # Fallback to original getstate or default behavior
-                        return (
-                            original_getstate()
-                            if original_getstate is not None
-                            else obj.__dict__.copy()
-                        )
+                        return _state
 
-                # Patch getstate temporarily on the instance
-                obj.__getstate__ = types.MethodType(__getstate__, obj)
-
-            return super().save(obj, save_persistent_id=save_persistent_id)  # type: ignore[misc]
-        except Exception as e:
-            logger.error(f"Error in SchemaPickler.save for {type(obj).__name__}: {e}")
-            raise
+                    # Patch getstate
+                    type(obj).__getstate__ = types.MethodType(__getstate__, obj)
+            return super().save(obj, save_persistent_id=save_persistent_id)  # type: ignore
         finally:
-            # Always restore original getstate on the instance
-            if original_getstate is not None:
-                obj.__getstate__ = original_getstate
-            elif hasattr(obj, "__getstate__"):
-                # Remove the patched method if we added it
-                delattr(obj, "__getstate__")
+            if getstate is not None:
+                type(obj).__getstate__ = getstate
 
     def _is_pydantic_v2_model(self, obj) -> bool:
-        """
-        Check if object is a Pydantic v2 model.
-
-        Pydantic v2 models are identified by the presence of:
-        - __pydantic_fields_set__: Set of fields that have been explicitly set
-        - model_dump: Method for serializing model data
-        - model_fields: Class attribute containing field definitions
-        """
         return (
             hasattr(obj, "__pydantic_fields_set__")
             and hasattr(obj, "model_dump")
@@ -126,74 +53,16 @@ class SchemaPickler(pickle._Pickler):
             and hasattr(obj, "model_fields")
         )
 
-    def _translate_pydantic_v2_to_v1_state(
-        self, state: Dict[str, Any], obj
-    ) -> Dict[str, Any]:
-        """
-        Translate Pydantic v2 model state to v1 format.
-
-        This method performs the following translations:
-        1. Field alias mapping: Maps v2 field names to their v1 aliases if defined
-        2. Private attributes: __pydantic_private__ -> __private_attribute_values__
-        3. Fields set tracking: __pydantic_fields_set__ -> __fields_set__
-        4. Cleanup: Removes v2-only attributes that don't exist in v1
-
-        Args:
-            state: The Pydantic v2 model state dictionary
-            obj: The original Pydantic v2 model object
-
-        Returns:
-            Dict containing the translated state compatible with Pydantic v1
-        """
-        # Create alias mapping for field names
-        alias_map = {}
-        if hasattr(obj, "model_fields"):
-            try:
-                alias_map = {
-                    name: field.alias
-                    for name, field in obj.model_fields.items()
-                    if hasattr(field, "alias") and field.alias and field.alias != name
-                }
-            except Exception as e:
-                logger.debug(f"Could not build alias map for {type(obj).__name__}: {e}")
-
-        # Apply field name remapping if we have aliases and __dict__
-        if alias_map and "__dict__" in state and isinstance(state["__dict__"], dict):
-            state["__dict__"] = {
-                alias_map.get(k, k): v for k, v in state["__dict__"].items()
-            }
-
-        # Translate v2 private attributes to v1 format
-        if "__pydantic_private__" in state:
-            pv = state.pop("__pydantic_private__")
-            state["__private_attribute_values__"] = pv if pv is not None else {}
-
-        # Translate v2 fields_set to v1 format
-        if "__pydantic_fields_set__" in state:
-            fields = state.pop("__pydantic_fields_set__")
-            if isinstance(fields, set):
-                # Apply alias mapping to field names in fields_set
-                state["__fields_set__"] = {
-                    alias_map.get(field, field) for field in fields
-                }
-            else:
-                state["__fields_set__"] = set()
-
-        # Remove v2-specific attributes that don't exist in v1
-        state.pop("__pydantic_extra__", None)
-
-        return state
-
     def save_global(self, obj, name=None):
-        module = getattr(obj, "__module__", None)
-        original_module = module
+        original_module = getattr(obj, "__module__", None)
         try:
-            if DATAHUB_EXECUTOR_PICKLE_COMPAT_MODE and module is not None:
+            if DATAHUB_EXECUTOR_PICKLE_COMPAT_MODE and original_module is not None:
                 # Module name translation for compatibility
-                new_module = module.replace("acryl_datahub_cloud", "datahub")
-                if new_module != module:
-                    obj.__module__ = new_module
-                    logger.debug(f"Translated module name: {module} -> {new_module}")
+                new_module = original_module.replace("acryl_datahub_cloud", "datahub")
+                obj.__module__ = new_module
+                logger.debug(
+                    f"Translated module name: {original_module} -> {new_module}"
+                )
             return super().save_global(obj, name=name)  # type: ignore[misc]
         except Exception as e:
             logger.error(f"Error in SchemaPickler.save_global for {obj}: {e}")
