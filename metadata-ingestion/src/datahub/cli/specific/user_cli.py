@@ -1,6 +1,7 @@
 import logging
 import pathlib
 from pathlib import Path
+from typing import Optional
 
 import click
 from click_default_group import DefaultGroup
@@ -58,7 +59,9 @@ def upsert(file: Path, override_editable: bool) -> None:
                 )
 
 
-def validate_user_id_options(user_id: str | None, email_as_id: bool, email: str) -> str:
+def validate_user_id_options(
+    user_id: Optional[str], email_as_id: bool, email: str
+) -> str:
     """
     Validate user ID options and return the final user ID to use.
 
@@ -92,7 +95,7 @@ def create_native_user_in_datahub(
     email: str,
     display_name: str,
     password: str,
-    role: str | None = None,
+    role: Optional[str] = None,
 ) -> str:
     """
     Create a native DataHub user.
