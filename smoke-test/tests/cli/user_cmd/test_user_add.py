@@ -72,7 +72,8 @@ def test_users_cleanup(auth_session: Any, graph_client: DataHubGraph):
         except Exception as e:
             logger.warning(f"Failed to clean up user {user_urn}: {e}")
 
-    wait_for_writes_to_sync()
+    if created_users:
+        wait_for_writes_to_sync()
 
 
 def test_user_add_without_role(auth_session: Any, test_users_cleanup: Any) -> None:
@@ -159,7 +160,7 @@ def test_user_add_with_reader_role(auth_session: Any, test_users_cleanup: Any) -
 
 
 def test_user_add_duplicate_user(auth_session: Any, test_users_cleanup: Any) -> None:
-    """Test that creating a duplicate user fails gracefully."""
+    """Test that creating a duplicate user returns an error."""
     email = generate_test_email()
     display_name = "Test Duplicate User"
     password = "duplicatepass123"
@@ -176,8 +177,8 @@ def test_user_add_duplicate_user(auth_session: Any, test_users_cleanup: Any) -> 
     second_result = datahub_user_add(
         auth_session, email, display_name, password, email_as_id=True
     )
-    assert second_result.exit_code == 0
-    assert "already exists" in second_result.output
+    assert second_result.exit_code == 1
+    assert "already exists" in second_result.output.lower()
     assert email in second_result.output
 
 

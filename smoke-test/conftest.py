@@ -19,6 +19,8 @@ from tests.utils import (
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
+# Suppress logging manager to prevent I/O errors during pytest teardown
+os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
 
 
 def build_auth_session():
