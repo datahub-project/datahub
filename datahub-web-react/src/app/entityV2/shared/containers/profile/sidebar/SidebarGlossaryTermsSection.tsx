@@ -65,6 +65,7 @@ export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
                             setAddModalType(EntityType.GlossaryTerm);
                             event.stopPropagation();
                         }}
+                        dataTestId="add-terms-button"
                     />
                 }
             />

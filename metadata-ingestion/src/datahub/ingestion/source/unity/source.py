@@ -214,6 +214,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             report=self.report,
             hive_metastore_proxy=self.hive_metastore_proxy,
             lineage_data_source=config.lineage_data_source,
+            usage_data_source=config.usage_data_source,
             databricks_api_page_size=config.databricks_api_page_size,
         )
 

@@ -3,6 +3,13 @@ from typing import Any, Dict
 import pytest
 
 from conftest import _ingest_cleanup_data_impl
+from tests.utilities.metadata_operations import (
+    add_tag,
+    add_term,
+    remove_tag,
+    remove_term,
+    update_description,
+)
 from tests.utils import execute_graphql
 
 
@@ -38,18 +45,7 @@ def test_add_tag(auth_session):
     res_data = execute_graphql(auth_session, dataset_query, dataset_variables)
     assert res_data["data"]["dataset"]["globalTags"] is None
 
-    add_query = """mutation addTag($input: TagAssociationInput!) {
-            addTag(input: $input)
-        }"""
-    add_variables: Dict[str, Any] = {
-        "input": {
-            "tagUrn": "urn:li:tag:Legacy",
-            "resourceUrn": dataset_urn,
-        }
-    }
-
-    res_data = execute_graphql(auth_session, add_query, add_variables)
-    assert res_data["data"]["addTag"] is True
+    assert add_tag(auth_session, dataset_urn, "urn:li:tag:Legacy")
 
     # Refetch the dataset
     res_data = execute_graphql(auth_session, dataset_query, dataset_variables)
@@ -65,19 +61,7 @@ def test_add_tag(auth_session):
         ]
     }
 
-    remove_query = """mutation removeTag($input: TagAssociationInput!) {
-            removeTag(input: $input)
-        }"""
-    remove_variables: Dict[str, Any] = {
-        "input": {
-            "tagUrn": "urn:li:tag:Legacy",
-            "resourceUrn": dataset_urn,
-        }
-    }
-
-    res_data = execute_graphql(auth_session, remove_query, remove_variables)
-    print(res_data)
-    assert res_data["data"]["removeTag"] is True
+    assert remove_tag(auth_session, dataset_urn, "urn:li:tag:Legacy")
 
     # Refetch the dataset
     res_data = execute_graphql(auth_session, dataset_query, dataset_variables)
@@ -106,17 +90,7 @@ def test_add_tag_to_chart(auth_session):
     res_data = execute_graphql(auth_session, chart_query, chart_variables)
     assert res_data["data"]["chart"]["globalTags"] is None
 
-    add_mutation = """mutation addTag($input: TagAssociationInput!) {
-        addTag(input: $input)
-    }"""
-    add_variables: Dict[str, Any] = {
-        "input": {
-            "tagUrn": "urn:li:tag:Legacy",
-            "resourceUrn": chart_urn,
-        }
-    }
-    res_data = execute_graphql(auth_session, add_mutation, add_variables)
-    assert res_data["data"]["addTag"] is True
+    assert add_tag(auth_session, chart_urn, "urn:li:tag:Legacy")
 
     # Refetch the chart
     res_data = execute_graphql(auth_session, chart_query, chart_variables)
@@ -132,17 +106,7 @@ def test_add_tag_to_chart(auth_session):
         ]
     }
 
-    remove_mutation = """mutation removeTag($input: TagAssociationInput!) {
-        removeTag(input: $input)
-    }"""
-    remove_variables: Dict[str, Any] = {
-        "input": {
-            "tagUrn": "urn:li:tag:Legacy",
-            "resourceUrn": chart_urn,
-        }
-    }
-    res_data = execute_graphql(auth_session, remove_mutation, remove_variables)
-    assert res_data["data"]["removeTag"] is True
+    assert remove_tag(auth_session, chart_urn, "urn:li:tag:Legacy")
 
     # Refetch the chart
     res_data = execute_graphql(auth_session, chart_query, chart_variables)
@@ -173,18 +137,7 @@ def test_add_term(auth_session):
     res_data = execute_graphql(auth_session, dataset_query, dataset_variables)
     assert res_data["data"]["dataset"]["glossaryTerms"] is None
 
-    add_mutation = """mutation addTerm($input: TermAssociationInput!) {
-        addTerm(input: $input)
-    }"""
-    add_variables: Dict[str, Any] = {
-        "input": {
-            "termUrn": "urn:li:glossaryTerm:SavingAccount",
-            "resourceUrn": dataset_urn,
-        }
-    }
-    res_data = execute_graphql(auth_session, add_mutation, add_variables)
-    print(res_data)
-    assert res_data["data"]["addTerm"] is True
+    assert add_term(auth_session, dataset_urn, "urn:li:glossaryTerm:SavingAccount")
 
     # Refetch the dataset
     res_data = execute_graphql(auth_session, dataset_query, dataset_variables)
@@ -199,18 +152,7 @@ def test_add_term(auth_session):
         ]
     }
 
-    remove_mutation = """mutation removeTerm($input: TermAssociationInput!) {
-        removeTerm(input: $input)
-    }"""
-    remove_variables: Dict[str, Any] = {
-        "input": {
-            "termUrn": "urn:li:glossaryTerm:SavingAccount",
-            "resourceUrn": dataset_urn,
-        }
-    }
-    res_data = execute_graphql(auth_session, remove_mutation, remove_variables)
-    print(res_data)
-    assert res_data["data"]["removeTerm"] is True
+    assert remove_term(auth_session, dataset_urn, "urn:li:glossaryTerm:SavingAccount")
 
     # Refetch the dataset
     res_data = execute_graphql(auth_session, dataset_query, dataset_variables)
@@ -301,19 +243,13 @@ def test_update_schemafield(auth_session):
     res_data = execute_graphql(auth_session, query_tags, variables_tags)
     assert res_data["data"]["dataset"]["editableSchemaMetadata"] is None
 
-    add_query = """mutation addTag($input: TagAssociationInput!) {\n
-            addTag(input: $input)
-        }"""
-    add_variables: Dict[str, Any] = {
-        "input": {
-            "tagUrn": "urn:li:tag:Legacy",
-            "resourceUrn": dataset_urn,
-            "subResource": "[version=2.0].[type=boolean].field_bar",
-            "subResourceType": "DATASET_FIELD",
-        }
-    }
-    res_data = execute_graphql(auth_session, add_query, add_variables)
-    assert res_data["data"]["addTag"] is True
+    assert add_tag(
+        auth_session,
+        dataset_urn,
+        "urn:li:tag:Legacy",
+        sub_resource="[version=2.0].[type=boolean].field_bar",
+        sub_resource_type="DATASET_FIELD",
+    )
 
     # Refetch the dataset schema
     res_data = execute_graphql(auth_session, query_tags, variables_tags)
@@ -335,20 +271,13 @@ def test_update_schemafield(auth_session):
         ]
     }
 
-    remove_query = """mutation removeTag($input: TagAssociationInput!) {\n
-            removeTag(input: $input)
-        }"""
-    remove_variables: Dict[str, Any] = {
-        "input": {
-            "tagUrn": "urn:li:tag:Legacy",
-            "resourceUrn": dataset_urn,
-            "subResource": "[version=2.0].[type=boolean].field_bar",
-            "subResourceType": "DATASET_FIELD",
-        }
-    }
-    res_data = execute_graphql(auth_session, remove_query, remove_variables)
-    print(res_data)
-    assert res_data["data"]["removeTag"] is True
+    assert remove_tag(
+        auth_session,
+        dataset_urn,
+        "urn:li:tag:Legacy",
+        sub_resource="[version=2.0].[type=boolean].field_bar",
+        sub_resource_type="DATASET_FIELD",
+    )
 
     # Refetch the dataset
     res_data = execute_graphql(auth_session, query_tags, variables_tags)
@@ -356,19 +285,13 @@ def test_update_schemafield(auth_session):
         "editableSchemaFieldInfo": [{"globalTags": {"tags": []}}]
     }
 
-    add_query = """mutation addTerm($input: TermAssociationInput!) {\n
-            addTerm(input: $input)
-        }"""
-    add_variables = {
-        "input": {
-            "termUrn": "urn:li:glossaryTerm:SavingAccount",
-            "resourceUrn": dataset_urn,
-            "subResource": "[version=2.0].[type=boolean].field_bar",
-            "subResourceType": "DATASET_FIELD",
-        }
-    }
-    res_data = execute_graphql(auth_session, add_query, add_variables)
-    assert res_data["data"]["addTerm"] is True
+    assert add_term(
+        auth_session,
+        dataset_urn,
+        "urn:li:glossaryTerm:SavingAccount",
+        sub_resource="[version=2.0].[type=boolean].field_bar",
+        sub_resource_type="DATASET_FIELD",
+    )
 
     # Refetch the dataset schema
     query_terms: str = dataset_schema_json_terms["query"]  # type: ignore
@@ -391,19 +314,13 @@ def test_update_schemafield(auth_session):
         ]
     }
 
-    remove_query = """mutation removeTerm($input: TermAssociationInput!) {\n
-            removeTerm(input: $input)
-        }"""
-    remove_variables = {
-        "input": {
-            "termUrn": "urn:li:glossaryTerm:SavingAccount",
-            "resourceUrn": dataset_urn,
-            "subResource": "[version=2.0].[type=boolean].field_bar",
-            "subResourceType": "DATASET_FIELD",
-        }
-    }
-    res_data = execute_graphql(auth_session, remove_query, remove_variables)
-    assert res_data["data"]["removeTerm"] is True
+    assert remove_term(
+        auth_session,
+        dataset_urn,
+        "urn:li:glossaryTerm:SavingAccount",
+        sub_resource="[version=2.0].[type=boolean].field_bar",
+        sub_resource_type="DATASET_FIELD",
+    )
 
     # Refetch the dataset
     res_data = execute_graphql(auth_session, query_terms, variables_terms)
@@ -414,20 +331,6 @@ def test_update_schemafield(auth_session):
     # dataset schema tags
     res_data = execute_graphql(auth_session, query_tags, variables_tags)
 
-    update_description_json = {
-        "query": """mutation updateDescription($input: DescriptionUpdateInput!) {\n
-            updateDescription(input: $input)
-        }""",
-        "variables": {
-            "input": {
-                "description": "new description",
-                "resourceUrn": dataset_urn,
-                "subResource": "[version=2.0].[type=boolean].field_bar",
-                "subResourceType": "DATASET_FIELD",
-            }
-        },
-    }
-
     # fetch no description
     query_description: str = dataset_schema_json_description["query"]  # type: ignore
     variables_description: Dict[str, Any] = dataset_schema_json_description["variables"]  # type: ignore
@@ -436,10 +339,13 @@ def test_update_schemafield(auth_session):
         "editableSchemaFieldInfo": [{"description": None}]
     }
 
-    update_query: str = update_description_json["query"]  # type: ignore
-    update_variables: Dict[str, Any] = update_description_json["variables"]  # type: ignore
-    res_data = execute_graphql(auth_session, update_query, update_variables)
-    assert res_data["data"]["updateDescription"] is True
+    assert update_description(
+        auth_session,
+        dataset_urn,
+        "new description",
+        sub_resource="[version=2.0].[type=boolean].field_bar",
+        sub_resource_type="DATASET_FIELD",
+    )
 
     # Refetch the dataset
     res_data = execute_graphql(auth_session, query_description, variables_description)
