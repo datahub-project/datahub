@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -19,6 +20,10 @@ from tests.consistency_utils import wait_for_writes_to_sync
 
 TIME: int = 1581407189000
 logger = logging.getLogger(__name__)
+
+
+def sync_elastic() -> None:
+    wait_for_writes_to_sync()
 
 
 def get_frontend_session():
@@ -43,16 +48,28 @@ def get_admin_credentials():
     )
 
 
+def get_base_path():
+    base_path = os.getenv("DATAHUB_BASE_PATH", "")
+    return "" if base_path == "/" else base_path
+
+
+def get_gms_base_path():
+    base_gms_path = os.getenv("DATAHUB_GMS_BASE_PATH", "")
+    return "" if base_gms_path == "/" else base_gms_path
+
+
 def get_root_urn():
     return "urn:li:corpuser:datahub"
 
 
 def get_gms_url():
-    return os.getenv("DATAHUB_GMS_URL") or "http://localhost:8080"
+    return os.getenv("DATAHUB_GMS_URL") or f"http://localhost:8080{get_gms_base_path()}"
 
 
 def get_frontend_url():
-    return os.getenv("DATAHUB_FRONTEND_URL") or "http://localhost:9002"
+    return (
+        os.getenv("DATAHUB_FRONTEND_URL") or f"http://localhost:9002{get_base_path()}"
+    )
 
 
 def get_kafka_broker_url():
@@ -61,25 +78,82 @@ def get_kafka_broker_url():
 
 def get_kafka_schema_registry():
     #  internal registry "http://localhost:8080/schema-registry/api/"
-    return os.getenv("DATAHUB_KAFKA_SCHEMA_REGISTRY_URL") or "http://localhost:8081"
+    return (
+        os.getenv("DATAHUB_KAFKA_SCHEMA_REGISTRY_URL")
+        or f"http://localhost:8080{get_gms_base_path()}/schema-registry/api"
+    )
 
 
-def get_mysql_url():
-    return os.getenv("DATAHUB_MYSQL_URL") or "localhost:3306"
+def get_db_type():
+    db_type = os.getenv("DB_TYPE")
+    if db_type:
+        return db_type
+    else:
+        # infer from profile
+        profile_name = os.getenv("PROFILE_NAME")
+        if profile_name and "postgres" in profile_name:
+            return "postgres"
+        else:
+            return "mysql"
 
 
-def get_mysql_username():
-    return os.getenv("DATAHUB_MYSQL_USERNAME") or "datahub"
+def get_db_url():
+    if get_db_type() == "mysql":
+        return os.getenv("DATAHUB_MYSQL_URL") or "localhost:3306"
+    else:
+        return os.getenv("DATAHUB_POSTGRES_URL") or "localhost:5432"
 
 
-def get_mysql_password():
-    return os.getenv("DATAHUB_MYSQL_PASSWORD") or "datahub"
+def get_db_username():
+    if get_db_type() == "mysql":
+        return os.getenv("DATAHUB_MYSQL_USERNAME") or "datahub"
+    else:
+        return os.getenv("DATAHUB_POSTGRES_USERNAME") or "datahub"
+
+
+def get_db_password():
+    if get_db_type() == "mysql":
+        return os.getenv("DATAHUB_MYSQL_PASSWORD") or "datahub"
+    else:
+        return os.getenv("DATAHUB_POSTGRES_PASSWORD") or "datahub"
 
 
 def get_sleep_info() -> Tuple[int, int]:
     return (
         int(os.getenv("DATAHUB_TEST_SLEEP_BETWEEN", 20)),
         int(os.getenv("DATAHUB_TEST_SLEEP_TIMES", 3)),
+    )
+
+
+def with_test_retry(
+    max_attempts: Optional[int] = None,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """
+    Decorator that retries with environment-based sleep settings from get_sleep_info().
+
+    Returns a configured tenacity.retry decorator using DATAHUB_TEST_SLEEP_BETWEEN
+    and DATAHUB_TEST_SLEEP_TIMES environment variables for eventual consistency.
+
+    Args:
+        max_attempts: Optional maximum number of retry attempts. If not provided,
+                     uses DATAHUB_TEST_SLEEP_TIMES environment variable (default 3).
+
+    Usage:
+        @with_test_retry()
+        def test_function():
+            # Function will retry with configured sleep settings
+            ...
+
+        @with_test_retry(max_attempts=10)
+        def test_with_more_retries():
+            # Function will retry up to 10 times
+            ...
+    """
+    sleep_sec, sleep_times = get_sleep_info()
+    retry_count = max_attempts if max_attempts is not None else sleep_times
+    return tenacity.retry(
+        stop=tenacity.stop_after_attempt(retry_count),
+        wait=tenacity.wait_fixed(sleep_sec),
     )
 
 
@@ -101,6 +175,54 @@ def check_endpoint(auth_session, url):
             return f"{url}: is Not reachable, status_code: {get.status_code}"
     except requests.exceptions.RequestException as e:
         raise SystemExit(f"{url}: is Not reachable \nErr: {e}")
+
+
+def delete_entity(auth_session, urn: str) -> None:
+    delete_json = {"urn": urn}
+    response = auth_session.post(
+        f"{auth_session.gms_url()}/entities?action=delete", json=delete_json
+    )
+
+    response.raise_for_status()
+
+
+def execute_graphql(
+    auth_session,
+    query: str,
+    variables: Optional[Dict[str, Any]] = None,
+    expect_errors: bool = False,
+) -> Dict[str, Any]:
+    """Execute a GraphQL query with standard error handling.
+
+    Args:
+        auth_session: Authenticated session for making requests
+        query: GraphQL query string
+        variables: Optional dictionary of GraphQL variables
+
+    Returns:
+        Response data dictionary
+
+    Example:
+        >>> query = "query getDataset($urn: String!) { dataset(urn: $urn) { name } }"
+        >>> variables = {"urn": "urn:li:dataset:(...)"}
+        >>> res_data = execute_graphql(auth_session, query, variables)
+        >>> dataset_name = res_data["data"]["dataset"]["name"]
+    """
+    json_payload: Dict[str, Any] = {"query": query}
+    if variables:
+        json_payload["variables"] = variables
+
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_payload
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data, "GraphQL response is empty"
+    assert res_data.get("data") is not None, "GraphQL response.data is None"
+    assert "errors" not in res_data, f"GraphQL errors: {res_data.get('errors')}"
+
+    return res_data
 
 
 def run_datahub_cmd(

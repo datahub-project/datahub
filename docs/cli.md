@@ -67,6 +67,7 @@ Commands:
   exists        A group of commands to check existence of entities in DataHub.
   forms         A group of commands to interact with forms in DataHub.
   get           A group of commands to get metadata from DataHub.
+  graphql       Execute GraphQL queries and mutations against DataHub.
   group         A group of commands to interact with the Group entity in DataHub.
   ingest        Ingest metadata into DataHub.
   init          Configure which datahub instance to connect to
@@ -87,6 +88,27 @@ We've ordered them roughly in the order we expect you to interact with these com
 ### docker
 
 The `docker` command allows you to start up a local DataHub instance using `datahub docker quickstart`. You can also check if the docker cluster is healthy using `datahub docker check`.
+
+### version
+
+The `version` command allows you to get version number of CLI that you are using.
+
+```console
+datahub version
+DataHub CLI version: 1.2.0.9
+Models: bundled
+Python version: 3.11.11 (main, Mar 17 2025, 21:33:08) [Clang 20.1.0 ]
+```
+
+You can pass `--include-server` flag to include server information too. This is helpful to share cli and server version at once for debugging purposes. This does require `datahub init` to be run before that so there is a server that CLI is able to connect to.
+
+```console
+datahub version --include-server
+DataHub CLI version: 1.2.0.9
+Models: bundled
+Python version: 3.11.11 (main, Mar 17 2025, 21:33:08) [Clang 20.1.0 ]
+Server config: {'models': {}, 'managedIngestion': {'defaultCliVersion': '1.2.0.9', 'enabled': True}, 'timeZone': 'GMT', 'datasetUrnNameCasing': False, 'datahub': {'serverEnv': 'cloud', 'serverType': 'prod'}, 'baseUrl': 'https://xyz.acryl.io', 'patchCapable': True, 'versions': {'acryldata/datahub': {'version': 'v0.3.14rc0', 'commit': '464d94926bb21a596f3d9d81164b272c74872ce7'}}, 'statefulIngestionCapable': True, 'remoteExecutorBackend': {'revision': 2}, 'supportsImpactAnalysis': True, 'telemetry': {'enabledCli': False, 'enabledMixpanel': False, 'enabledServer': True, 'enabledIngestion': True}, 'retention': 'true', 'noCode': 'true'}
+```
 
 ### ingest
 
@@ -332,6 +354,8 @@ Enter your DataHub host [http://localhost:8080]: https://<your-instance-id>.acry
 Enter your DataHub access token []: <token generated from https://<your-instance-id>.acryl.io/settings/tokens>
 ```
 
+You can pass `--use-password` flag to use user/password to generate the token automatically.
+
 #### Environment variables supported
 
 The environment variables listed below take precedence over the DataHub CLI config created through the `init` command.
@@ -471,6 +495,44 @@ $ datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,
   }
 }
 ```
+
+### graphql
+
+The `graphql` command allows you to execute GraphQL queries and mutations against DataHub's GraphQL API. This provides full access to DataHub's metadata through its native GraphQL interface.
+
+```shell
+# Execute a GraphQL query
+datahub graphql --query "query { me { username } }"
+
+# Use named operations from DataHub's schema
+datahub graphql --operation searchAcrossEntities --variables '{"input": {"query": "users"}}'
+
+# List available operations
+datahub graphql --list-operations
+
+# Get help for a specific operation
+datahub graphql --describe searchAcrossEntities
+
+# Explore types recursively
+datahub graphql --describe SearchInput --recurse
+
+# Load queries and variables from files
+datahub graphql --query ./search-tags.graphql --variables ./search-params.json
+
+# Get JSON output for LLM integration
+datahub graphql --list-operations --format json
+```
+
+The GraphQL command supports both raw GraphQL queries/mutations and operation-based execution using DataHub's introspected schema. It automatically detects whether `--query` and `--variables` arguments are file paths or literal content, enabling seamless use of both inline GraphQL and file-based queries.
+
+Key features:
+
+- **Schema discovery**: List and describe all available operations and types
+- **File support**: Load queries and variables from `.graphql` and `.json` files
+- **LLM-friendly output**: JSON format with complete type information
+- **Recursive exploration**: Deep-dive into complex GraphQL types
+
+➡️ [Learn more about the GraphQL command](./cli-commands/graphql.md)
 
 ### put
 

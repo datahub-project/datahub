@@ -34,6 +34,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapp
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
@@ -60,7 +61,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.common.lucene.search.function.CombineFunction;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -91,7 +91,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     this.metricUtils = metricUtils;
   }
 
-  protected abstract RestHighLevelClient getClient();
+  protected abstract SearchClientShim<?> getClient();
 
   protected abstract List<LineageRelationship> searchWithSlices(
       @Nonnull OperationContext opContext,
@@ -641,7 +641,6 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             ? ESUtils.computePointInTime(
                 scrollId,
                 keepAlive,
-                config.getImplementation(),
                 getClient(),
                 opContext.getSearchContext().getIndexConvention().getIndexName(INDEX_NAME))
             : null;
@@ -1491,7 +1490,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       Set<Urn> entityUrns) {
 
     int defaultPageSize = graphServiceConfig.getLimit().getResults().getApiDefault();
-    int slices = config.getSearch().getGraph().getImpact().getSlices();
+    int slices = Math.max(2, config.getSearch().getGraph().getImpact().getSlices());
 
     return searchWithSlices(
         opContext,

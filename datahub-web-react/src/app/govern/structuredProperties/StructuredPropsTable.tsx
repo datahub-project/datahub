@@ -105,6 +105,7 @@ const StructuredPropsTable = ({
                     showInSearchFilters: deleteEntity.settings?.showInSearchFilters ?? false,
                     showAsAssetBadge: deleteEntity.settings?.showAsAssetBadge ?? false,
                     showInAssetSummary: deleteEntity.settings?.showInAssetSummary ?? false,
+                    hideInAssetSummaryWhenEmpty: deleteEntity.settings?.hideInAssetSummaryWhenEmpty ?? false,
                     showInColumnsTable: deleteEntity.settings?.showInColumnsTable ?? false,
                 });
                 showToastMessage(ToastType.SUCCESS, 'Structured property deleted successfully!', 3);
@@ -319,6 +320,7 @@ const StructuredPropsTable = ({
                 isLoading={loading}
                 isScrollable
                 data-testid="structured-props-table"
+                rowDataTestId={(row) => row.entity.urn}
             />
             <ConfirmationModal
                 isOpen={showConfirmDelete}

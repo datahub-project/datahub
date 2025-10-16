@@ -33,6 +33,7 @@ import { getFirstSubType } from '@app/entityV2/shared/utils';
 import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
 import { useAppConfig, useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
 import { EntityType } from '@types';
@@ -353,7 +354,7 @@ const EntityDropdown = (props: Props) => {
                 icon: 'Link',
                 onClick: () => {
                     const { origin } = window.location;
-                    const copyUrl = `${origin}${entityRegistryV2.getEntityUrl(entityType, urn)}/`;
+                    const copyUrl = `${origin}${resolveRuntimePath(entityRegistryV2.getEntityUrl(entityType, urn))}/`;
                     navigator.clipboard.writeText(copyUrl);
                 },
             });

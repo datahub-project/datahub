@@ -248,7 +248,7 @@ function RecipeForm(props: Props) {
                 <Button variant="outline" color="gray" disabled={isEditing} onClick={goToPrevious}>
                     Previous
                 </Button>
-                <Button>Next</Button>
+                <Button data-testid="recipe-builder-next-button">Next</Button>
             </ControlsContainer>
         </RequiredFieldForm>
     );

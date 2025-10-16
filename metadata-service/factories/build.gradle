@@ -22,6 +22,7 @@ dependencies {
     exclude group: 'org.json', module: 'json'
   }
   implementation externalDependency.elasticSearchRest
+  implementation externalDependency.elasticsearch8Client
   implementation externalDependency.httpClient
   implementation externalDependency.gson
   implementation (externalDependency.hazelcast) {
@@ -67,6 +68,12 @@ dependencies {
   testImplementation externalDependency.testng
   testImplementation externalDependency.hazelcastTest
   testImplementation externalDependency.javatuples
+  testImplementation externalDependency.testContainers
+  testImplementation externalDependency.testContainersElasticsearch
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+  testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
 
 
   constraints {

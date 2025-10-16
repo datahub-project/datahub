@@ -371,6 +371,8 @@ def create_user_policy(user_urn, privileges, session):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["createPolicy"]
+
+    wait_for_writes_to_sync()
     return res_data["data"]["createPolicy"]
 
 
