@@ -29,9 +29,9 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchEntityResult>> {
 
-  private final EntityService _entityService;
-  private final EntityClient _entityClient;
-  private final EntityRegistry _entityRegistry;
+  private final EntityService entityService;
+  private final EntityClient entityClient;
+  private final EntityRegistry entityRegistry;
 
   @Override
   public CompletableFuture<PatchEntityResult> get(DataFetchingEnvironment environment)
@@ -69,13 +69,13 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
     // Create MCPs using common utility method
     final List<PatchEntityInput> inputs = List.of(input);
     final List<MetadataChangeProposal> mcps =
-        PatchResolverUtils.createPatchEntitiesMcps(inputs, context, _entityRegistry);
+        PatchResolverUtils.createPatchEntitiesMcps(inputs, context, entityRegistry);
 
     // Apply the patch
     try {
       Urn actor = UrnUtils.getUrn(authentication.getActor().toUrnStr());
       IngestResult result =
-          _entityService.ingestProposal(
+          entityService.ingestProposal(
               context.getOperationContext(),
               mcps.get(0),
               AuditStampUtils.createAuditStamp(actor.toString()),

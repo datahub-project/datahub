@@ -31,9 +31,9 @@ import lombok.extern.slf4j.Slf4j;
 public class PatchEntitiesResolver
     implements DataFetcher<CompletableFuture<List<PatchEntityResult>>> {
 
-  private final EntityService _entityService;
-  private final EntityClient _entityClient;
-  private final EntityRegistry _entityRegistry;
+  private final EntityService entityService;
+  private final EntityClient entityClient;
+  private final EntityRegistry entityRegistry;
 
   @Override
   public CompletableFuture<List<PatchEntityResult>> get(DataFetchingEnvironment environment)
@@ -82,7 +82,7 @@ public class PatchEntitiesResolver
 
     // Create batch of MetadataChangeProposals using common utility method
     final List<MetadataChangeProposal> mcps =
-        PatchResolverUtils.createPatchEntitiesMcps(inputs, context, _entityRegistry);
+        PatchResolverUtils.createPatchEntitiesMcps(inputs, context, entityRegistry);
 
     // Apply all patches using GraphQL standard batch approach
     try {
@@ -90,7 +90,7 @@ public class PatchEntitiesResolver
       EntityUtils.ingestChangeProposals(
           context.getOperationContext(),
           mcps,
-          _entityService,
+          entityService,
           actor,
           false); // synchronous for GraphQL
       log.debug("Successfully applied batch patch for {} entities", mcps.size());
