@@ -1,5 +1,4 @@
 import pytest
-import tenacity
 
 from tests.privileges.utils import (
     assign_role,
@@ -20,14 +19,12 @@ from tests.utils import (
     get_admin_credentials,
     get_frontend_session,
     get_frontend_url,
-    get_sleep_info,
     login_as,
     wait_for_writes_to_sync,
+    with_test_retry,
 )
 
 pytestmark = pytest.mark.no_cypress_suite1
-
-sleep_sec, sleep_times = get_sleep_info()
 
 
 @pytest.fixture(scope="module")
@@ -68,9 +65,7 @@ def privileges_and_test_user_setup(admin_session):
     wait_for_writes_to_sync()
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry(max_attempts=10)
 def _ensure_cant_perform_action(session, json, assertion_key):
     action_response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     action_response.raise_for_status()
@@ -83,9 +78,7 @@ def _ensure_cant_perform_action(session, json, assertion_key):
     assert action_data["data"][assertion_key] is None
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(10), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry(max_attempts=10)
 def _ensure_can_create_secret(session, json, urn):
     create_secret_success = session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=json
@@ -99,9 +92,7 @@ def _ensure_can_create_secret(session, json, urn):
     assert secret_data["data"]["createSecret"] == urn
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(10), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry(max_attempts=10)
 def _ensure_can_create_ingestion_source(session, json):
     create_ingestion_success = session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=json
@@ -117,9 +108,7 @@ def _ensure_can_create_ingestion_source(session, json):
     return ingestion_data["data"]["createIngestionSource"]
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(10), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry(max_attempts=10)
 def _ensure_can_create_access_token(session, json):
     create_access_token_success = session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=json
@@ -134,9 +123,7 @@ def _ensure_can_create_access_token(session, json):
     assert ingestion_data["data"]["createAccessToken"]["__typename"] == "AccessToken"
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(10), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry(max_attempts=10)
 def _ensure_can_create_user_policy(session, json):
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()

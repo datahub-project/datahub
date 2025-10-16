@@ -16,7 +16,8 @@
 - **`ingest_file_via_rest(auth_session, file_path)`** - Ingest metadata from JSON file
 - **`delete_urns_from_file(graph_client, file_path)`** - Clean up entities from JSON file
 - **`delete_urns(graph_client, urns)`** - Delete specific URNs from DataHub
-- **`get_sleep_info()`** - Get retry timing for eventual consistency
+- **`get_sleep_info()`** - Get retry timing for eventual consistency (advanced usage; prefer `with_test_retry()`)
+- **`with_test_retry()`** - Decorator for retrying functions with environment-based sleep settings
 - **`wait_for_writes_to_sync()`** - Wait for async operations to complete
 - **`_ingest_cleanup_data_impl(auth_session, graph_client, data_file, test_name, to_delete_urns=None)`** - Helper for ingesting test data with automatic cleanup (in `conftest.py`)
 
@@ -29,6 +30,24 @@ Common operations for adding/removing tags, terms, and updating descriptions:
 - **`add_term(auth_session, resource_urn, term_urn, sub_resource=None, sub_resource_type=None)`** - Add a glossary term to a resource
 - **`remove_term(auth_session, resource_urn, term_urn, sub_resource=None, sub_resource_type=None)`** - Remove a glossary term from a resource
 - **`update_description(auth_session, resource_urn, description, sub_resource=None, sub_resource_type=None)`** - Update resource description
+
+### Retry Pattern
+
+Use `with_test_retry()` for functions that need to retry for eventual consistency:
+
+```python
+from tests.utils import with_test_retry
+
+@with_test_retry()
+def check_eventual_consistency(auth_session):
+    # This function will retry with environment-based sleep settings
+    res_data = execute_graphql(auth_session, query, variables)
+    assert res_data["data"]["dataset"]["name"] == "expected"
+
+check_eventual_consistency(auth_session)
+```
+
+The decorator reads `DATAHUB_TEST_SLEEP_BETWEEN` and `DATAHUB_TEST_SLEEP_TIMES` environment variables.
 
 ### GraphQL Pattern
 
