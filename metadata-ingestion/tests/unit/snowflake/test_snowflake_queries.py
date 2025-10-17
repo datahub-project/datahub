@@ -1,4 +1,5 @@
 import datetime
+from typing import Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -610,7 +611,7 @@ class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:
     def _create_mock_extractor(
         self,
         include_usage_statistics: bool = False,
-        redundant_run_skip_handler: RedundantQueriesRunSkipHandler | None = None,
+        redundant_run_skip_handler: Optional[RedundantQueriesRunSkipHandler] = None,
         bucket_duration: BucketDuration = BucketDuration.DAY,
     ) -> SnowflakeQueriesExtractor:
         """Helper to create a SnowflakeQueriesExtractor with mocked dependencies."""
