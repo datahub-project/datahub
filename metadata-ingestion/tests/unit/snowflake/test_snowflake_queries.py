@@ -20,6 +20,9 @@ from datahub.ingestion.source.snowflake.snowflake_queries import (
     SnowflakeQueriesExtractorConfig,
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantQueriesRunSkipHandler,
+)
 
 
 class TestBuildAccessHistoryDatabaseFilterCondition:
@@ -599,3 +602,219 @@ class TestSnowflakeQueriesExtractorOptimization:
             # Verify that num_preparsed_queries is 0
             assert extractor.report.sql_aggregator is not None
             assert extractor.report.sql_aggregator.num_preparsed_queries == 0
+
+
+class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:
+    """Tests for stateful time window ingestion support in queries v2."""
+
+    def _create_mock_extractor(
+        self,
+        include_usage_statistics: bool = False,
+        redundant_run_skip_handler: RedundantQueriesRunSkipHandler | None = None,
+        bucket_duration: BucketDuration = BucketDuration.DAY,
+    ) -> SnowflakeQueriesExtractor:
+        """Helper to create a SnowflakeQueriesExtractor with mocked dependencies."""
+        mock_connection = Mock()
+        mock_connection.query.return_value = []
+
+        config = SnowflakeQueriesExtractorConfig(
+            window=BaseTimeWindowConfig(
+                start_time=datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc),
+                end_time=datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+                bucket_duration=bucket_duration,
+            ),
+            include_usage_statistics=include_usage_statistics,
+        )
+
+        mock_report = Mock()
+        mock_filters = Mock()
+        mock_identifiers = Mock()
+        mock_identifiers.platform = "snowflake"
+        mock_identifiers.identifier_config = SnowflakeIdentifierConfig()
+
+        extractor = SnowflakeQueriesExtractor(
+            connection=mock_connection,
+            config=config,
+            structured_report=mock_report,
+            filters=mock_filters,
+            identifiers=mock_identifiers,
+            redundant_run_skip_handler=redundant_run_skip_handler,
+        )
+
+        return extractor
+
+    def test_time_window_adjusted_with_handler(self):
+        """Test that time window is adjusted when handler is provided."""
+        adjusted_start_time = datetime.datetime(
+            2021, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc
+        )
+        adjusted_end_time = datetime.datetime(
+            2021, 1, 2, 12, 0, 0, tzinfo=datetime.timezone.utc
+        )
+
+        mock_handler = Mock(spec=RedundantQueriesRunSkipHandler)
+        mock_handler.suggest_run_time_window.return_value = (
+            adjusted_start_time,
+            adjusted_end_time,
+        )
+
+        extractor = self._create_mock_extractor(
+            redundant_run_skip_handler=mock_handler,
+        )
+
+        mock_handler.suggest_run_time_window.assert_called_once()
+        assert extractor.start_time == adjusted_start_time
+        assert extractor.end_time == adjusted_end_time
+
+    def test_time_window_not_adjusted_without_handler(self):
+        """Test that time window is not adjusted when no handler is provided."""
+        original_start_time = datetime.datetime(
+            2021, 1, 1, tzinfo=datetime.timezone.utc
+        )
+        original_end_time = datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc)
+
+        extractor = self._create_mock_extractor(
+            redundant_run_skip_handler=None,
+        )
+
+        assert extractor.start_time == original_start_time
+        assert extractor.end_time == original_end_time
+
+    def test_bucket_alignment_with_usage_statistics(self):
+        """Test that start_time is aligned to bucket boundaries when usage statistics are enabled."""
+        # Start time at 14:30 should be aligned to beginning of day (00:00)
+        start_time_with_offset = datetime.datetime(
+            2021, 1, 1, 14, 30, 0, tzinfo=datetime.timezone.utc
+        )
+        mock_handler = Mock(spec=RedundantQueriesRunSkipHandler)
+        mock_handler.suggest_run_time_window.return_value = (
+            start_time_with_offset,
+            datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+        )
+
+        extractor = self._create_mock_extractor(
+            include_usage_statistics=True,
+            redundant_run_skip_handler=mock_handler,
+        )
+
+        # Start time should be aligned to beginning of day
+        expected_aligned_start = datetime.datetime(
+            2021, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc
+        )
+        assert extractor.start_time == expected_aligned_start
+        # End time should remain unchanged
+        assert extractor.end_time == datetime.datetime(
+            2021, 1, 2, tzinfo=datetime.timezone.utc
+        )
+
+    def test_no_bucket_alignment_without_usage_statistics(self):
+        """Test that start_time is NOT aligned when usage statistics are disabled."""
+        start_time_with_offset = datetime.datetime(
+            2021, 1, 1, 14, 30, 0, tzinfo=datetime.timezone.utc
+        )
+        mock_handler = Mock(spec=RedundantQueriesRunSkipHandler)
+        mock_handler.suggest_run_time_window.return_value = (
+            start_time_with_offset,
+            datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+        )
+
+        extractor = self._create_mock_extractor(
+            include_usage_statistics=False,
+            redundant_run_skip_handler=mock_handler,
+        )
+
+        # Start time should NOT be aligned
+        assert extractor.start_time == start_time_with_offset
+        assert extractor.end_time == datetime.datetime(
+            2021, 1, 2, tzinfo=datetime.timezone.utc
+        )
+
+    def test_bucket_alignment_hourly_with_usage_statistics(self):
+        """Test that start_time is aligned to hour boundaries when hourly buckets are configured."""
+        start_time_with_offset = datetime.datetime(
+            2021, 1, 1, 14, 30, 45, tzinfo=datetime.timezone.utc
+        )
+        mock_handler = Mock(spec=RedundantQueriesRunSkipHandler)
+        mock_handler.suggest_run_time_window.return_value = (
+            start_time_with_offset,
+            datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+        )
+
+        extractor = self._create_mock_extractor(
+            include_usage_statistics=True,
+            redundant_run_skip_handler=mock_handler,
+            bucket_duration=BucketDuration.HOUR,
+        )
+
+        expected_aligned_start = datetime.datetime(
+            2021, 1, 1, 14, 0, 0, tzinfo=datetime.timezone.utc
+        )
+        assert extractor.start_time == expected_aligned_start
+        assert extractor.end_time == datetime.datetime(
+            2021, 1, 2, tzinfo=datetime.timezone.utc
+        )
+
+    def test_state_updated_after_successful_extraction(self):
+        """Test that state is updated after successful extraction when handler is provided."""
+        mock_handler = Mock(spec=RedundantQueriesRunSkipHandler)
+        mock_handler.suggest_run_time_window.return_value = (
+            datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc),
+            datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+        )
+
+        extractor = self._create_mock_extractor(
+            redundant_run_skip_handler=mock_handler,
+        )
+
+        with (
+            patch.object(extractor, "fetch_users", return_value={}),
+            patch.object(extractor, "fetch_copy_history", return_value=[]),
+            patch.object(extractor, "fetch_query_log", return_value=[]),
+        ):
+            list(extractor.get_workunits_internal())
+
+            mock_handler.update_state.assert_called_once_with(
+                datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc),
+                datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+                BucketDuration.DAY,
+            )
+
+    def test_state_not_updated_without_handler(self):
+        """Test that state is not updated when no handler is provided."""
+        extractor = self._create_mock_extractor(
+            redundant_run_skip_handler=None,
+        )
+
+        with (
+            patch.object(extractor, "fetch_users", return_value={}),
+            patch.object(extractor, "fetch_copy_history", return_value=[]),
+            patch.object(extractor, "fetch_query_log", return_value=[]),
+        ):
+            list(extractor.get_workunits_internal())
+
+    def test_queries_extraction_always_runs_with_handler(self):
+        """Test that queries extraction always runs even with a skip handler."""
+        mock_handler = Mock(spec=RedundantQueriesRunSkipHandler)
+        mock_handler.suggest_run_time_window.return_value = (
+            datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc),
+            datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+        )
+
+        extractor = self._create_mock_extractor(
+            redundant_run_skip_handler=mock_handler,
+        )
+
+        with (
+            patch.object(extractor, "fetch_users", return_value={}) as mock_fetch_users,
+            patch.object(
+                extractor, "fetch_copy_history", return_value=[]
+            ) as mock_fetch_copy_history,
+            patch.object(
+                extractor, "fetch_query_log", return_value=[]
+            ) as mock_fetch_query_log,
+        ):
+            list(extractor.get_workunits_internal())
+
+            mock_fetch_users.assert_called_once()
+            mock_fetch_copy_history.assert_called_once()
+            mock_fetch_query_log.assert_called_once()
