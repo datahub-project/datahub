@@ -36,6 +36,7 @@ from datahub.cli.docker_check import (
 from datahub.cli.quickstart_versioning import (
     QuickstartVersionMappingConfig,
 )
+from datahub.configuration.env_vars import get_docker_compose_base
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
@@ -792,8 +793,9 @@ def quickstart(
 
 
 def get_docker_compose_base_url(version_tag: str) -> str:
-    if os.environ.get("DOCKER_COMPOSE_BASE"):
-        return os.environ["DOCKER_COMPOSE_BASE"]
+    docker_compose_base = get_docker_compose_base()
+    if docker_compose_base:
+        return docker_compose_base
 
     return f"https://raw.githubusercontent.com/datahub-project/datahub/{version_tag}"
 

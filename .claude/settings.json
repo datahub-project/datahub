@@ -29,6 +29,7 @@
       "Bash(git add:*)",
       "Bash(git checkout:*)",
       "Bash(git rm:*)",
+      "Bash(../gradlew :metadata-ingestion:lintFix:*)",
       "Bash(gw:*)"
     ],
     "deny": []

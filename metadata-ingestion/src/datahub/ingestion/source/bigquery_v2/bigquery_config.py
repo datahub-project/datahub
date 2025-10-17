@@ -1,5 +1,4 @@
 import logging
-import os
 import re
 from copy import deepcopy
 from datetime import timedelta
@@ -8,6 +7,7 @@ from typing import Dict, List, Optional, Union
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.env_vars import get_bigquery_schema_parallelism
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -31,9 +31,7 @@ from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_BQ_SCHEMA_PARALLELISM = int(
-    os.getenv("DATAHUB_BIGQUERY_SCHEMA_PARALLELISM", 20)
-)
+DEFAULT_BQ_SCHEMA_PARALLELISM = get_bigquery_schema_parallelism()
 
 # Regexp for sharded tables.
 # A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
