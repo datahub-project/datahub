@@ -205,14 +205,13 @@ def aggregate_module_weights(items: List[Item], test_weights: Dict[str, float]) 
         total_weight = 0.0
         for item in module_items:
             # Build test ID from nodeid
-            # nodeid format: "path/to/test_file.py::TestClass::test_method" or "path/to/test_file.py::test_function"
-            # We need to extract everything after the file path
+            # nodeid format: "tests/database/test_database.py::test_method"
+            # weights format: "tests.database.test_database::test_method"
             nodeid = item.nodeid
-            if "::" in nodeid:
-                # Get the part after the filename
-                test_id = nodeid.split(".py::", 1)[1] if ".py::" in nodeid else nodeid
-            else:
-                test_id = item.name
+
+            # Convert path separators to dots and remove .py extension
+            # tests/database/test_database.py::test_method -> tests.database.test_database::test_method
+            test_id = nodeid.replace("/", ".").replace(".py::", "::")
 
             weight = test_weights.get(test_id, 1.0)  # Default to 1.0 if not found
             total_weight += weight
