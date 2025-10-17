@@ -11,6 +11,7 @@ from tests.privileges.utils import (
     create_user_policy,
     get_current_user_info,
     log_policies,
+    log_user_privileges,
     remove_group,
     remove_policy,
     remove_secret,
@@ -51,8 +52,33 @@ def privileges_and_test_user_setup(admin_session):
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
 
+    # Verify clean state
+    logger.info("=" * 80)
+    logger.info("Initial test setup - verifying clean state")
+    log_policies(admin_session, "(after cleanup, before test user creation)")
+    logger.info("=" * 80)
+
     # Create a new user
     admin_session = create_user(admin_session, "user", "user")
+
+    # Verify test user has no privileges initially
+    user_session = login_as("user", "user")
+    user_info = log_user_privileges(user_session, "(initial state)")
+    if user_info:
+        privileges = user_info["privileges"]
+        if any(
+            privileges.get(p)
+            for p in [
+                "managePolicies",
+                "manageSecrets",
+                "manageIngestion",
+                "generatePersonalAccessTokens",
+            ]
+        ):
+            logger.warning(
+                f"WARNING: Test user has unexpected privileges {privileges} before tests start!"
+            )
+    logger.info("=" * 80)
 
     yield
 
@@ -85,16 +111,20 @@ def _ensure_cant_perform_action(session, json, assertion_key):
     logger.debug(f"Response status code: {action_response.status_code}")
 
     if "errors" not in action_data:
+        logger.error("=" * 80)
         logger.error("Expected 'errors' key in response but got successful response!")
         logger.error(f"Full response: {action_data}")
         logger.error(f"Assertion key: {assertion_key}")
+        logger.error("=" * 80)
 
-        # Try to get current user info to understand why they have access
-        user_info = get_current_user_info(session)
-        if user_info:
-            logger.error(
-                f"Current user has managePolicies={user_info['privileges'].get('managePolicies')}"
-            )
+        # Log current user privileges to understand why they have access
+        log_user_privileges(session, "(during test failure)")
+
+        # Get admin session to list policies
+        (admin_user, admin_pass) = get_admin_credentials()
+        admin_session = login_as(admin_user, admin_pass)
+        log_policies(admin_session, "(during test failure)")
+        logger.error("=" * 80)
 
     assert action_data["errors"][0]["extensions"]["code"] == 403, action_data["errors"][
         0
@@ -445,9 +475,9 @@ def test_privilege_to_create_and_manage_policies():
                 "resources": {"filter": {"criteria": []}},
                 "privileges": ["MANAGE_POLICIES"],
                 "actors": {
-                    "users": [],
+                    "users": ["urn:li:corpuser:user"],
                     "resourceOwners": False,
-                    "allUsers": True,
+                    "allUsers": False,
                     "allGroups": False,
                 },
             }
