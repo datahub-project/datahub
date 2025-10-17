@@ -27,6 +27,7 @@ import {
 
 import { EditorContainer, EditorTheme } from '@components/components/Editor/EditorTheme';
 import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
+import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
 import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
 import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
 import { DataHubMentionsExtension } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
@@ -48,10 +49,12 @@ type EditorProps = {
     hideHighlightToolbar?: boolean;
     toolbarStyles?: React.CSSProperties;
     dataTestId?: string;
+    uploadFile?: (file: File) => Promise<string>;
 };
 
 export const Editor = forwardRef(({ dataTestId, ...props }: EditorProps, ref) => {
-    const { content, readOnly, onChange, className, placeholder, hideHighlightToolbar, toolbarStyles } = props;
+    const { content, readOnly, onChange, className, placeholder, hideHighlightToolbar, toolbarStyles, uploadFile } =
+        props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
@@ -65,6 +68,7 @@ export const Editor = forwardRef(({ dataTestId, ...props }: EditorProps, ref) =>
             new HeadingExtension({}),
             new HistoryExtension({}),
             new HorizontalRuleExtension({}),
+            new FileDragDropExtension({ onFileUpload: uploadFile }),
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),
