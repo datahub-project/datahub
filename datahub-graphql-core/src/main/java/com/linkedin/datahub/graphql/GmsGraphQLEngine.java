@@ -82,6 +82,7 @@ import com.linkedin.datahub.graphql.resolvers.entity.EntityExistsResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.versioning.LinkAssetVersionResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.versioning.UnlinkAssetVersionResolver;
+import com.linkedin.datahub.graphql.resolvers.files.GetPresignedUploadUrlResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchAssignFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchRemoveFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.CreateDynamicFormAssignmentResolver;
@@ -315,6 +316,7 @@ import com.linkedin.datahub.graphql.types.template.PageTemplateType;
 import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.datahub.graphql.types.versioning.VersionSetType;
 import com.linkedin.datahub.graphql.types.view.DataHubViewType;
+import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
@@ -489,6 +491,8 @@ public class GmsGraphQLEngine {
   private final GraphQLConfiguration graphQLConfiguration;
   private final MetricUtils metricUtils;
 
+  private final S3Util s3Util;
+
   private final BusinessAttributeType businessAttributeType;
 
   /** A list of GraphQL Plugins that extend the core engine */
@@ -621,6 +625,7 @@ public class GmsGraphQLEngine {
     this.dataHubPageModuleType = new PageModuleType(entityClient);
     this.graphQLConfiguration = args.graphQLConfiguration;
     this.metricUtils = args.metricUtils;
+    this.s3Util = args.s3Util;
 
     this.businessAttributeType = new BusinessAttributeType(entityClient);
     // Init Lists
@@ -845,7 +850,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(QUERY_SCHEMA_FILE))
         .addSchema(fileBasedSchema(TEMPLATE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(MODULE_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(FILES_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1108,7 +1114,11 @@ public class GmsGraphQLEngine {
                     new DocPropagationSettingsResolver(this.settingsService))
                 .dataFetcher(
                     "globalHomePageSettings",
-                    new GlobalHomePageSettingsResolver(this.settingsService)));
+                    new GlobalHomePageSettingsResolver(this.settingsService))
+                .dataFetcher(
+                    "getPresignedUploadUrl",
+                    new GetPresignedUploadUrlResolver(
+                        this.s3Util, this.datahubConfiguration.getS3())));
   }
 
   private DataFetcher getEntitiesResolver() {

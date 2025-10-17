@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLWorkerPoolThreadFactory;
+import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
@@ -217,6 +218,10 @@ public class GraphQLEngineFactory {
   @Qualifier("pageModuleService")
   private PageModuleService pageModuleService;
 
+  @Autowired
+  @Qualifier("s3Util")
+  private S3Util s3Util;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -282,6 +287,8 @@ public class GraphQLEngineFactory {
     args.setConnectionService(_connectionService);
     args.setAssertionService(assertionService);
     args.setMetricUtils(metricUtils);
+    args.setS3Util(s3Util);
+
     return new GmsGraphQLEngine(args).builder().build();
   }
 
