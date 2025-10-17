@@ -2,7 +2,7 @@ package com.linkedin.gms.factory.s3;
 
 import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.entity.client.EntityClient;
-import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -27,7 +27,7 @@ public class S3UtilFactory {
   private String roleArn;
 
   @Bean(name = "s3Util")
-  @Nonnull
+  @Nullable
   protected S3Util getInstance() {
     try {
       if (roleArn != null && !roleArn.trim().isEmpty()) {

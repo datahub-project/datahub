@@ -1,6 +1,5 @@
 package com.linkedin.gms.factory.s3;
 
-import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,7 +13,6 @@ import software.amazon.awssdk.services.sts.StsClient;
 public class StsClientFactory {
 
   @Bean(name = "stsClient")
-  @Nonnull
   protected StsClient getInstance() {
     log.info("Creating StsClient bean");
 
@@ -45,7 +43,7 @@ public class StsClientFactory {
 
     } catch (Exception e) {
       log.error("Failed to create STS client", e);
-      throw new RuntimeException("Failed to create STS client: " + e.getMessage(), e);
+      return null;
     }
   }
 }
