@@ -318,11 +318,6 @@ class AwsConnectionConfig(ConfigModel):
         description="Advanced AWS configuration options. These are passed directly to [botocore.config.Config](https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html).",
     )
 
-    s3_verify_ssl: Optional[Union[bool, str]] = Field(
-        default=True,
-        description="Whether to verify SSL certificates when accessing S3. Can be True, False, or a path to a CA bundle.",
-    )
-
     def allowed_cred_refresh(self) -> bool:
         if self._normalized_aws_roles():
             return True
@@ -438,7 +433,7 @@ class AwsConnectionConfig(ConfigModel):
             "s3",
             endpoint_url=self.aws_endpoint_url,
             config=self._aws_config(),
-            verify=verify_ssl or self.s3_verify_ssl,
+            verify=verify_ssl,
         )
 
     def get_s3_resource(
@@ -448,7 +443,7 @@ class AwsConnectionConfig(ConfigModel):
             "s3",
             endpoint_url=self.aws_endpoint_url,
             config=self._aws_config(),
-            verify=verify_ssl or self.s3_verify_ssl,
+            verify=verify_ssl,
         )
         # according to: https://stackoverflow.com/questions/32618216/override-s3-endpoint-using-boto3-configuration-file
         # boto3 only reads the signature version for s3 from that config file. boto3 automatically changes the endpoint to

@@ -141,9 +141,6 @@ class SqlQueriesSource(Source):
     - upstream_tables (optional): string[] - Fallback list of tables the query reads from,
      used if the query can't be parsed.
 
-    ### Performance Optimizations
-    This source includes several performance optimizations:
-
     **Lazy Schema Loading**:
     - Fetches schemas on-demand during query parsing instead of bulk loading all schemas upfront
     - Caches fetched schemas for future lookups to avoid repeated network requests
@@ -153,11 +150,8 @@ class SqlQueriesSource(Source):
     **Query Processing**:
     - Loads the entire query file into memory at once
     - Processes all queries sequentially before generating metadata work units
-    - Uses `reporting_batch_size` for progress reporting frequency (every 100 queries by default)
     - Preserves temp table mappings and lineage relationships to ensure consistent lineage tracking
     - Query deduplication is handled automatically by the SQL parsing aggregator
-    - Uses sequential processing to avoid threading issues with SqlParsingAggregator
-
 
     ### Incremental Lineage
     When `incremental_lineage` is enabled, this source will emit lineage as patches rather than full overwrites.

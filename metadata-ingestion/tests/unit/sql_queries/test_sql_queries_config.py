@@ -46,44 +46,6 @@ class TestS3Support:
         ):
             list(source._parse_s3_query_file())
 
-    def test_s3_verify_ssl_default(self):
-        """Test default SSL verification setting."""
-        aws_config_dict = {
-            "aws_access_key_id": "test_key",
-            "aws_secret_access_key": "test_secret",
-        }
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", aws_config=aws_config_dict
-        )
-        assert config.aws_config is not None
-        assert config.aws_config.s3_verify_ssl is True
-
-    def test_s3_verify_ssl_custom(self):
-        """Test custom SSL verification setting."""
-        aws_config_dict = {
-            "aws_access_key_id": "test_key",
-            "aws_secret_access_key": "test_secret",
-            "s3_verify_ssl": False,
-        }
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", aws_config=aws_config_dict
-        )
-        assert config.aws_config is not None
-        assert config.aws_config.s3_verify_ssl is False
-
-    def test_s3_verify_ssl_ca_bundle(self):
-        """Test SSL verification with CA bundle path."""
-        aws_config_dict = {
-            "aws_access_key_id": "test_key",
-            "aws_secret_access_key": "test_secret",
-            "s3_verify_ssl": "/path/to/ca-bundle.pem",
-        }
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", aws_config=aws_config_dict
-        )
-        assert config.aws_config is not None
-        assert config.aws_config.s3_verify_ssl == "/path/to/ca-bundle.pem"
-
     @patch("datahub.ingestion.source.sql_queries.smart_open.open")
     def test_s3_file_processing(self, mock_open):
         """Test S3 file processing."""
@@ -541,38 +503,6 @@ class TestEdgeCases:
         assert (
             source._is_s3_uri("s3://") is True
         )  # Even incomplete S3 URI should be detected
-
-    def test_boolean_configuration_options(self):
-        """Test boolean configuration options."""
-        aws_config_dict = {
-            "aws_access_key_id": "test_key",
-            "aws_secret_access_key": "test_secret",
-            "s3_verify_ssl": False,
-        }
-        config = SqlQueriesSourceConfig(
-            platform="snowflake",
-            query_file="dummy.json",
-            aws_config=aws_config_dict,
-        )
-
-        assert config.aws_config is not None
-        assert config.aws_config.s3_verify_ssl is False
-
-    def test_string_configuration_options(self):
-        """Test string configuration options."""
-        aws_config_dict = {
-            "aws_access_key_id": "test_key",
-            "aws_secret_access_key": "test_secret",
-            "s3_verify_ssl": "/path/to/ca-bundle.pem",
-        }
-        config = SqlQueriesSourceConfig(
-            platform="snowflake",
-            query_file="dummy.json",
-            aws_config=aws_config_dict,
-        )
-
-        assert config.aws_config is not None
-        assert config.aws_config.s3_verify_ssl == "/path/to/ca-bundle.pem"
 
 
 class TestIntegrationScenarios:
