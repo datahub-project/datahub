@@ -316,7 +316,7 @@ def clean_gql_response(response: Any) -> Any:
         return response
 
 
-def clean_get_entity_response(raw_response: dict) -> dict:
+def clean_get_entities_response(raw_response: dict) -> dict:
     response = clean_gql_response(raw_response)
 
     if response and (schema_metadata := response.get("schemaMetadata")):
@@ -343,31 +343,52 @@ def clean_get_entity_response(raw_response: dict) -> dict:
 
 
 @mcp.tool(
-    description="Get detailed information about any entity by its DataHub URN. Supports all entity types including datasets, assertions, incidents, dashboards, charts, users, groups, and more. The response fields vary based on the entity type."
+    description="Get detailed information about one or more entities by their DataHub URNs. Accepts either a single URN or an array of URNs. When examining search results, pass an array with the top 3-5 result URNs to find the best match. Supports all entity types including datasets, assertions, incidents, dashboards, charts, users, groups, and more. The response fields vary based on the entity type."
 )
 @async_background
-def get_entity(urn: str) -> dict:
+def get_entities(urns: List[str] | str) -> List[dict] | dict:
     client = get_datahub_client()
 
-    # Check if entity exists first
-    if not client._graph.exists(urn):
-        logger.warning(f"Entity not found during existence check: {urn}")
-        # TODO: Ideally we use the `exists` field to check this, and also deal with soft-deleted entities.
-        raise ItemNotFoundError(f"Entity {urn} not found")
+    # Handle single URN for backward compatibility
+    if isinstance(urns, str):
+        urns = [urns]
+        return_single = True
+    else:
+        return_single = False
 
-    # Execute the GraphQL query
-    variables = {"urn": urn}
-    result = _execute_graphql(
-        client._graph,
-        query=entity_details_fragment_gql,
-        variables=variables,
-        operation_name="GetEntity",
-    )["entity"]
+    results = []
+    for urn in urns:
+        try:
+            # Check if entity exists first
+            if not client._graph.exists(urn):
+                logger.warning(f"Entity not found during existence check: {urn}")
+                if return_single:
+                    raise ItemNotFoundError(f"Entity {urn} not found")
+                results.append({"error": f"Entity {urn} not found", "urn": urn})
+                continue
 
-    inject_urls_for_urns(client._graph, result, [""])
-    truncate_descriptions(result)
+            # Execute the GraphQL query
+            variables = {"urn": urn}
+            result = _execute_graphql(
+                client._graph,
+                query=entity_details_fragment_gql,
+                variables=variables,
+                operation_name="GetEntity",
+            )["entity"]
 
-    return clean_get_entity_response(result)
+            inject_urls_for_urns(client._graph, result, [""])
+            truncate_descriptions(result)
+
+            results.append(clean_get_entities_response(result))
+
+        except Exception as e:
+            logger.warning(f"Error fetching entity {urn}: {e}")
+            if return_single:
+                raise
+            results.append({"error": str(e), "urn": urn})
+
+    # Return single dict if single URN was passed, array otherwise
+    return results[0] if return_single else results
 
 
 def _convert_custom_filter_format(filters_obj: Any) -> Any:
@@ -534,7 +555,7 @@ def enhanced_search(
        → Examine tags/glossaryTerms facets to see what metadata exists
     2. Filtered search: search(query="*", filters={"tag": ["urn:li:tag:pii"]}, num_results=30)
        → Get entities with specific tag using URN from step 1
-    3. Get details: Use get_entity() on specific results
+    3. Get details: Use get_entities() on specific results
 
     Here are some example filters:
     - All Looker assets
@@ -615,7 +636,7 @@ def search(
        → Examine tags/glossaryTerms facets to see what metadata exists
     2. Filtered search: search(query="*", filters={"tag": ["urn:li:tag:pii"]}, num_results=30)
        → Get entities with specific tag using URN from step 1
-    3. Get details: Use get_entity() on specific results
+    3. Get details: Use get_entities() on specific results
 
     Here are some example filters:
     - All Looker assets

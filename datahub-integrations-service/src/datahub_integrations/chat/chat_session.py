@@ -257,6 +257,11 @@ The reasoning MUST be wrapped in <reasoning></reasoning> tags and include these 
 <reasoning>
   <action>Brief description of the tool call about to be made</action>
   <rationale>Why this tool call is needed</rationale>
+  <justification>REQUIRED when making choices: When selecting from multiple options \
+explicitly justify the choice. Include: \
+(1) What alternatives were available (e.g., "Search returned 10 results, examining result #2"), \
+(2) Why this specific option was chosen over others, \
+(3) How search ranking was considered.</justification>
   <user_requested>What the user originally asked for (if applicable)</user_requested>
   <what_found>What was actually found (if different from user request)</what_found>
   <exact_match>true/false - Does what was found exactly match what the user requested?</exact_match>

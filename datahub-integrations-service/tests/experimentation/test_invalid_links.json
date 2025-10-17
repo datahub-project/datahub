@@ -38,7 +38,7 @@
     {
       "type": "tool_call",
       "tool_use_id": "tool2",
-      "tool_name": "datahub__get_entity",
+      "tool_name": "datahub__get_entities",
       "tool_input": {
         "urn": "urn:li:corpuser:john.doe@company.com"
       }
@@ -48,7 +48,7 @@
       "tool_request": {
         "type": "tool_call",
         "tool_use_id": "tool2",
-        "tool_name": "datahub__get_entity",
+        "tool_name": "datahub__get_entities",
         "tool_input": {
           "urn": "urn:li:corpuser:john.doe@company.com"
         }

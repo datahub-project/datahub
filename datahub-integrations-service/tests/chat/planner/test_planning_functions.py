@@ -176,15 +176,46 @@ class TestCreatePlan:
 
     def test_create_plan_json_parse_error(self, mock_session: ChatSession) -> None:
         """Test error handling when LLM returns invalid JSON."""
-        import json
-
         with patch(
             "datahub_integrations.chat.planner.tools._call_planner_llm"
         ) as mock_llm:
             mock_llm.return_value = "This is not JSON"
 
-            with pytest.raises(json.JSONDecodeError):
+            with pytest.raises(ValueError, match="Invalid JSON in plan response"):
                 create_plan(session=mock_session, task="Test task")
+
+    def test_create_plan_json_with_trailing_text(
+        self, mock_session: ChatSession
+    ) -> None:
+        """
+        Test handling of valid JSON followed by extra text (reproduces issue #6840).
+
+        This reproduces the error: "Extra data: line 97 column 1 (char 4202)"
+        which occurs when the LLM returns valid JSON followed by explanatory text.
+        """
+        # Exact JSON from the bug report, followed by trailing text
+        llm_response_with_trailing_text = """{ "title": "Find Organizations on Premium Pricing Plans", "goal": "Identify organizations that are currently on premium pricing plans by discovering and analyzing relevant datasets", "assumptions": [ "Premium pricing information is likely stored in datasets related to customers, subscriptions, or pricing", "The organization may have structured metadata (tags, glossary terms) related to premium pricing", "For compliance purposes, only explicitly tagged entities count - no lineage inference", "This plan should focus on discovering the most relevant data sources first" ], "constraints": { "tool_allowlist": ["datahub__search", "datahub__get_entities", "datahub__get_dataset_queries"], "max_tool_calls": 10 }, "steps": [ { "id": "s0", "description": "Facet exploration to discover metadata related to premium pricing or plans", "done_when": "Facet exploration completed and potential metadata (tags, glossary terms, domains) related to premium pricing identified", "tool": "datahub__search", "param_hints": { "query": "", "filters": {"entity_type": ["DATASET"]}, "num_results": 0 }, "on_fail": {"action": "abort"} }, { "id": "s1", "description": "Search for datasets with keywords related to premium pricing plans", "done_when": "Search completed and returned results related to premium pricing plans", "tool": "datahub__search", "param_hints": { "query": "/q premium+pricing OR premium+plan OR pricing+tier OR subscription+tier OR organization+pricing", "filters": {"entity_type": ["DATASET"]}, "num_results": 10 }, "on_fail": {"action": "abort"} }, { "id": "s2", "description": "If metadata found in s0, search for datasets using those specific tags or terms", "done_when": "Search using metadata URNs completed or skipped if no relevant metadata found in s0", "tool": "datahub__search", "param_hints": { "query": "", "filters": { "and": [ {"entity_type": ["DATASET"]}, {"or": [ {"tag": ["<EXTRACT_FROM_S0_premium_tags>"]}, {"glossary_term": ["<EXTRACT_FROM_S0_premium_terms>"]} ]} ] }, "num_results": 10 }, "on_fail": {"action": "continue"} }, { "id": "s3", "description": "Get detailed information about the most promising datasets from searches", "done_when": "Retrieved detailed information for top datasets from previous searches", "tool": "datahub__get_entities", "param_hints": { "urns": ["<TOP_3_URNS_FROM_S1_OR_S2>"] }, "on_fail": {"action": "abort"} }, { "id": "s4", "description": "Analyze schema of the most relevant dataset to identify fields related to premium pricing", "done_when": "Analyzed schema and identified fields related to premium pricing plans or tiers", "on_fail": {"action": "abort"} }, { "id": "s5", "description": "Retrieve sample queries to understand how premium plan data is typically queried", "done_when": "Retrieved and analyzed sample queries or determined no queries exist", "tool": "datahub__get_dataset_queries", "param_hints": { "urn": "<MOST_RELEVANT_URN_FROM_S3>", "source": "MANUAL", "count": 5 }, "on_fail": {"action": "continue"} }, { "id": "s6", "description": "Generate a summary of organizations on premium pricing plans based on findings", "done_when": "Created a comprehensive summary of organizations on premium plans or provided guidance on how to query this information", "on_fail": {"action": "abort"} } ], "expected_deliverable": "A list or description of organizations currently on premium pricing plans, including the data source used and how this information was determined. If direct list isn't available, provide guidance on how to query the relevant dataset(s) to obtain this information. For compliance purposes, only explicitly tagged entities count - no lineage inference." }
+
+This plan will help you systematically discover and analyze premium pricing information."""
+
+        with patch(
+            "datahub_integrations.chat.planner.tools._call_planner_llm"
+        ) as mock_llm:
+            mock_llm.return_value = llm_response_with_trailing_text
+
+            # With our fix, this should now work instead of raising JSONDecodeError
+            plan = create_plan(
+                session=mock_session,
+                task="Find organizations on premium pricing plans",
+            )
+
+            # Verify the plan was created correctly
+            assert plan.title == "Find Organizations on Premium Pricing Plans"
+            assert "premium pricing plans" in plan.goal.lower()
+            assert len(plan.steps) == 7  # s0 through s6
+            assert plan.steps[0].id == "s0"
+            assert plan.steps[6].id == "s6"
+            assert "premium pricing" in plan.expected_deliverable.lower()
 
     def test_create_plan_generates_unique_ids(self, mock_session: ChatSession) -> None:
         """Test that multiple plans get unique IDs."""

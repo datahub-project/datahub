@@ -29,7 +29,7 @@ def get_recipe_guidance() -> str:
     </applicability>
     
     <constraints>
-      CRITICAL: Your plan's constraints.tool_allowlist MUST be exactly: ["search", "get_entity", "respond_to_user"]
+      CRITICAL: Your plan's constraints.tool_allowlist MUST be exactly: ["search", "get_entities", "respond_to_user"]
       
       DO NOT include in tool_allowlist:
       - get_lineage (lineage inference not allowed for PII compliance)
@@ -38,7 +38,7 @@ def get_recipe_guidance() -> str:
       
       Example constraints object in your plan:
       {
-        "tool_allowlist": ["search", "get_entity", "respond_to_user"],
+        "tool_allowlist": ["search", "get_entities", "respond_to_user"],
         "max_tool_calls": 10
       }
     </constraints>
@@ -490,7 +490,8 @@ def get_recipe_guidance() -> str:
         
         Optional: Fetch details on key entities if helpful
         - Use count=10-20 in searches to get sample results
-        - If 3-5 highly relevant datasets found, get_entity to show descriptions
+        - If 5-10 highly relevant datasets found, batch them with get_entities to show descriptions
+        - get_entities accepts an array of URNs, so you can fetch multiple entities in one call
         - This enriches the response with concrete details
         
         done_when: "Compared facets from step1 and step2, calculated coverage estimates, categorized by type/platform, and structured response. Optionally fetched details on key entities."

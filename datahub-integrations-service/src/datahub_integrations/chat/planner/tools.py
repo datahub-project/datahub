@@ -314,8 +314,23 @@ Return a JSON object with this structure:
             json_start = response_text.find("```") + 3
             json_end = response_text.find("```", json_start)
             response_text = response_text[json_start:json_end].strip()
+        else:
+            # Try to find JSON object boundaries if not in code blocks
+            # Look for the first { and last }
+            first_brace = response_text.find("{")
+            last_brace = response_text.rfind("}")
+            if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+                response_text = response_text[first_brace : last_brace + 1].strip()
 
-        plan_data = json.loads(response_text)
+        try:
+            plan_data = json.loads(response_text)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON plan. Error: {e}")
+            logger.error(f"Response text (first 500 chars): {response_text[:500]}")
+            logger.error(f"Response text (last 500 chars): {response_text[-500:]}")
+            raise ValueError(
+                f"Invalid JSON in plan response: {e}. Check that the response contains only valid JSON without trailing text."
+            ) from e
 
         # Build Plan object from LLM response
         plan = Plan(

@@ -5,7 +5,7 @@ from datahub.ingestion.graph.links import make_url_for_urn
 
 from datahub_integrations.mcp import mcp_server
 from datahub_integrations.mcp.mcp_server import (
-    clean_get_entity_response,
+    clean_get_entities_response,
     clean_gql_response,
     inject_urls_for_urns,
     maybe_convert_to_schema_field_urn,
@@ -148,7 +148,7 @@ def test_clean_gql_response_with_nested_empty_objects() -> None:
     assert result == expected_result
 
 
-def test_clean_get_entity_response_with_schema_metadata() -> None:
+def test_clean_get_entities_response_with_schema_metadata() -> None:
     raw_response = {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.raw_schema.users,PROD)",
         "name": "users",
@@ -179,7 +179,7 @@ def test_clean_get_entity_response_with_schema_metadata() -> None:
         },
     }
 
-    result = clean_get_entity_response(raw_response)
+    result = clean_get_entities_response(raw_response)
 
     expected_result = {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.raw_schema.users,PROD)",
