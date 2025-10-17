@@ -23,6 +23,7 @@ public class S3UtilFactory {
   @Bean(name = "s3Util")
   protected S3Util getInstance() {
     log.info("Creating S3Util bean for file serving");
+    log.info(">>> roleArn {}", roleArn);
     try {
       if (roleArn != null && !roleArn.trim().isEmpty()) {
         log.info("Using STS role-based S3Util with role ARN: {}", roleArn);

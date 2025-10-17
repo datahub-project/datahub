@@ -56,6 +56,8 @@ x-localstack-env: &localstack-env
   AWS_SECRET_ACCESS_KEY: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
   AWS_REGION: ${DATAHUB_AWS_REGION:-us-east-1}
   DATAHUB_EXECUTOR_ROLE_ARN: ${DATAHUB_EXECUTOR_ROLE_ARN:-arn:aws:iam::000000000000:role/test-role}
+  DATAHUB_ROLE_ARN: ${DATAHUB_ROLE_ARN:-arn:aws:iam::000000000000:role/test-role}
+  DATAHUB_BUCKET_NAME: ${DATAHUB_BUCKET_NAME:-test}
 
 x-datahub-common: &datahub-common-env
   DATAHUB_BASE_PATH: ${DATAHUB_BASE_PATH:-/}

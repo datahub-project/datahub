@@ -57,6 +57,7 @@ public class S3Util {
 
       // Configure endpoint URL if provided (for LocalStack or custom S3 endpoints)
       String endpointUrl = System.getenv("AWS_ENDPOINT_URL");
+      log.warn(">>> AWS_ENDPOINT: {}", endpointUrl);
       if (endpointUrl != null && !endpointUrl.isEmpty()) {
         clientBuilder.endpointOverride(java.net.URI.create(endpointUrl));
         // Force path-style access for LocalStack compatibility
@@ -69,7 +70,7 @@ public class S3Util {
 
     } catch (Exception e) {
       log.error("Failed to create S3 client: roleArn={}", roleArn, e);
-      throw new RuntimeException("Failed to create S3 clien: " + e.getMessage(), e);
+      throw new RuntimeException("Failed to create S3 client: " + e.getMessage(), e);
     }
   }
 
