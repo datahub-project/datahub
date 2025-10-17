@@ -15,13 +15,13 @@ import collections
 import contextlib
 import itertools
 import logging
-import os
 import pathlib
 import sys
 from typing import Deque, Iterator, Optional
 
 import click
 
+from datahub.configuration.env_vars import get_no_color, get_suppress_logging_manager
 from datahub.utilities.tee_io import TeeIO
 
 BASE_LOGGING_FORMAT = (
@@ -38,7 +38,7 @@ IN_MEMORY_LOG_BUFFER_SIZE = 2000  # lines
 IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH = 2000  # characters
 
 
-NO_COLOR = os.environ.get("NO_COLOR", False)
+NO_COLOR = get_no_color()
 
 
 def extract_name_from_filename(filename: str, fallback_name: str) -> str:
@@ -179,6 +179,18 @@ class _LogBuffer:
         return text
 
 
+class _ResilientStreamHandler(logging.StreamHandler):
+    """StreamHandler that gracefully handles closed streams."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            super().emit(record)
+        except (ValueError, OSError):
+            # Stream was closed (e.g., during pytest teardown)
+            # Silently ignore to prevent test failures
+            pass
+
+
 class _BufferLogHandler(logging.Handler):
     def __init__(self, storage: _LogBuffer) -> None:
         super().__init__()
@@ -201,7 +213,11 @@ class _BufferLogHandler(logging.Handler):
 def _remove_all_handlers(logger: logging.Logger) -> None:
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
-        handler.close()
+        try:
+            handler.close()
+        except (ValueError, OSError):
+            # Handler stream may already be closed (e.g., during pytest teardown)
+            pass
 
 
 _log_buffer = _LogBuffer(maxlen=IN_MEMORY_LOG_BUFFER_SIZE)
@@ -219,14 +235,14 @@ _default_formatter = logging.Formatter(BASE_LOGGING_FORMAT)
 def configure_logging(debug: bool, log_file: Optional[str] = None) -> Iterator[None]:
     _log_buffer.clear()
 
-    if os.environ.get("DATAHUB_SUPPRESS_LOGGING_MANAGER") == "1":
+    if get_suppress_logging_manager() == "1":
         # If we're running in pytest, we don't want to configure logging.
         yield
         return
 
     with contextlib.ExitStack() as stack:
         # Create stdout handler.
-        stream_handler = logging.StreamHandler()
+        stream_handler = _ResilientStreamHandler()
         stream_handler.addFilter(_DatahubLogFilter(debug=debug))
         stream_handler.setFormatter(_stream_formatter)
 
@@ -237,7 +253,7 @@ def configure_logging(debug: bool, log_file: Optional[str] = None) -> Iterator[N
             tee = TeeIO(sys.stdout, file)
             stack.enter_context(contextlib.redirect_stdout(tee))  # type: ignore
 
-            file_handler = logging.StreamHandler(file)
+            file_handler = _ResilientStreamHandler(file)
             file_handler.addFilter(_DatahubLogFilter(debug=True))
             file_handler.setFormatter(_default_formatter)
         else:

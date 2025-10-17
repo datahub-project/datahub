@@ -27,7 +27,7 @@ jobs:
           files: |
             contrib/oss-diff/**
       - name: Set up uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
       - name: Set up Python 3.13
