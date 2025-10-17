@@ -250,9 +250,6 @@ class SqlQueriesSource(Source):
         logger.info("Processing all queries in batch mode")
         yield from self._process_queries_batch()
 
-        # Log processing statistics
-        self._log_processing_statistics()
-
     def _process_queries_batch(
         self,
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
@@ -268,29 +265,6 @@ class SqlQueriesSource(Source):
         with self.report.new_stage("Generating metadata work units"):
             logger.info("Generating workunits from SQL parsing aggregator")
             yield from auto_workunit(self.aggregator.gen_metadata())
-
-    def _log_processing_statistics(self) -> None:
-        """Log processing statistics."""
-        if self.report.num_queries_processed_sequential > 0:
-            logger.info(
-                f"Query processing: {self.report.num_queries_processed_sequential} queries processed sequentially"
-            )
-
-        # Log schema cache statistics if using schema resolver
-        if self.report.schema_resolver_report:
-            total_schema_lookups = (
-                self.report.schema_resolver_report.num_schema_cache_hits
-                + self.report.schema_resolver_report.num_schema_cache_misses
-            )
-            if total_schema_lookups > 0:
-                cache_hit_rate = (
-                    self.report.schema_resolver_report.num_schema_cache_hits
-                    / total_schema_lookups
-                ) * 100
-                logger.info(
-                    f"Schema cache statistics: {self.report.schema_resolver_report.num_schema_cache_hits} hits, "
-                    f"{self.report.schema_resolver_report.num_schema_cache_misses} misses ({cache_hit_rate:.1f}% hit rate)"
-                )
 
     def _is_s3_uri(self, path: str) -> bool:
         """Check if the path is an S3 URI."""
