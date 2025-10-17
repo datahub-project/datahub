@@ -13,9 +13,6 @@ class TestPerformanceConfigOptimizations:
     """Test performance optimization features."""
 
 
-
-
-
 class TestS3Support:
     """Test S3 support features."""
 
@@ -58,6 +55,7 @@ class TestS3Support:
         config = SqlQueriesSourceConfig(
             platform="snowflake", query_file="dummy.json", aws_config=aws_config_dict
         )
+        assert config.aws_config is not None
         assert config.aws_config.s3_verify_ssl is True
 
     def test_s3_verify_ssl_custom(self):
@@ -70,6 +68,7 @@ class TestS3Support:
         config = SqlQueriesSourceConfig(
             platform="snowflake", query_file="dummy.json", aws_config=aws_config_dict
         )
+        assert config.aws_config is not None
         assert config.aws_config.s3_verify_ssl is False
 
     def test_s3_verify_ssl_ca_bundle(self):
@@ -82,6 +81,7 @@ class TestS3Support:
         config = SqlQueriesSourceConfig(
             platform="snowflake", query_file="dummy.json", aws_config=aws_config_dict
         )
+        assert config.aws_config is not None
         assert config.aws_config.s3_verify_ssl == "/path/to/ca-bundle.pem"
 
     @patch("datahub.ingestion.source.sql_queries.smart_open.open")
@@ -117,10 +117,14 @@ class TestS3Support:
         mock_file_stream = Mock()
         mock_file_stream.__enter__ = Mock(return_value=mock_file_stream)
         mock_file_stream.__exit__ = Mock(return_value=None)
-        mock_file_stream.__iter__ = Mock(return_value=iter([
-            '{"query": "SELECT * FROM table1", "timestamp": 1609459200}\n',
-            '{"query": "SELECT * FROM table2", "timestamp": 1609459201}\n',
-        ]))
+        mock_file_stream.__iter__ = Mock(
+            return_value=iter(
+                [
+                    '{"query": "SELECT * FROM table1", "timestamp": 1609459200}\n',
+                    '{"query": "SELECT * FROM table2", "timestamp": 1609459201}\n',
+                ]
+            )
+        )
         mock_open.return_value = mock_file_stream
 
         # Test S3 file processing
@@ -427,7 +431,6 @@ class TestEnhancedReporting:
         assert schema_report.num_schema_cache_hits == 1
         assert schema_report.num_schema_cache_misses == 1
 
-
     def test_query_processing_counting(self):
         """Test query processing counting."""
         from datahub.ingestion.source.sql_queries import SqlQueriesSourceReport
@@ -493,7 +496,6 @@ class TestConfigurationValidation:
         """Test field validation for new options."""
 
 
-
 class TestEdgeCases:
     """Test edge cases and error handling."""
 
@@ -540,8 +542,6 @@ class TestEdgeCases:
             source._is_s3_uri("s3://") is True
         )  # Even incomplete S3 URI should be detected
 
-
-
     def test_boolean_configuration_options(self):
         """Test boolean configuration options."""
         aws_config_dict = {
@@ -555,6 +555,7 @@ class TestEdgeCases:
             aws_config=aws_config_dict,
         )
 
+        assert config.aws_config is not None
         assert config.aws_config.s3_verify_ssl is False
 
     def test_string_configuration_options(self):
@@ -570,6 +571,7 @@ class TestEdgeCases:
             aws_config=aws_config_dict,
         )
 
+        assert config.aws_config is not None
         assert config.aws_config.s3_verify_ssl == "/path/to/ca-bundle.pem"
 
 
@@ -629,6 +631,8 @@ class TestIntegrationScenarios:
         )
 
         # Verify all optimizations are enabled
+        assert config.enable_lazy_schema_loading is True
+        assert config.temp_table_patterns == []
 
     def test_backward_compatibility_with_new_features(self):
         """Test that existing configurations work with new features available."""

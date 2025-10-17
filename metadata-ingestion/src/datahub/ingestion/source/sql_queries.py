@@ -92,6 +92,12 @@ class SqlQueriesSourceConfig(
         default=[],
     )
 
+    enable_lazy_schema_loading: bool = Field(
+        default=True,
+        description="Enable lazy schema loading for better performance. When enabled, schemas are fetched on-demand "
+        "instead of bulk loading all schemas upfront, reducing startup time and memory usage.",
+    )
+
     # AWS/S3 configuration
     aws_config: Optional[AwsConnectionConfig] = Field(
         default=None,
@@ -253,7 +259,6 @@ class SqlQueriesSource(Source):
         # Log processing statistics
         self._log_processing_statistics()
 
-
     def _process_queries_batch(
         self,
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
@@ -270,14 +275,12 @@ class SqlQueriesSource(Source):
             logger.info("Generating workunits from SQL parsing aggregator")
             yield from auto_workunit(self.aggregator.gen_metadata())
 
-
     def _log_processing_statistics(self) -> None:
         """Log processing statistics."""
         if self.report.num_queries_processed_sequential > 0:
             logger.info(
                 f"Query processing: {self.report.num_queries_processed_sequential} queries processed sequentially"
             )
-
 
         # Log schema cache statistics if using schema resolver
         if self.report.schema_resolver_report:

@@ -550,7 +550,11 @@ class TestSqlQueriesSource:
         # All items should be work units (MetadataWorkUnit or MetadataChangeProposalWrapper)
         for work_unit in work_units:
             # Should be MetadataWorkUnit or MetadataChangeProposalWrapper objects
-            assert hasattr(work_unit, "metadata") or hasattr(work_unit, "aspectName") or hasattr(work_unit, "aspect")
+            assert (
+                hasattr(work_unit, "metadata")
+                or hasattr(work_unit, "aspectName")
+                or hasattr(work_unit, "aspect")
+            )
 
     @pytest.mark.parametrize("incremental_lineage", [None, True, False])
     def test_workunit_processors_with_incremental_lineage(
