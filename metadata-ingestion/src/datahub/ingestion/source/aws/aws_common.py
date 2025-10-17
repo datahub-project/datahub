@@ -488,16 +488,22 @@ def generate_rds_iam_token(
         Authentication token (presigned URL format)
 
     Raises:
-        NoCredentialsError: If AWS credentials are not found
-        ClientError: If API call fails
+        ValueError: If AWS credentials are not found or token generation fails
 
     """
-    client = aws_config.get_rds_client()
-    token = client.generate_db_auth_token(
-        DBHostname=endpoint, Port=port, DBUsername=username
-    )
-    logger.debug(f"Generated RDS IAM token for {username}@{endpoint}:{port}")
-    return token
+    from botocore.exceptions import ClientError, NoCredentialsError
+
+    try:
+        client = aws_config.get_rds_client()
+        token = client.generate_db_auth_token(
+            DBHostname=endpoint, Port=port, DBUsername=username
+        )
+        logger.debug(f"Generated RDS IAM token for {username}@{endpoint}:{port}")
+        return token
+    except NoCredentialsError as e:
+        raise ValueError("AWS credentials not found") from e
+    except ClientError as e:
+        raise ValueError(f"Failed to generate RDS IAM token: {e}") from e
 
 
 class RDSIAMTokenManager:
