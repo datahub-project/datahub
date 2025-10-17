@@ -347,7 +347,10 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     "runId": self.config.run_id,
                 },
             )
-
+            if node_type == "tests":
+                logger.debug(f"Tests data: {data}")
+                logger.debug(f"Tests data: {data['job'][node_type]}")
+                logger.debug(f"Tests data length: {len(data['job'][node_type])}")
             raw_nodes.extend(data["job"][node_type])
 
         nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
