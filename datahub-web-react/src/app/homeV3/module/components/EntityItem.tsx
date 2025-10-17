@@ -23,8 +23,10 @@ interface Props {
     hideSubtitle?: boolean;
     hideMatches?: boolean;
     padding?: string;
-    customOnClick?: (entity: Entity) => void;
-    customHover?: (entity: Entity, children: React.ReactNode) => React.ReactNode;
+    // For custom click action on entity (either entire container or just name depending on navigateOnlyOnNameClick)
+    customOnEntityClick?: (entity: Entity) => void;
+    // For custom hover action on entity name
+    customHoverEntityName?: (entity: Entity, children: React.ReactNode) => React.ReactNode;
 }
 
 export default function EntityItem({
@@ -36,8 +38,8 @@ export default function EntityItem({
     hideSubtitle,
     hideMatches,
     padding,
-    customOnClick,
-    customHover,
+    customOnEntityClick,
+    customHoverEntityName,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const linkProps = useGetModalLinkProps();
@@ -62,20 +64,20 @@ export default function EntityItem({
         padding,
         customDetailsRenderer,
         dragIconRenderer,
-        customHover,
+        customHoverEntityName,
         navigateOnlyOnNameClick,
-        customOnClick,
+        customOnEntityClick,
     };
 
-    if (customOnClick && !navigateOnlyOnNameClick) {
+    if (customOnEntityClick && !navigateOnlyOnNameClick) {
         return (
             <div
                 role="button"
                 tabIndex={0}
-                onClick={() => customOnClick(entity)}
+                onClick={() => customOnEntityClick(entity)}
                 onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
-                        customOnClick(entity);
+                        customOnEntityClick(entity);
                     }
                 }}
             >

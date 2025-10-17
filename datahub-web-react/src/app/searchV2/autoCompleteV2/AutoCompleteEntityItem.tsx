@@ -115,8 +115,8 @@ interface EntityAutocompleteItemProps {
     hideMatches?: boolean;
     padding?: string;
     onClick?: () => void;
-    customHover?: (entity: Entity, children: React.ReactNode) => React.ReactNode;
-    customOnClick?: (entity: Entity) => void;
+    customHoverEntityName?: (entity: Entity, children: React.ReactNode) => React.ReactNode;
+    customOnEntityClick?: (entity: Entity) => void;
     dataTestId?: string;
 }
 
@@ -134,8 +134,8 @@ export default function AutoCompleteEntityItem({
     hideMatches,
     padding,
     onClick,
-    customHover,
-    customOnClick,
+    customHoverEntityName,
+    customOnEntityClick,
     dataTestId,
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
@@ -152,15 +152,15 @@ export default function AutoCompleteEntityItem({
 
     let displayNameContent;
 
-    if (customOnClick) {
+    if (customOnEntityClick) {
         displayNameContent = (
             <div
                 role="button"
                 tabIndex={0}
-                onClick={() => customOnClick(entity)}
+                onClick={() => customOnEntityClick(entity)}
                 onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
-                        customOnClick(entity);
+                        customOnEntityClick(entity);
                     }
                 }}
             >
@@ -222,8 +222,8 @@ export default function AutoCompleteEntityItem({
                 )}
 
                 <DescriptionContainer>
-                    {customHover ? (
-                        customHover(entity, <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>)
+                    {customHoverEntityName ? (
+                        customHoverEntityName(entity, <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>)
                     ) : (
                         <HoverEntityTooltip
                             placement="bottom"

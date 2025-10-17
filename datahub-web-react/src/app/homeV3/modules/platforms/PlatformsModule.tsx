@@ -64,8 +64,8 @@ const PlatformsModule = (props: ModuleProps) => {
                             key={platform.platform.urn}
                             moduleType={DataHubPageModuleType.Platforms}
                             customDetailsRenderer={renderAssetCount}
-                            customOnClick={handleEntityClick}
-                            customHover={renderCustomTooltip}
+                            customOnEntityClick={handleEntityClick}
+                            customHoverEntityName={renderCustomTooltip}
                         />
                     ))}
                 </div>
