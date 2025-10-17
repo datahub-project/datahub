@@ -83,7 +83,8 @@ public class PatchResolverUtils {
               || (arrayPrimaryKeys != null && !arrayPrimaryKeys.isEmpty());
 
       if (useGenericPatch) {
-        return createGenericJsonPatchAspect(validatedOperations, arrayPrimaryKeys, forceGenericPatch, context);
+        return createGenericJsonPatchAspect(
+            validatedOperations, arrayPrimaryKeys, forceGenericPatch, context);
       } else {
         // Use traditional JsonPatch approach for backward compatibility
         return createLegacyPatchAspect(validatedOperations, context);
