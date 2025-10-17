@@ -1,7 +1,9 @@
 import os
+import json
+from pathlib import Path
 
 import pytest
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from _pytest.nodes import Item
 import requests
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph, get_default_graph
@@ -149,6 +151,77 @@ def bin_pack_tasks(tasks, n_buckets):
 
     return buckets
 
+
+def load_pytest_test_weights() -> Dict[str, float]:
+    """
+    Load pytest test weights from JSON file.
+
+    Returns:
+        Dictionary mapping test IDs (classname::test_name) to durations in seconds.
+        Returns empty dict if weights file doesn't exist.
+    """
+    weights_file = Path(__file__).parent / "pytest_test_weights.json"
+
+    if not weights_file.exists():
+        return {}
+
+    try:
+        with open(weights_file) as f:
+            weights_data = json.load(f)
+
+        # Convert to dict: {"test_e2e::test_gms_get_dataset": 262.807, ...}
+        return {
+            item["testId"]: float(item["duration"][:-1])  # Strip 's' suffix
+            for item in weights_data
+        }
+    except Exception as e:
+        print(f"Warning: Failed to load pytest test weights: {e}")
+        return {}
+
+
+def aggregate_module_weights(items: List[Item], test_weights: Dict[str, float]) -> List[Tuple[str, List[Item], float]]:
+    """
+    Group test items by module and aggregate their weights.
+
+    Args:
+        items: List of pytest test items
+        test_weights: Dictionary mapping test IDs to durations
+
+    Returns:
+        List of (module_path, items_in_module, total_weight) tuples
+    """
+    from collections import defaultdict
+
+    # Group items by module (file path)
+    modules: Dict[str, List[Item]] = defaultdict(list)
+    for item in items:
+        # Get the module path from the item's fspath
+        module_path = str(item.fspath)
+        modules[module_path].append(item)
+
+    # Calculate total weight for each module
+    module_data = []
+    for module_path, module_items in modules.items():
+        total_weight = 0.0
+        for item in module_items:
+            # Build test ID from nodeid
+            # nodeid format: "path/to/test_file.py::TestClass::test_method" or "path/to/test_file.py::test_function"
+            # We need to extract everything after the file path
+            nodeid = item.nodeid
+            if "::" in nodeid:
+                # Get the part after the filename
+                test_id = nodeid.split(".py::", 1)[1] if ".py::" in nodeid else nodeid
+            else:
+                test_id = item.name
+
+            weight = test_weights.get(test_id, 1.0)  # Default to 1.0 if not found
+            total_weight += weight
+
+        module_data.append((module_path, module_items, total_weight))
+
+    return module_data
+
+
 def get_batch_start_end(num_tests: int) -> Tuple[int, int]:
     batch_count = env_vars.get_batch_count()
 
@@ -184,29 +257,48 @@ def pytest_collection_modifyitems(
     if env_vars.get_test_strategy() == "cypress":
         return  # We launch cypress via pytests, but needs a different batching mechanism at cypress level.
 
-    # If BATCH_COUNT and BATCH_ENV vars are set, splits the pytests to batches and runs filters only the BATCH_NUMBER
-    # batch for execution. Enables multiple parallel launches. Current implementation assumes all test are of equal
-    # weight for batching. TODO. A weighted batching method can help make batches more equal sized by cost.
-    # this effectively is a no-op if BATCH_COUNT=1
-    start_index, end_index = get_batch_start_end(num_tests=len(items))
+    # Get batch configuration
+    batch_count_env = os.getenv("BATCH_COUNT", "1")
+    batch_count = int(batch_count_env)
+    batch_number_env = os.getenv("BATCH_NUMBER", "0")
+    batch_number = int(batch_number_env)
 
-    # Sort tests but preserve dependency order for library_examples tests
-    # Library example tests should maintain their manifest order to respect dependencies
-    library_example_tests = []
-    other_tests = []
+    if batch_count <= 1:
+        # No batching needed
+        return
 
-    for item in items:
-        if "test_library_examples" in item.nodeid:
-            library_example_tests.append(item)
-        else:
-            other_tests.append(item)
+    # Load test weights
+    test_weights = load_pytest_test_weights()
 
-    # Sort non-library tests alphabetically for stability
-    other_tests.sort(key=lambda x: x.nodeid)
+    # Group items by module and aggregate weights
+    module_data = aggregate_module_weights(items, test_weights)
 
-    # Combine: library tests first (in original order), then other tests (sorted)
-    items[:] = library_example_tests + other_tests
+    # Sort modules by path for stability
+    module_data.sort(key=lambda x: x[0])
 
-    # replace items with the filtered list
-    print(f"Running tests for batch {start_index}-{end_index}")
-    items[:] = items[start_index:end_index]
+    # Create weighted tuples for bin-packing: (module_path, weight)
+    # We'll also keep track of the items for each module
+    module_map = {module_path: module_items for module_path, module_items, _ in module_data}
+    weighted_modules = [(module_path, total_weight) for module_path, _, total_weight in module_data]
+
+    print(f"Batching {len(items)} tests from {len(weighted_modules)} modules across {batch_count} batches")
+
+    # Apply bin-packing to modules
+    module_batches = bin_pack_tasks(weighted_modules, batch_count)
+
+    # Get the modules for this batch
+    selected_modules = module_batches[batch_number]
+
+    # Flatten back to individual test items
+    selected_items = []
+    for module_path in selected_modules:
+        selected_items.extend(module_map[module_path])
+
+    # Sort items within batch by nodeid for stability
+    selected_items.sort(key=lambda x: x.nodeid)
+
+    print(f"Batch {batch_number}: Running {len(selected_items)} tests from {len(selected_modules)} modules")
+
+    # Replace items with the filtered list
+    items[:] = selected_items
+
