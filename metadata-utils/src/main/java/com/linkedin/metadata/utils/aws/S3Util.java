@@ -1,6 +1,5 @@
-package com.linkedin.datahub.graphql.util;
+package com.linkedin.metadata.utils.aws;
 
-import com.linkedin.entity.client.EntityClient;
 import java.time.Duration;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -19,35 +18,25 @@ import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider
 public class S3Util {
 
   private final S3Client s3Client;
-  private final EntityClient entityClient;
 
   // Optional S3Presigner for testing purposes
   @Nullable private final S3Presigner s3Presigner;
 
-  public S3Util(@Nonnull S3Client s3Client, @Nonnull EntityClient entityClient) {
-    this(s3Client, entityClient, null);
+  public S3Util(@Nonnull S3Client s3Client) {
+    this(s3Client, null);
   }
 
-  public S3Util(
-      @Nonnull S3Client s3Client,
-      @Nonnull EntityClient entityClient,
-      @Nullable S3Presigner s3Presigner) {
+  public S3Util(@Nonnull S3Client s3Client, @Nullable S3Presigner s3Presigner) {
     this.s3Client = s3Client;
-    this.entityClient = entityClient;
     this.s3Presigner = s3Presigner;
   }
 
-  public S3Util(
-      @Nonnull EntityClient entityClient, @Nonnull StsClient stsClient, @Nonnull String roleArn) {
-    this(entityClient, stsClient, roleArn, null);
+  public S3Util(@Nonnull StsClient stsClient, @Nonnull String roleArn) {
+    this(stsClient, roleArn, null);
   }
 
   public S3Util(
-      @Nonnull EntityClient entityClient,
-      @Nonnull StsClient stsClient,
-      @Nonnull String roleArn,
-      @Nullable S3Presigner s3Presigner) {
-    this.entityClient = entityClient;
+      @Nonnull StsClient stsClient, @Nonnull String roleArn, @Nullable S3Presigner s3Presigner) {
     this.s3Presigner = s3Presigner;
     this.s3Client = createS3Client(stsClient, roleArn);
   }
