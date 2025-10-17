@@ -57,8 +57,8 @@ public class S3Util {
 
       // Configure endpoint URL if provided (for LocalStack or custom S3 endpoints)
       String endpointUrl = System.getenv("AWS_ENDPOINT_URL");
-      log.warn(">>> AWS_ENDPOINT: {}", endpointUrl);
       if (endpointUrl != null && !endpointUrl.isEmpty()) {
+        log.info("Configuring S3Client with custom endpoint: {}", endpointUrl);
         clientBuilder.endpointOverride(java.net.URI.create(endpointUrl));
         // Force path-style access for LocalStack compatibility
         clientBuilder.forcePathStyle(true);
@@ -79,10 +79,18 @@ public class S3Util {
       return this.s3Presigner;
     }
 
-    return S3Presigner.builder()
-        .credentialsProvider(s3Client.serviceClientConfiguration().credentialsProvider())
-        .region(s3Client.serviceClientConfiguration().region())
-        .build();
+    var presignerBuilder =
+        S3Presigner.builder()
+            .credentialsProvider(s3Client.serviceClientConfiguration().credentialsProvider())
+            .region(s3Client.serviceClientConfiguration().region());
+
+    // Apply the same endpoint configuration as the S3Client
+    String endpointUrl = System.getenv("AWS_ENDPOINT_URL");
+    if (endpointUrl != null && !endpointUrl.isEmpty()) {
+      presignerBuilder.endpointOverride(java.net.URI.create(endpointUrl));
+    }
+
+    return presignerBuilder.build();
   }
 
   /**

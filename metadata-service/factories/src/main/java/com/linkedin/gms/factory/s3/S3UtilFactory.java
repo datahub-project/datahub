@@ -1,7 +1,6 @@
 package com.linkedin.gms.factory.s3;
 
 import com.linkedin.metadata.utils.aws.S3Util;
-import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,8 +26,12 @@ public class S3UtilFactory {
     try {
       if (roleArn != null && !roleArn.trim().isEmpty()) {
         log.info("Using STS role-based S3Util with role ARN: {}", roleArn);
-        StsClient clientToUse = stsClient != null ? stsClient : StsClient.create();
-        return new S3Util(clientToUse, roleArn);
+        if (stsClient == null) {
+          throw new IllegalStateException(
+              "StsClient bean is required when roleArn is configured. "
+                  + "Ensure StsClientFactory is properly configured.");
+        }
+        return new S3Util(stsClient, roleArn);
       } else {
         log.info("Using default S3Util with default credentials");
         S3Client s3Client = S3Client.create();
