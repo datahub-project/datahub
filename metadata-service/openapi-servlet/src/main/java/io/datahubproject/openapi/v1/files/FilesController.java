@@ -17,10 +17,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "DataHub Files API", description = "An API to expose DataHub files")
-@Slf4j
 @RestController
 @RequestMapping("/openapi/v1/files")
+@Tag(name = "DataHub Files API", description = "An API to expose DataHub files")
+@Slf4j
 public class FilesController {
 
   @Autowired

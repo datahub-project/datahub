@@ -59,6 +59,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     when(mockConfigProvider.getDatahub()).thenReturn(datahubConfig);
     when(datahubConfig.getS3()).thenReturn(s3Config);
     when(s3Config.getBucketName()).thenReturn(TEST_BUCKET);
+    when(s3Config.getPresignedDownloadUrlExpirationSeconds()).thenReturn(DEFAULT_EXPIRATION);
   }
 
   @Test
@@ -77,7 +78,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     // Test the endpoint
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/api/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID))
+            MockMvcRequestBuilders.get(
+                "/openapi/v1/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID))
         .andExpect(status().isFound())
         .andExpect(header().string(HttpHeaders.LOCATION, TEST_PRESIGNED_URL));
   }
@@ -93,7 +95,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/api/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID)
+            MockMvcRequestBuilders.get(
+                    "/openapi/v1/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID)
                 .param("expiration", String.valueOf(customExpiration)))
         .andExpect(status().isFound())
         .andExpect(header().string(HttpHeaders.LOCATION, TEST_PRESIGNED_URL));
@@ -110,7 +113,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/api/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID)
+            MockMvcRequestBuilders.get(
+                    "/openapi/v1/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID)
                 .param("expiration", String.valueOf(minExpiration)))
         .andExpect(status().isFound())
         .andExpect(header().string(HttpHeaders.LOCATION, TEST_PRESIGNED_URL));
@@ -126,7 +130,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/api/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID)
+            MockMvcRequestBuilders.get(
+                    "/openapi/v1/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID)
                 .param("expiration", String.valueOf(MAX_EXPIRATION)))
         .andExpect(status().isFound())
         .andExpect(header().string(HttpHeaders.LOCATION, TEST_PRESIGNED_URL));
@@ -136,7 +141,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   public void testGetFileWithZeroExpiration() throws Exception {
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/api/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID)
+            MockMvcRequestBuilders.get(
+                    "/openapi/v1/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID)
                 .param("expiration", "0"))
         .andExpect(status().isBadRequest());
   }
@@ -145,7 +151,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   public void testGetFileWithNegativeExpiration() throws Exception {
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/api/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID)
+            MockMvcRequestBuilders.get(
+                    "/openapi/v1/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID)
                 .param("expiration", "-100"))
         .andExpect(status().isBadRequest());
   }
@@ -156,7 +163,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/api/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID)
+            MockMvcRequestBuilders.get(
+                    "/openapi/v1/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID)
                 .param("expiration", String.valueOf(excessiveExpiration)))
         .andExpect(status().isBadRequest());
   }
@@ -173,7 +181,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/api/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID))
+            MockMvcRequestBuilders.get(
+                "/openapi/v1/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID))
         .andExpect(status().isBadRequest());
   }
 
@@ -188,7 +197,8 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/api/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID))
+            MockMvcRequestBuilders.get(
+                "/openapi/v1/files/{folder}/{fileId}", TEST_FOLDER, TEST_FILE_ID))
         .andExpect(status().isInternalServerError());
   }
 
@@ -204,7 +214,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     mockMvc
         .perform(
             MockMvcRequestBuilders.get(
-                "/api/files/{folder}/{fileId}", differentFolder, TEST_FILE_ID))
+                "/openapi/v1/files/{folder}/{fileId}", differentFolder, TEST_FILE_ID))
         .andExpect(status().isFound())
         .andExpect(header().string(HttpHeaders.LOCATION, TEST_PRESIGNED_URL));
   }
@@ -220,14 +230,15 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
     mockMvc
         .perform(
-            MockMvcRequestBuilders.get("/api/files/{folder}/{fileId}", TEST_FOLDER, specialFileId))
+            MockMvcRequestBuilders.get(
+                "/openapi/v1/files/{folder}/{fileId}", TEST_FOLDER, specialFileId))
         .andExpect(status().isFound())
         .andExpect(header().string(HttpHeaders.LOCATION, TEST_PRESIGNED_URL));
   }
 
   @SpringBootConfiguration
   @Import({FilesControllerTestConfig.class})
-  @ComponentScan(basePackages = {"com.datahub.files"})
+  @ComponentScan(basePackages = {"io.datahubproject.openapi.v1.files"})
   static class TestConfig {}
 
   @TestConfiguration
