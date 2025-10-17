@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/openapi/v1/files")
 public class FilesController {
 
-  @Autowired
+  @Autowired(required = false)
   @Qualifier("s3Util")
   private S3Util s3Util;
 
