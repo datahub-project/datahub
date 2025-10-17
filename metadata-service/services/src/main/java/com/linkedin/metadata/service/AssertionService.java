@@ -840,7 +840,7 @@ public class AssertionService extends BaseService {
       @Nullable final FreshnessAssertionSchedule schedule,
       @Nullable final DatasetFilter filter,
       @Nullable final AssertionActions actions,
-      @Nullable final AssertionSource assertionSource) {
+      @Nonnull final AssertionSource assertionSource) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(opContext, "authentication must not be null");
@@ -865,8 +865,7 @@ public class AssertionService extends BaseService {
     final AssertionInfo assertion = new AssertionInfo();
     assertion.setFreshnessAssertion(freshnessInfo);
     assertion.setType(AssertionType.FRESHNESS);
-    assertion.setSource(
-        assertionSource != null ? assertionSource : getNativeAssertionSource(actorUrn));
+    assertion.setSource(assertionSource);
     assertion.setDescription(description, SetMode.IGNORE_NULL);
     assertion.setLastUpdated(new AuditStamp().setTime(getCurrentTime()).setActor(actorUrn));
 
@@ -901,7 +900,7 @@ public class AssertionService extends BaseService {
       @Nullable final String description,
       @Nonnull final VolumeAssertionInfo info,
       @Nullable final AssertionActions actions,
-      @Nullable final AssertionSource assertionSource) {
+      @Nonnull final AssertionSource assertionSource) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(info.getType(), "type must not be null");
@@ -932,8 +931,7 @@ public class AssertionService extends BaseService {
     final AssertionInfo assertion = new AssertionInfo();
     assertion.setVolumeAssertion(info);
     assertion.setType(AssertionType.VOLUME);
-    assertion.setSource(
-        assertionSource != null ? assertionSource : getNativeAssertionSource(actorUrn));
+    assertion.setSource(assertionSource);
     assertion.setDescription(description, SetMode.IGNORE_NULL);
     assertion.setLastUpdated(new AuditStamp().setTime(getCurrentTime()).setActor(actorUrn));
 
@@ -969,7 +967,7 @@ public class AssertionService extends BaseService {
       @Nonnull final String description,
       @Nonnull final SqlAssertionInfo info,
       @Nullable final AssertionActions actions,
-      @Nullable final AssertionSource assertionSource) {
+      @Nonnull final AssertionSource assertionSource) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(type, "type must not be null");
@@ -988,8 +986,7 @@ public class AssertionService extends BaseService {
     assertion.setSqlAssertion(info);
     assertion.setType(AssertionType.SQL);
     assertion.setDescription(description);
-    assertion.setSource(
-        assertionSource != null ? assertionSource : getNativeAssertionSource(actorUrn));
+    assertion.setSource(assertionSource);
     assertion.setLastUpdated(new AuditStamp().setTime(getCurrentTime()).setActor(actorUrn));
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
@@ -1023,7 +1020,7 @@ public class AssertionService extends BaseService {
       @Nullable final String description,
       @Nonnull final FieldAssertionInfo info,
       @Nullable final AssertionActions actions,
-      @Nullable final AssertionSource assertionSource) {
+      @Nonnull final AssertionSource assertionSource) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(info, "info must not be null");
@@ -1039,8 +1036,7 @@ public class AssertionService extends BaseService {
     final AssertionInfo assertion = new AssertionInfo();
     assertion.setFieldAssertion(info);
     assertion.setType(AssertionType.FIELD);
-    assertion.setSource(
-        assertionSource != null ? assertionSource : getNativeAssertionSource(actorUrn));
+    assertion.setSource(assertionSource);
     assertion.setDescription(description, SetMode.IGNORE_NULL);
     assertion.setLastUpdated(new AuditStamp().setTime(getCurrentTime()).setActor(actorUrn));
 
@@ -1074,7 +1070,7 @@ public class AssertionService extends BaseService {
       @Nonnull final SchemaAssertionCompatibility compatibility,
       @Nonnull final SchemaMetadata schema,
       @Nullable final AssertionActions actions,
-      @Nullable final AssertionSource assertionSource) {
+      @Nonnull final AssertionSource assertionSource) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(compatibility, "compatibility must not be null");
@@ -1097,8 +1093,7 @@ public class AssertionService extends BaseService {
     final AssertionInfo assertion = new AssertionInfo();
     assertion.setSchemaAssertion(schemaAssertionInfo);
     assertion.setType(AssertionType.DATA_SCHEMA);
-    assertion.setSource(
-        assertionSource != null ? assertionSource : getNativeAssertionSource(actorUrn));
+    assertion.setSource(assertionSource);
     assertion.setDescription(description, SetMode.IGNORE_NULL);
     assertion.setLastUpdated(new AuditStamp().setTime(getCurrentTime()).setActor(actorUrn));
 
@@ -1258,11 +1253,16 @@ public class AssertionService extends BaseService {
   }
 
   @Nonnull
-  private AssertionSource getNativeAssertionSource(Urn actorUrn) {
+  private AssertionSource createAssertionSource(Urn actorUrn, AssertionSourceType sourceType) {
     final AssertionSource source = new AssertionSource();
-    source.setType(AssertionSourceType.NATIVE);
+    source.setType(sourceType);
     source.setCreated(new AuditStamp().setTime(getCurrentTime()).setActor(actorUrn));
     return source;
+  }
+
+  @Nonnull
+  private AssertionSource getNativeAssertionSource(Urn actorUrn) {
+    return createAssertionSource(actorUrn, AssertionSourceType.NATIVE);
   }
 
   @Nonnull

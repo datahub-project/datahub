@@ -82,13 +82,7 @@ public class UpsertDatasetSqlAssertionMonitorResolver
         throw new IllegalArgumentException("Failed to create Assertion. entityUrn is required.");
       }
       assertionUrn = _assertionService.generateAssertionUrn();
-      assertionSource = new AssertionSource();
-      assertionSource.setType(
-          input.getInferWithAI() != null && input.getInferWithAI()
-              ? AssertionSourceType.INFERRED
-              : AssertionSourceType.NATIVE);
-      assertionSource.setCreated(
-          new AuditStamp().setActor(actorUrn).setTime(_timeProvider.getAsLong()));
+      assertionSource = createAssertionSource(actorUrn, input);
       entityUrn = UrnUtils.getUrn(input.getEntityUrn());
 
       monitorUrn = _monitorService.generateMonitorUrn(entityUrn);
@@ -205,5 +199,20 @@ public class UpsertDatasetSqlAssertionMonitorResolver
 
     input.setEntityUrn(entityUrn.toString());
     return entityUrn;
+  }
+
+  private AssertionSource createAssertionSource(
+      Urn actorUrn, UpsertDatasetSqlAssertionMonitorInput input) {
+    AssertionSource assertionSource = new AssertionSource();
+
+    assertionSource.setType(
+        input.getInferWithAI() != null && input.getInferWithAI()
+            ? AssertionSourceType.INFERRED
+            : AssertionSourceType.NATIVE);
+
+    assertionSource.setCreated(
+        new AuditStamp().setActor(actorUrn).setTime(_timeProvider.getAsLong()));
+
+    return assertionSource;
   }
 }
