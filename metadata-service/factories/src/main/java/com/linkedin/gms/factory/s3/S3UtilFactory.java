@@ -29,16 +29,23 @@ public class S3UtilFactory {
   @Bean(name = "s3Util")
   @Nonnull
   protected S3Util getInstance() {
-    log.info("Creating S3Util bean for file serving");
-
-    if (roleArn != null && !roleArn.trim().isEmpty()) {
-      log.info("Using STS role-based S3Util with role ARN: {}", roleArn);
-      StsClient clientToUse = stsClient != null ? stsClient : StsClient.create();
-      return new S3Util(entityClient, clientToUse, roleArn);
-    } else {
-      log.info("Using default S3Util with default credentials");
-      S3Client s3Client = S3Client.create();
-      return new S3Util(s3Client, entityClient);
+    try {
+      if (roleArn != null && !roleArn.trim().isEmpty()) {
+        log.info("Using STS role-based S3Util with role ARN: {}", roleArn);
+        if (stsClient == null) {
+          throw new IllegalStateException(
+              "StsClient bean is required when roleArn is configured. "
+                  + "Ensure StsClientFactory is properly configured.");
+        }
+        return new S3Util(entityClient, stsClient, roleArn);
+      } else {
+        log.info("Using default S3Util with default credentials");
+        S3Client s3Client = S3Client.create();
+        return new S3Util(s3Client, entityClient);
+      }
+    } catch (Exception e) {
+      log.error("Failed to create S3Utils", e);
+      return null;
     }
   }
 }
