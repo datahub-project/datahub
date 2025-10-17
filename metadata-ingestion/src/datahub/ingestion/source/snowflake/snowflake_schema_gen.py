@@ -75,7 +75,6 @@ from datahub.ingestion.source.sql.stored_procedures.base import (
 )
 from datahub.ingestion.source_report.ingestion_stage import (
     EXTERNAL_TABLE_DDL_LINEAGE,
-    LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
     IngestionHighStage,
 )
@@ -242,12 +241,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         try:
             for snowflake_db in self.databases:
-                with self.report.new_stage(
-                    f"{snowflake_db.name}: {METADATA_EXTRACTION}"
+                with (
+                    self.report.new_high_stage(IngestionHighStage.METADATA_EXTRACTION),
+                    self.report.new_stage(
+                        f"{snowflake_db.name}: {METADATA_EXTRACTION}"
+                    ),
                 ):
                     yield from self._process_database(snowflake_db)
 
-            with self.report.new_stage(f"*: {EXTERNAL_TABLE_DDL_LINEAGE}"):
+            with (
+                self.report.new_high_stage(IngestionHighStage.LINEAGE),
+                self.report.new_stage(f"*: {EXTERNAL_TABLE_DDL_LINEAGE}"),
+            ):
                 discovered_tables: List[str] = [
                     self.identifiers.get_dataset_identifier(
                         table_name, schema.name, db.name
@@ -1425,7 +1430,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             yield from self.gen_dataset_workunits(stream, schema_name, db_name)
 
             if self.config.include_column_lineage:
-                with self.report.new_stage(f"*: {LINEAGE_EXTRACTION}"):
+                with self.report.new_high_stage(IngestionHighStage.LINEAGE):
                     self.populate_stream_upstreams(stream, db_name, schema_name)
 
         except Exception as e:
