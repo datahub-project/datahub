@@ -10,7 +10,6 @@ import boto3
 import requests
 from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
-from botocore.exceptions import ClientError, NoCredentialsError
 from botocore.utils import fix_s3_host
 from pydantic.fields import Field
 
@@ -489,24 +488,16 @@ def generate_rds_iam_token(
         Authentication token (presigned URL format)
 
     Raises:
-        ValueError: If AWS credentials are not configured or API call fails
-    """
-    try:
-        client = aws_config.get_rds_client()
-        token = client.generate_db_auth_token(
-            DBHostname=endpoint, Port=port, DBUsername=username
-        )
-        logger.debug(f"Generated RDS IAM token for {username}@{endpoint}:{port}")
-        return token
+        NoCredentialsError: If AWS credentials are not found
+        ClientError: If API call fails
 
-    except NoCredentialsError as e:
-        raise ValueError(
-            "AWS credentials not found. Configure AWS credentials using "
-            "AWS CLI, environment variables, or IAM roles."
-        ) from e
-    except ClientError as e:
-        error_code = e.response.get("Error", {}).get("Code", "Unknown")
-        raise ValueError(f"Failed to generate RDS IAM token: {error_code} - {e}") from e
+    """
+    client = aws_config.get_rds_client()
+    token = client.generate_db_auth_token(
+        DBHostname=endpoint, Port=port, DBUsername=username
+    )
+    logger.debug(f"Generated RDS IAM token for {username}@{endpoint}:{port}")
+    return token
 
 
 class RDSIAMTokenManager:

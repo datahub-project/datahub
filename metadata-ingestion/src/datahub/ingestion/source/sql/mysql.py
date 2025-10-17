@@ -171,10 +171,8 @@ class MySQLSource(TwoTierSQLAlchemySource):
             # Preserve any existing SSL configuration, otherwise enable with default settings.
             # The {"ssl": True} dict is a workaround to make PyMySQL recognize that SSL
             # should be enabled, since the library requires a truthy value in the ssl parameter.
+            # See https://pymysql.readthedocs.io/en/latest/modules/connections.html#pymysql.connections.Connection
             cparams["ssl"] = cparams.get("ssl") or {"ssl": True}
-            # Setting auth_plugin_map to None disables PyMySQL's default authentication plugin,
-            # which is necessary for RDS IAM tokens to work correctly with mysql_clear_password.
-            cparams["auth_plugin_map"] = {"mysql_clear_password": None}
 
         event.listen(engine, "do_connect", do_connect_listener)  # type: ignore[misc]
 
