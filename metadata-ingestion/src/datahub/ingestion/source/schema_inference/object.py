@@ -86,7 +86,6 @@ def is_nullable_collection(
 def construct_schema(
     collection: Sequence[Dict[str, Any]], delimiter: str = "."
 ) -> Dict[Tuple[str, ...], SchemaDescription]:
-    # print(f"PIOTR\n\n{collection}")
     """
     Construct (infer) a schema from a collection of documents.
 
