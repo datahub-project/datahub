@@ -1,12 +1,13 @@
-import os
 import pathlib
 import tempfile
 
 import requests
 
-DOCKER_COMPOSE_BASE = os.getenv(
-    "DOCKER_COMPOSE_BASE",
-    "https://raw.githubusercontent.com/datahub-project/datahub/master",
+from datahub.configuration.env_vars import get_docker_compose_base
+
+DOCKER_COMPOSE_BASE = (
+    get_docker_compose_base()
+    or "https://raw.githubusercontent.com/datahub-project/datahub/master"
 )
 BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 BOOTSTRAP_MCES_URL = f"{DOCKER_COMPOSE_BASE}/{BOOTSTRAP_MCES_FILE}"

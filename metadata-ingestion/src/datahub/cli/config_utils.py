@@ -11,7 +11,16 @@ import click
 import yaml
 from pydantic import BaseModel, ValidationError
 
-from datahub.cli.env_utils import get_boolean_env_variable
+from datahub.configuration.env_vars import (
+    get_gms_host,
+    get_gms_port,
+    get_gms_protocol,
+    get_gms_token,
+    get_gms_url,
+    get_skip_config,
+    get_system_client_id,
+    get_system_client_secret,
+)
 from datahub.ingestion.graph.config import DatahubClientConfig
 
 logger = logging.getLogger(__name__)
@@ -36,15 +45,15 @@ class MissingConfigError(Exception):
 
 
 def get_system_auth() -> Optional[str]:
-    system_client_id = os.environ.get(ENV_DATAHUB_SYSTEM_CLIENT_ID)
-    system_client_secret = os.environ.get(ENV_DATAHUB_SYSTEM_CLIENT_SECRET)
+    system_client_id = get_system_client_id()
+    system_client_secret = get_system_client_secret()
     if system_client_id is not None and system_client_secret is not None:
         return f"Basic {system_client_id}:{system_client_secret}"
     return None
 
 
 def _should_skip_config() -> bool:
-    return get_boolean_env_variable(ENV_SKIP_CONFIG, False)
+    return get_skip_config()
 
 
 def persist_raw_datahub_config(config: dict) -> None:
@@ -67,11 +76,11 @@ class DatahubConfig(BaseModel):
 
 
 def _get_config_from_env() -> Tuple[Optional[str], Optional[str]]:
-    host = os.environ.get(ENV_METADATA_HOST)
-    port = os.environ.get(ENV_METADATA_PORT)
-    token = os.environ.get(ENV_METADATA_TOKEN)
-    protocol = os.environ.get(ENV_METADATA_PROTOCOL, "http")
-    url = os.environ.get(ENV_METADATA_HOST_URL)
+    host = get_gms_host()
+    port = get_gms_port()
+    token = get_gms_token()
+    protocol = get_gms_protocol()
+    url = get_gms_url()
     if port is not None:
         url = f"{protocol}://{host}:{port}"
         return url, token

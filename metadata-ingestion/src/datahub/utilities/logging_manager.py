@@ -15,13 +15,13 @@ import collections
 import contextlib
 import itertools
 import logging
-import os
 import pathlib
 import sys
 from typing import Deque, Iterator, Optional
 
 import click
 
+from datahub.configuration.env_vars import get_no_color, get_suppress_logging_manager
 from datahub.utilities.tee_io import TeeIO
 
 BASE_LOGGING_FORMAT = (
@@ -38,7 +38,7 @@ IN_MEMORY_LOG_BUFFER_SIZE = 2000  # lines
 IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH = 2000  # characters
 
 
-NO_COLOR = os.environ.get("NO_COLOR", False)
+NO_COLOR = get_no_color()
 
 
 def extract_name_from_filename(filename: str, fallback_name: str) -> str:
@@ -219,7 +219,7 @@ _default_formatter = logging.Formatter(BASE_LOGGING_FORMAT)
 def configure_logging(debug: bool, log_file: Optional[str] = None) -> Iterator[None]:
     _log_buffer.clear()
 
-    if os.environ.get("DATAHUB_SUPPRESS_LOGGING_MANAGER") == "1":
+    if get_suppress_logging_manager() == "1":
         # If we're running in pytest, we don't want to configure logging.
         yield
         return

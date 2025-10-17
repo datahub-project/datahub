@@ -4,7 +4,6 @@ import enum
 import functools
 import json
 import logging
-import os
 import pathlib
 import tempfile
 import uuid
@@ -14,6 +13,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
+from datahub.configuration.env_vars import get_sql_agg_query_log
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -84,7 +84,7 @@ class QueryLogSetting(enum.Enum):
 _DEFAULT_USER_URN = CorpUserUrn("_ingestion")
 _MISSING_SESSION_ID = "__MISSING_SESSION_ID"
 _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
-    os.getenv("DATAHUB_SQL_AGG_QUERY_LOG") or QueryLogSetting.DISABLED.name
+    get_sql_agg_query_log() or QueryLogSetting.DISABLED.name
 ]
 MAX_UPSTREAM_TABLES_COUNT = 300
 MAX_FINEGRAINEDLINEAGE_COUNT = 2000

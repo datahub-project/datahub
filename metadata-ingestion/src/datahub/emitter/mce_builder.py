@@ -3,7 +3,6 @@
 import hashlib
 import json
 import logging
-import os
 import re
 import time
 from datetime import datetime, timezone
@@ -26,6 +25,7 @@ import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
 from typing_extensions import assert_never
 
+from datahub.configuration.env_vars import get_dataset_urn_to_lower
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata.schema_classes import (
     AssertionKeyClass,
@@ -72,9 +72,7 @@ ALL_ENV_TYPES: Set[str] = set(get_enum_options(FabricTypeClass))
 
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
-DATASET_URN_TO_LOWER: bool = (
-    os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false") == "true"
-)
+DATASET_URN_TO_LOWER: bool = get_dataset_urn_to_lower() == "true"
 
 if TYPE_CHECKING:
     from datahub.emitter.mcp_builder import DatahubKey

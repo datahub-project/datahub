@@ -1,8 +1,8 @@
-import os
 from enum import Enum, auto
 from typing import Dict, List, Optional
 
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.env_vars import get_datahub_component
 
 
 class ClientMode(Enum):
@@ -11,7 +11,7 @@ class ClientMode(Enum):
     SDK = auto()
 
 
-DATAHUB_COMPONENT_ENV: str = os.getenv("DATAHUB_COMPONENT", "datahub").lower()
+DATAHUB_COMPONENT_ENV: str = get_datahub_component().lower()
 
 
 class DatahubClientConfig(ConfigModel):
