@@ -40,6 +40,9 @@ public class DataHubAppConfiguration {
   /** Search card related configs */
   private SearchCardConfiguration searchCard;
 
+  /** Search flags related configs */
+  private SearchFlagsConfiguration searchFlags;
+
   /** Home page related configs */
   private HomePageConfiguration homePage;
 
