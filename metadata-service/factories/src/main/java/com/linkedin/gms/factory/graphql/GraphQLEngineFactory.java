@@ -218,7 +218,7 @@ public class GraphQLEngineFactory {
   @Qualifier("pageModuleService")
   private PageModuleService pageModuleService;
 
-  @Autowired
+  @Autowired(required = false)
   @Qualifier("s3Util")
   private S3Util s3Util;
 
