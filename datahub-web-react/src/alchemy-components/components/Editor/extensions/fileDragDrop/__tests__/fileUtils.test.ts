@@ -194,42 +194,13 @@ describe('fileUtils', () => {
 
     describe('isFileUrl', () => {
         it('should return true for internal file API URLs', () => {
-            expect(isFileUrl('https://example.com/api/files/123')).toBe(true);
-        });
-
-        it('should return true for S3 URLs', () => {
-            expect(isFileUrl('https://s3.amazonaws.com/bucket/file.pdf')).toBe(true);
-            expect(isFileUrl('https://bucket.s3.amazonaws.com/file.pdf')).toBe(true);
-        });
-
-        it('should return true for AWS URLs', () => {
-            expect(isFileUrl('https://bucket.amazonaws.com/file.pdf')).toBe(true);
-        });
-
-        it('should return true for Google Cloud Storage URLs', () => {
-            expect(isFileUrl('https://storage.googleapis.com/bucket/file.pdf')).toBe(true);
-        });
-
-        it('should return true for Azure Blob Storage URLs', () => {
-            expect(isFileUrl('https://storage.blob.core.windows.net/file.pdf')).toBe(true);
-        });
-
-        it('should return true for URLs with file extensions', () => {
-            expect(isFileUrl('https://example.com/document.pdf')).toBe(true);
-            expect(isFileUrl('https://example.com/image.jpg')).toBe(true);
-            expect(isFileUrl('https://example.com/presentation.pptx')).toBe(true);
-            expect(isFileUrl('https://example.com/video.mp4')).toBe(true);
+            expect(isFileUrl('https://example.com/openapi/v1/files/123')).toBe(true);
         });
 
         it('should return false for non-file URLs', () => {
             expect(isFileUrl('https://example.com')).toBe(false);
             expect(isFileUrl('https://example.com/page.html')).toBe(false);
             expect(isFileUrl('https://example.com/api/data')).toBe(false);
-        });
-
-        it('should be case insensitive for file extensions', () => {
-            expect(isFileUrl('https://example.com/file.PDF')).toBe(true);
-            expect(isFileUrl('https://example.com/image.PNG')).toBe(true);
         });
     });
 

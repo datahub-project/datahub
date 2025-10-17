@@ -160,15 +160,7 @@ export const handleFileDownload = (url: string, name: string): void => {
  * @returns true if the URL is a file URL
  */
 export const isFileUrl = (url: string): boolean => {
-    // Check for common file storage patterns
-    return (
-        url.includes('/api/files/') || // Our internal file API
-        url.includes('s3.amazonaws.com') || // S3 URLs
-        url.includes('amazonaws.com') || // Other AWS storage
-        url.includes('storage.googleapis.com') || // Google Cloud Storage
-        url.includes('blob.core.windows.net') || // Azure Blob Storage
-        url.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|jpg|jpeg|png|gif|webp|mp4|mp3|zip|rar)$/i) !== null // File extensions
-    );
+    return url.includes('/openapi/v1/'); // Our internal file API
 };
 
 /**

@@ -1,5 +1,6 @@
 import { useApolloClient } from '@apollo/client';
 
+import { useAppConfig } from '@src/app/useAppConfig';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { GetPresignedUploadUrlDocument } from '@graphql/app.generated';
@@ -14,6 +15,7 @@ interface Props {
 
 export default function useFileUpload({ scenario, assetUrn }: Props) {
     const client = useApolloClient();
+    const { config } = useAppConfig();
 
     const uploadFile = async (file: File) => {
         const { data } = await client.query({
@@ -47,8 +49,8 @@ export default function useFileUpload({ scenario, assetUrn }: Props) {
             throw new Error(`Failed to upload file: ${response.statusText}`);
         }
 
-        return resolveRuntimePath(`/api/files/${PRODUCT_ASSETS_FOLDER}/${fileId}`);
+        return resolveRuntimePath(`/openapi/v1/files/${PRODUCT_ASSETS_FOLDER}/${fileId}`);
     };
 
-    return { uploadFile };
+    return config.featureFlags.documentationFileUploadV1 ? { uploadFile } : { uploadFile: undefined };
 }

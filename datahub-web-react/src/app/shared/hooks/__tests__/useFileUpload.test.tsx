@@ -78,7 +78,7 @@ describe('useFileUpload', () => {
             },
         );
 
-        const uploadPromise = result.current.uploadFile(mockFile);
+        const uploadPromise = result.current.uploadFile?.(mockFile);
 
         await waitFor(async () => {
             const url = await uploadPromise;
@@ -138,7 +138,7 @@ describe('useFileUpload', () => {
             },
         );
 
-        await expect(result.current.uploadFile(mockFile)).rejects.toThrow('Issue uploading file to server');
+        await expect(result.current.uploadFile?.(mockFile)).rejects.toThrow('Issue uploading file to server');
     });
 
     it('should throw an error if file upload to presigned URL fails', async () => {
@@ -192,7 +192,7 @@ describe('useFileUpload', () => {
             },
         );
 
-        await expect(result.current.uploadFile(mockFile)).rejects.toThrow(
+        await expect(result.current.uploadFile?.(mockFile)).rejects.toThrow(
             'Failed to upload file: Internal Server Error',
         );
     });
@@ -248,7 +248,7 @@ describe('useFileUpload', () => {
             },
         );
 
-        const uploadPromise = result.current.uploadFile(mockFile);
+        const uploadPromise = result.current.uploadFile?.(mockFile);
 
         await waitFor(async () => {
             const url = await uploadPromise;
@@ -316,7 +316,7 @@ describe('useFileUpload', () => {
             },
         );
 
-        const uploadPromise = result.current.uploadFile(mockFile);
+        const uploadPromise = result.current.uploadFile?.(mockFile);
 
         await waitFor(async () => {
             const url = await uploadPromise;
