@@ -942,3 +942,48 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **3b0c34f84d** - refactor(test): refactor smoke test (#15010)
   *by Aseem Bansal on 2025-10-16*
 
+
+## Upstream Merge Session - 2025-10-17 00:00:08
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-10-17-000007`
+- **Merge Base**: `3b0c34f84d9e75d649824a624c02f84fe114c8c3`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 10
+- **Strategy**: stacked
+- **Started**: Fri Oct 17 00:00:08 UTC 2025
+
+### Commits Included in This Merge
+- **10c28be20c** - fix(test): remove un-necessary test (#15015)
+  *by Aseem Bansal on 2025-10-16*
+
+- **1934ed45e8** - feat(ingestion): add ability to exclude archived mode reports. (#14978)
+  *by Neha Gslab on 2025-10-16*
+
+- **afc6b138b7** - fix(mongo-source): Add failing test for complex topic name parsing (#15002)
+  *by Chaiwon Hyun on 2025-10-16*
+
+- **6610883fe1** - refactor(sdk): extract env variables into a single file (#15021)
+  *by Aseem Bansal on 2025-10-16*
+
+- **fb895c91e4** - doc(dev): update claude md for git worktrees (#15020)
+  *by Aseem Bansal on 2025-10-16*
+
+- **b3d354bf89** - chore: migrate Unity catalog from deprecated SqlParsingBuilder to SqlParsingAggregator and remove SqlParsingBuilder (#15005)
+  *by Sergio Gómez Villamor on 2025-10-16*
+
+- **45dda5e33a** - feat(cli): add user `add` command (#15011)
+  *by Aseem Bansal on 2025-10-16*
+
+- **caad6d5bdc** - chore(): bump netty (#15027)
+  *by david-leifker on 2025-10-16*
+
+- **878a55e723** - refactor(test): refactor smoke test (#15019)
+  *by Aseem Bansal on 2025-10-17*
+
+- **b301b13474** - docs(elasticsearch): add note for shim config (#15030)
+  *by RyanHolstien on 2025-10-16*
+
