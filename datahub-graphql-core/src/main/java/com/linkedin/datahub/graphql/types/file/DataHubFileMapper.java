@@ -65,7 +65,8 @@ public class DataHubFileMapper implements ModelMapper<EntityResponse, DataHubFil
     com.linkedin.datahub.graphql.generated.DataHubFileInfo graphqlFileInfo =
         new com.linkedin.datahub.graphql.generated.DataHubFileInfo();
 
-    graphqlFileInfo.setStorageLocation(gmsFileInfo.getStorageLocation());
+    graphqlFileInfo.setStorageBucket(gmsFileInfo.getStorageBucket());
+    graphqlFileInfo.setStorageKey(gmsFileInfo.getStorageKey());
     graphqlFileInfo.setOriginalFileName(gmsFileInfo.getOriginalFileName());
     graphqlFileInfo.setMimeType(gmsFileInfo.getMimeType());
     graphqlFileInfo.setSizeInBytes(gmsFileInfo.getSizeInBytes());
@@ -85,14 +86,6 @@ public class DataHubFileMapper implements ModelMapper<EntityResponse, DataHubFil
       partialSchemaField.setUrn(schemaFieldUrn.toString());
       partialSchemaField.setType(EntityType.SCHEMA_FIELD);
       graphqlFileInfo.setSchemaField(partialSchemaField);
-    }
-
-    if (gmsFileInfo.hasLastDownloadedTime()) {
-      graphqlFileInfo.setLastDownloadedTime(gmsFileInfo.getLastDownloadedTime());
-    }
-
-    if (gmsFileInfo.hasUnreferencedSince()) {
-      graphqlFileInfo.setUnreferencedSince(gmsFileInfo.getUnreferencedSince());
     }
 
     if (gmsFileInfo.hasCreated()) {

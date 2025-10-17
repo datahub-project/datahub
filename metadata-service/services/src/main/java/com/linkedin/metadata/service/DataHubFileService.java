@@ -37,15 +37,18 @@ public class DataHubFileService {
   public Urn createDataHubFile(
       @Nonnull OperationContext opContext,
       @Nonnull final String id,
-      @Nonnull final String storageLocation,
+      @Nonnull final String storageBucket,
+      @Nonnull final String storageKey,
       @Nonnull final String originalFileName,
       @Nonnull final String mimeType,
       @Nonnull final Long sizeInBytes,
       @Nonnull final com.linkedin.file.FileUploadScenario scenario,
       @Nullable final Urn referencedByAsset,
-      @Nullable final Urn schemaField) {
+      @Nullable final Urn schemaField,
+      @Nullable final String contentHash) {
     Objects.requireNonNull(id, "id must not be null");
-    Objects.requireNonNull(storageLocation, "storageLocation must not be null");
+    Objects.requireNonNull(storageBucket, "storageBucket must not be null");
+    Objects.requireNonNull(storageKey, "storageKey must not be null");
     Objects.requireNonNull(originalFileName, "originalFileName must not be null");
     Objects.requireNonNull(mimeType, "mimeType must not be null");
     Objects.requireNonNull(sizeInBytes, "sizeInBytes must not be null");
@@ -66,7 +69,8 @@ public class DataHubFileService {
 
     // 3. Build DataHubFileInfo
     DataHubFileInfo fileInfo = new DataHubFileInfo();
-    fileInfo.setStorageLocation(storageLocation);
+    fileInfo.setStorageBucket(storageBucket);
+    fileInfo.setStorageKey(storageKey);
     fileInfo.setOriginalFileName(originalFileName);
     fileInfo.setMimeType(mimeType);
     fileInfo.setSizeInBytes(sizeInBytes);
@@ -79,6 +83,10 @@ public class DataHubFileService {
 
     if (schemaField != null) {
       fileInfo.setSchemaField(schemaField);
+    }
+
+    if (contentHash != null) {
+      fileInfo.setContentHash(contentHash);
     }
 
     // 4. Write changes to GMS

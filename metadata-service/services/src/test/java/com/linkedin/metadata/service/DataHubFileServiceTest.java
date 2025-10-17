@@ -46,11 +46,13 @@ public class DataHubFileServiceTest {
         service.createDataHubFile(
             mockOpContext,
             "test-file-id",
-            "s3://bucket/path/file.png",
+            "my-bucket",
+            "path/to/file.png",
             "file.png",
             "image/png",
             1024L,
-            FileUploadScenario.DOCUMENTATION,
+            FileUploadScenario.ASSET_DOCUMENTATION,
+            null,
             null,
             null);
 
@@ -74,13 +76,15 @@ public class DataHubFileServiceTest {
         service.createDataHubFile(
             mockOpContext,
             "test-file-id",
-            "s3://bucket/path/file.png",
+            "my-bucket",
+            "path/to/file.png",
             "file.png",
             "image/png",
             1024L,
-            FileUploadScenario.DOCUMENTATION,
+            FileUploadScenario.ASSET_DOCUMENTATION,
             assetUrn,
-            schemaFieldUrn);
+            schemaFieldUrn,
+            "abc123hash");
 
     assertNotNull(urn);
     assertEquals(urn.toString(), fileUrn.toString());
@@ -95,11 +99,13 @@ public class DataHubFileServiceTest {
     service.createDataHubFile(
         mockOpContext,
         "test-file-id",
-        "s3://bucket/path/file.png",
+        "my-bucket",
+        "path/to/file.png",
         "file.png",
         "image/png",
         1024L,
-        FileUploadScenario.DOCUMENTATION,
+        FileUploadScenario.ASSET_DOCUMENTATION,
+        null,
         null,
         null);
   }
@@ -114,11 +120,13 @@ public class DataHubFileServiceTest {
     service.createDataHubFile(
         mockOpContext,
         "test-file-id",
-        "s3://bucket/path/file.png",
+        "my-bucket",
+        "path/to/file.png",
         "file.png",
         "image/png",
         1024L,
-        FileUploadScenario.DOCUMENTATION,
+        FileUploadScenario.ASSET_DOCUMENTATION,
+        null,
         null,
         null);
   }
@@ -146,11 +154,12 @@ public class DataHubFileServiceTest {
   @Test
   public void testGetDataHubFileInfoFound() throws Exception {
     DataHubFileInfo fileInfo = new DataHubFileInfo();
-    fileInfo.setStorageLocation("s3://bucket/path/file.png");
+    fileInfo.setStorageBucket("my-bucket");
+    fileInfo.setStorageKey("path/to/file.png");
     fileInfo.setOriginalFileName("file.png");
     fileInfo.setMimeType("image/png");
     fileInfo.setSizeInBytes(1024L);
-    fileInfo.setScenario(FileUploadScenario.DOCUMENTATION);
+    fileInfo.setScenario(FileUploadScenario.ASSET_DOCUMENTATION);
     fileInfo.setCreated(new AuditStamp());
 
     EntityResponse response = mock(EntityResponse.class);
@@ -164,7 +173,8 @@ public class DataHubFileServiceTest {
     DataHubFileInfo result = service.getDataHubFileInfo(mockOpContext, fileUrn);
 
     assertNotNull(result);
-    assertEquals(result.getStorageLocation(), "s3://bucket/path/file.png");
+    assertEquals(result.getStorageBucket(), "my-bucket");
+    assertEquals(result.getStorageKey(), "path/to/file.png");
     assertEquals(result.getOriginalFileName(), "file.png");
   }
 

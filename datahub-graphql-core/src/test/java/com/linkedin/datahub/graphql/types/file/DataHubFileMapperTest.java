@@ -23,7 +23,8 @@ public class DataHubFileMapperTest {
 
     // Create GMS file info
     DataHubFileInfo gmsFileInfo = new DataHubFileInfo();
-    gmsFileInfo.setStorageLocation("s3://bucket/path/file.png");
+    gmsFileInfo.setStorageBucket("my-bucket");
+    gmsFileInfo.setStorageKey("path/to/file.png");
     gmsFileInfo.setOriginalFileName("file.png");
     gmsFileInfo.setMimeType("image/png");
     gmsFileInfo.setSizeInBytes(1024L);
@@ -54,7 +55,8 @@ public class DataHubFileMapperTest {
 
     // Verify info
     assertNotNull(result.getInfo());
-    assertEquals(result.getInfo().getStorageLocation(), "s3://bucket/path/file.png");
+    assertEquals(result.getInfo().getStorageBucket(), "my-bucket");
+    assertEquals(result.getInfo().getStorageKey(), "path/to/file.png");
     assertEquals(result.getInfo().getOriginalFileName(), "file.png");
     assertEquals(result.getInfo().getMimeType(), "image/png");
     assertEquals(result.getInfo().getSizeInBytes(), Long.valueOf(1024L));
@@ -80,7 +82,8 @@ public class DataHubFileMapperTest {
 
     // Create GMS file info
     DataHubFileInfo gmsFileInfo = new DataHubFileInfo();
-    gmsFileInfo.setStorageLocation("s3://bucket/path/file.png");
+    gmsFileInfo.setStorageBucket("my-bucket");
+    gmsFileInfo.setStorageKey("path/to/file.png");
     gmsFileInfo.setOriginalFileName("file.png");
     gmsFileInfo.setMimeType("image/png");
     gmsFileInfo.setSizeInBytes(1024L);
@@ -122,15 +125,15 @@ public class DataHubFileMapperTest {
     // Create test data
     Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:test-file-123");
 
-    // Create GMS file info with optional fields
+    // Create GMS file info with optional fields (contentHash)
     DataHubFileInfo gmsFileInfo = new DataHubFileInfo();
-    gmsFileInfo.setStorageLocation("s3://bucket/path/file.png");
+    gmsFileInfo.setStorageBucket("my-bucket");
+    gmsFileInfo.setStorageKey("path/to/file.png");
     gmsFileInfo.setOriginalFileName("file.png");
     gmsFileInfo.setMimeType("image/png");
     gmsFileInfo.setSizeInBytes(1024L);
     gmsFileInfo.setScenario(FileUploadScenario.ASSET_DOCUMENTATION);
-    gmsFileInfo.setLastDownloadedTime(System.currentTimeMillis());
-    gmsFileInfo.setUnreferencedSince(System.currentTimeMillis() - 86400000L); // 1 day ago
+    gmsFileInfo.setContentHash("abc123def456");
 
     // Create audit stamp
     AuditStamp created = new AuditStamp();
@@ -151,12 +154,10 @@ public class DataHubFileMapperTest {
     // Test mapping
     DataHubFile result = DataHubFileMapper.map(null, entityResponse);
 
-    // Verify optional fields
-    assertNotNull(result.getInfo().getLastDownloadedTime());
-    assertEquals(result.getInfo().getLastDownloadedTime(), gmsFileInfo.getLastDownloadedTime());
-
-    assertNotNull(result.getInfo().getUnreferencedSince());
-    assertEquals(result.getInfo().getUnreferencedSince(), gmsFileInfo.getUnreferencedSince());
+    // Verify basic fields work with optional contentHash
+    assertNotNull(result.getInfo());
+    assertEquals(result.getInfo().getStorageBucket(), "my-bucket");
+    assertEquals(result.getInfo().getOriginalFileName(), "file.png");
   }
 
   @Test
@@ -181,7 +182,8 @@ public class DataHubFileMapperTest {
 
     // Create GMS file info without references
     DataHubFileInfo gmsFileInfo = new DataHubFileInfo();
-    gmsFileInfo.setStorageLocation("s3://bucket/path/file.png");
+    gmsFileInfo.setStorageBucket("my-bucket");
+    gmsFileInfo.setStorageKey("path/to/file.png");
     gmsFileInfo.setOriginalFileName("file.png");
     gmsFileInfo.setMimeType("image/png");
     gmsFileInfo.setSizeInBytes(1024L);
@@ -209,7 +211,5 @@ public class DataHubFileMapperTest {
     // Verify references are null
     assertNull(result.getInfo().getReferencedByAsset());
     assertNull(result.getInfo().getSchemaField());
-    assertNull(result.getInfo().getLastDownloadedTime());
-    assertNull(result.getInfo().getUnreferencedSince());
   }
 }
