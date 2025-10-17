@@ -114,9 +114,12 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
-        "root\\['totalCount'\\]"
+        "root\\['totalCount'\\]",
+        "root\\['entities'\\]\\[\\d+\\]\\['scrollId'\\]",
+        "root\\['facets'\\]"
       ],
       "json": {
+        "scrollId": "IGNORED",
         "entities": [
           {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetSingle1EntityV3,PROD)",
@@ -127,9 +130,19 @@
                 "customProperties": {},
                 "tags": []
               }
+            },
+            "scrollId": "IGNORED"
+          }
+        ],
+        "facets": [
+          {
+            "field": "entity",
+            "aggregations": {
+              "dataset": 1
             }
           }
-        ]
+        ],
+        "totalCount": 3
       }
     }
   },
@@ -168,7 +181,9 @@
     },
     "response": {
       "exclude_regex_paths": [
-        "root\\['scrollId'\\]"
+        "root\\['scrollId'\\]",
+        "root\\['facets'\\]",
+        "root\\['entities'\\]\\[\\d+\\]\\['scrollId'\\]"
       ],
       "json": {
         "entities": [
@@ -223,7 +238,9 @@
     },
     "response": {
       "exclude_regex_paths": [
-        "root\\['scrollId'\\]"
+        "root\\['scrollId'\\]",
+        "root\\['facets'\\]",
+        "root\\['entities'\\]\\[\\d+\\]\\['scrollId'\\]"
       ],
       "json": {
         "entities": [
@@ -269,6 +286,7 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
+        "root\\['entities'\\]\\[\\d+\\]\\['scrollId'\\]",
         "root\\['totalCount'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['sourceIP'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['telemetryTraceId'\\]",
@@ -302,7 +320,8 @@
               }
             }
           }
-        ]
+        ],
+        "facets":[{"field":"entity","aggregations":{"dataset":1}}]
       }
     }
   },
@@ -322,7 +341,9 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
-        "root\\['totalCount'\\]"
+        "root\\['entities'\\]\\[\\d+\\]\\['scrollId'\\]",
+        "root\\['totalCount'\\]",
+        "root\\['facets'\\]"
       ],
       "json": {
         "entities": [

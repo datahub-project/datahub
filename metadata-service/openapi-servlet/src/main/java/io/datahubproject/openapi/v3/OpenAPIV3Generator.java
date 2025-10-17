@@ -120,6 +120,7 @@ public class OpenAPIV3Generator {
         buildEntitySchema(filteredAspectSpec, aspectNames, true));
     components.addSchemas(
         "Scroll" + ENTITIES + ENTITY_RESPONSE_SUFFIX, buildEntitiesScrollSchema());
+    components.addSchemas("FacetMetadata", buildFacetMetadataSchema());
     components.addSchemas(ASPECT_PATCH_PROPERTY, buildAspectPatchPropertySchema());
 
     // --> Aspect components
@@ -1277,6 +1278,12 @@ public class OpenAPIV3Generator {
     properties.put(
         PROPERTY_URN,
         newSchema().type(TYPE_STRING).description("Unique id for " + entity.getName()));
+    // Per-element scrollId for pagination (search-after token)
+    properties.put(
+        NAME_SCROLL_ID,
+        newSchema()
+            .types(TYPE_STRING_NULLABLE)
+            .description("Per-entity scroll id for pagination."));
 
     final Map<String, Schema> aspectProperties =
         entity.getAspectSpecMap().entrySet().stream()
@@ -1349,6 +1356,12 @@ public class OpenAPIV3Generator {
                             a.getValue().getPegasusSchema().getName(), withSystemMetadata)));
     properties.put(
         PROPERTY_URN, newSchema().type(TYPE_STRING).description("Unique id for " + ENTITIES));
+    // Per-element scrollId for pagination (search-after token)
+    properties.put(
+        NAME_SCROLL_ID,
+        newSchema()
+            .types(TYPE_STRING_NULLABLE)
+            .description("Per-entity scroll id for pagination."));
 
     return newSchema()
         .type(TYPE_OBJECT)
@@ -1405,7 +1418,14 @@ public class OpenAPIV3Generator {
                     .type(TYPE_STRING)
                     ._enum(
                         Arrays.asList(
-                            "EQUAL", "STARTS_WITH", "ENDS_WITH", "EXISTS", "IN", "CONTAIN"))
+                            "EQUAL",
+                            "STARTS_WITH",
+                            "ENDS_WITH",
+                            "EXISTS",
+                            "IN",
+                            "CONTAIN",
+                            "GREATER_THAN",
+                            "LESS_THAN"))
                     ._default("EQUAL")
                     .description("The condition for the criterion."))
             .addProperties(
@@ -1563,10 +1583,29 @@ public class OpenAPIV3Generator {
                             String.format(
                                 "#/components/schemas/%s%s", ENTITIES, ENTITY_RESPONSE_SUFFIX))))
         .addProperty(
+            "facets",
+            newSchema()
+                .type(TYPE_ARRAY)
+                .description("List of facet aggregations for the result set.")
+                .items(newSchema().$ref("#/components/schemas/FacetMetadata")))
+        .addProperty(
             "totalCount",
             newSchema()
                 .type(TYPE_INTEGER)
                 .description("Total number of entities satisfy the criteria."));
+  }
+
+  private static Schema buildFacetMetadataSchema() {
+    return newSchema()
+        .type(TYPE_OBJECT)
+        .description("Facet aggregation metadata.")
+        .addProperty("field", newSchema().type(TYPE_STRING).description("Facet field name."))
+        .addProperty(
+            "aggregations",
+            newSchema()
+                .type(TYPE_OBJECT)
+                .description("Counts per facet value.")
+                .additionalProperties(newSchema().type(TYPE_INTEGER).format("int64")));
   }
 
   private static Schema buildEntityScrollSchema(final EntitySpec entity) {
