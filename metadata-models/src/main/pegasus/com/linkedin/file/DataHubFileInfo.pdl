@@ -11,12 +11,20 @@ import com.linkedin.common.Urn
 }
 record DataHubFileInfo {
   /**
-   * The full S3 key/path where this file is stored
+   * The storage bucket this file is stored in
    */
   @Searchable = {
     "fieldType": "KEYWORD"
   }
-  storageLocation: string
+  storageBucket: string
+
+  /**
+   * The key for where this file is stored inside of the given bucket
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  storageKey: string
 
   /**
    * The original filename as uploaded by the user
@@ -69,22 +77,12 @@ record DataHubFileInfo {
    */
   @Relationship= {
     "name": "ReferencedBy",
-	"entityTypes": ["schemaField"]
+    "entityTypes": ["schemaField"]
   }
   @Searchable = {
     "fieldType": "URN"
   }
   schemaField: optional Urn
-
-  /**
-   * Timestamp when this file was last downloaded. Used for garbage collection safety checks.
-   */
-  lastDownloadedTime: optional long
-
-  /**
-   * Timestamp when this file was first marked as unreferenced. Used for garbage collection.
-   */
-  unreferencedSince: optional long
 
   /**
    * Timestamp when this file was created and by whom
@@ -100,4 +98,12 @@ record DataHubFileInfo {
     }
   }
   created: AuditStamp
+
+  /**
+  * SHA-256 hash of file contents
+  */
+  @Searchable = {
+  "fieldType": "KEYWORD"
+  }
+  contentHash: optional string
 }

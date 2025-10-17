@@ -33,12 +33,14 @@ public class CreateDataHubFileResolver
         bindArgument(environment.getArgument("input"), CreateDataHubFileInput.class);
 
     String id = input.getId();
-    String storageLocation = input.getStorageLocation();
+    String storageBucket = input.getStorageBucket();
+    String storageKey = input.getStorageKey();
     String originalFileName = input.getOriginalFileName();
     String mimeType = input.getMimeType();
     Long sizeInBytes = input.getSizeInBytes();
     com.linkedin.file.FileUploadScenario scenario =
         com.linkedin.file.FileUploadScenario.valueOf(input.getScenario().toString());
+    String contentHash = input.getContentHash();
 
     Urn referencedByAsset = null;
     if (input.getReferencedByAsset() != null) {
@@ -59,13 +61,15 @@ public class CreateDataHubFileResolver
                 _dataHubFileService.createDataHubFile(
                     context.getOperationContext(),
                     id,
-                    storageLocation,
+                    storageBucket,
+                    storageKey,
                     originalFileName,
                     mimeType,
                     sizeInBytes,
                     scenario,
                     finalReferencedByAsset,
-                    finalSchemaField);
+                    finalSchemaField,
+                    contentHash);
 
             EntityResponse response =
                 _dataHubFileService.getDataHubFileEntityResponse(

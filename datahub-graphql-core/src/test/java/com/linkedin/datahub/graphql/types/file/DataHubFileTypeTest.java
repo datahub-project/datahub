@@ -220,7 +220,8 @@ public class DataHubFileTypeTest {
   private EntityResponse createMockEntityResponse(String urn, String fileName) {
     // Create GMS file info
     DataHubFileInfo gmsFileInfo = new DataHubFileInfo();
-    gmsFileInfo.setStorageLocation("s3://bucket/path/" + fileName);
+    gmsFileInfo.setStorageBucket("my-bucket");
+    gmsFileInfo.setStorageKey("path/to/" + fileName);
     gmsFileInfo.setOriginalFileName(fileName);
     gmsFileInfo.setMimeType("image/png");
     gmsFileInfo.setSizeInBytes(1024L);
@@ -248,7 +249,8 @@ public class DataHubFileTypeTest {
   private EntityResponse createComplexMockEntityResponse(String urn) {
     // Create GMS file info with references and optional fields
     DataHubFileInfo gmsFileInfo = new DataHubFileInfo();
-    gmsFileInfo.setStorageLocation("s3://bucket/path/complex-file.pdf");
+    gmsFileInfo.setStorageBucket("my-bucket");
+    gmsFileInfo.setStorageKey("path/to/complex-file.pdf");
     gmsFileInfo.setOriginalFileName("complex-file.pdf");
     gmsFileInfo.setMimeType("application/pdf");
     gmsFileInfo.setSizeInBytes(2048L);
@@ -258,8 +260,7 @@ public class DataHubFileTypeTest {
     gmsFileInfo.setSchemaField(
         UrnUtils.getUrn(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,test,PROD),testField)"));
-    gmsFileInfo.setLastDownloadedTime(System.currentTimeMillis());
-    gmsFileInfo.setUnreferencedSince(System.currentTimeMillis() - 86400000L);
+    gmsFileInfo.setContentHash("xyz789hash");
 
     // Create audit stamp
     AuditStamp created = new AuditStamp();
