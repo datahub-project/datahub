@@ -221,7 +221,7 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Login to registry
