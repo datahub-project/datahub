@@ -9,85 +9,11 @@ from datahub.ingestion.source.sql_queries import (
 )
 
 
-class TestPerformanceOptimizations:
+class TestPerformanceConfigOptimizations:
     """Test performance optimization features."""
 
-    def test_streaming_processing_default(self):
-        """Test that streaming processing is enabled by default."""
-        config = SqlQueriesSourceConfig(platform="snowflake", query_file="dummy.json")
-        assert config.enable_streaming is True
 
-    def test_streaming_processing_explicit_enable(self):
-        """Test explicit enabling of streaming processing."""
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", enable_streaming=True
-        )
-        assert config.enable_streaming is True
 
-    def test_streaming_processing_explicit_disable(self):
-        """Test explicit disabling of streaming processing."""
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", enable_streaming=False
-        )
-        assert config.enable_streaming is False
-
-    def test_reporting_batch_size_default(self):
-        """Test default reporting batch size."""
-        config = SqlQueriesSourceConfig(platform="snowflake", query_file="dummy.json")
-        assert config.reporting_batch_size == 100
-
-    def test_reporting_batch_size_custom(self):
-        """Test custom reporting batch size."""
-        config = SqlQueriesSourceConfig(
-            platform="snowflake",
-            query_file="dummy.json",
-            reporting_batch_size=500,
-        )
-        assert config.reporting_batch_size == 500
-
-    def test_streaming_batch_size_default(self):
-        """Test default streaming batch size."""
-        config = SqlQueriesSourceConfig(platform="snowflake", query_file="dummy.json")
-        assert config.streaming_batch_size == 1000
-
-    def test_streaming_batch_size_custom(self):
-        """Test custom streaming batch size."""
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", streaming_batch_size=2000
-        )
-        assert config.streaming_batch_size == 2000
-
-    def test_reporting_batch_size_validation(self):
-        """Test reporting batch size validation."""
-        # Test minimum value
-        with pytest.raises(ValueError):
-            SqlQueriesSourceConfig(
-                platform="snowflake", query_file="dummy.json", reporting_batch_size=0
-            )
-
-        # Test maximum value
-        with pytest.raises(ValueError):
-            SqlQueriesSourceConfig(
-                platform="snowflake",
-                query_file="dummy.json",
-                reporting_batch_size=20000,
-            )
-
-    def test_streaming_batch_size_validation(self):
-        """Test streaming batch size validation."""
-        # Test minimum value
-        with pytest.raises(ValueError):
-            SqlQueriesSourceConfig(
-                platform="snowflake", query_file="dummy.json", streaming_batch_size=50
-            )
-
-        # Test maximum value
-        with pytest.raises(ValueError):
-            SqlQueriesSourceConfig(
-                platform="snowflake",
-                query_file="dummy.json",
-                streaming_batch_size=20000,
-            )
 
 
 class TestS3Support:
@@ -121,36 +47,46 @@ class TestS3Support:
         with pytest.raises(
             ValueError, match="AWS configuration required for S3 file access"
         ):
-            list(source._parse_s3_query_file_streaming())
+            list(source._parse_s3_query_file())
 
     def test_s3_verify_ssl_default(self):
         """Test default SSL verification setting."""
-        config = SqlQueriesSourceConfig(platform="snowflake", query_file="dummy.json")
-        assert config.s3_verify_ssl is True
+        aws_config_dict = {
+            "aws_access_key_id": "test_key",
+            "aws_secret_access_key": "test_secret",
+        }
+        config = SqlQueriesSourceConfig(
+            platform="snowflake", query_file="dummy.json", aws_config=aws_config_dict
+        )
+        assert config.aws_config.s3_verify_ssl is True
 
     def test_s3_verify_ssl_custom(self):
         """Test custom SSL verification setting."""
+        aws_config_dict = {
+            "aws_access_key_id": "test_key",
+            "aws_secret_access_key": "test_secret",
+            "s3_verify_ssl": False,
+        }
         config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", s3_verify_ssl=False
+            platform="snowflake", query_file="dummy.json", aws_config=aws_config_dict
         )
-        assert config.s3_verify_ssl is False
+        assert config.aws_config.s3_verify_ssl is False
 
     def test_s3_verify_ssl_ca_bundle(self):
         """Test SSL verification with CA bundle path."""
+        aws_config_dict = {
+            "aws_access_key_id": "test_key",
+            "aws_secret_access_key": "test_secret",
+            "s3_verify_ssl": "/path/to/ca-bundle.pem",
+        }
         config = SqlQueriesSourceConfig(
-            platform="snowflake",
-            query_file="dummy.json",
-            s3_verify_ssl="/path/to/ca-bundle.pem",
+            platform="snowflake", query_file="dummy.json", aws_config=aws_config_dict
         )
-        assert config.s3_verify_ssl == "/path/to/ca-bundle.pem"
+        assert config.aws_config.s3_verify_ssl == "/path/to/ca-bundle.pem"
 
-    @patch("datahub.ingestion.source.sql_queries.get_bucket_name")
-    @patch("datahub.ingestion.source.sql_queries.get_bucket_relative_path")
-    def test_s3_file_processing(self, mock_get_key, mock_get_bucket):
+    @patch("datahub.ingestion.source.sql_queries.smart_open.open")
+    def test_s3_file_processing(self, mock_open):
         """Test S3 file processing."""
-        mock_get_bucket.return_value = "test-bucket"
-        mock_get_key.return_value = "test-key"
-
         # Create a proper AWS config dict
         aws_config_dict = {
             "aws_access_key_id": "test_key",
@@ -177,18 +113,18 @@ class TestS3Support:
         mock_aws_config.get_s3_client.return_value = Mock()
         config.aws_config = mock_aws_config
 
-        # Mock S3 client and response
-        mock_s3_client = Mock()
-        mock_response = {"Body": Mock()}
-        mock_response["Body"].iter_lines.return_value = [
-            b'{"query": "SELECT * FROM table1", "timestamp": 1609459200}',
-            b'{"query": "SELECT * FROM table2", "timestamp": 1609459201}',
-        ]
-        mock_s3_client.get_object.return_value = mock_response
-        mock_aws_config.get_s3_client.return_value = mock_s3_client
+        # Mock smart_open file stream
+        mock_file_stream = Mock()
+        mock_file_stream.__enter__ = Mock(return_value=mock_file_stream)
+        mock_file_stream.__exit__ = Mock(return_value=None)
+        mock_file_stream.__iter__ = Mock(return_value=iter([
+            '{"query": "SELECT * FROM table1", "timestamp": 1609459200}\n',
+            '{"query": "SELECT * FROM table2", "timestamp": 1609459201}\n',
+        ]))
+        mock_open.return_value = mock_file_stream
 
         # Test S3 file processing
-        queries = list(source._parse_s3_query_file_streaming())
+        queries = list(source._parse_s3_query_file())
         assert len(queries) == 2
         assert queries[0].query == "SELECT * FROM table1"
         assert queries[1].query == "SELECT * FROM table2"
@@ -491,19 +427,6 @@ class TestEnhancedReporting:
         assert schema_report.num_schema_cache_hits == 1
         assert schema_report.num_schema_cache_misses == 1
 
-    def test_streaming_batch_counting(self):
-        """Test streaming batch counting."""
-        from datahub.ingestion.source.sql_queries import SqlQueriesSourceReport
-
-        # Create a report instance directly
-        report = SqlQueriesSourceReport()
-
-        # Initial count should be 0
-        assert report.num_streaming_batches_processed == 0
-
-        # Simulate batch processing
-        report.num_streaming_batches_processed += 1
-        assert report.num_streaming_batches_processed == 1
 
     def test_query_processing_counting(self):
         """Test query processing counting."""
@@ -514,7 +437,6 @@ class TestEnhancedReporting:
 
         # Initial counts should be 0
         assert report.num_queries_processed_sequential == 0
-        assert report.num_queries_processed_parallel == 0
 
         # Simulate query processing
         report.num_queries_processed_sequential += 5
@@ -543,13 +465,9 @@ class TestConfigurationValidation:
         config = SqlQueriesSourceConfig(platform="snowflake", query_file="dummy.json")
 
         # Performance options
-        assert config.enable_streaming is True
-        assert config.reporting_batch_size == 100
-        assert config.streaming_batch_size == 1000
 
         # S3 options
         assert config.aws_config is None
-        assert config.s3_verify_ssl is True
 
         # Temp table options
         assert config.temp_table_patterns == []
@@ -573,27 +491,7 @@ class TestConfigurationValidation:
 
     def test_field_validation(self):
         """Test field validation for new options."""
-        # Test valid batch sizes
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", reporting_batch_size=50
-        )
-        assert config.reporting_batch_size == 50
 
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", reporting_batch_size=10000
-        )
-        assert config.reporting_batch_size == 10000
-
-        # Test valid streaming batch sizes
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", streaming_batch_size=100
-        )
-        assert config.streaming_batch_size == 100
-
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", streaming_batch_size=10000
-        )
-        assert config.streaming_batch_size == 10000
 
 
 class TestEdgeCases:
@@ -627,7 +525,7 @@ class TestEdgeCases:
         with pytest.raises(
             ValueError, match="AWS configuration required for S3 file access"
         ):
-            list(source._parse_s3_query_file_streaming())
+            list(source._parse_s3_query_file())
 
     def test_invalid_s3_uri_format(self):
         """Test behavior with invalid S3 URI format."""
@@ -642,46 +540,44 @@ class TestEdgeCases:
             source._is_s3_uri("s3://") is True
         )  # Even incomplete S3 URI should be detected
 
-    def test_large_reporting_batch_sizes(self):
-        """Test behavior with large reporting batch sizes."""
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", reporting_batch_size=10000
-        )
-        assert config.reporting_batch_size == 10000
 
-        config = SqlQueriesSourceConfig(
-            platform="snowflake", query_file="dummy.json", streaming_batch_size=10000
-        )
-        assert config.streaming_batch_size == 10000
 
     def test_boolean_configuration_options(self):
         """Test boolean configuration options."""
+        aws_config_dict = {
+            "aws_access_key_id": "test_key",
+            "aws_secret_access_key": "test_secret",
+            "s3_verify_ssl": False,
+        }
         config = SqlQueriesSourceConfig(
             platform="snowflake",
             query_file="dummy.json",
-            enable_streaming=False,
-            s3_verify_ssl=False,
+            aws_config=aws_config_dict,
         )
 
-        assert config.enable_streaming is False
-        assert config.s3_verify_ssl is False
+        assert config.aws_config.s3_verify_ssl is False
 
     def test_string_configuration_options(self):
         """Test string configuration options."""
+        aws_config_dict = {
+            "aws_access_key_id": "test_key",
+            "aws_secret_access_key": "test_secret",
+            "s3_verify_ssl": "/path/to/ca-bundle.pem",
+        }
         config = SqlQueriesSourceConfig(
             platform="snowflake",
             query_file="dummy.json",
-            s3_verify_ssl="/path/to/ca-bundle.pem",
+            aws_config=aws_config_dict,
         )
 
-        assert config.s3_verify_ssl == "/path/to/ca-bundle.pem"
+        assert config.aws_config.s3_verify_ssl == "/path/to/ca-bundle.pem"
 
 
 class TestIntegrationScenarios:
     """Test integration scenarios combining multiple features."""
 
-    def test_s3_with_streaming_and_lazy_loading(self):
-        """Test S3 processing with streaming and lazy loading enabled."""
+    def test_s3_with_lazy_loading(self):
+        """Test S3 processing with lazy loading enabled."""
         # Create a proper AWS config dict
         aws_config_dict = {
             "aws_access_key_id": "test_key",
@@ -692,8 +588,6 @@ class TestIntegrationScenarios:
         config = SqlQueriesSourceConfig(
             platform="snowflake",
             query_file="s3://bucket/file.json",
-            enable_streaming=True,
-            streaming_batch_size=500,
             aws_config=aws_config_dict,
         )
 
@@ -702,16 +596,13 @@ class TestIntegrationScenarios:
         source.config = config
 
         # Verify configuration
-        assert config.enable_streaming is True
-        assert config.streaming_batch_size == 500
         assert source._is_s3_uri(config.query_file) is True
 
-    def test_temp_tables_with_streaming(self):
-        """Test temp table support with streaming processing."""
+    def test_temp_tables_support(self):
+        """Test temp table support."""
         config = SqlQueriesSourceConfig(
             platform="athena",
             query_file="dummy.json",
-            enable_streaming=True,
             temp_table_patterns=["^temp_.*", "^tmp_.*"],
         )
 
@@ -723,7 +614,6 @@ class TestIntegrationScenarios:
         source.ctx = Mock()  # Add ctx attribute
 
         # Verify configuration
-        assert config.enable_streaming is True
         assert len(config.temp_table_patterns) == 2
 
         # Test temp table detection
@@ -736,15 +626,9 @@ class TestIntegrationScenarios:
         config = SqlQueriesSourceConfig(
             platform="snowflake",
             query_file="dummy.json",
-            enable_streaming=True,
-            reporting_batch_size=200,
-            streaming_batch_size=1500,
         )
 
         # Verify all optimizations are enabled
-        assert config.enable_streaming is True
-        assert config.reporting_batch_size == 200
-        assert config.streaming_batch_size == 1500
 
     def test_backward_compatibility_with_new_features(self):
         """Test that existing configurations work with new features available."""
@@ -757,9 +641,6 @@ class TestIntegrationScenarios:
         )
 
         # New features should have sensible defaults
-        assert config.enable_streaming is True  # New default
-        assert config.reporting_batch_size == 100  # New default
-        assert config.streaming_batch_size == 1000  # New default
 
         # Old features should still work
         assert config.default_db == "test_db"

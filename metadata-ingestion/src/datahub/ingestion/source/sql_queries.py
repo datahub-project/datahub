@@ -73,14 +73,6 @@ class SqlQueriesSourceConfig(
         True,
         description="Read SchemaMetadata aspects from DataHub to aid in SQL parsing. Turn off only for testing.",
     )
-    reporting_batch_size: int = Field(
-        default=100,
-        description="Number of queries to process before reporting progress. "
-        "Smaller batches provide more granular progress updates. "
-        "Recommended range: 50-1000 queries per batch.",
-        ge=1,
-        le=10000,
-    )
     default_db: Optional[str] = Field(
         None,
         description="The default database to use for unqualified table names",
@@ -99,28 +91,11 @@ class SqlQueriesSourceConfig(
         "that don't have native temp tables but use naming patterns for fake temp tables.",
         default=[],
     )
-    enable_streaming: bool = Field(
-        description="Enable streaming processing for large files. When enabled, queries are processed "
-        "one batch at a time instead of loading all queries into memory. Significantly reduces memory usage.",
-        default=True,
-    )
-    streaming_batch_size: int = Field(
-        description="Batch size for streaming processing. Smaller batches use less memory but require more processing cycles. "
-        "Only used when enable_streaming is True.",
-        default=1000,
-        ge=100,
-        le=10000,
-    )
 
     # AWS/S3 configuration
     aws_config: Optional[AwsConnectionConfig] = Field(
         default=None,
         description="AWS configuration for S3 access. Required when query_file is an S3 URI (s3://).",
-    )
-
-    s3_verify_ssl: Optional[Union[bool, str]] = Field(
-        default=True,
-        description="Whether to verify SSL certificates when accessing S3. Can be True, False, or a path to a CA bundle.",
     )
 
 
@@ -129,11 +104,9 @@ class SqlQueriesSourceReport(SourceReport):
     num_entries_processed: int = 0
     num_entries_failed: int = 0
     num_queries_aggregator_failures: int = 0
-    num_queries_processed_parallel: int = 0
     num_queries_processed_sequential: int = 0
     num_temp_tables_detected: int = 0
     temp_table_patterns_used: List[str] = field(default_factory=list)
-    num_streaming_batches_processed: int = 0
     peak_memory_usage_mb: float = 0.0
 
     sql_aggregator: Optional[SqlAggregatorReport] = None
@@ -171,22 +144,11 @@ class SqlQueriesSource(Source):
     - Reduces initial startup time and memory usage significantly
     - Automatically handles large platforms efficiently without memory issues
 
-    **Query Processing Modes**:
-
-    **Non-Streaming Processing** (`enable_streaming: false`):
+    **Query Processing**:
     - Loads the entire query file into memory at once
     - Processes all queries sequentially before generating metadata work units
     - Uses `reporting_batch_size` for progress reporting frequency (every 100 queries by default)
-
-    **Streaming Processing** (`enable_streaming: true` by default):
-    - Reads and processes queries in batches without loading the entire file into memory
-    - Dramatically reduces memory usage for large files (50-90% reduction)
-    - Configurable streaming batch size (`streaming_batch_size: 1000` by default)
-    - Ideal for files with 10,000+ queries or limited memory environments
-    - Generates and yields metadata work units after each batch
-
-    **General Features**:
-    - Preserves temp table mappings and lineage relationships across all processing modes
+    - Preserves temp table mappings and lineage relationships to ensure consistent lineage tracking
     - Query deduplication is handled automatically by the SQL parsing aggregator
     - Uses sequential processing to avoid threading issues with SqlParsingAggregator
 
@@ -285,34 +247,12 @@ class SqlQueriesSource(Source):
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
         logger.info(f"Parsing queries from {os.path.basename(self.config.query_file)}")
 
-        if self.config.enable_streaming:
-            logger.info("Using streaming processing for optimal memory usage")
-            yield from self._process_queries_streaming()
-        else:
-            logger.info("Using batch processing (all queries loaded into memory)")
-            yield from self._process_queries_batch()
+        logger.info("Processing all queries in batch mode")
+        yield from self._process_queries_batch()
 
         # Log processing statistics
         self._log_processing_statistics()
 
-    def _process_queries_streaming(
-        self,
-    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
-        """Process queries in streaming fashion to minimize memory usage."""
-        with self.report.new_stage("Streaming query processing"):
-            query_batch = []
-
-            for query_entry in self._parse_query_file():
-                query_batch.append(query_entry)
-
-                # Process batch when it reaches the streaming batch size
-                if len(query_batch) >= self.config.streaming_batch_size:
-                    yield from self._process_query_batch(query_batch)
-                    query_batch = []
-
-            # Process remaining queries in the final batch
-            if query_batch:
-                yield from self._process_query_batch(query_batch)
 
     def _process_queries_batch(
         self,
@@ -330,43 +270,14 @@ class SqlQueriesSource(Source):
             logger.info("Generating workunits from SQL parsing aggregator")
             yield from auto_workunit(self.aggregator.gen_metadata())
 
-    def _process_query_batch(
-        self, query_batch: List["QueryEntry"]
-    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
-        """Process a batch of queries and yield metadata work units."""
-        self.report.num_streaming_batches_processed += 1
-        logger.debug(
-            f"Processing streaming batch {self.report.num_streaming_batches_processed} with {len(query_batch)} queries"
-        )
-
-        # Process the batch
-        self._process_queries_sequential(query_batch)
-
-        # Generate and yield metadata work units for this batch
-        # Note: No stage created here to avoid excessive stage creation for each batch
-        yield from auto_workunit(self.aggregator.gen_metadata())
 
     def _log_processing_statistics(self) -> None:
-        """Log comprehensive processing statistics."""
-        total_queries_processed = (
-            self.report.num_queries_processed_parallel
-            + self.report.num_queries_processed_sequential
-        )
-
-        if total_queries_processed > 0:
-            if self.report.num_queries_processed_parallel > 0:
-                logger.info(
-                    f"Query processing: {self.report.num_queries_processed_parallel} queries processed in parallel"
-                )
-            if self.report.num_queries_processed_sequential > 0:
-                logger.info(
-                    f"Query processing: {self.report.num_queries_processed_sequential} queries processed sequentially"
-                )
-
-        if self.config.enable_streaming:
+        """Log processing statistics."""
+        if self.report.num_queries_processed_sequential > 0:
             logger.info(
-                f"Streaming processing: {self.report.num_streaming_batches_processed} batches processed"
+                f"Query processing: {self.report.num_queries_processed_sequential} queries processed sequentially"
             )
+
 
         # Log schema cache statistics if using schema resolver
         if self.report.schema_resolver_report:
@@ -388,8 +299,8 @@ class SqlQueriesSource(Source):
         """Check if the path is an S3 URI."""
         return path.startswith("s3://")
 
-    def _parse_s3_query_file_streaming(self) -> Iterable["QueryEntry"]:
-        """Parse query file from S3 in streaming fashion using smart_open."""
+    def _parse_s3_query_file(self) -> Iterable["QueryEntry"]:
+        """Parse query file from S3 using smart_open."""
         if not self.config.aws_config:
             raise ValueError("AWS configuration required for S3 file access")
 
@@ -397,9 +308,7 @@ class SqlQueriesSource(Source):
 
         try:
             # Use smart_open for efficient S3 streaming, similar to S3FileSystem
-            s3_client = self.config.aws_config.get_s3_client(
-                verify_ssl=self.config.s3_verify_ssl
-            )
+            s3_client = self.config.aws_config.get_s3_client()
 
             with smart_open.open(
                 self.config.query_file, mode="r", transport_params={"client": s3_client}
@@ -456,43 +365,25 @@ class SqlQueriesSource(Source):
     def _parse_query_file(self) -> Iterable["QueryEntry"]:
         """Parse the query file and yield QueryEntry objects."""
         if self._is_s3_uri(self.config.query_file):
-            yield from self._parse_s3_query_file_streaming()
+            yield from self._parse_s3_query_file()
         else:
             yield from self._parse_local_query_file()
 
     def _process_queries_sequential(self, queries: List["QueryEntry"]) -> None:
-        """Process queries sequentially with optimized batching for better performance."""
+        """Process queries sequentially."""
         total_queries = len(queries)
-        logger.info(
-            f"Processing {total_queries} queries sequentially with batching (reporting_batch_size={self.config.reporting_batch_size})"
-        )
+        logger.info(f"Processing {total_queries} queries sequentially")
 
-        # Process queries in batches for progress reporting granularity
-        for i in range(0, total_queries, self.config.reporting_batch_size):
-            batch = queries[i : i + self.config.reporting_batch_size]
-            batch_num = i // self.config.reporting_batch_size + 1
-            total_batches = (
-                total_queries + self.config.reporting_batch_size - 1
-            ) // self.config.reporting_batch_size
+        # Process each query sequentially
+        for i, query_entry in enumerate(queries):
+            self._add_query_to_aggregator(query_entry)
+            self.report.num_queries_processed_sequential += 1
 
-            logger.debug(
-                f"Processing batch {batch_num}/{total_batches} ({len(batch)} queries)"
-            )
-
-            # Process each query in the batch
-            for query_entry in batch:
-                self._add_query_to_aggregator(query_entry)
-                self.report.num_queries_processed_sequential += 1
-
-            # Progress reporting every 10 batches or at the end
-            # Adjust reporting frequency based on reporting batch size for better granularity
-            report_frequency = max(1, min(10, 1000 // self.config.reporting_batch_size))
-            if batch_num % report_frequency == 0 or batch_num == total_batches:
-                progress_pct = (
-                    self.report.num_queries_processed_sequential / total_queries
-                ) * 100
+            # Simple progress reporting every 1000 queries
+            if (i + 1) % 1000 == 0:
+                progress_pct = ((i + 1) / total_queries) * 100
                 logger.info(
-                    f"Processed {self.report.num_queries_processed_sequential}/{total_queries} queries ({progress_pct:.1f}%)"
+                    f"Processed {i + 1}/{total_queries} queries ({progress_pct:.1f}%)"
                 )
 
     def _add_query_to_aggregator(self, query_entry: "QueryEntry") -> None:

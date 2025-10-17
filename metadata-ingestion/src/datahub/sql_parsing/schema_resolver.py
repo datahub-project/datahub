@@ -143,14 +143,14 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         schema_info = self._resolve_schema_info(urn)
         if schema_info:
-            self._track_cache_hit(urn)
+            self._track_cache_hit()
             return urn, schema_info
 
         urn_lower = self.get_urn_for_table(table, lower=True)
         if urn_lower != urn:
             schema_info = self._resolve_schema_info(urn_lower)
             if schema_info:
-                self._track_cache_hit(urn_lower)
+                self._track_cache_hit()
                 return urn_lower, schema_info
 
         # Our treatment of platform instances when lowercasing urns
@@ -165,12 +165,11 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         if urn_mixed not in {urn, urn_lower}:
             schema_info = self._resolve_schema_info(urn_mixed)
             if schema_info:
-                self._track_cache_hit(urn_mixed)
+                self._track_cache_hit()
                 return urn_mixed, schema_info
 
         # Track cache miss for the final attempt
-        final_urn = urn_lower if self._prefers_urn_lower() else urn
-        self._track_cache_miss(final_urn)
+        self._track_cache_miss()
 
         if self._prefers_urn_lower():
             return urn_lower, None
@@ -183,12 +182,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def has_urn(self, urn: str) -> bool:
         return self._schema_cache.get(urn) is not None
 
-    def _track_cache_hit(self, urn: str) -> None:
+    def _track_cache_hit(self) -> None:
         """Track a cache hit if reporting is enabled."""
         if self.report is not None:
             self.report.num_schema_cache_hits += 1
 
-    def _track_cache_miss(self, urn: str) -> None:
+    def _track_cache_miss(self) -> None:
         """Track a cache miss if reporting is enabled."""
         if self.report is not None:
             self.report.num_schema_cache_misses += 1
@@ -290,7 +289,7 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
         )
         if urn in self._extra_schemas:
             # Track cache hit for extra schemas
-            self._base_resolver._track_cache_hit(urn)
+            self._base_resolver._track_cache_hit()
             return urn, self._extra_schemas[urn]
         return self._base_resolver.resolve_table(table)
 

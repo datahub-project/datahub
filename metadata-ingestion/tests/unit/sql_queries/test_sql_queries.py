@@ -541,16 +541,16 @@ class TestSqlQueriesSource:
 
         source = SqlQueriesSource(pipeline_context, config)
 
-        # Generate MCPs (these will be converted to workunits by the processors)
-        mcps = list(source.get_workunits_internal())
+        # Generate work units (these will be converted to workunits by the processors)
+        work_units = list(source.get_workunits_internal())
 
-        # Should generate some MCPs (exact number depends on SQL aggregator behavior)
-        assert len(mcps) >= 0  # At minimum, no errors should occur
+        # Should generate some work units (exact number depends on SQL aggregator behavior)
+        assert len(work_units) >= 0  # At minimum, no errors should occur
 
-        # All items should be MCPs
-        for mcp in mcps:
-            # Should be MetadataChangeProposalWrapper objects
-            assert hasattr(mcp, "aspectName") or hasattr(mcp, "aspect")
+        # All items should be work units (MetadataWorkUnit or MetadataChangeProposalWrapper)
+        for work_unit in work_units:
+            # Should be MetadataWorkUnit or MetadataChangeProposalWrapper objects
+            assert hasattr(work_unit, "metadata") or hasattr(work_unit, "aspectName") or hasattr(work_unit, "aspect")
 
     @pytest.mark.parametrize("incremental_lineage", [None, True, False])
     def test_workunit_processors_with_incremental_lineage(
