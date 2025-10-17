@@ -93,4 +93,7 @@ public class DataHubAppConfiguration {
 
   /** MCL Processing configurations */
   private MCLProcessingConfiguration mclProcessing;
+
+  /** Structured properties related configurations */
+  private StructuredPropertiesConfiguration structuredProperties;
 }
