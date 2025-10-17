@@ -5,6 +5,7 @@ import com.linkedin.datahub.upgrade.loadindices.LoadIndices;
 import com.linkedin.datahub.upgrade.removeunknownaspects.RemoveUnknownAspects;
 import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
+import com.linkedin.datahub.upgrade.sqlsetup.SqlSetup;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
@@ -33,6 +34,10 @@ public class UpgradeCli implements CommandLineRunner {
   }
 
   private final UpgradeManager _upgradeManager = new DefaultUpgradeManager();
+
+  @Autowired(required = false)
+  @Named("sqlSetup")
+  private SqlSetup sqlSetup;
 
   @Autowired(required = false)
   @Named("loadIndices")
@@ -93,6 +98,12 @@ public class UpgradeCli implements CommandLineRunner {
       _upgradeManager.register(removeUnknownAspects);
     } else {
       log.warn("RemoveUnknownAspects upgrade not available - bean not found");
+    }
+
+    if (sqlSetup != null) {
+      _upgradeManager.register(sqlSetup);
+    } else {
+      log.warn("SqlSetup upgrade not available - bean not found");
     }
 
     if (loadIndices != null) {
