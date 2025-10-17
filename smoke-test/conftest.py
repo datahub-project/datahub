@@ -289,12 +289,10 @@ def pytest_collection_modifyitems(
     selected_modules = module_batches[batch_number]
 
     # Flatten back to individual test items
+    # Tests within each module maintain their original collection order
     selected_items = []
     for module_path in selected_modules:
         selected_items.extend(module_map[module_path])
-
-    # Sort items within batch by nodeid for stability
-    selected_items.sort(key=lambda x: x.nodeid)
 
     print(f"Batch {batch_number}: Running {len(selected_items)} tests from {len(selected_modules)} modules")
 
