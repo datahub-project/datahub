@@ -1,4 +1,4 @@
-package com.linkedin.gms.factory.search.views;
+package com.linkedin.gms.factory.views;
 
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.service.ViewService;
