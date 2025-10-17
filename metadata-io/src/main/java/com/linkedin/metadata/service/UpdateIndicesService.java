@@ -26,7 +26,6 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -37,6 +36,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -59,7 +59,7 @@ public class UpdateIndicesService implements SearchIndicesService {
   private static final String DOCUMENT_TRANSFORM_FAILED_METRIC = "document_transform_failed";
   private static final String SEARCH_DIFF_MODE_SKIPPED_METRIC = "search_diff_no_changes_detected";
 
-  private static final Set<ChangeType> UPDATE_CHANGE_TYPES =
+  public static final Set<ChangeType> UPDATE_CHANGE_TYPES =
       ImmutableSet.of(
           ChangeType.CREATE,
           ChangeType.CREATE_ENTITY,
@@ -129,184 +129,69 @@ public class UpdateIndicesService implements SearchIndicesService {
   @Override
   public void handleChangeEvents(
       @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
-    try {
-      // Convert MetadataChangeLog events to MCLItem events
-      List<MCLItem> mclItems = new ArrayList<>();
-      for (MetadataChangeLog event : events) {
-        MCLItemImpl batch = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
-        mclItems.add(batch);
-      }
-
-      // Apply side effects to all events at once
-      Stream<MCLItem> sideEffects =
-          AspectsBatch.applyMCLSideEffects(mclItems, opContext.getRetrieverContext());
-
-      // Build combined collection of all events (original + side effects)
-      List<MCLItem> allEvents =
-          Stream.concat(mclItems.stream(), sideEffects).collect(Collectors.toList());
-
-      // Group all events by URN while preserving order
-      LinkedHashMap<Urn, List<MCLItem>> groupedEvents =
-          UpdateIndicesUtil.groupEventsByUrn(allEvents.stream());
-
-      // For optimized batch processing we simply process them here
-      // and rely on the handleSystemMetadataUpdateChangeEvents method below
-      // to process system metadata updates index
-      for (UpdateIndicesStrategy strategy : updateStrategies) {
-        if (strategy.isEnabled()) {
-          strategy.processBatch(opContext, groupedEvents);
-        }
-      }
-
-      // Process each group of events for the same URN
-      for (List<MCLItem> urnEvents : groupedEvents.values()) {
-        // Process update events
-        List<MCLItem> updateEvents =
-            urnEvents.stream()
-                .filter(
-                    event ->
-                        UPDATE_CHANGE_TYPES.contains(event.getMetadataChangeLog().getChangeType()))
-                .collect(Collectors.toList());
-
-        if (!updateEvents.isEmpty()) {
-          // Process regular metadata updates first
-          handleUpdateChangeEvents(opContext, updateEvents);
-
-          // Update graph indices for update events
-          for (MCLItem event : updateEvents) {
-            updateGraphIndicesService.handleChangeEvent(opContext, event.getMetadataChangeLog());
-          }
-
-          // Process system metadata updates
-          handleSystemMetadataUpdateChangeEvents(opContext, updateEvents);
-        }
-
-        // Process delete events
-        List<MCLItem> deleteEvents =
-            urnEvents.stream()
-                .filter(event -> event.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
-                .collect(Collectors.toList());
-
-        for (MCLItem deleteEvent : deleteEvents) {
-          Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(deleteEvent);
-          boolean isDeletingKey = UpdateIndicesUtil.isDeletingKey(specPair);
-
-          // non-system metadata
-          handleDeleteChangeEvent(opContext, specPair, deleteEvent, isDeletingKey);
-
-          // graph update
-          updateGraphIndicesService.handleChangeEvent(
-              opContext, deleteEvent.getMetadataChangeLog());
-
-          // system metadata is last for tracing
-          handleSystemMetadataDeleteChangeEvent(deleteEvent.getUrn(), specPair, isDeletingKey);
-        }
-      }
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  /**
-   * Handles a collection of update change events for regular metadata processing. This method
-   * delegates to strategies for efficient batch processing.
-   *
-   * @param opContext the operation context
-   * @param events the collection of update events
-   */
-  private void handleUpdateChangeEvents(
-      @Nonnull OperationContext opContext, @Nonnull final Collection<MCLItem> events)
-      throws IOException {
-
-    if (events.isEmpty()) {
-      return;
+    // Convert MetadataChangeLog events to MCLItem events
+    List<MCLItem> mclItems = new ArrayList<>();
+    for (MetadataChangeLog event : events) {
+      MCLItemImpl batch = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
+      mclItems.add(batch);
     }
 
-    // Step 0. Handle timeseries aspects using all enabled strategies
+    // Apply side effects to all events at once
+    Stream<MCLItem> sideEffects =
+        AspectsBatch.applyMCLSideEffects(mclItems, opContext.getRetrieverContext());
+
+    // Build combined collection of all events (original + side effects)
+    List<MCLItem> allEvents =
+        Stream.concat(mclItems.stream(), sideEffects).collect(Collectors.toList());
+
+    // Group all events by URN while preserving order
+    LinkedHashMap<Urn, List<MCLItem>> groupedEvents =
+        UpdateIndicesUtil.groupEventsByUrn(allEvents.stream());
+
+    // For optimized batch processing we simply process them here
+    // and rely on the handleSystemMetadataUpdateChangeEvents method below
+    // to process system metadata updates index
     for (UpdateIndicesStrategy strategy : updateStrategies) {
       if (strategy.isEnabled()) {
-        strategy.updateTimeseriesFields(opContext, events);
+        strategy.processBatch(opContext, groupedEvents, structuredPropertiesHookEnabled);
       }
     }
 
-    // Step 1. Handle StructuredProperties Index Mapping changes
-    for (MCLItem event : events) {
-      try {
-        updateIndexMappings(
-            opContext,
-            event.getUrn(),
-            event.getEntitySpec(),
-            event.getAspectSpec(),
-            event.getRecordTemplate(),
-            event.getPreviousRecordTemplate());
-      } catch (Exception e) {
-        log.error("Issue with updating index mappings for structured property change", e);
-      }
-    }
+    // Process each group of events for the same URN
+    for (List<MCLItem> urnEvents : groupedEvents.values()) {
+      // Process update events
+      List<MCLItem> updateEvents =
+          urnEvents.stream()
+              .filter(
+                  event ->
+                      UPDATE_CHANGE_TYPES.contains(event.getMetadataChangeLog().getChangeType()))
+              .collect(Collectors.toList());
 
-    // Step 2. Update Search using all enabled strategies
-    for (UpdateIndicesStrategy strategy : updateStrategies) {
-      if (strategy.isEnabled()) {
-        strategy.updateSearchIndices(opContext, events);
-      }
-    }
-  }
-
-  public void updateIndexMappings(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      EntitySpec entitySpec,
-      AspectSpec aspectSpec,
-      RecordTemplate newValue,
-      RecordTemplate oldValue)
-      throws CloneNotSupportedException {
-    if (structuredPropertiesHookEnabled
-        && STRUCTURED_PROPERTY_ENTITY_NAME.equals(entitySpec.getName())
-        && STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectSpec.getName())) {
-
-      // Delegate to all enabled update indices strategies
-      for (UpdateIndicesStrategy strategy : updateStrategies) {
-        if (strategy.isEnabled()) {
-          strategy.updateIndexMappings(opContext, urn, entitySpec, aspectSpec, newValue, oldValue);
+      if (!updateEvents.isEmpty()) {
+        // Update graph indices for update events
+        for (MCLItem event : updateEvents) {
+          updateGraphIndicesService.handleChangeEvent(opContext, event.getMetadataChangeLog());
         }
+
+        // Process system metadata updates
+        handleSystemMetadataUpdateChangeEvents(opContext, updateEvents);
       }
-    }
-  }
 
-  /**
-   * This very important method processes {@link MetadataChangeLog} deletion events to cleanup the
-   * Metadata Graph when an aspect or entity is removed.
-   *
-   * <p>In particular, it handles updating the Search, Graph, Timeseries, and System Metadata stores
-   * to reflect the deletion of a particular aspect.
-   *
-   * <p>Note that if an entity's key aspect is deleted, the entire entity will be purged from
-   * search, graph, timeseries, etc.
-   *
-   * @param opContext operation's context
-   * @param specPair entity & aspect spec
-   * @param event the change event to be processed.
-   * @param isDeletingKey whether the key aspect is being deleted
-   */
-  private void handleDeleteChangeEvent(
-      @Nonnull OperationContext opContext,
-      Pair<EntitySpec, AspectSpec> specPair,
-      @Nonnull final MCLItem event,
-      boolean isDeletingKey) {
+      // Process delete events
+      List<MCLItem> deleteEvents =
+          urnEvents.stream()
+              .filter(event -> event.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
+              .collect(Collectors.toList());
 
-    if (!specPair.getSecond().isTimeseries()) {
-      // Delegate to all enabled update indices strategies
-      for (UpdateIndicesStrategy strategy : updateStrategies) {
-        if (strategy.isEnabled()) {
-          strategy.deleteSearchData(
-              opContext,
-              event.getUrn(),
-              specPair.getFirst().getName(),
-              specPair.getSecond(),
-              event.getRecordTemplate(),
-              isDeletingKey,
-              event.getAuditStamp());
-        }
+      for (MCLItem deleteEvent : deleteEvents) {
+        Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(deleteEvent);
+        boolean isDeletingKey = UpdateIndicesUtil.isDeletingKey(specPair);
+
+        // graph update
+        updateGraphIndicesService.handleChangeEvent(opContext, deleteEvent.getMetadataChangeLog());
+
+        // system metadata is last for tracing
+        handleSystemMetadataDeleteChangeEvent(deleteEvent.getUrn(), specPair, isDeletingKey);
       }
     }
   }
@@ -367,6 +252,31 @@ public class UpdateIndicesService implements SearchIndicesService {
                 "Deleting system metadata for urn: %s, aspect: %s",
                 urn, specPair.getSecond().getName()));
         systemMetadataService.deleteAspect(urn.toString(), specPair.getSecond().getName());
+      }
+    }
+  }
+
+  /**
+   * Updates index mappings for structured property changes. This method delegates to all enabled
+   * strategies to ensure both V2 and V3 mappings are updated when needed.
+   *
+   * @param opContext the operation context
+   * @param urn the URN of the entity
+   * @param entitySpec the entity specification
+   * @param aspectSpec the aspect specification
+   * @param newValue the new aspect value
+   * @param oldValue the old aspect value
+   */
+  public void updateIndexMappings(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull EntitySpec entitySpec,
+      @Nonnull AspectSpec aspectSpec,
+      @Nonnull Object newValue,
+      @Nullable Object oldValue) {
+    for (UpdateIndicesStrategy strategy : updateStrategies) {
+      if (strategy.isEnabled()) {
+        strategy.updateIndexMappings(opContext, urn, entitySpec, aspectSpec, newValue, oldValue);
       }
     }
   }

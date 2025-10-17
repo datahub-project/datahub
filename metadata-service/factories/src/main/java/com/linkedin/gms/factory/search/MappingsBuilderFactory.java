@@ -5,7 +5,7 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacyMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -28,7 +28,7 @@ public class MappingsBuilderFactory {
   protected MappingsBuilder createLegacyMappingsBuilder(ConfigurationProvider configProvider) {
     EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
     log.info("Creating LegacyMappingsBuilder bean");
-    return new LegacyMappingsBuilder(entityIndexConfig);
+    return new V2MappingsBuilder(entityIndexConfig);
   }
 
   @Bean("multiEntityMappingsBuilder")

@@ -10,7 +10,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -23,7 +22,7 @@ public class NoOpMappingsBuilder implements MappingsBuilder {
   @Override
   public Collection<IndexMapping> getIndexMappings(
       @Nonnull OperationContext opContext,
-      @Nullable Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
+      @Nonnull Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
     log.debug("NoOpMappingsBuilder: returning empty collection for getIndexMappings");
     return Collections.emptyList();
   }

@@ -12,22 +12,22 @@ import lombok.NoArgsConstructor;
 public class IndexConfiguration {
   private String prefix;
   private DocIdsConfiguration docIds;
-  private Integer minSearchFilterLength;
+  private int minSearchFilterLength;
 
   // Reindex configuration flags
-  private boolean enableSettingsReindex = false;
-  private boolean enableMappingsReindex = false;
+  private boolean enableSettingsReindex;
+  private boolean enableMappingsReindex;
 
   // Index structure configuration
-  private Integer numShards = 1;
-  private Integer numReplicas = 1;
-  private Integer numRetries = 3;
-  private Integer refreshIntervalSeconds = 1;
-  private Integer maxReindexHours = 24;
-  private String mainTokenizer = "standard";
+  private int numShards;
+  private int numReplicas;
+  private int numRetries;
+  private int refreshIntervalSeconds;
+  private int maxReindexHours;
+  private String mainTokenizer;
 
   // Index limits
-  private Integer maxArrayLength = 1000;
-  private Integer maxObjectKeys = 1000;
-  private Integer maxValueLength = 10000;
+  private int maxArrayLength;
+  private int maxObjectKeys;
+  private int maxValueLength;
 }

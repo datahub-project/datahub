@@ -66,7 +66,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   @Override
   public Collection<IndexMapping> getIndexMappings(
       @Nonnull OperationContext opContext,
-      @Nullable Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
+      @Nonnull Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
     if (entityIndexConfiguration.getV3().isEnabled()) {
       // Generate Index Mapping per group
       return opContext.getEntityRegistry().getSearchGroups().stream()

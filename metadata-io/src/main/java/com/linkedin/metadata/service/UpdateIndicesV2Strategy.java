@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.search.transformer.SearchDocumentTransformer.withSystemCreated;
+import static com.linkedin.metadata.service.UpdateIndicesService.UPDATE_CHANGE_TYPES;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -9,6 +10,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
@@ -16,20 +18,23 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacyMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -46,7 +51,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   private final SearchDocumentTransformer searchDocumentTransformer;
   private final TimeseriesAspectService timeseriesAspectService;
   private final String idHashAlgo;
-  private final LegacyMappingsBuilder mappingsBuilder;
+  private final V2MappingsBuilder mappingsBuilder;
 
   public UpdateIndicesV2Strategy(
       @Nonnull EntityIndexVersionConfiguration v2Config,
@@ -60,24 +65,65 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     this.timeseriesAspectService = timeseriesAspectService;
     this.idHashAlgo = idHashAlgo;
     this.mappingsBuilder =
-        new LegacyMappingsBuilder(
+        new V2MappingsBuilder(
             com.linkedin.metadata.config.search.EntityIndexConfiguration.builder()
                 .v2(v2Config)
                 .build());
   }
 
   @Override
-  public void updateSearchIndices(
-      @Nonnull OperationContext opContext, @Nonnull Collection<MCLItem> events) {
-    // V2 strategy processes events individually for backward compatibility
-    // This allows V2 to work with the new collection interface while maintaining existing behavior
-    for (MCLItem event : events) {
-      updateSearchIndicesForEvent(opContext, event);
+  public void processBatch(
+      @Nonnull OperationContext opContext,
+      @Nonnull Map<Urn, List<MCLItem>> groupedEvents,
+      boolean structuredPropertiesHookEnabled) {
+
+    // Process each group of events for the same URN
+    for (List<MCLItem> urnEvents : groupedEvents.values()) {
+
+      // Process update events
+      List<MCLItem> updateEvents =
+          urnEvents.stream()
+              .filter(
+                  event ->
+                      UPDATE_CHANGE_TYPES.contains(event.getMetadataChangeLog().getChangeType()))
+              .collect(Collectors.toList());
+
+      if (!updateEvents.isEmpty()) {
+        updateEvents.forEach(
+            event -> {
+              if (structuredPropertiesHookEnabled) {
+                updateIndexMappings(opContext, event);
+              }
+              updateSearchIndicesForEvent(opContext, event);
+              updateTimeseriesFieldsForEvent(opContext, event);
+            });
+      }
+
+      // Process delete events
+      List<MCLItem> deleteEvents =
+          urnEvents.stream()
+              .filter(event -> event.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
+              .collect(Collectors.toList());
+
+      for (MCLItem deleteEvent : deleteEvents) {
+        Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(deleteEvent);
+        boolean isDeletingKey = UpdateIndicesUtil.isDeletingKey(specPair);
+
+        if (!specPair.getSecond().isTimeseries()) {
+          deleteSearchData(
+              opContext,
+              deleteEvent.getUrn(),
+              specPair.getFirst().getName(),
+              specPair.getSecond(),
+              deleteEvent.getRecordTemplate(),
+              isDeletingKey,
+              deleteEvent.getAuditStamp());
+        }
+      }
     }
   }
 
-  private void updateSearchIndicesForEvent(
-      @Nonnull OperationContext opContext, @Nonnull MCLItem event) {
+  void updateSearchIndicesForEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
     // V2 search index update logic - full implementation
     log.debug("Updating V2 search indices for entity: {}", event.getUrn());
 
@@ -169,8 +215,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     elasticSearchService.upsertDocument(opContext, entityName, finalDocument, docId);
   }
 
-  @Override
-  public void deleteSearchData(
+  void deleteSearchData(
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull String entityName,
@@ -213,18 +258,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     elasticSearchService.upsertDocument(opContext, entityName, searchDocument.get(), docId);
   }
 
-  @Override
-  public void updateTimeseriesFields(
-      @Nonnull OperationContext opContext, @Nonnull Collection<MCLItem> events) {
-    // V2 strategy processes events individually for backward compatibility
-    // This allows V2 to work with the new collection interface while maintaining existing behavior
-    for (MCLItem event : events) {
-      updateTimeseriesFieldsForEvent(opContext, event);
-    }
-  }
-
-  private void updateTimeseriesFieldsForEvent(
-      @Nonnull OperationContext opContext, @Nonnull MCLItem event) {
+  void updateTimeseriesFieldsForEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
     // V2 timeseries update logic - uses the existing TimeseriesAspectTransformer
     log.debug(
         "Updating V2 timeseries fields for entity: {} aspect: {}",
@@ -263,7 +297,18 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
             });
   }
 
-  @Override
+  void updateIndexMappings(OperationContext opContext, MCLItem event) {
+    EntitySpec entitySpec = event.getEntitySpec();
+    AspectSpec aspectSpec = event.getAspectSpec();
+    updateIndexMappings(
+        opContext,
+        event.getUrn(),
+        entitySpec,
+        aspectSpec,
+        event.getRecordTemplate(),
+        event.getPreviousRecordTemplate());
+  }
+
   public void updateIndexMappings(
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
@@ -329,5 +374,24 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   @Override
   public boolean isEnabled() {
     return v2Config.isEnabled();
+  }
+
+  // Package-level methods for testing
+  void updateSearchIndices(
+      @Nonnull OperationContext opContext, @Nonnull Collection<MCLItem> events) {
+    // V2 strategy processes events individually for backward compatibility
+    // This allows V2 to work with the new collection interface while maintaining existing behavior
+    for (MCLItem event : events) {
+      updateSearchIndicesForEvent(opContext, event);
+    }
+  }
+
+  void updateTimeseriesFields(
+      @Nonnull OperationContext opContext, @Nonnull Collection<MCLItem> events) {
+    // V2 strategy processes events individually for backward compatibility
+    // This allows V2 to work with the new collection interface while maintaining existing behavior
+    for (MCLItem event : events) {
+      updateTimeseriesFieldsForEvent(opContext, event);
+    }
   }
 }

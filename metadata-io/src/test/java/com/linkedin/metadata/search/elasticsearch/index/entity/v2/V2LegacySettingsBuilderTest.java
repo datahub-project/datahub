@@ -9,16 +9,17 @@ import java.util.Map;
 import org.testng.annotations.Test;
 
 /** Tests for LegacySettingsBuilder with IndexConfiguration. */
-public class LegacySettingsBuilderTest {
+public class V2LegacySettingsBuilderTest {
 
   @Test
   public void testConstructorWithIndexConvention() {
     // Test that the LegacySettingsBuilder works with IndexConvention
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3); // Set required default value
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention indexConvention = mock(IndexConvention.class);
 
-    LegacySettingsBuilder builder = new LegacySettingsBuilder(indexConfiguration, indexConvention);
+    V2LegacySettingsBuilder builder =
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
 
     // Test v2 entity index - should return settings
     when(indexConvention.isV2EntityIndex("datasetindex_v2")).thenReturn(true);
@@ -44,11 +45,12 @@ public class LegacySettingsBuilderTest {
   @Test
   public void testIndexNameValidation() {
     // Test that the LegacySettingsBuilder validates index names
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention indexConvention = mock(IndexConvention.class);
 
-    LegacySettingsBuilder builder = new LegacySettingsBuilder(indexConfiguration, indexConvention);
+    V2LegacySettingsBuilder builder =
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
 
     // Test v2 entity index - should return settings
     when(indexConvention.isV2EntityIndex("datasetindex_v2")).thenReturn(true);
@@ -75,15 +77,16 @@ public class LegacySettingsBuilderTest {
   @Test
   public void testConstructorWithNullIndexConvention() {
     // Test that the LegacySettingsBuilder works with null IndexConvention (legacy behavior)
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
 
     // This should not compile with the new constructor, but let's test the old behavior
     // by creating a mock that always returns true
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndex(anyString())).thenReturn(true);
 
-    LegacySettingsBuilder builder = new LegacySettingsBuilder(indexConfiguration, indexConvention);
+    V2LegacySettingsBuilder builder =
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
 
     // Should have basic settings
@@ -95,13 +98,16 @@ public class LegacySettingsBuilderTest {
   @Test
   public void testConstructorWithCustomMainTokenizer() {
     // Test with custom main tokenizer configuration
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3); // Set required default value
-    indexConfiguration.setMainTokenizer("custom_main_tokenizer");
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder()
+            .minSearchFilterLength(3)
+            .mainTokenizer("custom_main_tokenizer")
+            .build();
 
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndex(anyString())).thenReturn(true);
-    LegacySettingsBuilder builder = new LegacySettingsBuilder(indexConfiguration, indexConvention);
+    V2LegacySettingsBuilder builder =
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
 
     // Should have analysis configuration
@@ -126,11 +132,12 @@ public class LegacySettingsBuilderTest {
   @Test
   public void testAnalysisConfigurationStructure() {
     // Test that the analysis configuration has the expected structure
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3); // Set required default value
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build(); // Set required default value
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndex(anyString())).thenReturn(true);
-    LegacySettingsBuilder builder = new LegacySettingsBuilder(indexConfiguration, indexConvention);
+    V2LegacySettingsBuilder builder =
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
 
     @SuppressWarnings("unchecked")
@@ -209,11 +216,12 @@ public class LegacySettingsBuilderTest {
   @Test
   public void testSettingsConsistency() {
     // Test that settings are consistent across multiple calls
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3); // Set required default value
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build(); // Set required default value
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndex(anyString())).thenReturn(true);
-    LegacySettingsBuilder builder = new LegacySettingsBuilder(indexConfiguration, indexConvention);
+    V2LegacySettingsBuilder builder =
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
 
     Map<String, Object> settings1 = builder.getSettings(indexConfiguration, "test_index");
     Map<String, Object> settings2 = builder.getSettings(indexConfiguration, "test_index");
@@ -226,7 +234,7 @@ public class LegacySettingsBuilderTest {
     // Test that the constructor handles null IndexConfiguration gracefully
     try {
       IndexConvention indexConvention = mock(IndexConvention.class);
-      LegacySettingsBuilder builder = new LegacySettingsBuilder(null, indexConvention);
+      V2LegacySettingsBuilder builder = new V2LegacySettingsBuilder(null, indexConvention);
       fail("Constructor should not accept null IndexConfiguration");
     } catch (Exception e) {
       // Expected behavior - constructor should not accept null
@@ -239,13 +247,14 @@ public class LegacySettingsBuilderTest {
   @Test
   public void testEmptyIndexConfiguration() {
     // Test with empty IndexConfiguration
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3); // Set required default value
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build(); // Set required default value
     // Don't set any specific values, use defaults
 
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndex(anyString())).thenReturn(true);
-    LegacySettingsBuilder builder = new LegacySettingsBuilder(indexConfiguration, indexConvention);
+    V2LegacySettingsBuilder builder =
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
 
     // Should still build valid settings
@@ -256,13 +265,13 @@ public class LegacySettingsBuilderTest {
   @Test
   public void testNullMainTokenizer() {
     // Test with null mainTokenizer (simulates when ELASTICSEARCH_MAIN_TOKENIZER is not set)
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3); // Set required default value
-    indexConfiguration.setMainTokenizer(null); // Explicitly set to null
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).mainTokenizer(null).build();
 
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndex(anyString())).thenReturn(true);
-    LegacySettingsBuilder builder = new LegacySettingsBuilder(indexConfiguration, indexConvention);
+    V2LegacySettingsBuilder builder =
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
 
     // Should still build valid settings
@@ -290,7 +299,7 @@ public class LegacySettingsBuilderTest {
         (Map<String, Object>) analyzers.get("word_delimited");
     assertEquals(
         wordDelimitedAnalyzer.get("tokenizer"),
-        LegacySettingsBuilder.MAIN_TOKENIZER,
+        V2LegacySettingsBuilder.MAIN_TOKENIZER,
         "Should use default MAIN_TOKENIZER when mainTokenizer is null");
 
     @SuppressWarnings("unchecked")
@@ -298,20 +307,20 @@ public class LegacySettingsBuilderTest {
         (Map<String, Object>) analyzers.get("query_word_delimited");
     assertEquals(
         queryWordDelimitedAnalyzer.get("tokenizer"),
-        LegacySettingsBuilder.MAIN_TOKENIZER,
+        V2LegacySettingsBuilder.MAIN_TOKENIZER,
         "Should use default MAIN_TOKENIZER when mainTokenizer is null");
   }
 
   @Test
   public void testEmptyStringMainTokenizer() {
     // Test with empty string mainTokenizer (should also fall back to default)
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3); // Set required default value
-    indexConfiguration.setMainTokenizer(""); // Set to empty string
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).mainTokenizer("").build();
 
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndex(anyString())).thenReturn(true);
-    LegacySettingsBuilder builder = new LegacySettingsBuilder(indexConfiguration, indexConvention);
+    V2LegacySettingsBuilder builder =
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
 
     // Should still build valid settings
@@ -336,7 +345,7 @@ public class LegacySettingsBuilderTest {
         (Map<String, Object>) analyzers.get("word_delimited");
     assertEquals(
         wordDelimitedAnalyzer.get("tokenizer"),
-        LegacySettingsBuilder.MAIN_TOKENIZER,
+        V2LegacySettingsBuilder.MAIN_TOKENIZER,
         "Should use default MAIN_TOKENIZER when mainTokenizer is empty string");
 
     @SuppressWarnings("unchecked")
@@ -344,7 +353,7 @@ public class LegacySettingsBuilderTest {
         (Map<String, Object>) analyzers.get("query_word_delimited");
     assertEquals(
         queryWordDelimitedAnalyzer.get("tokenizer"),
-        LegacySettingsBuilder.MAIN_TOKENIZER,
+        V2LegacySettingsBuilder.MAIN_TOKENIZER,
         "Should use default MAIN_TOKENIZER when mainTokenizer is empty string");
   }
 }

@@ -9,7 +9,7 @@ import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntitySettingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.io.IOException;
@@ -41,7 +41,7 @@ public class SettingsBuilderFactory {
       @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention) {
     IndexConfiguration indexConfig = configProvider.getElasticSearch().getIndex();
     log.info("Creating LegacySettingsBuilder bean");
-    return new LegacySettingsBuilder(indexConfig, indexConvention);
+    return new V2LegacySettingsBuilder(indexConfig, indexConvention);
   }
 
   @Bean("multiEntitySettingsBuilder")

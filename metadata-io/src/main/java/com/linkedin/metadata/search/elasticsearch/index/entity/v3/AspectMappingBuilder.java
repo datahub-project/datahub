@@ -41,17 +41,11 @@ public class AspectMappingBuilder {
 
     // Process searchable fields - they will be grouped under _aspects.aspectName
     // Exception: structuredProperties aspect remains at root level
-    entitySpec
-        .getAspectSpecs()
+    entitySpec.getAspectSpecs().stream()
+        .filter(aspectSpec -> !STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName()))
         .forEach(
             aspectSpec -> {
               String aspectName = aspectSpec.getName();
-
-              if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectName)) {
-                // Handle structuredProperties as a special case - keep at root level
-                // This is handled separately by StructuredPropertyMappingBuilder
-                return;
-              }
 
               // Regular aspects go under _aspects
               Map<String, Object> aspectFields = new HashMap<>();
@@ -73,7 +67,6 @@ public class AspectMappingBuilder {
 
               if (!aspectFields.isEmpty()) {
                 aspectsMappings.put(aspectName, ImmutableMap.of(PROPERTIES, aspectFields));
-                // Note: Logging is handled by the caller
               }
             });
 

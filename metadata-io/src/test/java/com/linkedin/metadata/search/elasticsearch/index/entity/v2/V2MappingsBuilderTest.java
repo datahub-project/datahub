@@ -30,9 +30,9 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /** Tests for LegacyMappingsBuilder with comprehensive test coverage. */
-public class LegacyMappingsBuilderTest {
+public class V2MappingsBuilderTest {
 
-  private LegacyMappingsBuilder mappingsBuilder;
+  private V2MappingsBuilder mappingsBuilder;
   private EntityIndexConfiguration entityIndexConfiguration;
   private OperationContext operationContext;
   private EntityRegistry mockEntityRegistry;
@@ -46,7 +46,7 @@ public class LegacyMappingsBuilderTest {
     when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
 
     // Create LegacyMappingsBuilder
-    mappingsBuilder = new LegacyMappingsBuilder(entityIndexConfiguration);
+    mappingsBuilder = new V2MappingsBuilder(entityIndexConfiguration);
 
     // Create real OperationContext with test setup
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
@@ -465,7 +465,7 @@ public class LegacyMappingsBuilderTest {
     // Test that constructor properly handles null EntityIndexConfiguration
     // The constructor doesn't actually throw an exception, so this test should pass
     // This is the current behavior of the implementation
-    LegacyMappingsBuilder builder = new LegacyMappingsBuilder(null);
+    V2MappingsBuilder builder = new V2MappingsBuilder(null);
     assertNotNull(builder, "Constructor should create instance even with null input");
   }
 

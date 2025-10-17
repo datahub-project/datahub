@@ -20,7 +20,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 /** Builder for generating settings for elasticsearch indices */
-public class LegacySettingsBuilder implements SettingsBuilder {
+public class V2LegacySettingsBuilder implements SettingsBuilder {
 
   // ElasticSearch Property Map Keys
   public static final String ALL = "all";
@@ -167,7 +167,7 @@ public class LegacySettingsBuilder implements SettingsBuilder {
   final String mainTokenizer;
   @Nonnull private final IndexConvention indexConvention;
 
-  public LegacySettingsBuilder(
+  public V2LegacySettingsBuilder(
       @Nonnull IndexConfiguration indexConfiguration, @Nonnull IndexConvention indexConvention) {
     this.mainTokenizer = indexConfiguration.getMainTokenizer();
     this.indexConvention = indexConvention;

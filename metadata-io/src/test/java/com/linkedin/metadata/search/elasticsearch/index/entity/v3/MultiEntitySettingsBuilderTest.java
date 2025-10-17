@@ -110,8 +110,8 @@ public class MultiEntitySettingsBuilderTest {
     IndexConvention indexConvention = mock(IndexConvention.class);
     MultiEntitySettingsBuilder builder =
         new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention);
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
 
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
 
@@ -128,8 +128,8 @@ public class MultiEntitySettingsBuilderTest {
     when(indexConvention.isV3EntityIndex("test_index")).thenReturn(true);
     MultiEntitySettingsBuilder builder =
         new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention);
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
 
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
 
@@ -153,8 +153,8 @@ public class MultiEntitySettingsBuilderTest {
     IndexConvention indexConvention = mock(IndexConvention.class);
     MultiEntitySettingsBuilder builder =
         new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention);
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
 
     Map<String, Object> settings1 = builder.getSettings(indexConfiguration, "test_index");
     Map<String, Object> settings2 = builder.getSettings(indexConfiguration, "test_index");
@@ -170,8 +170,8 @@ public class MultiEntitySettingsBuilderTest {
     IndexConvention indexConvention = mock(IndexConvention.class);
     MultiEntitySettingsBuilder builder =
         new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention);
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
 
     Map<String, Object> settings1 = builder.getSettings(indexConfiguration, "index1");
     Map<String, Object> settings2 = builder.getSettings(indexConfiguration, "index2");
@@ -201,8 +201,8 @@ public class MultiEntitySettingsBuilderTest {
     IndexConvention indexConvention = mock(IndexConvention.class);
     MultiEntitySettingsBuilder builder =
         new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention);
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
 
     // The method doesn't validate the index name parameter, it just ignores it
     Map<String, Object> settings = builder.getSettings(indexConfiguration, null);
@@ -218,8 +218,8 @@ public class MultiEntitySettingsBuilderTest {
     when(indexConvention.isV3EntityIndex("test_index")).thenReturn(true);
     MultiEntitySettingsBuilder builder =
         new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention);
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
 
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
 
@@ -280,8 +280,8 @@ public class MultiEntitySettingsBuilderTest {
     when(indexConvention.isV3EntityIndex("test_index")).thenReturn(true);
     MultiEntitySettingsBuilder builder =
         new MultiEntitySettingsBuilder(realEntityIndexConfiguration, indexConvention);
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
 
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
 
@@ -316,8 +316,8 @@ public class MultiEntitySettingsBuilderTest {
 
     MultiEntitySettingsBuilder builder =
         new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention);
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
 
     // Test that it implements the interface correctly
     assertTrue(
@@ -336,8 +336,8 @@ public class MultiEntitySettingsBuilderTest {
 
     MultiEntitySettingsBuilder builder =
         new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention);
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
 
     // Test v3 entity index - should return settings
     when(indexConvention.isV3EntityIndex("datasetindex_v3")).thenReturn(true);
@@ -371,8 +371,8 @@ public class MultiEntitySettingsBuilderTest {
 
     MultiEntitySettingsBuilder builder =
         new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention);
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
 
     // Test v3 entity index - should return settings with analysis
     when(indexConvention.isV3EntityIndex("datasetindex_v3")).thenReturn(true);

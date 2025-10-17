@@ -6,7 +6,7 @@ import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJEC
 import static com.linkedin.metadata.query.filter.Condition.ANCESTORS_INCL;
 import static com.linkedin.metadata.query.filter.Condition.DESCENDANTS_INCL;
 import static com.linkedin.metadata.query.filter.Condition.RELATED_INCL;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacyMappingsBuilder.SUBFIELDS;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.SUBFIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;

@@ -1,8 +1,6 @@
 package com.linkedin.metadata.service;
 
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -23,44 +21,6 @@ import javax.annotation.Nullable;
 public interface UpdateIndicesStrategy {
 
   /**
-   * Updates search indices for a collection of change events.
-   *
-   * @param opContext the operation context
-   * @param events the collection of metadata change log items
-   */
-  void updateSearchIndices(
-      @Nonnull OperationContext opContext, @Nonnull Collection<MCLItem> events);
-
-  /**
-   * Deletes search data for a given entity/aspect.
-   *
-   * @param opContext the operation context
-   * @param urn the URN of the entity
-   * @param entityName the entity name
-   * @param aspectSpec the aspect specification
-   * @param aspect the aspect data (nullable)
-   * @param isKeyAspect whether this is a key aspect deletion
-   * @param auditStamp the audit stamp
-   */
-  void deleteSearchData(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nonnull String entityName,
-      @Nonnull AspectSpec aspectSpec,
-      @Nullable RecordTemplate aspect,
-      @Nonnull Boolean isKeyAspect,
-      @Nonnull AuditStamp auditStamp);
-
-  /**
-   * Updates timeseries fields for a collection of change events.
-   *
-   * @param opContext the operation context
-   * @param events the collection of metadata change log items
-   */
-  void updateTimeseriesFields(
-      @Nonnull OperationContext opContext, @Nonnull Collection<MCLItem> events);
-
-  /**
    * Optimized batch processing method that takes pre-grouped events by URN. This allows for maximum
    * efficiency by avoiding redundant grouping operations. V3 implementations should prefer this
    * method over the ungrouped version.
@@ -68,28 +28,10 @@ public interface UpdateIndicesStrategy {
    * @param opContext the operation context
    * @param groupedEvents events grouped by URN, preserving order
    */
-  default void processBatch(
-      @Nonnull OperationContext opContext, @Nonnull Map<Urn, List<MCLItem>> groupedEvents) {
-    // Default implementation ignores the events
-  }
-
-  /**
-   * Updates index mappings for structured property changes.
-   *
-   * @param opContext the operation context
-   * @param urn the URN of the entity
-   * @param entitySpec the entity specification
-   * @param aspectSpec the aspect specification
-   * @param newValue the new aspect value
-   * @param oldValue the old aspect value
-   */
-  void updateIndexMappings(
+  void processBatch(
       @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nonnull EntitySpec entitySpec,
-      @Nonnull AspectSpec aspectSpec,
-      @Nonnull Object newValue,
-      @Nullable Object oldValue);
+      @Nonnull Map<Urn, List<MCLItem>> groupedEvents,
+      boolean structuredPropertiesHookEnabled);
 
   /**
    * Gets index mappings for a given operation context.
@@ -111,6 +53,26 @@ public interface UpdateIndicesStrategy {
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull StructuredPropertyDefinition property);
+
+  /**
+   * Updates index mappings for structured property changes. This method handles the mapping updates
+   * when structured property definitions change, ensuring that Elasticsearch indices are updated
+   * with the new field mappings.
+   *
+   * @param opContext the operation context
+   * @param urn the URN of the entity
+   * @param entitySpec the entity specification
+   * @param aspectSpec the aspect specification
+   * @param newValue the new aspect value
+   * @param oldValue the old aspect value
+   */
+  void updateIndexMappings(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull EntitySpec entitySpec,
+      @Nonnull AspectSpec aspectSpec,
+      @Nonnull Object newValue,
+      @Nullable Object oldValue);
 
   /**
    * Checks if this mapping strategy is enabled.

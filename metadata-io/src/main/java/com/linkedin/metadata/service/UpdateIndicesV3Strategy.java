@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -76,26 +75,31 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   }
 
   @Override
-  public void deleteSearchData(
+  public void processBatch(
       @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nonnull String entityName,
-      @Nonnull AspectSpec aspectSpec,
-      @Nullable RecordTemplate aspect,
-      @Nonnull Boolean isKeyAspect,
-      @Nonnull AuditStamp auditStamp) {
-    // V3 no-op - all deletion handling is done through processBatch
-    log.debug("V3 deleteSearchData called - all deletion handling done through processBatch");
+      @Nonnull Map<Urn, List<MCLItem>> groupedEvents,
+      boolean structuredPropertiesHookEnabled) {
+
+    if (groupedEvents.isEmpty()) {
+      return;
+    }
+
+    log.debug("Processing {} URN groups with V3 unified batch optimization", groupedEvents.size());
+
+    // Process each group of events for the same URN
+    for (Map.Entry<Urn, List<MCLItem>> entry : groupedEvents.entrySet()) {
+      Urn urn = entry.getKey();
+      List<MCLItem> urnEvents = entry.getValue();
+
+      log.debug("Processing {} events for URN: {} with V3 unified batch", urnEvents.size(), urn);
+
+      if (structuredPropertiesHookEnabled) {}
+
+      // V3 optimization: single operation per URN
+      processUrnBatch(opContext, urn, urnEvents, structuredPropertiesHookEnabled);
+    }
   }
 
-  @Override
-  public void updateSearchIndices(
-      @Nonnull OperationContext opContext, @Nonnull Collection<MCLItem> events) {
-    // V3 no-op - all deletion handling is done through processBatch
-    log.debug("V3 updateSearchIndices called - all update handling done through processBatch");
-  }
-
-  @Override
   public void updateIndexMappings(
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
@@ -104,16 +108,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull Object newValue,
       @Nullable Object oldValue) {
     try {
-      // V3 structured property mapping update logic
       log.debug("Updating V3 index mappings for structured property change: {}", urn);
-
-      // Check if V2 is also enabled - if so, skip V3 processing to avoid duplication
-      // V2 strategy will handle both V2 and V3 indices through DelegatingMappingsBuilder
-      if (v2Enabled) {
-        log.debug(
-            "V2 is also enabled - skipping V3 structured property mapping update to avoid duplication");
-        return;
-      }
 
       if (Constants.STRUCTURED_PROPERTY_ENTITY_NAME.equals(entitySpec.getName())
           && Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectSpec.getName())) {
@@ -131,9 +126,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         newDefinition.getEntityTypes().removeAll(oldEntityTypes);
 
         if (newDefinition.getEntityTypes().size() > 0) {
+
           // V3 uses the same approach as V2 but with V3 mappings and index convention
-          // The DelegatingMappingsBuilder will automatically handle both V2 and V3 if both are
-          // enabled
           log.info(
               "V3 structured property mapping update for {} - updating indices", newDefinition);
 
@@ -179,35 +173,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     return v3Config.isEnabled();
   }
 
-  @Override
-  public void processBatch(
-      @Nonnull OperationContext opContext, @Nonnull Map<Urn, List<MCLItem>> groupedEvents) {
-
-    if (groupedEvents.isEmpty()) {
-      return;
-    }
-
-    log.debug("Processing {} URN groups with V3 unified batch optimization", groupedEvents.size());
-
-    // Process each group of events for the same URN
-    for (Map.Entry<Urn, List<MCLItem>> entry : groupedEvents.entrySet()) {
-      Urn urn = entry.getKey();
-      List<MCLItem> urnEvents = entry.getValue();
-
-      log.debug("Processing {} events for URN: {} with V3 unified batch", urnEvents.size(), urn);
-
-      // V3 optimization: single operation per URN
-      processUrnBatch(opContext, urn, urnEvents);
-    }
-  }
-
-  @Override
-  public void updateTimeseriesFields(
-      @Nonnull OperationContext opContext, @Nonnull Collection<MCLItem> events) {
-    // V3 no-op - all processing handled by processBatch
-    log.debug("V3 updateTimeseriesFields called - all update handling done through processBatch");
-  }
-
   /**
    * Processes all events for a single URN in V3 optimized fashion. Either deletes the entire entity
    * or performs a single upsert.
@@ -217,7 +182,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    * @param events the events for this URN
    */
   private void processUrnBatch(
-      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull List<MCLItem> events) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull List<MCLItem> events,
+      boolean structuredPropertiesHookEnabled) {
 
     log.debug("V3 unified batch processing for URN: {} with {} events", urn, events.size());
 
@@ -285,6 +253,19 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     String docId = opContext.getSearchContext().getIndexConvention().getEntityDocumentId(urn);
     String finalDocument = combinedDocument.toString();
 
+    if (structuredPropertiesHookEnabled) {
+      for (MCLItem event : events) {
+        EntitySpec entitySpec = event.getEntitySpec();
+        AspectSpec aspectSpec = event.getAspectSpec();
+        updateIndexMappings(
+            opContext,
+            event.getUrn(),
+            entitySpec,
+            aspectSpec,
+            event.getRecordTemplate(),
+            event.getPreviousRecordTemplate());
+      }
+    }
     elasticSearchService.upsertDocumentBySearchGroup(opContext, searchGroup, finalDocument, docId);
     log.debug(
         "V3 upserted combined document for URN: {} to search group: {} with {} aspects",

@@ -19,7 +19,7 @@ import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
@@ -151,8 +151,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 true);
 
     // Setup DelegatingSettingsBuilder and DelegatingMappingsBuilder
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
 
     // Create DelegatingSettingsBuilder using utility method
     delegatingSettingsBuilder =
@@ -731,7 +731,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     ((Map<String, Object>) mappingsWithStructuredProperties.get("properties"))
         .put(
             STRUCTURED_PROPERTY_MAPPING_FIELD + ".myStringProp",
-            Map.of(ESUtils.TYPE, LegacySettingsBuilder.KEYWORD));
+            Map.of(ESUtils.TYPE, V2LegacySettingsBuilder.KEYWORD));
     ((Map<String, Object>) mappingsWithStructuredProperties.get("properties"))
         .put(
             STRUCTURED_PROPERTY_MAPPING_FIELD + ".myNumberProp",
@@ -757,7 +757,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                       "myNumberProp",
                       Map.of(ESUtils.TYPE, ESUtils.DOUBLE_FIELD_TYPE),
                       "myStringProp",
-                      Map.of(ESUtils.TYPE, LegacySettingsBuilder.KEYWORD)),
+                      Map.of(ESUtils.TYPE, V2LegacySettingsBuilder.KEYWORD)),
                   "type",
                   "object"));
     } else {
@@ -772,7 +772,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                       "myNumberProp",
                       Map.of(ESUtils.TYPE, ESUtils.DOUBLE_FIELD_TYPE),
                       "myStringProp",
-                      Map.of(ESUtils.TYPE, LegacySettingsBuilder.KEYWORD))));
+                      Map.of(ESUtils.TYPE, V2LegacySettingsBuilder.KEYWORD))));
     }
     assertEquals(reindexConfigNoCopy.currentMappings(), expectedMappingsStructPropsNested);
     assertEquals(reindexConfigNoCopy.targetMappings(), SystemMetadataMappingsBuilder.getMappings());

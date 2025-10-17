@@ -1,14 +1,13 @@
 package com.linkedin.metadata.search.elasticsearch.index;
 
 import static io.datahubproject.test.search.SearchTestUtils.V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION;
-import static io.datahubproject.test.search.SearchTestUtils.createDelegatingMappingsBuilder;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacyMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -42,7 +41,7 @@ public class DelegatingMappingsBuilderTest {
     // Initialize DelegatingMappingsBuilder with actual builders
     List<MappingsBuilder> builders = new ArrayList<>();
     if (entityIndexConfiguration.getV2().isEnabled()) {
-      builders.add(new LegacyMappingsBuilder(entityIndexConfiguration));
+      builders.add(new V2MappingsBuilder(entityIndexConfiguration));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {
@@ -107,7 +106,7 @@ public class DelegatingMappingsBuilderTest {
 
     // Create DelegatingMappingsBuilder with only v2 builder
     List<MappingsBuilder> builders = new ArrayList<>();
-    builders.add(new LegacyMappingsBuilder(v2OnlyConfig));
+    builders.add(new V2MappingsBuilder(v2OnlyConfig));
     DelegatingMappingsBuilder v2OnlyBuilder = new DelegatingMappingsBuilder(builders);
     Collection<IndexMapping> result = v2OnlyBuilder.getMappings(operationContext);
 
@@ -150,7 +149,7 @@ public class DelegatingMappingsBuilderTest {
   public void testGetIndexMappingsWithStructuredProperties() {
     // Test getIndexMappings with structured properties
     Collection<IndexMapping> result =
-        delegatingMappingsBuilder.getIndexMappings(operationContext, null);
+        delegatingMappingsBuilder.getIndexMappings(operationContext, Collections.emptySet());
 
     assertNotNull(result, "Result should not be null");
     // Should have mappings from both v2 and v3 builders
@@ -244,7 +243,7 @@ public class DelegatingMappingsBuilderTest {
 
     // This should throw RuntimeException wrapping IOException from MultiEntityMappingsBuilder
     List<MappingsBuilder> builders = new ArrayList<>();
-    builders.add(new LegacyMappingsBuilder(config));
+    builders.add(new V2MappingsBuilder(config));
     try {
       builders.add(new MultiEntityMappingsBuilder(config));
     } catch (IOException e) {

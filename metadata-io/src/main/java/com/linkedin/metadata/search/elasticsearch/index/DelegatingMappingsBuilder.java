@@ -17,7 +17,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -40,7 +39,7 @@ public class DelegatingMappingsBuilder implements MappingsBuilder {
   @Override
   public Collection<IndexMapping> getIndexMappings(
       @Nonnull OperationContext opContext,
-      @Nullable Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
+      @Nonnull Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
     if (builders.isEmpty()) {
       return Collections.emptyList();
     }
@@ -55,9 +54,10 @@ public class DelegatingMappingsBuilder implements MappingsBuilder {
           firstBuilder.getClass().getSimpleName(),
           referenceMappings.size());
     } catch (Exception e) {
-      log.error(
-          "Failed to get reference mappings from {}", firstBuilder.getClass().getSimpleName(), e);
-      throw new RuntimeException("Failed to get reference mappings", e);
+      throw new RuntimeException(
+          String.format(
+              "Failed to get reference mappings from %s", firstBuilder.getClass().getSimpleName()),
+          e);
     }
 
     // Start with reference mappings as the base
@@ -73,12 +73,8 @@ public class DelegatingMappingsBuilder implements MappingsBuilder {
 
         // Validate consistency for overlapping indices
         if (!mappingsEqual(referenceMappings, mappings)) {
-          log.error(
-              "Inconsistent mappings detected between {} and {}",
-              firstBuilder.getClass().getSimpleName(),
-              builder.getClass().getSimpleName());
-          log.error("Reference mappings: {}", referenceMappings);
-          log.error("Conflicting mappings: {}", mappings);
+          log.debug("Reference mappings: {}", referenceMappings);
+          log.debug("Conflicting mappings: {}", mappings);
           throw new IllegalStateException(
               String.format(
                   "Inconsistent mappings between %s and %s. This indicates an illegal configuration state.",
@@ -109,7 +105,7 @@ public class DelegatingMappingsBuilder implements MappingsBuilder {
 
   @Override
   public Collection<IndexMapping> getMappings(@Nonnull OperationContext opContext) {
-    return getIndexMappings(opContext, null);
+    return getIndexMappings(opContext, Collections.emptySet());
   }
 
   @Override

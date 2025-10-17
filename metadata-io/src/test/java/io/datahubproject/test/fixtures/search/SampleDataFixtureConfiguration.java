@@ -1,6 +1,5 @@
 package io.datahubproject.test.fixtures.search;
 
-import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS_DISABLED;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
@@ -34,8 +33,8 @@ import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacyMappingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
@@ -213,12 +212,12 @@ public class SampleDataFixtureConfiguration {
       OperationContext opContext, ESWriteDAO esWriteDAO, ESIndexBuilder indexBuilder)
       throws IOException {
 
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndex(anyString())).thenReturn(true);
-    LegacySettingsBuilder settingsBuilder =
-        new LegacySettingsBuilder(indexConfiguration, indexConvention);
+    V2LegacySettingsBuilder settingsBuilder =
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             _searchClient,
@@ -240,8 +239,8 @@ public class SampleDataFixtureConfiguration {
         indexBuilder,
         TEST_SEARCH_SERVICE_CONFIG,
         TEST_ES_SEARCH_CONFIG,
-        new LegacyMappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
-        new LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention),
+        new V2MappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
+        new V2LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention),
         searchDAO,
         browseDAO,
         esWriteDAO);

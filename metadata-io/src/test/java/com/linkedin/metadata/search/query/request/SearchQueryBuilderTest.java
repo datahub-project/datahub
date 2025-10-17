@@ -2,8 +2,8 @@ package com.linkedin.metadata.search.query.request;
 
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.AUTO_COMPLETE_ENTITY_TYPES;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder.TEXT_SEARCH_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder.URN_SEARCH_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.TEXT_SEARCH_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.URN_SEARCH_ANALYZER;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;

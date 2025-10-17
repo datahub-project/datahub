@@ -68,15 +68,11 @@ public class IndexConventionImpl implements IndexConvention {
   private List<String> buildEntityIndicesPatterns() {
     List<String> patterns = new ArrayList<>();
 
-    // Check if both V2 and V3 are enabled
-    boolean v2Enabled = isV2Enabled(entityIndexConfiguration);
-    boolean v3Enabled = isV3Enabled(entityIndexConfiguration);
-
-    if (v2Enabled) {
+    if (isV2Enabled(entityIndexConfiguration)) {
       patterns.add(buildV2Pattern());
     }
 
-    if (v3Enabled) {
+    if (isV3Enabled(entityIndexConfiguration)) {
       patterns.add(buildV3Pattern());
     }
 

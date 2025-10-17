@@ -128,7 +128,7 @@ public class UpdateIndicesV3StrategyTest {
   @Test
   public void testProcessBatch_EmptyEvents() {
     // Execute with empty events
-    strategy.processBatch(operationContext, Collections.emptyMap());
+    strategy.processBatch(operationContext, Collections.emptyMap(), true);
 
     // Verify no processing occurred
     verify(elasticSearchService, never())
@@ -152,7 +152,7 @@ public class UpdateIndicesV3StrategyTest {
         Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
 
     // Execute
-    strategy.processBatch(operationContext, groupedEvents);
+    strategy.processBatch(operationContext, groupedEvents, true);
 
     // Verify
     verify(elasticSearchService)
@@ -183,7 +183,7 @@ public class UpdateIndicesV3StrategyTest {
         Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
 
     // Execute
-    strategy.processBatch(operationContext, groupedEvents);
+    strategy.processBatch(operationContext, groupedEvents, true);
 
     // Verify upsert was called with search group
     verify(elasticSearchService)
@@ -211,7 +211,7 @@ public class UpdateIndicesV3StrategyTest {
         Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
 
     // Execute
-    strategy.processBatch(operationContext, groupedEvents);
+    strategy.processBatch(operationContext, groupedEvents, true);
 
     // Verify upsert was called with search group (timeseries aspects are treated like regular
     // aspects in V3)
@@ -291,26 +291,6 @@ public class UpdateIndicesV3StrategyTest {
     verify(elasticSearchService, never())
         .buildReindexConfigsWithNewStructProp(
             any(OperationContext.class), any(Urn.class), any(StructuredPropertyDefinition.class));
-  }
-
-  @Test
-  public void testNoOpMethods() {
-    // Test that no-op methods don't throw exceptions
-    strategy.deleteSearchData(
-        operationContext,
-        testUrn,
-        DATASET_ENTITY_NAME,
-        mockAspectSpec,
-        mockAspect,
-        true,
-        mockAuditStamp);
-    strategy.updateSearchIndices(operationContext, Collections.singletonList(mockEvent));
-    strategy.updateTimeseriesFields(operationContext, Collections.singletonList(mockEvent));
-
-    // These should not call any elasticsearch operations
-    verify(elasticSearchService, never())
-        .upsertDocument(any(), anyString(), anyString(), anyString());
-    verify(elasticSearchService, never()).deleteDocument(any(), anyString(), anyString());
   }
 
   @Test
@@ -509,7 +489,7 @@ public class UpdateIndicesV3StrategyTest {
           .thenThrow(new RuntimeException("Failed to retrieve Aspect Spec"));
 
       // Execute - the method should handle the exception gracefully
-      strategy.processBatch(operationContext, groupedEvents);
+      strategy.processBatch(operationContext, groupedEvents, true);
 
       // Verify that no document operations were performed due to the exception
       verify(elasticSearchService, never())
@@ -537,7 +517,7 @@ public class UpdateIndicesV3StrategyTest {
       mockedStatic.when(() -> UpdateIndicesUtil.isDeletingKey(any(Pair.class))).thenReturn(true);
 
       // Execute
-      strategy.processBatch(operationContext, groupedEvents);
+      strategy.processBatch(operationContext, groupedEvents, true);
 
       // Verify that deleteDocumentBySearchGroup was called
       verify(elasticSearchService)
@@ -564,7 +544,7 @@ public class UpdateIndicesV3StrategyTest {
       mockedStatic.when(() -> UpdateIndicesUtil.isDeletingKey(any(Pair.class))).thenReturn(true);
 
       // Execute - should handle null search group gracefully
-      strategy.processBatch(operationContext, groupedEvents);
+      strategy.processBatch(operationContext, groupedEvents, true);
 
       // Verify that no delete operation was performed due to null search group
       verify(elasticSearchService, never())
@@ -586,7 +566,7 @@ public class UpdateIndicesV3StrategyTest {
     IndexOutOfBoundsException exception =
         expectThrows(
             IndexOutOfBoundsException.class,
-            () -> strategy.processBatch(operationContext, groupedEvents));
+            () -> strategy.processBatch(operationContext, groupedEvents, true));
 
     // Verify the exception message indicates the issue
     assertTrue(exception.getMessage().contains("Index: 0"));
@@ -614,7 +594,7 @@ public class UpdateIndicesV3StrategyTest {
         .thenReturn(Optional.of(mockSearchDocument));
 
     // Execute - should handle null search group gracefully
-    strategy.processBatch(operationContext, groupedEvents);
+    strategy.processBatch(operationContext, groupedEvents, true);
 
     // Verify that no upsert operation was performed due to null search group
     verify(elasticSearchService, never())
@@ -636,7 +616,7 @@ public class UpdateIndicesV3StrategyTest {
         Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
 
     // Execute - should handle the exception gracefully and continue processing
-    strategy.processBatch(operationContext, groupedEvents);
+    strategy.processBatch(operationContext, groupedEvents, true);
 
     // Verify that no upsert operation was performed due to the exception
     verify(elasticSearchService, never())
@@ -665,7 +645,7 @@ public class UpdateIndicesV3StrategyTest {
         Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
 
     // Execute - should handle the exception gracefully and continue processing
-    strategy.processBatch(operationContext, groupedEvents);
+    strategy.processBatch(operationContext, groupedEvents, true);
 
     // Verify that no upsert operation was performed due to the exception
     verify(elasticSearchService, never())
@@ -687,7 +667,7 @@ public class UpdateIndicesV3StrategyTest {
         Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
 
     // Execute - should handle the exception gracefully and continue processing
-    strategy.processBatch(operationContext, groupedEvents);
+    strategy.processBatch(operationContext, groupedEvents, true);
 
     // Verify that no upsert operation was performed due to the exception
     verify(elasticSearchService, never())

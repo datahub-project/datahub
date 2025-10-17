@@ -135,12 +135,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
           }
         }
       } catch (IOException e) {
-        log.error(
-            "Failed to process graph change event for URN: {} aspect: {}",
-            event.getEntityUrn(),
-            event.getAspectName(),
-            e);
-        // Continue processing other events instead of failing the entire batch
+        throw new RuntimeException(e);
       }
     }
   }

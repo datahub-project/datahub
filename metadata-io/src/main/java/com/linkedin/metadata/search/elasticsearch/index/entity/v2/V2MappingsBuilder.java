@@ -4,7 +4,7 @@ import static com.linkedin.metadata.Constants.ENTITY_TYPE_URN_PREFIX;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder.*;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.*;
 import static com.linkedin.metadata.search.utils.ESUtils.ALIAS_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.PATH;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
@@ -12,6 +12,7 @@ import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.LogicalValueType;
@@ -25,7 +26,6 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -39,7 +39,7 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class LegacyMappingsBuilder implements MappingsBuilder {
+public class V2MappingsBuilder implements MappingsBuilder {
 
   private static final Map<String, String> PARTIAL_NGRAM_CONFIG =
       ImmutableMap.of(
@@ -75,19 +75,19 @@ public class LegacyMappingsBuilder implements MappingsBuilder {
 
   private final EntityIndexConfiguration entityIndexConfiguration;
 
-  public LegacyMappingsBuilder(@Nonnull EntityIndexConfiguration entityIndexConfiguration) {
+  public V2MappingsBuilder(@Nonnull EntityIndexConfiguration entityIndexConfiguration) {
     this.entityIndexConfiguration = entityIndexConfiguration;
   }
 
   @Override
   public Collection<IndexMapping> getMappings(@Nonnull OperationContext opContext) {
-    return getIndexMappings(opContext, null);
+    return getIndexMappings(opContext, Collections.emptySet());
   }
 
   @Override
   public Collection<IndexMapping> getIndexMappings(
       @Nonnull OperationContext opContext,
-      Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
+      @Nonnull Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
 
     return opContext.getEntityRegistry().getEntitySpecs().values().stream()
         .map(
@@ -145,21 +145,13 @@ public class LegacyMappingsBuilder implements MappingsBuilder {
     String entityName = entitySpec.getEntityAnnotation().getName();
     Map<String, Object> structuredPropertiesForEntity = Collections.emptyMap();
 
-    if (structuredProperties != null && !structuredProperties.isEmpty()) {
+    if (!structuredProperties.isEmpty()) {
+      Urn matchUrn = UrnUtils.getUrn(ENTITY_TYPE_URN_PREFIX + entityName);
+
       structuredPropertiesForEntity =
           getMappingsForStructuredProperty(
               structuredProperties.stream()
-                  .filter(
-                      urnProp -> {
-                        try {
-                          return urnProp
-                              .getSecond()
-                              .getEntityTypes()
-                              .contains(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + entityName));
-                        } catch (URISyntaxException e) {
-                          return false;
-                        }
-                      })
+                  .filter(urnProp -> urnProp.getSecond().getEntityTypes().contains(matchUrn))
                   .collect(Collectors.toSet()));
     }
 

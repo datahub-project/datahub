@@ -43,8 +43,8 @@ import com.linkedin.metadata.search.elasticsearch.index.DelegatingSettingsBuilde
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacyMappingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntitySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
@@ -491,7 +491,7 @@ public class SearchTestUtils {
     List<SettingsBuilder> settingsBuilders = new ArrayList<>();
 
     if (entityIndexConfiguration.getV2().isEnabled()) {
-      settingsBuilders.add(new LegacySettingsBuilder(indexConfiguration, indexConvention));
+      settingsBuilders.add(new V2LegacySettingsBuilder(indexConfiguration, indexConvention));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {
@@ -521,7 +521,7 @@ public class SearchTestUtils {
     List<MappingsBuilder> builders = new ArrayList<>();
 
     if (entityIndexConfiguration.getV2().isEnabled()) {
-      builders.add(new LegacyMappingsBuilder(entityIndexConfiguration));
+      builders.add(new V2MappingsBuilder(entityIndexConfiguration));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {

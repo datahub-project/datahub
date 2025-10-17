@@ -3,7 +3,7 @@ package com.linkedin.metadata.search.transformer;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacyMappingsBuilder.SYSTEM_CREATED_FIELD;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.SYSTEM_CREATED_FIELD;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;

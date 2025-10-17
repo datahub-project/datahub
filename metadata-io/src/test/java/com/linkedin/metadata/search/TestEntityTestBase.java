@@ -20,8 +20,8 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacyMappingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v2.LegacySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
@@ -60,7 +60,7 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
   @Nonnull
   protected abstract ElasticSearchConfiguration getElasticSearchConfiguration();
 
-  private LegacySettingsBuilder settingsBuilder;
+  private V2LegacySettingsBuilder settingsBuilder;
   private ElasticSearchService elasticSearchService;
   private OperationContext opContext;
 
@@ -80,11 +80,11 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
         TestOperationContexts.systemContextNoSearchAuthorization(
             new SnapshotEntityRegistry(new Snapshot()),
             SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build());
-    IndexConfiguration indexConfiguration = new IndexConfiguration();
-    indexConfiguration.setMinSearchFilterLength(3);
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention mockIndexConvention = mock(IndexConvention.class);
     when(mockIndexConvention.isV2EntityIndex(anyString())).thenReturn(true);
-    settingsBuilder = new LegacySettingsBuilder(indexConfiguration, mockIndexConvention);
+    settingsBuilder = new V2LegacySettingsBuilder(indexConfiguration, mockIndexConvention);
     elasticSearchService = buildService();
     elasticSearchService.reindexAll(opContext, Collections.emptySet());
   }
@@ -120,7 +120,7 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             getIndexBuilder(),
             TEST_SEARCH_SERVICE_CONFIG,
             TEST_ES_SEARCH_CONFIG,
-            new LegacyMappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
+            new V2MappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
             settingsBuilder,
             searchDAO,
             browseDAO,

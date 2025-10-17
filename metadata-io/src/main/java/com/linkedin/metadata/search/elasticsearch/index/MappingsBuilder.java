@@ -9,7 +9,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Data;
 
@@ -27,7 +26,7 @@ public interface MappingsBuilder {
    */
   Collection<IndexMapping> getIndexMappings(
       @Nonnull OperationContext opContext,
-      @Nullable Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties);
+      @Nonnull Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties);
 
   /**
    * Builds mappings for an entity registry.
