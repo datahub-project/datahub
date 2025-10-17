@@ -47,7 +47,7 @@ export default function useFileUpload({ scenario, assetUrn }: Props) {
             throw new Error(`Failed to upload file: ${response.statusText}`);
         }
 
-        return resolveRuntimePath(`/api/files/${PRODUCT_ASSETS_FOLDER}/${fileId}`);
+        return resolveRuntimePath(`/openapi/v1/files/${PRODUCT_ASSETS_FOLDER}/${fileId}`);
     };
 
     return { uploadFile };
