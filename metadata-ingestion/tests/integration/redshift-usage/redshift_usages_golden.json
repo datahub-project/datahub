@@ -8,12 +8,12 @@
         "json": {
             "timestampMillis": 1631696400000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:test-name",
             "operationType": "INSERT",
-            "lastUpdatedTimestamp": 1631664000000
+            "lastUpdatedTimestamp": 1631656800000
         }
     }
 },
@@ -26,12 +26,12 @@
         "json": {
             "timestampMillis": 1631696400000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:real_shirshanka",
             "operationType": "INSERT",
-            "lastUpdatedTimestamp": 1631664000000
+            "lastUpdatedTimestamp": 1631656800000
         }
     }
 },
@@ -44,12 +44,12 @@
         "json": {
             "timestampMillis": 1631696400000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:real_shirshanka",
             "operationType": "DELETE",
-            "lastUpdatedTimestamp": 1631664000000
+            "lastUpdatedTimestamp": 1631656800000
         }
     }
 },
@@ -60,14 +60,14 @@
     "aspectName": "datasetUsageStatistics",
     "aspect": {
         "json": {
-            "timestampMillis": 1631577600000,
+            "timestampMillis": 1631570400000,
             "eventGranularity": {
                 "unit": "DAY",
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "uniqueUserCount": 1,
             "totalSqlQueries": 1,
@@ -92,14 +92,14 @@
     "aspectName": "datasetUsageStatistics",
     "aspect": {
         "json": {
-            "timestampMillis": 1631577600000,
+            "timestampMillis": 1631570400000,
             "eventGranularity": {
                 "unit": "DAY",
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "uniqueUserCount": 1,
             "totalSqlQueries": 1,
@@ -124,14 +124,14 @@
     "aspectName": "datasetUsageStatistics",
     "aspect": {
         "json": {
-            "timestampMillis": 1631577600000,
+            "timestampMillis": 1631570400000,
             "eventGranularity": {
                 "unit": "DAY",
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "uniqueUserCount": 1,
             "totalSqlQueries": 1,
@@ -145,6 +145,78 @@
                     "userEmail": "real_shirshanka@acryl.io"
                 }
             ],
+            "fieldCounts": []
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,db1.schema1.category,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1631577600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 0,
+            "totalSqlQueries": 0,
+            "topSqlQueries": [],
+            "userCounts": [],
+            "fieldCounts": []
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1631577600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 0,
+            "totalSqlQueries": 0,
+            "topSqlQueries": [],
+            "userCounts": [],
+            "fieldCounts": []
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1631577600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 0,
+            "totalSqlQueries": 0,
+            "topSqlQueries": [],
+            "userCounts": [],
             "fieldCounts": []
         }
     }

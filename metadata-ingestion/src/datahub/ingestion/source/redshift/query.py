@@ -680,6 +680,15 @@ group by
 
     @staticmethod
     def temp_table_ddl_query(start_time: datetime, end_time: datetime) -> str:
+        """
+        Traverses SVL_STATEMENTTEXT to get DDL (create (temp)? table ...) statements
+
+        https://docs.aws.amazon.com/redshift/latest/dg/r_SVL_STATEMENTTEXT.html
+        type	varchar(10)	Type of SQL statement: QUERY, DDL, or UTILITY
+
+        To be considered:
+        - instead of filtering by type==DDL, fetching directly from STL_DDLTEXT https://docs.aws.amazon.com/redshift/latest/dg/r_STL_DDLTEXT.html
+        """
         start_time_str: str = start_time.strftime(redshift_datetime_format)
 
         end_time_str: str = end_time.strftime(redshift_datetime_format)
@@ -724,7 +733,7 @@ from (
             from
                 SVL_STATEMENTTEXT
             where
-                type in ('DDL', 'QUERY')
+                type == 'DDL'
                 AND        starttime >= '{start_time_str}'
                 AND        starttime < '{end_time_str}'
                 AND sequence < {_QUERY_SEQUENCE_LIMIT}
@@ -743,7 +752,7 @@ from (
                 asc
         )
         where
-            type in ('DDL', 'QUERY')
+            type == 'DDL'
     )
     where
         (create_command ilike 'create temp table %'
