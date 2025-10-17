@@ -4,7 +4,11 @@ import lombok.Getter;
 
 public enum PatchOperationType {
   ADD("add"),
-  REMOVE("remove");
+  REMOVE("remove"),
+  REPLACE("replace"),
+  MOVE("move"),
+  COPY("copy"),
+  TEST("test");
 
   @Getter private final String value;
 
