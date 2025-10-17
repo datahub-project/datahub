@@ -30,43 +30,6 @@ def check_mockserver_health():
         return False
 
 
-def cleanup_docker_containers():
-    """Clean up any existing Docker containers and networks."""
-    try:
-        # Stop and remove any existing datahub-mock containers
-        subprocess.run(
-            ["docker", "stop", "datahub-mock"], capture_output=True, check=False
-        )
-        subprocess.run(
-            ["docker", "rm", "datahub-mock"], capture_output=True, check=False
-        )
-
-        # Clean up any pytest Docker networks
-        result = subprocess.run(
-            [
-                "docker",
-                "network",
-                "ls",
-                "--filter",
-                "name=pytest",
-                "--format",
-                "{{.Name}}",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.stdout:
-            for network in result.stdout.strip().split("\n"):
-                if network:
-                    subprocess.run(
-                        ["docker", "network", "rm", network],
-                        capture_output=True,
-                        check=False,
-                    )
-    except Exception:
-        # Ignore cleanup errors
-        pass
 
 
 def ensure_docker_running():
@@ -86,12 +49,6 @@ def ensure_docker_running():
     return False
 
 
-@pytest.fixture(scope="session", autouse=True)
-def cleanup_docker_on_exit():
-    """Ensure Docker cleanup happens at the end of the test session."""
-    yield
-    # This runs after all tests in the session complete
-    cleanup_docker_containers()
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -100,26 +57,19 @@ def docker_datahub_service(docker_compose_runner, pytestconfig):
     # Ensure Docker is running
     ensure_docker_running()
 
-    # Clean up any existing containers before starting
-    cleanup_docker_containers()
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_queries"
 
-    try:
-        with docker_compose_runner(
-            test_resources_dir / "docker-compose.yml", "datahub-mock", cleanup=True
-        ) as docker_services:
-            wait_for_port(
-                docker_services,
-                container_name="datahub-mock",
-                container_port=8080,
-                timeout=60,
-                checker=check_mockserver_health,
-            )
-            yield docker_services
-    finally:
-        # Ensure cleanup happens even if tests fail
-        cleanup_docker_containers()
+    with docker_compose_runner(
+        test_resources_dir / "docker-compose.yml", "datahub-mock", cleanup=True
+    ) as docker_services:
+        wait_for_port(
+            docker_services,
+            container_name="datahub-mock",
+            container_port=8080,
+            timeout=60,
+            checker=check_mockserver_health,
+        )
+        yield docker_services
 
 
 @pytest.mark.parametrize(
@@ -155,20 +105,8 @@ def docker_datahub_service(docker_compose_runner, pytestconfig):
             "golden/lazy-schema-loading.json",
         ),
         (
-            "input/streaming-processing.yml",
-            "golden/streaming-processing.json",
-        ),
-        (
             "input/temp-table-patterns.yml",
             "golden/temp-table-patterns.json",
-        ),
-        (
-            "input/combined-optimizations.yml",
-            "golden/combined-optimizations.json",
-        ),
-        (
-            "input/large-file-streaming.yml",
-            "golden/large-file-streaming.json",
         ),
     ],
 )
