@@ -66,7 +66,6 @@ logger = logging.getLogger(__name__)
 class FivetranSource(StatefulIngestionSourceBase):
     """
     This plugin extracts fivetran users, connectors, destinations and sync history.
-    This plugin is in beta and has only been tested on Snowflake connector.
     """
 
     config: FivetranSourceConfig

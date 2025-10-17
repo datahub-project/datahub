@@ -23,7 +23,7 @@ vi.mock('../getFieldDescriptionDetails', () => ({
     getFieldDescriptionDetails: mockGetFieldDescriptionDetails,
 }));
 
-vi.mock('@app/entityV2/shared/tabs/Documentation/components/editor/utils', () => ({
+vi.mock('@components/components/Editor/utils', () => ({
     sanitizeRichText: mockSanitizeRichText,
 }));
 

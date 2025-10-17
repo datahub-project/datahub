@@ -1,5 +1,4 @@
 import logging
-import os
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from http import HTTPStatus
@@ -16,6 +15,16 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     PermissiveConfigModel,
+)
+from datahub.configuration.env_vars import (
+    get_aws_app_runner_service_id,
+    get_aws_execution_env,
+    get_aws_lambda_function_name,
+    get_aws_role_arn,
+    get_aws_web_identity_token_file,
+    get_ecs_container_metadata_uri,
+    get_ecs_container_metadata_uri_v4,
+    get_elastic_beanstalk_environment_name,
 )
 from datahub.configuration.source_common import EnvConfigMixin
 
@@ -100,27 +109,25 @@ def detect_aws_environment() -> AwsEnvironment:
     Order matters as some environments may have multiple indicators.
     """
     # Check Lambda first as it's most specific
-    if os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
-        if os.getenv("AWS_EXECUTION_ENV", "").startswith("CloudFormation"):
+    if get_aws_lambda_function_name():
+        if (get_aws_execution_env() or "").startswith("CloudFormation"):
             return AwsEnvironment.CLOUD_FORMATION
         return AwsEnvironment.LAMBDA
 
     # Check EKS (IRSA)
-    if os.getenv("AWS_WEB_IDENTITY_TOKEN_FILE") and os.getenv("AWS_ROLE_ARN"):
+    if get_aws_web_identity_token_file() and get_aws_role_arn():
         return AwsEnvironment.EKS
 
     # Check App Runner
-    if os.getenv("AWS_APP_RUNNER_SERVICE_ID"):
+    if get_aws_app_runner_service_id():
         return AwsEnvironment.APP_RUNNER
 
     # Check ECS
-    if os.getenv("ECS_CONTAINER_METADATA_URI_V4") or os.getenv(
-        "ECS_CONTAINER_METADATA_URI"
-    ):
+    if get_ecs_container_metadata_uri_v4() or get_ecs_container_metadata_uri():
         return AwsEnvironment.ECS
 
     # Check Elastic Beanstalk
-    if os.getenv("ELASTIC_BEANSTALK_ENVIRONMENT_NAME"):
+    if get_elastic_beanstalk_environment_name():
         return AwsEnvironment.BEANSTALK
 
     if is_running_on_ec2():
@@ -155,7 +162,7 @@ def get_instance_role_arn() -> Optional[str]:
 def get_lambda_role_arn() -> Optional[str]:
     """Get the Lambda function's role ARN"""
     try:
-        function_name = os.getenv("AWS_LAMBDA_FUNCTION_NAME")
+        function_name = get_aws_lambda_function_name()
         if not function_name:
             return None
 
@@ -181,7 +188,7 @@ def get_current_identity() -> Tuple[Optional[str], Optional[str]]:
         return role_arn, AwsServicePrincipal.LAMBDA.value
 
     elif env == AwsEnvironment.EKS:
-        role_arn = os.getenv("AWS_ROLE_ARN")
+        role_arn = get_aws_role_arn()
         return role_arn, AwsServicePrincipal.EKS.value
 
     elif env == AwsEnvironment.APP_RUNNER:
@@ -194,8 +201,8 @@ def get_current_identity() -> Tuple[Optional[str], Optional[str]]:
 
     elif env == AwsEnvironment.ECS:
         try:
-            metadata_uri = os.getenv("ECS_CONTAINER_METADATA_URI_V4") or os.getenv(
-                "ECS_CONTAINER_METADATA_URI"
+            metadata_uri = (
+                get_ecs_container_metadata_uri_v4() or get_ecs_container_metadata_uri()
             )
             if metadata_uri:
                 response = requests.get(f"{metadata_uri}/task", timeout=1)

@@ -204,14 +204,92 @@ ext {
     ]
 
     // only for debug variants of quickstart to enable <variant>Reload tasks.
-    // The actual service name needs the profile to be appended,  <container-name>-<profile>
-    // This list only contains modules that can be reloaded via the reloadTask. If other modules need to be reloaded, quickstart* needs to be used.
+    // The name here is the service name prefix. The suffix doesnt follow a fixed convention across all profiles.
+    // This list only contains modules that can be reloaded via the reloadTask. Python services support hot reload.
+    // To re-run setup tasks, quickstart* needs to be used.
     moduleToContainer = [
         ':metadata-service:war': 'datahub-gms',
         ':datahub-frontend': 'frontend',
         ':metadata-jobs:mce-consumer-job': 'datahub-mce-consumer',
         ':metadata-jobs:mae-consumer-job': 'datahub-mae-consumer',
     ]
+    // Though these support hot reload, they need to be restarted if any ENVs have been modified and ReloadEnv is run.
+    moduleToContainerWithHotReload = [
+        ':datahub-actions': 'datahub-actions',
+    ]
+
+    // Helper function to read the captured profile name from file
+    readCapturedProfile = {
+        def composeFileName = new File(compose_base).getName()
+        def profileStatusFileName = composeFileName.replace('.yml', '-profile.txt')
+        def profileFile = new File(rootProject.buildDir, profileStatusFileName)
+
+        if (!profileFile.exists()) {
+          return null
+        }
+
+        def activeProfile = profileFile.text.trim()
+        logger.lifecycle("Using captured profile: ${activeProfile}")
+        return activeProfile
+    }
+
+    // Helper function to find the taskName and config that uses a given profile (only searches debug tasks)
+    // Returns a map with 'taskName' and 'config' keys
+    findTaskNameByProfile = { profile ->
+        def matchingTask = quickstart_configs.find { taskName, config ->
+            config.isDebug && config.profile == profile
+        }
+
+        if (matchingTask) {
+            return [taskName: matchingTask.key, config: matchingTask.value]
+        } else {
+            throw new GradleException("No debug quickstart configuration found for profile: ${profile}")
+        }
+    }
+
+    // Helper function to get running container service names by matching prefixes from moduleToContainer
+    // Returns a map of [modulePath: actualServiceName] for only the running containers
+    // When includeHotReload is true, also includes modules from moduleToContainerWithHotReload
+    getRunningContainers = { composeFilePath, projectName, includeHotReload = false ->
+        // Run docker compose ps to get running services
+        def psCmd = "docker compose -p ${projectName} -f docker/${composeFilePath} ps --services --filter status=running"
+        def process = psCmd.execute()
+        process.waitFor()
+
+        if (process.exitValue() != 0) {
+            throw new GradleException("Failed to list running containers: ${process.err.text}")
+        }
+
+        def runningServices = process.text.trim().split('\n').collect { it.trim() }.findAll { it }
+        logger.lifecycle("Running services: ${runningServices}")
+
+        // Match prefixes from moduleToContainer to find actual service names
+        def runningModuleToContainer = [:]
+        moduleToContainer.each { modulePath, servicePrefix ->
+            def matched = runningServices.find { service -> service.startsWith(servicePrefix) }
+            if (matched) {
+                runningModuleToContainer[modulePath] = matched
+                logger.lifecycle("Matched module '${modulePath}' (prefix: '${servicePrefix}') to running service '${matched}'")
+            } else {
+                logger.info("Module '${modulePath}' (prefix: '${servicePrefix}') is not running, skipping")
+            }
+        }
+
+        // Include hot reload modules if requested
+        if (includeHotReload) {
+            moduleToContainerWithHotReload.each { modulePath, servicePrefix ->
+                def matched = runningServices.find { service -> service.startsWith(servicePrefix) }
+                if (matched) {
+                    runningModuleToContainer[modulePath] = matched
+                    logger.lifecycle("Matched hot-reload module '${modulePath}' (prefix: '${servicePrefix}') to running service '${matched}'")
+                } else {
+                    logger.info("Hot-reload module '${modulePath}' (prefix: '${servicePrefix}') is not running, skipping")
+                }
+            }
+        }
+
+        return runningModuleToContainer
+    }
 }
 
 // Register all quickstart tasks
@@ -409,7 +487,7 @@ quickstart_configs.each { taskName, config ->
 
 tasks.register('minDockerCompose2.20', Exec) {
     executable 'bash'
-    args '-c', 'echo -e "$(docker compose version --short)\n2.20"|sort --version-sort --check=quiet --reverse'
+    args '-c', 'echo -e "$(docker compose version | sed -E \'s/.*v([0-9.]+).*/\\1/\')\n2.20"|sort --version-sort --check=quiet --reverse'
 }
 
 // Create nuke tasks for all configurations
@@ -422,6 +500,16 @@ quickstart_configs.each { taskName, config ->
         doFirst {
             // Set removeVolumes for this specific configuration
             dockerCompose."${taskName}".removeVolumes = !config.preserveVolumes
+          // Delete the captured profile file after compose down
+          def composeFileName = new File(compose_base).getName()
+          def profileStatusFileName = composeFileName.replace('.yml', '-profile.txt')
+          def profileFile = new File(rootProject.buildDir, profileStatusFileName)
+
+          if (profileFile.exists()) {
+            profileFile.delete()
+            logger.lifecycle("Deleted profile file: ${profileFile.absolutePath}")
+          }
+
         }
         finalizedBy(tasks.matching { task ->
             task.name == "${taskName}ComposeDownForced"
@@ -432,75 +520,174 @@ quickstart_configs.each { taskName, config ->
 tasks.register('quickstartDown') {
     group = 'quickstart'
     finalizedBy(tasks.withType(ComposeDownForced))
+    doLast {
+        // Delete the captured profile file after compose down
+        def composeFileName = new File(compose_base).getName()
+        def profileStatusFileName = composeFileName.replace('.yml', '-profile.txt')
+        def profileFile = new File(rootProject.buildDir, profileStatusFileName)
+
+        if (profileFile.exists()) {
+          profileFile.delete()
+          logger.lifecycle("Deleted profile file: ${profileFile.absolutePath}")
+        }
+    }
 }
 
 tasks.withType(ComposeUp).configureEach {
     shouldRunAfter('quickstartNuke')
     dependsOn tasks.named("minDockerCompose2.20")
-}
 
-// Register all quickstart Reload tasks. For quickstartDebug, the reload task is DebugReload. (Taskname without quickstart prefix)
-quickstart_configs.each { taskName, config ->
-    if (config.isDebug) {
-        def reloadTaskName = taskName.replaceFirst(/^quickstart/, "")
-        tasks.register("${reloadTaskName}Reload", Exec) {
-            dependsOn tasks.named("prepareAll${taskName}")
-            group = 'quickstart'
-            description = "Build and reload only changed containers for the ${taskName} task"
-            doFirst {
-                def executedTasks = project.gradle.taskGraph.allTasks.findAll { it.state.executed }
-                def containersToRestart = []
+    // Capture profile information to a file based on compose file name when ComposeUp runs
+    doFirst {
+        // Only capture profile if the task is being directly executed (not just accessed/configured)
+        // Extract task name to find corresponding config (e.g., "quickstartDebugComposeUp" -> "quickstartDebug")
+        def taskBaseName = name.replaceAll('ComposeUp$', '')
+        def config = quickstart_configs[taskBaseName]
 
-                moduleToContainer.each { modulePath, containerName ->
-                    def moduleProject = project.project(modulePath)
-                    def dockerPrepareTask = moduleProject.tasks.findByName('dockerPrepare')
+        if (config?.profile) {
+            // Get the compose file name and derive the profile tracking filename
+            def composeFileName = new File(compose_base).getName()
+            def profileStatusFileName = composeFileName.replace('.yml', '-profile.txt')
+            def profileFile = new File(rootProject.buildDir, profileStatusFileName)
 
-                    if (dockerPrepareTask && executedTasks.contains(dockerPrepareTask) && !dockerPrepareTask.state.upToDate) {
-                        containersToRestart << "${containerName}-${config.profile}"
-                    }
-                }
+            // Ensure build directory exists
+            profileFile.getParentFile().mkdirs()
 
-                // Only restart containers that had their modules rebuilt
-                if (containersToRestart) {
-                    def composeFiles = dockerCompose."${taskName}".useComposeFiles.get()
-                    def composeFileArgs = composeFiles.collectMany { ['-f', it] }
+            // Write the profile name
+            profileFile.text = config.profile
 
-                    // Use the actual project name from config, fallback to default
-                    def actualProjectName = config.additionalConfig?.projectName ?: project_name
-
-                    def cmd = ["docker compose -p ${actualProjectName} --profile ${config.profile}"] + composeFileArgs + ['restart'] + containersToRestart
-                    println(cmd.join(" "))
-                    commandLine 'bash', '-c', cmd.join(" ")
-                } else {
-                    // If no containers need restart, make this a no-op
-                    commandLine 'bash', '-c', 'echo "No containers need restarting - all modules are up to date"'
-                }
-            }
-        }
-        tasks.register("${reloadTaskName}ReloadEnv", Exec) {
-            dependsOn tasks.named("prepareAll${taskName}")
-            group = 'quickstart'
-            description = "Build changed containers but recreate all services for the ${taskName} task"
-            doFirst {
-                def containersToRestart = []
-                moduleToContainer.each { modulePath, containerName ->
-                    // Find which of of the reloadable modules are in used in this task
-                    if (config.modules.contains(modulePath)) {
-                        containersToRestart << "${containerName}-${config.profile}"
-                    }
-                }
-                def composeFiles = dockerCompose."${taskName}".useComposeFiles.get()
-                def composeFileArgs = composeFiles.collectMany { ['-f', it] }
-
-                // Use the actual project name from config, fallback to default
-                def actualProjectName = config.additionalConfig?.projectName ?: project_name
-
-                def cmd = ["docker compose -p ${actualProjectName} --profile ${config.profile}"] + composeFileArgs + ['up', '-d', '--no-deps'] + containersToRestart
-                println(cmd.join(" "))
-                commandLine 'bash', '-c', cmd.join(" ")
-            }
+            logger.lifecycle("Captured profile '${config.profile}' to ${profileFile.absolutePath}")
         }
     }
+}
+
+tasks.register("reload", Exec) {
+    group = 'quickstart'
+    description = "Build and reload only changed containers for the active profile"
+    // Read the captured profile name from file
+    def activeProfile = readCapturedProfile.call()
+    def matchingTask = null
+    def matchingTaskName = null
+    def matchingConfig = null
+
+    if (activeProfile) {
+      // Find the task and config that matches this profile
+      matchingTask = findTaskNameByProfile.call(activeProfile)
+      matchingTaskName = matchingTask.taskName
+      matchingConfig = matchingTask.config
+
+      // Dynamically depend on the correct prepareAll task
+      dependsOn tasks.named("prepareAll${matchingTaskName}")
+    }
+
+    doFirst {
+        if (!activeProfile){
+            throw new GradleException("Could not detect running profile. reload[Env] is supported only when one of the :docker:quickstartDebug* task is running.")
+        }
+        logger.lifecycle("Active profile '${activeProfile}' maps to task: ${matchingTaskName}")
+
+        // Get running containers by matching prefixes (exclude hot reload modules)
+        def actualProjectName = matchingConfig.additionalConfig?.projectName ?: project_name
+        def runningModuleToContainer = getRunningContainers.call(compose_base, actualProjectName, false)
+
+        def executedTasks = project.gradle.taskGraph.allTasks.findAll { it.state.executed }
+        def containersToRestart = []
+
+        runningModuleToContainer.each { modulePath, actualServiceName ->
+            def moduleProject = project.project(modulePath)
+            def dockerPrepareTask = moduleProject.tasks.findByName('dockerPrepare')
+
+            if (dockerPrepareTask && executedTasks.contains(dockerPrepareTask) && !dockerPrepareTask.state.upToDate) {
+                containersToRestart << actualServiceName
+            }
+        }
+
+        // Only restart containers that had their modules rebuilt
+        if (containersToRestart) {
+            def cmd = ["docker compose -p ${actualProjectName} --profile ${activeProfile} -f ${compose_base} restart"] + containersToRestart
+            println(cmd.join(" "))
+            commandLine 'bash', '-c', cmd.join(" ")
+        } else {
+            // If no containers need restart, make this a no-op
+            commandLine 'bash', '-c', 'echo "No containers need restarting - all modules are up to date"'
+        }
+    }
+}
+tasks.register("reloadEnv", Exec) {
+    group = 'quickstart'
+    description = "Build changed containers but recreate all services for the active profile"
+    // Read the captured profile name from file
+    def activeProfile = readCapturedProfile.call()
+    def matchingTask = null
+    def matchingTaskName = null
+    def matchingConfig = null
+
+    if (activeProfile) {
+        // Find the task and config that matches this profile
+        matchingTask = findTaskNameByProfile.call(activeProfile)
+        matchingTaskName = matchingTask.taskName
+        matchingConfig = matchingTask.config
+        // Dynamically depend on the correct prepareAll task
+        dependsOn tasks.named("prepareAll${matchingTaskName}")
+    }
+
+    doFirst {
+        if (!activeProfile){
+          throw new GradleException("Could not detect running profile. reload[Env] is supported only when one of the :docker:quickstartDebug* task is running.")
+        }
+        logger.lifecycle("Active profile '${activeProfile}' maps to task: ${matchingTaskName}")
+
+        // Get running containers by matching prefixes (include hot reload modules)
+        def actualProjectName = matchingConfig.additionalConfig?.projectName ?: project_name
+        def runningModuleToContainer = getRunningContainers.call(compose_base, actualProjectName, true)
+
+        def containersToRestart = []
+        runningModuleToContainer.each { modulePath, actualServiceName ->
+            // Find which of the reloadable modules are used in this task
+            if (matchingConfig.modules.contains(modulePath)) {
+                containersToRestart << actualServiceName
+            }
+        }
+        // Specify all environment variables specified during quickstart* for reloadEnv as well since containers are re-created.
+        environment.put 'DATAHUB_VERSION', System.getenv("DATAHUB_VERSION") ?: "v${version}"
+        environment.put 'DATAHUB_APP_VERSION', System.getenv("DATAHUB_APP_VERSION") ?: "v${version}"
+        environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false'
+        environment.put "METADATA_TESTS_ENABLED", "true"
+        environment.put "DATAHUB_REPO", "${docker_registry}"
+
+        // Additional environment variables if specified
+        if (matchingConfig.additionalEnv) {
+            matchingConfig.additionalEnv.each { key, value ->
+                environment.put key, value
+            }
+        }
+
+        def composeFiles = dockerCompose."${matchingTaskName}".useComposeFiles.get()
+        def composeFileArgs = composeFiles.collectMany { ['-f', it] }
+
+        def cmd = ["docker compose -p ${actualProjectName} --profile ${activeProfile} -f ${compose_base} up -d --no-deps"] + containersToRestart
+        println(cmd.join(" "))
+        commandLine 'bash', '-c', cmd.join(" ")
+    }
+}
+
+// Redirects from existing tasks as for a transition period. To be deprecated
+quickstart_configs.each { taskName, config ->
+  if (config.isDebug) {
+    def reloadTaskName = taskName.replaceFirst(/^quickstart/, "")
+    tasks.register("${reloadTaskName}Reload") {
+      dependsOn tasks.named("reload")
+      doLast{
+        logger.lifecycle("⚠️Depcrecated: Just run 'reload' instead of '${reloadTaskName}Reload' task - it will auto-detect the active profile and restart the modified services")
+      }
+    }
+    tasks.register("${reloadTaskName}ReloadEnv") {
+      dependsOn tasks.named("reloadEnv")
+      doLast{
+        logger.lifecycle("⚠️Deprecated: Just run 'reloadEnv' instead of '${reloadTaskName}ReloadEnv' task - it will auto-detect the active profile and recreate the modified services")
+      }
+    }
+  }
 }
 
 // :docker:build builds all docker images.

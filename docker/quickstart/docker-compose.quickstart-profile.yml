@@ -75,6 +75,7 @@ services:
       NEO4J_URI: bolt://neo4j
       NEO4J_USERNAME: neo4j
       PE_CONSUMER_ENABLED: 'true'
+      POLICY_CACHE_REFRESH_INTERVAL_SECONDS: '120'
       SCHEMA_REGISTRY_TYPE: INTERNAL
       SEARCH_BAR_API_VARIANT: SEARCH_ACROSS_ENTITIES
       SHOW_HAS_SIBLINGS_FILTER: 'true'
@@ -363,7 +364,7 @@ services:
     command:
     - /bin/sh
     - -c
-    - sleep 10 && /create-indices.sh
+    - /create-indices.sh
     depends_on:
       opensearch:
         condition: service_healthy

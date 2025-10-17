@@ -3,18 +3,17 @@ package io.datahubproject.test.search.config;
 import static io.datahubproject.test.search.BulkProcessorTestUtils.replaceBulkProcessorListener;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
+import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
-import org.apache.http.HttpHost;
-import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.client.RestClient;
-import org.opensearch.client.RestClientBuilder;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -35,27 +34,26 @@ public class SearchTestContainerConfiguration {
   public static final int REFRESH_INTERVAL_SECONDS = 5;
 
   @Primary
-  @Bean(name = "searchRestHighLevelClient")
+  @Bean(name = "searchClientShim")
   @Nonnull
-  public RestHighLevelClient getElasticsearchClient(
-      @Qualifier("testSearchContainer") GenericContainer<?> searchContainer) {
+  public SearchClientShim<?> getElasticsearchClient(
+      @Qualifier("testSearchContainer") GenericContainer<?> searchContainer) throws IOException {
     // A helper method to create a search test container defaulting to the current image and
     // version, with the ability
     // within firewalled environments to override with an environment variable to point to the
     // offline repository.
     // A helper method to construct a standard rest client for search.
-    final RestClientBuilder builder =
-        RestClient.builder(
-                new HttpHost("localhost", searchContainer.getMappedPort(HTTP_PORT), "http"))
-            .setHttpClientConfigCallback(
-                httpAsyncClientBuilder ->
-                    httpAsyncClientBuilder.setDefaultIOReactorConfig(
-                        IOReactorConfig.custom().setIoThreadCount(1).build()));
 
-    builder.setRequestConfigCallback(
-        requestConfigBuilder -> requestConfigBuilder.setConnectionRequestTimeout(30000));
+    SearchClientShimUtil.ShimConfigurationBuilder shimConfigurationBuilder =
+        new SearchClientShimUtil.ShimConfigurationBuilder()
+            .withHost("localhost")
+            .withSSL(false)
+            .withPort(searchContainer.getMappedPort(HTTP_PORT))
+            .withThreadCount(1)
+            .withConnectionRequestTimeout(30000);
 
-    return new RestHighLevelClient(builder);
+    return SearchClientShimUtil.createShimWithAutoDetection(
+        shimConfigurationBuilder.build(), new ObjectMapper());
   }
 
   /*
@@ -65,7 +63,7 @@ public class SearchTestContainerConfiguration {
   @Bean(name = "searchBulkProcessor")
   @Nonnull
   public ESBulkProcessor getBulkProcessor(
-      @Qualifier("searchRestHighLevelClient") RestHighLevelClient searchClient) {
+      @Qualifier("searchClientShim") SearchClientShim<?> searchClient) {
     ESBulkProcessor esBulkProcessor =
         ESBulkProcessor.builder(searchClient, null)
             .async(true)
@@ -87,7 +85,7 @@ public class SearchTestContainerConfiguration {
   @Bean(name = "searchIndexBuilder")
   @Nonnull
   protected ESIndexBuilder getIndexBuilder(
-      @Qualifier("searchRestHighLevelClient") RestHighLevelClient searchClient) {
+      @Qualifier("searchClientShim") SearchClientShim<?> searchClient) {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
     return new ESIndexBuilder(
         searchClient, 1, 1, 3, 1, Map.of(), false, false, false, TEST_OS_SEARCH_CONFIG, gitVersion);

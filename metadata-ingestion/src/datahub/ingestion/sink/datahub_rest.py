@@ -3,7 +3,6 @@ import contextlib
 import dataclasses
 import functools
 import logging
-import os
 import threading
 import uuid
 from enum import auto
@@ -15,6 +14,10 @@ from datahub.configuration.common import (
     ConfigEnum,
     ConfigurationError,
     OperationalError,
+)
+from datahub.configuration.env_vars import (
+    get_rest_sink_default_max_threads,
+    get_rest_sink_default_mode,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
@@ -47,9 +50,7 @@ from datahub.utilities.server_config_util import set_gms_config
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_REST_SINK_MAX_THREADS = int(
-    os.getenv("DATAHUB_REST_SINK_DEFAULT_MAX_THREADS", 15)
-)
+_DEFAULT_REST_SINK_MAX_THREADS = get_rest_sink_default_max_threads()
 
 
 class RestSinkMode(ConfigEnum):
@@ -63,7 +64,7 @@ class RestSinkMode(ConfigEnum):
 
 
 _DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
-    RestSinkMode, os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE", RestSinkMode.ASYNC_BATCH)
+    RestSinkMode, get_rest_sink_default_mode() or RestSinkMode.ASYNC_BATCH
 )
 
 

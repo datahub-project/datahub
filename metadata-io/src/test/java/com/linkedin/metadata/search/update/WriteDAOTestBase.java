@@ -11,14 +11,15 @@ import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.core.CountResponse;
 import org.opensearch.client.tasks.TaskId;
@@ -34,7 +35,7 @@ public abstract class WriteDAOTestBase extends AbstractTestNGSpringContextTests 
 
   @Autowired private ESBulkProcessor bulkProcessor;
 
-  protected abstract RestHighLevelClient getSearchClient();
+  protected abstract SearchClientShim<?> getSearchClient();
 
   protected abstract OperationContext getOperationContext();
 
@@ -66,14 +67,14 @@ public abstract class WriteDAOTestBase extends AbstractTestNGSpringContextTests 
             "urn:li:" + DATASET_ENTITY_NAME + ":(urn:li:dataPlatform:test," + testRunId + ",PROD)");
 
     // Submit async delete
-    var taskFuture = getEsWriteDAO().deleteByQueryAsync(indexName, query, null);
-    var taskSubmission = taskFuture.get(30, TimeUnit.SECONDS);
+    CompletableFuture<String> taskFuture =
+        getEsWriteDAO().deleteByQueryAsync(indexName, query, null);
+    String taskSubmission = taskFuture.get(30, TimeUnit.SECONDS);
 
     assertNotNull(taskSubmission);
-    assertNotNull(taskSubmission.getTask());
 
     // Parse task ID
-    String[] taskParts = taskSubmission.getTask().split(":");
+    String[] taskParts = taskSubmission.split(":");
     TaskId taskId = new TaskId(taskParts[0], Long.parseLong(taskParts[1]));
 
     // Monitor the task

@@ -151,7 +151,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.authenticators[*].configs.jwksUri",
           "authentication.authenticators[*].configs.userIdClaim",
           "authentication.authenticators[*].configs.algorithm",
-          "authentication.authenticators[*].configs.discoveryUri");
+          "authentication.authenticators[*].configs.discoveryUri",
+          // Shim properties
+          "elasticsearch.shim.*");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
@@ -351,6 +353,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "http.nonProxyHosts",
           "npm_config_yes",
           "socksNonProxyHosts",
+          "ELASTIC_VERSION",
 
           // Java system properties
           "apple.awt.application.name",
@@ -461,6 +464,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.businessAttributeEntityEnabled",
           "featureFlags.cdcModeChangeLog",
           "featureFlags.dataContractsEnabled",
+          "featureFlags.documentationFileUploadV1",
           "featureFlags.editableDatasetNameEnabled",
           "featureFlags.entityVersioning",
           "featureFlags.erModelRelationshipFeatureEnabled",
@@ -549,6 +553,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.bulkProcessor.numRetries",
           "elasticsearch.bulkProcessor.refreshPolicy",
           "elasticsearch.bulkProcessor.requestsLimit",
+          "elasticsearch.bulkProcessor.sizeLimit",
+          "elasticsearch.bulkProcessor.threadCount",
+          "elasticsearch.dataNodeCount",
           "elasticsearch.bulkProcessor.retryInterval",
           "elasticsearch.connectionRequestTimeout",
           "elasticsearch.host",

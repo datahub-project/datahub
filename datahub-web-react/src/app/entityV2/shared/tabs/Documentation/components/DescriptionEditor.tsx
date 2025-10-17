@@ -1,3 +1,4 @@
+import { Editor } from '@components';
 import { Modal, message } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
@@ -7,7 +8,6 @@ import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app
 import { GenericEntityUpdate } from '@app/entity/shared/types';
 import { DescriptionEditorToolbar } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditorToolbar';
 import SourceDescription from '@app/entityV2/shared/tabs/Documentation/components/SourceDescription';
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
 
@@ -201,6 +201,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                         content={updatedDescription}
                         onChange={handleEditorChange}
                         placeholder="Describe this asset to make it more discoverable. Tag @user or reference @asset to make your docs come to life!"
+                        hideBorder
                     />
                 </EditorContainer>
                 <SourceDescription />
