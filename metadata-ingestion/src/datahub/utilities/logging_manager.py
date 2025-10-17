@@ -179,6 +179,18 @@ class _LogBuffer:
         return text
 
 
+class _ResilientStreamHandler(logging.StreamHandler):
+    """StreamHandler that gracefully handles closed streams."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            super().emit(record)
+        except (ValueError, OSError):
+            # Stream was closed (e.g., during pytest teardown)
+            # Silently ignore to prevent test failures
+            pass
+
+
 class _BufferLogHandler(logging.Handler):
     def __init__(self, storage: _LogBuffer) -> None:
         super().__init__()
@@ -201,7 +213,11 @@ class _BufferLogHandler(logging.Handler):
 def _remove_all_handlers(logger: logging.Logger) -> None:
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
-        handler.close()
+        try:
+            handler.close()
+        except (ValueError, OSError):
+            # Handler stream may already be closed (e.g., during pytest teardown)
+            pass
 
 
 _log_buffer = _LogBuffer(maxlen=IN_MEMORY_LOG_BUFFER_SIZE)
@@ -226,7 +242,7 @@ def configure_logging(debug: bool, log_file: Optional[str] = None) -> Iterator[N
 
     with contextlib.ExitStack() as stack:
         # Create stdout handler.
-        stream_handler = logging.StreamHandler()
+        stream_handler = _ResilientStreamHandler()
         stream_handler.addFilter(_DatahubLogFilter(debug=debug))
         stream_handler.setFormatter(_stream_formatter)
 
@@ -237,7 +253,7 @@ def configure_logging(debug: bool, log_file: Optional[str] = None) -> Iterator[N
             tee = TeeIO(sys.stdout, file)
             stack.enter_context(contextlib.redirect_stdout(tee))  # type: ignore
 
-            file_handler = logging.StreamHandler(file)
+            file_handler = _ResilientStreamHandler(file)
             file_handler.addFilter(_DatahubLogFilter(debug=True))
             file_handler.setFormatter(_default_formatter)
         else:
