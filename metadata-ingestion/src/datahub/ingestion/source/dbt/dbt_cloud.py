@@ -446,11 +446,13 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         test_info = None
         test_result = None
         if node["resourceType"] == "test":
+            logger.debug(f"Parsing test node: {key}, name={name}")
             qualified_test_name = name
 
             # The qualified test name should be the test name from the dbt project.
             # It can be simple (e.g. 'unique') or prefixed (e.g. 'dbt_expectations.expect_column_values_to_not_be_null').
             # We attempt to guess the test name based on the macros used.
+            logger.debug(f"Test node {key} dependsOn: {node['dependsOn']}")
             for dependency in node["dependsOn"]:
                 # An example dependsOn list could be:
                 #     ['model.sample_dbt.monthly_billing_with_cust', 'macro.dbt.test_not_null', 'macro.dbt.get_where_subquery']
@@ -458,20 +460,31 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
                 if dependency.startswith("macro."):
                     _, macro = dependency.split(".", 1)
+                    logger.debug(f"Found macro dependency: {macro}")
                     if macro.startswith("dbt."):
                         if not macro.startswith("dbt.test_"):
+                            logger.debug(f"Skipping non-test macro: {macro}")
                             continue
                         macro = macro[len("dbt.test_") :]
+                        logger.debug(f"Extracted test name from dbt macro: {macro}")
 
                     qualified_test_name = macro
+                    logger.debug(f"Using qualified test name: {qualified_test_name}")
                     break
 
+            logger.debug(
+                f"Creating DBTTest with qualified_test_name={qualified_test_name}, "
+                f"column_name={node['columnName']}"
+            )
             test_info = DBTTest(
                 qualified_test_name=qualified_test_name,
                 column_name=node["columnName"],
                 kw_args={},  # TODO: dbt Cloud doesn't expose the args.
             )
             if not node["skip"]:
+                logger.debug(
+                    f"Creating test result for non-skipped test: {key}, status={node['status']}"
+                )
                 test_result = DBTTestResult(
                     invocation_id=f"job{node['jobId']}-run{node['runId']}",
                     execution_time=datetime.now(),  # TODO: dbt Cloud doesn't expose this.
@@ -489,6 +502,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                         }
                     },
                 )
+                logger.debug(f"Created test result: {test_result}")
+            else:
+                logger.debug(f"Test {key} is skipped, not creating test result")
 
         return DBTNode(
             dbt_name=key,
