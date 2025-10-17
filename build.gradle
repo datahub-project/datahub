@@ -512,6 +512,7 @@ subprojects {
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
         implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
+        implementation('com.squareup.okhttp3:okhttp:4.12.0')
         implementation(externalDependency.commonsIo)
         implementation(externalDependency.protobuf)
       }
