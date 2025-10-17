@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -121,6 +122,38 @@ def get_sleep_info() -> Tuple[int, int]:
     return (
         int(os.getenv("DATAHUB_TEST_SLEEP_BETWEEN", 20)),
         int(os.getenv("DATAHUB_TEST_SLEEP_TIMES", 3)),
+    )
+
+
+def with_test_retry(
+    max_attempts: Optional[int] = None,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """
+    Decorator that retries with environment-based sleep settings from get_sleep_info().
+
+    Returns a configured tenacity.retry decorator using DATAHUB_TEST_SLEEP_BETWEEN
+    and DATAHUB_TEST_SLEEP_TIMES environment variables for eventual consistency.
+
+    Args:
+        max_attempts: Optional maximum number of retry attempts. If not provided,
+                     uses DATAHUB_TEST_SLEEP_TIMES environment variable (default 3).
+
+    Usage:
+        @with_test_retry()
+        def test_function():
+            # Function will retry with configured sleep settings
+            ...
+
+        @with_test_retry(max_attempts=10)
+        def test_with_more_retries():
+            # Function will retry up to 10 times
+            ...
+    """
+    sleep_sec, sleep_times = get_sleep_info()
+    retry_count = max_attempts if max_attempts is not None else sleep_times
+    return tenacity.retry(
+        stop=tenacity.stop_after_attempt(retry_count),
+        wait=tenacity.wait_fixed(sleep_sec),
     )
 
 

@@ -45,10 +45,14 @@ export default function ActorPill({ actor, isProposed, onClose, hideLink, propag
 
     return (
         <HoverEntityTooltip entity={actor} showArrow={false} previewContext={{ propagationDetails }}>
-            <Link to={hideLink ? null : `${entityRegistry.getEntityUrl(actor.type, actor.urn)}`} {...linkProps}>
+            <Link
+                to={hideLink ? null : `${entityRegistry.getEntityUrl(actor.type, actor.urn)}`}
+                data-testid={`owner-${actor.urn}`}
+                {...linkProps}
+            >
                 <ContentWrapper $isProposed={isProposed}>
                     <CustomAvatar size={20} name={name} photoUrl={avatarUrl} hideTooltip />
-                    <Text color="gray" size="sm">
+                    <Text color="gray" size="sm" data-testid="owner-name">
                         {name}
                     </Text>
                     {!isProposed && onClose && (

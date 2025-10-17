@@ -5,18 +5,14 @@ from typing import Any, Dict
 from tests.utils import (
     execute_graphql,
     ingest_file_via_rest,
-    get_sleep_info,
+    with_test_retry,
 )
-
-sleep_sec, sleep_times = get_sleep_info()
 
 bootstrap_small = "test_resources/bootstrap_single.json"
 bootstrap_small_2 = "test_resources/bootstrap_single2.json"
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
-)
+@with_test_retry()
 def _ensure_dataset_present_correctly(auth_session):
     urn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,testDataset,PROD)"
     query = """query getDataset($urn: String!) {
