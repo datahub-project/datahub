@@ -858,6 +858,9 @@ searchBar:
 searchCard:
   showDescription: ${SEARCH_CARD_SHOW_DESCRIPTION:false}
 
+searchFlags:
+  defaultSkipHighlighting: ${DEFAULT_SKIP_HIGHLIGHTING:false}
+
 homePage:
   firstInPersonalSidebar: ${FIRST_IN_PERSONAL_SIDEBAR:YOUR_ASSETS}
 
