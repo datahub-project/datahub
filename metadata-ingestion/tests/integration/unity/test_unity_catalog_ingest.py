@@ -1,17 +1,18 @@
 import uuid
 from collections import namedtuple
+from datetime import datetime, timezone
 from unittest import mock
 from unittest.mock import patch
 
 import databricks
 import pytest
+import time_machine
 from databricks.sdk.service.catalog import (
     CatalogInfo,
     GetMetastoreSummaryResponse,
     SchemaInfo,
 )
 from databricks.sdk.service.iam import ServicePrincipal
-from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
@@ -427,7 +428,9 @@ def mock_hive_sql(query):
     return []
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
 def test_ingestion(pytestconfig, tmp_path, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
 
