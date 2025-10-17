@@ -8,6 +8,8 @@ import React from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router } from 'react-router-dom';
 
+import { GlobalStyles } from '@components/components/GlobalStyles';
+
 import { Routes } from '@app/Routes';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { ErrorCodes } from '@app/shared/constants';
@@ -85,6 +87,8 @@ export const InnerApp: React.VFC = () => {
     return (
         <HelmetProvider>
             <CustomThemeProvider>
+                <GlobalStyles />
+
                 <Helmet>
                     <title>{useCustomTheme().theme?.content?.title}</title>
                 </Helmet>
