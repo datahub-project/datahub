@@ -147,7 +147,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
         }
     }
 
-    private updateNodeWithUrl(view: EditorView, nodeId: string, url: string): void {
+    public updateNodeWithUrl(view: EditorView, nodeId: string, url: string): void {
         const { nodePos, nodeToUpdate } = this.findNodeById(view.state, nodeId);
 
         if (!nodePos || !nodeToUpdate) return;
