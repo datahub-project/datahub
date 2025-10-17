@@ -482,6 +482,10 @@ public class Constants {
   public static final String DATAHUB_PAGE_MODULE_PROPERTIES_ASPECT_NAME =
       "dataHubPageModuleProperties";
 
+  // File
+  public static final String DATAHUB_FILE_ENTITY_NAME = "dataHubFile";
+  public static final String DATAHUB_FILE_INFO_ASPECT_NAME = "dataHubFileInfo";
+
   // Step
   public static final String DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME =
       "dataHubStepStateProperties";
