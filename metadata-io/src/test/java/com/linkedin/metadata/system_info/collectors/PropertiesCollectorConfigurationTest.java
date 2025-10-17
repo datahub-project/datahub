@@ -782,6 +782,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "platformAnalytics.usageExport.userFilters",
           "searchBar.apiVariant",
           "searchCard.showDescription",
+          "searchFlags.defaultSkipHighlighting",
           "searchService.cache.hazelcast.serviceName",
           "searchService.cache.hazelcast.service-dns-timeout",
           "searchService.cache.hazelcast.kubernetes-api-retries",
