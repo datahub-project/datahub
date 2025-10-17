@@ -116,6 +116,14 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         " use the regex 'Customer.public.customer.*'",
     )
 
+    streamlit_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for Streamlit app to filter in ingestion. "
+        "Specify regex to match the entire Streamlit app name in database.schema.streamlit format. "
+        "e.g. to match all Streamlit apps starting with dashboard in Analytics database and public schema,"
+        " use the regex 'Analytics.public.dashboard.*'",
+    )
+
     match_fully_qualified_names: bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
@@ -313,6 +321,11 @@ class SnowflakeV2Config(
     include_procedures: bool = Field(
         default=True,
         description="If enabled, procedures will be ingested as pipelines/tasks.",
+    )
+
+    include_streamlits: bool = Field(
+        default=False,
+        description="If enabled, Streamlit apps will be ingested as dashboards.",
     )
 
     structured_property_pattern: AllowDenyPattern = Field(
