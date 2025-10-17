@@ -973,6 +973,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "sentry.env",
           "systemUpdate.assertionInfo.delayMs",
           "systemUpdate.assertionInfo.limit",
+          "systemUpdate.monitorInfo.delayMs",
+          "systemUpdate.monitorInfo.limit",
           "systemUpdate.executorPools.customerId",
           "systemUpdate.migrateProcessInstanceEdges.inputPlatforms",
           "systemUpdate.migrateProcessInstanceEdges.outputPlatforms",
