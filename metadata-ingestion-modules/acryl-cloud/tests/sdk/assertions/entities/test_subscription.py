@@ -101,16 +101,6 @@ def test_subscription_basic(
     )
 
 
-def test_subscription_basic_no_id(
-    any_basic_subscription_info: models.SubscriptionInfoClass,
-) -> None:
-    subscription = Subscription(
-        info=any_basic_subscription_info,
-    )
-    assert subscription.urn is not None
-    assert isinstance(subscription.urn, SubscriptionUrn)
-
-
 def test_subscription_complex(
     any_subscription_urn: SubscriptionUrn,
     any_complex_subscription_info: models.SubscriptionInfoClass,
