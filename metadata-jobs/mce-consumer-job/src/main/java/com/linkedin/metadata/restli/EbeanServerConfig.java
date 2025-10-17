@@ -26,6 +26,9 @@ public class EbeanServerConfig {
   @Value("${ebean.minConnections:1}")
   private Integer ebeanMinConnections;
 
+  @Value("${ebean.maxConnections:50}")
+  private Integer ebeanMaxConnections;
+
   @Value("${ebean.maxInactiveTimeSeconds:120}")
   private Integer ebeanMaxInactiveTimeSecs;
 
@@ -48,7 +51,6 @@ public class EbeanServerConfig {
   @Primary
   public DataSourceConfig buildDataSourceConfig(
       @Value("${ebean.url}") String dataSourceUrl,
-      @Qualifier("parseqEngineThreads") int ebeanMaxConnections,
       MetricUtils metricUtils) {
     DataSourceConfig dataSourceConfig = new DataSourceConfig();
     dataSourceConfig.setUsername(ebeanDatasourceUsername);
