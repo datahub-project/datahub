@@ -3,7 +3,6 @@ import logging
 import unittest.mock
 from typing import TYPE_CHECKING, Optional
 
-from airflow.models.operator import Operator
 from openlineage.airflow.extractors import (
     BaseExtractor,
     ExtractorManager as OLExtractorManager,
@@ -26,6 +25,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     create_lineage_sql_parsed_result,
 )
+from datahub_airflow_plugin._airflow_shims import Operator
 from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
 
 if TYPE_CHECKING:
