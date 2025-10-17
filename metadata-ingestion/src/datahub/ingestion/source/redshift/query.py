@@ -733,7 +733,7 @@ from (
             from
                 SVL_STATEMENTTEXT
             where
-                type == 'DDL'
+                type = 'DDL'
                 AND        starttime >= '{start_time_str}'
                 AND        starttime < '{end_time_str}'
                 AND sequence < {_QUERY_SEQUENCE_LIMIT}
@@ -752,7 +752,7 @@ from (
                 asc
         )
         where
-            type == 'DDL'
+            type = 'DDL'
     )
     where
         (create_command ilike 'create temp table %'
