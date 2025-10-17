@@ -1,7 +1,5 @@
 import os
 import pathlib
-import subprocess
-import time
 
 import pytest
 import requests
@@ -30,32 +28,9 @@ def check_mockserver_health():
         return False
 
 
-
-
-def ensure_docker_running():
-    """Ensure Docker daemon is running."""
-    max_retries = 30
-    for i in range(max_retries):
-        try:
-            subprocess.run(["docker", "ps"], capture_output=True, check=True)
-            return True
-        except subprocess.CalledProcessError:
-            if i < max_retries - 1:
-                time.sleep(2)
-            else:
-                raise RuntimeError(
-                    "Docker daemon is not running. Please start Docker Desktop."
-                ) from None
-    return False
-
-
-
-
 @pytest.fixture(scope="module", autouse=True)
 def docker_datahub_service(docker_compose_runner, pytestconfig):
     """Start Docker mock DataHub service for all tests."""
-    # Ensure Docker is running
-    ensure_docker_running()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_queries"
 
