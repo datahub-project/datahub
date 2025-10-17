@@ -130,7 +130,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
 
     return (
         <Modal
-            width={700}
+            width={780}
             title="Create new group"
             open
             onCancel={onClose}
