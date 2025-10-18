@@ -175,6 +175,39 @@ class SnowflakeStream:
         return DatasetSubTypes.SNOWFLAKE_STREAM
 
 
+@dataclass
+class SnowflakeStreamlitApp:
+    """
+    Represents a Snowflake Streamlit application.
+
+    Streamlit apps in Snowflake are interactive data applications built with Python
+    that are deployed and hosted within Snowflake. These apps are ingested as
+    dashboard entities in DataHub to provide visibility into data applications
+    alongside traditional dashboards and reports.
+
+    Attributes:
+        name: The Snowflake object name of the Streamlit app
+        created: Timestamp when the app was created
+        owner: The owner role of the app
+        database_name: The database containing the app
+        schema_name: The schema containing the app
+        title: Human-readable title of the app (displayed in Snowflake UI)
+        comment: Optional description/comment for the app
+        url_id: Unique identifier used in the Snowflake app URL
+        owner_role_type: Type of the owner (typically "ROLE")
+    """
+
+    name: str
+    created: datetime
+    owner: str
+    database_name: str
+    schema_name: str
+    title: str
+    comment: Optional[str]
+    url_id: str
+    owner_role_type: str
+
+
 class _SnowflakeTagCache:
     def __init__(self) -> None:
         # self._database_tags[<database_name>] = list of tags applied to database
@@ -945,6 +978,35 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
             )
         return procedures
+
+    @serialized_lru_cache(maxsize=1)
+    def get_streamlit_apps_for_database(
+        self, db_name: str
+    ) -> Dict[str, List[SnowflakeStreamlitApp]]:
+        streamlit_apps: Dict[str, List[SnowflakeStreamlitApp]] = {}
+        cur = self.connection.query(
+            SnowflakeQuery.streamlit_apps_for_database(db_name),
+        )
+
+        for app in cur:
+            schema_name = app["schema_name"]
+            if schema_name not in streamlit_apps:
+                streamlit_apps[schema_name] = []
+            streamlit_apps[schema_name].append(
+                SnowflakeStreamlitApp(
+                    name=app["name"],
+                    created=app["created_on"],
+                    owner=app["owner"],
+                    database_name=app["database_name"],
+                    schema_name=app["schema_name"],
+                    title=app["title"],
+                    comment=app.get("comment"),
+                    url_id=app["url_id"],
+                    owner_role_type=app["owner_role_type"],
+                )
+            )
+
+        return streamlit_apps
 
     @serialized_lru_cache(maxsize=1)
     def get_dynamic_table_graph_info(self, db_name: str) -> Dict[str, Dict[str, Any]]:

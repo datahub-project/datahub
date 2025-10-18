@@ -213,6 +213,9 @@ class SnowflakeFilter:
     def is_procedure_allowed(self, procedure_name: str) -> bool:
         return self.filter_config.procedure_pattern.allowed(procedure_name)
 
+    def is_streamlit_allowed(self, streamlit_name: str) -> bool:
+        return self.filter_config.streamlit_pattern.allowed(streamlit_name)
+
 
 def _combine_identifier_parts(
     *, table_name: str, schema_name: str, db_name: str
