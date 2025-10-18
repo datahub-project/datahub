@@ -10,6 +10,7 @@ import com.datahub.authorization.AuthorizationConfiguration;
 import com.datahub.authorization.role.RoleService;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
+import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
@@ -112,7 +113,7 @@ public class GmsGraphQLEngineArgs {
   boolean systemTelemetryEnabled;
   MetricUtils metricUtils;
   String baseUrl;
-
+  S3Util s3Util;
   // any fork specific args should go below this line
   Integer defaultLineageLastDaysFilter;
   ActionRequestService actionRequestService;
