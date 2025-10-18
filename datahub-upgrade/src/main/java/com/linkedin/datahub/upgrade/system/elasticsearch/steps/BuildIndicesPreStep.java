@@ -53,7 +53,7 @@ public class BuildIndicesPreStep implements UpgradeStep {
     return (context) -> {
       try {
         final List<ReindexConfig> reindexConfigs =
-            getAllReindexConfigs(services, structuredProperties);
+            getAllReindexConfigs(context.opContext(), services, structuredProperties);
 
         // Get indices to update
         List<ReindexConfig> indexConfigs =

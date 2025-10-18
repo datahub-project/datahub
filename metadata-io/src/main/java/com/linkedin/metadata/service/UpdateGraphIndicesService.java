@@ -109,32 +109,34 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
   }
 
   @Override
-  public void handleChangeEvents(
-      @Nonnull OperationContext opContext, @Nonnull Collection<MetadataChangeLog> events) {
-    events.forEach(event -> handleChangeEvent(opContext, event));
+  public void handleChangeEvent(
+      @Nonnull OperationContext opContext, @Nonnull final MetadataChangeLog event) {
+    handleChangeEvents(opContext, java.util.Collections.singletonList(event));
   }
 
   @Override
-  public void handleChangeEvent(
-      @Nonnull OperationContext opContext, @Nonnull final MetadataChangeLog event) {
-    try {
-      MCLItemImpl mclItem = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
+  public void handleChangeEvents(
+      @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
+    for (MetadataChangeLog event : events) {
+      try {
+        MCLItemImpl mclItem = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
 
-      if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
-        handleUpdateChangeEvent(opContext, mclItem);
+        if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
+          handleUpdateChangeEvent(opContext, mclItem);
 
-        if (graphStatusEnabled && mclItem.getAspectName().equals(STATUS_ASPECT_NAME)) {
-          handleStatusUpdateChangeEvent(opContext, mclItem);
+          if (graphStatusEnabled && mclItem.getAspectName().equals(STATUS_ASPECT_NAME)) {
+            handleStatusUpdateChangeEvent(opContext, mclItem);
+          }
+        } else if (event.getChangeType() == ChangeType.DELETE) {
+          handleDeleteChangeEvent(opContext, mclItem);
+
+          if (graphStatusEnabled && mclItem.getAspectName().equals(STATUS_ASPECT_NAME)) {
+            handleStatusUpdateChangeEvent(opContext, mclItem);
+          }
         }
-      } else if (event.getChangeType() == ChangeType.DELETE) {
-        handleDeleteChangeEvent(opContext, mclItem);
-
-        if (graphStatusEnabled && mclItem.getAspectName().equals(STATUS_ASPECT_NAME)) {
-          handleStatusUpdateChangeEvent(opContext, mclItem);
-        }
+      } catch (IOException e) {
+        throw new RuntimeException(e);
       }
-    } catch (IOException e) {
-      throw new RuntimeException(e);
     }
   }
 

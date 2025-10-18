@@ -19,4 +19,5 @@ public class Entity {
   List<String> aspects;
 
   @Nullable String category;
+  @Nullable String searchGroup;
 }
