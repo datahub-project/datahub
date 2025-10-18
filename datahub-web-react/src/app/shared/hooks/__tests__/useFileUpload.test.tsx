@@ -5,6 +5,7 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useFileUpload from '@app/shared/hooks/useFileUpload';
+import { useAppConfig } from '@src/app/useAppConfig';
 
 import { GetPresignedUploadUrlDocument } from '@graphql/app.generated';
 import { UploadDownloadScenario } from '@types';
@@ -14,12 +15,25 @@ vi.mock('@utils/runtimeBasePath', () => ({
     resolveRuntimePath: vi.fn((path) => `http://example.com${path}`),
 }));
 
+// Mock the useAppConfig hook
+vi.mock('@src/app/useAppConfig', () => ({
+    useAppConfig: vi.fn(),
+}));
+
 describe('useFileUpload', () => {
     let originalFetch: typeof global.fetch;
     const mockAssetUrn = 'urn:li:glossaryNode:c21f8d1a-a2d6-4712-b363-cdd1a99f6c76';
 
     beforeEach(() => {
         originalFetch = global.fetch;
+        // By default, enable the feature flag for existing tests
+        vi.mocked(useAppConfig).mockReturnValue({
+            config: {
+                featureFlags: {
+                    documentationFileUploadV1: true,
+                },
+            },
+        } as any);
     });
 
     afterEach(() => {
@@ -82,7 +96,7 @@ describe('useFileUpload', () => {
 
         await waitFor(async () => {
             const url = await uploadPromise;
-            expect(url).toBe('http://example.com/api/files/product-assets/file-123');
+            expect(url).toBe('http://example.com/openapi/v1/files/product-assets/file-123');
         });
 
         // Verify fetch was called with correct parameters
@@ -252,7 +266,7 @@ describe('useFileUpload', () => {
 
         await waitFor(async () => {
             const url = await uploadPromise;
-            expect(url).toBe('http://example.com/api/files/product-assets/file-456');
+            expect(url).toBe('http://example.com/openapi/v1/files/product-assets/file-456');
         });
 
         // Verify fetch was called with correct content type
@@ -320,11 +334,11 @@ describe('useFileUpload', () => {
 
         await waitFor(async () => {
             const url = await uploadPromise;
-            expect(url).toBe('http://example.com/api/files/product-assets/file-789');
+            expect(url).toBe('http://example.com/openapi/v1/files/product-assets/file-789');
         });
     });
 
-    it('should return uploadFile function', () => {
+    it('should return uploadFile function when feature flag is enabled', () => {
         const mocks: any[] = [];
 
         const { result } = renderHook(
@@ -344,5 +358,64 @@ describe('useFileUpload', () => {
 
         expect(result.current).toHaveProperty('uploadFile');
         expect(typeof result.current.uploadFile).toBe('function');
+    });
+
+    describe('feature flag disabled', () => {
+        beforeEach(() => {
+            // Override the default mock to disable the feature flag
+            vi.mocked(useAppConfig).mockReturnValue({
+                config: {
+                    featureFlags: {
+                        documentationFileUploadV1: false,
+                    },
+                },
+            } as any);
+        });
+
+        it('should return undefined for uploadFile when feature flag is disabled', () => {
+            const mocks: any[] = [];
+
+            const { result } = renderHook(
+                () =>
+                    useFileUpload({
+                        scenario: UploadDownloadScenario.AssetDocumentation,
+                        assetUrn: mockAssetUrn,
+                    }),
+                {
+                    wrapper: ({ children }) => (
+                        <MockedProvider mocks={mocks} addTypename={false}>
+                            {children}
+                        </MockedProvider>
+                    ),
+                },
+            );
+
+            expect(result.current).toHaveProperty('uploadFile');
+            expect(result.current.uploadFile).toBeUndefined();
+        });
+
+        it('should not allow file upload when feature flag is disabled', () => {
+            const mocks: any[] = [];
+            const mockFile = new File(['test content'], 'test.pdf', { type: 'application/pdf' });
+
+            const { result } = renderHook(
+                () =>
+                    useFileUpload({
+                        scenario: UploadDownloadScenario.AssetDocumentation,
+                        assetUrn: mockAssetUrn,
+                    }),
+                {
+                    wrapper: ({ children }) => (
+                        <MockedProvider mocks={mocks} addTypename={false}>
+                            {children}
+                        </MockedProvider>
+                    ),
+                },
+            );
+
+            // uploadFile should be undefined, so attempting to call it should throw
+            expect(result.current.uploadFile).toBeUndefined();
+            expect(() => result.current.uploadFile?.(mockFile)).not.toThrow();
+        });
     });
 });
