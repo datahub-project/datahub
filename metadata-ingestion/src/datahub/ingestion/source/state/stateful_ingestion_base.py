@@ -169,6 +169,30 @@ class StatefulUsageConfigMixin(BaseTimeWindowConfig):
         return values
 
 
+class StatefulTimeWindowConfigMixin(BaseTimeWindowConfig):
+    enable_stateful_time_window: bool = Field(
+        default=False,
+        description="Enable stateful time window tracking."
+        " This will store the time window after successful extraction "
+        "and adjust the time window in subsequent runs to avoid reprocessing. "
+        "NOTE: This is ONLY applicable when using queries v2 (use_queries_v2=True). "
+        "This replaces enable_stateful_lineage_ingestion and enable_stateful_usage_ingestion "
+        "for the queries v2 extraction path, since queries v2 extracts lineage, usage, operations, "
+        "and queries together from a single audit log and uses a unified time window.",
+    )
+
+    @root_validator(skip_on_failure=True)
+    def time_window_stateful_option_validator(cls, values: Dict) -> Dict:
+        sti = values.get("stateful_ingestion")
+        if not sti or not sti.enabled:
+            if values.get("enable_stateful_time_window"):
+                logger.warning(
+                    "Stateful ingestion is disabled, disabling enable_stateful_time_window config option as well"
+                )
+                values["enable_stateful_time_window"] = False
+        return values
+
+
 @dataclass
 class StatefulIngestionReport(SourceReport):
     pass
