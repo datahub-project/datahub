@@ -22,7 +22,7 @@ from pydantic.v1.json import pydantic_encoder
 from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
     default_volume_assertion_urn,
     default_volume_monitor_urn,
-    make_volume_metric_cube_urn,
+    make_monitor_metric_cube_urn,
 )
 from datahub_executor.common.client.fetcher.monitors.graphql.query import (
     GRAPHQL_GET_MONITOR_OPERATION,
@@ -165,7 +165,7 @@ def create_volume_smart_assertion(dataset_urn: str) -> tuple[str, str]:
 def generate_volume_sample_data(dataset_urn: str) -> None:
     """Generates sample row count data for a dataset."""
     metrics = generate_sample_metrics()
-    metric_urn = make_volume_metric_cube_urn(dataset_urn)
+    metric_urn = make_monitor_metric_cube_urn(dataset_urn)
 
     for metric in metrics:
         metrics_client.save_metric_value(
@@ -320,7 +320,7 @@ Example exclusion windows:
     multiple = math.ceil(timedelta(days=14) / unit)
 
     # Simulation logic.
-    metric_urn = make_volume_metric_cube_urn(monitor.urn)
+    metric_urn = make_monitor_metric_cube_urn(monitor.urn)
     st.write(f"Fetching all metrics for metric_urn {metric_urn}")
     all_metrics = metrics_client.fetch_row_count_metric_values(
         metric_urn=metric_urn,

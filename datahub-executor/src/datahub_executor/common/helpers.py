@@ -202,6 +202,7 @@ def create_assertion_engine(graph: DataHubGraph) -> AssertionEngine:
             state_provider,
             SourceProvider(),
             MonitorClient(graph),
+            MetricClient(graph=graph),
         ),
         FieldAssertionEvaluator(
             DataHubIngestionSourceConnectionProvider(

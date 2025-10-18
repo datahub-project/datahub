@@ -16,6 +16,7 @@ ASSERTION_TYPES_REQUIRING_TRAINING = [
     AssertionType.VOLUME,
     AssertionType.FRESHNESS,
     AssertionType.FIELD,
+    AssertionType.SQL,
 ]
 
 
@@ -59,7 +60,10 @@ def default_volume_monitor_urn(dataset_urn: str) -> str:
     return MonitorUrn(dataset_urn, "__system__volume").urn()
 
 
-# Internally used by streamlit UI.
-def make_volume_metric_cube_urn(monitor_urn: str) -> str:
+# Shared helper for evaluators to compute the Metric Cube URN
+def make_monitor_metric_cube_urn(monitor_urn: str) -> str:
+    """
+    Build the DataHub Metric Cube URN for a given monitor URN.
+    """
     assert MonitorUrn.from_string(monitor_urn)
     return DataHubMetricCubeUrn(encode_monitor_urn(monitor_urn)).urn()

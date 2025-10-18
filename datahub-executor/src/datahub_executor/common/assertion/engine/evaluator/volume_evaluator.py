@@ -8,8 +8,8 @@ from datahub_executor.common.assertion.engine.evaluator.utils import (
     get_database_parameters,
 )
 from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
-    encode_monitor_urn,
     is_training_required,
+    make_monitor_metric_cube_urn,
 )
 from datahub_executor.common.assertion.engine.evaluator.utils.volume import (
     convert_volume_parameters_to_metric_resolver_strategy,
@@ -96,6 +96,7 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
         entity_urn: str,
         volume_assertion: VolumeAssertion,
         row_count: int,
+        assertion: Assertion,
     ) -> AssertionEvaluationResult:
         assert volume_assertion.row_count_total is not None
         logger.debug("Evaluating ROW_COUNT_TOTAL assertion on row_count=%d", row_count)
@@ -121,6 +122,7 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
         volume_assertion: VolumeAssertion,
         row_count: int,
         context: AssertionEvaluationContext,
+        assertion: Assertion,
     ) -> AssertionEvaluationResult:
         assert volume_assertion.row_count_change is not None
         logger.debug("Evaluating ROW_COUNT_CHANGE assertion on row_count=%d", row_count)
@@ -227,9 +229,7 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
 
         # Step 2: Optionally save the fetched metric to the metric cube.
         if save and context.monitor_urn:
-            metric_cube_urn = (
-                f"urn:li:dataHubMetricCube:{encode_monitor_urn(context.monitor_urn)}"
-            )
+            metric_cube_urn = make_monitor_metric_cube_urn(context.monitor_urn)
             self.metric_client.save_metric_value(metric_cube_urn, metric)
 
         # Step 3: Return the metric
@@ -277,6 +277,7 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
                 entity_urn,
                 volume_assertion,
                 row_count,
+                assertion,
             )
         elif volume_assertion.type == VolumeAssertionType.ROW_COUNT_CHANGE:
             return self._evaluate_row_count_change_assertion(
@@ -284,6 +285,7 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
                 volume_assertion,
                 row_count,
                 context,
+                assertion,
             )
         else:
             logger.error(
