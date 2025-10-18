@@ -170,7 +170,7 @@ type Query {
   getEntityCounts(input: EntityCountInput): EntityCountResults
 
   """
-  List all DataHub Domains
+  List all DataHub Domains belonging to the parent specified in the input, lists root domains, if parent is not specified.
   """
   listDomains(input: ListDomainsInput!): ListDomainsResult
 
