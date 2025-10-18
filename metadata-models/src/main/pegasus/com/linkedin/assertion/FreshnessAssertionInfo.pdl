@@ -26,9 +26,6 @@ record FreshnessAssertionInfo {
     /**
     * The entity targeted by this Freshness check.
     */
-    @Searchable = {
-      "fieldType": "URN"
-    }
     @Relationship = {
       "name": "Asserts",
       "entityTypes": [ "dataset", "dataJob" ]
