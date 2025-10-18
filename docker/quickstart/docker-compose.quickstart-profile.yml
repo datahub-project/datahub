@@ -336,7 +336,7 @@ services:
       interval: 5s
       retries: 10
       start_period: 1m0s
-    image: opensearchproject/opensearch:2.17.0
+    image: opensearchproject/opensearch:2.19.3
     networks:
       default: null
     ports:
