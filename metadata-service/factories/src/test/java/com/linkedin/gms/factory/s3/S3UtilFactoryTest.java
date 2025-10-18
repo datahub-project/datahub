@@ -4,8 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertNotNull;
 
-import com.linkedin.datahub.graphql.util.S3Util;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.utils.aws.S3Util;
 import java.time.Instant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -14,7 +13,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.services.sts.StsClient;
@@ -57,10 +55,6 @@ public class S3UtilFactoryTest extends AbstractTestNGSpringContextTests {
     System.setProperty("aws.region", "us-east-1");
   }
 
-  @MockitoBean
-  @Qualifier("entityClient")
-  private EntityClient entityClient;
-
   @Autowired
   @Qualifier("s3Util")
   private S3Util s3Util;
@@ -69,7 +63,6 @@ public class S3UtilFactoryTest extends AbstractTestNGSpringContextTests {
   public void testS3UtilCreationWithoutRoleArn() {
     // When/Then
     assertNotNull(s3Util, "S3Util bean should be created successfully");
-    assertNotNull(entityClient, "EntityClient should be injected");
   }
 
   @Test
@@ -89,10 +82,6 @@ class S3UtilFactoryWithRoleArnTest extends AbstractTestNGSpringContextTests {
     System.setProperty("aws.region", "us-east-1");
   }
 
-  @MockitoBean
-  @Qualifier("entityClient")
-  private EntityClient entityClient;
-
   @Autowired
   @Qualifier("s3Util")
   private S3Util s3Util;
@@ -101,6 +90,5 @@ class S3UtilFactoryWithRoleArnTest extends AbstractTestNGSpringContextTests {
   public void testS3UtilCreationWithRoleArn() {
     // When/Then
     assertNotNull(s3Util, "S3Util bean should be created successfully with STS role ARN");
-    assertNotNull(entityClient, "EntityClient should be injected");
   }
 }

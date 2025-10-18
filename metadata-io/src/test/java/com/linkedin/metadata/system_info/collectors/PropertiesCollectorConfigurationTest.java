@@ -459,6 +459,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.s3.bucketName",
           "datahub.s3.roleArn",
           "datahub.s3.presignedUploadUrlExpirationSeconds",
+          "datahub.s3.presignedDownloadUrlExpirationSeconds",
           "datahub.s3.assetPathPrefix",
 
           // Feature flags
