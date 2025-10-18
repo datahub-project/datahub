@@ -6,7 +6,6 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.datasource.DataSourceConfig;
 import java.util.HashMap;
 import java.util.Map;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,6 +24,9 @@ public class EbeanServerConfig {
 
   @Value("${ebean.minConnections:1}")
   private Integer ebeanMinConnections;
+
+  @Value("${ebean.maxConnections:50}")
+  private Integer ebeanMaxConnections;
 
   @Value("${ebean.maxInactiveTimeSeconds:120}")
   private Integer ebeanMaxInactiveTimeSecs;
@@ -50,9 +52,7 @@ public class EbeanServerConfig {
   @Bean("ebeanDataSourceConfig")
   @Primary
   public DataSourceConfig buildDataSourceConfig(
-      @Value("${ebean.url}") String dataSourceUrl,
-      @Qualifier("parseqEngineThreads") int ebeanMaxConnections,
-      MetricUtils metricUtils) {
+      @Value("${ebean.url}") String dataSourceUrl, MetricUtils metricUtils) {
     DataSourceConfig dataSourceConfig = new DataSourceConfig();
     dataSourceConfig.setUsername(ebeanDatasourceUsername);
     dataSourceConfig.setPassword(ebeanDatasourcePassword);
