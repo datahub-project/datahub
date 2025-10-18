@@ -228,6 +228,16 @@ type SearchCardConfig {
 }
 
 """
+Configurations related the Search Flags
+"""
+type SearchFlagsConfig {
+  """
+  Default value for skipHighlighting search flag. Currently used in Search Page and Search Bar
+  """
+  defaultSkipHighlighting: Boolean!
+}
+
+"""
 Variants of APIs used in the Search bar to get data
 """
 enum PersonalSidebarSection {
@@ -332,6 +342,11 @@ type AppConfig {
   Configurations related to the Search card
   """
   searchCardConfig: SearchCardConfig!
+
+  """
+  Configurations related the Search Flags
+  """
+  searchFlagsConfig: SearchFlagsConfig!
 
   """
   Feature flags telling the UI whether a feature is enabled or not

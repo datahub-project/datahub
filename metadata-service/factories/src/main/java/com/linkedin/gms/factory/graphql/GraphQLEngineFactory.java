@@ -261,6 +261,7 @@ public class GraphQLEngineFactory {
     args.setViewsConfiguration(configProvider.getViews());
     args.setSearchBarConfiguration(configProvider.getSearchBar());
     args.setSearchCardConfiguration(configProvider.getSearchCard());
+    args.setSearchFlagsConfiguration(configProvider.getSearchFlags());
     args.setHomePageConfiguration(configProvider.getHomePage());
     args.setSiblingGraphService(siblingGraphService);
     args.setGroupService(groupService);

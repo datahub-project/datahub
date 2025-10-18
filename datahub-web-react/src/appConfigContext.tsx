@@ -50,6 +50,9 @@ export const DEFAULT_APP_CONFIG = {
     searchCardConfig: {
         showDescription: false,
     },
+    searchFlagsConfig: {
+        defaultSkipHighlighting: false,
+    },
     homePageConfig: {
         firstInPersonalSidebar: PersonalSidebarSection.YourAssets,
     },
