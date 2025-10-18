@@ -3,6 +3,11 @@ import { capitalCase } from '@remirror/core';
 import { useHelpers } from '@remirror/react';
 import { Button, ButtonProps } from 'antd';
 import React, { MouseEventHandler, useCallback } from 'react';
+import styled from 'styled-components';
+
+const StyledButton = styled(Button)`
+    height: auto;
+`;
 
 export interface CommandButtonProps extends Omit<ButtonProps, 'type'> {
     active?: boolean;
@@ -20,9 +25,9 @@ export const CommandButton = ({ active, children, commandName, ...buttonProps }:
 
     return (
         <Tooltip title={options?.name ? capitalCase(options?.name) : null}>
-            <Button type={active ? 'link' : 'text'} onMouseDown={handleMouseDown} {...buttonProps}>
+            <StyledButton type={active ? 'link' : 'text'} onMouseDown={handleMouseDown} {...buttonProps}>
                 {children}
-            </Button>
+            </StyledButton>
         </Tooltip>
     );
 };

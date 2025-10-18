@@ -1,18 +1,16 @@
+import { colors } from '@components';
 import { Form, FormInstance } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
 import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 
-const StyledEditor = styled(Editor)`
+const EditorContainer = styled.div`
     height: 300px;
     overflow: auto;
+    border: 1px solid ${colors.gray[100]};
+    border-radius: 12px;
 `;
-
-const toolbarStyles = {
-    width: '100%',
-    justifyContent: 'flex-start',
-};
 
 type Props = {
     content: string | undefined;
@@ -23,7 +21,9 @@ const RichTextContent = ({ content, form }: Props) => {
     return (
         <Form form={form} initialValues={{ content }}>
             <Form.Item name="content" data-testid="rich-text-documentation">
-                <StyledEditor content={content} placeholder="Write some text here..." toolbarStyles={toolbarStyles} />
+                <EditorContainer>
+                    <Editor content={content} placeholder="Write some text here..." hideBorder />
+                </EditorContainer>
             </Form.Item>
         </Form>
     );

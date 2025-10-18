@@ -5,6 +5,8 @@ import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { sanitizeRichText } from '@components/components/Editor/utils';
+
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
@@ -16,7 +18,6 @@ import { useSchemaRefetch } from '@app/entityV2/shared/tabs/Dataset/Schema/Schem
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
 import { getFieldDescriptionDetails } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldDescriptionDetails';
 import { PROPOSAL_ENTITY_TYPES } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditor';
-import { sanitizeRichText } from '@app/entityV2/shared/tabs/Documentation/components/editor/utils';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import InferDocsButton from '@src/app/entityV2/shared/components/inferredDocs/InferDocsButton';
