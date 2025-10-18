@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -24,6 +25,8 @@ from datahub.metadata.schema_classes import (
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.dbt.dbt_common import DBTNode
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -165,8 +168,19 @@ def make_assertion_from_test(
     column_name = node.test_info.column_name
     kw_args = node.test_info.kw_args
 
+    logger.debug(
+        f"Creating assertion from test: node={node.dbt_name}, "
+        f"qualified_test_name={qualified_test_name}, column_name={column_name}, "
+        f"kw_args={kw_args}, assertion_urn={assertion_urn}, upstream_urn={upstream_urn}"
+    )
+
     if qualified_test_name in _DBT_TEST_NAME_TO_ASSERTION_MAP:
         assertion_params = _DBT_TEST_NAME_TO_ASSERTION_MAP[qualified_test_name]
+        logger.debug(
+            f"Using mapped assertion for test {qualified_test_name}: "
+            f"scope={assertion_params.scope}, operator={assertion_params.operator}, "
+            f"aggregation={assertion_params.aggregation}"
+        )
         assertion_info = AssertionInfoClass(
             type=AssertionTypeClass.DATASET,
             customProperties=extra_custom_props,
@@ -200,6 +214,10 @@ def make_assertion_from_test(
         )
     elif column_name:
         # no match with known test types, column-level test
+        logger.debug(
+            f"Creating column-level native assertion for test {qualified_test_name} "
+            f"on column {column_name}"
+        )
         assertion_info = AssertionInfoClass(
             type=AssertionTypeClass.DATASET,
             customProperties=extra_custom_props,
@@ -216,6 +234,10 @@ def make_assertion_from_test(
         )
     else:
         # no match with known test types, default to row-level test
+        logger.debug(
+            f"Creating row-level native assertion for test {qualified_test_name} "
+            f"(no column specified)"
+        )
         assertion_info = AssertionInfoClass(
             type=AssertionTypeClass.DATASET,
             customProperties=extra_custom_props,
@@ -243,6 +265,13 @@ def make_assertion_result_from_test(
     upstream_urn: str,
     test_warnings_are_errors: bool,
 ) -> MetadataChangeProposalWrapper:
+    logger.debug(
+        f"Creating assertion result from test: node={node.dbt_name}, "
+        f"status={test_result.status}, invocation_id={test_result.invocation_id}, "
+        f"test_warnings_are_errors={test_warnings_are_errors}, "
+        f"native_results={test_result.native_results}"
+    )
+
     assertionResult = AssertionRunEventClass(
         timestampMillis=int(test_result.execution_time.timestamp() * 1000.0),
         assertionUrn=assertion_urn,
