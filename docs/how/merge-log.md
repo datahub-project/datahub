@@ -987,3 +987,57 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **b301b13474** - docs(elasticsearch): add note for shim config (#15030)
   *by RyanHolstien on 2025-10-16*
 
+
+## Upstream Merge Session - 2025-10-18 00:00:07
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-10-18-000006`
+- **Merge Base**: `b301b134740b1275477f49a55db140abfc02a801`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 13
+- **Strategy**: stacked
+- **Started**: Sat Oct 18 00:00:07 UTC 2025
+
+### Commits Included in This Merge
+- **317d1292db** - fix(auth):allow colon in secret password (#15023)
+  *by Deepak Garg on 2025-10-17*
+
+- **1703f424d2** - chore(deps): Upgrade to latest (com.mysql:mysql-connector-j) (#15018)
+  *by rahul MALAWADKAR on 2025-10-17*
+
+- **e48008fa38** - chore(deps): bump actions/labeler from 5 to 6 (#14760)
+  *by dependabot[bot] on 2025-10-17*
+
+- **6af05ce765** - chore(deps): bump actions/github-script from 7 to 8 (#14761)
+  *by dependabot[bot] on 2025-10-17*
+
+- **7b3cb7805e** - chore(deps): bump actions/setup-java from 4 to 5 (#14759)
+  *by dependabot[bot] on 2025-10-17*
+
+- **74d620fcc3** - chore(deps): bump github/codeql-action from 3 to 4 (#14985)
+  *by dependabot[bot] on 2025-10-17*
+
+- **65d613a99e** - refactor(test): make python version ==3.11.x (#15035)
+  *by Aseem Bansal on 2025-10-17*
+
+- **abad667d88** - fix(cypress): fix summaryTab.js (#15017)
+  *by v-tarasevich-blitz-brain on 2025-10-17*
+
+- **2578fa2b0a** - improvement(ui): consolidate all rich text editors to use editor in component library (#15009)
+  *by purnimagarg1 on 2025-10-17*
+
+- **7b454c7559** - fix(mce-consumer): database max connections (#15042)
+  *by david-leifker on 2025-10-17*
+
+- **46b5ce0d14** - fix(ingestion/mongodb): Fix handling of arrays containing complex structures (#15026)
+  *by skrydal on 2025-10-17*
+
+- **4650fb6bba** - fix(collectionModule): fix long entity name (#15033)
+  *by v-tarasevich-blitz-brain on 2025-10-17*
+
+- **da4849895a** - feat(uploadFiles): add endpoint to get presigned upload url (#14943)
+  *by v-tarasevich-blitz-brain on 2025-10-18*
+
