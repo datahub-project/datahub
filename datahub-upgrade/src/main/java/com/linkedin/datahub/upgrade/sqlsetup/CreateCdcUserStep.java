@@ -1,0 +1,165 @@
+package com.linkedin.datahub.upgrade.sqlsetup;
+
+import com.linkedin.datahub.upgrade.UpgradeContext;
+import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
+import io.ebean.Database;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.function.Function;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+public class CreateCdcUserStep implements UpgradeStep {
+
+  private final Database server;
+  private final SqlSetupArgs setupArgs;
+
+  public CreateCdcUserStep(final Database server, final SqlSetupArgs setupArgs) {
+    this.server = server;
+    this.setupArgs = setupArgs;
+  }
+
+  @Override
+  public String id() {
+    return "CreateCdcUserStep";
+  }
+
+  @Override
+  public int retryCount() {
+    return 0;
+  }
+
+  @Override
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
+    return (context) -> {
+      try {
+        context.report().addLine("Creating CDC user...");
+
+        SqlSetupResult result = createCdcUser(setupArgs);
+
+        if (result.isCdcUserCreated()) {
+          context
+              .report()
+              .addLine(String.format("CDC user '%s' created successfully", setupArgs.cdcUser));
+        } else {
+          context.report().addLine("CDC user creation skipped or failed");
+        }
+        context
+            .report()
+            .addLine(String.format("Execution time: %d ms", result.getExecutionTimeMs()));
+
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+
+      } catch (Exception e) {
+        log.error("Error during CreateCdcUserStep execution", e);
+        context.report().addLine(String.format("Error during execution: %s", e.getMessage()));
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+      }
+    };
+  }
+
+  SqlSetupResult createCdcUser(SqlSetupArgs args) throws SQLException {
+    SqlSetupResult result = new SqlSetupResult();
+    long startTime = System.currentTimeMillis();
+
+    if (!args.cdcEnabled) {
+      log.info("CDC is not enabled, skipping CDC user creation");
+      return result;
+    }
+
+    try {
+      try (Connection connection = server.dataSource().getConnection()) {
+        String createCdcUserSql = getCreateCdcUserSql(args.dbType, args.cdcUser, args.cdcPassword);
+        try (PreparedStatement stmt = connection.prepareStatement(createCdcUserSql)) {
+          stmt.executeUpdate();
+        }
+
+        String grantCdcPrivilegesSql =
+            getGrantCdcPrivilegesSql(args.dbType, args.cdcUser, args.databaseName);
+        try (PreparedStatement grantStmt = connection.prepareStatement(grantCdcPrivilegesSql)) {
+          grantStmt.executeUpdate();
+        }
+
+        result.setCdcUserCreated(true);
+        log.info("CDC user '{}' created successfully", args.cdcUser);
+      }
+    } catch (Exception e) {
+      log.error("Failed to create CDC user: {}", e.getMessage());
+      throw e;
+    }
+
+    result.setExecutionTimeMs(System.currentTimeMillis() - startTime);
+    return result;
+  }
+
+  String getCreateCdcUserSql(DatabaseType dbType, String cdcUser, String cdcPassword) {
+    if (DatabaseType.POSTGRES.equals(dbType)) {
+      // PostgreSQL CDC user creation with comprehensive privileges
+      return String.format(
+          """
+          DO
+          $$
+          BEGIN
+              IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '%s') THEN
+                  CREATE USER "%s" WITH PASSWORD '%s';
+              END IF;
+          END
+          $$;
+          ALTER USER "%s" WITH REPLICATION;
+          """,
+          cdcUser, cdcUser, cdcPassword, cdcUser);
+    } else {
+      // MySQL - CDC user with replication privileges (matching original init-cdc.sql)
+      return "CREATE USER IF NOT EXISTS '" + cdcUser + "'@'%' IDENTIFIED BY '" + cdcPassword + "';";
+    }
+  }
+
+  String getGrantCdcPrivilegesSql(DatabaseType dbType, String cdcUser, String databaseName) {
+    if (DatabaseType.POSTGRES.equals(dbType)) {
+      // PostgreSQL comprehensive CDC privileges (matching original init-cdc.sql)
+      return String.format(
+          """
+          GRANT CONNECT ON DATABASE "%s" TO "%s";
+          GRANT USAGE ON SCHEMA public TO "%s";
+          GRANT CREATE ON DATABASE "%s" TO "%s";
+          GRANT SELECT ON ALL TABLES IN SCHEMA public TO "%s";
+          ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO "%s";
+          ALTER USER "%s" WITH SUPERUSER;
+          ALTER TABLE public.metadata_aspect_v2 OWNER TO "%s";
+          ALTER TABLE public.metadata_aspect_v2 REPLICA IDENTITY FULL;
+          CREATE PUBLICATION dbz_publication FOR TABLE public.metadata_aspect_v2;
+          """,
+          databaseName,
+          cdcUser,
+          cdcUser,
+          databaseName,
+          cdcUser,
+          cdcUser,
+          cdcUser,
+          cdcUser,
+          cdcUser);
+    } else {
+      // MySQL - comprehensive CDC privileges (matching original init-cdc.sql)
+      return String.format(
+          """
+          GRANT SELECT ON `%s`.* TO '%s'@'%%';
+          GRANT RELOAD ON *.* TO '%s'@'%%';
+          GRANT REPLICATION CLIENT ON *.* TO '%s'@'%%';
+          GRANT REPLICATION SLAVE ON *.* TO '%s'@'%%';
+          FLUSH PRIVILEGES;
+          """,
+          databaseName, cdcUser, cdcUser, cdcUser, cdcUser);
+    }
+  }
+
+  public boolean containsKey(
+      java.util.Map<String, java.util.Optional<String>> parsedArgs, String key) {
+    return parsedArgs.containsKey(key)
+        && parsedArgs.get(key) != null
+        && parsedArgs.get(key).isPresent();
+  }
+}

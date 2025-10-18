@@ -201,21 +201,90 @@ Reference Links:
 
 ### EBean Configuration (MySQL/PostgreSQL)
 
-| Environment Variable              | Default                               | Description                               | Components                       |
-| --------------------------------- | ------------------------------------- | ----------------------------------------- | -------------------------------- |
-| `EBEAN_DATASOURCE_USERNAME`       | `datahub`                             | Database username                         | GMS, MCE Consumer, System Update |
-| `EBEAN_DATASOURCE_PASSWORD`       | `datahub`                             | Database password                         | GMS, MCE Consumer, System Update |
-| `EBEAN_DATASOURCE_URL`            | `jdbc:mysql://localhost:3306/datahub` | JDBC URL                                  | GMS, MCE Consumer, System Update |
-| `EBEAN_DATASOURCE_DRIVER`         | `com.mysql.jdbc.Driver`               | JDBC Driver                               | GMS, MCE Consumer, System Update |
-| `EBEAN_MIN_CONNECTIONS`           | `2`                                   | Minimum database connections              | GMS, MCE Consumer, System Update |
-| `EBEAN_MAX_CONNECTIONS`           | `50`                                  | Maximum database connections              | GMS, MCE Consumer, System Update |
-| `EBEAN_MAX_INACTIVE_TIME_IN_SECS` | `120`                                 | Maximum inactive time in seconds          | GMS, MCE Consumer, System Update |
-| `EBEAN_MAX_AGE_MINUTES`           | `120`                                 | Maximum age in minutes                    | GMS, MCE Consumer, System Update |
-| `EBEAN_LEAK_TIME_MINUTES`         | `15`                                  | Leak time in minutes                      | GMS, MCE Consumer, System Update |
-| `EBEAN_WAIT_TIMEOUT_MILLIS`       | `1000`                                | Wait timeout in milliseconds              | GMS, MCE Consumer, System Update |
-| `EBEAN_AUTOCREATE`                | `false`                               | Auto-create DDL                           | GMS, MCE Consumer, System Update |
-| `EBEAN_POSTGRES_USE_AWS_IAM_AUTH` | `false`                               | Use AWS IAM authentication for PostgreSQL | GMS, MCE Consumer, System Update |
-| `EBEAN_BATCH_GET_METHOD`          | `IN`                                  | Batch get method (IN or UNION)            | GMS, MCE Consumer, System Update |
+| Environment Variable              | Default                               | Description                                     | Components                       |
+| --------------------------------- | ------------------------------------- | ----------------------------------------------- | -------------------------------- |
+| `EBEAN_DATASOURCE_USERNAME`       | `datahub`                             | Database username                               | GMS, MCE Consumer, System Update |
+| `EBEAN_DATASOURCE_PASSWORD`       | `datahub`                             | Database password                               | GMS, MCE Consumer, System Update |
+| `EBEAN_DATASOURCE_URL`            | `jdbc:mysql://localhost:3306/datahub` | JDBC URL                                        | GMS, MCE Consumer, System Update |
+| `EBEAN_DATASOURCE_DRIVER`         | `com.mysql.jdbc.Driver`               | JDBC Driver                                     | GMS, MCE Consumer, System Update |
+| `EBEAN_MIN_CONNECTIONS`           | `2`                                   | Minimum database connections                    | GMS, MCE Consumer, System Update |
+| `EBEAN_MAX_CONNECTIONS`           | `50`                                  | Maximum database connections                    | GMS, MCE Consumer, System Update |
+| `EBEAN_MAX_INACTIVE_TIME_IN_SECS` | `120`                                 | Maximum inactive time in seconds                | GMS, MCE Consumer, System Update |
+| `EBEAN_MAX_AGE_MINUTES`           | `120`                                 | Maximum age in minutes                          | GMS, MCE Consumer, System Update |
+| `EBEAN_LEAK_TIME_MINUTES`         | `15`                                  | Leak time in minutes                            | GMS, MCE Consumer, System Update |
+| `EBEAN_WAIT_TIMEOUT_MILLIS`       | `1000`                                | Wait timeout in milliseconds                    | GMS, MCE Consumer, System Update |
+| `EBEAN_AUTOCREATE`                | `false`                               | Auto-create DDL                                 | GMS, MCE Consumer, System Update |
+| `EBEAN_POSTGRES_USE_AWS_IAM_AUTH` | `false`                               | Use AWS IAM authentication for PostgreSQL       | GMS, MCE Consumer, System Update |
+| `EBEAN_USE_IAM_AUTH`              | `false`                               | Enable cross-cloud IAM authentication (AWS/GCP) | GMS, MCE Consumer, System Update |
+| `EBEAN_CLOUD_PROVIDER`            | `auto`                                | Cloud provider (auto/aws/gcp/traditional)       | GMS, MCE Consumer, System Update |
+| `EBEAN_BATCH_GET_METHOD`          | `IN`                                  | Batch get method (IN or UNION)                  | GMS, MCE Consumer, System Update |
+
+#### Cross-Cloud IAM Authentication
+
+DataHub supports cross-cloud IAM authentication for both AWS and GCP cloud providers. This enables secure, passwordless database connections using cloud identity services.
+
+**AWS IAM Authentication:**
+
+- **PostgreSQL**: Uses native `wrapperPlugins: "iam"` configuration
+- **MySQL**: Automatically swaps to MariaDB driver with `credentialType=AWS-IAM`
+- **Detection**: Based on `AWS_REGION`, `AWS_ACCESS_KEY_ID`, or RDS URLs
+
+**GCP IAM Authentication:**
+
+- **MySQL/PostgreSQL**: Uses Cloud SQL Connector with `enableIamAuth=true`
+- **Detection**: Based on `GOOGLE_APPLICATION_CREDENTIALS`, `GCP_PROJECT`, or Cloud SQL URLs
+
+**Configuration Examples:**
+
+```bash
+# AWS RDS with IAM authentication
+export EBEAN_USE_IAM_AUTH=true
+export EBEAN_CLOUD_PROVIDER=aws
+export EBEAN_DATASOURCE_URL=jdbc:mysql://rds-instance.amazonaws.com:3306/datahub
+export AWS_REGION=us-west-2
+
+# GCP Cloud SQL with IAM authentication
+export EBEAN_USE_IAM_AUTH=true
+export EBEAN_CLOUD_PROVIDER=gcp
+export EBEAN_DATASOURCE_URL=jdbc:mysql://cloudsql-instance:3306/datahub
+export INSTANCE_CONNECTION_NAME="project:region:instance"
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
+
+# Auto-detection (recommended)
+export EBEAN_USE_IAM_AUTH=true
+export EBEAN_CLOUD_PROVIDER=auto
+# Cloud provider automatically detected from environment variables
+```
+
+**Required Cloud-Specific Environment Variables:**
+
+| Cloud Provider | Required Variables               | Description                              |
+| -------------- | -------------------------------- | ---------------------------------------- |
+| **AWS**        | `AWS_REGION`                     | AWS region for RDS instances             |
+| **AWS**        | `AWS_ACCESS_KEY_ID`              | AWS access key (or use instance profile) |
+| **AWS**        | `AWS_SECRET_ACCESS_KEY`          | AWS secret key (or use instance profile) |
+| **GCP**        | `INSTANCE_CONNECTION_NAME`       | Cloud SQL instance connection name       |
+| **GCP**        | `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON file        |
+
+### SQL Setup Configuration
+
+The SQL Setup system provides automated database initialization and user management capabilities. These environment variables control the behavior of the `SqlSetup` upgrade step.
+
+| Environment Variable         | Default       | Description                                                                 | Components    |
+| ---------------------------- | ------------- | --------------------------------------------------------------------------- | ------------- |
+| `CREATE_TABLES`              | `true`        | Whether to create database tables                                           | System Update |
+| `CREATE_DB`                  | `true`        | Whether to create the database (PostgreSQL only)                            | System Update |
+| `CREATE_USER`                | `false`       | Whether to create a new database user                                       | System Update |
+| `CREATE_USER_USERNAME`       | _none_        | Username for the new database user to create (required if CREATE_USER=true) | System Update |
+| `CREATE_USER_PASSWORD`       | _none_        | Password for the new database user to create (required if CREATE_USER=true) | System Update |
+| `CDC_MCL_PROCESSING_ENABLED` | `false`       | Whether to create a CDC (Change Data Capture) user                          | System Update |
+| `CDC_USER`                   | `datahub_cdc` | Username for the CDC user                                                   | System Update |
+| `CDC_PASSWORD`               | `datahub_cdc` | Password for the CDC user                                                   | System Update |
+| `IAM_ROLE`                   | _none_        | IAM role for new user creation (required if IAM auth enabled)               | System Update |
+
+**Note:** When `CREATE_USER=true`, you must explicitly set `CREATE_USER_USERNAME` and `CREATE_USER_PASSWORD` environment variables. The system will not fall back to Ebean connection credentials for security reasons.
+
+**IAM Authentication:** When using IAM authentication (by setting `IAM_ROLE`), the system will only use `CREATE_USER_USERNAME` and ignore `CREATE_USER_PASSWORD` for security reasons. Traditional username/password authentication and IAM authentication are mutually exclusive.
 
 ### Cassandra Configuration
 

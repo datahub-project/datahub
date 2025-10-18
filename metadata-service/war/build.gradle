@@ -33,6 +33,7 @@ dependencies {
   runtimeOnly externalDependency.h2
   runtimeOnly externalDependency.mariadbConnector
   runtimeOnly externalDependency.mysqlConnector
+  runtimeOnly externalDependency.gcpCloudSqlConnector
   runtimeOnly externalDependency.postgresql
 
   implementation(externalDependency.springBootStarterWeb)
