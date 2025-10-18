@@ -15,10 +15,10 @@ export type ProductUpdate = {
 // TODO: Migrate this to be served via an aspect!
 export const latestUpdate: ProductUpdate = {
     enabled: true,
-    id: 'v1.2.0', // Very important, when changed it will trigger the announcement to be re-displayed for a user.
+    id: 'v1.2.1', // Very important, when changed it will trigger the announcement to be re-displayed for a user.
     title: "What's New In DataHub",
-    description: 'Explore version v1.2.0',
+    description: 'Explore version v1.2.1',
     image: SampleImage, // Import and use image.,
     ctaText: 'Read updates',
-    ctaLink: 'https://docs.datahub.com/docs/releases#v1-2-0',
+    ctaLink: 'https://docs.datahub.com/docs/releases#v1-2-1',
 };
