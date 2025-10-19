@@ -27,7 +27,7 @@ public class VersionPropertiesTemplate implements Template<VersionProperties> {
   @Override
   public VersionProperties getDefault() {
     throw new UnsupportedOperationException(
-      "Unable to generate default version properties, no sensible default for " + "version set.");
+        "Unable to generate default version properties, no sensible default for " + "version set.");
   }
 
   @Nonnull
