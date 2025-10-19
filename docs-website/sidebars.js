@@ -1,5 +1,6 @@
 // note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
 // this will fix errors like `Error: File not accounted for in sidebar: ...`
+// smoke-test/tests/library_examples/README.md
 module.exports = {
   overviewSidebar: [
     // Getting Started.
