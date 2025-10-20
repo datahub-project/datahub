@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useHistory } from 'react-router';
+import { useHistory, useLocation } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
 import { useSelectedSortOption } from '@app/search/context/SearchContext';
@@ -9,6 +9,7 @@ import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { FacetFilterInput, QuickFilter } from '@types';
 
 export default function useGoToSearchPage(quickFilter: QuickFilter | null) {
+    const location = useLocation();
     const history = useHistory();
     const selectedSortOption = useSelectedSortOption();
 
@@ -20,7 +21,7 @@ export default function useGoToSearchPage(quickFilter: QuickFilter | null) {
                 type: EventType.SearchEvent,
                 query,
                 pageNumber: 1,
-                originPath: window.location.pathname,
+                originPath: location.pathname,
                 selectedQuickFilterTypes: quickFilter ? [quickFilter.field] : undefined,
                 selectedQuickFilterValues: quickFilter ? [quickFilter.value] : undefined,
             });
@@ -38,6 +39,6 @@ export default function useGoToSearchPage(quickFilter: QuickFilter | null) {
                 selectedSortOption,
             });
         },
-        [filters, history, quickFilter, selectedSortOption],
+        [filters, history, quickFilter, selectedSortOption, location.pathname],
     );
 }

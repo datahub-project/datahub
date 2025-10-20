@@ -14,7 +14,7 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/labeler@v5
+      - uses: actions/labeler@v6
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
           configuration-path: ".github/pr-labeler-config.yml"
@@ -59,7 +59,9 @@ jobs:
           "Alex23Hub",
           "alexsku",
           "benjiaming",
-          "deepgarg760"
+          "deepgarg760",
+          "petemango",
+          "askumar27"
           ]'),
           github.actor
           )

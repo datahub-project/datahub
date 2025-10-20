@@ -87,4 +87,10 @@ public class DataHubAppConfiguration {
 
   /* Secret service configuration */
   private SecretServiceConfiguration secretService;
+
+  /** MCL Processing configurations */
+  private MCLProcessingConfiguration mclProcessing;
+
+  /** Structured properties related configurations */
+  private StructuredPropertiesConfiguration structuredProperties;
 }

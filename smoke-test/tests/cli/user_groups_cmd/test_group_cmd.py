@@ -7,11 +7,7 @@ import yaml
 
 from datahub.api.entities.corpgroup.corpgroup import CorpGroup
 from datahub.ingestion.graph.client import DataHubGraph
-from tests.utils import run_datahub_cmd, wait_for_writes_to_sync
-
-
-def sync_elastic() -> None:
-    wait_for_writes_to_sync()
+from tests.utils import run_datahub_cmd, sync_elastic
 
 
 def datahub_upsert_group(auth_session: Any, group: CorpGroup) -> None:

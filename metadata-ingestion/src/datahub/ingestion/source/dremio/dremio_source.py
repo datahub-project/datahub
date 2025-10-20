@@ -1,7 +1,7 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Dict, Iterable, Iterator, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -46,10 +46,6 @@ from datahub.ingestion.source.dremio.dremio_entities import (
 )
 from datahub.ingestion.source.dremio.dremio_profiling import DremioProfiler
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
-from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
-from datahub.ingestion.source.state.redundant_run_skip_handler import (
-    RedundantUsageRunSkipHandler,
-)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -157,12 +153,6 @@ class DremioSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = DremioSourceReport()
 
-        # Sync time window fields between flattened config and usage config for consistency
-        # Temporarily disabled due to Pydantic issue in BaseUsageConfig
-        # self.config.usage.start_time = self.config.start_time
-        # self.config.usage.end_time = self.config.end_time
-        # self.config.usage.bucket_duration = self.config.bucket_duration
-
         # Set time window for query lineage extraction
         self.report.window_start_time, self.report.window_end_time = (
             self.config.start_time,
@@ -172,10 +162,10 @@ class DremioSource(StatefulIngestionSourceBase):
         self.source_map: Dict[str, DremioSourceMapEntry] = dict()
 
         # Initialize API operations
-        self.dremio_api = DremioAPIOperations(self.config, self.report)
+        dremio_api = DremioAPIOperations(self.config, self.report)
 
         # Initialize catalog
-        self.dremio_catalog = DremioCatalog(self.dremio_api)
+        self.dremio_catalog = DremioCatalog(dremio_api)
 
         # Initialize aspects
         self.dremio_aspects = DremioAspects(
@@ -184,7 +174,7 @@ class DremioSource(StatefulIngestionSourceBase):
             ingest_owner=self.config.ingest_owner,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            ui_url=self.dremio_api.ui_url,
+            ui_url=dremio_api.ui_url,
         )
         self.max_workers = config.max_workers
 
@@ -193,38 +183,14 @@ class DremioSource(StatefulIngestionSourceBase):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             graph=self.ctx.graph,
-            generate_usage_statistics=False,  # Temporarily disabled due to Pydantic issue
+            generate_usage_statistics=True,
             generate_operations=True,
-            usage_config=None,  # Temporarily disabled due to Pydantic issue
+            usage_config=self.config.usage,
         )
         self.report.sql_aggregator = self.sql_parsing_aggregator.report
 
-        # Stateful handlers (like Snowflake and BigQuery)
-        # Temporarily disabled due to Pydantic issue
-        self.redundant_usage_run_skip_handler: Optional[
-            RedundantUsageRunSkipHandler
-        ] = None
-        # if self.config.enable_stateful_usage_ingestion:
-        #     self.redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
-        #         source=self,
-        #         config=self.config,
-        #         pipeline_name=self.ctx.pipeline_name,
-        #         run_id=self.ctx.run_id,
-        #     )
-
-        self.profiling_state_handler: Optional[ProfilingHandler] = None
-        if self.config.enable_stateful_profiling:
-            self.profiling_state_handler = ProfilingHandler(
-                source=self,
-                config=self.config,
-                pipeline_name=self.ctx.pipeline_name,
-                run_id=self.ctx.run_id,
-            )
-
         # For profiling
-        self.profiler = DremioProfiler(
-            config, self.report, self.dremio_api, self.profiling_state_handler
-        )
+        self.profiler = DremioProfiler(config, self.report, dremio_api)
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DremioSource":
@@ -259,8 +225,9 @@ class DremioSource(StatefulIngestionSourceBase):
         self.source_map = self._build_source_map()
 
         with self.report.new_stage(METADATA_EXTRACTION):
-            # Process Containers using iterator
-            for container in self.dremio_catalog.get_containers_iter():
+            # Process Containers
+            containers = self.dremio_catalog.get_containers()
+            for container in containers:
                 try:
                     yield from self.process_container(container)
                     logger.info(
@@ -275,7 +242,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
 
             # Process Datasets
-            for dataset_info in self.dremio_catalog.get_datasets_iter():
+            for dataset_info in self.dremio_catalog.get_datasets():
                 try:
                     yield from self.process_dataset(dataset_info)
                     logger.info(
@@ -289,8 +256,8 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Process Glossary Terms
-            for glossary_term in self.dremio_catalog.get_glossary_terms_iter():
+            # Process Glossary Terms using streaming
+            for glossary_term in self.dremio_catalog.get_glossary_terms():
                 try:
                     yield from self.process_glossary_term(glossary_term)
                 except Exception as exc:
@@ -303,7 +270,7 @@ class DremioSource(StatefulIngestionSourceBase):
             # Optionally Process Query Lineage
             if self.config.include_query_lineage:
                 with self.report.new_stage(LINEAGE_EXTRACTION):
-                    yield from self.get_query_lineage_workunits()
+                    self.get_query_lineage_workunits()
 
             # Generate workunit for aggregated SQL parsing results
             for mcp in self.sql_parsing_aggregator.gen_metadata():
@@ -318,9 +285,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     ) as executor,
                 ):
                     # Collect datasets for profiling
-                    datasets_for_profiling = list(
-                        self.dremio_catalog.get_datasets_iter()
-                    )
+                    datasets_for_profiling = list(self.dremio_catalog.get_datasets())
                     future_to_dataset = {
                         executor.submit(self.generate_profiles, dataset): dataset
                         for dataset in datasets_for_profiling
@@ -366,13 +331,7 @@ class DremioSource(StatefulIngestionSourceBase):
         dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
 
         self.report.report_entity_scanned(dataset_name, dataset_info.dataset_type.value)
-
-        # Use the new filter for consistent dataset filtering
-        if not self.dremio_api.filter.is_dataset_allowed(
-            dataset_info.resource_name,
-            dataset_info.path,
-            dataset_info.dataset_type.value,
-        ):
+        if not self.config.dataset_pattern.allowed(dataset_name):
             self.report.report_dropped(dataset_name)
             return
 
@@ -506,57 +465,28 @@ class DremioSource(StatefulIngestionSourceBase):
 
         yield MetadataWorkUnit(id=f"{dataset_urn}-upstreamLineage", mcp=mcp)
 
-    def get_query_lineage_workunits(self) -> Iterator[MetadataWorkUnit]:
+    def get_query_lineage_workunits(self) -> None:
         """
         Process query lineage information.
         """
+
+        queries = self.dremio_catalog.get_queries()
+
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Process queries in batches
-            batch_size = 100
-            query_batch = []
+            future_to_query = {
+                executor.submit(self.process_query, query): query for query in queries
+            }
 
-            for query in self.dremio_catalog.get_queries():
-                query_batch.append(query)
-
-                if len(query_batch) >= batch_size:
-                    # Process batch
-                    future_to_query = {
-                        executor.submit(self.process_query, q): q for q in query_batch
-                    }
-
-                    for future in as_completed(future_to_query):
-                        query_obj = future_to_query[future]
-                        try:
-                            future.result()
-                        except Exception as exc:
-                            self.report.report_failure(
-                                message="Failed to process dremio query",
-                                context=f"{query_obj.job_id}: {exc}",
-                                exc=exc,
-                            )
-
-                    query_batch = []  # Reset batch
-
-            # Process remaining queries in final batch
-            if query_batch:
-                future_to_query = {
-                    executor.submit(self.process_query, q): q for q in query_batch
-                }
-
-                for future in as_completed(future_to_query):
-                    query_obj = future_to_query[future]
-                    try:
-                        future.result()
-                    except Exception as exc:
-                        self.report.report_failure(
-                            message="Failed to process dremio query",
-                            context=f"{query_obj.job_id}: {exc}",
-                            exc=exc,
-                        )
-
-        # This method processes queries but doesn't yield workunits directly
-        # The SQL parsing aggregator will generate the actual workunits
-        return iter([])
+            for future in as_completed(future_to_query):
+                query = future_to_query[future]
+                try:
+                    future.result()
+                except Exception as exc:
+                    self.report.report_failure(
+                        message="Failed to process dremio query",
+                        context=f"{query.job_id}: {exc}",
+                        exc=exc,
+                    )
 
     def process_query(self, query: DremioQuery) -> None:
         """
@@ -658,7 +588,7 @@ class DremioSource(StatefulIngestionSourceBase):
 
 
 def build_dremio_source_map(
-    dremio_sources: List[DremioSourceContainer],
+    dremio_sources: Iterable[DremioSourceContainer],
     source_mappings_config: List[DremioSourceMapping],
 ) -> Dict[str, DremioSourceMapEntry]:
     """

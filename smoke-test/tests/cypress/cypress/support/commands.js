@@ -369,6 +369,13 @@ Cypress.Commands.add("enterTextInSpecificTestId", (id, value, text) => {
 Cypress.Commands.add("enterTextInTestId", (id, text) => {
   cy.get(selectorWithtestId(id)).type(text);
 });
+Cypress.Commands.add("clearTextInTestId", (id) => {
+  cy.get(selectorWithtestId(id)).clear();
+});
+
+Cypress.Commands.add("clearTextInTestId", (id, text) => {
+  cy.get(selectorWithtestId(id)).clear();
+});
 
 Cypress.Commands.add("clickOptionWithTestId", (id) => {
   cy.get(selectorWithtestId(id)).first().click({

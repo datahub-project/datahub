@@ -224,3 +224,37 @@ should be dropped without considering it an exception, then add the following he
 The writes to the elasticsearch are asynchronous by default. A writer can add a custom header
 `X-DataHub-Sync-Index-Update` to the MCP `headers` with value set to `true` to enable a synchronous update of
 elasticsearch for specific MCPs that may benefit from it.
+
+## Change Data Capture (CDC) Mode for Generating MCLs
+
+### Overview
+
+DataHub supports an optional CDC (Change Data Capture) mode for generating MetadataChangeLogs. In CDC mode, MCLs are generated from database change events captured directly from the metadata storage layer, rather than being produced by GMS after processing MCPs. This mechanism **guarantees that MCLs are generated in the same order as database writes**, providing stronger ordering guarantees for metadata changes.
+
+### CDC vs Traditional MCL Generation
+
+**Traditional Mode (Default)**:
+
+- GMS processes MCPs and writes to the database
+- GMS immediately produces MCLs to Kafka after successful database writes
+- MCL order matches MCP processing order
+
+**CDC Mode**:
+
+- GMS processes MCPs and writes to the database (MCL emission disabled)
+- CDC system (Debezium) captures database changes as they occur
+- MCE Consumer reads CDC events and generates MCLs via EntityService
+- MCL order matches database transaction commit order
+
+### Architecture
+
+In CDC mode, the flow is:
+
+```
+MCP → GMS (write to DB, no MCL) → CDC Source → CDC Topic → MCE Consumer → MCL generation via EntityService → MCL Topics
+```
+
+For detailed configuration instructions, see:
+
+- [CDC Configuration Guide](../how/configure-cdc.md)
+- [Environment Variables Reference](../deploy/environment-vars.md#change-data-capture-cdc-configuration)
