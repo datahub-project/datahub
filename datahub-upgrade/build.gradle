@@ -30,7 +30,7 @@ dependencies {
     exclude group: "org.eclipse.jetty"
     exclude group: "org.apache.hadoop.thirdparty", module: "hadoop-shaded-protobuf_3_7"
     exclude group: "com.charleskorn.kaml", module:"kaml"
-
+    exclude group: "org.apache.kerby", module:"kerb-simplekdc"
   }
 
   constraints {
@@ -57,6 +57,9 @@ dependencies {
     }
     implementation('commons-beanutils:commons-beanutils:1.11.0') {
       because("CVE-2025-48734")
+    }
+    implementation('io.netty:netty-codec-smtp:4.1.128.Final') {
+      because("CVE: GHSA-jq43-27x9-3v86 - Netty SMTP Command Injection")
     }
   }
 
