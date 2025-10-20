@@ -1,5 +1,24 @@
 import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
 
+/**
+ * Helper function to determine if a Snowflake field should be visible based on authentication type.
+ * Used for conditional field rendering in forms.
+ */
+export function shouldShowSnowflakeField(fieldName: string, authenticationType?: string): boolean {
+    // Hide password when using key pair authentication
+    if (fieldName === 'password' && authenticationType === 'KEY_PAIR_AUTHENTICATOR') {
+        return false;
+    }
+    // Hide private key fields when using default (username/password) authentication
+    if (
+        (fieldName === 'private_key' || fieldName === 'private_key_password') &&
+        authenticationType === 'DEFAULT_AUTHENTICATOR'
+    ) {
+        return false;
+    }
+    return true;
+}
+
 export const SNOWFLAKE_ACCOUNT_ID: RecipeField = {
     name: 'account_id',
     label: 'Account ID',
@@ -37,12 +56,24 @@ export const SNOWFLAKE_USERNAME: RecipeField = {
 export const SNOWFLAKE_PASSWORD: RecipeField = {
     name: 'password',
     label: 'Password',
-    tooltip: 'Snowflake password.',
+    tooltip: 'Snowflake password. Required when using Username & Password authentication.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.password',
     placeholder: 'password',
-    rules: null,
+    rules: [
+        ({ getFieldValue }) => ({
+            validator(_, value) {
+                const authType = getFieldValue('authentication_type');
+                // Require password for default (username/password) authentication
+                if (authType === 'DEFAULT_AUTHENTICATOR' && !value) {
+                    return Promise.reject(new Error('Password is required for Username & Password authentication'));
+                }
+                return Promise.resolve();
+            },
+        }),
+    ],
     required: false,
+    shouldShow: (formValues) => shouldShowSnowflakeField('password', formValues.authentication_type),
 };
 
 export const SNOWFLAKE_ROLE: RecipeField = {
@@ -74,12 +105,25 @@ export const SNOWFLAKE_AUTHENTICATION_TYPE: RecipeField = {
 export const SNOWFLAKE_PRIVATE_KEY: RecipeField = {
     name: 'private_key',
     label: 'Private Key',
-    tooltip: 'RSA private key for key pair authentication. Can be provided as a string or path to key file.',
+    tooltip:
+        'RSA private key for key pair authentication. Can be provided as a string or path to key file. Required when using Private Key authentication.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.private_key',
     placeholder: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
-    rules: null,
+    rules: [
+        ({ getFieldValue }) => ({
+            validator(_, value) {
+                const authType = getFieldValue('authentication_type');
+                // Require private key for key pair authentication
+                if (authType === 'KEY_PAIR_AUTHENTICATOR' && !value) {
+                    return Promise.reject(new Error('Private Key is required for Private Key authentication'));
+                }
+                return Promise.resolve();
+            },
+        }),
+    ],
     required: false,
+    shouldShow: (formValues) => shouldShowSnowflakeField('private_key', formValues.authentication_type),
 };
 
 export const SNOWFLAKE_PRIVATE_KEY_PASSWORD: RecipeField = {
@@ -91,4 +135,5 @@ export const SNOWFLAKE_PRIVATE_KEY_PASSWORD: RecipeField = {
     placeholder: 'private_key_password',
     rules: null,
     required: false,
+    shouldShow: (formValues) => shouldShowSnowflakeField('private_key_password', formValues.authentication_type),
 };

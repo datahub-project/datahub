@@ -1,4 +1,4 @@
-import { FieldType } from '@app/ingest/source/builder/RecipeForm/common';
+import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
 
 export const SNOWFLAKE_CONNECTION_NAME = {
     name: 'name',
@@ -45,7 +45,7 @@ export const SNOWFLAKE_USERNAME = {
     required: true,
 };
 
-export const SNOWFLAKE_PASSWORD = {
+export const SNOWFLAKE_PASSWORD: RecipeField = {
     name: 'password',
     label: 'Password',
     tooltip: 'Snowflake password.',
@@ -104,7 +104,7 @@ export const SNOWFLAKE_AUTHENTICATION_TYPE = {
     required: true,
 };
 
-export const SNOWFLAKE_PRIVATE_KEY = {
+export const SNOWFLAKE_PRIVATE_KEY: RecipeField = {
     name: 'private_key',
     label: 'Private Key',
     tooltip: 'Private key in PEM format for key pair authentication. Should start with -----BEGIN PRIVATE KEY-----',
@@ -126,7 +126,7 @@ export const SNOWFLAKE_PRIVATE_KEY_PASSWORD = {
     required: false,
 };
 
-export const fields = [
+export const fields: RecipeField[] = [
     SNOWFLAKE_CONNECTION_NAME,
     SNOWFLAKE_ACCOUNT_ID,
     SNOWFLAKE_WAREHOUSE,

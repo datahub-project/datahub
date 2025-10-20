@@ -69,7 +69,7 @@ class SnowflakeConnection(_FrozenConnectionModel):  # type: ignore[misc]  # Froz
 
     def to_datahub(self, graph: DataHubGraph) -> None:
         # Use mode='json' to serialize enums to their string values
-        config_dict = self.dict(mode="json")
+        config_dict = self.model_dump(mode="json")
         logger.info(
             f"Saving Snowflake connection to DataHub. authentication_type={config_dict.get('authentication_type')} (type={type(config_dict.get('authentication_type'))})"
         )

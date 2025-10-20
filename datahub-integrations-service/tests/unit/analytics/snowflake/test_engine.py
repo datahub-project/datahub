@@ -48,8 +48,8 @@ class TestSnowflakeAnalyticsEngineNativeConnection:
         self.mock_graph = Mock(spec=DataHubGraph)
         self.account = "test_account"
 
-    def test_get_native_connection_password_auth(self) -> None:
-        """Test getting native connection with password authentication."""
+    def test_get_native_connection_delegates_to_config(self) -> None:
+        """Test that get_native_connection delegates to SnowflakeConnectionConfigPermissive."""
         with patch.object(SnowflakeConnection, "from_datahub") as mock_from_datahub:
             mock_connection = Mock(spec=SnowflakeConnection)
             mock_connection.user = "test_user"
@@ -57,112 +57,50 @@ class TestSnowflakeAnalyticsEngineNativeConnection:
             mock_connection.account = "test_account"
             mock_connection.warehouse = "test_warehouse"
             mock_connection.role = "test_role"
-            mock_connection.authentication_type = "PASSWORD"
-            mock_from_datahub.return_value = mock_connection
-
-            with patch(
-                "datahub_integrations.analytics.snowflake.engine.snowflake.connector.connect"
-            ) as mock_connect:
-                mock_native_conn = Mock()
-                mock_connect.return_value = mock_native_conn
-
-                engine = SnowflakeAnalyticsEngine(self.account, self.mock_graph)
-                result = engine.get_native_connection()
-
-                assert result == mock_native_conn
-                mock_connect.assert_called_once_with(
-                    user="test_user",
-                    password="test_password",
-                    account="test_account",
-                    warehouse="test_warehouse",
-                    role="test_role",
-                )
-
-    def test_get_native_connection_key_pair_auth(self) -> None:
-        """Test getting native connection with key pair authentication."""
-        with patch.object(SnowflakeConnection, "from_datahub") as mock_from_datahub:
-            mock_connection = Mock(spec=SnowflakeConnection)
-            mock_connection.user = "test_user"
-            mock_connection.account = "test_account"
-            mock_connection.warehouse = "test_warehouse"
-            mock_connection.role = "test_role"
-            mock_connection.authentication_type = "KEY_PAIR_AUTHENTICATOR"
-            # Split long private key string to comply with line length limits
-            mock_connection.private_key = (
-                "-----BEGIN PRIVATE KEY-----\\ntest_key\\n-----END PRIVATE KEY-----"
-            )
-            mock_connection.private_key_password = "test_password"
-            mock_from_datahub.return_value = mock_connection
-
-            with patch(
-                "datahub_integrations.analytics.snowflake.engine.snowflake.connector.connect"
-            ) as mock_connect:
-                mock_native_conn = Mock()
-                mock_connect.return_value = mock_native_conn
-
-                with patch(
-                    "datahub_integrations.analytics.snowflake.engine.serialization.load_pem_private_key"
-                ) as mock_load_key:
-                    mock_private_key = Mock()
-                    mock_load_key.return_value = mock_private_key
-                    mock_private_key.private_bytes.return_value = b"processed_key"
-
-                    engine = SnowflakeAnalyticsEngine(self.account, self.mock_graph)
-                    result = engine.get_native_connection()
-
-                    assert result == mock_native_conn
-                    mock_connect.assert_called_once_with(
-                        user="test_user",
-                        account="test_account",
-                        warehouse="test_warehouse",
-                        role="test_role",
-                        private_key=b"processed_key",
-                    )
-
-    def test_get_connect_args_with_private_key(self) -> None:
-        """Test _get_connect_args with private key processing."""
-        with patch.object(SnowflakeConnection, "from_datahub") as mock_from_datahub:
-            mock_connection = Mock(spec=SnowflakeConnection)
-            mock_connection.authentication_type = "KEY_PAIR_AUTHENTICATOR"
-            # Split long private key string to comply with line length limits
-            mock_connection.private_key = (
-                "-----BEGIN PRIVATE KEY-----\\ntest_key\\n-----END PRIVATE KEY-----"
-            )
-            mock_connection.private_key_password = "test_password"
-            mock_from_datahub.return_value = mock_connection
-
-            with patch(
-                "datahub_integrations.analytics.snowflake.engine.serialization.load_pem_private_key"
-            ) as mock_load_key:
-                mock_private_key = Mock()
-                mock_load_key.return_value = mock_private_key
-                mock_private_key.private_bytes.return_value = b"processed_key"
-
-                engine = SnowflakeAnalyticsEngine(self.account, self.mock_graph)
-                result = engine._get_connect_args()
-
-                assert result == {"private_key": b"processed_key"}
-                # Verify private key was processed correctly
-                mock_load_key.assert_called_once()
-                call_args = mock_load_key.call_args
-                # Split long assertion to comply with line length limits
-                expected_key = (
-                    b"-----BEGIN PRIVATE KEY-----\ntest_key\n-----END PRIVATE KEY-----"
-                )
-                assert call_args[0][0] == expected_key
-
-    def test_get_connect_args_without_private_key(self) -> None:
-        """Test _get_connect_args without private key."""
-        with patch.object(SnowflakeConnection, "from_datahub") as mock_from_datahub:
-            mock_connection = Mock(spec=SnowflakeConnection)
-            mock_connection.authentication_type = "PASSWORD"
+            mock_connection.authentication_type = "DEFAULT_AUTHENTICATOR"
             mock_connection.private_key = None
+            mock_connection.private_key_password = None
             mock_from_datahub.return_value = mock_connection
 
             engine = SnowflakeAnalyticsEngine(self.account, self.mock_graph)
-            result = engine._get_connect_args()
 
-            assert result == {}
+            # Mock the config's create_native_connection method
+            with patch.object(
+                engine._get_config(), "create_native_connection"
+            ) as mock_create_conn:
+                mock_native_conn = Mock()
+                mock_create_conn.return_value = mock_native_conn
+
+                result = engine.get_native_connection()
+
+                assert result == mock_native_conn
+                mock_create_conn.assert_called_once_with(
+                    application="datahub_analytics"
+                )
+
+    def test_get_config_creates_and_caches_config(self) -> None:
+        """Test that _get_config creates and caches SnowflakeConnectionConfigPermissive."""
+        with patch.object(SnowflakeConnection, "from_datahub") as mock_from_datahub:
+            mock_connection = Mock(spec=SnowflakeConnection)
+            mock_connection.user = "test_user"
+            mock_connection.password = "test_password"
+            mock_connection.account = "test_account"
+            mock_connection.warehouse = "test_warehouse"
+            mock_connection.role = "test_role"
+            mock_connection.authentication_type = "DEFAULT_AUTHENTICATOR"
+            mock_connection.private_key = None
+            mock_connection.private_key_password = None
+            mock_from_datahub.return_value = mock_connection
+
+            engine = SnowflakeAnalyticsEngine(self.account, self.mock_graph)
+
+            # First call should create config
+            config1 = engine._get_config()
+            assert config1 is not None
+
+            # Second call should return cached config
+            config2 = engine._get_config()
+            assert config1 is config2
 
 
 class TestSnowflakeAnalyticsEngineIntegration:

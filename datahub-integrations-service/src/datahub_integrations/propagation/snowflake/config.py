@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import pydantic
 import snowflake.connector
@@ -28,6 +28,61 @@ class SnowflakeAuthenticationType(StrEnum):
 class SnowflakeConnectionConfigPermissive(
     SnowflakeConnectionConfig, PermissiveConfigModel
 ):
+    def _load_private_key_bytes(self) -> bytes:
+        """
+        Load private key bytes from either the private_key string or private_key_path file.
+
+        Returns:
+            Raw private key bytes
+        """
+        if self.private_key is not None:
+            # Fix JSON escaping issues: unescape forward slashes and convert \\n to \n
+            return self.private_key.replace("\\/", "/").replace("\\n", "\n").encode()
+
+        assert self.private_key_path, (
+            "missing required private key path to read key from"
+        )
+        with open(self.private_key_path, "rb") as key:
+            return key.read()
+
+    def _get_password_bytes(self) -> Optional[bytes]:
+        """
+        Convert private_key_password to bytes, handling both str and SecretStr types.
+
+        Returns:
+            Password as bytes, or None if no password is set
+        """
+        if self.private_key_password is None:
+            return None
+
+        if isinstance(self.private_key_password, pydantic.SecretStr):
+            return self.private_key_password.get_secret_value().encode()
+
+        # Handle regular string (from automation config)
+        return str(self.private_key_password).encode()
+
+    def _process_private_key(self) -> bytes:
+        """
+        Load and process the private key for Snowflake authentication.
+
+        Returns:
+            Processed private key bytes in DER/PKCS8 format
+        """
+        pkey_bytes = self._load_private_key_bytes()
+        password_bytes = self._get_password_bytes()
+
+        p_key = serialization.load_pem_private_key(
+            pkey_bytes,
+            password=password_bytes,
+            backend=default_backend(),
+        )
+
+        return p_key.private_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+
     def get_connect_args(self) -> dict:
         """
         Override get_connect_args to handle private_key_password as either str or SecretStr.
@@ -48,42 +103,7 @@ class SnowflakeConnectionConfigPermissive(
             and self.authentication_type
             == SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR
         ):
-            if self.private_key is not None:
-                # Fix JSON escaping issues: unescape forward slashes and convert \\n to \n
-                pkey_bytes = (
-                    self.private_key.replace("\\/", "/").replace("\\n", "\n").encode()
-                )
-            else:
-                assert self.private_key_path, (
-                    "missing required private key path to read key from"
-                )
-                with open(self.private_key_path, "rb") as key:
-                    pkey_bytes = key.read()
-
-            # Handle both str and SecretStr for private_key_password
-            password_bytes = None
-            if self.private_key_password is not None:
-                if isinstance(self.private_key_password, pydantic.SecretStr):
-                    password_bytes = (
-                        self.private_key_password.get_secret_value().encode()
-                    )
-                else:
-                    # Handle regular string (from automation config)
-                    password_bytes = str(self.private_key_password).encode()
-
-            p_key = serialization.load_pem_private_key(
-                pkey_bytes,
-                password=password_bytes,
-                backend=default_backend(),
-            )
-
-            pkb: bytes = p_key.private_bytes(
-                encoding=serialization.Encoding.DER,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption(),
-            )
-
-            connect_args["private_key"] = pkb
+            connect_args["private_key"] = self._process_private_key()
 
         self._computed_connect_args = connect_args
         return connect_args

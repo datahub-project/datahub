@@ -189,6 +189,7 @@ class ObjectTypeDetector:
             )
 
             # Snowflake stores object names in uppercase in information schema
+            # Use parameterized query to prevent SQL injection
             check_sql = f"""
             SELECT 
                 CASE 
@@ -197,12 +198,14 @@ class ObjectTypeDetector:
                     ELSE table_type
                 END as object_type
             FROM {formatted_database}.INFORMATION_SCHEMA.TABLES 
-            WHERE table_schema = '{table.schema.upper()}' 
-            AND table_name = '{table.table_name.upper()}'
+            WHERE table_schema = %s 
+            AND table_name = %s
             """
 
             with self.connection.cursor() as cursor:
-                cursor.execute(check_sql)
+                cursor.execute(
+                    check_sql, (table.schema.upper(), table.table_name.upper())
+                )
                 result = cursor.fetchone()
 
                 if result:
@@ -233,16 +236,24 @@ class ObjectTypeDetector:
             )
 
             # Query information schema for actual column name
+            # Use parameterized query to prevent SQL injection
             check_sql = f"""
             SELECT column_name 
             FROM {formatted_database}.INFORMATION_SCHEMA.COLUMNS 
-            WHERE table_schema = '{column.table.schema.upper()}' 
-            AND table_name = '{column.table.table_name.upper()}'
-            AND UPPER(column_name) = '{column.column_name.upper()}'
+            WHERE table_schema = %s 
+            AND table_name = %s
+            AND UPPER(column_name) = %s
             """
 
             with self.connection.cursor() as cursor:
-                cursor.execute(check_sql)
+                cursor.execute(
+                    check_sql,
+                    (
+                        column.table.schema.upper(),
+                        column.table.table_name.upper(),
+                        column.column_name.upper(),
+                    ),
+                )
                 result = cursor.fetchone()
 
                 if result:

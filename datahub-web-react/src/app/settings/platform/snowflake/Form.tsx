@@ -202,19 +202,12 @@ export const SnowflakeConnectionForm = ({
         return requiredFields.every((field) => formValues[field as keyof SnowflakeFormValues]);
     })();
 
-    const isKeyPairAuth = formValues.authentication_type === 'KEY_PAIR_AUTHENTICATOR';
-    const isDefaultAuth = formValues.authentication_type === 'DEFAULT_AUTHENTICATOR';
-
     return (
         <Form layout="vertical" form={form} onValuesChange={updateFormValues}>
             <Wrapper>
                 {fields.map((field, i) => {
-                    // Hide password field for key pair authentication
-                    if (field.name === 'password' && isKeyPairAuth) {
-                        return null;
-                    }
-                    // Hide private key fields for default authentication
-                    if ((field.name === 'private_key' || field.name === 'private_key_password') && isDefaultAuth) {
+                    // Check if field has conditional visibility logic
+                    if (field.shouldShow && !field.shouldShow(formValues)) {
                         return null;
                     }
 
