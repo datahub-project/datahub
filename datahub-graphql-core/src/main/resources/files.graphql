@@ -138,11 +138,6 @@ input CreateDataHubFileInput {
   id: String!
 
   """
-  The storage bucket this file is stored in
-  """
-  storageBucket: String!
-
-  """
   The key for where this file is stored inside of the given bucket
   """
   storageKey: String!

@@ -17,6 +17,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.file.DataHubFileInfo;
 import com.linkedin.file.FileUploadScenario;
+import com.linkedin.metadata.config.S3Configuration;
 import com.linkedin.metadata.service.DataHubFileService;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
@@ -34,13 +35,15 @@ public class CreateDataHubFileResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     DataHubFileService mockService = mock(DataHubFileService.class);
-    CreateDataHubFileResolver resolver = new CreateDataHubFileResolver(mockService);
+    S3Configuration mockS3Config = mock(S3Configuration.class);
+    when(mockS3Config.getBucketName()).thenReturn(TEST_STORAGE_BUCKET);
+
+    CreateDataHubFileResolver resolver = new CreateDataHubFileResolver(mockService, mockS3Config);
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     CreateDataHubFileInput input = new CreateDataHubFileInput();
     input.setId(TEST_FILE_ID);
-    input.setStorageBucket(TEST_STORAGE_BUCKET);
     input.setStorageKey(TEST_STORAGE_KEY);
     input.setOriginalFileName(TEST_FILE_NAME);
     input.setMimeType(TEST_MIME_TYPE);
@@ -113,13 +116,15 @@ public class CreateDataHubFileResolverTest {
   @Test
   public void testGetSuccessWithReferences() throws Exception {
     DataHubFileService mockService = mock(DataHubFileService.class);
-    CreateDataHubFileResolver resolver = new CreateDataHubFileResolver(mockService);
+    S3Configuration mockS3Config = mock(S3Configuration.class);
+    when(mockS3Config.getBucketName()).thenReturn(TEST_STORAGE_BUCKET);
+
+    CreateDataHubFileResolver resolver = new CreateDataHubFileResolver(mockService, mockS3Config);
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     CreateDataHubFileInput input = new CreateDataHubFileInput();
     input.setId(TEST_FILE_ID);
-    input.setStorageBucket(TEST_STORAGE_BUCKET);
     input.setStorageKey(TEST_STORAGE_KEY);
     input.setOriginalFileName(TEST_FILE_NAME);
     input.setMimeType(TEST_MIME_TYPE);
@@ -194,21 +199,25 @@ public class CreateDataHubFileResolverTest {
             any(),
             any(),
             any(),
+            any(),
             eq(assetUrn),
-            eq(schemaFieldUrn));
+            eq(schemaFieldUrn),
+            eq("abc123hash"));
     verify(mockService, times(1)).getDataHubFileEntityResponse(any(), eq(fileUrn));
   }
 
   @Test
   public void testGetThrowsException() throws Exception {
     DataHubFileService mockService = mock(DataHubFileService.class);
-    CreateDataHubFileResolver resolver = new CreateDataHubFileResolver(mockService);
+    S3Configuration mockS3Config = mock(S3Configuration.class);
+    when(mockS3Config.getBucketName()).thenReturn(TEST_STORAGE_BUCKET);
+
+    CreateDataHubFileResolver resolver = new CreateDataHubFileResolver(mockService, mockS3Config);
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     CreateDataHubFileInput input = new CreateDataHubFileInput();
     input.setId(TEST_FILE_ID);
-    input.setStorageBucket(TEST_STORAGE_BUCKET);
     input.setStorageKey(TEST_STORAGE_KEY);
     input.setOriginalFileName(TEST_FILE_NAME);
     input.setMimeType(TEST_MIME_TYPE);
@@ -231,13 +240,15 @@ public class CreateDataHubFileResolverTest {
   @Test
   public void testGetWithNullOptionalFields() throws Exception {
     DataHubFileService mockService = mock(DataHubFileService.class);
-    CreateDataHubFileResolver resolver = new CreateDataHubFileResolver(mockService);
+    S3Configuration mockS3Config = mock(S3Configuration.class);
+    when(mockS3Config.getBucketName()).thenReturn(TEST_STORAGE_BUCKET);
+
+    CreateDataHubFileResolver resolver = new CreateDataHubFileResolver(mockService, mockS3Config);
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     CreateDataHubFileInput input = new CreateDataHubFileInput();
     input.setId(TEST_FILE_ID);
-    input.setStorageBucket(TEST_STORAGE_BUCKET);
     input.setStorageKey(TEST_STORAGE_KEY);
     input.setOriginalFileName(TEST_FILE_NAME);
     input.setMimeType(TEST_MIME_TYPE);

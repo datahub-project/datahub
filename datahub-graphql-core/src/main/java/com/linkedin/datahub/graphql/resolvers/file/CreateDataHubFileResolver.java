@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.CreateDataHubFileResponse;
 import com.linkedin.datahub.graphql.generated.DataHubFile;
 import com.linkedin.datahub.graphql.types.file.DataHubFileMapper;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.metadata.config.S3Configuration;
 import com.linkedin.metadata.service.DataHubFileService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -24,6 +25,7 @@ public class CreateDataHubFileResolver
     implements DataFetcher<CompletableFuture<CreateDataHubFileResponse>> {
 
   private final DataHubFileService _dataHubFileService;
+  private final S3Configuration _s3Configuration;
 
   @Override
   public CompletableFuture<CreateDataHubFileResponse> get(DataFetchingEnvironment environment)
@@ -32,8 +34,15 @@ public class CreateDataHubFileResolver
     final CreateDataHubFileInput input =
         bindArgument(environment.getArgument("input"), CreateDataHubFileInput.class);
 
+    // Get storage bucket from configuration
+    String storageBucket = _s3Configuration.getBucketName();
+    if (storageBucket == null || storageBucket.isEmpty()) {
+      log.error("Storage bucket is not configured when creating dataHubFile entity ");
+      storageBucket = "";
+    }
+    final String finalStorageBucket = storageBucket;
+
     String id = input.getId();
-    String storageBucket = input.getStorageBucket();
     String storageKey = input.getStorageKey();
     String originalFileName = input.getOriginalFileName();
     String mimeType = input.getMimeType();
@@ -61,7 +70,7 @@ public class CreateDataHubFileResolver
                 _dataHubFileService.createDataHubFile(
                     context.getOperationContext(),
                     id,
-                    storageBucket,
+                    finalStorageBucket,
                     storageKey,
                     originalFileName,
                     mimeType,
