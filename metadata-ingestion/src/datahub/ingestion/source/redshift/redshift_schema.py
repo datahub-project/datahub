@@ -244,12 +244,11 @@ class RedshiftDataDictionary:
         conn: redshift_connector.Connection, query: str
     ) -> redshift_connector.Cursor:
         with PerfTimer() as timer, conn.cursor() as cursor:
-            query_fragment = re.sub(r"\s+", " ", query).strip()[:100] + "..."
-            logger.info(f"Executing query: {query_fragment}")
-            logger.debug(query)
+            query_hash_id = hash(query)
+            logger.info(f"Executing query [{query_hash_id}]\n{query}")
             cursor.execute(query)
             logger.info(
-                f"Time taken to execute query: {timer.elapsed_seconds():.3f} seconds [{query_fragment}]"
+                f"Time taken query [{query_hash_id}: {timer.elapsed_seconds():.3f} seconds"
             )
             return cursor
 
