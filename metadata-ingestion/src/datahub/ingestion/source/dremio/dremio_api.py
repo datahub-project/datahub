@@ -371,14 +371,15 @@ class DremioAPIOperations:
 
             rows.extend(result_rows)
 
-            # Check row count to determine if we should continue
-            row_count = result.get("rowCount", 0)
-            if row_count == 0:
+            # Check actual returned rows to determine if we should continue
+            actual_rows_returned = len(result_rows)
+            if actual_rows_returned == 0:
                 logger.debug(f"Query returned no rows for job {job_id}")
                 break
 
-            offset = offset + limit
-            if offset >= row_count:
+            offset = offset + actual_rows_returned
+            # If we got fewer rows than requested, we've reached the end
+            if actual_rows_returned < limit:
                 break
 
         logger.info(f"Fetched {len(rows)} total rows for job {job_id}")
@@ -425,14 +426,15 @@ class DremioAPIOperations:
                 yield row
                 total_rows_fetched += 1
 
-            # Check row count to determine if we should continue
-            row_count = result.get("rowCount", 0)
-            if row_count == 0:
+            # Check actual returned rows to determine if we should continue
+            actual_rows_returned = len(result_rows)
+            if actual_rows_returned == 0:
                 logger.debug(f"Query returned no rows for job {job_id}")
                 break
 
-            offset = offset + limit
-            if offset >= row_count:
+            offset = offset + actual_rows_returned
+            # If we got fewer rows than requested, we've reached the end
+            if actual_rows_returned < limit:
                 break
 
         logger.info(f"Streamed {total_rows_fetched} total rows for job {job_id}")

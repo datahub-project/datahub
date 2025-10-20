@@ -12,7 +12,7 @@ from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 
 
-class TestDremioAPIFixes:
+class TestDremioAPIPagination:
     @pytest.fixture
     def dremio_api(self, monkeypatch):
         """Setup mock Dremio API for testing"""
@@ -254,10 +254,9 @@ class TestDremioAPIFixes:
         assert queries[1]["query_id"] == "q2"
         dremio_api.execute_query_iter.assert_called_once()
 
-    def test_memory_usage_comparison(self, dremio_api):
-        """Test that streaming uses less memory than batch processing"""
-        # This is a conceptual test - in practice, we'd need memory profiling tools
-        # Here we just verify that streaming yields results one at a time
+    def test_fetch_results_iter_incremental_yielding(self, dremio_api):
+        """Test that iterator yields results incrementally and can be partially consumed"""
+        # Verify that streaming yields results one at a time and iterator state is maintained
 
         mock_responses = [
             {"rows": [{"id": i} for i in range(100)], "rowCount": 1000},
