@@ -93,9 +93,9 @@ class SqlQueriesSourceReport(SourceReport):
     sql_aggregator: Optional[SqlAggregatorReport] = None
 
 
-@platform_name("SQL Queries")
+@platform_name("SQL Queries", id="sql-queries")
 @config_class(SqlQueriesSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.LINEAGE_COARSE, "Parsed from SQL queries")
 @capability(SourceCapability.LINEAGE_FINE, "Parsed from SQL queries")
 class SqlQueriesSource(Source):
