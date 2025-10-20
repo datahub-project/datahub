@@ -22,7 +22,7 @@ class SnowflakeAnalyticsEngine(AnalyticsEngine):
         self.account = account
         self.graph = graph
         self.connection = SnowflakeConnection.from_datahub(graph=graph)
-        logger.info(
+        logger.debug(
             f"SnowflakeAnalyticsEngine initialized with authentication_type={self.connection.authentication_type} (type={type(self.connection.authentication_type)})"
         )
         self._engine: Optional[Engine] = None

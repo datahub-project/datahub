@@ -19,6 +19,27 @@ export function shouldShowSnowflakeField(fieldName: string, authenticationType?:
     return true;
 }
 
+/**
+ * Creates a validator that requires a field value when a specific authentication type is selected.
+ * This eliminates duplication across multiple field validators that check authentication type.
+ *
+ * @param requiredAuthType - The authentication type that requires this field
+ * @param fieldLabel - The human-readable label for the field (e.g., 'Password', 'Private Key')
+ * @param authTypeLabel - The human-readable label for the auth type (e.g., 'Username & Password', 'Private Key')
+ * @returns A validator rule that can be used in RecipeField.rules
+ */
+export function createAuthTypeValidator(requiredAuthType: string, fieldLabel: string, authTypeLabel: string) {
+    return ({ getFieldValue }) => ({
+        validator(_, value) {
+            const authType = getFieldValue('authentication_type');
+            if (authType === requiredAuthType && !value) {
+                return Promise.reject(new Error(`${fieldLabel} is required for ${authTypeLabel} authentication`));
+            }
+            return Promise.resolve();
+        },
+    });
+}
+
 export const SNOWFLAKE_ACCOUNT_ID: RecipeField = {
     name: 'account_id',
     label: 'Account ID',
@@ -60,18 +81,7 @@ export const SNOWFLAKE_PASSWORD: RecipeField = {
     type: FieldType.SECRET,
     fieldPath: 'source.config.password',
     placeholder: 'password',
-    rules: [
-        ({ getFieldValue }) => ({
-            validator(_, value) {
-                const authType = getFieldValue('authentication_type');
-                // Require password for default (username/password) authentication
-                if (authType === 'DEFAULT_AUTHENTICATOR' && !value) {
-                    return Promise.reject(new Error('Password is required for Username & Password authentication'));
-                }
-                return Promise.resolve();
-            },
-        }),
-    ],
+    rules: [createAuthTypeValidator('DEFAULT_AUTHENTICATOR', 'Password', 'Username & Password')],
     required: false,
     shouldShow: (formValues) => shouldShowSnowflakeField('password', formValues.authentication_type),
 };
@@ -110,18 +120,7 @@ export const SNOWFLAKE_PRIVATE_KEY: RecipeField = {
     type: FieldType.SECRET,
     fieldPath: 'source.config.private_key',
     placeholder: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
-    rules: [
-        ({ getFieldValue }) => ({
-            validator(_, value) {
-                const authType = getFieldValue('authentication_type');
-                // Require private key for key pair authentication
-                if (authType === 'KEY_PAIR_AUTHENTICATOR' && !value) {
-                    return Promise.reject(new Error('Private Key is required for Private Key authentication'));
-                }
-                return Promise.resolve();
-            },
-        }),
-    ],
+    rules: [createAuthTypeValidator('KEY_PAIR_AUTHENTICATOR', 'Private Key', 'Private Key')],
     required: false,
     shouldShow: (formValues) => shouldShowSnowflakeField('private_key', formValues.authentication_type),
 };

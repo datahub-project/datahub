@@ -54,6 +54,7 @@ export const SNOWFLAKE_PASSWORD: RecipeField = {
     placeholder: 'password',
     rules: null,
     required: true,
+    shouldShow: (formValues) => formValues.authentication_type === 'DEFAULT_AUTHENTICATOR',
 };
 
 export const SNOWFLAKE_ROLE = {
@@ -113,9 +114,10 @@ export const SNOWFLAKE_PRIVATE_KEY: RecipeField = {
     placeholder: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
     rules: null,
     required: false,
+    shouldShow: (formValues) => formValues.authentication_type === 'KEY_PAIR_AUTHENTICATOR',
 };
 
-export const SNOWFLAKE_PRIVATE_KEY_PASSWORD = {
+export const SNOWFLAKE_PRIVATE_KEY_PASSWORD: RecipeField = {
     name: 'private_key_password',
     label: 'Private Key Password',
     tooltip: 'Password for your private key. Required if using key pair authentication with encrypted private key.',
@@ -124,6 +126,7 @@ export const SNOWFLAKE_PRIVATE_KEY_PASSWORD = {
     placeholder: 'Private key password (if encrypted)',
     rules: null,
     required: false,
+    shouldShow: (formValues) => formValues.authentication_type === 'KEY_PAIR_AUTHENTICATOR',
 };
 
 export const fields: RecipeField[] = [
