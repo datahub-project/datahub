@@ -21,6 +21,7 @@ from datahub.ingestion.glossary.classification_mixin import (
 )
 from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import (
+    BIAssetSubTypes,
     DatasetContainerSubTypes,
 )
 from datahub.ingestion.source.snowflake.constants import (
@@ -635,24 +636,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         schema_container_key = self.identifiers.gen_schema_key(
             app.database_name, app.schema_name
         )
-        database_container_key = self.identifiers.gen_database_key(app.database_name)
-
-        # Build browse path manually to avoid duplicate platform instance entries.
-        # When using ContainerKey directly, the SDK adds platform instance for both
-        # database and schema (since they share the same instance), causing duplicates.
-        browse_path_urns = [
-            database_container_key.as_urn(),
-            schema_container_key.as_urn(),
-        ]
-        if self.config.platform_instance:
-            from datahub.metadata.urns import DataPlatformInstanceUrn
-
-            browse_path_urns.insert(
-                0,
-                DataPlatformInstanceUrn(
-                    self.config.platform, self.config.platform_instance
-                ).urn(),
-            )
+        database_container_key = schema_container_key.parent_key()
+        assert database_container_key is not None  # schema always has a parent database
 
         dashboard = Dashboard(
             platform="snowflake",
@@ -665,9 +650,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             created_by=make_group_urn(app.owner),
             last_modified=app.created,
             last_modified_by=make_group_urn(app.owner),
-            subtype="Streamlit",
-            tags=[make_tag_urn("Streamlit")],
-            parent_container=browse_path_urns,
+            subtype=BIAssetSubTypes.STREAMLIT,
+            parent_container=[
+                database_container_key.as_urn(),
+                schema_container_key.as_urn(),
+            ],
+            external_url=(
+                self.snowsight_url_builder.get_external_url_for_streamlit(
+                    app.name, app.schema_name, app.database_name
+                )
+                if self.snowsight_url_builder
+                else None
+            ),
         )
 
         yield from dashboard.as_workunits()
