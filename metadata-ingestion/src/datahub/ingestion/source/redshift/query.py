@@ -686,88 +686,87 @@ group by
         https://docs.aws.amazon.com/redshift/latest/dg/r_SVL_STATEMENTTEXT.html
         type	varchar(10)	Type of SQL statement: QUERY, DDL, or UTILITY
 
-        To be considered:
-        - instead of filtering by type==DDL, fetching directly from STL_DDLTEXT https://docs.aws.amazon.com/redshift/latest/dg/r_STL_DDLTEXT.html
+        We filter in type=DDL to get DDL statements.
+        We filter in type=QUERY as well, because CREATE TABLE AS SELECT statements are logged as QUERY type.
         """
         start_time_str: str = start_time.strftime(redshift_datetime_format)
 
         end_time_str: str = end_time.strftime(redshift_datetime_format)
 
         return rf"""-- DataHub Redshift Source temp table DDL query
-select
-    *
-from (
-    select
-        session_id,
-        transaction_id,
-        start_time,
+with
+-- Stage 1: Identify individual queries/transactions that contain CREATE TABLE fragments
+-- Purpose: Pre-filter to only queries with DDL activity to reduce LISTAGG workload
+queries_with_create_table AS (
+    SELECT DISTINCT pid, xid, starttime
+    FROM SVL_STATEMENTTEXT
+    WHERE type IN ('DDL', 'QUERY')                              -- Include both DDL and QUERY (CREATE TABLE AS SELECT)
+      AND starttime >= '{start_time_str}'                       -- {start_time}
+      AND endtime < '{end_time_str}'                            -- {end_time}
+      AND sequence < {_QUERY_SEQUENCE_LIMIT}
+      -- Look for any fragment containing CREATE (TEMP)? TABLE keywords for early filtering of queries
+      AND (text ILIKE '%CREATE%TABLE%'    
+        OR text ILIKE '%CREATE%TEMP%'
+        OR text ILIKE '%CREATE%TEMPORARY%')
+      -- Push down simple filters that can be applied at fragment level
+      AND text NOT ILIKE 'CREATE TEMP TABLE volt_tt_%'          -- Exclude Redshift internal temp tables
+      AND text NOT ILIKE '%https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext%'  -- Exclude our own query
+),
+-- Stage 2: Reconstruct complete SQL statements from fragments
+-- Purpose: Use LISTAGG to reassemble fragmented queries, but only for pre-identified queries
+statement_fragments AS (
+    SELECT
+        s.starttime,
+        s.pid,
+        s.xid,
+        s.type,
+        s.userid,
+        -- Reassemble text fragments into complete SQL statements, preserving whitespace
+        LISTAGG(
+            CASE WHEN LEN(RTRIM(s.text)) = 0 THEN s.text ELSE RTRIM(s.text) END,
+            ''
+        ) WITHIN GROUP (ORDER BY s.sequence) AS query_text
+    FROM SVL_STATEMENTTEXT s
+    INNER JOIN queries_with_create_table c                      -- Only process fragments from identified queries
+      ON s.pid = c.pid AND s.xid = c.xid AND s.starttime = c.starttime
+    WHERE s.type IN ('DDL', 'QUERY')
+      AND s.sequence < {_QUERY_SEQUENCE_LIMIT}                  -- Prevent runaway aggregation on very long statements
+    GROUP BY s.starttime, s.pid, s.xid, s.type, s.userid
+),
+-- Stage 3: Parse and normalize CREATE commands from complete statements
+-- Purpose: Extract clean CREATE TABLE commands and add row numbering for deduplication
+parsed_statements AS (
+    SELECT
+        pid AS session_id,
+        xid AS transaction_id,
+        starttime AS start_time,
         userid,
-        REGEXP_REPLACE(REGEXP_SUBSTR(REGEXP_REPLACE(query_text,'\\\\n','\\n'), '(CREATE(?:[\\n\\s\\t]+(?:temp|temporary))?(?:[\\n\\s\\t]+)table(?:[\\n\\s\\t]+)[^\\n\\s\\t()-]+)', 0, 1, 'ipe'),'[\\n\\s\\t]+',' ',1,'p') as create_command,
+        type,
+        -- Complex regex to extract and normalize CREATE TABLE command
+        -- 1. Convert escaped newlines to actual newlines
+        -- 2. Extract CREATE TABLE pattern with optional TEMP/TEMPORARY
+        -- 3. Normalize whitespace to single spaces
+        REGEXP_REPLACE(
+            REGEXP_SUBSTR(
+                REGEXP_REPLACE(query_text,'\\\\n','\\n'),
+                '(CREATE(?:[\\n\\s\\t]+(?:temp|temporary))?(?:[\\n\\s\\t]+)table(?:[\\n\\s\\t]+)[^\\n\\s\\t()-]+)',
+                0, 1, 'ipe'
+            ),
+            '[\\n\\s\\t]+', ' ', 1, 'p'
+        ) as create_command,
         query_text,
-        row_number() over (
-            partition by session_id, TRIM(query_text)
-            order by start_time desc
-        ) rn
-    from (
-        select
-            pid as session_id,
-            xid as transaction_id,
-            starttime as start_time,
-            type,
-            query_text,
-            userid
-        from (
-            select
-                starttime,
-                pid,
-                xid,
-                type,
-                userid,
-                LISTAGG(case
-                    when LEN(RTRIM(text)) = 0 then text
-                    else RTRIM(text)
-                end,
-                '') within group (
-                    order by sequence
-                ) as query_text
-            from
-                SVL_STATEMENTTEXT
-            where
-                type = 'DDL'
-                AND        starttime >= '{start_time_str}'
-                AND        starttime < '{end_time_str}'
-                AND sequence < {_QUERY_SEQUENCE_LIMIT}
-            group by
-                starttime,
-                pid,
-                xid,
-                type,
-                userid
-            order by
-                starttime,
-                pid,
-                xid,
-                type,
-                userid
-                asc
-        )
-        where
-            type = 'DDL'
-    )
-    where
-        (create_command ilike 'create temp table %'
-            or create_command ilike 'create temporary table %'
-            -- we want to get all the create table statements and not just temp tables if non temp table is created and dropped in the same transaction
-            or create_command ilike 'create table %')
-        -- Redshift creates temp tables with the following names: volt_tt_%. We need to filter them out.
-        and query_text not ilike 'CREATE TEMP TABLE volt_tt_%'
-        and create_command not like 'CREATE TEMP TABLE volt_tt_'
-        -- We need to filter out our query and it was not possible earlier when we did not have any comment in the query
-        and query_text not ilike '%https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext%'
-
+        -- Add row number for deduplication (keep most recent query per session/statement)
+        ROW_NUMBER() OVER (PARTITION BY pid, TRIM(query_text) ORDER BY start_time DESC) AS rn
+    FROM statement_fragments
 )
-where
-    rn = 1
+-- Stage 4: Final filtering and deduplication
+-- Purpose: Apply complex CREATE TABLE pattern matching and return only unique recent statements
+SELECT *
+FROM parsed_statements
+WHERE (create_command ILIKE 'create temp table %'      -- Match normalized CREATE TEMP TABLE
+    OR create_command ILIKE 'create temporary table %' -- Match normalized CREATE TEMPORARY TABLE  
+    OR create_command ILIKE 'create table %')          -- Match normalized CREATE TABLE
+  AND rn = 1;  -- Keep only the most recent occurrence of each unique statement
 """
 
     # Add this join to the sql query for more metrics on completed queries
