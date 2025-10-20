@@ -93,7 +93,9 @@ if TYPE_CHECKING:
         _TaskMetadata = Any  # type: ignore[misc,assignment]
 
     # Define ExtractResult as a proper type alias for mypy
-    ExtractResult: TypeAlias = Any  # Union of TaskMetadata | OperatorLineage
+    from typing import Union
+
+    ExtractResult: TypeAlias = Union[_TaskMetadata, _OperatorLineage]
 
 logger = logging.getLogger(__name__)
 _DATAHUB_GRAPH_CONTEXT_KEY = "datahub_graph"

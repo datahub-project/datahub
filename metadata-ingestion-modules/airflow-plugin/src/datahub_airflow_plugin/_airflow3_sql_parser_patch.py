@@ -1,4 +1,3 @@
-# mypy: ignore-errors
 """
 Patch for Airflow 3.0+ SQLParser to use DataHub's SQL parser.
 
@@ -8,16 +7,44 @@ SQL parser, which provides better column-level lineage support.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
+
+# Airflow 3.x specific imports (wrapped in try/except for version compatibility)
+try:
+    from airflow.providers.openlineage.extractors import OperatorLineage
+    from airflow.providers.openlineage.sqlparser import DatabaseInfo
+    from openlineage.client.event_v2 import Dataset as OpenLineageDataset
+    from openlineage.client.facet import SqlJobFacet
+
+    AIRFLOW3_IMPORTS_AVAILABLE = True
+except ImportError:
+    # Not available on Airflow < 3.0
+    # Set to None for runtime checks, type checker will see these as None
+    OperatorLineage = None  # type: ignore[assignment,misc]
+    DatabaseInfo = None  # type: ignore[assignment,misc]
+    OpenLineageDataset = None  # type: ignore[assignment,misc]
+    SqlJobFacet = None  # type: ignore[assignment,misc]
+    AIRFLOW3_IMPORTS_AVAILABLE = False
+
+# DataHub imports (always available)
+import datahub.emitter.mce_builder as builder
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
 
 if TYPE_CHECKING:
     from airflow.providers.openlineage.extractors import OperatorLineage
+    from airflow.providers.openlineage.sqlparser import DatabaseInfo
+    from openlineage.client.event_v2 import Dataset as OpenLineageDataset
+    from openlineage.client.facet import SqlJobFacet
 
 logger = logging.getLogger(__name__)
 
+# Store the original SQLParser method for fallback
+_original_sql_parser_method: Optional[Callable[..., Optional["OperatorLineage"]]] = None
+
 
 def _datahub_generate_openlineage_metadata_from_sql(
-    self,
+    self: Any,
     sql: Any,
     hook: Any,
     database_info: dict,
@@ -33,17 +60,11 @@ def _datahub_generate_openlineage_metadata_from_sql(
     to generate lineage with column-level lineage support.
     """
     try:
-        from airflow.providers.openlineage.extractors import OperatorLineage
-        from openlineage.client.facet import SqlJobFacet
-
-        import datahub.emitter.mce_builder as builder
-        from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
-        from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
+        # Import here to avoid circular dependency (datahub_listener -> _airflow_compat -> this module)
+        from datahub_airflow_plugin.datahub_listener import get_airflow_plugin_listener
 
         # Handle missing database_info by creating a minimal one from connection
         if database_info is None:
-            from airflow.providers.openlineage.sqlparser import DatabaseInfo
-
             # Get basic properties from hook's connection
             conn = getattr(hook, "get_connection", lambda: None)()
             scheme = getattr(conn, "conn_type", None) if conn else None
@@ -83,8 +104,6 @@ def _datahub_generate_openlineage_metadata_from_sql(
             sql = sql[0] if sql else ""
 
         # Run DataHub's SQL parser
-        from datahub_airflow_plugin.datahub_listener import get_airflow_plugin_listener
-
         listener = get_airflow_plugin_listener()
         graph = listener.graph if listener else None
 
@@ -111,10 +130,8 @@ def _datahub_generate_openlineage_metadata_from_sql(
 
         # Convert DataHub URNs to OpenLineage Dataset objects
         # We extract table components from URNs and convert them to OL format
-        def _urn_to_ol_dataset(urn: str):
+        def _urn_to_ol_dataset(urn: str) -> "OpenLineageDataset":
             """Convert DataHub URN to OpenLineage Dataset format."""
-            from openlineage.client.event_v2 import Dataset as OpenLineageDataset
-
             # Parse URN to extract database, schema, table
             # URN format: urn:li:dataset:(urn:li:dataPlatform:{platform},{database}.{schema}.{table},{env})
             try:
@@ -161,14 +178,11 @@ def _datahub_generate_openlineage_metadata_from_sql(
             exc_info=True,
         )
         # Fall back to original implementation
-        # Import here to avoid circular dependency
-        from airflow.providers.openlineage.sqlparser import SQLParser
-
-        # Get the original method
-        original_method = object.__getattribute__(
-            SQLParser, "_original_generate_openlineage_metadata_from_sql"
-        )
-        return original_method(
+        if _original_sql_parser_method is None:
+            raise RuntimeError(
+                "Original SQLParser method not stored. patch_sqlparser() may not have been called."
+            ) from None
+        return _original_sql_parser_method(
             self, sql, hook, database_info, database, sqlalchemy_engine, use_connection
         )
 
@@ -179,16 +193,18 @@ def patch_sqlparser() -> None:
 
     This should be called early in the plugin initialization, before any SQL operators are used.
     """
+    global _original_sql_parser_method
+
     try:
         from airflow.providers.openlineage.sqlparser import SQLParser
 
         # Store original method for fallback
-        if not hasattr(SQLParser, "_original_generate_openlineage_metadata_from_sql"):
-            SQLParser._original_generate_openlineage_metadata_from_sql = (
+        if _original_sql_parser_method is None:
+            _original_sql_parser_method = (
                 SQLParser.generate_openlineage_metadata_from_sql
             )
 
-        SQLParser.generate_openlineage_metadata_from_sql = (
+        SQLParser.generate_openlineage_metadata_from_sql = (  # type: ignore[method-assign]
             _datahub_generate_openlineage_metadata_from_sql
         )
         logger.info(
