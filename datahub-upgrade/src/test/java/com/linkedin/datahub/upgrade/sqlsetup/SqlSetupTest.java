@@ -16,7 +16,6 @@ import org.testng.annotations.Test;
 public class SqlSetupTest {
 
   @Mock private Database mockDatabase;
-  @Mock private SqlSetupArgs mockSetupArgs;
 
   private SqlSetup sqlSetup;
 
@@ -27,7 +26,24 @@ public class SqlSetupTest {
 
   @Test
   public void testSqlSetupInit() {
-    sqlSetup = new SqlSetup(mockDatabase, mockSetupArgs);
+    SqlSetupArgs setupArgs =
+        new SqlSetupArgs(
+            true, // createTables
+            true, // createDatabase
+            false, // createUser
+            false, // iamAuthEnabled
+            DatabaseType.MYSQL, // dbType
+            false, // cdcEnabled
+            "datahub_cdc", // cdcUser
+            "datahub_cdc", // cdcPassword
+            null, // createUserUsername
+            null, // createUserPassword
+            "localhost", // host
+            3306, // port
+            "datahub", // databaseName
+            null // createUserIamRole
+            );
+    sqlSetup = new SqlSetup(mockDatabase, setupArgs);
 
     assertNotNull(sqlSetup);
     assertEquals("SqlSetup", sqlSetup.id());
@@ -37,7 +53,24 @@ public class SqlSetupTest {
 
   @Test
   public void testSqlSetupWithNullDatabase() {
-    sqlSetup = new SqlSetup(null, mockSetupArgs);
+    SqlSetupArgs setupArgs =
+        new SqlSetupArgs(
+            true, // createTables
+            true, // createDatabase
+            false, // createUser
+            false, // iamAuthEnabled
+            DatabaseType.MYSQL, // dbType
+            false, // cdcEnabled
+            "datahub_cdc", // cdcUser
+            "datahub_cdc", // cdcPassword
+            null, // createUserUsername
+            null, // createUserPassword
+            "localhost", // host
+            3306, // port
+            "datahub", // databaseName
+            null // createUserIamRole
+            );
+    sqlSetup = new SqlSetup(null, setupArgs);
 
     assertNotNull(sqlSetup);
     assertEquals("SqlSetup", sqlSetup.id());
@@ -67,11 +100,25 @@ public class SqlSetupTest {
 
   @Test
   public void testBuildStepsWithCreateTablesOnly() {
-    mockSetupArgs.createTables = true;
-    mockSetupArgs.createUser = false;
-    mockSetupArgs.cdcEnabled = false;
+    SqlSetupArgs setupArgs =
+        new SqlSetupArgs(
+            true, // createTables
+            true, // createDatabase
+            false, // createUser
+            false, // iamAuthEnabled
+            DatabaseType.MYSQL, // dbType
+            false, // cdcEnabled
+            "datahub_cdc", // cdcUser
+            "datahub_cdc", // cdcPassword
+            null, // createUserUsername
+            null, // createUserPassword
+            "localhost", // host
+            3306, // port
+            "datahub", // databaseName
+            null // createUserIamRole
+            );
 
-    sqlSetup = new SqlSetup(mockDatabase, mockSetupArgs);
+    sqlSetup = new SqlSetup(mockDatabase, setupArgs);
 
     List<UpgradeStep> steps = sqlSetup.steps();
     assertEquals(steps.size(), 1);
@@ -80,11 +127,25 @@ public class SqlSetupTest {
 
   @Test
   public void testBuildStepsWithCreateTablesAndUsers() {
-    mockSetupArgs.createTables = true;
-    mockSetupArgs.createUser = true;
-    mockSetupArgs.cdcEnabled = false;
+    SqlSetupArgs setupArgs =
+        new SqlSetupArgs(
+            true, // createTables
+            true, // createDatabase
+            true, // createUser
+            false, // iamAuthEnabled
+            DatabaseType.MYSQL, // dbType
+            false, // cdcEnabled
+            "datahub_cdc", // cdcUser
+            "datahub_cdc", // cdcPassword
+            "testuser", // createUserUsername
+            "testpass", // createUserPassword
+            "localhost", // host
+            3306, // port
+            "datahub", // databaseName
+            null // createUserIamRole
+            );
 
-    sqlSetup = new SqlSetup(mockDatabase, mockSetupArgs);
+    sqlSetup = new SqlSetup(mockDatabase, setupArgs);
 
     List<UpgradeStep> steps = sqlSetup.steps();
     assertEquals(steps.size(), 2);
@@ -94,11 +155,25 @@ public class SqlSetupTest {
 
   @Test
   public void testBuildStepsWithCreateTablesAndCdc() {
-    mockSetupArgs.createTables = true;
-    mockSetupArgs.createUser = false;
-    mockSetupArgs.cdcEnabled = true;
+    SqlSetupArgs setupArgs =
+        new SqlSetupArgs(
+            true, // createTables
+            true, // createDatabase
+            false, // createUser
+            false, // iamAuthEnabled
+            DatabaseType.MYSQL, // dbType
+            true, // cdcEnabled
+            "datahub_cdc", // cdcUser
+            "datahub_cdc", // cdcPassword
+            null, // createUserUsername
+            null, // createUserPassword
+            "localhost", // host
+            3306, // port
+            "datahub", // databaseName
+            null // createUserIamRole
+            );
 
-    sqlSetup = new SqlSetup(mockDatabase, mockSetupArgs);
+    sqlSetup = new SqlSetup(mockDatabase, setupArgs);
 
     List<UpgradeStep> steps = sqlSetup.steps();
     assertEquals(steps.size(), 2);
@@ -108,11 +183,25 @@ public class SqlSetupTest {
 
   @Test
   public void testBuildStepsWithAllEnabled() {
-    mockSetupArgs.createTables = true;
-    mockSetupArgs.createUser = true;
-    mockSetupArgs.cdcEnabled = true;
+    SqlSetupArgs setupArgs =
+        new SqlSetupArgs(
+            true, // createTables
+            true, // createDatabase
+            true, // createUser
+            false, // iamAuthEnabled
+            DatabaseType.MYSQL, // dbType
+            true, // cdcEnabled
+            "datahub_cdc", // cdcUser
+            "datahub_cdc", // cdcPassword
+            "testuser", // createUserUsername
+            "testpass", // createUserPassword
+            "localhost", // host
+            3306, // port
+            "datahub", // databaseName
+            null // createUserIamRole
+            );
 
-    sqlSetup = new SqlSetup(mockDatabase, mockSetupArgs);
+    sqlSetup = new SqlSetup(mockDatabase, setupArgs);
 
     List<UpgradeStep> steps = sqlSetup.steps();
     assertEquals(steps.size(), 3);

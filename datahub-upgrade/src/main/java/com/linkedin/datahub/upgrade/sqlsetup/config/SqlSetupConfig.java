@@ -53,22 +53,18 @@ public class SqlSetupConfig {
   @Bean(name = "sqlSetupArgs")
   @Nonnull
   public SqlSetupArgs createSetupArgs() {
-    SqlSetupArgs args = new SqlSetupArgs();
-
     // Auto-detect database type from Ebean configuration
     DatabaseType dbType = detectDatabaseType();
-    args.dbType = dbType;
 
     // Configure based on SqlSetup-specific environment variables only
-    args.createTables = UpgradeUtils.getBoolean("CREATE_TABLES", true);
-    args.createDatabase = UpgradeUtils.getBoolean("CREATE_DB", true);
-    args.createUser = UpgradeUtils.getBoolean("CREATE_USER", false);
-    args.createUserIamRole = UpgradeUtils.getString("IAM_ROLE");
-    args.iamAuthEnabled =
-        args.createUserIamRole != null && !args.createUserIamRole.trim().isEmpty();
-    args.cdcEnabled = UpgradeUtils.getBoolean("CDC_MCL_PROCESSING_ENABLED", false);
-    args.cdcUser = UpgradeUtils.getString("CDC_USER", "datahub_cdc");
-    args.cdcPassword = UpgradeUtils.getString("CDC_PASSWORD", "datahub_cdc");
+    boolean createTables = UpgradeUtils.getBoolean("CREATE_TABLES", true);
+    boolean createDatabase = UpgradeUtils.getBoolean("CREATE_DB", true);
+    boolean createUser = UpgradeUtils.getBoolean("CREATE_USER", false);
+    String createUserIamRole = UpgradeUtils.getString("IAM_ROLE");
+    boolean iamAuthEnabled = createUserIamRole != null && !createUserIamRole.trim().isEmpty();
+    boolean cdcEnabled = UpgradeUtils.getBoolean("CDC_MCL_PROCESSING_ENABLED", false);
+    String cdcUser = UpgradeUtils.getString("CDC_USER", "datahub_cdc");
+    String cdcPassword = UpgradeUtils.getString("CDC_PASSWORD", "datahub_cdc");
 
     // Extract database connection info from Spring Ebean configuration
     if (ebeanUrl == null || ebeanUrl.trim().isEmpty()) {
@@ -77,26 +73,45 @@ public class SqlSetupConfig {
     }
 
     JdbcUrlParser.JdbcInfo jdbcInfo = JdbcUrlParser.parseJdbcUrl(ebeanUrl);
-    args.databaseName = jdbcInfo.database;
-    args.host = jdbcInfo.host;
-    args.port = jdbcInfo.port;
+    String databaseName = jdbcInfo.database;
+    String host = jdbcInfo.host;
+    int port = jdbcInfo.port;
 
     // Set user creation credentials based on CREATE_USER setting
-    if (args.createUser) {
-      if (args.iamAuthEnabled) {
+    String createUserUsername;
+    String createUserPassword;
+    if (createUser) {
+      if (iamAuthEnabled) {
         // IAM authentication: only set username, no password
-        args.createUserUsername = UpgradeUtils.getString("CREATE_USER_USERNAME");
-        args.createUserPassword = null; // No password for IAM auth
+        createUserUsername = UpgradeUtils.getString("CREATE_USER_USERNAME");
+        createUserPassword = null; // No password for IAM auth
       } else {
         // Traditional authentication: set both username and password
-        args.createUserUsername = UpgradeUtils.getString("CREATE_USER_USERNAME");
-        args.createUserPassword = UpgradeUtils.getString("CREATE_USER_PASSWORD");
+        createUserUsername = UpgradeUtils.getString("CREATE_USER_USERNAME");
+        createUserPassword = UpgradeUtils.getString("CREATE_USER_PASSWORD");
       }
     } else {
       // When CREATE_USER is disabled, these fields are not used
-      args.createUserUsername = null;
-      args.createUserPassword = null;
+      createUserUsername = null;
+      createUserPassword = null;
     }
+
+    SqlSetupArgs args =
+        new SqlSetupArgs(
+            createTables,
+            createDatabase,
+            createUser,
+            iamAuthEnabled,
+            dbType,
+            cdcEnabled,
+            cdcUser,
+            cdcPassword,
+            createUserUsername,
+            createUserPassword,
+            host,
+            port,
+            databaseName,
+            createUserIamRole);
 
     // Validate authentication configuration
     validateAuthenticationConfig(args);
@@ -155,20 +170,20 @@ public class SqlSetupConfig {
    */
   void validateAuthenticationConfig(SqlSetupArgs args) {
     // Only validate authentication if user creation is enabled
-    if (!args.createUser) {
+    if (!args.isCreateUser()) {
       return;
     }
 
-    if (args.iamAuthEnabled) {
+    if (args.isIamAuthEnabled()) {
       // IAM authentication enabled - validate IAM role is provided
-      if (args.createUserIamRole == null || args.createUserIamRole.trim().isEmpty()) {
+      if (args.getCreateUserIamRole() == null || args.getCreateUserIamRole().trim().isEmpty()) {
         throw new IllegalStateException(
             "IAM user creation is enabled but IAM_ROLE is not specified. "
                 + "Either set IAM_ROLE environment variable or disable IAM authentication.");
       }
 
       // Validate username is provided for IAM
-      if (args.createUserUsername == null || args.createUserUsername.trim().isEmpty()) {
+      if (args.getCreateUserUsername() == null || args.getCreateUserUsername().trim().isEmpty()) {
         throw new IllegalStateException(
             "IAM user creation is enabled but username is not specified. "
                 + "Set CREATE_USER_USERNAME environment variable.");
@@ -176,23 +191,23 @@ public class SqlSetupConfig {
 
       log.info(
           "IAM user creation validated: role='{}', username='{}'",
-          args.createUserIamRole,
-          args.createUserUsername);
+          args.getCreateUserIamRole(),
+          args.getCreateUserUsername());
     } else {
       // Traditional authentication - validate username and password are provided
-      if (args.createUserUsername == null || args.createUserUsername.trim().isEmpty()) {
+      if (args.getCreateUserUsername() == null || args.getCreateUserUsername().trim().isEmpty()) {
         throw new IllegalStateException(
             "Traditional user creation requires username. "
                 + "Set CREATE_USER_USERNAME environment variable.");
       }
 
-      if (args.createUserPassword == null || args.createUserPassword.trim().isEmpty()) {
+      if (args.getCreateUserPassword() == null || args.getCreateUserPassword().trim().isEmpty()) {
         throw new IllegalStateException(
             "Traditional user creation requires password. "
                 + "Set CREATE_USER_PASSWORD environment variable.");
       }
 
-      log.info("Traditional user creation validated: username='{}'", args.createUserUsername);
+      log.info("Traditional user creation validated: username='{}'", args.getCreateUserUsername());
     }
   }
 

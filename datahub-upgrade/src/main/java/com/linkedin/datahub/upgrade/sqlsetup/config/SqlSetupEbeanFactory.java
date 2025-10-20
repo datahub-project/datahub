@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.sqlsetup.config;
 
 import static com.linkedin.datahub.upgrade.UpgradeUtils.getBoolean;
 
+import com.linkedin.datahub.upgrade.sqlsetup.DatabaseOperations;
 import com.linkedin.datahub.upgrade.sqlsetup.DatabaseType;
 import com.linkedin.datahub.upgrade.sqlsetup.JdbcUrlParser;
 import io.ebean.Database;
@@ -38,27 +39,9 @@ public class SqlSetupEbeanFactory {
     JdbcUrlParser.JdbcInfo jdbcInfo = JdbcUrlParser.parseJdbcUrl(originalUrl);
     DatabaseType dbType = jdbcInfo.databaseType;
 
-    if (DatabaseType.MYSQL.equals(dbType)) {
-      if (createDb) {
-        // For MySQL: remove database name to connect to server only (needed for database creation)
-        modifiedUrl = JdbcUrlParser.createUrlWithoutDatabase(originalUrl);
-        log.info(
-            "SqlSetup MySQL: Modifying database URL from '{}' to '{}' for database creation",
-            originalUrl,
-            modifiedUrl);
-      } else {
-        // For MySQL: use original URL if no database creation needed
-        log.info(
-            "SqlSetup MySQL: Using original database URL '{}' (no database creation needed)",
-            originalUrl);
-      }
-    } else if (DatabaseType.POSTGRES.equals(dbType)) {
-      // For PostgreSQL: always use the original URL (target database)
-      // Database creation will be handled separately using a direct JDBC connection
-      log.info(
-          "SqlSetup PostgreSQL: Using original database URL '{}' (database creation handled separately)",
-          originalUrl);
-    }
+    // Use database operations to modify URL
+    DatabaseOperations dbOps = DatabaseOperations.create(dbType);
+    modifiedUrl = dbOps.modifyJdbcUrl(originalUrl, createDb);
 
     serverConfig.getDataSourceConfig().url(modifiedUrl);
 

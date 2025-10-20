@@ -17,10 +17,12 @@ public class CreateUsersStep implements UpgradeStep {
 
   private final Database server;
   private final SqlSetupArgs setupArgs;
+  private final DatabaseOperations dbOps;
 
   public CreateUsersStep(final Database server, final SqlSetupArgs setupArgs) {
     this.server = server;
     this.setupArgs = setupArgs;
+    this.dbOps = DatabaseOperations.create(setupArgs.getDbType());
   }
 
   @Override
@@ -61,12 +63,12 @@ public class CreateUsersStep implements UpgradeStep {
     long startTime = System.currentTimeMillis();
 
     // Only create users if explicitly requested (matching original CREATE_USER logic)
-    if (!args.createUser) {
+    if (!args.isCreateUser()) {
       log.info("User creation not requested, skipping");
       return result;
     }
 
-    if (args.iamAuthEnabled) {
+    if (args.isIamAuthEnabled()) {
       createIamUser(args, result);
     } else {
       createTraditionalUser(args, result);
@@ -77,77 +79,45 @@ public class CreateUsersStep implements UpgradeStep {
   }
 
   void createIamUser(SqlSetupArgs args, SqlSetupResult result) throws SQLException {
-    log.info("Creating IAM-authenticated user: {}", args.createUserUsername);
+    log.info("Creating IAM-authenticated user: {}", args.getCreateUserUsername());
 
     try (Connection connection = server.dataSource().getConnection()) {
       String createUserSql =
-          getCreateIamUserSql(args.dbType, args.createUserUsername, args.createUserIamRole);
+          dbOps.createIamUserSql(args.getCreateUserUsername(), args.getCreateUserIamRole());
       try (PreparedStatement stmt = connection.prepareStatement(createUserSql)) {
         stmt.executeUpdate();
       }
 
       String grantPrivilegesSql =
-          getGrantPrivilegesSql(args.dbType, args.createUserUsername, args.databaseName);
+          dbOps.grantPrivilegesSql(args.getCreateUserUsername(), args.getDatabaseName());
       try (PreparedStatement grantStmt = connection.prepareStatement(grantPrivilegesSql)) {
         grantStmt.executeUpdate();
       }
 
       result.setUsersCreated(1);
-      log.info("IAM user '{}' created successfully", args.createUserUsername);
+      log.info("IAM user '{}' created successfully", args.getCreateUserUsername());
     }
   }
 
   void createTraditionalUser(SqlSetupArgs args, SqlSetupResult result) throws SQLException {
-    log.info("Creating traditional user: {}", args.createUserUsername);
+    log.info("Creating traditional user: {}", args.getCreateUserUsername());
 
     try (Connection connection = server.dataSource().getConnection()) {
       String createUserSql =
-          getCreateTraditionalUserSql(
-              args.dbType, args.createUserUsername, args.createUserPassword);
+          dbOps.createTraditionalUserSql(
+              args.getCreateUserUsername(), args.getCreateUserPassword());
       try (PreparedStatement stmt = connection.prepareStatement(createUserSql)) {
         stmt.executeUpdate();
       }
 
       String grantPrivilegesSql =
-          getGrantPrivilegesSql(args.dbType, args.createUserUsername, args.databaseName);
+          dbOps.grantPrivilegesSql(args.getCreateUserUsername(), args.getDatabaseName());
       try (PreparedStatement grantStmt = connection.prepareStatement(grantPrivilegesSql)) {
         grantStmt.executeUpdate();
       }
 
       result.setUsersCreated(1);
-      log.info("Traditional user '{}' created successfully", args.createUserUsername);
-    }
-  }
-
-  String getCreateIamUserSql(DatabaseType dbType, String username, String iamRole) {
-    if (DatabaseType.POSTGRES.equals(dbType)) {
-      // PostgreSQL - IAM authentication (requires additional setup)
-      return "CREATE USER \"" + username + "\" WITH LOGIN;";
-    } else {
-      // MySQL - IAM authentication with configurable role
-      return "CREATE USER '"
-          + username
-          + "'@'%' IDENTIFIED WITH AWSAuthenticationPlugin AS '"
-          + iamRole
-          + "';";
-    }
-  }
-
-  String getCreateTraditionalUserSql(DatabaseType dbType, String username, String password) {
-    if (DatabaseType.POSTGRES.equals(dbType)) {
-      return "CREATE USER \"" + username + "\" WITH PASSWORD '" + password + "';";
-    } else {
-      // MySQL - traditional authentication
-      return "CREATE USER '" + username + "'@'%' IDENTIFIED BY '" + password + "';";
-    }
-  }
-
-  String getGrantPrivilegesSql(DatabaseType dbType, String username, String databaseName) {
-    if (DatabaseType.POSTGRES.equals(dbType)) {
-      return "GRANT ALL PRIVILEGES ON DATABASE \"" + databaseName + "\" TO \"" + username + "\";";
-    } else {
-      // MySQL
-      return "GRANT ALL PRIVILEGES ON `" + databaseName + "`.* TO '" + username + "'@'%';";
+      log.info("Traditional user '{}' created successfully", args.getCreateUserUsername());
     }
   }
 

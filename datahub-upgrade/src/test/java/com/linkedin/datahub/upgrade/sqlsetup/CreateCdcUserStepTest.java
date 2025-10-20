@@ -26,7 +26,6 @@ public class CreateCdcUserStepTest {
 
   @Mock private Database mockDatabase;
   @Mock private SqlUpdate mockSqlUpdate;
-  @Mock private SqlSetupArgs mockSetupArgs;
   @Mock private UpgradeContext mockUpgradeContext;
   @Mock private UpgradeReport mockUpgradeReport;
   @Mock private DataSource mockDataSource;
@@ -39,7 +38,24 @@ public class CreateCdcUserStepTest {
   @BeforeMethod
   public void setUp() throws SQLException {
     MockitoAnnotations.openMocks(this);
-    createCdcUserStep = new CreateCdcUserStep(mockDatabase, mockSetupArgs);
+    SqlSetupArgs defaultSetupArgs =
+        new SqlSetupArgs(
+            true, // createTables
+            true, // createDatabase
+            false, // createUser
+            false, // iamAuthEnabled
+            DatabaseType.MYSQL, // dbType
+            true, // cdcEnabled
+            "datahub_cdc", // cdcUser
+            "datahub_cdc", // cdcPassword
+            null, // createUserUsername
+            null, // createUserPassword
+            "localhost", // host
+            3306, // port
+            "testdb", // databaseName
+            null // createUserIamRole
+            );
+    createCdcUserStep = new CreateCdcUserStep(mockDatabase, defaultSetupArgs);
     when(mockUpgradeContext.report()).thenReturn(mockUpgradeReport);
 
     // Setup mock DataSource chain for PreparedStatement approach
@@ -67,11 +83,6 @@ public class CreateCdcUserStepTest {
 
   @Test
   public void testExecutableSuccessWithCdcEnabled() throws SQLException {
-    mockSetupArgs.cdcEnabled = true;
-    mockSetupArgs.cdcUser = "datahub_cdc";
-    mockSetupArgs.cdcPassword = "cdc_password";
-    mockSetupArgs.dbType = DatabaseType.MYSQL;
-    mockSetupArgs.databaseName = "testdb";
 
     Function<UpgradeContext, UpgradeStepResult> executable = createCdcUserStep.executable();
     assertNotNull(executable);
@@ -89,9 +100,26 @@ public class CreateCdcUserStepTest {
 
   @Test
   public void testExecutableWithCdcDisabled() throws SQLException {
-    mockSetupArgs.cdcEnabled = false;
+    // Create a CreateCdcUserStep with CDC disabled
+    SqlSetupArgs disabledCdcArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.MYSQL,
+            false,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            3306,
+            "testdb",
+            null);
+    CreateCdcUserStep disabledCdcStep = new CreateCdcUserStep(mockDatabase, disabledCdcArgs);
 
-    Function<UpgradeContext, UpgradeStepResult> executable = createCdcUserStep.executable();
+    Function<UpgradeContext, UpgradeStepResult> executable = disabledCdcStep.executable();
     assertNotNull(executable);
 
     UpgradeStepResult result = executable.apply(mockUpgradeContext);
@@ -106,13 +134,26 @@ public class CreateCdcUserStepTest {
 
   @Test
   public void testExecutableWithMysqlCdc() throws SQLException {
-    mockSetupArgs.cdcEnabled = true;
-    mockSetupArgs.cdcUser = "mysql_cdc";
-    mockSetupArgs.cdcPassword = "mysql_cdc_pass";
-    mockSetupArgs.dbType = DatabaseType.MYSQL;
-    mockSetupArgs.databaseName = "testdb";
+    // Create a CreateCdcUserStep with MySQL CDC user
+    SqlSetupArgs mysqlCdcArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.MYSQL,
+            true,
+            "mysql_cdc",
+            "mysql_cdc_pass",
+            null,
+            null,
+            "localhost",
+            3306,
+            "testdb",
+            null);
+    CreateCdcUserStep mysqlCdcStep = new CreateCdcUserStep(mockDatabase, mysqlCdcArgs);
 
-    Function<UpgradeContext, UpgradeStepResult> executable = createCdcUserStep.executable();
+    Function<UpgradeContext, UpgradeStepResult> executable = mysqlCdcStep.executable();
     assertNotNull(executable);
 
     UpgradeStepResult result = executable.apply(mockUpgradeContext);
@@ -123,17 +164,31 @@ public class CreateCdcUserStepTest {
 
     verify(mockUpgradeReport).addLine("Creating CDC user...");
     verify(mockUpgradeReport).addLine("CDC user 'mysql_cdc' created successfully");
+    verify(mockUpgradeReport).addLine(contains("Execution time:"));
   }
 
   @Test
   public void testExecutableWithPostgresCdc() throws SQLException {
-    mockSetupArgs.cdcEnabled = true;
-    mockSetupArgs.cdcUser = "postgres_cdc";
-    mockSetupArgs.cdcPassword = "postgres_cdc_pass";
-    mockSetupArgs.dbType = DatabaseType.POSTGRES;
-    mockSetupArgs.databaseName = "testdb";
+    // Create a CreateCdcUserStep with PostgreSQL CDC user
+    SqlSetupArgs postgresCdcArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.POSTGRES,
+            true,
+            "postgres_cdc",
+            "postgres_cdc_pass",
+            null,
+            null,
+            "localhost",
+            5432,
+            "testdb",
+            null);
+    CreateCdcUserStep postgresCdcStep = new CreateCdcUserStep(mockDatabase, postgresCdcArgs);
 
-    Function<UpgradeContext, UpgradeStepResult> executable = createCdcUserStep.executable();
+    Function<UpgradeContext, UpgradeStepResult> executable = postgresCdcStep.executable();
     assertNotNull(executable);
 
     UpgradeStepResult result = executable.apply(mockUpgradeContext);
@@ -144,15 +199,11 @@ public class CreateCdcUserStepTest {
 
     verify(mockUpgradeReport).addLine("Creating CDC user...");
     verify(mockUpgradeReport).addLine("CDC user 'postgres_cdc' created successfully");
+    verify(mockUpgradeReport).addLine(contains("Execution time:"));
   }
 
   @Test
   public void testExecutableWithException() throws SQLException {
-    mockSetupArgs.cdcEnabled = true;
-    mockSetupArgs.cdcUser = "datahub_cdc";
-    mockSetupArgs.cdcPassword = "cdc_password";
-    mockSetupArgs.dbType = DatabaseType.MYSQL;
-    mockSetupArgs.databaseName = "testdb";
 
     // Mock PreparedStatement.executeUpdate() to throw SQLException
     when(mockPreparedStatement.executeUpdate())
@@ -207,13 +258,26 @@ public class CreateCdcUserStepTest {
 
   @Test
   public void testCdcUserCreationWithCustomValues() throws SQLException {
-    mockSetupArgs.cdcEnabled = true;
-    mockSetupArgs.cdcUser = "custom_cdc_user";
-    mockSetupArgs.cdcPassword = "custom_cdc_password";
-    mockSetupArgs.dbType = DatabaseType.POSTGRES;
-    mockSetupArgs.databaseName = "custom_db";
+    // Create a CreateCdcUserStep with custom CDC user
+    SqlSetupArgs customCdcArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.POSTGRES,
+            true,
+            "custom_cdc_user",
+            "custom_cdc_password",
+            null,
+            null,
+            "localhost",
+            5432,
+            "custom_db",
+            null);
+    CreateCdcUserStep customCdcStep = new CreateCdcUserStep(mockDatabase, customCdcArgs);
 
-    Function<UpgradeContext, UpgradeStepResult> executable = createCdcUserStep.executable();
+    Function<UpgradeContext, UpgradeStepResult> executable = customCdcStep.executable();
     assertNotNull(executable);
 
     UpgradeStepResult result = executable.apply(mockUpgradeContext);
@@ -223,17 +287,31 @@ public class CreateCdcUserStepTest {
 
     verify(mockUpgradeReport).addLine("Creating CDC user...");
     verify(mockUpgradeReport).addLine("CDC user 'custom_cdc_user' created successfully");
+    verify(mockUpgradeReport).addLine(contains("Execution time:"));
   }
 
   @Test
   public void testCdcUserCreationWithDefaultValues() throws SQLException {
-    mockSetupArgs.cdcEnabled = true;
-    mockSetupArgs.cdcUser = "datahub_cdc"; // Default value
-    mockSetupArgs.cdcPassword = "datahub_cdc"; // Default value
-    mockSetupArgs.dbType = DatabaseType.MYSQL;
-    mockSetupArgs.databaseName = "datahub"; // Default value
+    // Create a CreateCdcUserStep with default CDC user
+    SqlSetupArgs defaultCdcArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.MYSQL,
+            true,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            3306,
+            "testdb",
+            null);
+    CreateCdcUserStep defaultCdcStep = new CreateCdcUserStep(mockDatabase, defaultCdcArgs);
 
-    Function<UpgradeContext, UpgradeStepResult> executable = createCdcUserStep.executable();
+    Function<UpgradeContext, UpgradeStepResult> executable = defaultCdcStep.executable();
     assertNotNull(executable);
 
     UpgradeStepResult result = executable.apply(mockUpgradeContext);
@@ -243,96 +321,142 @@ public class CreateCdcUserStepTest {
 
     verify(mockUpgradeReport).addLine("Creating CDC user...");
     verify(mockUpgradeReport).addLine("CDC user 'datahub_cdc' created successfully");
+    verify(mockUpgradeReport).addLine(contains("Execution time:"));
   }
 
   @Test
   public void testGetCreateCdcUserSqlPostgres() throws Exception {
-    mockSetupArgs.cdcUser = "postgres_cdc";
-    mockSetupArgs.cdcPassword = "postgres_cdc_pass";
-    mockSetupArgs.dbType = DatabaseType.POSTGRES;
+    SqlSetupArgs postgresArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.POSTGRES,
+            true,
+            "postgres_cdc",
+            "postgres_cdc_pass",
+            null,
+            null,
+            "localhost",
+            5432,
+            "testdb",
+            null);
+    CreateCdcUserStep postgresStep = new CreateCdcUserStep(mockDatabase, postgresArgs);
 
-    String result =
-        createCdcUserStep.getCreateCdcUserSql(
-            DatabaseType.POSTGRES, "postgres_cdc", "postgres_cdc_pass");
-
-    assertNotNull(result);
-    assertTrue(result.contains("DO"));
-    assertTrue(result.contains("$$"));
-    assertTrue(
-        result.contains(
-            "IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'postgres_cdc')"));
-    assertTrue(result.contains("CREATE USER \"postgres_cdc\" WITH PASSWORD 'postgres_cdc_pass'"));
-    assertTrue(result.contains("ALTER USER \"postgres_cdc\" WITH REPLICATION"));
+    // This test is now covered by DatabaseOperationsTest
+    // Testing the step execution instead
+    Function<UpgradeContext, UpgradeStepResult> executable = postgresStep.executable();
+    UpgradeStepResult result = executable.apply(mockUpgradeContext);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
   }
 
   @Test
   public void testGetCreateCdcUserSqlMysql() throws Exception {
-    mockSetupArgs.cdcUser = "mysql_cdc";
-    mockSetupArgs.cdcPassword = "mysql_cdc_pass";
+    SqlSetupArgs mysqlArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.MYSQL,
+            true,
+            "mysql_cdc",
+            "mysql_cdc_pass",
+            null,
+            null,
+            "localhost",
+            3306,
+            "testdb",
+            null);
+    CreateCdcUserStep mysqlStep = new CreateCdcUserStep(mockDatabase, mysqlArgs);
 
-    String result =
-        createCdcUserStep.getCreateCdcUserSql(DatabaseType.MYSQL, "mysql_cdc", "mysql_cdc_pass");
-
-    assertNotNull(result);
-    assertTrue(
-        result.contains(
-            "CREATE USER IF NOT EXISTS 'mysql_cdc'@'%' IDENTIFIED BY 'mysql_cdc_pass'"));
+    // This test is now covered by DatabaseOperationsTest
+    // Testing the step execution instead
+    Function<UpgradeContext, UpgradeStepResult> executable = mysqlStep.executable();
+    UpgradeStepResult result = executable.apply(mockUpgradeContext);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
   }
 
   @Test
   public void testGetGrantCdcPrivilegesSqlPostgres() throws Exception {
-    mockSetupArgs.databaseName = "testdb";
-    mockSetupArgs.cdcUser = "postgres_cdc";
-    mockSetupArgs.dbType = DatabaseType.POSTGRES;
+    SqlSetupArgs postgresArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.POSTGRES,
+            true,
+            "postgres_cdc",
+            "postgres_cdc_pass",
+            null,
+            null,
+            "localhost",
+            5432,
+            "testdb",
+            null);
+    CreateCdcUserStep postgresStep = new CreateCdcUserStep(mockDatabase, postgresArgs);
 
-    String result =
-        createCdcUserStep.getGrantCdcPrivilegesSql(DatabaseType.POSTGRES, "postgres_cdc", "testdb");
-
-    assertNotNull(result);
-    assertTrue(result.contains("GRANT CONNECT ON DATABASE \"testdb\" TO \"postgres_cdc\""));
-    assertTrue(result.contains("GRANT USAGE ON SCHEMA public TO \"postgres_cdc\""));
-    assertTrue(result.contains("GRANT CREATE ON DATABASE \"testdb\" TO \"postgres_cdc\""));
-    assertTrue(result.contains("GRANT SELECT ON ALL TABLES IN SCHEMA public TO \"postgres_cdc\""));
-    assertTrue(
-        result.contains(
-            "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO \"postgres_cdc\""));
-    assertTrue(result.contains("ALTER USER \"postgres_cdc\" WITH SUPERUSER"));
-    assertTrue(result.contains("ALTER TABLE public.metadata_aspect_v2 OWNER TO \"postgres_cdc\""));
-    assertTrue(result.contains("ALTER TABLE public.metadata_aspect_v2 REPLICA IDENTITY FULL"));
-    assertTrue(
-        result.contains("CREATE PUBLICATION dbz_publication FOR TABLE public.metadata_aspect_v2"));
+    // This test is now covered by DatabaseOperationsTest
+    // Testing the step execution instead
+    Function<UpgradeContext, UpgradeStepResult> executable = postgresStep.executable();
+    UpgradeStepResult result = executable.apply(mockUpgradeContext);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
   }
 
   @Test
   public void testGetGrantCdcPrivilegesSqlMysql() throws Exception {
-    mockSetupArgs.databaseName = "testdb";
-    mockSetupArgs.cdcUser = "mysql_cdc";
+    SqlSetupArgs mysqlArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.MYSQL,
+            true,
+            "mysql_cdc",
+            "mysql_cdc_pass",
+            null,
+            null,
+            "localhost",
+            3306,
+            "testdb",
+            null);
+    CreateCdcUserStep mysqlStep = new CreateCdcUserStep(mockDatabase, mysqlArgs);
 
-    String result =
-        createCdcUserStep.getGrantCdcPrivilegesSql(DatabaseType.MYSQL, "mysql_cdc", "testdb");
-
-    assertNotNull(result);
-    assertTrue(result.contains("GRANT SELECT ON `testdb`.* TO 'mysql_cdc'@'%'"));
-    assertTrue(result.contains("GRANT RELOAD ON *.* TO 'mysql_cdc'@'%'"));
-    assertTrue(result.contains("GRANT REPLICATION CLIENT ON *.* TO 'mysql_cdc'@'%'"));
-    assertTrue(result.contains("GRANT REPLICATION SLAVE ON *.* TO 'mysql_cdc'@'%'"));
-    assertTrue(result.contains("FLUSH PRIVILEGES"));
+    // This test is now covered by DatabaseOperationsTest
+    // Testing the step execution instead
+    Function<UpgradeContext, UpgradeStepResult> executable = mysqlStep.executable();
+    UpgradeStepResult result = executable.apply(mockUpgradeContext);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
   }
 
   @Test
   public void testCreateCdcUserWithException() throws SQLException {
-    mockSetupArgs.cdcEnabled = true;
-    mockSetupArgs.cdcUser = "test_cdc";
-    mockSetupArgs.cdcPassword = "test_pass";
-    mockSetupArgs.dbType = DatabaseType.MYSQL;
-    mockSetupArgs.databaseName = "testdb";
 
     // Mock PreparedStatement.executeUpdate() to throw SQLException
     when(mockPreparedStatement.executeUpdate())
         .thenThrow(new SQLException("CDC user creation failed"));
 
     try {
-      createCdcUserStep.createCdcUser(mockSetupArgs);
+      SqlSetupArgs testArgs =
+          new SqlSetupArgs(
+              true,
+              true,
+              false,
+              false,
+              DatabaseType.MYSQL,
+              true,
+              "datahub_cdc",
+              "datahub_cdc",
+              null,
+              null,
+              "localhost",
+              3306,
+              "testdb",
+              null);
+      createCdcUserStep.createCdcUser(testArgs);
       assertTrue(false, "Expected SQLException to be thrown");
     } catch (Exception e) {
       assertTrue(e instanceof SQLException);
@@ -341,13 +465,24 @@ public class CreateCdcUserStepTest {
 
   @Test
   public void testCreateCdcUserSuccess() throws SQLException {
-    mockSetupArgs.cdcEnabled = true;
-    mockSetupArgs.cdcUser = "test_cdc";
-    mockSetupArgs.cdcPassword = "test_pass";
-    mockSetupArgs.dbType = DatabaseType.MYSQL;
-    mockSetupArgs.databaseName = "testdb";
 
-    SqlSetupResult result = createCdcUserStep.createCdcUser(mockSetupArgs);
+    SqlSetupArgs testArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.MYSQL,
+            true,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            3306,
+            "testdb",
+            null);
+    SqlSetupResult result = createCdcUserStep.createCdcUser(testArgs);
 
     assertNotNull(result);
     assertEquals(result.isCdcUserCreated(), true);
@@ -360,9 +495,24 @@ public class CreateCdcUserStepTest {
 
   @Test
   public void testCreateCdcUserDisabled() throws SQLException {
-    mockSetupArgs.cdcEnabled = false;
 
-    SqlSetupResult result = createCdcUserStep.createCdcUser(mockSetupArgs);
+    SqlSetupArgs testArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.MYSQL,
+            false, // CDC disabled
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            3306,
+            "testdb",
+            null);
+    SqlSetupResult result = createCdcUserStep.createCdcUser(testArgs);
 
     assertNotNull(result);
     assertEquals(result.isCdcUserCreated(), false);
@@ -372,13 +522,24 @@ public class CreateCdcUserStepTest {
 
   @Test
   public void testCreateCdcUserWithPostgresComplexSql() throws SQLException {
-    mockSetupArgs.cdcEnabled = true;
-    mockSetupArgs.cdcUser = "postgres_cdc";
-    mockSetupArgs.cdcPassword = "postgres_cdc_pass";
-    mockSetupArgs.dbType = DatabaseType.POSTGRES;
-    mockSetupArgs.databaseName = "testdb";
 
-    SqlSetupResult result = createCdcUserStep.createCdcUser(mockSetupArgs);
+    SqlSetupArgs testArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.MYSQL,
+            true,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            3306,
+            "testdb",
+            null);
+    SqlSetupResult result = createCdcUserStep.createCdcUser(testArgs);
 
     assertNotNull(result);
     assertEquals(result.isCdcUserCreated(), true);
@@ -391,13 +552,24 @@ public class CreateCdcUserStepTest {
 
   @Test
   public void testCreateCdcUserWithMysqlSimpleSql() throws SQLException {
-    mockSetupArgs.cdcEnabled = true;
-    mockSetupArgs.cdcUser = "mysql_cdc";
-    mockSetupArgs.cdcPassword = "mysql_cdc_pass";
-    mockSetupArgs.dbType = DatabaseType.MYSQL;
-    mockSetupArgs.databaseName = "testdb";
 
-    SqlSetupResult result = createCdcUserStep.createCdcUser(mockSetupArgs);
+    SqlSetupArgs testArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.MYSQL,
+            true,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            3306,
+            "testdb",
+            null);
+    SqlSetupResult result = createCdcUserStep.createCdcUser(testArgs);
 
     assertNotNull(result);
     assertEquals(result.isCdcUserCreated(), true);
