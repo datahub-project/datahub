@@ -3,7 +3,7 @@ import { useApolloClient } from '@apollo/client';
 import { useAppConfig } from '@src/app/useAppConfig';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
-import { GetPresignedUploadUrlDocument } from '@graphql/app.generated';
+import { GetPresignedUploadUrlDocument, useCreateDataHubFileMutation } from '@graphql/app.generated';
 import { UploadDownloadScenario } from '@types';
 
 const PRODUCT_ASSETS_FOLDER = 'product-assets';
@@ -11,11 +11,14 @@ const PRODUCT_ASSETS_FOLDER = 'product-assets';
 interface Props {
     scenario: UploadDownloadScenario;
     assetUrn?: string;
+    schemaField?: string;
 }
 
-export default function useFileUpload({ scenario, assetUrn }: Props) {
+export default function useFileUpload({ scenario, assetUrn, schemaField }: Props) {
     const client = useApolloClient();
     const { config } = useAppConfig();
+
+    const [createFile] = useCreateDataHubFileMutation();
 
     const uploadFile = async (file: File) => {
         const { data } = await client.query({
@@ -48,6 +51,22 @@ export default function useFileUpload({ scenario, assetUrn }: Props) {
         if (!response.ok) {
             throw new Error(`Failed to upload file: ${response.statusText}`);
         }
+
+        await createFile({
+            variables: {
+                input: {
+                    id: fileId,
+                    mimeType: file.type,
+                    originalFileName: file.name,
+                    referencedByAsset: assetUrn,
+                    schemaField,
+                    scenario,
+                    sizeInBytes: file.size,
+                    storageBucket: 'test', // TODO:: should it be here?
+                    storageKey: `${PRODUCT_ASSETS_FOLDER}/${fileId}`,
+                },
+            },
+        });
 
         return resolveRuntimePath(`/openapi/v1/files/${PRODUCT_ASSETS_FOLDER}/${fileId}`);
     };

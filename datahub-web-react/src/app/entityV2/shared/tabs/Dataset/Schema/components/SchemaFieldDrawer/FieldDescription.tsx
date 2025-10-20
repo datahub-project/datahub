@@ -5,6 +5,7 @@ import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { EditorProps } from '@components/components/Editor/types';
 import { sanitizeRichText } from '@components/components/Editor/utils';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
@@ -59,9 +60,10 @@ const DescriptionWrapper = styled.div`
 interface Props {
     expandedField: SchemaField;
     editableFieldInfo?: EditableSchemaFieldInfo;
+    editorProps?: Partial<EditorProps>;
 }
 
-export default function FieldDescription({ expandedField, editableFieldInfo }: Props) {
+export default function FieldDescription({ expandedField, editableFieldInfo, editorProps }: Props) {
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -178,6 +180,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                         onClose();
                     }}
                     isAddDesc={!displayedDescription}
+                    editorProps={editorProps}
                 />
             )}
             <StyledDivider dashed />
