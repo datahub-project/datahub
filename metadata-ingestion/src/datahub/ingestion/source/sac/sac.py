@@ -209,7 +209,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SACSource":
-        config = SACSourceConfig.parse_obj(config_dict)
+        config = SACSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod
@@ -217,7 +217,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         test_report = TestConnectionReport()
 
         try:
-            config = SACSourceConfig.parse_obj(config_dict)
+            config = SACSourceConfig.model_validate(config_dict)
 
             # when creating the pyodata.Client, the metadata is automatically parsed and validated
             session, _ = SACSource.get_sac_connection(config)

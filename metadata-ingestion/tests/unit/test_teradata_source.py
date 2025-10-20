@@ -32,7 +32,7 @@ class TestTeradataConfig:
     def test_valid_config(self):
         """Test that valid configuration is accepted."""
         config_dict = _base_config()
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
 
         assert config.host_port == "localhost:1025"
         assert config.include_table_lineage is True
@@ -45,13 +45,13 @@ class TestTeradataConfig:
             **_base_config(),
             "max_workers": 8,
         }
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
         assert config.max_workers == 8
 
     def test_max_workers_default(self):
         """Test max_workers defaults to 10."""
         config_dict = _base_config()
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
         assert config.max_workers == 10
 
     def test_max_workers_custom_value(self):
@@ -60,13 +60,13 @@ class TestTeradataConfig:
             **_base_config(),
             "max_workers": 5,
         }
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
         assert config.max_workers == 5
 
     def test_include_queries_default(self):
         """Test include_queries defaults to True."""
         config_dict = _base_config()
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
         assert config.include_queries is True
 
     def test_time_window_defaults_applied(self):
@@ -79,7 +79,7 @@ class TestTeradataConfig:
             "include_usage_statistics": True,
         }
 
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
 
         assert config.start_time is not None
         assert config.end_time is not None
@@ -98,7 +98,7 @@ class TestTeradataConfig:
             "incremental_lineage": True,
         }
 
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
 
         assert hasattr(config, "incremental_lineage")
         assert config.incremental_lineage is True
@@ -107,10 +107,10 @@ class TestTeradataConfig:
             **_base_config(),
             "incremental_lineage": False,
         }
-        config_false = TeradataConfig.parse_obj(config_dict_false)
+        config_false = TeradataConfig.model_validate(config_dict_false)
         assert config_false.incremental_lineage is False
 
-        config_default = TeradataConfig.parse_obj(_base_config())
+        config_default = TeradataConfig.model_validate(_base_config())
         assert config_default.incremental_lineage is False
 
     def test_config_inheritance_chain(self):
@@ -122,7 +122,7 @@ class TestTeradataConfig:
             "incremental_lineage": True,
         }
 
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
 
         # Verify inheritance from BaseTimeWindowConfig
         assert hasattr(config, "start_time")
@@ -147,7 +147,7 @@ class TestTeradataConfig:
             "stateful_ingestion": {"enabled": True, "fail_safe_threshold": 90},
         }
 
-        config = TeradataConfig.parse_obj(user_recipe_config)
+        config = TeradataConfig.model_validate(user_recipe_config)
 
         assert config.host_port == "vmvantage1720:1025"
         assert config.username == "dbc"
@@ -168,7 +168,7 @@ class TestTeradataSource:
     @patch("datahub.ingestion.source.sql.teradata.create_engine")
     def test_source_initialization(self, mock_create_engine):
         """Test source initializes correctly."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
         ctx = PipelineContext(run_id="test")
 
         # Mock the engine creation
@@ -207,7 +207,7 @@ class TestTeradataSource:
         mock_engine.connect.return_value.__enter__.return_value = mock_connection
         mock_create_engine.return_value = mock_engine
 
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -231,7 +231,7 @@ class TestTeradataSource:
 
     def test_cache_tables_and_views_thread_safety(self):
         """Test that cache operations are thread-safe."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -274,7 +274,7 @@ class TestTeradataSource:
 
     def test_convert_entry_to_observed_query(self):
         """Test conversion of database entries to ObservedQuery objects."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -312,7 +312,7 @@ class TestTeradataSource:
 
     def test_convert_entry_to_observed_query_with_none_user(self):
         """Test ObservedQuery conversion handles None user correctly."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -339,7 +339,7 @@ class TestTeradataSource:
 
     def test_check_historical_table_exists_success(self):
         """Test historical table check when table exists."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -366,7 +366,7 @@ class TestTeradataSource:
 
     def test_check_historical_table_exists_failure(self):
         """Test historical table check when table doesn't exist."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -394,7 +394,7 @@ class TestTeradataSource:
 
     def test_close_cleanup(self):
         """Test that close() properly cleans up resources."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -429,7 +429,7 @@ class TestTeradataSource:
             "include_usage_statistics": True,
         }
 
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -502,7 +502,7 @@ class TestMemoryEfficiency:
 
     def test_fetch_lineage_entries_chunked_streaming(self):
         """Test that lineage entries are processed in streaming fashion."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -547,7 +547,7 @@ class TestConcurrencySupport:
 
     def test_tables_cache_thread_safety(self):
         """Test that tables cache operations are thread-safe."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -570,7 +570,7 @@ class TestConcurrencySupport:
 
     def test_cached_loop_tables_safe_access(self):
         """Test cached_loop_tables uses safe cache access."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -619,7 +619,7 @@ class TestStageTracking:
 
     def test_stage_tracking_in_cache_operation(self):
         """Test that table caching uses stage tracking."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         # Create source without mocking to test the actual stage tracking during init
         with (
@@ -635,7 +635,7 @@ class TestStageTracking:
 
     def test_stage_tracking_in_aggregator_processing(self):
         """Test that aggregator processing uses stage tracking."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -673,7 +673,7 @@ class TestErrorHandling:
 
     def test_empty_lineage_entries(self):
         """Test handling of empty lineage entries."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -696,7 +696,7 @@ class TestErrorHandling:
 
     def test_malformed_query_entry(self):
         """Test handling of malformed query entries."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -732,7 +732,7 @@ class TestLineageQuerySeparation:
 
     def test_make_lineage_queries_current_only(self):
         """Test that only current query is returned when historical lineage is disabled."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": False,
@@ -762,7 +762,7 @@ class TestLineageQuerySeparation:
 
     def test_make_lineage_queries_with_historical_available(self):
         """Test that UNION query is returned when historical lineage is enabled and table exists."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": True,
@@ -802,7 +802,7 @@ class TestLineageQuerySeparation:
 
     def test_make_lineage_queries_with_historical_unavailable(self):
         """Test that only current query is returned when historical lineage is enabled but table doesn't exist."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": True,
@@ -833,7 +833,7 @@ class TestLineageQuerySeparation:
 
     def test_make_lineage_queries_with_database_filter(self):
         """Test that database filters are correctly applied to UNION query."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": True,
@@ -868,7 +868,7 @@ class TestLineageQuerySeparation:
 
     def test_fetch_lineage_entries_chunked_multiple_queries(self):
         """Test that _fetch_lineage_entries_chunked handles multiple queries correctly."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": True,
@@ -931,7 +931,7 @@ class TestLineageQuerySeparation:
 
     def test_fetch_lineage_entries_chunked_single_query(self):
         """Test that _fetch_lineage_entries_chunked handles single query correctly."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": False,
@@ -984,7 +984,7 @@ class TestLineageQuerySeparation:
 
     def test_fetch_lineage_entries_chunked_batch_processing(self):
         """Test that batch processing works correctly with configurable batch size."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": False,
@@ -1045,7 +1045,7 @@ class TestLineageQuerySeparation:
 
     def test_end_to_end_separate_queries_integration(self):
         """Test end-to-end integration of separate queries in the aggregator flow."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": True,
@@ -1112,7 +1112,7 @@ class TestLineageQuerySeparation:
 
     def test_query_logging_and_progress_tracking(self):
         """Test that proper logging occurs when processing multiple queries."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": True,
@@ -1186,7 +1186,7 @@ class TestQueryConstruction:
 
     def test_current_query_construction(self):
         """Test that the current query is constructed correctly."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "start_time": "2024-01-01T00:00:00Z",
@@ -1218,7 +1218,7 @@ class TestQueryConstruction:
 
     def test_historical_query_construction(self):
         """Test that the UNION query contains historical data correctly."""
-        config = TeradataConfig.parse_obj(
+        config = TeradataConfig.model_validate(
             {
                 **_base_config(),
                 "include_historical_lineage": True,
@@ -1260,7 +1260,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_single_row_queries(self):
         """Test streaming reconstruction with single-row queries."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1301,7 +1301,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_multi_row_queries(self):
         """Test streaming reconstruction with multi-row queries."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1353,7 +1353,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_mixed_queries(self):
         """Test streaming reconstruction with mixed single and multi-row queries."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1411,7 +1411,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_empty_entries(self):
         """Test streaming reconstruction with empty entries."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1431,7 +1431,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_teradata_specific_transformations(self):
         """Test that Teradata-specific transformations are applied."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1463,7 +1463,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_metadata_preservation(self):
         """Test that all metadata fields are preserved correctly."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1506,7 +1506,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_with_none_user(self):
         """Test streaming reconstruction handles None user correctly."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1534,7 +1534,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_empty_query_text(self):
         """Test streaming reconstruction handles empty query text correctly."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
@@ -1564,7 +1564,7 @@ class TestStreamingQueryReconstruction:
 
     def test_reconstruct_queries_streaming_space_joining_behavior(self):
         """Test that query parts are joined directly without adding spaces."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.model_validate(_base_config())
 
         with patch(
             "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"

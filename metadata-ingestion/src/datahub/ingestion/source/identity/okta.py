@@ -288,7 +288,7 @@ class OktaSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = OktaConfig.parse_obj(config_dict)
+        config = OktaConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def __init__(self, config: OktaConfig, ctx: PipelineContext):

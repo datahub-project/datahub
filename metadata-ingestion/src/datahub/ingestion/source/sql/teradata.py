@@ -860,7 +860,7 @@ ORDER by DataBaseName, TableName;
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = TeradataConfig.parse_obj(config_dict)
+        config = TeradataConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def _init_schema_resolver(self) -> SchemaResolver:

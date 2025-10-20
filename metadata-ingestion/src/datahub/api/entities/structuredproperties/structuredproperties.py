@@ -138,7 +138,7 @@ class StructuredProperties(ConfigModel):
 
         result: List[StructuredProperties] = []
         for structuredproperty_raw in structuredproperties:
-            result.append(StructuredProperties.parse_obj(structuredproperty_raw))
+            result.append(StructuredProperties.model_validate(structuredproperty_raw))
         return result
 
     def generate_mcps(self) -> List[MetadataChangeProposalWrapper]:

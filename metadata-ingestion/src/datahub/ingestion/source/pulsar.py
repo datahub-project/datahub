@@ -235,7 +235,7 @@ class PulsarSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = PulsarSourceConfig.parse_obj(config_dict)
+        config = PulsarSourceConfig.model_validate(config_dict)
 
         # Do not include each individual partition for partitioned topics,
         if config.exclude_individual_partitions:

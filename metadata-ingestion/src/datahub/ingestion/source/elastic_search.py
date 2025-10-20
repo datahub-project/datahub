@@ -382,7 +382,7 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
     def create(
         cls, config_dict: Dict[str, Any], ctx: PipelineContext
     ) -> "ElasticsearchSource":
-        config = ElasticsearchSourceConfig.parse_obj(config_dict)
+        config = ElasticsearchSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

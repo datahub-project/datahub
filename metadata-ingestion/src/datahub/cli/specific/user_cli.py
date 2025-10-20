@@ -42,7 +42,7 @@ def upsert(file: Path, override_editable: bool) -> None:
     with get_default_graph(ClientMode.CLI) as emitter:
         for user_config in user_configs:
             try:
-                datahub_user: CorpUser = CorpUser.parse_obj(user_config)
+                datahub_user: CorpUser = CorpUser.model_validate(user_config)
 
                 emitter.emit_all(
                     datahub_user.generate_mcp(

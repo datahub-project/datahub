@@ -310,12 +310,12 @@ class Pipeline:
                 reporter.type for reporter in self.config.reporting
             ]:
                 self.config.reporting.append(
-                    ReporterConfig.parse_obj({"type": "datahub"})
+                    ReporterConfig.model_validate({"type": "datahub"})
                 )
         elif report_to:
             # we assume this is a file name, and add the file reporter
             self.config.reporting.append(
-                ReporterConfig.parse_obj(
+                ReporterConfig.model_validate(
                     {"type": "file", "config": {"filename": report_to}}
                 )
             )

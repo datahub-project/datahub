@@ -112,7 +112,7 @@ def test_incorrect_custom_info_type_config():
     with pytest.raises(
         ValidationError, match="Missing Configuration for Prediction Factor"
     ):
-        DataHubClassifierConfig.parse_obj(
+        DataHubClassifierConfig.model_validate(
             {
                 "confidence_level_threshold": 0.7,
                 "info_types_config": {
@@ -135,7 +135,7 @@ def test_incorrect_custom_info_type_config():
         )
 
     with pytest.raises(ValidationError, match="Invalid Prediction Type"):
-        DataHubClassifierConfig.parse_obj(
+        DataHubClassifierConfig.model_validate(
             {
                 "confidence_level_threshold": 0.7,
                 "info_types_config": {

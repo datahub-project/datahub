@@ -63,8 +63,8 @@ class RestSinkMode(ConfigEnum):
     ASYNC_BATCH = auto()
 
 
-_DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
-    RestSinkMode, get_rest_sink_default_mode() or RestSinkMode.ASYNC_BATCH
+_DEFAULT_REST_SINK_MODE = pydantic.TypeAdapter(RestSinkMode).validate_python(
+    get_rest_sink_default_mode() or RestSinkMode.ASYNC_BATCH
 )
 
 

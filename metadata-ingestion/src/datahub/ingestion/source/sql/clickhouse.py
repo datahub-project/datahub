@@ -423,7 +423,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = ClickHouseConfig.parse_obj(config_dict)
+        config = ClickHouseConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:

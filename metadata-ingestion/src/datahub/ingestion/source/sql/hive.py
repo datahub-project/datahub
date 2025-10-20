@@ -725,7 +725,7 @@ class HiveSource(TwoTierSQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = HiveConfig.parse_obj(config_dict)
+        config = HiveConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

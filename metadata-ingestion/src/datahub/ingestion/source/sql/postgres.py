@@ -165,7 +165,7 @@ class PostgresSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = PostgresConfig.parse_obj(config_dict)
+        config = PostgresConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_inspectors(self) -> Iterable[Inspector]:
@@ -211,7 +211,7 @@ class PostgresSource(SQLAlchemySource):
                 return {}
 
             for row in results:
-                data.append(ViewLineageEntry.parse_obj(row))
+                data.append(ViewLineageEntry.model_validate(row))
 
         lineage_elements: Dict[Tuple[str, str], List[str]] = defaultdict(list)
         # Loop over the lineages in the JSON data.

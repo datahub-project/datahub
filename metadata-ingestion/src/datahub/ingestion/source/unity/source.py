@@ -317,7 +317,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = UnityCatalogSourceConfig.parse_obj(config_dict)
+        config = UnityCatalogSourceConfig.model_validate(config_dict)
         return cls(ctx=ctx, config=config)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

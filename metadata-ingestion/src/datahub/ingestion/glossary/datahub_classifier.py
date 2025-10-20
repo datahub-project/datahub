@@ -90,7 +90,7 @@ class InfoTypeConfig(ConfigModel):
 
 
 DEFAULT_CLASSIFIER_CONFIG = {
-    k: InfoTypeConfig.parse_obj(v) for k, v in default_config.items()
+    k: InfoTypeConfig.model_validate(v) for k, v in default_config.items()
 }
 
 
@@ -173,7 +173,7 @@ class DataHubClassifier(Classifier):
     def create(cls, config_dict: Optional[Dict[str, Any]]) -> "DataHubClassifier":
         # This could be replaced by parsing to particular class, if required
         if config_dict is not None:
-            config = DataHubClassifierConfig.parse_obj(config_dict)
+            config = DataHubClassifierConfig.model_validate(config_dict)
         else:
             config = DataHubClassifierConfig()
         return cls(config)

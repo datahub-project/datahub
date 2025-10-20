@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Generator, List, Optional, Union
 
 import requests
-from pydantic import BaseModel, Field, ValidationError, validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 from requests.adapters import HTTPAdapter
 from typing_extensions import assert_never
 from urllib3.util.retry import Retry
@@ -50,7 +50,8 @@ class HexApiProjectAnalytics(BaseModel):
         default=None, alias="publishedResultsUpdatedAt"
     )
 
-    @validator("last_viewed_at", "published_results_updated_at", pre=True)
+    @field_validator("last_viewed_at", "published_results_updated_at", mode="before")
+    @classmethod
     def parse_datetime(cls, value):
         if value is None:
             return None
@@ -167,14 +168,15 @@ class HexApiProjectApiResource(BaseModel):
     class Config:
         extra = "ignore"  # Allow extra fields in the JSON
 
-    @validator(
+    @field_validator(
         "created_at",
         "last_edited_at",
         "last_published_at",
         "archived_at",
         "trashed_at",
-        pre=True,
+        mode="before",
     )
+    @classmethod
     def parse_datetime(cls, value):
         if value is None:
             return None
@@ -292,7 +294,7 @@ class HexApi:
             )
             response.raise_for_status()
 
-            api_response = HexApiProjectsListResponse.parse_obj(response.json())
+            api_response = HexApiProjectsListResponse.model_validate(response.json())
             logger.info(f"Fetched {len(api_response.values)} items")
             params["after"] = (
                 api_response.pagination.after if api_response.pagination else None

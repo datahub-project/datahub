@@ -33,7 +33,7 @@ class FileReporter(PipelineRunListener):
         ctx: PipelineContext,
         sink: Sink,
     ) -> PipelineRunListener:
-        reporter_config = FileReporterConfig.parse_obj(config_dict)
+        reporter_config = FileReporterConfig.model_validate(config_dict)
         return cls(reporter_config)
 
     def __init__(self, reporter_config: FileReporterConfig) -> None:

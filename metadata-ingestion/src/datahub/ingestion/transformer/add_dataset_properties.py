@@ -50,7 +50,7 @@ class AddDatasetProperties(DatasetPropertiesTransformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetProperties":
-        config = AddDatasetPropertiesConfig.parse_obj(config_dict)
+        config = AddDatasetPropertiesConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod
@@ -144,5 +144,5 @@ class SimpleAddDatasetProperties(AddDatasetProperties):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "SimpleAddDatasetProperties":
-        config = SimpleAddDatasetPropertiesConfig.parse_obj(config_dict)
+        config = SimpleAddDatasetPropertiesConfig.model_validate(config_dict)
         return cls(config, ctx)

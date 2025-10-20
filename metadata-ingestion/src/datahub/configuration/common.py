@@ -148,12 +148,12 @@ class ConfigModel(BaseModel):
                     clear=False,
                 ):
                     cls.model_rebuild(force=True)  # type: ignore
-                    return cls.parse_obj(obj)
+                    return cls.model_validate(obj)
             finally:
                 cls.model_rebuild(force=True)  # type: ignore
         else:
             with unittest.mock.patch.object(cls.Config, "extra", pydantic.Extra.allow):
-                return cls.parse_obj(obj)
+                return cls.model_validate(obj)
 
 
 class PermissiveConfigModel(ConfigModel):

@@ -311,7 +311,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "MongoDBSource":
-        config = MongoDBConfig.parse_obj(config_dict)
+        config = MongoDBConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

@@ -194,7 +194,7 @@ def overwrite_group_in_mocked_data(
 
 
 def test_azure_ad_config():
-    config = AzureADConfig.parse_obj(
+    config = AzureADConfig.model_validate(
         dict(
             client_id="00000000-0000-0000-0000-000000000000",
             tenant_id="00000000-0000-0000-0000-000000000000",

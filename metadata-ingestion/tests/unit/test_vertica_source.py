@@ -2,7 +2,7 @@ from datahub.ingestion.source.sql.vertica import VerticaConfig
 
 
 def test_vertica_uri_https():
-    config = VerticaConfig.parse_obj(
+    config = VerticaConfig.model_validate(
         {
             "username": "user",
             "password": "password",

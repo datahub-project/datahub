@@ -1824,7 +1824,7 @@ class ModeSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ModeSource":
-        config: ModeConfig = ModeConfig.parse_obj(config_dict)
+        config: ModeConfig = ModeConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

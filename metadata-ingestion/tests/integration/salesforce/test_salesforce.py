@@ -78,7 +78,7 @@ def test_latest_version(mock_sdk):
     mock_sf._call_salesforce = mocked_call
     mock_sdk.return_value = mock_sf
 
-    config = SalesforceConfig.parse_obj(
+    config = SalesforceConfig.model_validate(
         {
             "auth": "DIRECT_ACCESS_TOKEN",
             "instance_url": "https://mydomain.my.salesforce.com/",
@@ -122,7 +122,7 @@ def test_custom_version(mock_sdk):
     mock_sf._call_salesforce = mocked_call
     mock_sdk.return_value = mock_sf
 
-    config = SalesforceConfig.parse_obj(
+    config = SalesforceConfig.model_validate(
         {
             "auth": "DIRECT_ACCESS_TOKEN",
             "api_version": "46.0",

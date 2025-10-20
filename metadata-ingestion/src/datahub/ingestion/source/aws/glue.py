@@ -473,7 +473,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = GlueSourceConfig.parse_obj(config_dict)
+        config = GlueSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @property

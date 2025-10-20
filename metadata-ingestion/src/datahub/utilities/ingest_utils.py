@@ -48,7 +48,7 @@ def deploy_source_vars(
 
     deploy_options_raw = pipeline_config.pop("deployment", None)
     if deploy_options_raw is not None:
-        deploy_options = DeployOptions.parse_obj(deploy_options_raw)
+        deploy_options = DeployOptions.model_validate(deploy_options_raw)
 
         if name:
             logger.info(f"Overriding deployment name {deploy_options.name} with {name}")

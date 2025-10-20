@@ -42,7 +42,7 @@ class SetBrowsePathTransformer(BaseTransformer, SingleAspectTransformer):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "SetBrowsePathTransformer":
-        config = SetBrowsePathTransformerConfig.parse_obj(config_dict)
+        config = SetBrowsePathTransformerConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod

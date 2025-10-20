@@ -62,7 +62,7 @@ FROZEN_TIME = "2022-02-03 07:00:00"
 
 
 def test_bigquery_uri():
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
         }
@@ -71,14 +71,14 @@ def test_bigquery_uri():
 
 
 def test_bigquery_uri_on_behalf():
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {"project_id": "test-project", "project_on_behalf": "test-project-on-behalf"}
     )
     assert config.get_sql_alchemy_url() == "bigquery://test-project-on-behalf"
 
 
 def test_bigquery_dataset_pattern():
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "dataset_pattern": {
                 "allow": [
@@ -103,7 +103,7 @@ def test_bigquery_dataset_pattern():
         r"project\.second_dataset",
     ]
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "dataset_pattern": {
                 "allow": [
@@ -144,7 +144,7 @@ def test_bigquery_uri_with_credential():
         "type": "service_account",
     }
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
             "credential": {
@@ -183,7 +183,7 @@ def test_get_projects_with_project_ids(
 ):
     client_mock = MagicMock()
     get_bq_client_mock.return_value = client_mock
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_ids": ["test-1", "test-2"],
         }
@@ -199,7 +199,7 @@ def test_get_projects_with_project_ids(
     ]
     assert client_mock.list_projects.call_count == 0
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {"project_ids": ["test-1", "test-2"], "project_id": "test-3"}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test2"))
@@ -220,7 +220,7 @@ def test_get_projects_with_project_ids_overrides_project_id_pattern(
     get_projects_client,
     get_bigquery_client,
 ):
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_ids": ["test-project", "test-project-2"],
             "project_id_pattern": {"deny": ["^test-project$"]},
@@ -239,12 +239,12 @@ def test_get_projects_with_project_ids_overrides_project_id_pattern(
 
 
 def test_platform_instance_config_always_none():
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {"include_data_platform_instance": True, "platform_instance": "something"}
     )
     assert config.platform_instance is None
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         dict(platform_instance="something", project_id="project_id")
     )
     assert config.project_ids == ["project_id"]
@@ -262,7 +262,7 @@ def test_get_dataplatform_instance_aspect_returns_project_id(
         f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:bigquery,{project_id})"
     )
 
-    config = BigQueryV2Config.parse_obj({"include_data_platform_instance": True})
+    config = BigQueryV2Config.model_validate({"include_data_platform_instance": True})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     schema_gen = source.bq_schema_extractor
 
@@ -282,7 +282,7 @@ def test_get_dataplatform_instance_default_no_instance(
     get_projects_client,
     get_bq_client_mock,
 ):
-    config = BigQueryV2Config.parse_obj({})
+    config = BigQueryV2Config.model_validate({})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     schema_gen = source.bq_schema_extractor
 
@@ -304,7 +304,7 @@ def test_get_projects_with_single_project_id(
 ):
     client_mock = MagicMock()
     get_bq_client_mock.return_value = client_mock
-    config = BigQueryV2Config.parse_obj({"project_id": "test-3"})
+    config = BigQueryV2Config.model_validate({"project_id": "test-3"})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
     assert get_projects(
         source.bq_schema_extractor.schema_api,
@@ -342,7 +342,7 @@ def test_get_projects_by_list(get_projects_client, get_bigquery_client):
 
     client_mock.list_projects.side_effect = [first_page, second_page]
 
-    config = BigQueryV2Config.parse_obj({})
+    config = BigQueryV2Config.model_validate({})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
     assert get_projects(
         source.bq_schema_extractor.schema_api,
@@ -368,7 +368,7 @@ def test_get_projects_filter_by_pattern(
         BigqueryProject("test-project-2", "Test Project 2"),
     ]
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
@@ -390,7 +390,7 @@ def test_get_projects_list_empty(
 ):
     get_projects_mock.return_value = []
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
@@ -415,7 +415,7 @@ def test_get_projects_list_failure(
     get_bq_client_mock.return_value = bq_client_mock
     bq_client_mock.list_projects.side_effect = GoogleAPICallError(error_str)
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
@@ -440,7 +440,7 @@ def test_get_projects_list_fully_filtered(
 ):
     get_projects_mock.return_value = [BigqueryProject("test-project", "Test Project")]
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
@@ -480,7 +480,7 @@ def test_gen_table_dataset_workunits(
 ):
     project_id = "test-project"
     dataset_name = "test-dataset"
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": project_id,
             "capture_table_label_as_tag": True,
@@ -620,7 +620,7 @@ def test_get_datasets_for_project_id_with_timestamps(
     }[ref]
 
     # Create BigQuerySchemaApi instance
-    config = BigQueryV2Config.parse_obj({"project_id": project_id})
+    config = BigQueryV2Config.model_validate({"project_id": project_id})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     schema_api = source.bq_schema_extractor.schema_api
 
@@ -671,7 +671,7 @@ def test_simple_upstream_table_generation(get_bq_client_mock, get_projects_clien
         )
     )
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
         }
@@ -707,7 +707,7 @@ def test_upstream_table_generation_with_temporary_table_without_temp_upstream(
         )
     )
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
         }
@@ -748,7 +748,7 @@ def test_upstream_table_column_lineage_with_temp_table(
         )
     )
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
         }
@@ -834,7 +834,7 @@ def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstr
         )
     )
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
         }
@@ -875,7 +875,7 @@ def test_table_processing_logic(
 ):
     client_mock = MagicMock()
     get_bq_client_mock.return_value = client_mock
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
         }
@@ -951,7 +951,7 @@ def test_table_processing_logic_date_named_tables(
     client_mock = MagicMock()
     get_bq_client_mock.return_value = client_mock
     # test that tables with date names are processed correctly
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": "test-project",
         }
@@ -1113,7 +1113,7 @@ def test_gen_view_dataset_workunits(
 ):
     project_id = "test-project"
     dataset_name = "test-dataset"
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": project_id,
         }
@@ -1214,7 +1214,7 @@ def test_gen_snapshot_dataset_workunits(
 ):
     project_id = "test-project"
     dataset_name = "test-dataset"
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_id": project_id,
         }
@@ -1342,9 +1342,9 @@ def test_get_table_name(full_table_name: str, datahub_full_table_name: str) -> N
 
 
 def test_default_config_for_excluding_projects_and_datasets():
-    config = BigQueryV2Config.parse_obj({})
+    config = BigQueryV2Config.model_validate({})
     assert config.exclude_empty_projects is False
-    config = BigQueryV2Config.parse_obj({"exclude_empty_projects": True})
+    config = BigQueryV2Config.model_validate({"exclude_empty_projects": True})
     assert config.exclude_empty_projects
 
 
@@ -1378,11 +1378,13 @@ def test_excluding_empty_projects_from_ingestion(
         "include_table_lineage": False,
     }
 
-    config = BigQueryV2Config.parse_obj(base_config)
+    config = BigQueryV2Config.model_validate(base_config)
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test-1"))
     assert len({wu.metadata.entityUrn for wu in source.get_workunits()}) == 2  # type: ignore
 
-    config = BigQueryV2Config.parse_obj({**base_config, "exclude_empty_projects": True})
+    config = BigQueryV2Config.model_validate(
+        {**base_config, "exclude_empty_projects": True}
+    )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test-2"))
     assert len({wu.metadata.entityUrn for wu in source.get_workunits()}) == 1  # type: ignore
 
@@ -1393,21 +1395,21 @@ def test_bigquery_config_deprecated_schema_pattern():
         "include_table_lineage": False,
     }
 
-    config = BigQueryV2Config.parse_obj(base_config)
+    config = BigQueryV2Config.model_validate(base_config)
     assert config.dataset_pattern == AllowDenyPattern(allow=[".*"])  # default
 
     config_with_schema_pattern = {
         **base_config,
         "schema_pattern": AllowDenyPattern(deny=[".*"]),
     }
-    config = BigQueryV2Config.parse_obj(config_with_schema_pattern)
+    config = BigQueryV2Config.model_validate(config_with_schema_pattern)
     assert config.dataset_pattern == AllowDenyPattern(deny=[".*"])  # schema_pattern
 
     config_with_dataset_pattern = {
         **base_config,
         "dataset_pattern": AllowDenyPattern(deny=["temp.*"]),
     }
-    config = BigQueryV2Config.parse_obj(config_with_dataset_pattern)
+    config = BigQueryV2Config.model_validate(config_with_dataset_pattern)
     assert config.dataset_pattern == AllowDenyPattern(
         deny=["temp.*"]
     )  # dataset_pattern
@@ -1428,7 +1430,7 @@ def test_get_projects_with_project_labels(
         SimpleNamespace(project_id="qa", display_name="qa_project"),
     ]
 
-    config = BigQueryV2Config.parse_obj(
+    config = BigQueryV2Config.model_validate(
         {
             "project_labels": ["environment:dev", "environment:qa"],
         }

@@ -739,7 +739,7 @@ class SnowflakeQueriesSource(Source):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Self:
-        config = SnowflakeQueriesSourceConfig.parse_obj(config_dict)
+        config = SnowflakeQueriesSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

@@ -39,7 +39,7 @@ class AddDatasetDataProduct(DatasetDataproductTransformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetDataProduct":
-        config = AddDatasetDataProductConfig.parse_obj(config_dict)
+        config = AddDatasetDataProductConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def transform_aspect(
@@ -116,7 +116,7 @@ class SimpleAddDatasetDataProduct(AddDatasetDataProduct):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "SimpleAddDatasetDataProduct":
-        config = SimpleDatasetDataProductConfig.parse_obj(config_dict)
+        config = SimpleDatasetDataProductConfig.model_validate(config_dict)
         return cls(config, ctx)
 
 
@@ -156,5 +156,5 @@ class PatternAddDatasetDataProduct(AddDatasetDataProduct):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "PatternAddDatasetDataProduct":
-        config = PatternDatasetDataProductConfig.parse_obj(config_dict)
+        config = PatternDatasetDataProductConfig.model_validate(config_dict)
         return cls(config, ctx)

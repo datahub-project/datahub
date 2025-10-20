@@ -104,7 +104,7 @@ class SerializedResourceValue(BaseModel):
             assert self.schema_ref
             assert self.schema_ref == model_type.__name__
         object_dict = self.as_raw_json()
-        return model_type.parse_obj(object_dict)
+        return model_type.model_validate(object_dict)
 
     @classmethod
     def from_resource_value(

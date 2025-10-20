@@ -200,7 +200,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DynamoDBSource":
-        config = DynamoDBConfig.parse_obj(config_dict)
+        config = DynamoDBConfig.model_validate(config_dict)
         return cls(ctx, config, "dynamodb")
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

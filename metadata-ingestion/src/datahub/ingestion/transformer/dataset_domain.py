@@ -67,7 +67,7 @@ class AddDatasetDomain(DatasetDomainTransformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetDomain":
-        config = AddDatasetDomainSemanticsConfig.parse_obj(config_dict)
+        config = AddDatasetDomainSemanticsConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod
@@ -208,7 +208,7 @@ class SimpleAddDatasetDomain(AddDatasetDomain):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "SimpleAddDatasetDomain":
-        config = SimpleDatasetDomainSemanticsConfig.parse_obj(config_dict)
+        config = SimpleDatasetDomainSemanticsConfig.model_validate(config_dict)
         return cls(config, ctx)
 
 
@@ -238,5 +238,5 @@ class PatternAddDatasetDomain(AddDatasetDomain):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "PatternAddDatasetDomain":
-        config = PatternDatasetDomainSemanticsConfig.parse_obj(config_dict)
+        config = PatternDatasetDomainSemanticsConfig.model_validate(config_dict)
         return cls(config, ctx)

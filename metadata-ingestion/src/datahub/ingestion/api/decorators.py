@@ -17,7 +17,7 @@ def config_class(config_cls: Type) -> Callable[[Type], Type]:
     """Adds a get_config_class method to the decorated class"""
 
     def default_create(cls: Type, config_dict: Dict, ctx: PipelineContext) -> Type:
-        config = config_cls.parse_obj(config_dict)
+        config = config_cls.model_validate(config_dict)
         return cls(config=config, ctx=ctx)
 
     def wrapper(cls: Type) -> Type:

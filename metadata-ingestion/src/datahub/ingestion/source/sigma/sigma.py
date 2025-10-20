@@ -150,7 +150,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = SigmaSourceConfig.parse_obj(config_dict)
+        config = SigmaSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def _gen_workbook_key(self, workbook_id: str) -> WorkbookKey:

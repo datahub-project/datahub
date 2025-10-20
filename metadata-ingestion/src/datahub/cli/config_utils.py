@@ -114,7 +114,7 @@ def load_client_config() -> DatahubClientConfig:
     try:
         _ensure_datahub_config()
         client_config_dict = get_raw_client_config()
-        datahub_config: DatahubClientConfig = DatahubConfig.parse_obj(
+        datahub_config: DatahubClientConfig = DatahubConfig.model_validate(
             client_config_dict
         ).gms
         return datahub_config

@@ -164,7 +164,7 @@ class ABSSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = DataLakeSourceConfig.parse_obj(config_dict)
+        config = DataLakeSourceConfig.model_validate(config_dict)
 
         return cls(config, ctx)
 

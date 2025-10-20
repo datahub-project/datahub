@@ -525,7 +525,7 @@ def test_rename_destination_config():
         ConfigurationWarning,
         match="destination_config is deprecated, please use snowflake_destination_config instead.",
     ):
-        config = FivetranSourceConfig.parse_obj(config_dict)
+        config = FivetranSourceConfig.model_validate(config_dict)
         assert config.fivetran_log_config.snowflake_destination_config is not None
         assert (
             config.fivetran_log_config.snowflake_destination_config.account_id
@@ -556,7 +556,7 @@ def test_compat_sources_to_database() -> None:
         ConfigurationWarning,
         match=r"sources_to_database.*deprecated",
     ):
-        config = FivetranSourceConfig.parse_obj(config_dict)
+        config = FivetranSourceConfig.model_validate(config_dict)
 
     assert config.sources_to_platform_instance == {
         "calendar_elected": PlatformDetail(env="DEV", database="my_db"),

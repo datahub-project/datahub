@@ -205,7 +205,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = FileSourceConfig.parse_obj(config_dict)
+        config = FileSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_filenames(self) -> Iterable[FileInfo]:
@@ -358,7 +358,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
-        config = FileSourceConfig.parse_obj(config_dict)
+        config = FileSourceConfig.model_validate(config_dict)
         exists = os.path.exists(config.path)
         if not exists:
             return TestConnectionReport(

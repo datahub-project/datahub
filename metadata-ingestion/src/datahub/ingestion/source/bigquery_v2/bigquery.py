@@ -207,7 +207,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigqueryV2Source":
-        config = BigQueryV2Config.parse_obj(config_dict)
+        config = BigQueryV2Config.model_validate(config_dict)
         return cls(ctx, config)
 
     @staticmethod

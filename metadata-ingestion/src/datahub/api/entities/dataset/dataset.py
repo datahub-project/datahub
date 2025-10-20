@@ -461,7 +461,7 @@ class Dataset(StrictModel):
             if isinstance(datasets, dict):
                 datasets = [datasets]
             for dataset_raw in datasets:
-                dataset = Dataset.parse_obj(dataset_raw)
+                dataset = Dataset.model_validate(dataset_raw)
                 # dataset = Dataset.model_validate(dataset_raw, strict=True)
                 yield dataset
 

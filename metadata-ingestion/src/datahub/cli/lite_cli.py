@@ -46,7 +46,7 @@ class LiteCliConfig(DatahubConfig):
 
 def get_lite_config() -> LiteLocalConfig:
     client_config_dict = get_raw_client_config()
-    lite_config = LiteCliConfig.parse_obj(client_config_dict)
+    lite_config = LiteCliConfig.model_validate(client_config_dict)
     return lite_config.lite
 
 
@@ -337,7 +337,7 @@ def init(ctx: click.Context, type: Optional[str], file: Optional[str]) -> None:
     new_lite_config_dict["type"] = type
     if file:
         new_lite_config_dict["config"]["file"] = file
-    new_lite_config = LiteLocalConfig.parse_obj(new_lite_config_dict)
+    new_lite_config = LiteLocalConfig.model_validate(new_lite_config_dict)
     if lite_config != new_lite_config:
         if click.confirm(
             f"Will replace datahub lite config {lite_config} with {new_lite_config}"

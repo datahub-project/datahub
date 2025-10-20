@@ -463,5 +463,5 @@ class OpenApiSource(APISource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = OpenApiConfig.parse_obj(config_dict)
+        config = OpenApiConfig.model_validate(config_dict)
         return cls(config, ctx)

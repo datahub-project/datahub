@@ -108,7 +108,7 @@ class SigmaAPI:
                 self.report.non_accessible_workspaces_count += 1
                 return None
             response.raise_for_status()
-            workspace = Workspace.parse_obj(response.json())
+            workspace = Workspace.model_validate(response.json())
             self.workspaces[workspace.workspaceId] = workspace
             return workspace
         except Exception as e:
@@ -127,7 +127,7 @@ class SigmaAPI:
                 response_dict = response.json()
                 for workspace_dict in response_dict[Constant.ENTRIES]:
                     self.workspaces[workspace_dict[Constant.WORKSPACEID]] = (
-                        Workspace.parse_obj(workspace_dict)
+                        Workspace.model_validate(workspace_dict)
                     )
                 if response_dict[Constant.NEXTPAGE]:
                     url = f"{workspace_url}&page={response_dict[Constant.NEXTPAGE]}"
@@ -197,7 +197,7 @@ class SigmaAPI:
                 response.raise_for_status()
                 response_dict = response.json()
                 for file_dict in response_dict[Constant.ENTRIES]:
-                    file = File.parse_obj(file_dict)
+                    file = File.model_validate(file_dict)
                     file.workspaceId = self.get_workspace_id_from_file_path(
                         file.parentId, file.path
                     )
@@ -225,7 +225,7 @@ class SigmaAPI:
                 response.raise_for_status()
                 response_dict = response.json()
                 for dataset_dict in response_dict[Constant.ENTRIES]:
-                    dataset = SigmaDataset.parse_obj(dataset_dict)
+                    dataset = SigmaDataset.model_validate(dataset_dict)
 
                     if dataset.datasetId not in dataset_files_metadata:
                         self.report.datasets.dropped(
@@ -354,7 +354,7 @@ class SigmaAPI:
                 element_dict[Constant.URL] = (
                     f"{workbook.url}?:nodeId={element_dict[Constant.ELEMENTID]}&:fullScreen=true"
                 )
-                element = Element.parse_obj(element_dict)
+                element = Element.model_validate(element_dict)
                 if (
                     self.config.extract_lineage
                     and self.config.workbook_lineage_pattern.allowed(workbook.name)
@@ -379,7 +379,7 @@ class SigmaAPI:
             )
             response.raise_for_status()
             for page_dict in response.json()[Constant.ENTRIES]:
-                page = Page.parse_obj(page_dict)
+                page = Page.model_validate(page_dict)
                 page.elements = self.get_page_elements(workbook, page)
                 pages.append(page)
             return pages
@@ -400,7 +400,7 @@ class SigmaAPI:
                 response.raise_for_status()
                 response_dict = response.json()
                 for workbook_dict in response_dict[Constant.ENTRIES]:
-                    workbook = Workbook.parse_obj(workbook_dict)
+                    workbook = Workbook.model_validate(workbook_dict)
 
                     if workbook.workbookId not in workbook_files_metadata:
                         # Due to a bug in the Sigma API, it seems like the /files endpoint does not

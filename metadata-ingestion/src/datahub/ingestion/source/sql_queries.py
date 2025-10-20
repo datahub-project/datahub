@@ -173,7 +173,7 @@ class SqlQueriesSource(Source):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SqlQueriesSource":
-        config = SqlQueriesSourceConfig.parse_obj(config_dict)
+        config = SqlQueriesSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_report(self) -> SqlQueriesSourceReport:
@@ -346,6 +346,6 @@ class QueryEntry(BaseModel):
         # Set validation context for URN creation
         cls._validation_context = config
         try:
-            return cls.parse_obj(entry_dict)
+            return cls.model_validate(entry_dict)
         finally:
             cls._validation_context = None

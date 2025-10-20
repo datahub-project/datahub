@@ -62,7 +62,7 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "ExtractOwnersFromTagsTransformer":
-        config = ExtractOwnersFromTagsConfig.parse_obj(config_dict)
+        config = ExtractOwnersFromTagsConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_owner_urn(self, owner_str: str) -> str:

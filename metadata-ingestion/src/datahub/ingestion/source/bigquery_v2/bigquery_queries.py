@@ -78,7 +78,7 @@ class BigQueryQueriesSource(Source):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Self:
-        config = BigQueryQueriesSourceConfig.parse_obj(config_dict)
+        config = BigQueryQueriesSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

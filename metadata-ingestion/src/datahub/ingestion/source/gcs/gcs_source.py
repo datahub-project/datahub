@@ -105,7 +105,7 @@ class GCSSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = GCSSourceConfig.parse_obj(config_dict)
+        config = GCSSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def create_equivalent_s3_config(self):

@@ -148,13 +148,13 @@ class LineageFileSource(Source):
     def create(
         cls, config_dict: Dict[str, Any], ctx: PipelineContext
     ) -> "LineageFileSource":
-        config = LineageFileSourceConfig.parse_obj(config_dict)
+        config = LineageFileSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     @staticmethod
     def load_lineage_config(file_name: str) -> LineageConfig:
         config = load_config_file(file_name, resolve_env_vars=True)
-        lineage_config = LineageConfig.parse_obj(config)
+        lineage_config = LineageConfig.model_validate(config)
         return lineage_config
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

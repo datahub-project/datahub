@@ -19,7 +19,7 @@ from datahub.ingestion.source.nifi import (
 @typing.no_type_check
 def test_nifi_s3_provenance_event():
     config_dict = {"site_url": "http://localhost:8080", "incremental_lineage": False}
-    nifi_config = NifiSourceConfig.parse_obj(config_dict)
+    nifi_config = NifiSourceConfig.model_validate(config_dict)
     ctx = PipelineContext(run_id="test")
 
     with (
@@ -290,7 +290,7 @@ def test_auth_without_password(auth):
     with pytest.raises(
         ValueError, match=f"`username` and `password` is required for {auth} auth"
     ):
-        NifiSourceConfig.parse_obj(
+        NifiSourceConfig.model_validate(
             {
                 "site_url": "https://localhost:8443",
                 "auth": auth,
@@ -304,7 +304,7 @@ def test_auth_without_username_and_password(auth):
     with pytest.raises(
         ValueError, match=f"`username` and `password` is required for {auth} auth"
     ):
-        NifiSourceConfig.parse_obj(
+        NifiSourceConfig.model_validate(
             {
                 "site_url": "https://localhost:8443",
                 "auth": auth,
@@ -316,7 +316,7 @@ def test_client_cert_auth_without_client_cert_file():
     with pytest.raises(
         ValueError, match="`client_cert_file` is required for CLIENT_CERT auth"
     ):
-        NifiSourceConfig.parse_obj(
+        NifiSourceConfig.model_validate(
             {
                 "site_url": "https://localhost:8443",
                 "auth": "CLIENT_CERT",

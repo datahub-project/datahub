@@ -48,7 +48,7 @@ checkpointing_provider_config_test_params: Dict[
                     timeout_sec=10,
                     extra_headers={},
                     max_threads=10,
-                )
+                ),
             ),
         ),
         False,

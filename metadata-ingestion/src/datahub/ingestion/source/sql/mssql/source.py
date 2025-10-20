@@ -310,7 +310,7 @@ class SQLServerSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "SQLServerSource":
-        config = SQLServerConfig.parse_obj(config_dict)
+        config = SQLServerConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     # override to get table descriptions

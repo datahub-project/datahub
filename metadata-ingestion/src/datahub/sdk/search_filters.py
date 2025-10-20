@@ -571,7 +571,7 @@ def load_filters(obj: Any) -> Filter:
     if PYDANTIC_VERSION_2:
         return pydantic.TypeAdapter(Filter).validate_python(obj)  # type: ignore
     else:
-        return pydantic.parse_obj_as(Filter, obj)  # type: ignore
+        return pydantic.TypeAdapter(Filter).validate_python(obj)  # type: ignore
 
 
 # We need FilterDsl for two reasons:

@@ -659,7 +659,7 @@ class OracleSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = OracleConfig.parse_obj(config_dict)
+        config = OracleConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_db_name(self, inspector: Inspector) -> str:

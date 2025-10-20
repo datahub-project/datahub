@@ -254,7 +254,7 @@ class AzureADSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = AzureADConfig.parse_obj(config_dict)
+        config = AzureADConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def __init__(self, config: AzureADConfig, ctx: PipelineContext):

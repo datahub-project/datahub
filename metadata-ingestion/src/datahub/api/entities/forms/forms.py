@@ -137,7 +137,7 @@ class Forms(ConfigModel):
         with get_default_graph(ClientMode.CLI) as emitter, open(file) as fp:
             forms: List[dict] = yaml.safe_load(fp)
             for form_raw in forms:
-                form = Forms.parse_obj(form_raw)
+                form = Forms.model_validate(form_raw)
 
                 try:
                     if not FormType.has_value(form.type):

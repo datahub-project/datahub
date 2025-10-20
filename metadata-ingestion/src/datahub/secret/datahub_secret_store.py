@@ -63,7 +63,7 @@ class DataHubSecretStore(SecretStore):
 
     @classmethod
     def create(cls, config: Any) -> "DataHubSecretStore":
-        config = DataHubSecretStoreConfig.parse_obj(config)
+        config = DataHubSecretStoreConfig.model_validate(config)
         return cls(config)
 
     def close(self) -> None:

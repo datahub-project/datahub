@@ -38,7 +38,7 @@ class AddDatasetSchemaTags(DatasetSchemaMetadataTransformer):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetSchemaTags":
-        config = AddDatasetSchemaTagsConfig.parse_obj(config_dict)
+        config = AddDatasetSchemaTagsConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def extend_field(
@@ -142,5 +142,5 @@ class PatternAddDatasetSchemaTags(AddDatasetSchemaTags):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "PatternAddDatasetSchemaTags":
-        config = PatternDatasetTagsConfig.parse_obj(config_dict)
+        config = PatternDatasetTagsConfig.model_validate(config_dict)
         return cls(config, ctx)

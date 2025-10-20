@@ -36,7 +36,7 @@ def test_sql_common_state() -> None:
 
 
 def test_state_backward_compat() -> None:
-    state = BaseSQLAlchemyCheckpointState.parse_obj(
+    state = BaseSQLAlchemyCheckpointState.model_validate(
         dict(
             encoded_table_urns=["mysql||db1.t1||PROD"],
             encoded_view_urns=["mysql||db1.v1||PROD"],
