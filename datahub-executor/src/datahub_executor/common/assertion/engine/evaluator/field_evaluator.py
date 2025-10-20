@@ -17,8 +17,8 @@ from datahub_executor.common.assertion.engine.evaluator.utils.field import (
     convert_field_parameters_to_metric_resolver_strategy,
 )
 from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
-    encode_monitor_urn,
     is_training_required,
+    make_monitor_metric_cube_urn,
 )
 from datahub_executor.common.assertion.types import (
     AssertionDatabaseParams,
@@ -509,9 +509,7 @@ class FieldAssertionEvaluator(AssertionEvaluator):
 
         # Step 3: Optionally save the fetched metric to the metric cube.
         if save and context.monitor_urn:
-            metric_cube_urn = (
-                f"urn:li:dataHubMetricCube:{encode_monitor_urn(context.monitor_urn)}"
-            )
+            metric_cube_urn = make_monitor_metric_cube_urn(context.monitor_urn)
             self.metric_client.save_metric_value(metric_cube_urn, metric)
 
         # Step 4: Return the metric

@@ -104,7 +104,11 @@ class TestVolumeEvaluator:
             "urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:snowflake"
         )
         self.connection_provider.get_connection.return_value = self.connection
-        self.context = AssertionEvaluationContext(monitor_urn="urn:li:monitor:test")
+        from datahub.metadata.urns import MonitorUrn
+
+        self.context = AssertionEvaluationContext(
+            monitor_urn=MonitorUrn(TEST_ENTITY_URN, "__test__").urn()
+        )
         self.params = AssertionEvaluationParameters(
             type=AssertionEvaluationParametersType.DATASET_VOLUME,
             dataset_volume_parameters=DatasetVolumeAssertionParameters(
@@ -814,7 +818,9 @@ class TestVolumeEvaluator:
         evaluation_context.evaluation_spec.context.inference_details = (
             None  # No inference details
         )
-        evaluation_context.monitor_urn = "urn:li:monitor:test"
+        from datahub.metadata.urns import MonitorUrn
+
+        evaluation_context.monitor_urn = MonitorUrn(TEST_ENTITY_URN, "__test__").urn()
 
         source_mock = Mock(spec=Source)
         self.source_provider.create_source_from_connection.return_value = source_mock
@@ -870,7 +876,9 @@ class TestVolumeEvaluator:
         evaluation_context.evaluation_spec.context.inference_details = (
             inference_details  # Some infernce details
         )
-        evaluation_context.monitor_urn = "urn:li:monitor:test"
+        from datahub.metadata.urns import MonitorUrn
+
+        evaluation_context.monitor_urn = MonitorUrn(TEST_ENTITY_URN, "__test__").urn()
         evaluation_context.online_smart_assertions = True
 
         # Create a source mock to return row_count
