@@ -15,6 +15,7 @@ from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -242,11 +243,15 @@ class RedshiftDataDictionary:
     def get_query_result(
         conn: redshift_connector.Connection, query: str
     ) -> redshift_connector.Cursor:
-        cursor: redshift_connector.Cursor = conn.cursor()
-
-        logger.debug(f"Query : {query}")
-        cursor.execute(query)
-        return cursor
+        with PerfTimer() as timer, conn.cursor() as cursor:
+            query_fragment = re.sub(r"\s+", " ", query).strip()[:100] + "..."
+            logger.info(f"Executing query: {query_fragment}")
+            logger.debug(query)
+            cursor.execute(query)
+            logger.info(
+                f"Time taken to execute query: {timer.elapsed_seconds():.3f} seconds [{query_fragment}]"
+            )
+            return cursor
 
     @staticmethod
     def get_databases(conn: redshift_connector.Connection) -> List[str]:
@@ -545,8 +550,7 @@ class RedshiftDataDictionary:
         conn: redshift_connector.Connection,
         query: str,
     ) -> Iterable[LineageRow]:
-        cursor = conn.cursor()
-        cursor.execute(query)
+        cursor = RedshiftDataDictionary.get_query_result(conn=conn, query=query)
         field_names = [i[0] for i in cursor.description]
 
         rows = cursor.fetchmany()
@@ -603,9 +607,7 @@ class RedshiftDataDictionary:
         conn: redshift_connector.Connection,
         query: str,
     ) -> Iterable[TempTableRow]:
-        cursor = conn.cursor()
-
-        cursor.execute(query)
+        cursor = RedshiftDataDictionary.get_query_result(conn=conn, query=query)
 
         field_names = [i[0] for i in cursor.description]
 
@@ -662,8 +664,9 @@ class RedshiftDataDictionary:
     def get_outbound_datashares(
         conn: redshift_connector.Connection,
     ) -> Iterable[OutboundDatashare]:
-        cursor = conn.cursor()
-        cursor.execute(RedshiftCommonQuery.list_outbound_datashares())
+        cursor = RedshiftDataDictionary.get_query_result(
+            conn=conn, query=RedshiftCommonQuery.list_outbound_datashares()
+        )
         for item in cursor.fetchall():
             yield OutboundDatashare(
                 share_name=item[1],
@@ -678,8 +681,10 @@ class RedshiftDataDictionary:
         conn: redshift_connector.Connection,
         database: str,
     ) -> Optional[InboundDatashare]:
-        cursor = conn.cursor()
-        cursor.execute(RedshiftCommonQuery.get_inbound_datashare(database))
+        cursor = RedshiftDataDictionary.get_query_result(
+            conn=conn,
+            query=RedshiftCommonQuery.get_inbound_datashare(database),
+        )
         item = cursor.fetchone()
         if item:
             return InboundDatashare(
