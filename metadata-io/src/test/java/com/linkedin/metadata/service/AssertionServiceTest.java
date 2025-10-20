@@ -20,6 +20,7 @@ import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
 import com.linkedin.assertion.AssertionRunSummary;
+import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionStdAggregation;
 import com.linkedin.assertion.AssertionStdOperator;
@@ -587,7 +588,14 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.upsertDatasetFreshnessAssertion(
-            opContext, assertionUrn, TEST_DATASET_URN, "description", schedule, null, null, null);
+            opContext,
+            assertionUrn,
+            TEST_DATASET_URN,
+            "description",
+            schedule,
+            null,
+            null,
+            createAssertionSource());
 
     // Assert result
     Assert.assertEquals(result, TEST_FRESHNESS_ASSERTION_URN);
@@ -660,7 +668,7 @@ public class AssertionServiceTest {
             schedule,
             filter,
             actions,
-            null);
+            createAssertionSource());
 
     // Assert result
     Assert.assertEquals(result, TEST_FRESHNESS_ASSERTION_URN);
@@ -711,7 +719,13 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.upsertDatasetVolumeAssertion(
-            opContext, assertionUrn, TEST_DATASET_URN, "description", info, null, null);
+            opContext,
+            assertionUrn,
+            TEST_DATASET_URN,
+            "description",
+            info,
+            null,
+            createAssertionSource());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -784,7 +798,13 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.upsertDatasetVolumeAssertion(
-            opContext, assertionUrn, TEST_DATASET_URN, "description", info, actions, null);
+            opContext,
+            assertionUrn,
+            TEST_DATASET_URN,
+            "description",
+            info,
+            actions,
+            createAssertionSource());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -851,7 +871,7 @@ public class AssertionServiceTest {
             description,
             info,
             null,
-            null);
+            createAssertionSource());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -931,7 +951,7 @@ public class AssertionServiceTest {
             description,
             info,
             actions,
-            null);
+            createAssertionSource());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -999,7 +1019,13 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.upsertDatasetFieldAssertion(
-            opContext, assertionUrn, TEST_DATASET_URN, "description", info, null, null);
+            opContext,
+            assertionUrn,
+            TEST_DATASET_URN,
+            "description",
+            info,
+            null,
+            createAssertionSource());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -1080,7 +1106,13 @@ public class AssertionServiceTest {
     // Test method
     Urn result =
         service.upsertDatasetFieldAssertion(
-            opContext, assertionUrn, TEST_DATASET_URN, "description", info, actions, null);
+            opContext,
+            assertionUrn,
+            TEST_DATASET_URN,
+            "description",
+            info,
+            actions,
+            createAssertionSource());
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -2050,5 +2082,11 @@ public class AssertionServiceTest {
         GenericRecordUtils.serializeAspect(mockAssertionInfoWithLastUpdated(baseInfo, tsMillis)));
 
     return mcp;
+  }
+
+  private static AssertionSource createAssertionSource() {
+    AssertionSource assertionSource = new AssertionSource();
+    assertionSource.setType(AssertionSourceType.NATIVE);
+    return assertionSource;
   }
 }
