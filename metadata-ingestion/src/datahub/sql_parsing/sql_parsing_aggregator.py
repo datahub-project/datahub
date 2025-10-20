@@ -1350,7 +1350,7 @@ class SqlParsingAggregator(Closeable):
                     continue
 
                 for upstream_ref in lineage_info.upstreams:
-                    if upstream_ref.column:
+                    if upstream_ref.column and upstream_ref.column.strip():
                         cll[lineage_info.downstream.column].setdefault(
                             SchemaFieldUrn(upstream_ref.table, upstream_ref.column),
                             query.query_id,
