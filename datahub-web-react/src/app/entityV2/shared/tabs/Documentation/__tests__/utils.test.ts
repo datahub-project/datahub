@@ -7,7 +7,7 @@ const mockActor = {
     type: EntityType.CorpUser,
 };
 
-const baseEntityProperties = {
+const propagationDocs = {
     documentation: {
         documentations: [
             {
@@ -15,6 +15,35 @@ const baseEntityProperties = {
                 attribution: {
                     actor: mockActor,
                     time: 100,
+                    sourceDetail: [{ key: 'inferred', value: 'true' }],
+                },
+            },
+            {
+                documentation: 'propagated',
+                attribution: {
+                    actor: mockActor,
+                    time: 200,
+                    sourceDetail: [{ key: 'propagated', value: 'true' }],
+                },
+            },
+        ],
+    },
+    editableProperties: {
+        description: undefined,
+    },
+    properties: {
+        description: undefined,
+    },
+};
+
+const inferredDocs = {
+    documentation: {
+        documentations: [
+            {
+                documentation: 'Doc 1',
+                attribution: {
+                    actor: mockActor,
+                    time: 300, // Later, but inferred
                     sourceDetail: [{ key: 'inferred', value: 'true' }],
                 },
             },
@@ -59,7 +88,7 @@ describe('getAssetDescriptionDetails', () => {
     describe('displayedDescription precedence', () => {
         it('returns edited description if present', () => {
             const entityProperties = {
-                ...JSON.parse(JSON.stringify(baseEntityProperties)),
+                ...JSON.parse(JSON.stringify(propagationDocs)),
                 editableProperties: { description: 'Edited Desc' },
             };
             const result = getAssetDescriptionDetails({ entityProperties });
@@ -69,7 +98,7 @@ describe('getAssetDescriptionDetails', () => {
 
         it('returns original description if edited is undefined', () => {
             const entityProperties = {
-                ...JSON.parse(JSON.stringify(baseEntityProperties)),
+                ...JSON.parse(JSON.stringify(propagationDocs)),
                 editableProperties: { description: undefined },
                 properties: { description: 'Original Desc' },
             };
@@ -78,9 +107,31 @@ describe('getAssetDescriptionDetails', () => {
             expect(result.isUsingDocumentationAspect).toBe(false);
         });
 
+        it('returns propagated documentation when edited and original are empty', () => {
+            const entityProperties = {
+                ...JSON.parse(JSON.stringify(propagationDocs)),
+                editableProperties: { description: '' },
+                properties: { description: '' },
+            };
+            const result = getAssetDescriptionDetails({ entityProperties });
+            expect(result.displayedDescription).toBe('propagated');
+            expect(result.isUsingDocumentationAspect).toBe(true);
+        });
+
+        it('returns propagated documentation over other documentation', () => {
+            const entityProperties = {
+                ...JSON.parse(JSON.stringify(propagationDocs)),
+                editableProperties: { description: undefined },
+                properties: { description: undefined },
+            };
+            const result = getAssetDescriptionDetails({ entityProperties });
+            expect(result.displayedDescription).toBe('propagated');
+            expect(result.isUsingDocumentationAspect).toBe(true);
+        });
+
         it('returns documentation when edited and original are undefined', () => {
             const entityProperties = {
-                ...JSON.parse(JSON.stringify(baseEntityProperties)),
+                ...JSON.parse(JSON.stringify(inferredDocs)),
                 editableProperties: { description: undefined },
                 properties: { description: undefined },
             };
@@ -91,7 +142,7 @@ describe('getAssetDescriptionDetails', () => {
 
         it('returns documentation when edited is undefined and original is empty', () => {
             const entityProperties = {
-                ...JSON.parse(JSON.stringify(baseEntityProperties)),
+                ...JSON.parse(JSON.stringify(inferredDocs)),
                 editableProperties: { description: undefined },
                 properties: { description: '' },
             };
@@ -102,7 +153,7 @@ describe('getAssetDescriptionDetails', () => {
 
         it('returns empty string when edited description is empty', () => {
             const entityProperties = {
-                ...JSON.parse(JSON.stringify(baseEntityProperties)),
+                ...JSON.parse(JSON.stringify(inferredDocs)),
                 editableProperties: { description: '' },
             };
             const result = getAssetDescriptionDetails({ entityProperties });
@@ -110,14 +161,25 @@ describe('getAssetDescriptionDetails', () => {
             expect(result.isUsingDocumentationAspect).toBe(true);
         });
 
-        it('returns empty string when original description is empty and edited is undefined', () => {
+        it('returns documentation when original description is empty and edited is undefined', () => {
             const entityProperties = {
-                ...JSON.parse(JSON.stringify(baseEntityProperties)),
+                ...JSON.parse(JSON.stringify(inferredDocs)),
                 editableProperties: { description: undefined },
                 properties: { description: '' },
             };
             const result = getAssetDescriptionDetails({ entityProperties });
             expect(result.displayedDescription).toBe('Doc 2'); // Falls through to documentation
+            expect(result.isUsingDocumentationAspect).toBe(true);
+        });
+
+        it('returns later inferred documentation when enabled', () => {
+            const entityProperties = {
+                ...JSON.parse(JSON.stringify(inferredDocs)),
+                editableProperties: { description: undefined },
+                properties: { description: undefined },
+            };
+            const result = getAssetDescriptionDetails({ entityProperties, enableInferredDescriptions: true });
+            expect(result.displayedDescription).toBe('Doc 1'); // Falls through to documentation
             expect(result.isUsingDocumentationAspect).toBe(true);
         });
     });
@@ -334,38 +396,27 @@ describe('getAssetDescriptionDetails', () => {
     describe('return object properties', () => {
         it('returns correct sourceDetail', () => {
             const entityProperties = {
-                ...JSON.parse(JSON.stringify(baseEntityProperties)),
+                ...JSON.parse(JSON.stringify(propagationDocs)),
                 editableProperties: { description: undefined },
                 properties: { description: undefined },
             };
             const result = getAssetDescriptionDetails({ entityProperties });
-            expect(result.sourceDetail).toEqual([{ key: 'inferred', value: 'false' }]);
+            expect(result.sourceDetail).toEqual([{ key: 'propagated', value: 'true' }]);
         });
 
         it('returns inferredDescription when using inferred documentation', () => {
             const entityProperties = {
-                documentation: {
-                    documentations: [
-                        {
-                            documentation: 'Inferred Doc',
-                            attribution: {
-                                actor: mockActor,
-                                time: 300,
-                                sourceDetail: [{ key: 'inferred', value: 'true' }],
-                            },
-                        },
-                    ],
-                },
+                ...JSON.parse(JSON.stringify(inferredDocs)),
                 editableProperties: { description: undefined },
                 properties: { description: undefined },
             };
             const result = getAssetDescriptionDetails({ entityProperties, enableInferredDescriptions: true });
-            expect(result.inferredDescription).toBe('Inferred Doc');
+            expect(result.inferredDescription).toBe('Doc 1');
         });
 
         it('returns undefined inferredDescription when not using inferred documentation', () => {
             const entityProperties = {
-                ...JSON.parse(JSON.stringify(baseEntityProperties)),
+                ...JSON.parse(JSON.stringify(inferredDocs)),
                 editableProperties: { description: undefined },
                 properties: { description: undefined },
             };

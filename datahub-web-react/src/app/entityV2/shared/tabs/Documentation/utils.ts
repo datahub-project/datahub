@@ -34,13 +34,22 @@ export function getAssetDescriptionDetails({
         !!attribution?.sourceDetail?.find((mapEntry) => mapEntry.key === 'propagated' && mapEntry.value === 'true');
     const isInferred = isUsingDocumentationAspect && checkIsInferredDocumentation(documentation);
 
-    // Show the inferred documentation only when the editedDescription is undefined and orginal description is empty
-    const displayedDescription =
-        editedDescription ?? (originalDescription || documentation?.documentation || defaultDescription || '');
-
     const sourceDetail = attribution?.sourceDetail;
     const propagatedDescription = isPropagated ? documentation?.documentation : undefined;
     const inferredDescription = isInferred ? documentation.documentation : undefined;
+
+    // Priority:
+    // 1. EditableSchemaMetadata description (manually entered in UI)
+    // 2. SchemaMetadata description (ingested)
+    // 3. Propagated description
+    // 4. Empty EditableSchemaMetadata description (to hide inferred description)
+    // 5. Inferred description (from AI): only shown when the editedDescription is undefined and original description is empty
+    // 6. Default description
+    const displayedDescription =
+        editedDescription ||
+        originalDescription ||
+        propagatedDescription ||
+        (editedDescription ?? (documentation?.documentation || defaultDescription || ''));
 
     return {
         displayedDescription,
