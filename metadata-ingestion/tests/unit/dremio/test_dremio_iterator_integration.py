@@ -50,14 +50,12 @@ class TestDremioIteratorIntegration:
         mock_dataset.resource_name = "test_table"
 
         # Mock streaming method to return iterator
-        mock_dremio_source.dremio_catalog.get_datasets_iter.return_value = iter(
+        mock_dremio_source.dremio_catalog.get_datasets.return_value = iter(
             [mock_dataset]
         )
         mock_dremio_source.dremio_catalog.get_containers.return_value = []
-        mock_dremio_source.dremio_catalog.get_containers_iter.return_value = iter([])
-        mock_dremio_source.dremio_catalog.get_glossary_terms_iter.return_value = iter(
-            []
-        )
+        mock_dremio_source.dremio_catalog.get_containers.return_value = iter([])
+        mock_dremio_source.dremio_catalog.get_glossary_terms.return_value = iter([])
 
         # Mock the source map building dependencies
         mock_dremio_source.dremio_catalog.get_sources.return_value = []
@@ -69,17 +67,17 @@ class TestDremioIteratorIntegration:
         # Test that streaming method is called
         list(mock_dremio_source.get_workunits_internal())
 
-        mock_dremio_source.dremio_catalog.get_datasets_iter.assert_called_once()
-        mock_dremio_source.dremio_catalog.get_glossary_terms_iter.assert_called_once()
+        mock_dremio_source.dremio_catalog.get_datasets.assert_called_once()
+        mock_dremio_source.dremio_catalog.get_glossary_terms.assert_called_once()
 
     def test_catalog_iterator_method_exists(self):
         """Test that DremioCatalog has iterator method"""
         # Verify the method exists
-        assert hasattr(DremioCatalog, "get_datasets_iter")
+        assert hasattr(DremioCatalog, "get_datasets")
 
         # Verify it's a method
-        assert inspect.ismethod(DremioCatalog.get_datasets_iter) or inspect.isfunction(
-            DremioCatalog.get_datasets_iter
+        assert inspect.ismethod(DremioCatalog.get_datasets) or inspect.isfunction(
+            DremioCatalog.get_datasets
         )
 
     def test_iterator_handles_exceptions_gracefully(self, mock_dremio_source):
@@ -90,14 +88,12 @@ class TestDremioIteratorIntegration:
         mock_dataset.resource_name = "test_table"
 
         # Mock streaming to return the problematic dataset
-        mock_dremio_source.dremio_catalog.get_datasets_iter.return_value = iter(
+        mock_dremio_source.dremio_catalog.get_datasets.return_value = iter(
             [mock_dataset]
         )
         mock_dremio_source.dremio_catalog.get_containers.return_value = []
-        mock_dremio_source.dremio_catalog.get_containers_iter.return_value = iter([])
-        mock_dremio_source.dremio_catalog.get_glossary_terms_iter.return_value = iter(
-            []
-        )
+        mock_dremio_source.dremio_catalog.get_containers.return_value = iter([])
+        mock_dremio_source.dremio_catalog.get_glossary_terms.return_value = iter([])
 
         # Mock the source map building dependencies
         mock_dremio_source.dremio_catalog.get_sources.return_value = []

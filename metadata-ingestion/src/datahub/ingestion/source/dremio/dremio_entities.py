@@ -1,4 +1,3 @@
-import itertools
 import logging
 import re
 import uuid
@@ -348,7 +347,7 @@ class DremioCatalog:
     def get_datasets(self) -> Iterator[DremioDataset]:
         """Get all Dremio datasets (tables and views) as an iterator."""
         # Stream containers directly without storing them
-        containers_stream = self._get_containers_iter()
+        containers_stream = self._get_containers()
 
         for dataset_details in self.dremio_api.get_all_tables_and_columns_iter(
             containers_stream
@@ -360,7 +359,7 @@ class DremioCatalog:
 
             yield dremio_dataset
 
-    def _get_containers_iter(self) -> Iterator[DremioContainer]:
+    def _get_containers(self) -> Iterator[DremioContainer]:
         """Convert raw container data into typed container objects."""
         for container in self.dremio_api.get_all_containers():
             container_type = container.get("container_type")
@@ -438,14 +437,9 @@ class DremioCatalog:
 
         self.containers_populated = True
 
-    def get_containers(self) -> Deque:
-        """Get all containers (sources, spaces, folders) as a deque."""
-        self.set_containers()
-        return deque(itertools.chain(self.sources, self.spaces, self.folders))
-
-    def get_containers_iter(self) -> Iterator["DremioContainer"]:
+    def get_containers(self) -> Iterator[DremioContainer]:
         """Get all containers (sources, spaces, folders) as an iterator."""
-        return self._get_containers_iter()
+        return self._get_containers()
 
     def get_sources(self) -> Deque[DremioSourceContainer]:
         """Get all Dremio source containers (external data connections)."""
