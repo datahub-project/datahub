@@ -99,7 +99,7 @@ class SnowflakeTagHelper(Closeable):
 
     @staticmethod
     def get_label_urn_to_tag(label_urn: str, graph: AcrylDataHubGraph) -> str:
-        label_urn_parsed = Urn.from_string(label_urn)
+        label_urn_parsed = Urn.create_from_string(label_urn)
         if isinstance(label_urn_parsed, TagUrn):
             return label_urn_parsed.name
         elif isinstance(label_urn_parsed, GlossaryTermUrn):
@@ -126,11 +126,11 @@ class SnowflakeTagHelper(Closeable):
         tag = self.get_label_urn_to_tag(tag_or_term_urn, graph)
         assert tag is not None
 
-        parsed_entity_urn = Urn.from_string(entity_urn)
+        parsed_entity_urn = Urn.create_from_string(entity_urn)
         if isinstance(parsed_entity_urn, DatasetUrn):
             dataset_urn = parsed_entity_urn
         elif isinstance(parsed_entity_urn, SchemaFieldUrn):
-            dataset_urn = DatasetUrn.from_string(parsed_entity_urn.parent)
+            dataset_urn = DatasetUrn.create_from_string(parsed_entity_urn.parent)
         else:
             raise ValueError(
                 f"Invalid entity urn {entity_urn}, can only handle Dataset and SchemaField urns."
@@ -253,7 +253,7 @@ class SnowflakeTagHelper(Closeable):
         tag = self.get_label_urn_to_tag(tag_urn, graph)
         assert tag is not None
 
-        parsed_entity_urn = Urn.from_string(entity_urn)
+        parsed_entity_urn = Urn.create_from_string(entity_urn)
         if isinstance(parsed_entity_urn, DatasetUrn):
             dataset_urn = parsed_entity_urn
             database, schema, table = dataset_urn.name.split(".")
