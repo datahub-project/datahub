@@ -120,8 +120,6 @@ record = "datahub_integrations.actions.recording_action.RecordingAction"
 dbt_sync_back = "datahub_integrations.dbt.dbt_sync_back:DbtSyncBackAction"
 ai_term_suggestion = "datahub_integrations.gen_ai.term_suggestion_action:TermSuggestionAction"
 snowflake_metadata_sync = "datahub_integrations.propagation.snowflake.metadata_sync_action:SnowflakeMetadataSyncAction"
-# Backward compatibility - deprecated, use snowflake_metadata_sync instead
-"datahub_integrations.propagation.snowflake.tag_propagator.SnowflakeTagPropagatorAction" = "datahub_integrations.propagation.snowflake.metadata_sync_action:SnowflakeMetadataSyncAction"
 
 [tool.ruff]
 target-version = "py311"

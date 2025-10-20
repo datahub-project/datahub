@@ -11,6 +11,7 @@ from sqlalchemy.engine import Engine
 from datahub_integrations.analytics.engine import AnalyticsEngine
 from datahub_integrations.analytics.snowflake.connection import SnowflakeConnection
 from datahub_integrations.propagation.snowflake.config import (
+    SnowflakeAuthenticationType,
     SnowflakeConnectionConfigPermissive,
 )
 
@@ -24,6 +25,9 @@ class SnowflakeAnalyticsEngine(AnalyticsEngine):
         self.account = account
         self.graph = graph
         self.connection = SnowflakeConnection.from_datahub(graph=graph)
+        logger.info(
+            f"SnowflakeAnalyticsEngine initialized with authentication_type={self.connection.authentication_type} (type={type(self.connection.authentication_type)})"
+        )
         self._engine: Optional[Engine] = None
 
     def _get_sqlalchemy_engine(self) -> Engine:
@@ -38,10 +42,13 @@ class SnowflakeAnalyticsEngine(AnalyticsEngine):
             "username": self.connection.user,
             "password": self.connection.password,
             "role": self.connection.role,
-            "authentication_type": self.connection.authentication_type,
+            "authentication_type": self.connection.authentication_type.value,  # SnowflakeConnectionConfig expects str
             "private_key": self.connection.private_key,
             "private_key_password": self.connection.private_key_password,
         }
+        logger.info(
+            f"Creating SQLAlchemy engine with authentication_type={config_dict['authentication_type']} (type={type(config_dict['authentication_type'])})"
+        )
 
         config = SnowflakeConnectionConfigPermissive.parse_obj(config_dict)
         url = config.get_sql_alchemy_url()
@@ -52,7 +59,10 @@ class SnowflakeAnalyticsEngine(AnalyticsEngine):
         """Get native Snowflake connection for direct queries."""
         connect_args = self._get_connect_args()
 
-        if self.connection.authentication_type == "KEY_PAIR_AUTHENTICATOR":
+        if (
+            self.connection.authentication_type
+            == SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR
+        ):
             return snowflake.connector.connect(
                 user=self.connection.user,
                 account=self.connection.account,
@@ -75,7 +85,8 @@ class SnowflakeAnalyticsEngine(AnalyticsEngine):
         connect_args: Dict[str, Any] = {}
 
         if (
-            self.connection.authentication_type == "KEY_PAIR_AUTHENTICATOR"
+            self.connection.authentication_type
+            == SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR
             and self.connection.private_key
         ):
             # Process the private key similar to the ingestion source

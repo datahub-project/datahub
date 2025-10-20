@@ -1,12 +1,28 @@
+from enum import StrEnum
 from typing import Any, Dict
 
 import pydantic
+import snowflake.connector
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from datahub.configuration.common import PermissiveConfigModel
+from datahub.ingestion.source.snowflake.constants import (
+    CLIENT_PREFETCH_THREADS,
+    CLIENT_SESSION_KEEP_ALIVE,
+    DEFAULT_SNOWFLAKE_DOMAIN,
+)
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
+
+
+class SnowflakeAuthenticationType(StrEnum):
+    """Snowflake authentication types."""
+
+    DEFAULT_AUTHENTICATOR = "DEFAULT_AUTHENTICATOR"
+    EXTERNAL_BROWSER_AUTHENTICATOR = "EXTERNAL_BROWSER_AUTHENTICATOR"
+    KEY_PAIR_AUTHENTICATOR = "KEY_PAIR_AUTHENTICATOR"
+    OAUTH_AUTHENTICATOR = "OAUTH_AUTHENTICATOR"
 
 
 class SnowflakeConnectionConfigPermissive(
@@ -19,11 +35,6 @@ class SnowflakeConnectionConfigPermissive(
         if self._computed_connect_args is not None:
             return self._computed_connect_args
 
-        from datahub.ingestion.source.snowflake.constants import (
-            CLIENT_PREFETCH_THREADS,
-            CLIENT_SESSION_KEEP_ALIVE,
-        )
-
         connect_args: Dict[str, Any] = {
             # Improves performance and avoids timeout errors for larger query result
             CLIENT_PREFETCH_THREADS: 10,
@@ -34,7 +45,8 @@ class SnowflakeConnectionConfigPermissive(
 
         if (
             "private_key" not in connect_args
-            and self.authentication_type == "KEY_PAIR_AUTHENTICATOR"
+            and self.authentication_type
+            == SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR
         ):
             if self.private_key is not None:
                 # Fix JSON escaping issues: unescape forward slashes and convert \\n to \n
@@ -75,3 +87,45 @@ class SnowflakeConnectionConfigPermissive(
 
         self._computed_connect_args = connect_args
         return connect_args
+
+    def create_native_connection(
+        self, application: str = "acryl_datahub"
+    ) -> "snowflake.connector.SnowflakeConnection":
+        """
+        Create a native Snowflake connection.
+
+        Args:
+            application: Application name to use for the connection
+
+        Returns:
+            Native Snowflake connection
+        """
+
+        connect_args = self.get_connect_args()
+
+        if (
+            self.authentication_type
+            == SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR
+        ):
+            return snowflake.connector.connect(
+                user=self.username,
+                account=self.account_id,
+                warehouse=self.warehouse,
+                role=self.role,
+                authenticator=SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR,
+                application=application,
+                host=f"{self.account_id}.{getattr(self, 'snowflake_domain', DEFAULT_SNOWFLAKE_DOMAIN)}",
+                **connect_args,
+            )
+        else:
+            # Default authenticator
+            return snowflake.connector.connect(
+                user=self.username,
+                password=self.password.get_secret_value() if self.password else None,
+                account=self.account_id,
+                warehouse=self.warehouse,
+                role=self.role,
+                application=application,
+                host=f"{self.account_id}.{getattr(self, 'snowflake_domain', DEFAULT_SNOWFLAKE_DOMAIN)}",
+                **connect_args,
+            )

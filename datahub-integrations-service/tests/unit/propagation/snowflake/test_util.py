@@ -140,50 +140,6 @@ class TestSnowflakeTagHelper:
         assert self.helper.has_special_chars("TestTable123") is False
         assert self.helper.has_special_chars("test123") is False
 
-    def test_should_quote_identifier_special_chars(self) -> None:
-        """Test identifier quoting for special characters."""
-        assert self.helper._should_quote_identifier("test-table") is True
-        assert self.helper._should_quote_identifier("test.table") is True
-        assert self.helper._should_quote_identifier("test table") is True
-
-    def test_should_quote_identifier_reserved_words(self) -> None:
-        """Test identifier quoting for reserved words."""
-        assert self.helper._should_quote_identifier("SELECT") is True
-        assert self.helper._should_quote_identifier("table") is True
-        assert self.helper._should_quote_identifier("FROM") is True
-
-    def test_should_quote_identifier_starts_with_number(self) -> None:
-        """Test identifier quoting for identifiers starting with numbers."""
-        assert self.helper._should_quote_identifier("123table") is True
-        assert self.helper._should_quote_identifier("9test") is True
-
-    def test_should_quote_identifier_normal_identifier(self) -> None:
-        """Test identifier quoting for normal identifiers."""
-        assert self.helper._should_quote_identifier("test_table") is False
-        assert self.helper._should_quote_identifier("TestTable") is False
-        assert self.helper._should_quote_identifier("my_column") is False
-
-    def test_format_identifier_needs_quoting(self) -> None:
-        """Test identifier formatting when quoting is needed."""
-        result = self.helper._format_identifier("test-table")
-        assert result == '"test-table"'
-
-        result = self.helper._format_identifier("SELECT")
-        assert result == '"SELECT"'
-
-    def test_format_identifier_no_quoting_needed(self) -> None:
-        """Test identifier formatting when no quoting is needed."""
-        result = self.helper._format_identifier("test_table")
-        assert result == "test_table"
-
-        result = self.helper._format_identifier("MyTable")
-        assert result == "MyTable"
-
-    def test_format_identifier_already_quoted(self) -> None:
-        """Test identifier formatting when already quoted."""
-        result = self.helper._format_identifier('"test-table"')
-        assert result == '"test-table"'
-
     @patch.object(SnowflakeTagHelper, "get_label_urn_to_tag", return_value="TestTag")
     def test_apply_tag_or_term_non_snowflake_urn(self, mock_get_label: Mock) -> None:
         """Test applying tag to non-Snowflake URN (should return early)."""

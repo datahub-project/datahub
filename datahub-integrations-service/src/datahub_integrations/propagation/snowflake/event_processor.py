@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any, Dict, Optional
 
@@ -93,8 +94,6 @@ class EventProcessor:
         aspect_data = {}
         if mcl_event.aspect and mcl_event.aspect.value:
             try:
-                import json
-
                 aspect_data = json.loads(mcl_event.aspect.value.decode("utf-8"))
             except Exception as e:
                 logger.error(f"Failed to parse aspect data: {str(e)}")
@@ -102,7 +101,7 @@ class EventProcessor:
         return EventData(
             entity_urn=mcl_event.entityUrn,
             event_type="MetadataChangeLogEvent_v1",
-            operation="MODIFY",  # MCL events are typically modifications
+            operation=mcl_event.changeType,
             aspect_name=mcl_event.aspectName,
             change_type=mcl_event.changeType,
             aspect_data=aspect_data,

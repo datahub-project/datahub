@@ -23,6 +23,7 @@ from sqlalchemy.exc import ProgrammingError
 
 from datahub_integrations.propagation.snowflake.comment_writer import (
     SnowflakeCommentManager,
+    SQLIdentifierFormatter,
 )
 from datahub_integrations.propagation.snowflake.config import (
     SnowflakeConnectionConfigPermissive,
@@ -83,39 +84,8 @@ class SnowflakeTagHelper(Closeable):
         return self._comment_manager
 
     def _get_native_connection(self) -> "snowflake.connector.SnowflakeConnection":
-        """Get native Snowflake connection using the same approach as ingestion service."""
-        import snowflake.connector
-        from datahub.ingestion.source.snowflake.constants import (
-            DEFAULT_SNOWFLAKE_DOMAIN,
-        )
-
-        connect_args = self.config.get_connect_args()
-
-        if self.config.authentication_type == "KEY_PAIR_AUTHENTICATOR":
-            return snowflake.connector.connect(
-                user=self.config.username,
-                account=self.config.account_id,
-                warehouse=self.config.warehouse,
-                role=self.config.role,
-                authenticator="KEY_PAIR_AUTHENTICATOR",
-                application="acryl_datahub",
-                host=f"{self.config.account_id}.{getattr(self.config, 'snowflake_domain', DEFAULT_SNOWFLAKE_DOMAIN)}",
-                **connect_args,
-            )
-        else:
-            # Default authenticator
-            return snowflake.connector.connect(
-                user=self.config.username,
-                password=self.config.password.get_secret_value()
-                if self.config.password
-                else None,
-                account=self.config.account_id,
-                warehouse=self.config.warehouse,
-                role=self.config.role,
-                application="acryl_datahub",
-                host=f"{self.config.account_id}.{getattr(self.config, 'snowflake_domain', DEFAULT_SNOWFLAKE_DOMAIN)}",
-                **connect_args,
-            )
+        """Get native Snowflake connection using the centralized method."""
+        return self.config.create_native_connection(application="acryl_datahub")
 
     @staticmethod
     def get_term_name_from_id(term_urn: str, graph: AcrylDataHubGraph) -> str:
@@ -145,68 +115,8 @@ class SnowflakeTagHelper(Closeable):
             )
 
     def has_special_chars(self, text: str) -> bool:
+        """Check if text contains special characters."""
         return bool(re.search(r"[^a-zA-Z0-9_]", text))
-
-    def _should_quote_identifier(self, identifier: str) -> bool:
-        """Check if a Snowflake identifier needs quoting."""
-        clean_identifier = identifier.strip('"')
-
-        # Quote if it contains special characters
-        if self.has_special_chars(clean_identifier):
-            return True
-
-        # Quote if it's a reserved word
-        reserved_words = {
-            "SELECT",
-            "FROM",
-            "WHERE",
-            "INSERT",
-            "UPDATE",
-            "DELETE",
-            "CREATE",
-            "DROP",
-            "ALTER",
-            "TABLE",
-            "VIEW",
-            "INDEX",
-            "DATABASE",
-            "SCHEMA",
-            "COLUMN",
-            "PRIMARY",
-            "KEY",
-            "FOREIGN",
-            "REFERENCES",
-            "CONSTRAINT",
-            "UNIQUE",
-            "NOT",
-            "NULL",
-            "DEFAULT",
-            "CHECK",
-            "GRANT",
-            "REVOKE",
-            "COMMIT",
-            "ROLLBACK",
-            "TRANSACTION",
-            "BEGIN",
-            "END",
-        }
-        if clean_identifier.upper() in reserved_words:
-            return True
-
-        # Quote if it starts with a number
-        if clean_identifier and clean_identifier[0].isdigit():
-            return True
-
-        return False
-
-    def _format_identifier(self, identifier: str) -> str:
-        """Format a Snowflake identifier, adding quotes only when necessary."""
-        clean_identifier = identifier.strip('"')
-
-        if self._should_quote_identifier(clean_identifier):
-            return f'"{clean_identifier}"'
-        else:
-            return clean_identifier
 
     def apply_tag_or_term(
         self, entity_urn: str, tag_or_term_urn: str, graph: AcrylDataHubGraph
@@ -216,11 +126,11 @@ class SnowflakeTagHelper(Closeable):
         tag = self.get_label_urn_to_tag(tag_or_term_urn, graph)
         assert tag is not None
 
-        parsed_entity_urn = Urn.create_from_string(entity_urn)
+        parsed_entity_urn = Urn.from_string(entity_urn)
         if isinstance(parsed_entity_urn, DatasetUrn):
             dataset_urn = parsed_entity_urn
         elif isinstance(parsed_entity_urn, SchemaFieldUrn):
-            dataset_urn = DatasetUrn.create_from_string(parsed_entity_urn.parent)
+            dataset_urn = DatasetUrn.from_string(parsed_entity_urn.parent)
         else:
             raise ValueError(
                 f"Invalid entity urn {entity_urn}, can only handle Dataset and SchemaField urns."
@@ -343,7 +253,7 @@ class SnowflakeTagHelper(Closeable):
         tag = self.get_label_urn_to_tag(tag_urn, graph)
         assert tag is not None
 
-        parsed_entity_urn = Urn.create_from_string(entity_urn)
+        parsed_entity_urn = Urn.from_string(entity_urn)
         if isinstance(parsed_entity_urn, DatasetUrn):
             dataset_urn = parsed_entity_urn
             database, schema, table = dataset_urn.name.split(".")
@@ -475,11 +385,10 @@ class SnowflakeTagHelper(Closeable):
         results: Dict[str, List[str]] = {}
         try:
             # Use native Snowflake connection
-            cursor = self.connection.cursor()
-            try:
+            with self.connection.cursor() as cursor:
                 # Set the database and schema - use smart quoting
-                formatted_database = self._format_identifier(database)
-                formatted_schema = self._format_identifier(schema)
+                formatted_database = SQLIdentifierFormatter.format_identifier(database)
+                formatted_schema = SQLIdentifierFormatter.format_identifier(schema)
                 cursor.execute(f"USE {formatted_database}.{formatted_schema}")
 
                 # Execute the main query
@@ -510,9 +419,7 @@ class SnowflakeTagHelper(Closeable):
                         if column_name:
                             results[table_name].append(column_name)
 
-                return results
-            finally:
-                cursor.close()
+            return results
 
         except Exception as e:
             logger.exception(
@@ -530,17 +437,14 @@ class SnowflakeTagHelper(Closeable):
             return
 
         try:
-            cursor = self.connection.cursor()
-            try:
+            with self.connection.cursor() as cursor:
                 # Use smart quoting for database and schema names
-                formatted_database = self._format_identifier(database)
-                formatted_schema = self._format_identifier(schema)
+                formatted_database = SQLIdentifierFormatter.format_identifier(database)
+                formatted_schema = SQLIdentifierFormatter.format_identifier(schema)
                 use_statement = f"USE {formatted_database}.{formatted_schema}"
 
                 cursor.execute(use_statement)
                 cursor.execute(query)
-            finally:
-                cursor.close()
         except ProgrammingError as e:
             self._log_error()
             logger.error(f"ProgrammingError executing query: {query}. Error: {e}")
@@ -564,11 +468,8 @@ class SnowflakeTagHelper(Closeable):
             return
 
         try:
-            cursor = self.connection.cursor()
-            try:
+            with self.connection.cursor() as cursor:
                 cursor.execute(query)
-            finally:
-                cursor.close()
         except ProgrammingError as e:
             self._log_error()
             logger.error(
