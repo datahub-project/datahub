@@ -184,6 +184,7 @@ class DremioQuery:
         return ""
 
     def get_raw_query(self, sql_query: str) -> str:
+        """Remove comments from SQL query using sqlglot parser."""
         try:
             parsed = parse_one(sql_query)
             return parsed.sql(comments=False)
@@ -336,49 +337,16 @@ class DremioCatalog:
     def __init__(self, dremio_api: DremioAPIOperations):
         self.dremio_api = dremio_api
         self.edition = dremio_api.edition
-        self.datasets: Deque[DremioDataset] = deque()
         self.sources: Deque[DremioSourceContainer] = deque()
         self.spaces: Deque[DremioSpace] = deque()
         self.folders: Deque[DremioFolder] = deque()
-        self.glossary_terms: Deque[DremioGlossaryTerm] = deque()
         self.queries: Deque[DremioQuery] = deque()
 
-        self.datasets_populated = False
         self.containers_populated = False
         self.queries_populated = False
 
-    def set_datasets(self) -> None:
-        if not self.datasets_populated:
-            self.set_containers()
-
-            containers: Deque[DremioContainer] = deque()
-            containers.extend(self.spaces)  # Add DremioSpace elements
-            containers.extend(self.sources)  # Add DremioSource elements
-
-            for dataset_details in self.dremio_api.get_all_tables_and_columns(
-                containers=containers
-            ):
-                dremio_dataset = DremioDataset(
-                    dataset_details=dataset_details,
-                    api_operations=self.dremio_api,
-                )
-                self.datasets.append(dremio_dataset)
-
-                for glossary_term in dremio_dataset.glossary_terms:
-                    if glossary_term not in self.glossary_terms:
-                        self.glossary_terms.append(glossary_term)
-
-            self.datasets_populated = True
-
-    def get_datasets(self) -> Deque[DremioDataset]:
-        self.set_datasets()
-        return self.datasets
-
-    def get_datasets_iter(self) -> Iterator["DremioDataset"]:
-        """
-        Memory-efficient streaming version that yields datasets one at a time.
-        Avoids collecting all datasets in memory before processing.
-        """
+    def get_datasets(self) -> Iterator[DremioDataset]:
+        """Get all Dremio datasets (tables and views) as an iterator."""
         # Stream containers directly without storing them
         containers_stream = self._get_containers_iter()
 
@@ -392,10 +360,8 @@ class DremioCatalog:
 
             yield dremio_dataset
 
-    def _get_containers_iter(self) -> Iterator["DremioContainer"]:
-        """
-        Stream containers without storing them in memory.
-        """
+    def _get_containers_iter(self) -> Iterator[DremioContainer]:
+        """Convert raw container data into typed container objects."""
         for container in self.dremio_api.get_all_containers():
             container_type = container.get("container_type")
             if container_type == DremioEntityContainerType.SOURCE:
@@ -473,32 +439,24 @@ class DremioCatalog:
         self.containers_populated = True
 
     def get_containers(self) -> Deque:
+        """Get all containers (sources, spaces, folders) as a deque."""
         self.set_containers()
         return deque(itertools.chain(self.sources, self.spaces, self.folders))
 
     def get_containers_iter(self) -> Iterator["DremioContainer"]:
-        """
-        Stream containers without storing them in deques.
-        """
+        """Get all containers (sources, spaces, folders) as an iterator."""
         return self._get_containers_iter()
 
     def get_sources(self) -> Deque[DremioSourceContainer]:
+        """Get all Dremio source containers (external data connections)."""
         self.set_containers()
         return self.sources
 
-    def get_glossary_terms(self) -> Deque[DremioGlossaryTerm]:
-        self.set_datasets()
-        self.set_containers()
-        return self.glossary_terms
-
-    def get_glossary_terms_iter(self) -> Iterator[DremioGlossaryTerm]:
-        """
-        Stream glossary terms without storing them in deque.
-        Note: This processes datasets to extract glossary terms on-the-fly.
-        """
+    def get_glossary_terms(self) -> Iterator[DremioGlossaryTerm]:
+        """Get all unique glossary terms (tags) from datasets."""
         glossary_terms_seen = set()
 
-        for dataset in self.get_datasets_iter():
+        for dataset in self.get_datasets():
             for glossary_term in dataset.glossary_terms:
                 if glossary_term not in glossary_terms_seen:
                     glossary_terms_seen.add(glossary_term)
@@ -515,6 +473,7 @@ class DremioCatalog:
         return all(query.get(field) for field in required_fields)
 
     def get_queries(self) -> Deque[DremioQuery]:
+        """Get all valid Dremio queries for lineage analysis."""
         for query in self.dremio_api.extract_all_queries():
             if not self.is_valid_query(query):
                 continue

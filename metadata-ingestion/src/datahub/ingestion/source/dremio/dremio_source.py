@@ -242,7 +242,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
 
             # Process Datasets
-            for dataset_info in self.dremio_catalog.get_datasets_iter():
+            for dataset_info in self.dremio_catalog.get_datasets():
                 try:
                     yield from self.process_dataset(dataset_info)
                     logger.info(
@@ -257,7 +257,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
 
             # Process Glossary Terms using streaming
-            for glossary_term in self.dremio_catalog.get_glossary_terms_iter():
+            for glossary_term in self.dremio_catalog.get_glossary_terms():
                 try:
                     yield from self.process_glossary_term(glossary_term)
                 except Exception as exc:
@@ -285,9 +285,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     ) as executor,
                 ):
                     # Collect datasets for profiling
-                    datasets_for_profiling = list(
-                        self.dremio_catalog.get_datasets_iter()
-                    )
+                    datasets_for_profiling = list(self.dremio_catalog.get_datasets())
                     future_to_dataset = {
                         executor.submit(self.generate_profiles, dataset): dataset
                         for dataset in datasets_for_profiling
