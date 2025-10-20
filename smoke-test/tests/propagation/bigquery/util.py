@@ -3,6 +3,7 @@ import time
 from typing import Dict, List
 
 from google.api_core import exceptions
+from google.api_core.client_options import ClientOptions
 from google.cloud.bigquery.dataset import Dataset, DatasetReference
 from google.cloud.bigquery.schema import SchemaField
 from google.cloud.bigquery.table import Table, TableReference
@@ -29,7 +30,9 @@ class BigqueryTestHelper:
         self.ptm_client = self.config.get_policy_tag_manager_client()
         self.bq_client = self.config.get_bigquery_client()
         self.dc_client = DataCatalogClient(
-            client_options=self.config.extra_client_options
+            client_options=ClientOptions(**self.config.extra_client_options)
+            if self.config.extra_client_options
+            else None
         )
         self.bq_location = self.config.extra_client_options.get(
             "location", "US"

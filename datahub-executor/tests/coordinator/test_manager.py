@@ -54,7 +54,10 @@ class TestExecutionRequestManager:
             id="test-execution-request",
             exec_id="urn:li:assertion:test",
             name=RUN_ASSERTION_TASK_NAME,
-            args={"assertion_spec": assertion_spec.dict(by_alias=True), "context": {}},
+            args={
+                "assertion_spec": assertion_spec.model_dump(mode="json"),
+                "context": {},
+            },
         )
         self.fetcher.fetch_execution_requests.return_value = []
         self.manager = ExecutionRequestManager([self.fetcher], self.scheduler)

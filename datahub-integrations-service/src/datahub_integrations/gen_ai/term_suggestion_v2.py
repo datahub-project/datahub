@@ -12,9 +12,7 @@ from loguru import logger
 from pydantic import BaseModel, Field, ValidationError
 
 from datahub_integrations.gen_ai.bedrock import (
-    BedrockModel,
     call_bedrock_llm,
-    get_bedrock_model_env_variable,
 )
 from datahub_integrations.gen_ai.description_context import (
     ColumnMetadataInfo,
@@ -22,11 +20,8 @@ from datahub_integrations.gen_ai.description_context import (
     extract_metadata_for_urn,
     transform_table_info_for_llm,
 )
+from datahub_integrations.gen_ai.model_config import model_config
 from datahub_integrations.gen_ai.term_suggestion_v2_context import GlossaryInfo
-
-TERM_SUGGESTION_GENERATION_MODEL: BedrockModel | str = get_bedrock_model_env_variable(
-    "TERM_SUGGESTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_3_HAIKU
-)
 
 # The AWS quota is 1000 requests per minute for Haiku 3 and
 # 20-50 (depending on region) for Claude 3.5 Sonnet.
@@ -223,11 +218,12 @@ async def get_term_recommendations_for_column_splits(
                     glossary_info=term_split,
                     prompt_path=prompt_path,
                 )
+
                 raw_llm_responses[col_split_idx][term_split_idx] = task_group.soonify(
                     asyncer.asyncify(call_bedrock_llm)
                 )(
                     prompt=prompt,
-                    model=TERM_SUGGESTION_GENERATION_MODEL,
+                    model=model_config.term_suggestion_ai.model,
                     max_tokens=5000,
                     temperature=TEMPERATURE,
                 )
@@ -245,9 +241,10 @@ async def get_term_recommendations_for_column_splits(
                 extraction_prompt = generate_extraction_prompt(
                     raw_llm_response=raw_llm_response_for_column_split
                 )
+
                 raw_llm_response_for_column_split = call_bedrock_llm(
                     prompt=extraction_prompt,
-                    model=TERM_SUGGESTION_GENERATION_MODEL,
+                    model=model_config.term_suggestion_ai.model,
                     max_tokens=5000,
                     temperature=TEMPERATURE,
                 )

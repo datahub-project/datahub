@@ -1,4 +1,4 @@
-"""Tests for the _get_extra_llm_instructions function."""
+"""Tests for the get_extra_llm_instructions function."""
 
 from typing import Any, Dict, Generator
 from unittest.mock import MagicMock
@@ -6,25 +6,25 @@ from unittest.mock import MagicMock
 import pytest
 from datahub.sdk.main_client import DataHubClient
 
-from datahub_integrations.chat.chat_session import _get_extra_llm_instructions
+from datahub_integrations.chat.chat_session import get_extra_llm_instructions
 
 
 @pytest.fixture(autouse=True)
 def clear_cache() -> Generator[None, None, None]:
     """Clear the TTL cache before each test."""
     # Access the cache from the decorator
-    cache_func = _get_extra_llm_instructions
+    cache_func = get_extra_llm_instructions
     if hasattr(cache_func, "__wrapped__"):
         # Clear the cache if it exists
         cache_func.cache_clear() if hasattr(cache_func, "cache_clear") else None
     # Since we're using cachetools.cached decorator, we need to clear its cache
     # The cache is stored as an attribute on the decorated function
-    if hasattr(_get_extra_llm_instructions, "__cache__"):
-        _get_extra_llm_instructions.__cache__.clear()
+    if hasattr(get_extra_llm_instructions, "__cache__"):
+        get_extra_llm_instructions.__cache__.clear()
     yield
     # Clear again after test
-    if hasattr(_get_extra_llm_instructions, "__cache__"):
-        _get_extra_llm_instructions.__cache__.clear()
+    if hasattr(get_extra_llm_instructions, "__cache__"):
+        get_extra_llm_instructions.__cache__.clear()
 
 
 def create_mock_client(graphql_response: Dict[str, Any]) -> MagicMock:
@@ -37,7 +37,7 @@ def create_mock_client(graphql_response: Dict[str, Any]) -> MagicMock:
 
 
 class TestGetExtraLLMInstructions:
-    """Test cases for _get_extra_llm_instructions function."""
+    """Test cases for get_extra_llm_instructions function."""
 
     def test_successful_retrieval_single_instruction(self) -> None:
         """Test successful retrieval of a single GENERAL_CONTEXT instruction."""
@@ -64,7 +64,7 @@ class TestGetExtraLLMInstructions:
         mock_client = create_mock_client(mock_response)
 
         # Execute
-        result = _get_extra_llm_instructions(mock_client)
+        result = get_extra_llm_instructions(mock_client)
 
         # Verify
         assert result == "Be helpful and concise."
@@ -115,7 +115,7 @@ class TestGetExtraLLMInstructions:
         mock_client = create_mock_client(mock_response)
 
         # Execute
-        result = _get_extra_llm_instructions(mock_client)
+        result = get_extra_llm_instructions(mock_client)
 
         # Verify - should return the last item
         assert result == "Third instruction - should be used"
@@ -154,7 +154,7 @@ class TestGetExtraLLMInstructions:
         mock_client = create_mock_client(mock_response)
 
         # Execute
-        result = _get_extra_llm_instructions(mock_client)
+        result = get_extra_llm_instructions(mock_client)
 
         # Verify - only active instruction should be returned
         assert result == "Active instruction - should be used"
@@ -193,7 +193,7 @@ class TestGetExtraLLMInstructions:
         mock_client = create_mock_client(mock_response)
 
         # Execute
-        result = _get_extra_llm_instructions(mock_client)
+        result = get_extra_llm_instructions(mock_client)
 
         # Verify
         assert result == "General context - should be used"
@@ -204,7 +204,7 @@ class TestGetExtraLLMInstructions:
         mock_client = create_mock_client(mock_response)
 
         # Execute
-        result = _get_extra_llm_instructions(mock_client)
+        result = get_extra_llm_instructions(mock_client)
 
         # Verify
         assert result is None
@@ -215,7 +215,7 @@ class TestGetExtraLLMInstructions:
         mock_client = create_mock_client(mock_response)
 
         # Execute
-        result = _get_extra_llm_instructions(mock_client)
+        result = get_extra_llm_instructions(mock_client)
 
         # Verify
         assert result is None
@@ -228,7 +228,7 @@ class TestGetExtraLLMInstructions:
         mock_client = create_mock_client(mock_response)
 
         # Execute
-        result = _get_extra_llm_instructions(mock_client)
+        result = get_extra_llm_instructions(mock_client)
 
         # Verify
         assert result is None
@@ -266,7 +266,7 @@ class TestGetExtraLLMInstructions:
         mock_client = create_mock_client(mock_response)
 
         # Execute
-        result = _get_extra_llm_instructions(mock_client)
+        result = get_extra_llm_instructions(mock_client)
 
         # Verify
         assert result is None
@@ -294,7 +294,7 @@ class TestGetExtraLLMInstructions:
         mock_client = create_mock_client(mock_response)
 
         # Execute
-        result = _get_extra_llm_instructions(mock_client)
+        result = get_extra_llm_instructions(mock_client)
 
         # Verify
         assert result == "Instruction with whitespace"
@@ -322,24 +322,47 @@ class TestGetExtraLLMInstructions:
         mock_client = create_mock_client(mock_response)
 
         # Execute
-        result = _get_extra_llm_instructions(mock_client)
+        result = get_extra_llm_instructions(mock_client)
 
         # Verify
         assert result is None
 
-    def test_graphql_exception_raises(self) -> None:
-        """Test that GraphQL exceptions are propagated."""
+    def test_graphql_exception_returns_none(self) -> None:
+        """Test that GraphQL exceptions return None with warning (temporary behavior)."""
+        # Changed behavior: We now catch all exceptions and return None instead of
+        # raising, to handle cases where GMS instances don't have aiAssistant field yet.
+        # This is a temporary solution until all instances are upgraded.
         mock_client = MagicMock(spec=DataHubClient)
         mock_graph = MagicMock()
         mock_graph.execute_graphql.side_effect = Exception("GraphQL connection error")
         mock_client._graph = mock_graph
 
-        # Execute and verify exception is raised
-        with pytest.raises(Exception) as exc_info:
-            _get_extra_llm_instructions(mock_client)
+        # Execute - should return None instead of raising
+        result = get_extra_llm_instructions(mock_client)
 
-        assert "Failed to fetch AI instructions from GraphQL" in str(exc_info.value)
-        assert "GraphQL connection error" in str(exc_info.value)
+        # Verify
+        assert result is None
+
+    def test_undefined_aiassistant_field_returns_none(self) -> None:
+        """Test that validation error for undefined aiAssistant field returns None with warning."""
+        # This simulates the error when a GMS instance doesn't have the aiAssistant field yet
+        mock_client = MagicMock(spec=DataHubClient)
+        mock_graph = MagicMock()
+        error_message = (
+            "Error executing graphql query: [{'message': "
+            '"Validation error (FieldUndefined@[globalSettings/aiAssistant]) : '
+            "Field 'aiAssistant' in type 'GlobalSettings' is undefined\", "
+            "'locations': [{'line': 4, 'column': 13}], "
+            "'extensions': {'classification': 'ValidationError'}}]"
+        )
+        mock_graph.execute_graphql.side_effect = Exception(error_message)
+        mock_client._graph = mock_graph
+
+        # Execute - should return None instead of raising
+        result = get_extra_llm_instructions(mock_client)
+
+        # Verify
+        assert result is None
 
     def test_caching_behavior(self) -> None:
         """Test that results are cached and reused."""
@@ -364,11 +387,11 @@ class TestGetExtraLLMInstructions:
         mock_client = create_mock_client(mock_response)
 
         # First call
-        result1 = _get_extra_llm_instructions(mock_client)
+        result1 = get_extra_llm_instructions(mock_client)
         assert result1 == "Cached instruction"
 
         # Second call - should use cache
-        result2 = _get_extra_llm_instructions(mock_client)
+        result2 = get_extra_llm_instructions(mock_client)
         assert result2 == "Cached instruction"
 
         # Verify GraphQL was only called once due to caching
@@ -418,8 +441,8 @@ class TestGetExtraLLMInstructions:
         mock_client2 = create_mock_client(response2)
 
         # Call with different clients
-        result1 = _get_extra_llm_instructions(mock_client1)
-        result2 = _get_extra_llm_instructions(mock_client2)
+        result1 = get_extra_llm_instructions(mock_client1)
+        result2 = get_extra_llm_instructions(mock_client2)
 
         # Verify different results for different clients
         assert result1 == "Client 1 instruction"
@@ -461,7 +484,7 @@ Always maintain a professional tone."""
         mock_client = create_mock_client(mock_response)
 
         # Execute
-        result = _get_extra_llm_instructions(mock_client)
+        result = get_extra_llm_instructions(mock_client)
 
         # Verify - should preserve the multi-line format
         assert result == instruction_text.strip()

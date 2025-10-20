@@ -14,7 +14,6 @@ const DetailsContainer = styled.div`
         cursor: pointer;
     }
     font-size: 14px;
-    margin: 0px 40px 0px 48px;
 `;
 
 const ActionButtonContainer = styled.div<{ removeRightPadding?: boolean }>`
@@ -41,6 +40,7 @@ export function DetailsColumn({
     if (!assertion.info) {
         return <>No details found</>;
     }
+
     return (
         <DetailsContainer>
             <AssertionName

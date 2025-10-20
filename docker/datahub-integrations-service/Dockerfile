@@ -39,6 +39,13 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
     chown -R datahub:datahub $HOME && \
     chmod g-s $HOME
 
+# Debug: Show actual datahub user info
+RUN echo "=== DataHub User Debug Info ===" && \
+    date && \
+    getent passwd datahub && \
+    getent group datahub && \
+    id datahub
+
 # Setup the PPA for alternative Python versions.
 # TODO: Eventually we should switch to using uv's support for python-build-standalone.
 RUN apt-get update && apt-get install -y \
@@ -141,6 +148,7 @@ RUN mkdir -p /etc/pki/tls/certs && ln -s /etc/ssl/certs/ca-certificates.crt /etc
 
 COPY --chmod=755 ./docker/datahub-integrations-service/start.sh /start_datahub_integrations_service.sh
 
+
 USER datahub
 
 # Copy and install requirements as base layer which wont get invalidated if any of the code below changes.
@@ -148,26 +156,30 @@ COPY --chown=datahub:datahub ./datahub-integrations-service/requirements.txt /da
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-integrations-service \
    grep -v "\-e " /datahub-integrations-service/requirements.txt | UV_LINK_MODE=copy uv pip install -r /dev/stdin
 
-USER 0
-
+# Copy just enough to enable pip compile to work. Other code changes wont invalidate this layer.
+# copy to match requirements.txt entry: ../metadata-ingestion-modules/acryl-cloud (relative to /datahub-executor)
+COPY --chown=datahub ./metadata-ingestion-modules/acryl-cloud /metadata-ingestion-modules/acryl-cloud
 COPY --chown=datahub:datahub ./datahub-integrations-service /datahub-integrations-service
-COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
-    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 \
-    && python /version_updater.py --directory /datahub-integrations-service/ --version "$RELEASE_VERSION" --expected-update-count 2 \
+    python /version_updater.py --directory /datahub-integrations-service/ --version "$RELEASE_VERSION" --expected-update-count 2 \
     && python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1
+
+# For the datahub-actions build, we explicitly want to retain the uv cache.
+# This speeds up the process of creating venvs at runtime.
+# Because uv uses hardlinks for installing packages, keeping the cache around does not
+# really impact image size.
+RUN uv pip install -e '/metadata-ingestion-modules/acryl-cloud' -e '/datahub-actions/[all]'
 
 WORKDIR /datahub-integrations-service
 
-USER datahub
-
+# Run sync to install editable packages
 # This now does a sync over the base layer, and incurs only a delta cost on base layer even if code has changed.
 # Note that the requirements file contains editable installs for
-# metadata-ingestion and datahub-integrations-service
+# datahub-integrations-service
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-integrations-service \
    UV_LINK_MODE=copy ./scripts/sync.sh --no-dev
 
@@ -176,9 +188,11 @@ FROM build AS prod-install
 
 # For the production build, we build a wheel file statically.
 # In development mode, we build it on-the-fly.
-RUN python -m build --wheel . --outdir static/prebuilt-dist/ && \
-    python -m build --wheel ../metadata-ingestion --outdir static/prebuilt-dist/ && \
-    python -m build --wheel ../datahub-actions --outdir static/prebuilt-dist/
+RUN python -m build --wheel . --outdir static/prebuilt-dist/
+
+RUN echo "Debug output:" && \
+  uv pip list && \
+  uv pip show acryl-datahub
 
 FROM build AS dev-install
 
@@ -191,7 +205,7 @@ FROM build AS dev-install
 # COPY ./datahub-actions/datahub-actions/setup.py /datahub-actions/datahub-actions/
 # COPY ./datahub-actions/datahub-actions/README.md /datahub-actions/datahub-actions/
 # COPY ./datahub-actions/datahub-actions/src/datahub_actions/__init__.py /datahub-actions/datahub-actions/src/datahub_actions/__init__.py
-ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-integrations-service/src --reload-dir /metadata-ingestion/src --reload-dir /datahub-actions/src"
+ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-integrations-service/src --reload-dir /metadata-ingestion-modules/acryl-cloud/src --reload-dir /datahub-actions/src"
 ENV DEBUGPY_ENABLED=true
 
 FROM ${APP_ENV}-install AS final

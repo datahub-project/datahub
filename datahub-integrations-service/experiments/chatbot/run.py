@@ -22,8 +22,8 @@ from datahub_integrations.chat.chat_history import (
     ChatHistory,
     HumanMessage,
 )
+from datahub_integrations.gen_ai.model_config import model_config
 from datahub_integrations.chat.chat_session import (
-    CHATBOT_MODEL,
     ChatSession,
     NextMessage,
 )
@@ -61,7 +61,7 @@ def load_instruction_overrides() -> Optional[Dict[str, str]]:
 
 @mlflow.trace
 async def run_prompt(
-    case: Prompt, 
+    case: Prompt,
     local_results_dir: pathlib.Path,
     instruction_overrides: Optional[Dict[str, str]] = None,
 ) -> dict:
@@ -86,12 +86,12 @@ async def run_prompt(
             if instruction_overrides and case.instance in instruction_overrides:
                 logger.info(f"Using instruction override for instance: {case.instance}")
                 extra_instructions_override = instruction_overrides[case.instance]
-            
+
             logger.debug("Setting up chat session")
             history = ChatHistory(messages=[HumanMessage(text=case.message)])
             session = ChatSession(
-                tools=[mcp], 
-                client=client, 
+                tools=[mcp],
+                client=client,
                 history=history,
                 extra_instructions_override=extra_instructions_override,
             )
@@ -168,7 +168,7 @@ async def process_batch(
                 (
                     prompt,
                     tg.soonify(run_prompt)(
-                        prompt, 
+                        prompt,
                         local_results_dir=experiment_results_dir,
                         instruction_overrides=instruction_overrides,
                     ),
@@ -194,6 +194,18 @@ async def process_all_batches(
         f"Starting batched execution of {len(filtered_prompts)} experiments (batch size: {BATCH_SIZE})"
     )
 
+    instances = set(prompt.instance for prompt in filtered_prompts)
+    logger.info(f"Checking connection to instances: {instances}")
+    for instance in instances:
+        try:
+            create_uncached_datahub_graph(key=instance)
+        except Exception as e:
+            logger.error(f"Error creating graph for instance: {instance}")
+            logger.error(f"Error details: {e}")
+            raise
+
+    logger.info("Good to go!")
+
     # Split prompts into batches to control parallelism
     prompt_batches = list(more_itertools.chunked(filtered_prompts, BATCH_SIZE))
     logger.info(
@@ -204,7 +216,11 @@ async def process_all_batches(
 
     for batch_idx, batch in enumerate(prompt_batches):
         batch_results = await process_batch(
-            batch, batch_idx, len(prompt_batches), experiment_results_dir, instruction_overrides
+            batch,
+            batch_idx,
+            len(prompt_batches),
+            experiment_results_dir,
+            instruction_overrides,
         )
         all_results.extend(batch_results)
 
@@ -274,8 +290,10 @@ async def main(
     # Load instruction overrides once at the start
     instruction_overrides = load_instruction_overrides()
     if instruction_overrides:
-        logger.info(f"Loaded instruction overrides for instances: {list(instruction_overrides.keys())}")
-    
+        logger.info(
+            f"Loaded instruction overrides for instances: {list(instruction_overrides.keys())}"
+        )
+
     to_thread.current_default_thread_limiter().total_tokens = ANYIO_THREAD_COUNT
     with mlflow.start_run() as run:
         assert run.info.run_name is not None
@@ -287,7 +305,7 @@ async def main(
         mlflow.log_artifact(str(prompts_file))
         mlflow.log_params(
             {
-                "model": CHATBOT_MODEL,
+                "model": model_config.chat_assistant_ai.model,
                 "anyio_thread_count": ANYIO_THREAD_COUNT,
                 "batch_size": BATCH_SIZE,
                 "has_instruction_overrides": instruction_overrides is not None,

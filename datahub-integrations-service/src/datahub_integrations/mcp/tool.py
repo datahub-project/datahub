@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import dataclasses
+import json
+import os
 from typing import Any, Callable, List, Optional
 
 import asyncer
@@ -9,6 +11,12 @@ import mlflow
 import mlflow.entities
 from fastmcp import FastMCP
 from mcp.types import TextContent
+
+from datahub_integrations.chat.context_reducer import TokenCountEstimator
+
+# Maximum token count for tool responses to prevent context window issues
+# As per telemetry tool result length goes upto
+TOOL_RESPONSE_TOKEN_LIMIT = int(os.getenv("TOOL_RESPONSE_TOKEN_LIMIT", 80000))
 
 
 class ToolRunError(Exception):
@@ -58,13 +66,29 @@ class ToolWrapper:
             except Exception as e:
                 raise ToolRunError(f"Error executing tool {self.name}: {e}") from e
             else:
+                result: str | dict
                 if tool_result.structured_content is not None:
-                    return tool_result.structured_content
+                    result = tool_result.structured_content
+                else:
+                    # The FastMCP framework always stringifies the results.
+                    assert len(tool_result.content) == 1
+                    assert isinstance(tool_result.content[0], TextContent)
+                    result = tool_result.content[0].text
 
-                # The FastMCP framework always stringifies the results.
-                assert len(tool_result.content) == 1
-                assert isinstance(tool_result.content[0], TextContent)
-                return tool_result.content[0].text
+                token_count = TokenCountEstimator.estimate_tokens(
+                    result if isinstance(result, str) else json.dumps(result)
+                )
+
+                if token_count > TOOL_RESPONSE_TOKEN_LIMIT:
+                    error_message = (
+                        f"Tool response too large: {token_count:,} tokens (limit: {TOOL_RESPONSE_TOKEN_LIMIT:,}). "
+                        f"Please try with more specific parameters or filters to reduce the result size."
+                    )
+                    raise ToolRunError(
+                        f"Error executing tool {self.name}: {error_message}"
+                    )
+
+                return result
 
     @classmethod
     def from_function(

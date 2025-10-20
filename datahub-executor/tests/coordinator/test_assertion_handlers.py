@@ -3,11 +3,17 @@ from unittest.mock import MagicMock, patch
 import fastapi
 import pytest
 
-from datahub_executor.common.types import Monitor
+from datahub_executor.common.types import (
+    Monitor,
+    MonitorMode,
+    MonitorType,
+)
 from datahub_executor.coordinator.assertion_handlers import (
     handle_train_assertion_monitor,
 )
-from datahub_executor.coordinator.types import TrainAssertionMonitorInputSchema
+from datahub_executor.coordinator.types import (
+    TrainAssertionMonitorInputSchema,
+)
 
 
 @pytest.fixture
@@ -52,8 +58,8 @@ def mock_monitor() -> Monitor:
         # Create a valid monitor instance
         monitor = Monitor(
             urn="urn:li:assertionMonitor:12345",
-            type=MockMonitorType.ASSERTION,  # Use enum value
-            mode="ACTIVE",  # Add required field
+            type=MonitorType.ASSERTION,  # Use enum value
+            mode=MonitorMode.ACTIVE,  # Add required field
             properties={"name": "Test Monitor", "description": "A test monitor"},
             assertion={"urn": "urn:li:assertion:67890"},
         )
@@ -84,7 +90,8 @@ def test_handle_train_assertion_monitor_success(
             mock_training_engine,
         ),
         patch(
-            "datahub_executor.common.types.Monitor.parse_obj", return_value=mock_monitor
+            "datahub_executor.common.types.Monitor.model_validate",
+            return_value=mock_monitor,
         ),
     ):
         # Call the function
@@ -199,7 +206,8 @@ def test_handle_train_assertion_monitor_training_error(
             mock_training_engine,
         ),
         patch(
-            "datahub_executor.common.types.Monitor.parse_obj", return_value=mock_monitor
+            "datahub_executor.common.types.Monitor.model_validate",
+            return_value=mock_monitor,
         ),
     ):
         # Call the function and expect an exception

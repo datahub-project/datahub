@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
@@ -35,7 +36,7 @@ public class ExternalEventsServiceTest {
   @BeforeMethod
   public void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
-    when(consumerPool.borrowConsumer()).thenReturn(kafkaConsumer);
+    when(consumerPool.borrowConsumer(anyLong(), any(TimeUnit.class))).thenReturn(kafkaConsumer);
     topicNames.put(ExternalEventsService.PLATFORM_EVENT_TOPIC_NAME, "CustomerSpecificTopicName");
     topicNames.put(
         ExternalEventsService.METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,

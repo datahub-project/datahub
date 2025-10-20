@@ -116,7 +116,7 @@ describe("create, edit and remove metadata test", () => {
     cy.waitTextVisible("Successfully updated Test!");
     cy.waitTextVisible(testName);
     cy.reload();
-    cy.get(".ant-card").first().contains("1 failing");
+    cy.get(".ant-card").first().should("contain", "1 failing");
     // delete a test
     cy.get('[data-testid="search-bar-input"]').clear().type(testName);
     cy.wait(500); // Wait for search results to update

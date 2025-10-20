@@ -1,7 +1,7 @@
 import logging
 import time
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -105,6 +105,10 @@ class MonitorClient:
         anomalies = []
         for anomaly in latest_anomaly_events:
             if anomaly.state != "REJECTED":
+                assert (
+                    anomaly.source is not None
+                    and anomaly.source.sourceEventTimestampMillis is not None
+                )
                 anomalies.append(
                     Anomaly(
                         timestamp_ms=anomaly.source.sourceEventTimestampMillis,
@@ -250,6 +254,40 @@ class MonitorClient:
         )
         self.graph.emit_mcps(mcps)
 
+    def patch_sql_metric_monitor_evaluation_context(
+        self,
+        monitor_urn: str,
+        assertion_urn: str,
+        new_assertion_evaluation_context: AssertionEvaluationContextClass,
+        evaluation_spec: AssertionEvaluationSpec,
+    ) -> None:
+        """
+        Patch the evaluation context for the SQL metric monitor
+        """
+        logger.info(
+            f"AssertionsClient: Patching SQL metric assertion {assertion_urn} monitor urn {monitor_urn} monitor context %s",
+            new_assertion_evaluation_context,
+        )
+
+        self._validate_sql_metric_evaluation_spec(evaluation_spec)
+
+        monitor_patch_builder = self._create_base_monitor_patch_builder(monitor_urn)
+
+        sql_metric_assertion_spec = self._build_sql_metric_assertion_evaluation_spec(
+            assertion_urn, evaluation_spec, new_assertion_evaluation_context
+        )
+
+        monitor_patch_builder.set_assertion_monitor_assertions(
+            assertions=[sql_metric_assertion_spec]
+        )
+        mcps = monitor_patch_builder.build()
+
+        logger.info(
+            f"Emitting patch {assertion_urn} monitor urn {monitor_urn} monitor context %s",
+            new_assertion_evaluation_context,
+        )
+        self.graph.emit_mcps(mcps)
+
     def patch_assertion_monitor_metrics_cube_bootstrap_status(
         self,
         monitor_urn: str,
@@ -266,7 +304,7 @@ class MonitorClient:
     def patch_monitor_state(
         self,
         monitor_urn: str,
-        new_state: MonitorStateClass | str,
+        new_state: Union[MonitorStateClass, str],
         error: Optional[MonitorErrorClass],
     ) -> None:
         """
@@ -291,7 +329,7 @@ class MonitorClient:
     # Helper methods for validation
 
     def _validate_volume_evaluation_spec(
-        self, evaluation_spec: AssertionEvaluationSpec | None
+        self, evaluation_spec: Optional[AssertionEvaluationSpec]
     ) -> None:
         """Validate that the evaluation spec has the required parameters for volume assertions"""
         if (
@@ -304,7 +342,7 @@ class MonitorClient:
             )
 
     def _validate_freshness_evaluation_spec(
-        self, evaluation_spec: AssertionEvaluationSpec | None
+        self, evaluation_spec: Optional[AssertionEvaluationSpec]
     ) -> None:
         """Validate that the evaluation spec has the required parameters for freshness assertions"""
         if (
@@ -317,7 +355,7 @@ class MonitorClient:
             )
 
     def _validate_field_metric_evaluation_spec(
-        self, evaluation_spec: AssertionEvaluationSpec | None
+        self, evaluation_spec: Optional[AssertionEvaluationSpec]
     ) -> None:
         """Validate that the evaluation spec has the required parameters for field metric assertions"""
         if (
@@ -327,6 +365,19 @@ class MonitorClient:
         ):
             raise Exception(
                 "Failed to update field metric assertion monitor evaluation context. Existing context is missing required evaluation parameters 'schedule' and 'parameters'"
+            )
+
+    def _validate_sql_metric_evaluation_spec(
+        self, evaluation_spec: Optional[AssertionEvaluationSpec]
+    ) -> None:
+        """Validate that the evaluation spec has the required parameters for SQL metric assertions"""
+        if (
+            not evaluation_spec
+            or not evaluation_spec.schedule
+            or not evaluation_spec.parameters
+        ):
+            raise Exception(
+                "Failed to update SQL metric assertion monitor evaluation context. Existing context is missing required evaluation parameters 'schedule' and 'parameters'"
             )
 
     # Helper methods for creating assertion evaluation specs
@@ -448,6 +499,25 @@ class MonitorClient:
                     sourceType=evaluation_spec.parameters.dataset_field_parameters.source_type.value,  # type: ignore
                     changedRowsField=field,
                 ),
+            ),
+            context=assertion_evaluation_context,
+        )
+
+    def _build_sql_metric_assertion_evaluation_spec(
+        self,
+        assertion_urn: str,
+        evaluation_spec: AssertionEvaluationSpec,
+        assertion_evaluation_context: AssertionEvaluationContextClass,
+    ) -> AssertionEvaluationSpecClass:
+        """Build an assertion evaluation spec for SQL metric assertions"""
+        return AssertionEvaluationSpecClass(
+            assertion=assertion_urn,
+            schedule=CronScheduleClass(
+                cron=evaluation_spec.schedule.cron,
+                timezone=evaluation_spec.schedule.timezone,
+            ),
+            parameters=AssertionEvaluationParametersClass(
+                type=models.AssertionEvaluationParametersTypeClass.DATASET_SQL,
             ),
             context=assertion_evaluation_context,
         )

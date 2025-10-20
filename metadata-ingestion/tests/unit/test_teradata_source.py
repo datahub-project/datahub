@@ -69,6 +69,98 @@ class TestTeradataConfig:
         config = TeradataConfig.parse_obj(config_dict)
         assert config.include_queries is True
 
+    def test_time_window_defaults_applied(self):
+        """Test that BaseTimeWindowConfig defaults are automatically applied."""
+        config_dict = {
+            "username": "test_user",
+            "password": "test_password",
+            "host_port": "localhost:1025",
+            "include_table_lineage": True,
+            "include_usage_statistics": True,
+        }
+
+        config = TeradataConfig.parse_obj(config_dict)
+
+        assert config.start_time is not None
+        assert config.end_time is not None
+        assert isinstance(config.start_time, datetime)
+        assert isinstance(config.end_time, datetime)
+        assert config.end_time > config.start_time
+
+    def test_incremental_lineage_config_support(self):
+        """Test that incremental_lineage configuration parameter is supported."""
+        config_dict = {
+            "username": "test_user",
+            "password": "test_password",
+            "host_port": "localhost:1025",
+            "include_table_lineage": True,
+            "include_usage_statistics": True,
+            "incremental_lineage": True,
+        }
+
+        config = TeradataConfig.parse_obj(config_dict)
+
+        assert hasattr(config, "incremental_lineage")
+        assert config.incremental_lineage is True
+
+        config_dict_false = {
+            **_base_config(),
+            "incremental_lineage": False,
+        }
+        config_false = TeradataConfig.parse_obj(config_dict_false)
+        assert config_false.incremental_lineage is False
+
+        config_default = TeradataConfig.parse_obj(_base_config())
+        assert config_default.incremental_lineage is False
+
+    def test_config_inheritance_chain(self):
+        """Test that TeradataConfig properly inherits from all required base classes."""
+        config_dict = {
+            "username": "test_user",
+            "password": "test_password",
+            "host_port": "localhost:1025",
+            "incremental_lineage": True,
+        }
+
+        config = TeradataConfig.parse_obj(config_dict)
+
+        # Verify inheritance from BaseTimeWindowConfig
+        assert hasattr(config, "start_time")
+        assert hasattr(config, "end_time")
+        assert hasattr(config, "bucket_duration")
+
+        # Verify inheritance from BaseTeradataConfig
+        assert hasattr(config, "scheme")
+
+        # Verify inheritance from TwoTierSQLAlchemyConfig
+        assert hasattr(config, "host_port")
+
+    def test_user_original_recipe_compatibility(self):
+        """Test that a user's original recipe configuration is parsed correctly."""
+        user_recipe_config = {
+            "host_port": "vmvantage1720:1025",
+            "username": "dbc",
+            "password": "dbc",
+            "include_table_lineage": True,
+            "include_usage_statistics": True,
+            "incremental_lineage": True,
+            "stateful_ingestion": {"enabled": True, "fail_safe_threshold": 90},
+        }
+
+        config = TeradataConfig.parse_obj(user_recipe_config)
+
+        assert config.host_port == "vmvantage1720:1025"
+        assert config.username == "dbc"
+        assert config.include_table_lineage is True
+        assert config.include_usage_statistics is True
+        assert config.incremental_lineage is True
+        assert config.start_time is not None
+        assert config.end_time is not None
+        assert config.start_time < config.end_time
+        assert config.stateful_ingestion is not None
+        assert config.stateful_ingestion.enabled is True
+        assert config.stateful_ingestion.fail_safe_threshold == 90
+
 
 class TestTeradataSource:
     """Test Teradata source functionality."""
@@ -213,7 +305,9 @@ class TestTeradataSource:
             assert observed_query.session_id == "session123"
             assert observed_query.timestamp == "2024-01-01 10:00:00"
             assert isinstance(observed_query.user, CorpUserUrn)
-            assert observed_query.default_db == "test_db"
+            assert (
+                observed_query.default_db is None
+            )  # Fixed for Teradata two-tier architecture
             assert observed_query.default_schema == "test_db"
 
     def test_convert_entry_to_observed_query_with_none_user(self):
@@ -325,6 +419,45 @@ class TestTeradataSource:
                 mock_aggregator.close.assert_called_once()
                 mock_super_close.assert_called_once()
 
+    def test_make_lineage_queries_with_time_defaults(self):
+        """Test that _make_lineage_queries works with automatic time defaults."""
+        config_dict = {
+            "username": "test_user",
+            "password": "test_password",
+            "host_port": "localhost:1025",
+            "include_table_lineage": True,
+            "include_usage_statistics": True,
+        }
+
+        config = TeradataConfig.parse_obj(config_dict)
+
+        with patch(
+            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+            with patch.object(
+                source, "_check_historical_table_exists", return_value=False
+            ):
+                queries = source._make_lineage_queries()
+
+            assert len(queries) > 0
+            query = queries[0]
+            assert "TIMESTAMP" in query
+            assert "None" not in query
+
+            import re
+
+            timestamp_pattern = r"TIMESTAMP '[^']+'"
+            matches = re.findall(timestamp_pattern, query)
+            assert len(matches) >= 2
+
 
 class TestSQLInjectionSafety:
     """Test SQL injection vulnerability fixes."""
@@ -403,7 +536,7 @@ class TestMemoryEfficiency:
                 mock_aggregator.gen_metadata.return_value = []
 
                 # Process entries
-                list(source._get_audit_log_mcps_with_aggregator())
+                source._populate_aggregator_from_audit_logs()
 
                 # Verify aggregator.add was called for each entry (streaming)
                 assert mock_aggregator.add.call_count == 5
@@ -528,7 +661,7 @@ class TestStageTracking:
                 ):
                     mock_aggregator.gen_metadata.return_value = []
 
-                    list(source._get_audit_log_mcps_with_aggregator())
+                    source._populate_aggregator_from_audit_logs()
 
                     # Should have called new_stage for query processing and metadata generation
                     # The actual implementation uses new_stage for "Fetching queries" and "Generating metadata"
@@ -558,8 +691,8 @@ class TestErrorHandling:
                 source, "_fetch_lineage_entries_chunked", return_value=[]
             ):
                 mock_aggregator.gen_metadata.return_value = []
-                result = list(source._get_audit_log_mcps_with_aggregator())
-                assert result == []
+                source._populate_aggregator_from_audit_logs()
+                # Method doesn't return a value, just populates the aggregator
 
     def test_malformed_query_entry(self):
         """Test handling of malformed query entries."""
@@ -958,7 +1091,7 @@ class TestLineageQuerySeparation:
                 mock_aggregator.gen_metadata.return_value = []
 
                 # Execute the aggregator flow
-                list(source._get_audit_log_mcps_with_aggregator())
+                source._populate_aggregator_from_audit_logs()
 
                 # Verify both entries were added to aggregator
                 assert mock_aggregator.add.call_count == 2
@@ -1367,7 +1500,7 @@ class TestStreamingQueryReconstruction:
             assert query.timestamp == "2024-01-01 10:00:00"
             assert isinstance(query.user, CorpUserUrn)
             assert str(query.user) == "urn:li:corpuser:test_user"
-            assert query.default_db == "test_db"
+            assert query.default_db is None  # Fixed for Teradata two-tier architecture
             assert query.default_schema == "test_db"  # Teradata uses database as schema
             assert query.session_id == "session123"
 

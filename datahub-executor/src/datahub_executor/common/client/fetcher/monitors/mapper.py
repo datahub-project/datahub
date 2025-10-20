@@ -38,7 +38,7 @@ class SkippableMonitorMappingError(Exception):
 
 def graphql_to_monitor(graphql_monitor: Dict) -> Monitor:
     # Simply parse to our Pydantic models using the raw GraphQL Response.
-    parsed_monitor = Monitor.parse_obj(graphql_monitor)
+    parsed_monitor = Monitor.model_validate(graphql_monitor)
     if parsed_monitor.assertion_monitor is None:
         raise SkippableMonitorMappingError(
             f"Skipping monitor {parsed_monitor.urn} as it does not have an assertion monitor"
@@ -138,7 +138,7 @@ def generate_assertion_tasks(monitor: Monitor) -> List[ExecutionRequestSchedule]
             name=RUN_ASSERTION_TASK_NAME,
             args={
                 "urn": monitor.urn,
-                "assertion_spec": assertion_spec.dict(by_alias=True),
+                "assertion_spec": assertion_spec.model_dump(by_alias=True),
                 "context": context.__dict__,
             },
         )
@@ -187,7 +187,7 @@ def generate_training_tasks(raw_monitor: Monitor) -> List[ExecutionRequestSchedu
                 name=RUN_MONITOR_TRAINING_TASK_NAME,
                 args={
                     "urn": monitor.urn,
-                    "monitor": monitor.dict(by_alias=True),
+                    "monitor": monitor.model_dump(by_alias=True),
                     "context": context.__dict__,
                 },
             )

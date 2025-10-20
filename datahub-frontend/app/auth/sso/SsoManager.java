@@ -28,10 +28,11 @@ import play.mvc.Http;
 public class SsoManager {
 
   private SsoProvider<?> _provider; // Only one active provider at a time.
-  private final Authentication authentication; // Authentication used to fetch SSO settings from GMS
-  private final String ssoSettingsRequestUrl; // SSO settings request URL.
-  private final CloseableHttpClient httpClient; // HTTP client for making requests to GMS.
-  private com.typesafe.config.Config configs;
+  protected final Authentication
+      authentication; // Authentication used to fetch SSO settings from GMS
+  protected final String ssoSettingsRequestUrl; // SSO settings request URL.
+  protected final CloseableHttpClient httpClient; // HTTP client for making requests to GMS.
+  protected com.typesafe.config.Config configs;
 
   public SsoManager(
       com.typesafe.config.Config configs,

@@ -25,7 +25,7 @@ describe("home", () => {
     setBusinessAttributeFeatureFlag();
     cy.login();
     cy.visit("/");
-    cy.get('img[src="/assets/logos/acryl-dark-mark.svg"]').should("exist");
+    cy.get('img[src="assets/logos/acryl-dark-mark.svg"]').should("exist");
     cy.get('[data-testid="entity-type-browse-card-DATASET"]').should("exist");
     cy.get('[data-testid="entity-type-browse-card-DASHBOARD"]').should("exist");
     cy.get('[data-testid="entity-type-browse-card-CHART"]').should("exist");

@@ -34,7 +34,7 @@ const StyledPlusOutlined = styled(PlusOutlined)`
 
 type Props = {
     assertion: Assertion;
-    contract?: DataContract;
+    contract?: DataContract | null;
     canEdit: boolean;
     // Should be defined if canEdit
     refetch?: () => void;

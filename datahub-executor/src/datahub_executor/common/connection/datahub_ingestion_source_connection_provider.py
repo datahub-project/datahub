@@ -30,6 +30,7 @@ from datahub_executor.common.constants import (
     DATABRICKS_PLATFORM_NAME,
     REDSHIFT_PLATFORM_NAME,
     SNOWFLAKE_PLATFORM_NAME,
+    UNITY_CATALOG_PLATFORM_NAME,
 )
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ SUPPORTED_DATA_PLATFORM_TYPES = {
     REDSHIFT_PLATFORM_NAME,
     BIGQUERY_PLATFORM_NAME,
     DATABRICKS_PLATFORM_NAME,
+    UNITY_CATALOG_PLATFORM_NAME,
 }
 
 PLATFORM_TO_CONNECTION_SUPPLIER = {
@@ -52,6 +54,7 @@ PLATFORM_TO_CONNECTION_SUPPLIER = {
     BIGQUERY_PLATFORM_NAME: extract_connection_from_bigquery_recipe,
     REDSHIFT_PLATFORM_NAME: extract_connection_from_redshift_recipe,
     DATABRICKS_PLATFORM_NAME: extract_connection_from_databricks_recipe,
+    UNITY_CATALOG_PLATFORM_NAME: extract_connection_from_databricks_recipe,
 }
 
 

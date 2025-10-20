@@ -53,7 +53,7 @@ class TestIngestionAction:
             self.change_event,
             {},
         )
-        self.credentials = ExecutorConfig.parse_obj(
+        self.credentials = ExecutorConfig.model_validate(
             {
                 "region": "us-west-2",
                 "executorId": DATAHUB_EXECUTOR_EMBEDDED_POOL_ID,

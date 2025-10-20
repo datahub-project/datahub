@@ -20,6 +20,9 @@ from datahub_executor.common.monitor.inference.freshness_assertion_trainer impor
 from datahub_executor.common.monitor.inference.metric_projection.metric_predictor import (
     MetricPredictor,
 )
+from datahub_executor.common.monitor.inference.sql_assertion_trainer import (
+    SqlAssertionTrainer,
+)
 from datahub_executor.common.monitor.inference.volume_assertion_trainer import (
     VolumeAssertionTrainer,
 )
@@ -67,6 +70,12 @@ class MonitorTrainingEngine:
                 self.monitor_client,
             ),
             AssertionType.FIELD: FieldAssertionTrainer(
+                self.graph,
+                self.metrics_client,
+                self.metrics_predictor,
+                self.monitor_client,
+            ),
+            AssertionType.SQL: SqlAssertionTrainer(
                 self.graph,
                 self.metrics_client,
                 self.metrics_predictor,

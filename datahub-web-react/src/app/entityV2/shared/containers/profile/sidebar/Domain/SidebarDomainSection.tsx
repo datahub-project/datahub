@@ -10,9 +10,11 @@ import { SetDomainModal } from '@app/entityV2/shared/containers/profile/sidebar/
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { ENTITY_PROFILE_DOMAINS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
 import ProposalModal from '@app/shared/tags/ProposalModal';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { DomainContent, DomainLink } from '@app/sharedV2/tags/DomainLink';
 import { colors } from '@src/alchemy-components';
 import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
@@ -75,7 +77,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
         ActionRequestType.DomainAssociation,
     );
 
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
 
     const canEditDomains = !!entityData?.privileges?.canEditDomains;
     const canProposeDomains = !!entityData?.privileges?.canProposeDomains;
@@ -87,10 +89,16 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                 refetch?.();
                 // Reload modules
                 // Assets - as assets module in domain summary tab could be updated
-                reloadModules([DataHubPageModuleType.Assets], 3000);
+                reloadByKeyType(
+                    [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)],
+                    3000,
+                );
                 // DataProduct - as data products module in domain summary tab could be updated
                 if (entityType === EntityType.DataProduct) {
-                    reloadModules([DataHubPageModuleType.DataProducts], 3000);
+                    reloadByKeyType(
+                        [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.DataProducts)],
+                        3000,
+                    );
                 }
             })
             .catch((e: unknown) => {
@@ -173,6 +181,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                             event.stopPropagation();
                         }}
                         actionPrivilege={canEditDomains || canProposeDomains}
+                        dataTestId="set-domain-button"
                     />
                 }
             />

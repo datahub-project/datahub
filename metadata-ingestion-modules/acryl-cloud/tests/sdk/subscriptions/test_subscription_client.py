@@ -2539,3 +2539,57 @@ def test_maybe_parse_subscriber_urn(
         assert expected_type is not None
         assert isinstance(result, expected_type)
         assert result.urn() == expected_urn
+
+
+def test_subscribe_stable_id_prevents_duplicates_during_eventual_consistency(
+    subscription_client: SubscriptionClient,
+    any_dataset_urn: DatasetUrn,
+    any_user_urn: CorpUserUrn,
+    any_entity_change_types: List[str],
+) -> None:
+    """
+    Test that two successive subscription calls with same dataset and actor
+    create subscriptions with the same stable URN, even when backend doesn't
+    resolve the first subscription due to eventual consistency.
+    """
+
+    # Mock: No existing subscriptions found for both calls (simulates eventual consistency)
+    subscription_client.client.resolve.subscription.return_value = []  # type: ignore[attr-defined]
+
+    # Execute first subscription
+    subscription_client.subscribe(
+        urn=any_dataset_urn,
+        subscriber_urn=any_user_urn,
+        entity_change_types=any_entity_change_types,
+    )
+
+    # Execute second subscription with same parameters (before first is visible)
+    subscription_client.subscribe(
+        urn=any_dataset_urn,
+        subscriber_urn=any_user_urn,
+        entity_change_types=any_entity_change_types,
+    )
+
+    # Verify both calls resulted in upserts
+    assert subscription_client.client.entities.upsert.call_count == 2  # type: ignore[attr-defined]
+
+    # Get the subscriptions that were passed to upsert
+    first_call_args = subscription_client.client.entities.upsert.call_args_list[0]  # type: ignore[attr-defined]
+    second_call_args = subscription_client.client.entities.upsert.call_args_list[1]  # type: ignore[attr-defined]
+
+    first_subscription = first_call_args[0][0]
+    second_subscription = second_call_args[0][0]
+
+    assert isinstance(first_subscription, Subscription)
+    assert isinstance(second_subscription, Subscription)
+
+    # Critical test: Both subscriptions should have the same stable URN
+    assert first_subscription.urn == second_subscription.urn
+    assert first_subscription.urn.entity_type == "subscription"
+
+    # Verify subscription details are correct
+    for subscription in [first_subscription, second_subscription]:
+        subscription_info = subscription.info
+        assert subscription_info.entityUrn == any_dataset_urn.urn()
+        assert subscription_info.actorUrn == any_user_urn.urn()
+        assert subscription_info.actorType == "corpuser"

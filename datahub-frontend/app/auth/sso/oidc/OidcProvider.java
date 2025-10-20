@@ -52,7 +52,7 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
     return SsoProtocol.OIDC;
   }
 
-  private Client createPac4jClient() {
+  protected Client createPac4jClient() {
     final OidcConfiguration oidcConfiguration = new OidcConfiguration();
     oidcConfiguration.setClientId(oidcConfigs.getClientId());
     oidcConfiguration.setSecret(oidcConfigs.getClientSecret());

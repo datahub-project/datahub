@@ -8,10 +8,24 @@ from datahub_executor.common.assertion.engine.evaluator.evaluator import (
 from datahub_executor.common.assertion.engine.evaluator.utils import (
     get_database_parameters,
 )
+from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
+    is_training_required,
+    make_monitor_metric_cube_urn,
+)
 from datahub_executor.common.assertion.types import AssertionState, AssertionStateType
+from datahub_executor.common.connection.datahub_ingestion_source_connection_provider import (
+    DataHubIngestionSourceConnectionProvider,
+)
 from datahub_executor.common.exceptions import (
     InvalidParametersException,
     SourceConnectionErrorException,
+)
+from datahub_executor.common.metric.client.client import MetricClient
+from datahub_executor.common.metric.types import Metric
+from datahub_executor.common.monitor.client.client import MonitorClient
+from datahub_executor.common.source.provider import SourceProvider
+from datahub_executor.common.state.assertion_state_provider import (
+    AssertionStateProvider,
 )
 from datahub_executor.common.types import (
     Assertion,
@@ -31,6 +45,21 @@ logger = logging.getLogger(__name__)
 class SQLAssertionEvaluator(AssertionEvaluator):
     """Evaluator for SQL assertions."""
 
+    metric_client: MetricClient
+
+    def __init__(
+        self,
+        connection_provider: DataHubIngestionSourceConnectionProvider,
+        state_provider: AssertionStateProvider,
+        source_provider: SourceProvider,
+        monitor_client: MonitorClient,
+        metric_client: MetricClient,
+    ) -> None:
+        super().__init__(
+            connection_provider, state_provider, source_provider, monitor_client
+        )
+        self.metric_client = metric_client
+
     @property
     def type(self) -> AssertionType:
         return AssertionType.SQL
@@ -42,21 +71,55 @@ class SQLAssertionEvaluator(AssertionEvaluator):
         )
 
     def _evaluate_metric_assertion(
-        self, sql_assertion: SQLAssertion, metric_value: float
+        self,
+        sql_assertion: SQLAssertion,
+        metric_value: float,
+        assertion: Assertion,
+        context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
+        # If smart assertions are enabled and this assertion is in training (no conditions inferred),
+        # short-circuit with INIT to mirror field/freshness behavior.
+        if context.online_smart_assertions and is_training_required(assertion):
+            if context.evaluation_spec:
+                last_inferred_at = (
+                    context.evaluation_spec.context.inference_details.generated_at
+                    if context.evaluation_spec.context
+                    and context.evaluation_spec.context.inference_details
+                    else None
+                )
+                if not last_inferred_at or last_inferred_at <= 0:
+                    return AssertionEvaluationResult(
+                        AssertionResultType.INIT,
+                        parameters={"metric_value": str(metric_value)},
+                    )
+
         metric_evaluation = self._evaluate_value(
             metric_value, sql_assertion.operator, sql_assertion.parameters
         )
-        if metric_evaluation is True:
-            return AssertionEvaluationResult(
-                AssertionResultType.SUCCESS,
-                parameters={"metric_value": str(metric_value)},
-            )
-        else:
-            return AssertionEvaluationResult(
-                AssertionResultType.FAILURE,
-                parameters={"metric_value": str(metric_value)},
-            )
+        params = {
+            "metric_value": str(metric_value),
+            "value": (
+                str(sql_assertion.parameters.value.value)
+                if sql_assertion.parameters.value
+                else None
+            ),
+            "min_value": (
+                str(sql_assertion.parameters.min_value.value)
+                if sql_assertion.parameters.min_value
+                else None
+            ),
+            "max_value": (
+                str(sql_assertion.parameters.max_value.value)
+                if sql_assertion.parameters.max_value
+                else None
+            ),
+        }
+        return AssertionEvaluationResult(
+            AssertionResultType.SUCCESS
+            if metric_evaluation
+            else AssertionResultType.FAILURE,
+            parameters=params,
+        )
 
     def _evaluate_metric_change_assertion_with_previous_state(
         self,
@@ -103,7 +166,23 @@ class SQLAssertionEvaluator(AssertionEvaluator):
         sql_assertion: SQLAssertion,
         metric_value: float,
         context: AssertionEvaluationContext,
+        assertion: Assertion,
     ) -> AssertionEvaluationResult:
+        # If smart assertions are enabled and this assertion is in training (no conditions inferred),
+        # short-circuit with INIT to mirror field/freshness behavior.
+        if context.online_smart_assertions and is_training_required(assertion):
+            if context.evaluation_spec:
+                last_inferred_at = (
+                    context.evaluation_spec.context.inference_details.generated_at
+                    if context.evaluation_spec.context
+                    and context.evaluation_spec.context.inference_details
+                    else None
+                )
+                if not last_inferred_at or last_inferred_at <= 0:
+                    return AssertionEvaluationResult(
+                        AssertionResultType.INIT,
+                        parameters={"metric_value": str(metric_value)},
+                    )
         previous_state = (
             self.state_provider.get_state(
                 context.monitor_urn, AssertionStateType.MONITOR_TIMESERIES_STATE
@@ -122,7 +201,8 @@ class SQLAssertionEvaluator(AssertionEvaluator):
             )
         else:
             assertion_evaluation_result = AssertionEvaluationResult(
-                AssertionResultType.INIT, parameters={"metric_value": str(metric_value)}
+                AssertionResultType.INIT,
+                parameters={"metric_value": str(metric_value)},
             )
 
         if context.monitor_urn:
@@ -139,21 +219,28 @@ class SQLAssertionEvaluator(AssertionEvaluator):
 
         return assertion_evaluation_result
 
-    def _evaluate_internal(
+    def _evaluate_metric_collection_step(
         self,
         assertion: Assertion,
-        parameters: AssertionEvaluationParameters,
         context: AssertionEvaluationContext,
-    ) -> AssertionEvaluationResult:
+        save: bool,
+    ) -> Metric:
+        """
+        Collects the metric value by executing the custom SQL and optionally saves it to the
+        metric cube. Returns a Metric object with timestamp and value.
+        """
         assert assertion.sql_assertion is not None
         assert assertion.connection_urn
+
         connection = self.connection_provider.get_connection(
             cast(str, assertion.entity.urn)
         )
 
         if connection is None:
             raise SourceConnectionErrorException(
-                message=f"Unable to retrieve valid connection for Data Platform with urn {assertion.connection_urn}",
+                message=(
+                    f"Unable to retrieve valid connection for Data Platform with urn {assertion.connection_urn}"
+                ),
                 connection_urn=assertion.connection_urn,
             )
 
@@ -169,20 +256,58 @@ class SQLAssertionEvaluator(AssertionEvaluator):
             sql_assertion.statement,
         )
 
+        metric = Metric(timestamp_ms=int(time.time() * 1000), value=metric_value)
+
+        if save and context.monitor_urn:
+            metric_cube_urn = make_monitor_metric_cube_urn(context.monitor_urn)
+            self.metric_client.save_metric_value(metric_cube_urn, metric)
+
+        return metric
+
+    def _evaluate_internal(
+        self,
+        assertion: Assertion,
+        parameters: AssertionEvaluationParameters,
+        context: AssertionEvaluationContext,
+    ) -> AssertionEvaluationResult:
+        assert assertion.sql_assertion is not None
+        assert assertion.connection_urn
+
+        sql_assertion = assertion.sql_assertion
+        entity_urn = assertion.entity.urn
+
+        # Determine if this is a smart assertion (AI-inferred), requiring training.
+        is_training_required_for_assertion = is_training_required(assertion=assertion)
+
+        # Stage 1: Collect metric & optionally save for training
+        metric = self._evaluate_metric_collection_step(
+            assertion=assertion,
+            context=context,
+            save=is_training_required_for_assertion,
+        )
+
         if sql_assertion.type == SQLAssertionType.METRIC:
-            return self._evaluate_metric_assertion(
+            result = self._evaluate_metric_assertion(
                 sql_assertion,
-                metric_value,
+                float(metric.value),
+                assertion,
+                context,
             )
         elif sql_assertion.type == SQLAssertionType.METRIC_CHANGE:
-            return self._evaluate_metric_change_assertion(
+            result = self._evaluate_metric_change_assertion(
                 entity_urn,
                 sql_assertion,
-                metric_value,
+                float(metric.value),
                 context,
+                assertion,
             )
         else:
             raise InvalidParametersException(
                 message=f"Failed to evaluate SQL Assertion. Unsupported SQL Assertion Type {assertion.sql_assertion.type} provided.",
-                parameters=sql_assertion.__dict__,
+                parameters=sql_assertion.model_dump(),
             )
+
+        # Only populate the metric on the result for smart assertions.
+        if assertion.is_inferred:
+            result.metric = metric
+        return result

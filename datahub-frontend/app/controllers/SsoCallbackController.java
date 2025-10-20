@@ -6,6 +6,7 @@ import auth.sso.SsoProvider;
 import auth.sso.oidc.OidcCallbackLogic;
 import client.AuthServiceClient;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.utils.BasePathUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -42,6 +43,7 @@ public class SsoCallbackController extends CallbackController {
   private final SsoManager ssoManager;
   private final Config config;
   private final CallbackLogic callbackLogic;
+  private final com.typesafe.config.Config configs;
 
   @Inject
   public SsoCallbackController(
@@ -53,7 +55,14 @@ public class SsoCallbackController extends CallbackController {
       @Nonnull com.typesafe.config.Config configs) {
     this.ssoManager = ssoManager;
     this.config = config;
-    setDefaultUrl("/"); // By default, redirects to Home Page on log in.
+    this.configs = configs;
+
+    // Set default URL with proper base path - redirects to Home Page on log in
+    String basePath = BasePathUtils.normalizeBasePath(configs.getString("datahub.basePath"));
+    String homeUrl = basePath.isEmpty() ? "/" : basePath + "/";
+    setDefaultUrl(homeUrl);
+
+    log.info("Home URL: {}", getDefaultUrl());
 
     callbackLogic =
         new SsoCallbackLogic(
@@ -93,9 +102,13 @@ public class SsoCallbackController extends CallbackController {
                   log.error(
                       "Caught exception while attempting to handle SSO callback! It's likely that SSO integration is mis-configured.",
                       e);
+                  String basePath =
+                      BasePathUtils.normalizeBasePath(configs.getString("datahub.basePath"));
+                  String loginUrl = BasePathUtils.addBasePath("/login", basePath);
                   return Results.redirect(
                           String.format(
-                              "/login?error_msg=%s",
+                              "%s?error_msg=%s",
+                              loginUrl,
                               URLEncoder.encode(
                                   "Failed to sign in using Single Sign-On provider. Please try again, or contact your DataHub Administrator.",
                                   StandardCharsets.UTF_8)))

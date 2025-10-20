@@ -147,7 +147,9 @@ class DatahubProcessCollector(Collector):
 
     def _get_cpu_limit_cgroup_v2(self) -> float:
         try:
-            real_limit = psutil.cpu_count() * 100
+            cpu_count = psutil.cpu_count()
+            assert cpu_count is not None
+            real_limit = cpu_count * 100
             vals = self._read_cgroup_str(CGROUP2_CPU_LIMIT_PATH).split()
             if vals[0] == "max":
                 return real_limit
@@ -169,7 +171,9 @@ class DatahubProcessCollector(Collector):
 
     def _collect_cpu_limit_processgroup(self) -> Iterable[Metric]:
         values: List[Dict[str, Any]] = []
-        values.append({"value": (psutil.cpu_count() * 100), "collector": "host"})
+        cpu_count = psutil.cpu_count()
+        assert cpu_count is not None
+        values.append({"value": (cpu_count * 100), "collector": "host"})
 
         # Try cgroup v2 first (most common)
         val = self._get_cpu_limit_cgroup_v2()
@@ -206,8 +210,8 @@ class DatahubProcessCollector(Collector):
         process.add_metric(["system"], value=parent_usage.system)
         metrics.append(process)
 
-        group_user = 0
-        group_system = 0
+        group_user = 0.0
+        group_system = 0.0
 
         for child in parent.children(recursive=True):
             try:
@@ -246,7 +250,9 @@ class DatahubProcessCollector(Collector):
             "CPU limit on the host, in percent",
             [],
         )
-        m.add_metric([], psutil.cpu_count() * 100)
+        cpu_count = psutil.cpu_count()
+        assert cpu_count is not None
+        m.add_metric([], cpu_count * 100)
         metrics.append(m)
 
         return metrics

@@ -391,7 +391,7 @@ class DataHubFormsNotificationsSource(Source):
         user_urns = []
         group_urns = []
 
-        extra_fields = [f for f in DataHubDatasetSearchRow.__fields__]
+        extra_fields = [f for f in DataHubDatasetSearchRow.model_fields]
         results = self.graph.get_results_by_filter(
             extra_or_filters=self._get_incomplete_assets_for_form(form_urn, form.type),
             extra_source_fields=extra_fields,

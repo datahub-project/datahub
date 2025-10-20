@@ -6,6 +6,7 @@ from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
 )
+from datahub.metadata.urns import MonitorUrn
 
 from datahub_executor.common.assertion.engine.evaluator.field_evaluator import (
     FieldAssertionEvaluator,
@@ -109,7 +110,9 @@ class TestFieldEvaluator:
         self.source = Mock(spec=Source)
         self.source_provider.create_source_from_connection.return_value = self.source
 
-        self.context = AssertionEvaluationContext(monitor_urn="urn:li:monitor:test")
+        self.context = AssertionEvaluationContext(
+            monitor_urn=MonitorUrn(TEST_ENTITY_URN, "__test__").urn()
+        )
         self.params = AssertionEvaluationParameters(
             type=AssertionEvaluationParametersType.DATASET_FIELD,
             dataset_field_parameters=DatasetFieldAssertionParameters(
@@ -156,7 +159,9 @@ class TestFieldEvaluator:
                 ),
                 operator=AssertionStdOperator.EQUAL_TO,
                 parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(value="999", type="NUMBER"),
+                    value=AssertionStdParameter(
+                        value="999", type=AssertionStdParameterType.NUMBER
+                    ),
                 ),
                 fail_threshold=FieldValuesFailThreshold(
                     type=FieldValuesFailThresholdType.COUNT,

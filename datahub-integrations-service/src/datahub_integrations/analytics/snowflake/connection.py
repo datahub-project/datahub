@@ -14,11 +14,12 @@ from datahub_integrations.graphql.connection import (
 logger = logging.getLogger(__name__)
 
 
-class _FrozenConnectionModel(ConfigModel, frozen=True):
+class _FrozenConnectionModel(ConnectionModel, frozen=True):  # type: ignore[misc]  # Frozen/non-frozen inheritance works at runtime
+
     pass
 
 
-class SnowflakeConnection(_FrozenConnectionModel):
+class SnowflakeConnection(_FrozenConnectionModel):  # type: ignore[misc]  # Frozen/non-frozen inheritance works at runtime
     account: str
     warehouse: str
     user: str

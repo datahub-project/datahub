@@ -8,6 +8,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.actionrequest.validation.ActionRequestWorkflowRequestValidator;
+import com.linkedin.metadata.aspect.hooks.AssertionInfoMutator;
 import com.linkedin.metadata.aspect.hooks.ExtendedModelStructuredPropertyMutator;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
@@ -21,6 +22,7 @@ import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.aspect.validation.MonitorLimitValidator;
+import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
 import com.linkedin.metadata.aspect.validation.PrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
@@ -492,6 +494,23 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
+  public MutationHook assertionInfoMutator() {
+    return new AssertionInfoMutator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(AssertionInfoMutator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, UPSERT, UPDATE, RESTATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ASSERTION_ENTITY_NAME)
+                            .aspectName(ASSERTION_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
   public MutationHook ownershipOwnerTypes() {
     return new OwnershipOwnerTypes()
         .setConfig(
@@ -625,6 +644,23 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(MONITOR_ENTITY_NAME)
                             .aspectName(MONITOR_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator policyFieldTypeValidator() {
+    return new PolicyFieldTypeValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(PolicyFieldTypeValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(POLICY_ENTITY_NAME)
+                            .aspectName(DATAHUB_POLICY_INFO_ASPECT_NAME)
                             .build()))
                 .build());
   }

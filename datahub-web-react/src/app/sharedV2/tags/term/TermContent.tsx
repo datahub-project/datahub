@@ -8,8 +8,10 @@ import styled from 'styled-components';
 
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveTermMutation } from '@graphql/mutations.generated';
@@ -19,20 +21,24 @@ const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
-const TermContainer = styled.div`
+const TermContainer = styled.div<{ $shouldHighlightBorderOnHover?: boolean }>`
     position: relative;
     max-width: 200px;
 
     .ant-tag.ant-tag {
         border-radius: 5px;
-        border: 1px solid #ccd1dd;
+        border: 1px solid ${colors.gray[100]};
     }
 
-    :hover {
-        .ant-tag.ant-tag {
-            border: 1px solid ${(props) => props.theme.styles['primary-color']};
+    ${(props) =>
+        props.$shouldHighlightBorderOnHover &&
+        `
+        :hover {
+            .ant-tag.ant-tag {
+                border: 1px solid ${props.theme.styles['primary-color']};
+            }
         }
-    }
+    `}
 `;
 
 const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; showOneAndCount?: boolean }>`
@@ -135,7 +141,7 @@ export default function TermContent({
     showOneAndCount,
 }: Props) {
     const entityRegistry = useEntityRegistry();
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
     const [removeTermMutation] = useRemoveTermMutation();
     const { parentNodes, urn, type } = term.term;
     const generateColor = useGenerateGlossaryColorFromPalette();
@@ -170,8 +176,17 @@ export default function TermContent({
                                 // Reload modules
                                 // RelatedTerms - to update related terms in case some of them was removed
                                 // ChildHierarchy - to update contents module in glossary node
-                                reloadModules(
-                                    [DataHubPageModuleType.RelatedTerms, DataHubPageModuleType.ChildHierarchy],
+                                reloadByKeyType(
+                                    [
+                                        getReloadableKeyType(
+                                            ReloadableKeyTypeNamespace.MODULE,
+                                            DataHubPageModuleType.RelatedTerms,
+                                        ),
+                                        getReloadableKeyType(
+                                            ReloadableKeyTypeNamespace.MODULE,
+                                            DataHubPageModuleType.ChildHierarchy,
+                                        ),
+                                    ],
                                     3000,
                                 );
                             }
@@ -191,7 +206,7 @@ export default function TermContent({
     };
 
     return (
-        <TermContainer>
+        <TermContainer $shouldHighlightBorderOnHover={!readOnly}>
             <StyledTerm
                 style={{ cursor: 'pointer' }}
                 fontSize={fontSize}

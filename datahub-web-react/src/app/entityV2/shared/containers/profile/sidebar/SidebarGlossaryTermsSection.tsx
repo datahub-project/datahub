@@ -80,6 +80,7 @@ export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
                             event.stopPropagation();
                         }}
                         actionPrivilege={canEditGlossaryTerms || canProposeGlossaryTerms}
+                        dataTestId="add-terms-button"
                     />
                 }
             />

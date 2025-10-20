@@ -234,7 +234,7 @@ def get_lineage_query(graph_client: DataHubGraph, urn: str) -> Optional[QueryInf
     )
     language = entity["queryProperties"].statement.language
 
-    return QueryInfo(value=query, language=language)
+    return QueryInfo(value=query, language=str(language))
 
 
 def make_schema_field_metadata(

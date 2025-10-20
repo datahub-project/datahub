@@ -1,5 +1,7 @@
 import { message } from 'antd';
 
+import { addToGlobalInvitedUsers } from '@app/identity/user/inviteUsersGlobalState';
+
 import { useSendUserInvitationsMutation } from '@graphql/mutations.generated';
 import { CorpUser, DataHubRole } from '@types';
 
@@ -113,7 +115,18 @@ export class EmailInvitationService {
             contextLabel: 'single invitation',
         };
 
-        return this.sendInvitations(context, role);
+        const success = await this.sendInvitations(context, role);
+
+        if (success) {
+            // Add to global invited users tracking
+            const identifiers = [user.urn];
+            if (email && email !== user.urn) {
+                identifiers.push(email);
+            }
+            addToGlobalInvitedUsers(identifiers);
+        }
+
+        return success;
     }
 
     /**
@@ -140,6 +153,21 @@ export class EmailInvitationService {
             contextLabel: 'bulk invitations',
         };
 
-        return this.sendInvitations(context, role);
+        const success = await this.sendInvitations(context, role);
+
+        if (success) {
+            // Add to global invited users tracking
+            const identifiers: string[] = [];
+            usersWithEmails.forEach((user) => {
+                identifiers.push(user.urn);
+                const userEmail = user.info?.email || user.properties?.email || user.username;
+                if (userEmail && userEmail !== user.urn) {
+                    identifiers.push(userEmail);
+                }
+            });
+            addToGlobalInvitedUsers(identifiers);
+        }
+
+        return success;
     }
 }

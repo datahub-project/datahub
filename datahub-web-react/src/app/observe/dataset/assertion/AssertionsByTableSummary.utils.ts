@@ -13,6 +13,7 @@ export type FilterOptions = {
     domains: string[];
     owners: string[];
     platforms: string[];
+    containers: string[];
     terms: string[];
     tags: string[];
 };
@@ -25,6 +26,7 @@ export const DEFAULT_FILTER_OPTIONS: FilterOptions = {
     domains: [],
     owners: [],
     platforms: [],
+    containers: [],
     terms: [],
     tags: [],
 };
@@ -38,6 +40,7 @@ export const FILTER_OPTIONS_DECODER: QueryParamDecoder<FilterOptions> = {
     domains: (value: string) => value.split(',').map((element) => decodeURIComponent(element)),
     owners: (value: string) => value.split(',').map((element) => decodeURIComponent(element)),
     platforms: (value: string) => value.split(',').map((element) => decodeURIComponent(element)),
+    containers: (value: string) => value.split(',').map((element) => decodeURIComponent(element)),
     terms: (value: string) => value.split(',').map((element) => decodeURIComponent(element)),
     tags: (value: string) => value.split(',').map((element) => decodeURIComponent(element)),
 };
@@ -50,6 +53,7 @@ export const FILTER_OPTIONS_ENCODER: QueryParamEncoder<FilterOptions> = {
     domains: (value: string[]) => value.map((element) => encodeURIComponent(element)).join(','),
     owners: (value: string[]) => value.map((element) => encodeURIComponent(element)).join(','),
     platforms: (value: string[]) => value.map((element) => encodeURIComponent(element)).join(','),
+    containers: (value: string[]) => value.map((element) => encodeURIComponent(element)).join(','),
     terms: (value: string[]) => value.map((element) => encodeURIComponent(element)).join(','),
     tags: (value: string[]) => value.map((element) => encodeURIComponent(element)).join(','),
 };

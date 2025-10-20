@@ -35,6 +35,7 @@ export const DEGREE_FILTER_NAME = 'degree';
 export const BROWSE_PATH_V2_FILTER_NAME = 'browsePathV2';
 export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
 export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
+export const HAS_ASSET_LEVEL_LINEAGE_FILTER_NAME = 'hasAssetLevelLineageFeature';
 export const ASSERTION_TYPE_FILTER_NAME = 'assertionType';
 export const ASSERTION_SOURCE_FILTER_NAME = 'sourceType';
 export const HAS_SIBLINGS_FILTER_NAME = 'hasSiblings';
@@ -60,6 +61,7 @@ export const ASSERTEE_OWNERS_FILTER_NAME = 'asserteeOwners';
 export const ASSERTEE_DATA_PLATFORMS_FILTER_NAME = 'asserteeDataPlatforms';
 export const ASSERTEE_PLATFORM_FILTER_NAME = 'asserteeDataPlatform';
 export const ASSERTEE_PLATFORM_INSTANCES_FILTER_NAME = 'asserteeDataPlatformInstance';
+export const ASSERTEE_CONTAINER_FILTER_NAME = 'asserteeContainer';
 export const ASSERTEE_SCHEMA_FIELD_GLOSSARY_TERMS_FILTER_NAME = 'asserteeSchemaFieldGlossaryTerms';
 export const ASSERTEE_SCHEMA_FIELD_TAGS_FILTER_NAME = 'asserteeSchemaFieldTags';
 
@@ -129,6 +131,7 @@ export const FIELD_TO_LABEL = {
     platformInstance: 'Platform Instance',
     hasActiveIncidents: 'Has Active Incidents',
     hasFailingAssertions: 'Has Failing Assertions',
+    hasAssetLevelLineageFeature: 'Has Asset-Level Lineage',
     hasSiblings: 'Has Siblings',
     [BROWSE_PATH_V2_FILTER_NAME]: 'Path',
     [LAST_MODIFIED_FILTER_NAME]: 'Last Modified (In Source)',
@@ -153,6 +156,7 @@ export const ENTITY_TYPE_FIELDS = new Set([ENTITY_SUB_TYPE_FILTER_NAME]);
 export const BOOLEAN_FIELDS = new Set([
     HAS_ACTIVE_INCIDENTS_FILTER_NAME,
     HAS_FAILING_ASSERTIONS_FILTER_NAME,
+    HAS_ASSET_LEVEL_LINEAGE_FILTER_NAME,
     REMOVED_FILTER_NAME,
 ]);
 

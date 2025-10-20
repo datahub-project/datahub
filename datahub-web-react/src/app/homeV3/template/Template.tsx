@@ -38,7 +38,7 @@ interface Props {
 
 function Template({ className }: Props) {
     const { urn } = useEntityData();
-    const { template, isTemplateEditable, moduleContext, templateType } = usePageTemplateContext();
+    const { templateType, template, isTemplateEditable, moduleContext } = usePageTemplateContext();
     const rows = useMemo(
         () => (template?.properties?.rows ?? []) as DataHubPageTemplateRow[],
         [template?.properties?.rows],
@@ -51,7 +51,7 @@ function Template({ className }: Props) {
         <Wrapper
             className={className}
             key={urn}
-            data-testid={moduleContext.globalTemplate ? 'home-template-wrapper' : undefined}
+            data-testid={moduleContext.globalTemplate ? 'template-wrapper' : undefined}
         >
             <DragAndDropProvider>
                 <TemplateGrid wrappedRows={wrappedRows} />

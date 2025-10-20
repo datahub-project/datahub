@@ -531,6 +531,17 @@ input UpsertDatasetSqlAssertionMonitorInput {
   type: SqlAssertionType!
 
   """
+  If enabled, this will be created as a smart assertion that is actively inferred by an AI model.
+  You can pass in any value for the 'parameters' field, but we recommend setting it appropriately.
+  """
+  inferWithAI: Boolean
+
+  """
+  Settings for the AI assertion monitor.
+  """
+  inferenceSettings: AssertionAdjustmentSettingsInput
+
+  """
   The SQL statement to be executed when evaluating the assertion.
   """
   statement: String!

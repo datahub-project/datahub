@@ -29,7 +29,7 @@ def graphql_to_ingestion_sources(
                 # Skip CLI ingestion runs
                 continue
             # Simply parse to our Pydantic models using the raw GraphQL Response.
-            ingestion_sources.append(IngestionSource.parse_obj(ingestion_source))
+            ingestion_sources.append(IngestionSource.model_validate(ingestion_source))
         except Exception:
             METRIC("INGESTION_FETCHER_ITEMS_ERRORED", exception="exception").inc()
             logger.exception(

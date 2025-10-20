@@ -109,7 +109,7 @@ describe('RecommendedUsersList', () => {
             <RecommendedUsersList recommendedUsers={[]} selectedRole={mockRole} onInviteUser={mockOnInviteUser} />,
         );
 
-        expect(screen.getByText('Top recommended users are invited.')).toBeInTheDocument();
+        expect(screen.getByText('No recommended users yet!')).toBeInTheDocument();
     });
 
     it('renders users with correct information', () => {
@@ -203,29 +203,6 @@ describe('RecommendedUsersList', () => {
 
         expect(screen.queryByText('testuser@company.com')).not.toBeInTheDocument();
         expect(screen.getByText('lowuser@company.com')).toBeInTheDocument();
-    });
-
-    it('filters out users with negative usage percentile', () => {
-        const userWithNegativeUsage: CorpUser = {
-            ...mockUser,
-            urn: 'urn:li:corpuser:negativeuser@company.com',
-            username: 'negativeuser@company.com',
-            usageFeatures: {
-                userUsagePercentilePast30Days: -1,
-                userPlatformUsageTotalsPast30Days: [],
-            },
-        };
-
-        renderWithTheme(
-            <RecommendedUsersList
-                recommendedUsers={[mockUser, userWithNegativeUsage]}
-                selectedRole={mockRole}
-                onInviteUser={mockOnInviteUser}
-            />,
-        );
-
-        expect(screen.getByText('testuser@company.com')).toBeInTheDocument();
-        expect(screen.queryByText('negativeuser@company.com')).not.toBeInTheDocument();
     });
 
     it('limits displayed users to RECOMMENDED_USERS_DISPLAY_COUNT', () => {

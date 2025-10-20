@@ -88,11 +88,9 @@ x-datahub-executor-dev: &datahub-executor-dev
     - ${DATAHUB_MAPPED_EXECUTOR_DEBUG_PORT:-5005}:5005
   environment: &datahub-executor-dev-env
     <<: *datahub-executor-env
-    PYTHONPATH: "/metadata-ingestion/src:/datahub-executor/src/datahub_executor:$${PYTHONPATH}"
   volumes:
     - ./datahub-executor/start.sh:/start_datahub_executor.sh
     - ./datahub-executor/ingestion-pipeline-config.yaml:/etc/datahub-executor/ingestion-pipeline-config.yaml
-    - ../../metadata-ingestion/src:/metadata-ingestion/src
     - ../../datahub-executor:/datahub-executor
 
 x-datahub-executor-dev-head: &datahub-executor-dev-head
@@ -156,6 +154,34 @@ services:
     depends_on:
       datahub-gms-quickstart-postgres:
         condition: service_healthy
+  datahub-integrations-quickstart-consumers-cdc:
+    <<: *datahub-integrations-service
+    profiles:
+      - quickstart-consumers-cdc
+    depends_on:
+      datahub-gms-quickstart-consumers-cdc:
+        condition: service_healthy
+  datahub-integrations-quickstart-postgres-cdc:
+    <<: *datahub-integrations-service
+    profiles:
+      - quickstart-postgres-cdc
+    depends_on:
+      datahub-gms-quickstart-postgres-cdc:
+        condition: service_healthy
+  datahub-integrations-debug-consumers-cdc:
+    <<: *datahub-integrations-service-dev
+    profiles:
+      - debug-consumers-cdc
+    depends_on:
+      datahub-gms-debug-consumers-cdc:
+        condition: service_healthy
+  datahub-integrations-debug-postgres-cdc:
+    <<: *datahub-integrations-service-dev
+    profiles:
+      - debug-postgres-cdc
+    depends_on:
+      datahub-gms-debug-postgres-cdc:
+        condition: service_healthy
   #################################
   # Executor Service
   #################################
@@ -215,4 +241,41 @@ services:
       - quickstart-postgres
     depends_on:
       datahub-gms-quickstart-postgres:
+        condition: service_healthy
+  datahub-executor-quickstart-setup-cdc:
+    <<: *datahub-executor-setup
+    profiles:
+      - quickstart-consumers-cdc
+    depends_on:
+      datahub-gms-quickstart-consumers-cdc:
+        condition: service_healthy
+  datahub-executor-quickstart-consumers-cdc:
+    <<: *datahub-executor
+    profiles:
+      - quickstart-consumers-cdc
+    depends_on:
+      datahub-gms-quickstart-consumers-cdc:
+        condition: service_healthy
+      datahub-executor-quickstart-setup-cdc:
+        condition: service_completed_successfully
+  datahub-executor-quickstart-postgres-cdc:
+    <<: *datahub-executor
+    profiles:
+      - quickstart-postgres-cdc
+    depends_on:
+      datahub-gms-quickstart-postgres-cdc:
+        condition: service_healthy
+  datahub-executor-debug-consumers-cdc:
+    <<: *datahub-executor-dev
+    profiles:
+      - debug-consumers-cdc
+    depends_on:
+      datahub-gms-debug-consumers-cdc:
+        condition: service_healthy
+  datahub-executor-debug-postgres-cdc:
+    <<: *datahub-executor-dev
+    profiles:
+      - debug-postgres-cdc
+    depends_on:
+      datahub-gms-debug-postgres-cdc:
         condition: service_healthy

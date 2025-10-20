@@ -16,17 +16,18 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import {
     Avatar,
     Button,
+    Icon,
     Pagination,
     Pill,
     SearchBar,
     SimpleSelect,
     Table,
     Text,
-    Tooltip,
     colors,
 } from '@src/alchemy-components';
 import { Menu } from '@src/alchemy-components/components/Menu';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
+import { ResizablePills } from '@src/alchemy-components/components/ResizablePills';
 
 import { useSendUserInvitationsMutation } from '@graphql/mutations.generated';
 import { CorpUser, CorpUserStatus, DataHubRole, EntityType } from '@types';
@@ -45,9 +46,11 @@ const UserDetails = styled.div`
 
 const GroupTags = styled.div`
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 4px;
-    max-width: 200px;
+    width: 100%;
+    overflow: hidden;
+    position: relative;
 `;
 
 const ActionsButtonStyle = {
@@ -67,7 +70,7 @@ export const TableContainer = styled.div<{ $hasSsoBanner?: boolean }>`
     display: flex;
     flex-direction: column;
     min-height: 0;
-    max-height: calc(100vh - ${(props) => (props.$hasSsoBanner ? '400px' : '320px')});
+    max-height: calc(100vh - ${(props) => (props.$hasSsoBanner ? '410px' : '330px')});
     overflow: auto;
 
     /* Make table header sticky */
@@ -113,6 +116,15 @@ export const ActionsContainer = styled.div`
 export const SubTabsContainer = styled.div`
     margin-top: 8px;
     margin-bottom: 16px;
+    position: relative;
+`;
+
+export const TabPillWrapper = styled.div`
+    position: absolute;
+    top: 8px;
+    left: 155px;
+    z-index: 1;
+    pointer-events: none; /* Make it non-interactive */
 `;
 
 export const ModalFooter = styled.div`
@@ -136,9 +148,36 @@ export const BulkActionsContainer = styled.div`
         background-color: white;
         border-radius: 8px;
         padding: 4px;
-        border: 1px solid ${colors.gray[200]};
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 12px 0 rgba(9, 1, 61, 0.12);
+
         width: fit-content;
+    }
+`;
+
+const SelectedCountContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    background: white;
+    border: 1px solid ${colors.gray[100]};
+    color: ${colors.gray[1700]};
+    border-radius: 8px;
+`;
+
+const ClearButton = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: ${colors.gray[1800]};
+    transition: color 0.2s;
+
+    &:hover {
+        background: ${colors.gray[1500]};
     }
 `;
 
@@ -146,9 +185,17 @@ type BulkActionsWidgetProps = {
     selectRoleOptions: DataHubRole[];
     onBulkInvite: (role: DataHubRole) => Promise<void>;
     onBulkDismiss: () => Promise<void>;
+    selectedCount?: number;
+    onClearSelection?: () => void;
 };
 
-export const BulkActionsWidget = ({ selectRoleOptions, onBulkInvite, onBulkDismiss }: BulkActionsWidgetProps) => {
+export const BulkActionsWidget = ({
+    selectRoleOptions,
+    onBulkInvite,
+    onBulkDismiss,
+    selectedCount,
+    onClearSelection,
+}: BulkActionsWidgetProps) => {
     // Set default role to "Reader"
     const readerRole = selectRoleOptions.find((role) => role.name === 'Reader');
     const [selectedRole, setSelectedRole] = useState<DataHubRole | undefined>(readerRole);
@@ -164,16 +211,28 @@ export const BulkActionsWidget = ({ selectRoleOptions, onBulkInvite, onBulkDismi
     return (
         <BulkActionsContainer>
             <div>
+                {selectedCount !== undefined && selectedCount > 0 && (
+                    <SelectedCountContainer>
+                        <Text size="md" weight="semiBold">
+                            {selectedCount} selected
+                        </Text>
+                        {onClearSelection && (
+                            <ClearButton onClick={onClearSelection} aria-label="Clear selection">
+                                <Icon icon="X" size="sm" color="gray" source="phosphor" />
+                            </ClearButton>
+                        )}
+                    </SelectedCountContainer>
+                )}
                 <SimpleSelectRole
                     selectedRole={selectedRole}
                     onRoleSelect={setSelectedRole}
                     size="md"
                     width="fit-content"
                 />
-                <Button variant="filled" size="md" onClick={onBulkDismiss} color="red">
+                <Button variant="text" size="md" onClick={onBulkDismiss} color="gray">
                     Dismiss All
                 </Button>
-                <Button variant="filled" size="md" onClick={handleInviteAll} color="green">
+                <Button variant="secondary" size="md" onClick={handleInviteAll}>
                     Invite All
                 </Button>
             </div>
@@ -244,55 +303,37 @@ export const UserGroupsCell = ({ user }: GroupsCellProps) => {
         return 'Unknown Group';
     });
 
-    if (groups.length === 0) {
-        return null;
-    }
-
     return (
         <GroupTags>
-            {groups.slice(0, 2).map((groupName: string) => (
-                <Pill
-                    key={groupName}
-                    variant="outline"
-                    color="gray"
-                    label={groupName}
-                    customStyle={{ margin: '0 2px 2px 0' }}
-                />
-            ))}
-            {groups.length > 2 && (
-                <Tooltip
-                    title={
-                        <div>
-                            <div style={{ fontWeight: 'bold', color: '#374066' }}>Groups</div>
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    flexWrap: 'wrap',
-                                    gap: '6px',
-                                    maxWidth: '300px',
-                                    margin: '12px',
-                                }}
-                            >
-                                {groups.map((groupName: string) => (
-                                    <Pill key={groupName} variant="outline" label={groupName} />
-                                ))}
-                            </div>
+            <ResizablePills
+                items={groups}
+                getItemWidth={(groupName) => groupName.length * 8 + 32}
+                gap={4}
+                overflowButtonWidth={50}
+                minContainerWidthForOne={100}
+                keyExtractor={(groupName) => groupName}
+                renderPill={(groupName) => (
+                    <Pill variant="outline" color="gray" label={groupName} customStyle={{ margin: '0 2px 2px 0' }} />
+                )}
+                overflowTooltipContent={() => (
+                    <div>
+                        <div style={{ fontWeight: 'bold', color: '#374066' }}>Groups</div>
+                        <div
+                            style={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: '6px',
+                                maxWidth: '300px',
+                                margin: '12px',
+                            }}
+                        >
+                            {groups.map((groupName: string) => (
+                                <Pill key={groupName} variant="outline" label={groupName} />
+                            ))}
                         </div>
-                    }
-                    placement="top"
-                    overlayStyle={{ maxWidth: '350px' }}
-                >
-                    <span style={{ display: 'inline-block' }}>
-                        <Pill
-                            key="more-groups"
-                            variant="outline"
-                            color="gray"
-                            label={`+${groups.length - 2}`}
-                            customStyle={{ margin: '0 2px 2px 0', cursor: 'pointer' }}
-                        />
-                    </span>
-                </Tooltip>
-            )}
+                    </div>
+                )}
+            />
         </GroupTags>
     );
 };
@@ -523,7 +564,7 @@ export const AllUsersTab = ({
             {sortedFilteredUsers.length > 0 ? (
                 <>
                     <Table columns={columns} data={sortedFilteredUsers} isLoading={loading} isScrollable />
-                    <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
+                    <div style={{ padding: '8px 20px 0 20px', display: 'flex', justifyContent: 'center' }}>
                         <Pagination
                             currentPage={page}
                             itemsPerPage={pageSize}

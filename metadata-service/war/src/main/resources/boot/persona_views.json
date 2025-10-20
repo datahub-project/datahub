@@ -27,7 +27,9 @@
                     "dataProduct",
                     "domain",
                     "glossaryNode",
-                    "mlModelGroup"
+                    "mlModelGroup",
+                    "corpuser",
+                    "corpGroup"
                   ],
                   "value": "",
                   "negated": false,
@@ -65,7 +67,9 @@
                   "values": [
                     "dataset",
                     "chart",
-                    "dashboard"
+                    "dashboard",
+                    "corpuser",
+                    "corpGroup"
                   ],
                   "value": "",
                   "negated": false,
@@ -106,7 +110,9 @@
                     "dataProduct",
                     "domain",
                     "glossaryNode",
-                    "tag"
+                    "tag",
+                    "corpuser",
+                    "corpGroup"
                   ],
                   "value": "",
                   "negated": false,
@@ -145,7 +151,9 @@
                     "dataset",
                     "container",
                     "dataFlow",
-                    "mlModel"
+                    "mlModel",
+                    "corpuser",
+                    "corpGroup"
                   ],
                   "value": "",
                   "negated": false,

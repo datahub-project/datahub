@@ -8,6 +8,7 @@ from datahub_executor.common.connection.connection import Connection
 from datahub_executor.common.connection.datahub_ingestion_source_connection_provider import (
     DataHubIngestionSourceConnectionProvider,
 )
+from datahub_executor.common.metric.client.client import MetricClient
 from datahub_executor.common.monitor.client.client import MonitorClient
 from datahub_executor.common.source.provider import SourceProvider
 from datahub_executor.common.source.source import Source
@@ -24,6 +25,7 @@ from datahub_executor.common.types import (
     AssertionStdOperator,
     AssertionStdParameter,
     AssertionStdParameters,
+    AssertionStdParameterType,
     AssertionType,
     AssertionValueChangeType,
     SQLAssertion,
@@ -44,11 +46,13 @@ class TestSQLEvaluator:
         self.state_provider = Mock(spec=DataHubMonitorStateProvider)
         self.source_provider = Mock(spec=SourceProvider)
         self.monitor_client = Mock(spec=MonitorClient)
+        self.metric_client = Mock(spec=MetricClient)
         self.evaluator = SQLAssertionEvaluator(
             self.connection_provider,
             self.state_provider,
             self.source_provider,
             self.monitor_client,
+            self.metric_client,
         )
         self.assertion = Assertion(
             urn="urn:li:assertion:test",
@@ -81,7 +85,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="999", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="999", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -95,7 +101,10 @@ class TestSQLEvaluator:
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {
-            "metric_value": "999",
+            "metric_value": "999.0",
+            "value": "999",
+            "min_value": None,
+            "max_value": None,
         }
 
     def test_evaluate_metric_success_not_equal_to(self) -> None:
@@ -104,7 +113,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.NOT_EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="1000", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="1000", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -118,7 +129,10 @@ class TestSQLEvaluator:
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {
-            "metric_value": "999",
+            "metric_value": "999.0",
+            "value": "1000",
+            "min_value": None,
+            "max_value": None,
         }
 
     def test_evaluate_metric_failure(self) -> None:
@@ -127,7 +141,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="1000", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="1000", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -148,7 +164,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="100", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="100", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -169,7 +187,10 @@ class TestSQLEvaluator:
             self.assertion, self.params, self.context
         )
         assert result.type == AssertionResultType.SUCCESS
-        assert result.parameters == {"metric_value": "999", "prev_metric_value": "899"}
+        assert result.parameters == {
+            "metric_value": "999.0",
+            "prev_metric_value": "899",
+        }
 
     def test_evaluate_metric_change_absolute_fail(self) -> None:
         sql_assertion = SQLAssertion(
@@ -178,7 +199,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="200", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="200", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -207,7 +230,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="10", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="10", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -229,7 +254,7 @@ class TestSQLEvaluator:
         )
         assert result.type == AssertionResultType.SUCCESS
         assert result.parameters == {
-            "metric_value": "1100",
+            "metric_value": "1100.0",
             "prev_metric_value": "1000",
         }
 
@@ -240,7 +265,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="10", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="10", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -269,7 +296,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="10", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="10", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -292,7 +321,9 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="10", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="10", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
@@ -319,11 +350,17 @@ class TestSQLEvaluator:
             statement=TEST_SQL_STATEMENT,
             operator=AssertionStdOperator.EQUAL_TO,
             parameters=AssertionStdParameters(
-                value=AssertionStdParameter(value="10", type="NUMBER"),
+                value=AssertionStdParameter(
+                    value="10", type=AssertionStdParameterType.NUMBER
+                ),
             ),
         )
         self.assertion.sql_assertion = sql_assertion
         self.context.monitor_urn = ""
+
+        source_mock = Mock(spec=Source)
+        self.source_provider.create_source_from_connection.return_value = source_mock
+        source_mock.execute_custom_sql.return_value = 999
 
         result = self.evaluator._evaluate_internal(
             self.assertion, self.params, self.context

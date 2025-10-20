@@ -2,13 +2,16 @@ package com.linkedin.metadata.registry;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.EventSchemaConstants;
+import com.linkedin.metadata.EventSchemaData;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.SchemaIdOrdinal;
 import com.linkedin.mxe.TopicConvention;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.apache.avro.Schema;
 
 /**
@@ -20,191 +23,158 @@ import org.apache.avro.Schema;
  */
 public class SchemaRegistryServiceImpl implements SchemaRegistryService {
 
-  private final Map<String, Map<Integer, Schema>> _versionedSchemaMap;
-  private final Map<String, Map<Integer, Integer>> _versionToSchemaIdMap;
-  private final Map<Integer, String> _schemaIdToTopicMap;
-  private final Map<String, String> _schemaCompatibilityMap;
+  private final EventSchemaData _eventSchemaData;
+  private final TopicConvention _convention;
+  private final Map<String, String> _topicToSchemaNameMap;
 
-  public SchemaRegistryServiceImpl(final TopicConvention convention) {
-    this._versionedSchemaMap = new HashMap<>();
-    this._versionToSchemaIdMap = new HashMap<>();
-    this._schemaIdToTopicMap = new HashMap<>();
-    this._schemaCompatibilityMap = new HashMap<>();
-
-    // Initialize all schemas using centralized constants and topic convention
-    initializeAllSchemas(convention);
+  public SchemaRegistryServiceImpl(
+      final TopicConvention convention, final EventSchemaData eventSchemaData) {
+    this._eventSchemaData = eventSchemaData;
+    this._convention = convention;
+    this._topicToSchemaNameMap = buildTopicToSchemaNameMap();
   }
 
-  private void initializeAllSchemas(final TopicConvention convention) {
-    // Create topic-to-schema mapping using TopicConvention
-    Map<String, String> topicToSchemaNameMap = createTopicToSchemaNameMap(convention);
-
-    // Initialize schemas for each topic
-    for (Map.Entry<String, String> entry : topicToSchemaNameMap.entrySet()) {
-      String topicName = entry.getKey();
-      String schemaName = entry.getValue();
-
-      Map<Integer, Schema> topicSchemas = new HashMap<>();
-
-      // Get all schema IDs for this schema name
-      Optional<List<Integer>> schemaIdsOpt =
-          EventSchemaConstants.getSchemaIdsForSchemaName(schemaName);
-      if (schemaIdsOpt.isEmpty()) {
-        continue;
-      }
-
-      List<Integer> schemaIds = schemaIdsOpt.get();
-
-      // Add schemas for each schema ID
-      // Each schema ID represents a different version of the schema (backwards incompatible)
-      for (int i = 0; i < schemaIds.size(); i++) {
-        int version = calculateVersionFromIndex(i);
-        int schemaId = schemaIds.get(i);
-
-        Schema schema = getSchemaForSchemaIdFromConstants(schemaId);
-        if (schema != null) {
-          topicSchemas.put(version, schema);
-
-          // Build version to schema ID mapping
-          if (!_versionToSchemaIdMap.containsKey(topicName)) {
-            _versionToSchemaIdMap.put(topicName, new HashMap<>());
-          }
-          _versionToSchemaIdMap.get(topicName).put(version, schemaId);
-
-          // Build schema ID to topic mapping
-          _schemaIdToTopicMap.put(schemaId, topicName);
-        }
-      }
-
-      if (!topicSchemas.isEmpty()) {
-        _versionedSchemaMap.put(topicName, topicSchemas);
-
-        // Set compatibility based on number of versions:
-        // - Single version schemas: BACKWARD (can evolve backward-compatibly)
-        // - Multi-version schemas: NONE (breaking changes between versions)
-        String compatibility =
-            (schemaIds.size() == 1)
-                ? EventSchemaConstants.SCHEMA_COMPATIBILITY_BACKWARD
-                : EventSchemaConstants.SCHEMA_COMPATIBILITY_NONE;
-        _schemaCompatibilityMap.put(topicName, compatibility);
-      }
-    }
+  private String getSchemaNameFromTopic(String topicName) {
+    return _topicToSchemaNameMap.get(topicName);
   }
 
-  /** Calculate version number from array index (0-based to 1-based) */
-  private static int calculateVersionFromIndex(int index) {
-    return index + 1; // Version 1, 2, 3, etc.
-  }
-
-  private Map<String, String> createTopicToSchemaNameMap(TopicConvention convention) {
-    Map<String, String> topicToSchemaNameMap = new HashMap<>();
-
-    // Map configured topic names to their corresponding schema names
-    topicToSchemaNameMap.put(
-        convention.getMetadataChangeProposalTopicName(),
+  /**
+   * Builds a map from topic names to schema names for efficient lookup. This replaces the long
+   * if-else chain with a simple map lookup.
+   */
+  private Map<String, String> buildTopicToSchemaNameMap() {
+    Map<String, String> map = new HashMap<>();
+    map.put(
+        _convention.getMetadataChangeProposalTopicName(),
         EventUtils.METADATA_CHANGE_PROPOSAL_SCHEMA_NAME);
-    topicToSchemaNameMap.put(
-        convention.getFailedMetadataChangeProposalTopicName(),
+    map.put(
+        _convention.getFailedMetadataChangeProposalTopicName(),
         EventUtils.FAILED_METADATA_CHANGE_PROPOSAL_SCHEMA_NAME);
-    topicToSchemaNameMap.put(
-        convention.getMetadataChangeLogVersionedTopicName(),
+    map.put(
+        _convention.getMetadataChangeLogVersionedTopicName(),
         EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME);
-    topicToSchemaNameMap.put(
-        convention.getMetadataChangeLogTimeseriesTopicName(),
+    map.put(
+        _convention.getMetadataChangeLogTimeseriesTopicName(),
         EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME);
-    topicToSchemaNameMap.put(
-        convention.getPlatformEventTopicName(), EventUtils.PLATFORM_EVENT_SCHEMA_NAME);
-    topicToSchemaNameMap.put(
-        convention.getMetadataChangeEventTopicName(), EventUtils.METADATA_CHANGE_EVENT_SCHEMA_NAME);
-    topicToSchemaNameMap.put(
-        convention.getFailedMetadataChangeEventTopicName(),
+    map.put(_convention.getPlatformEventTopicName(), EventUtils.PLATFORM_EVENT_SCHEMA_NAME);
+    map.put(
+        _convention.getMetadataChangeEventTopicName(),
+        EventUtils.METADATA_CHANGE_EVENT_SCHEMA_NAME);
+    map.put(
+        _convention.getFailedMetadataChangeEventTopicName(),
         EventUtils.FAILED_METADATA_CHANGE_EVENT_SCHEMA_NAME);
-    topicToSchemaNameMap.put(
-        convention.getMetadataAuditEventTopicName(), EventUtils.METADATA_AUDIT_EVENT_SCHEMA_NAME);
-    topicToSchemaNameMap.put(
-        convention.getDataHubUpgradeHistoryTopicName(),
+    map.put(
+        _convention.getMetadataAuditEventTopicName(), EventUtils.METADATA_AUDIT_EVENT_SCHEMA_NAME);
+    map.put(
+        _convention.getDataHubUpgradeHistoryTopicName(),
         EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME);
-
-    return topicToSchemaNameMap;
-  }
-
-  private Schema getSchemaForSchemaIdFromConstants(int schemaId) {
-    // Map schema IDs to their corresponding schema constants
-    if (schemaId == EventSchemaConstants.MCP_V1_SCHEMA_ID) {
-      return EventSchemaConstants.MCP_V1_SCHEMA;
-    } else if (schemaId == EventSchemaConstants.MCP_SCHEMA_ID) {
-      return EventSchemaConstants.MCP_SCHEMA;
-    } else if (schemaId == EventSchemaConstants.FMCP_V1_SCHEMA_ID) {
-      return EventSchemaConstants.FMCP_V1_SCHEMA;
-    } else if (schemaId == EventSchemaConstants.FMCP_SCHEMA_ID) {
-      return EventSchemaConstants.FMCP_SCHEMA;
-    } else if (schemaId == EventSchemaConstants.MCL_V1_SCHEMA_ID) {
-      return EventSchemaConstants.MCL_V1_SCHEMA;
-    } else if (schemaId == EventSchemaConstants.MCL_SCHEMA_ID) {
-      return EventSchemaConstants.MCL_SCHEMA;
-    } else if (schemaId == EventSchemaConstants.MCL_TIMESERIES_V1_SCHEMA_ID) {
-      return EventSchemaConstants.MCL_TIMESERIES_V1_SCHEMA;
-    } else if (schemaId == EventSchemaConstants.MCL_TIMESERIES_SCHEMA_ID) {
-      return EventSchemaConstants.MCL_TIMESERIES_SCHEMA;
-    } else if (schemaId == EventSchemaConstants.PE_SCHEMA_ID) {
-      return EventSchemaConstants.PE_SCHEMA;
-    } else if (schemaId == EventSchemaConstants.MCE_V1_SCHEMA_ID) {
-      return EventSchemaConstants.MCE_V1_SCHEMA;
-    } else if (schemaId == EventSchemaConstants.MCE_SCHEMA_ID) {
-      return EventSchemaConstants.MCE_SCHEMA;
-    } else if (schemaId == EventSchemaConstants.FMCE_V1_SCHEMA_ID) {
-      return EventSchemaConstants.FMCE_V1_SCHEMA;
-    } else if (schemaId == EventSchemaConstants.FMCE_SCHEMA_ID) {
-      return EventSchemaConstants.FMCE_SCHEMA;
-    } else if (schemaId == EventSchemaConstants.MAE_V1_SCHEMA_ID) {
-      return EventSchemaConstants.MAE_V1_SCHEMA;
-    } else if (schemaId == EventSchemaConstants.MAE_SCHEMA_ID) {
-      return EventSchemaConstants.MAE_SCHEMA;
-    } else if (schemaId == EventSchemaConstants.DUHE_SCHEMA_ID) {
-      return EventSchemaConstants.DUHE_SCHEMA;
-    } else {
-      return null;
-    }
+    return map;
   }
 
   @Override
   public Optional<Integer> getLatestSchemaVersionForTopic(String topicName) {
-    Map<Integer, Schema> versionMap = _versionedSchemaMap.get(topicName);
-    if (versionMap != null && !versionMap.isEmpty()) {
-      return Optional.of(versionMap.keySet().stream().mapToInt(Integer::intValue).max().orElse(1));
+    String schemaName = getSchemaNameFromTopic(topicName);
+    if (schemaName == null) {
+      return Optional.empty();
     }
-    return Optional.empty();
+
+    List<Integer> schemaIds = _eventSchemaData.getSchemaIdsForSchemaName(schemaName);
+    if (schemaIds.isEmpty()) {
+      return Optional.empty();
+    }
+
+    // Find the maximum version across all schema IDs
+    int maxVersion = 0;
+    for (int schemaId : schemaIds) {
+      List<Integer> versions = _eventSchemaData.getVersionsForSchemaId(schemaId);
+      if (!versions.isEmpty()) {
+        int maxVersionForSchema = versions.stream().mapToInt(Integer::intValue).max().orElse(0);
+        maxVersion = Math.max(maxVersion, maxVersionForSchema);
+      }
+    }
+
+    return maxVersion > 0 ? Optional.of(maxVersion) : Optional.empty();
   }
 
   @Override
   public Optional<List<Integer>> getSupportedSchemaVersionsForTopic(String topicName) {
-    Map<Integer, Schema> versionMap = _versionedSchemaMap.get(topicName);
-    if (versionMap != null && !versionMap.isEmpty()) {
-      return Optional.of(ImmutableList.copyOf(versionMap.keySet()));
+    String schemaName = getSchemaNameFromTopic(topicName);
+    if (schemaName == null) {
+      return Optional.empty();
     }
-    return Optional.empty();
+
+    List<Integer> schemaIds = _eventSchemaData.getSchemaIdsForSchemaName(schemaName);
+    if (schemaIds.isEmpty()) {
+      return Optional.empty();
+    }
+
+    // Collect all versions from all schema IDs
+    List<Integer> allVersions = new ArrayList<>();
+    for (int schemaId : schemaIds) {
+      List<Integer> versions = _eventSchemaData.getVersionsForSchemaId(schemaId);
+      allVersions.addAll(versions);
+    }
+
+    // Remove duplicates and sort
+    List<Integer> uniqueVersions =
+        allVersions.stream().distinct().sorted().collect(Collectors.toList());
+
+    return uniqueVersions.isEmpty()
+        ? Optional.empty()
+        : Optional.of(ImmutableList.copyOf(uniqueVersions));
   }
 
   @Override
   public Optional<Integer> getSchemaIdForTopic(String topicName) {
-    // Get the latest available schema ID for this topic
-    Map<Integer, Integer> versionToIdMap = _versionToSchemaIdMap.get(topicName);
-    if (versionToIdMap != null && !versionToIdMap.isEmpty()) {
-      // Return the latest available schema ID (highest version number)
-      int maxVersion = versionToIdMap.keySet().stream().mapToInt(Integer::intValue).max().orElse(1);
-      return Optional.of(versionToIdMap.get(maxVersion));
+    String schemaName = getSchemaNameFromTopic(topicName);
+    if (schemaName == null) {
+      return Optional.empty();
     }
-    return Optional.empty();
+
+    // Get all versions for this schema and return the highest version's schema registry ID
+    List<Integer> schemaIds = _eventSchemaData.getSchemaIdsForSchemaName(schemaName);
+    if (schemaIds.isEmpty()) {
+      return Optional.empty();
+    }
+
+    // Find the highest version number for this schema
+    int maxVersion = 0;
+    for (int schemaId : schemaIds) {
+      List<Integer> versions = _eventSchemaData.getVersionsForSchemaId(schemaId);
+      if (!versions.isEmpty()) {
+        maxVersion =
+            Math.max(maxVersion, versions.stream().mapToInt(Integer::intValue).max().orElse(0));
+      }
+    }
+
+    // Return the schema registry ID for the highest version
+    return Optional.ofNullable(_eventSchemaData.getSchemaRegistryId(schemaName, maxVersion));
   }
 
   @Override
   public List<String> getAllTopics() {
-    return ImmutableList.copyOf(_versionedSchemaMap.keySet());
+    // Return all topic names from TopicConvention
+    List<String> topics = new ArrayList<>();
+    topics.add(_convention.getMetadataChangeProposalTopicName());
+    topics.add(_convention.getFailedMetadataChangeProposalTopicName());
+    topics.add(_convention.getMetadataChangeLogVersionedTopicName());
+    // Note: MetadataChangeLogTimeseriesTopicName maps to the same schema as
+    // MetadataChangeLogVersionedTopicName
+    topics.add(_convention.getPlatformEventTopicName());
+    topics.add(_convention.getMetadataChangeEventTopicName());
+    topics.add(_convention.getFailedMetadataChangeEventTopicName());
+    topics.add(_convention.getMetadataAuditEventTopicName());
+    topics.add(_convention.getDataHubUpgradeHistoryTopicName());
+    return ImmutableList.copyOf(topics);
   }
 
   @Override
   public String getSchemaCompatibility(String topicName) {
-    return _schemaCompatibilityMap.getOrDefault(topicName, "NONE");
+    String schemaName = getSchemaNameFromTopic(topicName);
+    if (schemaName == null) {
+      return "NONE";
+    }
+    return _eventSchemaData.getCompatibilityForSchemaName(schemaName);
   }
 
   @Override
@@ -218,18 +188,44 @@ public class SchemaRegistryServiceImpl implements SchemaRegistryService {
 
   @Override
   public Optional<String> getTopicNameById(final int schemaId) {
-    return Optional.ofNullable(_schemaIdToTopicMap.get(schemaId));
+    String schemaName = _eventSchemaData.getSchemaNameForSchemaId(schemaId);
+    if (schemaName == null) {
+      return Optional.empty();
+    }
+
+    // Map schema name back to topic name
+    if (schemaName.equals(EventUtils.METADATA_CHANGE_PROPOSAL_SCHEMA_NAME)) {
+      return Optional.of(_convention.getMetadataChangeProposalTopicName());
+    } else if (schemaName.equals(EventUtils.FAILED_METADATA_CHANGE_PROPOSAL_SCHEMA_NAME)) {
+      return Optional.of(_convention.getFailedMetadataChangeProposalTopicName());
+    } else if (schemaName.equals(EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME)) {
+      return Optional.of(_convention.getMetadataChangeLogVersionedTopicName());
+    } else if (schemaName.equals(EventUtils.PLATFORM_EVENT_SCHEMA_NAME)) {
+      return Optional.of(_convention.getPlatformEventTopicName());
+    } else if (schemaName.equals(EventUtils.METADATA_CHANGE_EVENT_SCHEMA_NAME)) {
+      return Optional.of(_convention.getMetadataChangeEventTopicName());
+    } else if (schemaName.equals(EventUtils.FAILED_METADATA_CHANGE_EVENT_SCHEMA_NAME)) {
+      return Optional.of(_convention.getFailedMetadataChangeEventTopicName());
+    } else if (schemaName.equals(EventUtils.METADATA_AUDIT_EVENT_SCHEMA_NAME)) {
+      return Optional.of(_convention.getMetadataAuditEventTopicName());
+    } else if (schemaName.equals(EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME)) {
+      return Optional.of(_convention.getDataHubUpgradeHistoryTopicName());
+    }
+
+    return Optional.empty();
   }
 
   /**
    * Get schema ID for a specific topic and version This is critical for proper schema resolution
    */
   public Optional<Integer> getSchemaIdForTopicAndVersion(String topicName, int version) {
-    Map<Integer, Integer> versionToIdMap = _versionToSchemaIdMap.get(topicName);
-    if (versionToIdMap != null) {
-      return Optional.ofNullable(versionToIdMap.get(version));
+    String schemaName = getSchemaNameFromTopic(topicName);
+    if (schemaName == null) {
+      return Optional.empty();
     }
-    return Optional.empty();
+
+    // Return the unique schema registry ID for this specific version
+    return Optional.ofNullable(_eventSchemaData.getSchemaRegistryId(schemaName, version));
   }
 
   /**
@@ -240,18 +236,12 @@ public class SchemaRegistryServiceImpl implements SchemaRegistryService {
    * @param schemaId the schema ID to find the version for
    * @return the version number (1-based), or 1 if not found
    */
-  public static int getVersionForSchemaId(String schemaName, int schemaId) {
-    Optional<List<Integer>> schemaIdsOpt =
-        EventSchemaConstants.getSchemaIdsForSchemaName(schemaName);
-    if (schemaIdsOpt.isPresent()) {
-      List<Integer> schemaIds = schemaIdsOpt.get();
-      for (int i = 0; i < schemaIds.size(); i++) {
-        if (schemaIds.get(i) == schemaId) {
-          return calculateVersionFromIndex(i);
-        }
-      }
-    }
-    return 1; // Default to version 1 if not found
+  public int getVersionForSchemaId(String schemaName, int schemaId) {
+    // Use EventSchemaData for O(1) lookup instead of array looping
+    return _eventSchemaData.getVersionsForSchemaId(schemaId).stream()
+        .mapToInt(Integer::intValue)
+        .max()
+        .orElse(1);
   }
 
   @Override
@@ -264,47 +254,61 @@ public class SchemaRegistryServiceImpl implements SchemaRegistryService {
   @Override
   public Optional<Schema> getSchemaForId(final int schemaId) {
     // Get the schema name for this ID
-    Optional<String> schemaNameOpt = EventSchemaConstants.getSchemaNameForSchemaId(schemaId);
-    if (schemaNameOpt.isEmpty()) {
+    String schemaName = _eventSchemaData.getSchemaNameForSchemaId(schemaId);
+    if (schemaName == null) {
       return Optional.empty();
     }
 
-    String schemaName = schemaNameOpt.get();
+    // Get all versions for this schema ID
+    List<Integer> versions = _eventSchemaData.getVersionsForSchemaId(schemaId);
+    if (versions.isEmpty()) {
+      return Optional.empty();
+    }
 
-    // Find which topic uses this schema and get the appropriate version
-    for (Map.Entry<String, Map<Integer, Integer>> topicEntry : _versionToSchemaIdMap.entrySet()) {
-      String topicName = topicEntry.getKey();
-      Map<Integer, Integer> versionToIdMap = topicEntry.getValue();
+    // Get the versioned schemas for this schema ID
+    Map<Integer, Schema> versionedSchemas =
+        _eventSchemaData.getVersionedSchemasForSchemaId(schemaId);
+    if (versionedSchemas == null || versionedSchemas.isEmpty()) {
+      return Optional.empty();
+    }
 
-      // Check if this topic has a schema ID that matches our target
-      for (Map.Entry<Integer, Integer> versionEntry : versionToIdMap.entrySet()) {
-        if (versionEntry.getValue().equals(schemaId)) {
-          int version = versionEntry.getKey();
-          Map<Integer, Schema> topicSchemas = _versionedSchemaMap.get(topicName);
-          if (topicSchemas != null) {
-            Schema schema = topicSchemas.get(version);
-            if (schema != null) {
-              return Optional.of(schema);
-            }
-          }
-        }
+    // Return the first available schema (typically version 1)
+    for (int version : versions) {
+      Schema schema = versionedSchemas.get(version);
+      if (schema != null) {
+        return Optional.of(schema);
       }
     }
 
     return Optional.empty();
   }
 
-  private String getSchemaNameFromTopic(String topicName) {
-    // Extract schema name from topic name (remove _v1 suffix)
-    return topicName.replaceFirst("_v1$", "");
-  }
-
   @Override
   public Optional<Schema> getSchemaForTopicAndVersion(String topicName, int version) {
-    Map<Integer, Schema> versionMap = _versionedSchemaMap.get(topicName);
-    if (versionMap != null) {
-      return Optional.ofNullable(versionMap.get(version));
+    // Get schema name from topic name using TopicConvention
+    String schemaName = getSchemaNameFromTopic(topicName);
+    if (schemaName == null) {
+      return Optional.empty();
     }
+
+    // Get all schema IDs for this schema name
+    List<Integer> schemaIds = _eventSchemaData.getSchemaIdsForSchemaName(schemaName);
+    if (schemaIds.isEmpty()) {
+      return Optional.empty();
+    }
+
+    // Find the schema ID that supports this version
+    for (int schemaId : schemaIds) {
+      List<Integer> versions = _eventSchemaData.getVersionsForSchemaId(schemaId);
+      if (versions.contains(version)) {
+        Map<Integer, Schema> versionedSchemas =
+            _eventSchemaData.getVersionedSchemasForSchemaId(schemaId);
+        if (versionedSchemas != null) {
+          return Optional.ofNullable(versionedSchemas.get(version));
+        }
+      }
+    }
+
     return Optional.empty();
   }
 
@@ -313,13 +317,8 @@ public class SchemaRegistryServiceImpl implements SchemaRegistryService {
     // Convert subject (topic-value) to topic name
     String topicName = subject.replaceFirst("-value", "");
 
-    // Get the schema ID for the topic and version
-    Map<Integer, Integer> versionToIdMap = _versionToSchemaIdMap.get(topicName);
-    if (versionToIdMap != null) {
-      return Optional.ofNullable(versionToIdMap.get(version));
-    }
-
-    return Optional.empty();
+    // Use the existing method to get schema ID for topic and version
+    return getSchemaIdForTopicAndVersion(topicName, version);
   }
 
   @Override
@@ -344,12 +343,25 @@ public class SchemaRegistryServiceImpl implements SchemaRegistryService {
   public Optional<Integer> registerSchemaVersion(String topicName, Schema schema) {
     // This is a read-only schema registry, so we don't actually register new schemas
     // However, we can return the latest version if the schema matches an existing one
-    Map<Integer, Schema> versionMap = _versionedSchemaMap.get(topicName);
-    if (versionMap != null) {
-      // Check if this schema already exists in any version
-      for (Map.Entry<Integer, Schema> entry : versionMap.entrySet()) {
-        if (entry.getValue().equals(schema)) {
-          return Optional.of(entry.getKey());
+    String schemaName = getSchemaNameFromTopic(topicName);
+    if (schemaName == null) {
+      return Optional.empty();
+    }
+
+    List<Integer> schemaIds = _eventSchemaData.getSchemaIdsForSchemaName(schemaName);
+    if (schemaIds.isEmpty()) {
+      return Optional.empty();
+    }
+
+    // Check if this schema already exists in any version
+    for (int schemaId : schemaIds) {
+      Map<Integer, Schema> versionedSchemas =
+          _eventSchemaData.getVersionedSchemasForSchemaId(schemaId);
+      if (versionedSchemas != null) {
+        for (Map.Entry<Integer, Schema> entry : versionedSchemas.entrySet()) {
+          if (entry.getValue().equals(schema)) {
+            return Optional.of(entry.getKey());
+          }
         }
       }
     }

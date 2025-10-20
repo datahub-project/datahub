@@ -8,6 +8,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import UrlButton from '@app/entityV2/shared/UrlButton';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { Deprecation, Domain, EntityType, Owner, ParentNodesResult } from '@types';
 
@@ -51,7 +52,9 @@ export const Preview = ({
             parentEntities={parentNodes?.nodes}
             domain={domain}
             entityTitleSuffix={
-                <UrlButton href={getRelatedAssetsUrl(entityRegistry, urn)}>View Related Assets</UrlButton>
+                <UrlButton href={resolveRuntimePath(getRelatedAssetsUrl(entityRegistry, urn))}>
+                    View Related Assets
+                </UrlButton>
             }
             headerDropdownItems={headerDropdownItems}
         />

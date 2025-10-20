@@ -4,6 +4,7 @@ import React from 'react';
 import analytics, { EventType } from '@app/analytics';
 import { ViewAllTabMessage } from '@app/identity/user/UserAndGroupList.components';
 import { useBatchDismissUserSuggestionsMutation } from '@app/identity/user/hooks/useBatchDismissUserSuggestions';
+import { addToGlobalInvitedUsers } from '@app/identity/user/inviteUsersGlobalState';
 import { colors } from '@src/alchemy-components';
 import { pluralize } from '@src/app/shared/textUtil';
 
@@ -86,6 +87,17 @@ export const useBulkUserActions = () => {
                     successInvitationStates[user.urn] = 'success';
                 });
                 setInvitationStates((prev) => ({ ...prev, ...successInvitationStates }));
+
+                // Add to global invited users tracking
+                const identifiers: string[] = [];
+                selectedUsers.forEach((user) => {
+                    identifiers.push(user.urn);
+                    const userEmail = user.info?.email || user.properties?.email || user.username;
+                    if (userEmail && userEmail !== user.urn) {
+                        identifiers.push(userEmail);
+                    }
+                });
+                addToGlobalInvitedUsers(identifiers);
 
                 notification.success({
                     message: `${invitationsSent} ${pluralize(invitationsSent, 'new user')} invited.`,

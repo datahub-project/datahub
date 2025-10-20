@@ -2,8 +2,12 @@ import logging
 from collections import defaultdict
 from typing import Iterator
 
-from datahub.metadata._internal_schema_classes import OwnershipTypeClass
-from datahub.metadata.schema_classes import AuditStampClass, OwnerClass, OwnershipClass
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+)
 from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 from datahub.utilities.urns.urn import Urn
 from datahub_actions.event.event_registry import EntityChangeEvent

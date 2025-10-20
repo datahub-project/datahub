@@ -118,14 +118,7 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
 
     const handleSearch = (type: EntityType, text: string) => {
         if (text) {
-            const input = addUserFiltersToAutoCompleteInput(
-                {
-                    type,
-                    query: text,
-                    limit: 10,
-                },
-                type,
-            );
+            const input = addUserFiltersToAutoCompleteInput({ type, query: text, limit: 10 }, type);
 
             userSearch({
                 variables: {

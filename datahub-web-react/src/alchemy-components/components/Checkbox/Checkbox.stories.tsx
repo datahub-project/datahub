@@ -97,6 +97,34 @@ const meta = {
                 type: 'boolean',
             },
         },
+        labelTooltip: {
+            description: 'Tooltip for the Checkbox label.',
+            control: {
+                type: 'text',
+            },
+        },
+        shouldHandleLabelClicks: {
+            description: 'Whether the label should handle clicks.',
+            control: {
+                type: 'boolean',
+            },
+        },
+        justifyContent: {
+            description: 'Justify content for the Checkbox container.',
+            table: {
+                defaultValue: { summary: 'center' },
+            },
+            control: {
+                type: 'select',
+                options: ['flex-start', 'center'],
+            },
+        },
+        gap: {
+            description: 'Additional gap between the label and the checkbox.',
+            control: {
+                type: 'text',
+            },
+        },
     },
     args: {
         label: checkboxDefaults.label,
@@ -163,5 +191,27 @@ export const checkboxGroups = () => (
             <Heading>Vertical Checkbox Group</Heading>
             <CheckboxGroup isVertical checkboxes={MOCK_CHECKBOXES} />
         </div>
+    </GridList>
+);
+
+export const withTooltip = () => (
+    <GridList>
+        <Checkbox label="With Tooltip" labelTooltip="This is a tooltip" />
+        <Checkbox label="With Tooltip and Checked" isChecked labelTooltip="This is a tooltip" />
+    </GridList>
+);
+
+export const withJustifyContent = () => (
+    <GridList isVertical>
+        <Checkbox label="Flex Start" justifyContent="flex-start" />
+        <Checkbox label="Center" justifyContent="center" />
+    </GridList>
+);
+
+export const withGap = () => (
+    <GridList isVertical>
+        <Checkbox label="Default Gap" />
+        <Checkbox label="20px Gap" gap="20px" />
+        <Checkbox label="50px Gap" gap="50px" />
     </GridList>
 );

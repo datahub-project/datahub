@@ -31,6 +31,7 @@ public class OpenSearchTestContainer implements SearchTestContainer {
     checkContainerEngine(OS_CONTAINER.getDockerClient());
     OS_CONTAINER
         .withEnv("OPENSEARCH_JAVA_OPTS", SEARCH_JAVA_OPTS)
+        .withEnv("DISABLE_SECURITY_PLUGIN", "true")
         .withStartupTimeout(STARTUP_TIMEOUT);
   }
 

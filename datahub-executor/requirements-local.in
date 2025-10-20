@@ -1,2 +1,2 @@
--e ../metadata-ingestion
+-e ../metadata-ingestion-modules/acryl-cloud
 -e .

@@ -332,7 +332,7 @@ class MetricResolver:
             entity_urn,
             database_params,
             DatasetVolumeAssertionParameters(source_type=volume_source_type),
-            filter_params.__dict__ if filter_params is not None else None,
+            filter_params.model_dump() if filter_params is not None else None,
         )
         if row_count is None:
             raise InsufficientDataException(

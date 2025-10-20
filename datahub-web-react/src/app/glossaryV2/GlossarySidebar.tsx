@@ -89,6 +89,7 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                                 icon={{ icon: 'Plus', source: 'phosphor' }}
                                 onClick={() => setIsCreateNodeModalVisible(true)}
                                 disabled={!showCreateGlossary}
+                                data-testid="create-glossary-button"
                             />
                         </span>
                     </Tooltip>

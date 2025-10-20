@@ -28,7 +28,7 @@ from looker_sdk.sdk.api40.models import (
     User,
     WriteQuery,
 )
-from pydantic.class_validators import validator
+from pydantic import validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.platformresource.platform_resource import (
@@ -36,7 +36,7 @@ from datahub.api.entities.platformresource.platform_resource import (
     PlatformResourceKey,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import ContainerKey, create_embed_mcp
+from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -72,7 +72,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     UpstreamClass,
     UpstreamLineage,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
@@ -90,21 +89,18 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
-    BrowsePathsClass,
     BrowsePathsV2Class,
-    ContainerClass,
-    DatasetPropertiesClass,
+    EmbedClass,
     EnumTypeClass,
     FineGrainedLineageClass,
     GlobalTagsClass,
     SchemaMetadataClass,
-    StatusClass,
-    SubTypesClass,
     TagAssociationClass,
     TagPropertiesClass,
     TagSnapshotClass,
 )
 from datahub.metadata.urns import TagUrn
+from datahub.sdk.dataset import Dataset
 from datahub.sql_parsing.sqlglot_lineage import ColumnRef
 from datahub.utilities.lossy_collections import LossyList, LossySet
 from datahub.utilities.url_util import remove_port_from_url
@@ -255,6 +251,11 @@ class LookerViewId:
 
         return generated_urn
 
+    def get_view_dataset_name(self, config: LookerCommonConfig) -> str:
+        n_mapping: ViewNamingPatternMapping = self.get_mapping(config)
+        n_mapping.file_path = self.preprocess_file_path(n_mapping.file_path)
+        return config.view_naming_pattern.replace_variables(n_mapping)
+
     def get_browse_path(self, config: LookerCommonConfig) -> str:
         browse_path = config.view_browse_pattern.replace_variables(
             self.get_mapping(config)
@@ -282,12 +283,34 @@ class LookerViewId:
             ],
         )
 
+    def get_view_dataset_parent_container(
+        self, config: LookerCommonConfig
+    ) -> List[str]:
+        project_key = gen_project_key(config, self.project_name)
+        view_path = (
+            remove_suffix(self.file_path, ".view.lkml")
+            if "{file_path}" in config.view_browse_pattern.pattern
+            else os.path.dirname(self.file_path)
+        )
+        path_entries = view_path.split("/") if view_path else []
+        return [
+            "Develop",
+            project_key.as_urn(),
+            *path_entries,
+        ]
+
 
 class ViewFieldType(Enum):
     DIMENSION = "Dimension"
     DIMENSION_GROUP = "Dimension Group"
     MEASURE = "Measure"
     UNKNOWN = "Unknown"
+
+
+class ViewFieldDimensionGroupType(Enum):
+    # Ref: https://cloud.google.com/looker/docs/reference/param-field-dimension-group
+    TIME = "time"
+    DURATION = "duration"
 
 
 class ViewFieldValue(Enum):
@@ -1286,50 +1309,28 @@ class LookerExplore:
         reporter: SourceReport,
         base_url: str,
         extract_embed_urls: bool,
-    ) -> Optional[List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]]:
-        # We only generate MCE-s for explores that contain from clauses and do NOT contain joins
-        # All other explores (passthrough explores and joins) end in correct resolution of lineage, and don't need additional nodes in the graph.
+    ) -> Dataset:
+        """
+        Generate a Dataset metadata event for this Looker Explore.
 
-        dataset_snapshot = DatasetSnapshot(
-            urn=self.get_explore_urn(config),
-            aspects=[],  # we append to this list later on
-        )
-
-        model_key = gen_model_key(config, self.model_name)
-        browse_paths = BrowsePathsClass(paths=[self.get_explore_browse_path(config)])
-        container = ContainerClass(container=model_key.as_urn())
-        dataset_snapshot.aspects.append(browse_paths)
-        dataset_snapshot.aspects.append(StatusClass(removed=False))
-
-        custom_properties = {
-            "project": self.project_name,
-            "model": self.model_name,
-            "looker.explore.label": self.label,
-            "looker.explore.name": self.name,
-            "looker.explore.file": self.source_file,
-        }
-        dataset_props = DatasetPropertiesClass(
-            name=str(self.label) if self.label else LookerUtil._display_name(self.name),
-            description=self.description,
-            customProperties={
-                k: str(v) for k, v in custom_properties.items() if v is not None
-            },
-        )
-        dataset_props.externalUrl = self._get_url(base_url)
-
-        dataset_snapshot.aspects.append(dataset_props)
+        Only generates datasets for explores that contain FROM clauses and do NOT contain joins.
+        Passthrough explores and joins are handled via lineage and do not need additional nodes.
+        """
+        upstream_lineage = None
         view_name_to_urn_map: Dict[str, str] = {}
+
         if self.upstream_views is not None:
             assert self.project_name is not None
-            upstreams = []
+            upstreams: list[UpstreamClass] = []
             observed_lineage_ts = datetime.datetime.now(tz=datetime.timezone.utc)
+
             for view_ref in sorted(self.upstream_views):
                 # set file_path to ViewFieldType.UNKNOWN if file_path is not available to keep backward compatibility
                 # if we raise error on file_path equal to None then existing test-cases will fail as mock data
                 # doesn't have required attributes.
                 file_path: str = (
                     cast(str, self.upstream_views_file_path[view_ref.include])
-                    if self.upstream_views_file_path[view_ref.include] is not None
+                    if self.upstream_views_file_path.get(view_ref.include) is not None
                     else ViewFieldValue.NOT_AVAILABLE.value
                 )
 
@@ -1356,7 +1357,7 @@ class LookerExplore:
                 )
                 view_name_to_urn_map[view_ref.include] = view_urn
 
-            fine_grained_lineages = []
+            fine_grained_lineages: list[FineGrainedLineageClass] = []
             if config.extract_column_level_lineage:
                 for field in self.fields or []:
                     # Skip creating fine-grained lineage for empty field names to prevent invalid schema field URNs
@@ -1397,9 +1398,11 @@ class LookerExplore:
                         )
 
             upstream_lineage = UpstreamLineage(
-                upstreams=upstreams, fineGrainedLineages=fine_grained_lineages or None
+                upstreams=upstreams,
+                fineGrainedLineages=fine_grained_lineages or None,
             )
-            dataset_snapshot.aspects.append(upstream_lineage)
+
+        schema_metadata = None
         if self.fields is not None:
             schema_metadata = LookerUtil._get_schema(
                 platform_name=config.platform_name,
@@ -1407,42 +1410,46 @@ class LookerExplore:
                 view_fields=self.fields,
                 reporter=reporter,
             )
-            if schema_metadata is not None:
-                dataset_snapshot.aspects.append(schema_metadata)
 
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        mcp = MetadataChangeProposalWrapper(
-            entityUrn=dataset_snapshot.urn,
-            aspect=SubTypesClass(typeNames=[DatasetSubTypes.LOOKER_EXPLORE]),
-        )
+        extra_aspects: List[Union[GlobalTagsClass, EmbedClass]] = []
 
-        proposals: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]] = [
-            mce,
-            mcp,
-        ]
-
-        # Add tags
-        explore_tag_urns: List[TagAssociationClass] = [
-            TagAssociationClass(tag=TagUrn(tag).urn()) for tag in self.tags
-        ]
-        if explore_tag_urns:
-            dataset_snapshot.aspects.append(GlobalTagsClass(explore_tag_urns))
-
-        # If extracting embeds is enabled, produce an MCP for embed URL.
+        explore_tag_urns: List[TagUrn] = [TagUrn(tag) for tag in self.tags]
         if extract_embed_urls:
-            embed_mcp = create_embed_mcp(
-                dataset_snapshot.urn, self._get_embed_url(base_url)
-            )
-            proposals.append(embed_mcp)
+            extra_aspects.append(EmbedClass(renderUrl=self._get_embed_url(base_url)))
 
-        proposals.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=dataset_snapshot.urn,
-                aspect=container,
-            )
+        custom_properties: Dict[str, Optional[str]] = {
+            "project": self.project_name,
+            "model": self.model_name,
+            "looker.explore.label": self.label,
+            "looker.explore.name": self.name,
+            "looker.explore.file": self.source_file,
+        }
+
+        return Dataset(
+            platform=config.platform_name,
+            name=config.explore_naming_pattern.replace_variables(
+                self.get_mapping(config)
+            ),
+            display_name=str(self.label)
+            if self.label
+            else LookerUtil._display_name(self.name),
+            description=self.description,
+            subtype=DatasetSubTypes.LOOKER_EXPLORE,
+            env=config.env,
+            platform_instance=config.platform_instance,
+            custom_properties={
+                k: str(v) for k, v in custom_properties.items() if v is not None
+            },
+            external_url=self._get_url(base_url),
+            upstreams=upstream_lineage,
+            schema=schema_metadata,
+            parent_container=[
+                "Explore",
+                gen_model_key(config, self.model_name).as_urn(),
+            ],
+            tags=explore_tag_urns if explore_tag_urns else None,
+            extra_aspects=extra_aspects,
         )
-
-        return proposals
 
 
 def gen_project_key(config: LookerCommonConfig, project_name: str) -> LookMLProjectKey:

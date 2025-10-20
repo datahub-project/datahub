@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
     properties = {
       "ingestionScheduler.enabled=false",
       "aws.eventBridge.auditEventExport.enabled=true",
+      "aws.eventBridge.region=us-east-1",
       "configEntityRegistry.path=../../metadata-jobs/mae-consumer/src/test/resources/test-entity-registry.yml",
       "kafka.schemaRegistry.type=INTERNAL",
       "kafka.consumer.mcl.aspectsToDrop={\"*\":[\"status\"],\"dataset\":[\"datasetProperties\"]}"

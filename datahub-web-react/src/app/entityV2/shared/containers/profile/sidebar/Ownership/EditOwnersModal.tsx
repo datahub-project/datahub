@@ -9,10 +9,12 @@ import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormCo
 import OwnershipTypesSelect from '@app/entityV2/shared/containers/profile/sidebar/Ownership/OwnershipTypesSelect';
 import ProposalDescriptionModal from '@app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { addUserFiltersToAutoCompleteInput } from '@app/shared/userSearchUtils';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
 import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
@@ -25,7 +27,7 @@ import useAutoFocusInModal from '@utils/focus/useFocusInModal';
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
 import { useListOwnershipTypesQuery, useProposeOwnersMutation } from '@graphql/ownership.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
-import { CorpUser, DataHubPageModuleType, Entity, EntityType, FacetFilterInput, OwnerEntityType } from '@types';
+import { CorpUser, DataHubPageModuleType, Entity, EntityType, OwnerEntityType } from '@types';
 
 const SelectInput = styled(Select)`
     width: 480px;
@@ -91,7 +93,7 @@ export const EditOwnersModal = ({
     const mutationUrn = useMutationUrn();
     const { refetch: entityRefetch } = useEntityContext();
     const { isInFormContext } = useEntityFormContext();
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
     const { user } = useUserContext();
 
     // Renders a search result in the select dropdown.
@@ -167,15 +169,14 @@ export const EditOwnersModal = ({
     const { config } = useAppConfig();
     const { showTaskCenterRedesign } = config.featureFlags;
 
-    // Invokes the search API as the owner types with optional filters
-    const handleSearch = (type: EntityType, text: string, searchQuery: any, filters?: FacetFilterInput[]) => {
+    // Invokes the search API as the owner types
+    const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
         if (text) {
             const input = addUserFiltersToAutoCompleteInput(
                 {
                     type,
                     query: text,
                     limit: 10,
-                    ...(filters && filters.length > 0 && { filters }),
                 },
                 type,
             );
@@ -423,7 +424,11 @@ export const EditOwnersModal = ({
         const isCurrentUserUpdated = user?.urn && inputs.map((input) => input.ownerUrn).includes(user?.urn);
         // Reload modules
         // OwnedAssets - as your assets module could be updated
-        if (isCurrentUserUpdated) reloadModules([DataHubPageModuleType.OwnedAssets], 3000);
+        if (isCurrentUserUpdated)
+            reloadByKeyType(
+                [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.OwnedAssets)],
+                3000,
+            );
     };
 
     function handleBlur() {

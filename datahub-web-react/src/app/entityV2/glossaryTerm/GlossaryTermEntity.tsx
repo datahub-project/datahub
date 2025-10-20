@@ -153,6 +153,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                       {
                           name: 'Summary',
                           component: SummaryTab,
+                          id: 'asset-summary-tab',
                       },
                   ]
                 : []),

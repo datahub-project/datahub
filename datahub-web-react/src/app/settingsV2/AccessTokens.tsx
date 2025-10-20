@@ -3,6 +3,7 @@ import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/ic
 import { PageTitle } from '@components';
 import { Alert, Button, Dropdown, Empty, Modal, Pagination, Select, message } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -268,7 +269,7 @@ export const AccessTokens = () => {
                 const displayName = ownerUrn?.replace('urn:li:corpuser:', '');
                 const link = `/user/${ownerUrn}/owner of`;
                 const ownerName = displayName || '';
-                return <a href={link}>{ownerName}</a>;
+                return <Link to={link}>{ownerName}</Link>;
             },
         },
         {

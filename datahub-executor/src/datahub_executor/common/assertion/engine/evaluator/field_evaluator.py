@@ -17,8 +17,8 @@ from datahub_executor.common.assertion.engine.evaluator.utils.field import (
     convert_field_parameters_to_metric_resolver_strategy,
 )
 from datahub_executor.common.assertion.engine.evaluator.utils.shared import (
-    encode_monitor_urn,
     is_training_required,
+    make_monitor_metric_cube_urn,
 )
 from datahub_executor.common.assertion.types import (
     AssertionDatabaseParams,
@@ -143,7 +143,7 @@ class FieldAssertionEvaluator(AssertionEvaluator):
                     "path": dataset_field_parameters.changed_rows_field.path,
                     "type": dataset_field_parameters.changed_rows_field.type,
                     "native_type": dataset_field_parameters.changed_rows_field.native_type,
-                    "filter": filter.__dict__ if filter else None,
+                    "filter": filter.model_dump() if filter else None,
                     "database": database_params,
                 },
                 prev_high_watermark_value,
@@ -393,7 +393,7 @@ class FieldAssertionEvaluator(AssertionEvaluator):
                     f"Failed to evaluate FIELD Assertion. "
                     f"Unsupported FIELD Assertion Type {field_assertion.type} provided."
                 ),
-                parameters=parameters.dataset_field_parameters.__dict__,
+                parameters=parameters.dataset_field_parameters.model_dump(),
             )
 
     def _evaluate_internal_field_metric(
@@ -509,9 +509,7 @@ class FieldAssertionEvaluator(AssertionEvaluator):
 
         # Step 3: Optionally save the fetched metric to the metric cube.
         if save and context.monitor_urn:
-            metric_cube_urn = (
-                f"urn:li:dataHubMetricCube:{encode_monitor_urn(context.monitor_urn)}"
-            )
+            metric_cube_urn = make_monitor_metric_cube_urn(context.monitor_urn)
             self.metric_client.save_metric_value(metric_cube_urn, metric)
 
         # Step 4: Return the metric

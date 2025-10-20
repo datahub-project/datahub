@@ -410,23 +410,6 @@ fragment attributionFields on MetadataAttribution {
     }
 }
 
-fragment attributionFields on MetadataAttribution {
-    time
-    actor {
-        urn
-        type
-        ...entityDisplayNameFields
-    }
-    source {
-        urn
-        type
-    }
-    sourceDetail {
-        key
-        value
-    }
-}
-
 fragment documentationFields on Documentation {
     documentations {
         documentation
@@ -2063,6 +2046,7 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
         showInSearchFilters
         showAsAssetBadge
         showInAssetSummary
+        hideInAssetSummaryWhenEmpty
         showInColumnsTable
     }
 }
@@ -2628,6 +2612,9 @@ fragment ingestionSourceFields on IngestionSource {
         canView
         canDelete
         canExecute
+    }
+    source {
+        type
     }
 }
 

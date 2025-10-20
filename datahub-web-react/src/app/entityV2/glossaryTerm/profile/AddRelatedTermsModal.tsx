@@ -4,12 +4,14 @@ import styled from 'styled-components/macro';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
 import { getParentEntities } from '@app/searchV2/filters/utils';
 import ClickOutside from '@app/shared/ClickOutside';
 import TermLabel from '@app/shared/TermLabel';
 import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useAddRelatedTermsMutation } from '@graphql/glossaryTerm.generated';
@@ -42,7 +44,7 @@ function AddRelatedTermsModal(props: Props) {
     const entityRegistry = useEntityRegistry();
     const { urn: entityDataUrn } = useEntityData();
     const refetch = useRefetch();
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
 
     const [AddRelatedTerms] = useAddRelatedTermsMutation();
 
@@ -70,7 +72,9 @@ function AddRelatedTermsModal(props: Props) {
                     refetch();
                     // Reload modules
                     // RelatedTerms - update related terms module on term summary tab
-                    reloadModules([DataHubPageModuleType.RelatedTerms]);
+                    reloadByKeyType([
+                        getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.RelatedTerms),
+                    ]);
                 }, 2000);
             });
         onClose();
@@ -184,11 +188,17 @@ function AddRelatedTermsModal(props: Props) {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button type="primary" onClick={addTerms} disabled={!selectedUrns.length}>
+                    <Button
+                        type="primary"
+                        onClick={addTerms}
+                        disabled={!selectedUrns.length}
+                        data-testid="submit-button"
+                    >
                         Add
                     </Button>
                 </>
             }
+            data-testid="add-related-terms-modal"
         >
             <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
                 <StyledSelect
@@ -212,6 +222,7 @@ function AddRelatedTermsModal(props: Props) {
                     onFocus={() => setIsFocusedOnInput(true)}
                     onBlur={handleBlur}
                     dropdownStyle={isShowingGlossaryBrowser || !inputValue ? { display: 'none' } : {}}
+                    data-testid="related-terms-select"
                 >
                     {tagSearchOptions}
                 </StyledSelect>

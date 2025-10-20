@@ -58,7 +58,7 @@ class AssertionExecutor:
 
     @METRIC("WORKER_ASSERTION_EVALUATE_REQUESTS").time()  # type: ignore
     def evaluate_assertion(self, execution_request: ExecutionRequest) -> None:
-        assertion_spec = AssertionEvaluationSpec.parse_obj(
+        assertion_spec = AssertionEvaluationSpec.model_validate(
             execution_request.args["assertion_spec"]
         )
 

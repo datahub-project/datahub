@@ -1,7 +1,6 @@
 package com.linkedin.metadata.search;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
@@ -65,6 +64,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -84,7 +84,6 @@ import org.junit.Assert;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.opensearch.action.search.SearchRequest;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -95,7 +94,7 @@ import org.testng.annotations.Test;
 public abstract class LineageServiceTestBase extends AbstractTestNGSpringContextTests {
 
   @Nonnull
-  protected abstract RestHighLevelClient getSearchClient();
+  protected abstract SearchClientShim<?> getSearchClient();
 
   @Nonnull
   protected abstract ElasticSearchConfiguration getElasticSearchConfiguration();
@@ -114,7 +113,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   private GraphService graphService;
   private CacheManager cacheManager;
   private LineageSearchService lineageSearchService;
-  private RestHighLevelClient searchClientSpy;
+  private SearchClientShim<?> searchClientSpy;
 
   @Getter private OperationContext operationContext;
 
@@ -216,7 +215,6 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
         new ESSearchDAO(
             searchClientSpy,
             false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getElasticSearchConfiguration(),
             null,
             QueryFilterRewriteChain.EMPTY,

@@ -2,6 +2,8 @@ import { Icon, Pill, colors } from '@components';
 import React, { useCallback, useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import { colors as alchemyColors, typography } from '@src/alchemy-components/theme';
+
 type ParsedEmail = {
     id: string;
     email: string;
@@ -30,20 +32,20 @@ const Container = styled.div`
 const InputWrapper = styled.div`
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-start;
+    align-items: center;
     gap: 6px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    padding: 10px 12px;
-    min-height: 48px;
+    border: 1px solid ${alchemyColors.gray[100]};
+    border-radius: 8px;
+    padding: 8px 12px;
+    min-height: 36px;
     background: white;
     cursor: text;
-    font-size: 14px;
-    line-height: 20px;
+    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+    transition: all 0.1s ease;
 
     &:focus-within {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 1px #3b82f6;
+        border-color: ${alchemyColors.violet[200]};
+        outline: 1px solid ${alchemyColors.violet[200]};
     }
 `;
 
@@ -62,13 +64,13 @@ const HiddenInput = styled.input`
     background: transparent;
     flex: 1;
     min-width: 200px;
-    font-size: 14px;
-    line-height: 20px;
+    color: ${alchemyColors.gray[600]};
+    font-size: ${typography.fontSizes.md};
     padding: 0;
     margin: 0;
 
     &::placeholder {
-        color: #6b7280;
+        color: ${alchemyColors.gray[400]};
     }
 `;
 
@@ -220,7 +222,6 @@ export default function EmailPillInput({
                             label={parsedEmail.email}
                             color={parsedEmail.isValid ? 'gray' : 'red'}
                             variant={parsedEmail.isValid ? 'outline' : 'filled'}
-                            size="xs"
                             rightIcon="Close"
                             clickable
                             customStyle={
@@ -236,6 +237,7 @@ export default function EmailPillInput({
                             }}
                         />
                     ))}
+
                     <HiddenInput
                         ref={inputRef}
                         value={inputValue}

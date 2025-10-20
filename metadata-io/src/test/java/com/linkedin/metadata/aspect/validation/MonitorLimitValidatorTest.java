@@ -21,7 +21,6 @@ import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.search.ScrollResult;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.testng.annotations.Test;
@@ -81,7 +80,12 @@ public class MonitorLimitValidatorTest {
         new MonitorLimitValidator().setEnabled(true).setMaxMonitors(5);
 
     BatchItem mockItem = createMockBatchItem();
-    RetrieverContext mockContext = createMockRetrieverContext(5); // 5 existing monitors, limit is 5
+    RetrieverContext mockContext =
+        createMockRetrieverContextWithExistence(
+            5,
+            Map.of(
+                mockItem.getUrn(),
+                false)); // 5 existing monitors, limit is 5, new monitor doesn't exist
 
     Stream<AspectValidationException> result =
         validator.validateProposedAspects(List.of(mockItem), mockContext);
@@ -212,6 +216,26 @@ public class MonitorLimitValidatorTest {
     assertEquals(0, result.count());
   }
 
+  @Test
+  public void testUpsertExistingMonitorWhenOverLimit() {
+    MonitorLimitValidator validator =
+        new MonitorLimitValidator().setEnabled(true).setMaxMonitors(5);
+
+    BatchItem mockItem = createMockBatchItem(ChangeType.UPSERT);
+    RetrieverContext mockContext =
+        createMockRetrieverContextWithExistence(
+            6,
+            Map.of(
+                mockItem.getUrn(), true)); // 6 existing monitors (over limit), but monitor exists
+
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspects(List.of(mockItem), mockContext);
+
+    // Should not fail validation since we're updating an existing monitor, even though we're over
+    // the limit
+    assertEquals(0, result.count());
+  }
+
   private BatchItem createMockBatchItem() {
     return createMockBatchItem(ChangeType.CREATE);
   }
@@ -250,7 +274,7 @@ public class MonitorLimitValidatorTest {
     when(mockScrollResult.getNumEntities()).thenReturn(existingMonitorCount);
 
     when(mockContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
-    when(mockAspectRetriever.entityExists(any(Set.class))).thenReturn(existenceMap);
+    when(mockAspectRetriever.entityExists(any())).thenReturn(existenceMap);
 
     return mockContext;
   }

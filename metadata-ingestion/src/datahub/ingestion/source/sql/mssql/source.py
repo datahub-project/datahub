@@ -13,7 +13,7 @@ from sqlalchemy.exc import ProgrammingError, ResourceClosedError
 from sqlalchemy.sql import quoted_name
 
 import datahub.metadata.schema_classes as models
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -75,7 +75,7 @@ DEFAULT_TEMP_TABLES_PATTERNS = [
 class SQLServerConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
-    scheme: str = Field(default="mssql+pytds", description="", hidden_from_docs=True)
+    scheme: HiddenFromDocs[str] = Field(default="mssql+pytds")
 
     # TODO: rename to include_procedures ?
     include_stored_procedures: bool = Field(
@@ -149,18 +149,24 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         uri_opts: Optional[Dict[str, Any]] = None,
         current_db: Optional[str] = None,
     ) -> str:
+        current_db = current_db or self.database
+
         if self.use_odbc:
             # Ensure that the import is available.
             import pyodbc  # noqa: F401
 
             self.scheme = "mssql+pyodbc"
 
+            # ODBC requires a database name, otherwise it will interpret host_port
+            # as a pre-defined ODBC connection name.
+            current_db = current_db or "master"
+
         uri: str = self.sqlalchemy_uri or make_sqlalchemy_uri(
             self.scheme,  # type: ignore
             self.username,
             self.password.get_secret_value() if self.password else None,
             self.host_port,  # type: ignore
-            current_db if current_db else self.database,
+            current_db,
             uri_opts=uri_opts,
         )
         if self.use_odbc:

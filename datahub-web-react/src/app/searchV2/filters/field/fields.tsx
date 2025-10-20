@@ -14,7 +14,7 @@ import {
 } from '@ant-design/icons';
 import Icon from '@ant-design/icons/lib/components/Icon';
 import { TimerOutlined } from '@mui/icons-material';
-import { BookmarkSimple, Globe } from '@phosphor-icons/react';
+import { BookmarkSimple, Globe, TreeStructure } from '@phosphor-icons/react';
 import React from 'react';
 
 import { FieldType, FilterField } from '@app/searchV2/filters/types';
@@ -35,6 +35,7 @@ import {
     FIELD_TO_LABEL,
     GLOSSARY_TERMS_FILTER_NAME,
     HAS_ACTIVE_INCIDENTS_FILTER_NAME,
+    HAS_ASSET_LEVEL_LINEAGE_FILTER_NAME,
     HAS_FAILING_ASSERTIONS_FILTER_NAME,
     HAS_SIBLINGS_FILTER_NAME,
     LAST_MODIFIED_FILTER_NAME,
@@ -213,6 +214,13 @@ export const HAS_SIBLINGS_FILTER: FilterField = {
     icon: <BuildOutlined />,
 };
 
+export const HAS_ASSET_LEVEL_LINEAGE_FILTER: FilterField = {
+    field: HAS_ASSET_LEVEL_LINEAGE_FILTER_NAME,
+    displayName: FIELD_TO_LABEL[HAS_ASSET_LEVEL_LINEAGE_FILTER_NAME],
+    type: FieldType.BOOLEAN,
+    icon: <TreeStructure />,
+};
+
 const DAY_IN_MILLIS = 24 * 60 * 60 * 1000;
 const defaultTimestampOptions = [
     {
@@ -296,6 +304,7 @@ export const DEFAULT_FILTER_FIELDS: FilterField[] = [
     ORIGIN_FILTER,
     DATA_PLATFORM_INSTANCE_FILTER,
     HAS_SIBLINGS_FILTER,
+    HAS_ASSET_LEVEL_LINEAGE_FILTER,
 ];
 
 export const VIEW_BUILDER_FIELDS: FilterField[] = [
@@ -320,6 +329,7 @@ export const VIEW_BUILDER_FIELDS: FilterField[] = [
     HAS_FAILING_ASSERTIONS_FILTER,
     ORIGIN_FILTER,
     DATA_PLATFORM_INSTANCE_FILTER,
+    HAS_ASSET_LEVEL_LINEAGE_FILTER,
 ];
 
 export const ALL_FILTER_FIELDS: FilterField[] = [

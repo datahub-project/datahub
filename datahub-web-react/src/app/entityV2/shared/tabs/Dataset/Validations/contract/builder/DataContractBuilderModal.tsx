@@ -23,6 +23,7 @@ const modalBodyStyle = {
     paddingBottom: 0,
     paddingTop: 0,
     height: '70vh',
+    'overflow-x': 'auto',
 };
 
 type Props = {

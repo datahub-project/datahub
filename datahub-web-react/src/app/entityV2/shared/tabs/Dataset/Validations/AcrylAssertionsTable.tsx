@@ -18,7 +18,7 @@ type StyledTableProps = {
     showSelect?: boolean;
 } & TableProps<any>;
 
-export const StyledTable = styled(Table)<StyledTableProps>`
+const BaseStyledTable = styled(Table)<StyledTableProps>`
     ${(props) => !props.showSelect && `margin-left: -50px;`}
     max-width: none;
     overflow: inherit;
@@ -70,7 +70,12 @@ export const StyledTable = styled(Table)<StyledTableProps>`
     &&& .ant-table-thead > tr > th.ant-table-cell-fix-right {
         background-color: inherit;
     }
+    &&& .ant-pagination {
+        margin: 8px 0;
+    }
 `;
+
+export const StyledTable = BaseStyledTable as <T = any>(props: StyledTableProps & TableProps<T>) => JSX.Element;
 
 const DetailsColumnWrapper = styled.div`
     display: flex;
@@ -245,11 +250,9 @@ export const AcrylAssertionsTable = ({
                 <AssertionProfileDrawer
                     urn={focusAssertionUrn}
                     entity={focusedAssertionEntity as Entity}
-                    contract={contract}
                     canEditAssertion={canEditFocusAssertion}
                     canEditMonitor={canEditFocusMonitor}
                     closeDrawer={() => setFocusAssertionUrn(null)}
-                    refetch={refetch}
                 />
             )}
         </>

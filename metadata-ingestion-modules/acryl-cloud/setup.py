@@ -6,17 +6,22 @@ from setuptools import setup
 _codegen_config_file = pathlib.Path("./src/acryl_datahub_cloud/_codegen_config.json")
 _codegen_config: dict = json.loads(_codegen_config_file.read_text())
 
+acryl_datahub = [
+    # 1.3.0: Pydantic v2 was introduced in 1.2.0.10 and later RCs fixed in OSS some missing code from /metadata-ingestion SaaS
+    "acryl-datahub==1.3.0"
+]
+
 # Note: We are using the croniter library for cron parsing which is different from executor, which uses apscheduler, so there is a risk of mismatch here.
 # croniter is now maintained at: https://github.com/pallets-eco/croniter
 base_requirements = [
+    *acryl_datahub,
     "croniter",
     "pytz",
     "types-croniter",
     "tzlocal",
 ]
 
-# Adding pydantic<2 since we use pydantic models to map to pyarrow models and that is only compatible in pydantic v1
-stats_common = {"pandas", "pyarrow", "duckdb", "pydantic<2"}
+stats_common = {"pandas", "pyarrow", "duckdb"}
 aws_common = {"boto3"}
 open_search_common = {"opensearch-py==2.4.2"}
 
@@ -33,7 +38,7 @@ plugins = {
     | aws_common
     | {
         "opensearch-py==2.4.2",
-        "polars==1.30.0",
+        "polars==1.34.0",
         "elasticsearch==7.13.4",
         "numpy<2",
         "scipy<=1.14.1",
@@ -49,6 +54,10 @@ plugins = {
 dev_requirements = {
     # acryl-datahub[dev] pulls in more things than are strictly necessary, but it's fine.
     "acryl-datahub[dev]",
+    # Type stubs for external libraries
+    "pyarrow-stubs",
+    "scipy-stubs",
+    "pandas-stubs",
     *list(
         dependency
         for plugin in [

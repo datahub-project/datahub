@@ -1,4 +1,3 @@
-import uuid
 from typing import (
     Type,
     Union,
@@ -9,12 +8,31 @@ from typing_extensions import (
     assert_never,
 )
 
+from datahub.emitter.mcp_builder import DatahubKey
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import (
     SubscriptionUrn,
     Urn,
 )
 from datahub.sdk.entity import Entity
+
+
+class SubscriptionKey(DatahubKey):
+    """
+    Key class for generating stable subscription identifiers.
+
+    The main goal is to have stable IDs that are deterministic based on the
+    entity and actor URNs, which helps prevent duplicate subscriptions during
+    eventual consistency scenarios when multiple subscription requests happen
+    in quick succession.
+
+    This implementation matches the behavior expected in the backend when a
+    subscription is created, ensuring consistent ID generation between the
+    Python SDK and Java backend services.
+    """
+
+    entity_urn: str
+    actor_urn: str
 
 
 class Subscription(Entity):
@@ -37,8 +55,8 @@ class Subscription(Entity):
         self,
         # SubscriptionInfo
         info: models.SubscriptionInfoClass,
-        # Identity; it is automatically generated if not provided
-        id: Union[str, SubscriptionUrn, None] = None,
+        # Identity
+        id: Union[str, SubscriptionUrn],
     ):
         """
         Initialize the Subscription entity.
@@ -61,13 +79,11 @@ class Subscription(Entity):
         return self._urn
 
     @classmethod
-    def _ensure_id(cls, id: Union[str, SubscriptionUrn, None]) -> SubscriptionUrn:
+    def _ensure_id(cls, id: Union[str, SubscriptionUrn]) -> SubscriptionUrn:
         if isinstance(id, str):
             return SubscriptionUrn.from_string(id)
         elif isinstance(id, SubscriptionUrn):
             return id
-        elif id is None:
-            return SubscriptionUrn.from_string(f"urn:li:subscription:{uuid.uuid4()}")
         else:
             assert_never(id)
 

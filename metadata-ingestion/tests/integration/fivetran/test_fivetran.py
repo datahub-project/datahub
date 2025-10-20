@@ -26,19 +26,19 @@ FROZEN_TIME = "2022-06-07 17:00:00"
 
 default_connector_query_results = [
     {
-        "connector_id": "calendar_elected",
+        "connection_id": "calendar_elected",
         "connecting_user_id": "reapply_phone",
         "connector_type_id": "postgres",
-        "connector_name": "postgres",
+        "connection_name": "postgres",
         "paused": False,
         "sync_frequency": 1440,
         "destination_id": "interval_unconstitutional",
     },
     {
-        "connector_id": "my_confluent_cloud_connector_id",
+        "connection_id": "my_confluent_cloud_connector_id",
         "connecting_user_id": "reapply_phone",
         "connector_type_id": "confluent_cloud",
-        "connector_name": "confluent_cloud",
+        "connection_name": "confluent_cloud",
         "paused": False,
         "sync_frequency": 1440,
         "destination_id": "my_confluent_cloud_connector_id",
@@ -60,7 +60,7 @@ def default_query_results(
     ):
         return [
             {
-                "connector_id": "calendar_elected",
+                "connection_id": "calendar_elected",
                 "source_table_id": "10040",
                 "source_table_name": "employee",
                 "source_schema_name": "public",
@@ -69,7 +69,7 @@ def default_query_results(
                 "destination_schema_name": "postgres_public",
             },
             {
-                "connector_id": "calendar_elected",
+                "connection_id": "calendar_elected",
                 "source_table_id": "10041",
                 "source_table_name": "company",
                 "source_schema_name": "public",
@@ -78,7 +78,7 @@ def default_query_results(
                 "destination_schema_name": "postgres_public",
             },
             {
-                "connector_id": "my_confluent_cloud_connector_id",
+                "connection_id": "my_confluent_cloud_connector_id",
                 "source_table_id": "10042",
                 "source_table_name": "my-source-topic",
                 "source_schema_name": "confluent_cloud",
@@ -131,28 +131,28 @@ def default_query_results(
     ):
         return [
             {
-                "connector_id": "calendar_elected",
+                "connection_id": "calendar_elected",
                 "sync_id": "4c9a03d6-eded-4422-a46a-163266e58243",
                 "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
                 "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
                 "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
             },
             {
-                "connector_id": "calendar_elected",
+                "connection_id": "calendar_elected",
                 "sync_id": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
                 "start_time": datetime.datetime(2023, 10, 3, 14, 35, 30, 345000),
                 "end_time": datetime.datetime(2023, 10, 3, 14, 35, 31, 512000),
                 "end_message_data": '"{\\"reason\\":\\"Sync has been cancelled because of a user action in the dashboard.Standard Config updated.\\",\\"status\\":\\"CANCELED\\"}"',
             },
             {
-                "connector_id": "calendar_elected",
+                "connection_id": "calendar_elected",
                 "sync_id": "63c2fc85-600b-455f-9ba0-f576522465be",
                 "start_time": datetime.datetime(2023, 10, 3, 14, 35, 55, 401000),
                 "end_time": datetime.datetime(2023, 10, 3, 14, 36, 29, 678000),
                 "end_message_data": '"{\\"reason\\":\\"java.lang.RuntimeException: FATAL: too many connections for role \\\\\\"hxwraqld\\\\\\"\\",\\"taskType\\":\\"reconnect\\",\\"status\\":\\"FAILURE_WITH_TASK\\"}"',
             },
             {
-                "connector_id": "my_confluent_cloud_connector_id",
+                "connection_id": "my_confluent_cloud_connector_id",
                 "sync_id": "d9a03d6-eded-4422-a46a-163266e58244",
                 "start_time": datetime.datetime(2023, 9, 20, 6, 37, 32, 606000),
                 "end_time": datetime.datetime(2023, 9, 20, 6, 38, 5, 56000),
@@ -360,19 +360,19 @@ def test_fivetran_with_snowflake_dest_and_null_connector_user(pytestconfig, tmp_
 
         connector_query_results = [
             {
-                "connector_id": "calendar_elected",
+                "connection_id": "calendar_elected",
                 "connecting_user_id": None,
                 "connector_type_id": "postgres",
-                "connector_name": "postgres",
+                "connection_name": "postgres",
                 "paused": False,
                 "sync_frequency": 1440,
                 "destination_id": "interval_unconstitutional",
             },
             {
-                "connector_id": "my_confluent_cloud_connector_id",
+                "connection_id": "my_confluent_cloud_connector_id",
                 "connecting_user_id": None,
                 "connector_type_id": "confluent_cloud",
-                "connector_name": "confluent_cloud",
+                "connection_name": "confluent_cloud",
                 "paused": False,
                 "sync_frequency": 1440,
                 "destination_id": "interval_unconstitutional",
@@ -525,7 +525,12 @@ def test_rename_destination_config():
         ConfigurationWarning,
         match="destination_config is deprecated, please use snowflake_destination_config instead.",
     ):
-        FivetranSourceConfig.parse_obj(config_dict)
+        config = FivetranSourceConfig.parse_obj(config_dict)
+        assert config.fivetran_log_config.snowflake_destination_config is not None
+        assert (
+            config.fivetran_log_config.snowflake_destination_config.account_id
+            == "testid"
+        )
 
 
 def test_compat_sources_to_database() -> None:

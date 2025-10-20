@@ -3,11 +3,11 @@ from typing import Dict, List, Optional
 
 from datahub.ingestion.source.looker.looker_common import LookerViewId, ViewFieldValue
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
+from datahub.ingestion.source.looker.looker_constant import NAME
 from datahub.ingestion.source.looker.looker_dataclasses import LookerModel
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.lookml_config import (
     BASE_PROJECT_NAME,
-    NAME,
     LookMLSourceReport,
 )
 

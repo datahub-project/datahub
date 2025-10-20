@@ -18,6 +18,9 @@ from datahub_executor.common.monitor.inference.metric_projection.metric_predicto
 from datahub_executor.common.monitor.inference.monitor_training_engine import (
     MonitorTrainingEngine,
 )
+from datahub_executor.common.monitor.inference.sql_assertion_trainer import (
+    SqlAssertionTrainer,
+)
 from datahub_executor.common.monitor.inference.volume_assertion_trainer import (
     VolumeAssertionTrainer,
 )
@@ -168,7 +171,7 @@ def test_initialize_trainers(
     )
 
     # Assert
-    assert len(engine._trainers) == 3  # Three trainer types
+    assert len(engine._trainers) == 4  # Four trainer types
 
     assert AssertionType.VOLUME in engine._trainers
     assert isinstance(engine._trainers[AssertionType.VOLUME], VolumeAssertionTrainer)
@@ -180,6 +183,8 @@ def test_initialize_trainers(
 
     assert AssertionType.FIELD in engine._trainers
     assert isinstance(engine._trainers[AssertionType.FIELD], FieldAssertionTrainer)
+    assert AssertionType.SQL in engine._trainers
+    assert isinstance(engine._trainers[AssertionType.SQL], SqlAssertionTrainer)
 
 
 def test_get_trainer(engine: MonitorTrainingEngine) -> None:

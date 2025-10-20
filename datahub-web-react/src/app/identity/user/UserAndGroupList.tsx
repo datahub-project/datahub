@@ -14,6 +14,7 @@ import {
     ModalFooter,
     RecommendedUsersTab,
     SubTabsContainer,
+    TabPillWrapper,
     UserActionsMenu,
     UserGroupsCell,
     UserNameCell,
@@ -27,12 +28,12 @@ import {
 } from '@app/identity/user/UserAndGroupList.hooks';
 import { getUserStatusColor, getUserStatusText } from '@app/identity/user/UserList.utils';
 import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
-import { OnboardingTour } from '@app/onboarding/OnboardingTour';
-import { USERS_ASSIGN_ROLE_ID, USERS_INTRO_ID, USERS_SSO_ID } from '@app/onboarding/config/UsersOnboardingConfig';
+import { USERS_ASSIGN_ROLE_ID } from '@app/onboarding/config/UsersOnboardingConfig';
 import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';
 import { CORP_USER_STATUS_FIELD, ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { Message } from '@app/shared/Message';
-import { Button, Modal, Tabs } from '@src/alchemy-components';
+import { Button, Modal, Pill, Tabs } from '@src/alchemy-components';
+import { removeRuntimePath } from '@utils/runtimeBasePath';
 
 import { useBatchAssignRoleMutation, useSendUserInvitationsMutation } from '@graphql/mutations.generated';
 import { CorpUser, DataHubRole } from '@types';
@@ -127,7 +128,7 @@ export const UserAndGroupList = ({ hasSsoBanner }: Props) => {
         } else {
             newUrl.searchParams.set('tab', newTab);
         }
-        history.replace(newUrl.pathname + newUrl.search);
+        history.replace(removeRuntimePath(newUrl.pathname) + newUrl.search);
     };
 
     const { usersData, loading, error, totalUsers, selectRoleOptions, usersRefetch, onChangePage, handleDelete } =
@@ -418,7 +419,6 @@ export const UserAndGroupList = ({ hasSsoBanner }: Props) => {
 
     return (
         <>
-            <OnboardingTour stepIds={[USERS_INTRO_ID, USERS_SSO_ID, USERS_ASSIGN_ROLE_ID]} />
             {!usersData && loading && <Message type="loading" content="Loading users..." />}
             {error && <Message type="error" content="Failed to load users! An unexpected error occurred." />}
 
@@ -440,7 +440,13 @@ export const UserAndGroupList = ({ hasSsoBanner }: Props) => {
                         },
                     ]}
                 />
+                {activeSubTab !== SubTabType.Recommended && (
+                    <TabPillWrapper>
+                        <Pill size="sm" color="blue" label="New" />
+                    </TabPillWrapper>
+                )}
             </SubTabsContainer>
+
             {resetTokenUser && (
                 <ViewResetTokenModal
                     open={isViewingResetToken}

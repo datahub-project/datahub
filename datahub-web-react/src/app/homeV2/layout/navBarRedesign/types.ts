@@ -26,8 +26,10 @@ export interface NavBarMenuBaseElement {
 }
 
 export type Badge = {
-    count: number;
+    count?: number;
+    label?: string; // For showing text like "New" instead of count
     show?: boolean;
+    showDot?: boolean; // Whether to show blue dot on icon (for left nav)
 };
 
 export interface NavBarMenuBaseItem extends NavBarMenuBaseElement {

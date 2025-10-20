@@ -1,4 +1,3 @@
-import enum
 import functools
 import json
 import logging
@@ -13,6 +12,7 @@ import pydantic
 from datahub.cli.env_utils import get_boolean_env_variable
 from loguru import logger
 
+from datahub_integrations.gen_ai.model_config import BedrockModel
 from datahub_integrations.util.serialized import serialized
 
 if TYPE_CHECKING:
@@ -25,11 +25,6 @@ logging.getLogger("boto3").setLevel(logging.DEBUG)
 logging.getLogger("botocore").setLevel(logging.DEBUG)
 logging.getLogger("urllib3").setLevel(logging.DEBUG)
 
-# e.g. "us", "eu", or "apac"
-_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX = os.getenv(
-    "ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX", "us"
-)
-
 _ENABLE_BEDROCK_OPTIMIZED_LATENCY = get_boolean_env_variable(
     "ENABLE_BEDROCK_OPTIMIZED_LATENCY", False
 )
@@ -39,31 +34,6 @@ _ENABLE_BEDROCK_PROMPT_CACHING = get_boolean_env_variable(
 )
 
 _MAX_ATTEMPTS = int(os.getenv("BEDROCK_MAX_ATTEMPTS", "10"))
-
-
-class BedrockModel(enum.Enum):
-    # These are the system-defined inference profile name, not the raw model ID.
-    # Cross-region inference profiles allow higher request and token quota.
-    # See https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html
-    # for details on per-region availability.
-    CLAUDE_3_HAIKU = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-haiku-20240307-v1:0"
-    CLAUDE_35_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-5-sonnet-20240620-v1:0"
-
-    # WARNING: Claude 3.5 Haiku is only available in the US region, not EU or APAC.
-    CLAUDE_35_HAIKU = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-5-haiku-20241022-v1:0"
-    CLAUDE_35_SONNET_V2 = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-5-sonnet-20241022-v2:0"
-
-    CLAUDE_37_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-7-sonnet-20250219-v1:0"
-
-    CLAUDE_4_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-sonnet-4-20250514-v1:0"
-
-
-def get_bedrock_model_env_variable(
-    env_var: str, default_model: BedrockModel
-) -> BedrockModel | str:
-    return pydantic.TypeAdapter(BedrockModel | str).validate_python(
-        os.getenv(env_var, default_model.value),
-    )
 
 
 # Generic return type for Bedrock inference responses.

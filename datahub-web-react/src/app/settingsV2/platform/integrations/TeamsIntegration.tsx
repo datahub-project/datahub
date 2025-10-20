@@ -9,6 +9,7 @@ import { PlatformIntegrationBreadcrumb } from '@app/settingsV2/platform/Platform
 import { TEAMS_CONNECTION_URN } from '@app/settingsV2/platform/teams/utils';
 import { createOAuthUrl } from '@app/settingsV2/teams/utils/oauthState';
 import { Button } from '@src/alchemy-components';
+import { getRuntimeBasePath } from '@utils/runtimeBasePath';
 
 import { useConnectionQuery } from '@graphql/connection.generated';
 import { useGetTeamsOAuthConfigQuery } from '@graphql/teams.generated';
@@ -213,7 +214,7 @@ export const TeamsIntegration = () => {
         }
 
         // Get current DataHub instance URL
-        const instanceUrl = window.location.origin;
+        const instanceUrl = window.location.origin + getRuntimeBasePath();
 
         // Generate OAuth URL and redirect
         const oauthUrl = generateOAuthUrl(connection.tenant_id, instanceUrl);

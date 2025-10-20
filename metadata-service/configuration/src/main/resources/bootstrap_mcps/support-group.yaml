@@ -1,0 +1,24 @@
+# Bootstrap MCP template for OIDC Support Group
+# This template creates the support group that OIDC support users will be added to
+# The group name and email are configurable via environment variables
+# Default group name matches OidcSupportConfigs.DEFAULT_SUPPORT_GROUP_NAME
+- entityUrn: urn:li:corpGroup:{{supportGroupName}}{{^supportGroupName}}__datahub_support{{/supportGroupName}}
+  entityType: corpGroup
+  aspectName: corpGroupInfo
+  changeType: UPSERT
+  aspect:
+    displayName: "{{supportGroupDisplayName}}{{^supportGroupDisplayName}}DataHub Support{{/supportGroupDisplayName}}"
+    email: "{{supportGroupEmail}}{{^supportGroupEmail}}{{/supportGroupEmail}}"
+    admins: []
+    members: []
+    groups: []
+
+# Add editable info aspect with DataHub logo
+# Default picture matches OidcSupportConfigs.DEFAULT_SUPPORT_USER_FALLBACK_PICTURE
+- entityUrn: urn:li:corpGroup:{{supportGroupName}}{{^supportGroupName}}__datahub_support{{/supportGroupName}}
+  entityType: corpGroup
+  aspectName: corpGroupEditableInfo
+  changeType: UPSERT
+  aspect:
+    pictureLink: "{{supportGroupPictureLink}}{{^supportGroupPictureLink}}assets/logos/acryl-dark-mark.svg{{/supportGroupPictureLink}}"
+    description: "{{supportGroupDescription}}{{^supportGroupDescription}}DataHub support team for technical assistance and platform administration{{/supportGroupDescription}}"

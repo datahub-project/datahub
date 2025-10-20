@@ -126,7 +126,10 @@ def list_folders_path(
 
 
 def list_objects_recursive_path(
-    s3_uri: str, *, startswith: str, aws_config: Optional[AwsConnectionConfig]
+    s3_uri: str,
+    *,
+    startswith: str = "",
+    aws_config: Optional[AwsConnectionConfig] = None,
 ) -> Iterable["ObjectSummary"]:
     """
     Given an S3 URI to a folder or bucket, return all objects underneath that URI, optionally

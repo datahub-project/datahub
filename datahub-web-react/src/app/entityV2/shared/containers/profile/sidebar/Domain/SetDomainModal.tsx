@@ -6,10 +6,12 @@ import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainN
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import ProposalDescriptionModal from '@app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';
-import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import ClickOutside from '@app/shared/ClickOutside';
 import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
@@ -50,7 +52,7 @@ export const SetDomainModal = ({
     canEdit = true,
     canPropose = true,
 }: Props) => {
-    const { reloadModules } = useModulesContext();
+    const { reloadByKeyType } = useReloadableContext();
     const entityRegistry = useEntityRegistry();
     const { refetch: entityRefetch, entityType } = useEntityContext();
     const mutationUrn = useMutationUrn();
@@ -222,10 +224,21 @@ export const SetDomainModal = ({
                     setSelectedDomain(undefined);
                     // Reload modules
                     // Assets - as assets module in domain summary tab could be updated
-                    reloadModules([DataHubPageModuleType.Assets], 3000);
+                    reloadByKeyType(
+                        [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)],
+                        3000,
+                    );
                     // DataProduct - as data products module in domain summary tab could be updated
                     if (entityType === EntityType.DataProduct) {
-                        reloadModules([DataHubPageModuleType.DataProducts], 3000);
+                        reloadByKeyType(
+                            [
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.DataProducts,
+                                ),
+                            ],
+                            3000,
+                        );
                     }
                 }
             })
@@ -272,7 +285,14 @@ export const SetDomainModal = ({
                     open
                     onCancel={onModalClose}
                     buttons={[
-                        { text: 'Cancel', key: 'Cancel', variant: 'text', onClick: onModalClose, type: 'button' },
+                        {
+                            text: 'Cancel',
+                            key: 'Cancel',
+                            variant: 'text',
+                            onClick: onModalClose,
+                            type: 'button',
+                            buttonDataTestId: 'cancel-button',
+                        },
                         {
                             text: 'Propose',
                             key: 'Propose',
@@ -289,8 +309,10 @@ export const SetDomainModal = ({
                             onClick: onOk,
                             disabled: !canEdit || selectedDomain === undefined,
                             id: 'setDomainButton',
+                            buttonDataTestId: 'submit-button',
                         },
                     ]}
+                    dataTestId="set-domain-modal"
                 >
                     <Form component={false}>
                         <Form.Item>
@@ -320,6 +342,7 @@ export const SetDomainModal = ({
                                         />
                                     }
                                     options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}
+                                    data-testid="set-domain-select"
                                 />
                                 <BrowserWrapper isHidden={!isShowingDomainNavigator}>
                                     <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />

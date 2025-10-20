@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.exception;
 
-import com.linkedin.metadata.entity.validation.ValidationException;
 import graphql.PublicApi;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
@@ -58,10 +57,28 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       message = validationException.getMessage();
     }
 
+    IllegalStateException illegalStateException =
+        findFirstThrowableCauseOfClass(exception, IllegalStateException.class);
+    if (validationException == null && illegalStateException != null) {
+      log.error("Failed to execute", illegalStateException);
+      errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
+      message = illegalStateException.getMessage();
+    }
+
+    RuntimeException runtimeException =
+        findFirstThrowableCauseOfClass(exception, RuntimeException.class);
+    if (message.equals(DEFAULT_ERROR_MESSAGE) && runtimeException != null) {
+      log.error("Failed to execute", runtimeException);
+      errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
+      message = runtimeException.getMessage();
+    }
+
     if (illException == null
         && illStateException == null
         && graphQLException == null
-        && validationException == null) {
+        && validationException == null
+        && illegalStateException == null
+        && runtimeException == null) {
       log.error("Failed to execute", exception);
     }
     DataHubGraphQLError error = new DataHubGraphQLError(message, path, sourceLocation, errorCode);

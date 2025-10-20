@@ -28,7 +28,7 @@
         "highlight-border-color": "#BAE0FF"
     },
     "assets": {
-        "logoUrl": "/assets/logos/datahub-logo.png"
+        "logoUrl": "assets/logos/datahub-logo.png"
     },
     "content": {
         "title": "DataHub",

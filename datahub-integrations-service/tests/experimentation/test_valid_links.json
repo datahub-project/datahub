@@ -46,7 +46,7 @@
     {
       "type": "tool_call",
       "tool_use_id": "tool2",
-      "tool_name": "datahub__get_entity",
+      "tool_name": "datahub__get_entities",
       "tool_input": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,customer_analytics_dashboard,PROD)"
       }
@@ -56,7 +56,7 @@
       "tool_request": {
         "type": "tool_call",
         "tool_use_id": "tool2",
-        "tool_name": "datahub__get_entity",
+        "tool_name": "datahub__get_entities",
         "tool_input": {
           "urn": "urn:li:dataset:(urn:li:dataPlatform:tableau,customer_analytics_dashboard,PROD)"
         }

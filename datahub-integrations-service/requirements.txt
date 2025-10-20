@@ -2,15 +2,15 @@
 #    uv pip compile --universal --python-version 3.11 -o requirements.txt requirements-local.in
 -e .
     # via -r requirements-local.in
--e ../datahub-actions
+-e ../metadata-ingestion-modules/acryl-cloud
+    # via -r requirements-local.in
+acryl-datahub==1.3.0
     # via
-    #   -r requirements-local.in
-    #   acryl-datahub-integrations
--e ../metadata-ingestion
-    # via
-    #   -r requirements-local.in
     #   acryl-datahub-actions
+    #   acryl-datahub-cloud
     #   acryl-datahub-integrations
+acryl-datahub-actions==1.3.0
+    # via acryl-datahub-integrations
 aiohappyeyeballs==2.6.1
     # via aiohttp
 aiohttp==3.12.15
@@ -56,7 +56,9 @@ avro==1.11.3
     #   avro-gen3
     #   confluent-kafka
 avro-gen3==0.7.16
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   acryl-datahub-cloud
 aws-msk-iam-sasl-signer-python==1.0.2
     # via
     #   acryl-datahub-actions
@@ -69,6 +71,8 @@ azure-identity==1.21.0
     # via
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
+beautifulsoup4==4.14.2
+    # via acryl-datahub-integrations
 blinker==1.9.0
     # via flask
 botbuilder-core==4.17.0
@@ -96,7 +100,7 @@ botocore==1.38.23
     #   aws-msk-iam-sasl-signer-python
     #   boto3
     #   s3transfer
-bracex==2.5.post1
+bracex==2.6
     # via wcmatch
 build==1.2.2
     # via acryl-datahub-integrations
@@ -159,6 +163,8 @@ confluent-kafka==2.3.0
     #   acryl-datahub-actions
 contourpy==1.3.3
     # via matplotlib
+croniter==6.0.0
+    # via acryl-datahub-cloud
 cryptography==42.0.5
     # via
     #   acryl-datahub
@@ -256,30 +262,31 @@ google-auth==2.35.0
     # via
     #   databricks-sdk
     #   google-api-core
+    #   google-cloud-appengine-logging
     #   google-cloud-bigquery
     #   google-cloud-core
     #   google-cloud-datacatalog
     #   google-cloud-resource-manager
     #   sqlalchemy-bigquery
-google-cloud-appengine-logging==0.2.0
+google-cloud-appengine-logging==1.6.2
     # via google-cloud-logging
 google-cloud-audit-log==0.3.2
     # via google-cloud-logging
-google-cloud-bigquery==3.26.0
+google-cloud-bigquery==3.38.0
     # via
     #   acryl-datahub
     #   sqlalchemy-bigquery
-google-cloud-core==2.4.1
+google-cloud-core==2.4.3
     # via
     #   google-cloud-bigquery
     #   google-cloud-logging
 google-cloud-datacatalog==3.27.1
     # via acryl-datahub
-google-cloud-logging==2.6.0
+google-cloud-logging==3.5.0
     # via acryl-datahub
 google-cloud-resource-manager==1.14.2
     # via acryl-datahub
-google-crc32c==1.6.0
+google-crc32c==1.7.1
     # via google-resumable-media
 google-resumable-media==2.7.2
     # via google-cloud-bigquery
@@ -302,8 +309,9 @@ greenlet==3.0.3 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or 
 grpc-google-iam-v1==0.14.2
     # via
     #   google-cloud-datacatalog
+    #   google-cloud-logging
     #   google-cloud-resource-manager
-grpcio==1.66.2
+grpcio==1.75.1
     # via
     #   google-api-core
     #   googleapis-common-protos
@@ -484,14 +492,12 @@ opentelemetry-sdk==1.32.1
     # via mlflow-skinny
 opentelemetry-semantic-conventions==0.53b1
     # via opentelemetry-sdk
-packaging==24.0
+packaging==24.2
     # via
     #   acryl-datahub
     #   build
     #   docker
-    #   google-cloud-appengine-logging
     #   google-cloud-bigquery
-    #   google-cloud-logging
     #   gunicorn
     #   huggingface-hub
     #   matplotlib
@@ -529,11 +535,13 @@ proto-plus==1.26.1
     #   google-cloud-datacatalog
     #   google-cloud-logging
     #   google-cloud-resource-manager
-protobuf==6.32.1
+protobuf==4.25.8
     # via
     #   google-api-core
+    #   google-cloud-appengine-logging
     #   google-cloud-audit-log
     #   google-cloud-datacatalog
+    #   google-cloud-logging
     #   google-cloud-resource-manager
     #   googleapis-common-protos
     #   grpc-google-iam-v1
@@ -605,6 +613,7 @@ python-dateutil==2.8.2
     #   acryl-datahub
     #   acryl-datahub-actions
     #   botocore
+    #   croniter
     #   google-cloud-bigquery
     #   graphene
     #   matplotlib
@@ -623,6 +632,8 @@ python-utils==3.8.2
     # via progressbar2
 pytz==2024.1
     # via
+    #   acryl-datahub-cloud
+    #   croniter
     #   pandas
     #   snowflake-connector-python
 pywin32==308 ; sys_platform == 'win32'
@@ -731,6 +742,8 @@ snowflake-sqlalchemy==1.5.3
     # via acryl-datahub
 sortedcontainers==2.4.0
     # via snowflake-connector-python
+soupsieve==2.8
+    # via beautifulsoup4
 sqlalchemy==1.4.52
     # via
     #   alembic
@@ -738,7 +751,7 @@ sqlalchemy==1.4.52
     #   mlflow
     #   snowflake-sqlalchemy
     #   sqlalchemy-bigquery
-sqlalchemy-bigquery==1.11.0
+sqlalchemy-bigquery==1.15.0
     # via acryl-datahub
 sqlglot==27.12.0
     # via acryl-datahub
@@ -782,6 +795,8 @@ tqdm==4.67.1
     #   openai
 typeguard==4.2.1
     # via inflect
+types-croniter==6.0.0.20250809
+    # via acryl-datahub-cloud
 typing-extensions==4.13.2
     # via
     #   acryl-datahub
@@ -790,9 +805,11 @@ typing-extensions==4.13.2
     #   anyio
     #   azure-core
     #   azure-identity
+    #   beautifulsoup4
     #   exceptiongroup
     #   fastapi
     #   graphene
+    #   grpcio
     #   huggingface-hub
     #   inflect
     #   mlflow-skinny
@@ -817,7 +834,11 @@ typing-inspection==0.4.0
     #   pydantic
     #   pydantic-settings
 tzdata==2024.1
-    # via pandas
+    # via
+    #   pandas
+    #   tzlocal
+tzlocal==5.3.1
+    # via acryl-datahub-cloud
 urllib3==1.26.18
     # via
     #   botbuilder-schema
@@ -839,7 +860,7 @@ waitress==3.0.2 ; sys_platform == 'win32'
     # via mlflow
 watchfiles==0.21.0
     # via uvicorn
-wcmatch==10.0
+wcmatch==10.1
     # via acryl-datahub
 websockets==12.0
     # via uvicorn

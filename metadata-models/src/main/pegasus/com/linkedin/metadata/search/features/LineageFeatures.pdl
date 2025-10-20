@@ -25,7 +25,25 @@ record LineageFeatures {
   downstreamCount: int
 
   /**
+   * Whether upstreamCount > 0 OR downstreamCount > 0
+   * stored to make filtering easier
+   */
+  @Searchable = {
+    "fieldName": "hasAssetLevelLineageFeature",
+    "fieldType": "BOOLEAN",
+    "addToFilters": true,
+    "filterNameOverride": "Has Asset-Level Lineage"
+  }
+  hasAssetLevelLineage: optional boolean
+
+  /**
    * Record of when and how lineage features were computed.
    */
-  computedAt: AuditStamp
+  @Searchable = {
+    "/time": {
+        "fieldName": "lineageFeaturesComputedAt",
+        "fieldType": "DATETIME"
+      }
+  }
+  computedAt: optional AuditStamp
 }

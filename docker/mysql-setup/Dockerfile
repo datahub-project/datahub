@@ -14,6 +14,7 @@ RUN apk add --no-cache mysql-client bash mariadb-connector-c sqlite
 
 COPY docker/mysql-setup/init.sql /init.sql
 COPY docker/mysql-setup/user.sql /user.sql
+COPY docker/mysql-setup/init-cdc.sql /init-cdc.sql
 COPY docker/mysql-setup/init.sh /init.sh
 RUN chmod 755 init.sh
 

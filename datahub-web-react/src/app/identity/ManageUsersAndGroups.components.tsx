@@ -96,7 +96,7 @@ export const ManageUsersAndGroupsHeader = ({ version, canManageUsers, onInviteUs
 
 const SsoWarningContainer = styled.div`
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     background-color: ${colors.yellow[0]};
     border-radius: 8px;

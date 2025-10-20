@@ -47,6 +47,7 @@ import com.linkedin.monitor.MonitorType;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -57,18 +58,21 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
-  private static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:actor:test");
+  private static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:test");
 
   private static final Urn TEST_MONITOR_URN =
       UrnUtils.getUrn(String.format("urn:li:monitor:(%s,test)", TEST_DATASET_URN));
 
   private static final String TEST_EXECUTOR_ID = "testExecutorId";
+  private static final long TEST_TIME = 1L;
 
   private static final UpsertDatasetSqlAssertionMonitorInput TEST_INPUT =
       new UpsertDatasetSqlAssertionMonitorInput(
           TEST_DATASET_URN.toString(),
           "Test assertion description",
           SqlAssertionType.METRIC_CHANGE,
+          null, // inferWithAI
+          null, // inferenceSettings
           "SELECT COUNT(*) FROM table WHERE some_condition = True",
           AssertionValueChangeType.ABSOLUTE,
           AssertionStdOperator.EQUAL_TO,
@@ -81,11 +85,89 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
           com.linkedin.datahub.graphql.generated.MonitorMode.ACTIVE,
           TEST_EXECUTOR_ID);
 
+  // Helper to invoke the private createAssertionSource method via reflection.
+  private AssertionSource invokeCreateAssertionSource(
+      UpsertDatasetSqlAssertionMonitorResolver resolver,
+      Urn actorUrn,
+      UpsertDatasetSqlAssertionMonitorInput input)
+      throws Exception {
+    Method m =
+        UpsertDatasetSqlAssertionMonitorResolver.class.getDeclaredMethod(
+            "createAssertionSource", Urn.class, UpsertDatasetSqlAssertionMonitorInput.class);
+    m.setAccessible(true);
+    return (AssertionSource) m.invoke(resolver, actorUrn, input);
+  }
+
+  @Test
+  public void testCreateAssertionSource_Native_WhenInferWithAIIsNull() throws Exception {
+    AssertionService assertionService = Mockito.mock(AssertionService.class);
+    MonitorService monitorService = Mockito.mock(MonitorService.class);
+    GraphClient graphClient = Mockito.mock(GraphClient.class);
+    UpsertDatasetSqlAssertionMonitorResolver resolver =
+        new UpsertDatasetSqlAssertionMonitorResolver(
+            assertionService, monitorService, graphClient, () -> TEST_TIME);
+
+    UpsertDatasetSqlAssertionMonitorInput input = new UpsertDatasetSqlAssertionMonitorInput();
+    input.setInferWithAI(null);
+
+    AssertionSource source = invokeCreateAssertionSource(resolver, TEST_ACTOR_URN, input);
+
+    assertNotNull(source);
+    assertEquals(source.getType(), AssertionSourceType.NATIVE);
+    assertNotNull(source.getCreated());
+    assertEquals(source.getCreated().getActor(), TEST_ACTOR_URN);
+    assertEquals(source.getCreated().getTime(), Long.valueOf(TEST_TIME));
+  }
+
+  @Test
+  public void testCreateAssertionSource_Native_WhenInferWithAIIsFalse() throws Exception {
+    AssertionService assertionService = Mockito.mock(AssertionService.class);
+    MonitorService monitorService = Mockito.mock(MonitorService.class);
+    GraphClient graphClient = Mockito.mock(GraphClient.class);
+    UpsertDatasetSqlAssertionMonitorResolver resolver =
+        new UpsertDatasetSqlAssertionMonitorResolver(
+            assertionService, monitorService, graphClient, () -> TEST_TIME);
+
+    UpsertDatasetSqlAssertionMonitorInput input = new UpsertDatasetSqlAssertionMonitorInput();
+    input.setInferWithAI(false);
+
+    AssertionSource source = invokeCreateAssertionSource(resolver, TEST_ACTOR_URN, input);
+
+    assertNotNull(source);
+    assertEquals(source.getType(), AssertionSourceType.NATIVE);
+    assertNotNull(source.getCreated());
+    assertEquals(source.getCreated().getActor(), TEST_ACTOR_URN);
+    assertEquals(source.getCreated().getTime(), Long.valueOf(TEST_TIME));
+  }
+
+  @Test
+  public void testCreateAssertionSource_Inferred_WhenInferWithAIIsTrue() throws Exception {
+    AssertionService assertionService = Mockito.mock(AssertionService.class);
+    MonitorService monitorService = Mockito.mock(MonitorService.class);
+    GraphClient graphClient = Mockito.mock(GraphClient.class);
+    UpsertDatasetSqlAssertionMonitorResolver resolver =
+        new UpsertDatasetSqlAssertionMonitorResolver(
+            assertionService, monitorService, graphClient, () -> TEST_TIME);
+
+    UpsertDatasetSqlAssertionMonitorInput input = new UpsertDatasetSqlAssertionMonitorInput();
+    input.setInferWithAI(true);
+
+    AssertionSource source = invokeCreateAssertionSource(resolver, TEST_ACTOR_URN, input);
+
+    assertNotNull(source);
+    assertEquals(source.getType(), AssertionSourceType.INFERRED);
+    assertNotNull(source.getCreated());
+    assertEquals(source.getCreated().getActor(), TEST_ACTOR_URN);
+    assertEquals(source.getCreated().getTime(), Long.valueOf(TEST_TIME));
+  }
+
   private static final UpsertDatasetSqlAssertionMonitorInput TEST_CREATE_INPUT =
       new UpsertDatasetSqlAssertionMonitorInput(
           null,
           "Test assertion description",
           SqlAssertionType.METRIC_CHANGE,
+          null, // inferWithAI
+          null, // inferenceSettings
           "SELECT COUNT(*) FROM table WHERE some_condition = True",
           AssertionValueChangeType.ABSOLUTE,
           AssertionStdOperator.EQUAL_TO,
@@ -103,6 +185,8 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
           "urn:li:dataset:(urn:li:dataPlatform:hive,another_name,PROD)",
           "Test assertion description",
           SqlAssertionType.METRIC_CHANGE,
+          null, // inferWithAI
+          null, // inferenceSettings
           "SELECT COUNT(*) FROM table WHERE some_condition = True",
           AssertionValueChangeType.ABSOLUTE,
           AssertionStdOperator.EQUAL_TO,
@@ -193,7 +277,8 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
     MonitorService monitorService = initMockMonitorService();
     GraphClient graphClient = Mockito.mock(GraphClient.class);
     UpsertDatasetSqlAssertionMonitorResolver resolver =
-        new UpsertDatasetSqlAssertionMonitorResolver(assertionService, monitorService, graphClient);
+        new UpsertDatasetSqlAssertionMonitorResolver(
+            assertionService, monitorService, graphClient, () -> TEST_TIME);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -218,7 +303,13 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
             Mockito.eq(TEST_ASSERTION_INFO.getDescription()),
             Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.isNull());
+            Mockito.argThat(
+                source ->
+                    source != null
+                        && source.getType() == AssertionSourceType.NATIVE
+                        && source.getCreated() != null
+                        && source.getCreated().getTime() == TEST_TIME
+                        && source.getCreated().getActor().equals(TEST_ACTOR_URN)));
 
     // Validate that we created the monitor
     Mockito.verify(monitorService, Mockito.times(1))
@@ -231,7 +322,8 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
             Mockito.eq(
                 TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getParameters()),
             Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
-            Mockito.eq(TEST_MONITOR_INFO.getExecutorId()));
+            Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
+            Mockito.isNull());
   }
 
   @Test
@@ -364,7 +456,8 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
             Mockito.eq(evaluationSpec.getSchedule()),
             Mockito.eq(evaluationSpec.getParameters()),
             Mockito.eq(MonitorMode.ACTIVE),
-            Mockito.eq(TEST_EXECUTOR_ID));
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.isNull());
   }
 
   private GraphClient initMockGraphClient() {
@@ -455,7 +548,8 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
     MonitorService monitorService = initMockMonitorService();
     GraphClient graphClient = Mockito.mock(GraphClient.class);
     UpsertDatasetSqlAssertionMonitorResolver resolver =
-        new UpsertDatasetSqlAssertionMonitorResolver(assertionService, monitorService, graphClient);
+        new UpsertDatasetSqlAssertionMonitorResolver(
+            assertionService, monitorService, graphClient, () -> TEST_TIME);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -474,7 +568,8 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
                 Mockito.eq(
                     TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getParameters()),
                 Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
-                Mockito.eq(TEST_MONITOR_INFO.getExecutorId())))
+                Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
+                Mockito.isNull()))
         .thenThrow(RemoteInvocationException.class);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -489,7 +584,13 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
             Mockito.eq(TEST_ASSERTION_INFO.getDescription()),
             Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.isNull());
+            Mockito.argThat(
+                source ->
+                    source != null
+                        && source.getType() == AssertionSourceType.NATIVE
+                        && source.getCreated() != null
+                        && source.getCreated().getTime() == TEST_TIME
+                        && source.getCreated().getActor().equals(TEST_ACTOR_URN)));
 
     // Validate that we deleted the assertion
     Mockito.verify(assertionService, Mockito.times(1))
@@ -503,7 +604,8 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
     MonitorService monitorService = initMockMonitorService();
     GraphClient graphClient = Mockito.mock(GraphClient.class);
     UpsertDatasetSqlAssertionMonitorResolver resolver =
-        new UpsertDatasetSqlAssertionMonitorResolver(assertionService, monitorService, graphClient);
+        new UpsertDatasetSqlAssertionMonitorResolver(
+            assertionService, monitorService, graphClient, () -> TEST_TIME);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -523,7 +625,8 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
                 Mockito.eq(
                     TEST_MONITOR_INFO.getAssertionMonitor().getAssertions().get(0).getParameters()),
                 Mockito.eq(TEST_MONITOR_INFO.getStatus().getMode()),
-                Mockito.eq(TEST_MONITOR_INFO.getExecutorId())))
+                Mockito.eq(TEST_MONITOR_INFO.getExecutorId()),
+                Mockito.isNull()))
         .thenThrow(
             new RuntimeException(AcrylConstants.MONITOR_LIMIT_EXCEEDED_ERROR_MESSAGE_PREFIX));
 
@@ -544,7 +647,13 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
             Mockito.eq(TEST_ASSERTION_INFO.getDescription()),
             Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion()),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.isNull());
+            Mockito.argThat(
+                source ->
+                    source != null
+                        && source.getType() == AssertionSourceType.NATIVE
+                        && source.getCreated() != null
+                        && source.getCreated().getTime() == TEST_TIME
+                        && source.getCreated().getActor().equals(TEST_ACTOR_URN)));
 
     // Validate that we deleted the assertion
     Mockito.verify(assertionService, Mockito.times(1))
@@ -617,6 +726,171 @@ public class UpsertDatasetSqlAssertionMonitorResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public void testGetSuccessUpdateAssertionWithNullSource() throws Exception {
+    // This tests updating an assertion that was created before the source field was added
+    AssertionInfo infoWithNullSource =
+        new AssertionInfo()
+            .setType(AssertionType.SQL)
+            .setDescription("Test assertion description")
+            // Don't set source - simulating old assertion without source field
+            .setSqlAssertion(TEST_ASSERTION_INFO.getSqlAssertion());
+
+    AssertionService assertionService = Mockito.mock(AssertionService.class);
+    Mockito.when(assertionService.generateAssertionUrn()).thenReturn(TEST_ASSERTION_URN);
+    Mockito.when(
+            assertionService.getAssertionInfo(
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
+        .thenReturn(infoWithNullSource);
+    Mockito.when(
+            assertionService.getAssertionEntityResponse(
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
+        .thenReturn(
+            new EntityResponse()
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTION_INFO_ASPECT_NAME,
+                            new EnvelopedAspect().setValue(new Aspect(infoWithNullSource.data())),
+                            Constants.ASSERTION_ACTIONS_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(TEST_ASSERTION_ACTIONS.data())))))
+                .setEntityName(Constants.ASSERTION_ENTITY_NAME)
+                .setUrn(TEST_ASSERTION_URN));
+
+    MonitorService monitorService = Mockito.mock(MonitorService.class);
+    GraphClient graphClient = initMockGraphClient();
+    UpsertDatasetSqlAssertionMonitorResolver resolver =
+        new UpsertDatasetSqlAssertionMonitorResolver(assertionService, monitorService, graphClient);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("assertionUrn")))
+        .thenReturn(TEST_ASSERTION_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Assertion assertion = resolver.get(mockEnv).get();
+
+    // Don't validate each field since we have mapper tests already.
+    assertNotNull(assertion);
+    assertEquals(assertion.getUrn(), TEST_ASSERTION_URN.toString());
+
+    // Validate that the assertion source is null (preserved from existing assertion)
+    Mockito.verify(assertionService, Mockito.times(1))
+        .upsertDatasetSqlAssertion(
+            any(OperationContext.class),
+            Mockito.eq(TEST_ASSERTION_URN),
+            Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion().getEntity()),
+            Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion().getType()),
+            Mockito.eq(TEST_ASSERTION_INFO.getDescription()),
+            Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion()),
+            Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.isNull()); // Null source should be preserved
+
+    // Validate that we updated the monitor
+    Mockito.verify(monitorService, Mockito.times(1))
+        .upsertAssertionMonitor(
+            any(OperationContext.class),
+            Mockito.eq(TEST_MONITOR_URN),
+            Mockito.eq(TEST_ASSERTION_URN),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(evaluationSpec.getSchedule()),
+            Mockito.eq(evaluationSpec.getParameters()),
+            Mockito.eq(MonitorMode.ACTIVE),
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.isNull());
+  }
+
+  @Test
+  public void testGetSuccessUpdateAssertionWithInferredSource() throws Exception {
+    // This tests updating an assertion that was created with AI inference (INFERRED source type)
+    AssertionSource inferredSource =
+        new AssertionSource()
+            .setType(AssertionSourceType.INFERRED)
+            .setCreated(new AuditStamp().setTime(TEST_TIME).setActor(TEST_ACTOR_URN));
+
+    AssertionInfo infoWithInferredSource =
+        new AssertionInfo()
+            .setType(AssertionType.SQL)
+            .setDescription("Test assertion description")
+            .setSource(inferredSource)
+            .setSqlAssertion(TEST_ASSERTION_INFO.getSqlAssertion());
+
+    AssertionService assertionService = Mockito.mock(AssertionService.class);
+    Mockito.when(assertionService.generateAssertionUrn()).thenReturn(TEST_ASSERTION_URN);
+    Mockito.when(
+            assertionService.getAssertionInfo(
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
+        .thenReturn(infoWithInferredSource);
+    Mockito.when(
+            assertionService.getAssertionEntityResponse(
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
+        .thenReturn(
+            new EntityResponse()
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.ASSERTION_INFO_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(infoWithInferredSource.data())),
+                            Constants.ASSERTION_ACTIONS_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(TEST_ASSERTION_ACTIONS.data())))))
+                .setEntityName(Constants.ASSERTION_ENTITY_NAME)
+                .setUrn(TEST_ASSERTION_URN));
+
+    MonitorService monitorService = Mockito.mock(MonitorService.class);
+    GraphClient graphClient = initMockGraphClient();
+    UpsertDatasetSqlAssertionMonitorResolver resolver =
+        new UpsertDatasetSqlAssertionMonitorResolver(assertionService, monitorService, graphClient);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("assertionUrn")))
+        .thenReturn(TEST_ASSERTION_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Assertion assertion = resolver.get(mockEnv).get();
+
+    assertNotNull(assertion);
+    assertEquals(assertion.getUrn(), TEST_ASSERTION_URN.toString());
+
+    // Validate that the assertion source type remains INFERRED (preserved from existing assertion)
+    Mockito.verify(assertionService, Mockito.times(1))
+        .upsertDatasetSqlAssertion(
+            any(OperationContext.class),
+            Mockito.eq(TEST_ASSERTION_URN),
+            Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion().getEntity()),
+            Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion().getType()),
+            Mockito.eq(TEST_ASSERTION_INFO.getDescription()),
+            Mockito.eq(TEST_ASSERTION_INFO.getSqlAssertion()),
+            Mockito.eq(TEST_ASSERTION_ACTIONS),
+            Mockito.argThat(
+                source ->
+                    source != null
+                        && source.getType() == AssertionSourceType.INFERRED
+                        && source.getCreated() != null
+                        && source.getCreated().getTime() == TEST_TIME
+                        && source.getCreated().getActor().equals(TEST_ACTOR_URN)));
+
+    // Validate that we updated the monitor
+    Mockito.verify(monitorService, Mockito.times(1))
+        .upsertAssertionMonitor(
+            any(OperationContext.class),
+            Mockito.eq(TEST_MONITOR_URN),
+            Mockito.eq(TEST_ASSERTION_URN),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(evaluationSpec.getSchedule()),
+            Mockito.eq(evaluationSpec.getParameters()),
+            Mockito.eq(MonitorMode.ACTIVE),
+            Mockito.eq(TEST_EXECUTOR_ID),
+            Mockito.isNull());
   }
 
   private AssertionService initMockAssertionService() {

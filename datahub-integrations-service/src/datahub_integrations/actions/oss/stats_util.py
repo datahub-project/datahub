@@ -25,26 +25,30 @@ class EventProcessingStats(BaseModel):
     """
 
     num_events_processed: int = pydantic.Field(
-        0,
+        default=0,
         description="The number of events we have processed. Does not include no-ops.",
     )
     last_seen_event_time: Optional[str] = pydantic.Field(
-        None, description="The event time of the last event we processed"
+        default=None, description="The event time of the last event we processed"
     )
     last_event_processed_time: Optional[str] = pydantic.Field(
-        None, description="The time at which we processed the last event"
+        default=None, description="The time at which we processed the last event"
     )
     last_seen_event_time_success: Optional[str] = pydantic.Field(
-        None, description="The event time of the last event we processed successfully"
+        default=None,
+        description="The event time of the last event we processed successfully",
     )
     last_event_processed_time_success: Optional[str] = pydantic.Field(
-        None, description="The time at which we processed the last event successfully"
+        default=None,
+        description="The time at which we processed the last event successfully",
     )
     last_seen_event_time_failure: Optional[str] = pydantic.Field(
-        None, description="The event time of the last event we processed unsuccessfully"
+        default=None,
+        description="The event time of the last event we processed unsuccessfully",
     )
     last_event_processed_time_failure: Optional[str] = pydantic.Field(
-        None, description="The time at which we processed the last event unsuccessfully"
+        default=None,
+        description="The time at which we processed the last event unsuccessfully",
     )
 
     @classmethod

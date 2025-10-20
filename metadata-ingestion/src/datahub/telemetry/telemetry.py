@@ -16,6 +16,11 @@ from datahub._version import __version__, nice_version_name
 from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import ExceptionWithProps
+from datahub.configuration.env_vars import (
+    get_sentry_dsn,
+    get_sentry_environment,
+    get_telemetry_timeout,
+)
 from datahub.metadata.schema_classes import _custom_package_path
 from datahub.utilities.perf_timer import PerfTimer
 
@@ -100,11 +105,11 @@ if _custom_package_path:
 # SaaS-only disable all telemetry
 ENV_ENABLED = False
 
-TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
+TIMEOUT = int(get_telemetry_timeout())
 MIXPANEL_ENDPOINT = "track.datahubproject.io/mp"
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
-SENTRY_DSN: Optional[str] = os.environ.get("SENTRY_DSN", None)
-SENTRY_ENVIRONMENT: str = os.environ.get("SENTRY_ENVIRONMENT", "dev")
+SENTRY_DSN: Optional[str] = get_sentry_dsn()
+SENTRY_ENVIRONMENT: str = get_sentry_environment()
 
 
 def _default_global_properties() -> Dict[str, Any]:

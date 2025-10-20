@@ -6,6 +6,7 @@ import re
 import uuid
 from typing import (
     TYPE_CHECKING,
+    Any,
     Callable,
     Dict,
     Iterable,
@@ -20,6 +21,7 @@ import cachetools
 import mlflow
 import mlflow.entities
 import mlflow.tracing
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.sdk.main_client import DataHubClient
 from datahub.utilities.perf_timer import PerfTimer
 from fastmcp import FastMCP
@@ -48,12 +50,12 @@ from datahub_integrations.chat.reducers.conversation_summarizer import (
 from datahub_integrations.chat.reducers.sliding_window_reducer import (
     SlidingWindowReducer,
 )
+from datahub_integrations.chat.utils import parse_reasoning_message
 from datahub_integrations.gen_ai.bedrock import (
-    BedrockModel,
     get_bedrock_client,
-    get_bedrock_model_env_variable,
 )
 from datahub_integrations.gen_ai.linkify import auto_fix_chat_links
+from datahub_integrations.gen_ai.model_config import model_config
 from datahub_integrations.mcp.mcp_server import (
     get_datahub_client,
     mcp,
@@ -74,6 +76,16 @@ if TYPE_CHECKING:
 # Initialize MLflow for @mlflow.trace decorators in this module
 initialize_mlflow()
 
+# Planning tools feature flag
+PLANNING_TOOLS_ENABLED = get_boolean_env_variable(
+    "CHATBOT_PLANNING_ENABLED", default=True
+)
+
+if PLANNING_TOOLS_ENABLED:
+    logger.info("Planning tools ENABLED for ChatSession")
+else:
+    logger.info("Planning tools DISABLED for ChatSession")
+
 MAX_TOOL_CALLS = 30
 
 # The soft limit is passed to the LLM's prompt, in an effort
@@ -87,16 +99,8 @@ assert MESSAGE_LENGTH_HARD_LIMIT >= 1.5 * MESSAGE_LENGTH_SOFT_LIMIT
 
 _MAX_SUGGESTIONS = 4
 
-CHATBOT_MODEL = get_bedrock_model_env_variable(
-    "CHATBOT_MODEL", BedrockModel.CLAUDE_37_SONNET
-)
-
 CLAUDE_TOKEN_LIMIT = int(200e3)
 ProgressCallback = Callable[[List[str]], None]
-
-CHAT_SUMMARIZATION_MODEL = get_bedrock_model_env_variable(
-    "CHAT_SUMMARIZATION_MODEL", BedrockModel.CLAUDE_37_SONNET
-)
 
 
 class ChatSessionMaxTokensExceededError(Exception):
@@ -155,24 +159,87 @@ Respond to the user with a message formatted using Markdown. \
 However, do not use any headers (e.g. #, ##, ###, etc.) or tables, as these are not supported.
 
 The first reference to each entity must be formatted as a link to the entity in DataHub.
+CRITICAL: When you have the exact identifier for an entity, include it in your response for clarity and to avoid ambiguity.
+Use the human-readable identifier for each entity type:
+- For Datasets: qualifiedName (e.g., "prod.finance.customer_transactions")
+- For Dashboards: dashboardId
+- For Charts: chartId
+- For DataJobs: jobId
+- For Users: username
 
-You may also provide up to {_MAX_SUGGESTIONS} suggestions for questions the user may want to ask as a follow up, but this is not required.
+Example: "I found [customer_transactions](link) with qualified name: prod.finance.customer_transactions"
+This helps users confirm you found the right entity, especially when there are multiple similar entities.
+
+State only FACTUAL INFORMATION. Do not try to infer connection without proof, do not make assumptions.
+
+CRITICAL - VALIDATION BEFORE CALLING THIS TOOL:
+Before calling this tool, you MUST validate that your response accurately matches what the user requested.
+
+CRITICAL: For fully-qualified entity names (database.schema.table format), the database, schema, AND table name must ALL match exactly. \
+If even one part differs (e.g., different database or schema), it is a DIFFERENT entity, not the same entity.
+
+If the response might not match the user request state this clearly and use conditional/uncertain tone THROUGHOUT \
+your entire response 
+    EXAMPLES: 
+    - User asked for "PROD_DB.FINANCE.revenue_report" but you only found "reporting.finance.revenue_report" 
+        → "I couldn't find PROD_DB.FINANCE.revenue_report. I found reporting.finance.revenue_report which \
+has a similar name but different database. If this is what you meant, here's what I found..."
+    - User asked for "Customer Metrics" dashboard but you found "Customer Analytics" dashboard 
+        → "I couldn't find a dashboard named 'Customer Metrics'. I found 'Customer Analytics' which may be \
+related. If this is what you're looking for, it shows..."
+    - User asked for deprecated datasets but you found deprecated dashboards 
+        → "I couldn't find deprecated datasets, but I did find deprecated dashboards. If you're interested \
+in these instead, here are..."
+
+When stating that the entities are related always provide proof for that, if you don't have proof call them SIMILAR.
+
+You may also provide up to {_MAX_SUGGESTIONS} suggestions for questions the user may want to ask as a follow \
+up, but this is not required. If there is uncertainty that we correctly answered the user's request, \
+clarify this in the suggestions.
 
 IMPORTANT: Keep your response concise and under {MESSAGE_LENGTH_SOFT_LIMIT} characters. \
 If you need to provide more information, focus on the most relevant points and summarize the rest. \
 Break down complex information into bullet points for better readability.""",
 )
 
-_SYSTEM_PROMPT = """\
+
+def _get_internal_chatbot_tools(session: "ChatSession") -> List[ToolWrapper]:
+    """
+    Get internal chatbot tools that are always available.
+
+    These include:
+    - respond_to_user: For responding to the user
+    - Planning tools: create_plan, revise_plan, report_step_progress (if CHATBOT_PLANNING_ENABLED)
+
+    These tools are NOT exposed on the customer-facing MCP server.
+
+    Args:
+        session: The ChatSession instance to bind to planning tools
+    """
+    tools = [_respond_to_user_tool]
+
+    if PLANNING_TOOLS_ENABLED:
+        from datahub_integrations.chat.planner.tools import get_planning_tool_wrappers
+
+        tools.extend(get_planning_tool_wrappers(session))
+
+    return tools
+
+
+_SYSTEM_PROMPT = f"""\
 The assistant is DataHub AI, created by Acryl Data.
 
 DataHub AI is a helpful assistant that can answer questions relating to \
 metadata management, data discovery, data governance, and data quality within the organization.
 
-DataHub AI provides thorough responses to more complex and open-ended questions or to anything where a long response is requested, but concise responses to simpler questions and tasks.
+DataHub AI provides thorough responses to more complex and open-ended questions or to anything where \
+a long response is requested, but concise responses to simpler questions and tasks.
 
-DataHub AI makes use of the available tools in order to effectively answer the person's question. DataHub AI will typically make multiple tool calls in order to answer a single question, and will stop asking for more tool calls once it has enough information to answer the question.
+DataHub AI makes use of the available tools in order to effectively answer the person's question. \
+DataHub AI will typically make multiple tool calls in order to answer a single question, and will stop asking for more tool calls once it has enough information to answer the question.
 DataHub AI will not make more than 10 tool calls in a single response.
+
+{"DataHub AI MUST use create_plan ALWAYS." if PLANNING_TOOLS_ENABLED else ""}
 
 DataHub AI can also answer very basic questions about DataHub itself using its built-in knowledge. \
 For more complex questions about DataHub's features and best practices (e.g. "how do I set up a business \
@@ -184,13 +251,61 @@ DataHub AI provides the shortest answer it can to the person's message, while re
 
 DataHub AI avoids writing lists, but if it does need to write a list, DataHub AI focuses on key info instead of trying to be comprehensive. If DataHub AI can answer the human in 1-3 sentences or a short paragraph, it does. If DataHub AI can write a natural language list of a few comma separated items instead of a numbered or bullet-pointed list, it does so. DataHub AI tries to stay focused and share fewer, high quality examples or ideas rather than many.
 
-For any progress or reasoning updates, always use short, user-friendly, and non-technical statements. Keep each step under 75 characters if possible, and never exceed 300 characters. If a step is too long, provide a concise summary suitable for a progress bar or status update.
+IMPORTANT: Before each tool call, DataHub AI outputs structured reasoning in XML format explaining what it's about to do and why. \
+The reasoning MUST be wrapped in <reasoning></reasoning> tags and include these fields:
+
+<reasoning>
+  <action>Brief description of the tool call about to be made</action>
+  <rationale>Why this tool call is needed</rationale>
+  <justification>REQUIRED when making choices: When selecting from multiple options \
+explicitly justify the choice. Include: \
+(1) What alternatives were available (e.g., "Search returned 10 results, examining result #2"), \
+(2) Why this specific option was chosen over others, \
+(3) How search ranking was considered.</justification>
+  <user_requested>What the user originally asked for (if applicable)</user_requested>
+  <what_found>What was actually found (if different from user request)</what_found>
+  <exact_match>true/false - Does what was found exactly match what the user requested?</exact_match>
+  <discrepancies>If exact_match is false, list specific differences (database, schema, name, type, etc.)</discrepancies>
+  <proof_of_relation>If claiming entities are related, provide specific proof. If no proof, state "SIMILAR names only"</proof_of_relation>
+  <confidence>high/medium/low</confidence>
+  <warning>Any important caveats or warnings about this action</warning>
+{
+    '''  <plan_id>OPTIONAL: If executing a plan created by create_plan, include the plan_id here (e.g., "plan_abc123")</plan_id>
+  <plan_step>OPTIONAL: If working on a specific step, include the step ID (e.g., "s0", "s1")</plan_step>
+  <done_criteria_met>OPTIONAL: Check actual results against the step's done_when condition. Example: done_when="Search returned exactly 1 result": total=1→true, total=9→FALSE. Always check actual values!</done_criteria_met>
+  <failed_criteria_met>OPTIONAL: Check actual results against the step's failed_when condition. Example: failed_when="Search returned more than 1 result": total=9→TRUE, total=1→false</failed_criteria_met>
+  <return_to_user_criteria_met>OPTIONAL: Check actual results against the step's return_to_user_when condition. If the step has a return_to_user_when field, evaluate whether that condition is met. Example: return_to_user_when="No PII metadata exists OR search returned 0 results": if step0 found no metadata OR total=0 → TRUE, otherwise → FALSE. If no return_to_user_when field exists, this should be omitted or false.</return_to_user_criteria_met>
+  <step_status>OPTIONAL: returned_to_user (if return_to_user_criteria_met=true), failed (if failed_criteria_met=true but not returned_to_user), completed (if done_criteria_met=true), in_progress, started</step_status>
+  <plan_status>OPTIONAL: If step_status=returned_to_user: plan_status=returned_to_user, call respond_to_user, do NOT call revise_plan</plan_status>
+  <next_action>REQUIRED if step_status=returned_to_user: Your next and ONLY action must be respond_to_user. Do NOT call any other tools. Do NOT call revise_plan. Do NOT continue execution.</next_action>
+'''
+    if PLANNING_TOOLS_ENABLED
+    else ""
+}
+</reasoning>
+
+{
+    '''  CRITICAL DISTINCTION - returned_to_user vs failed:
+- step_status="failed": Technical failure that CAN be fixed by revising the plan or retrying (e.g., timeout, API error)
+  → Action: Can call revise_plan to try different approach
+- step_status="returned_to_user": Fundamental blocker that CANNOT be fixed by replanning (e.g., no metadata exists, missing required data, ambiguous search results requiring user choice)
+  → Action: MUST call respond_to_user with explanation, MUST NOT call revise_plan, MUST NOT continue execution
+
+'''
+    if PLANNING_TOOLS_ENABLED
+    else ""
+}For tool calls where entity matching is not relevant (e.g., initial searches), you can omit the matching fields.
+The plan fields are OPTIONAL and should only be included when you are executing a multi-step plan created by the create_plan tool.
+
+CRITICAL: For fully-qualified entity names (database.schema.table format), the database, schema, AND table name must ALL match exactly. If even one part differs, it is a DIFFERENT entity, not the same entity.
+- State only FACTUAL INFORMATION. Do not try to infer connection without proof, do not make assumptions.
+
 
 DataHub AI is now being connected with a person."""
 
 
 @cachetools.cached(cache=cachetools.TTLCache(maxsize=1, ttl=60 * 5))
-def _get_extra_llm_instructions(client: DataHubClient) -> Optional[str]:
+def get_extra_llm_instructions(client: DataHubClient) -> Optional[str]:
     """
     Retrieve optional extra LLM instructions from GraphQL API.
 
@@ -263,10 +378,23 @@ def _get_extra_llm_instructions(client: DataHubClient) -> Optional[str]:
             return None
 
     except Exception as e:
-        # GraphQL call failed - re-raise the exception as per requirements
-        raise Exception(
-            f"Failed to fetch AI instructions from GraphQL: {str(e)}"
-        ) from e
+        # Failed to fetch AI instructions from GraphQL.
+        # This is typically because the GMS instance doesn't have the aiAssistant
+        # field in GlobalSettings yet (feature not deployed to this instance).
+        # We log a warning and return None (no extra instructions) rather than
+        # crashing the chat session.
+        #
+        # NOTE: This catches ALL exceptions, which means we might accidentally
+        # suppress other GraphQL errors. This is a temporary solution until all
+        # GMS instances are upgraded to support AI assistant settings (expected
+        # within a couple of months). After that, any errors here would be
+        # unexpected and should be investigated.
+        logger.warning(
+            f"Failed to fetch AI assistant instructions from GraphQL: {e}. "
+            "This is expected if the GMS instance hasn't been upgraded to support "
+            "this feature yet. Proceeding without additional instructions."
+        )
+        return None
 
 
 class FilteredProgressListener:
@@ -277,10 +405,12 @@ class FilteredProgressListener:
         self,
         history: ChatHistory,
         progress_callback: Optional[ProgressCallback],
+        session: Optional["ChatSession"] = None,
         start_offset: int = 0,
     ):
         self.history = history
         self.progress_callback = progress_callback
+        self.session = session
         self.start_offset = start_offset
 
         self._last_progress_steps: Optional[List[str]] = None
@@ -292,14 +422,26 @@ class FilteredProgressListener:
 
     @classmethod
     def get_progress_steps(
-        cls, history: ChatHistory, *, start_offset: int
+        cls,
+        history: ChatHistory,
+        *,
+        start_offset: int,
+        session: Optional["ChatSession"] = None,
     ) -> List[str]:
         """Get current progress steps derived from chat history"""
         steps = []
 
         for message in history.messages[start_offset:]:
             if isinstance(message, ReasoningMessage):
-                sanitized_text = cls._sanitize_progress_step(message.text)
+                # Parse the reasoning message to extract user-friendly text
+                parsed = parse_reasoning_message(message.text)
+                user_visible_text = parsed.to_user_visible_message(session=session)
+
+                # Sanitize and truncate progress messages
+                # Max 1000 chars per step: generous buffer since parsed messages are
+                # typically 50-200 chars. Even with 10 steps (10K chars total), this
+                # stays well within Slack's 3K recommended limit and Teams' 28KB limit.
+                sanitized_text = cls._sanitize_progress_step(user_visible_text)
                 steps.append(truncate(sanitized_text, max_length=1000))
             # elif isinstance(message, ToolCallRequest):
             #     steps.append(self._get_progress_message(message.tool_name))
@@ -308,7 +450,7 @@ class FilteredProgressListener:
 
     def _handle_history_updated(self) -> None:
         current_steps = self.get_progress_steps(
-            self.history, start_offset=self.start_offset
+            self.history, start_offset=self.start_offset, session=self.session
         )
         if current_steps != self._last_progress_steps:
             self._last_progress_steps = current_steps
@@ -326,16 +468,24 @@ class ChatSession:
         # Custom context reducers can be supported in future
     ):
         self.session_id = str(uuid.uuid4())  # TODO: use uuid7 in the future
-        self.tools: List[ToolWrapper] = [
+        self.client = client
+        self.extra_instructions_override = extra_instructions_override
+        self.history: ChatHistory = history or ChatHistory()
+        self.plan_cache: Dict[str, Dict[str, Any]] = {}
+
+        # Build plannable tools (data-gathering tools from MCP, etc.)
+        self._plannable_tools: List[ToolWrapper] = [
             tool
             for entry in tools
             for tool in (
                 tools_from_fastmcp(entry) if isinstance(entry, FastMCP) else [entry]
             )
-        ] + [_respond_to_user_tool]
-        self.client = client
-        self.extra_instructions_override = extra_instructions_override
-        self.history: ChatHistory = history or ChatHistory()
+        ]
+
+        # Build full tool list: plannable tools + internal tools
+        self.tools: List[ToolWrapper] = (
+            self._plannable_tools + _get_internal_chatbot_tools(session=self)
+        )
 
         self.context_reducers: Iterable[ChatContextReducer] = (
             create_default_context_reducer_chain(
@@ -345,7 +495,7 @@ class ChatSession:
 
         # Create a dummy progress listener to start with.
         self._progress_listener = FilteredProgressListener(
-            history=self.history, progress_callback=None
+            history=self.history, progress_callback=None, session=self
         )
 
         # This requires a model that supports prompt caching.
@@ -356,17 +506,26 @@ class ChatSession:
     def tool_map(self) -> Dict[str, ToolWrapper]:
         return {tool.name: tool for tool in self.tools}
 
+    def get_plannable_tools(self) -> List[ToolWrapper]:
+        """
+        Get tools that can be used in execution plans.
+
+        Returns the base set of data-gathering/processing tools,
+        excluding internal tools like respond_to_user and planning tools.
+
+        Returns:
+            List of ToolWrapper objects suitable for planning
+        """
+        return self._plannable_tools
+
     def _get_tools_config(self) -> dict:
         return {
             "tools": [tool.to_bedrock_spec() for tool in self.tools],
         }
 
     def _get_model_id(self) -> str:
-        return (
-            CHATBOT_MODEL.value
-            if isinstance(CHATBOT_MODEL, BedrockModel)
-            else CHATBOT_MODEL
-        )
+        # Use the new model configuration for chat assistant
+        return model_config.chat_assistant_ai.model
 
     @classmethod
     def is_respond_to_user(cls, message: Message) -> TypeGuard[ToolResult]:
@@ -401,6 +560,7 @@ class ChatSession:
         self._progress_listener = FilteredProgressListener(
             history=self.history,
             progress_callback=progress_callback,
+            session=self,
             start_offset=len(self.history.messages),
         )
         try:
@@ -421,7 +581,7 @@ class ChatSession:
         extra_instructions = (
             self.extra_instructions_override
             if self.extra_instructions_override is not None
-            else _get_extra_llm_instructions(self.client)
+            else get_extra_llm_instructions(self.client)
         )
 
         if extra_instructions:
@@ -554,10 +714,52 @@ class ChatSession:
     ) -> None:
         is_final_response = is_last_block and is_end_turn
         if is_final_response:
-            # TODO: Do we want to force another loop to ensure a tool call?
-            self._add_message(AssistantMessage(text=content_block["text"]))
+            # This is a fallback case where LLM outputs text without using respond_to_user tool
+            # We log this to track when it happens (unexpected behavior)
+            response_text = content_block["text"]
+            self._add_message(AssistantMessage(text=response_text))
+
+            # Log final response as MLflow span to track unexpected direct responses
+            attributes = {
+                "response_length": len(response_text),
+                "message_index": len(self.history.messages),
+                "is_unexpected_direct_response": True,  # Flag that this bypassed respond_to_user
+            }
+
+            # Use message count as span suffix. This is safe because:
+            # 1. history.messages is append-only (even with context reduction)
+            # 2. Each generate_next_message() call creates a new trace
+            # 3. Message count provides useful debugging context
+            with mlflow.start_span(
+                f"assistant_message_{len(self.history.messages)}",
+                span_type=mlflow.entities.SpanType.LLM,
+                attributes=attributes,
+            ) as span:
+                span.set_inputs(
+                    {"context": "Direct LLM response (bypassed respond_to_user tool)"}
+                )
+                span.set_outputs({"response": response_text})
         else:
-            self._add_message(ReasoningMessage(text=content_block["text"]))
+            reasoning_text = content_block["text"]
+            self._add_message(ReasoningMessage(text=reasoning_text))
+
+            # Log reasoning as MLflow span (full XML preserved in outputs)
+            attributes = {
+                "reasoning_length": len(reasoning_text),
+                "message_index": len(self.history.messages),
+            }
+
+            # Use message count as span suffix. This is safe because:
+            # 1. history.messages is append-only (even with context reduction)
+            # 2. Each generate_next_message() call creates a new trace
+            # 3. Message count provides useful debugging context
+            with mlflow.start_span(
+                f"reasoning_step_{len(self.history.messages)}",
+                span_type=mlflow.entities.SpanType.LLM,
+                attributes=attributes,
+            ) as span:
+                span.set_inputs({"context": "LLM internal thinking"})
+                span.set_outputs({"reasoning": reasoning_text})
 
     def _handle_tool_call_request(
         self, content_block: "ContentBlockOutputTypeDef"
@@ -654,7 +856,7 @@ def create_default_context_reducer_chain(
             estimator,
             config,
             num_recent_messages_to_keep=5,
-            summarization_model=CHAT_SUMMARIZATION_MODEL,
+            summarization_model=model_config.chat_assistant_ai.summary_model,
         ),
         SlidingWindowReducer(estimator, config, max_messages=10),
     ]

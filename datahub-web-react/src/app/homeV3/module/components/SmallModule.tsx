@@ -3,6 +3,7 @@ import { useDraggable } from '@dnd-kit/core';
 import React from 'react';
 import styled from 'styled-components';
 
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import ModuleContainer from '@app/homeV3/module/components/ModuleContainer';
 import ModuleMenu from '@app/homeV3/module/components/ModuleMenu';
 import { ModuleProps } from '@app/homeV3/module/types';
@@ -56,6 +57,7 @@ export default function SmallModule({
     onClick,
     dataTestId,
 }: React.PropsWithChildren<Props>) {
+    const { isTemplateEditable } = usePageTemplateContext();
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: `module-${module.urn}-${position.rowIndex}-${position.moduleIndex}`,
         data: {
@@ -68,20 +70,24 @@ export default function SmallModule({
     return (
         <StyledModuleContainer ref={setNodeRef} {...attributes} data-testId={dataTestId}>
             <ContainerWithHover>
-                <DragIcon
-                    {...listeners}
-                    size="lg"
-                    color="gray"
-                    icon="DotsSixVertical"
-                    source="phosphor"
-                    isDragging={isDragging}
-                />
+                {isTemplateEditable && (
+                    <DragIcon
+                        {...listeners}
+                        size="lg"
+                        color="gray"
+                        icon="DotsSixVertical"
+                        source="phosphor"
+                        isDragging={isDragging}
+                    />
+                )}
                 <Content $clickable={!!onClick} onClick={onClick}>
                     {children}
                 </Content>
-                <FloatingRightHeaderSection>
-                    <ModuleMenu module={module} position={position} />
-                </FloatingRightHeaderSection>
+                {isTemplateEditable && (
+                    <FloatingRightHeaderSection>
+                        <ModuleMenu module={module} position={position} />
+                    </FloatingRightHeaderSection>
+                )}
             </ContainerWithHover>
         </StyledModuleContainer>
     );

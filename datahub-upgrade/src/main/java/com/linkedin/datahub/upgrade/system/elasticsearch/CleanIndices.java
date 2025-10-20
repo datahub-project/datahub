@@ -1,9 +1,8 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch;
 
-import static com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices.getActiveStructuredPropertiesDefinitions;
-
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.shared.ElasticSearchUpgradeUtils;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.CleanIndicesStep;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -18,8 +17,6 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -38,16 +35,15 @@ public class CleanIndices implements NonBlockingSystemUpgrade {
 
     final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
     if (configurationProvider.getStructuredProperties().isSystemUpdateEnabled()) {
-      structuredProperties = getActiveStructuredPropertiesDefinitions(aspectDao);
+      structuredProperties =
+          ElasticSearchUpgradeUtils.getActiveStructuredPropertiesDefinitions(aspectDao);
     } else {
       structuredProperties = Set.of();
     }
 
     List<ElasticSearchIndexed> indexedServices =
-        Stream.of(graphService, entitySearchService, systemMetadataService, timeseriesAspectService)
-            .filter(service -> service instanceof ElasticSearchIndexed)
-            .map(service -> (ElasticSearchIndexed) service)
-            .collect(Collectors.toList());
+        ElasticSearchUpgradeUtils.createElasticSearchIndexedServices(
+            graphService, entitySearchService, systemMetadataService, timeseriesAspectService);
 
     _steps =
         List.of(

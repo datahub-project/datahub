@@ -195,8 +195,12 @@ public class MonitorDeletionHookTest {
             ChangeType.DELETE,
             buildMonitorKey(TEST_MONITOR_URN));
     hook.invoke(event);
+    // Verify assertion deletion
     Mockito.verify(entityClient, Mockito.times(1))
         .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN));
+    // Verify dataHubMetricCube deletion (deleteEntity should be called twice total)
+    Mockito.verify(entityClient, Mockito.times(2))
+        .deleteEntity(any(OperationContext.class), Mockito.any(Urn.class));
   }
 
   @Test
@@ -251,7 +255,8 @@ public class MonitorDeletionHookTest {
             ChangeType.DELETE,
             buildMonitorKey(TEST_MONITOR_URN));
     hook.invoke(event);
-    Mockito.verify(entityClient, Mockito.times(0))
+    // Even with no linked assertion, the dataHubMetricCube should still be deleted
+    Mockito.verify(entityClient, Mockito.times(1))
         .deleteEntity(any(OperationContext.class), Mockito.any());
   }
 

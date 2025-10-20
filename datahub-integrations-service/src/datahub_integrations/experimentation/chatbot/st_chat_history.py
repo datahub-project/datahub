@@ -14,6 +14,7 @@ from datahub_integrations.chat.chat_history import (
     ToolResultError,
 )
 from datahub_integrations.chat.chat_session import ChatSession, NextMessage
+from datahub_integrations.chat.utils import parse_reasoning_message
 from datahub_integrations.experimentation.chatbot.eval_helpers import get_token_count
 from datahub_integrations.slack.utils.numbers import abbreviate_number
 
@@ -33,7 +34,17 @@ def st_chat_history(
             if show_thinking:
                 with st.chat_message("assistant", avatar="🧠"):
                     st.caption(f"Reasoning · {_token_count(message.text)}")
-                    st.markdown(message.text)
+
+                    # Parse and show user-friendly version
+                    parsed = parse_reasoning_message(message.text)
+                    user_visible = parsed.to_user_visible_message()
+
+                    # Show parsed version prominently
+                    st.markdown(f"**{user_visible}**")
+
+                    # Show raw XML in expander for debugging
+                    with st.expander("View raw reasoning"):
+                        st.code(message.text, language="xml")
         elif isinstance(message, HumanMessage):
             with st.chat_message("user"):
                 st.caption(f"User · {_token_count(message.text)}")
@@ -88,5 +99,7 @@ def st_chat_history(
                 st.caption(f"Summary · {_token_count(message.text)}")
                 st.markdown(message.text)
         else:
-            st.error(f"Unknown message type: {type(message)}")
+            st.error(
+                f"Unknown message type: {type(message)} isHumanMessage:{isinstance(message, HumanMessage)}"
+            )
             assert_never(message)

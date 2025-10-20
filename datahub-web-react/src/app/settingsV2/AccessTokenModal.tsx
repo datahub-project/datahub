@@ -3,6 +3,8 @@ import { Alert, Button, Modal, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
+
 const ModalSection = styled.div`
     display: flex;
     flex-direction: column;
@@ -43,7 +45,7 @@ type Props = {
 
 export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText }: Props) => {
     const baseUrl = window.location.origin;
-    const accessTokenCurl = `curl -X POST '${baseUrl}/api/graphql' \\
+    const accessTokenCurl = `curl -X POST '${baseUrl}${resolveRuntimePath('/api/graphql')}' \\
 --header 'Authorization: Bearer ${accessToken}' \\
 --header 'Content-Type: application/json' \\
 --data-raw '{"query":"{\\n  me {\\n    corpUser {\\n        username\\n    }\\n  }\\n}","variables":{}}'`;

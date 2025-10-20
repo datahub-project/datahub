@@ -52,12 +52,12 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
-import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -73,7 +73,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.mockito.ArgumentCaptor;
@@ -398,23 +397,29 @@ public class EntityServiceImplTest {
     SystemMetadataUtils.setNoOp(systemMetadata, true); // Makes it a no-op
 
     // Act
-    Optional<Pair<Future<?>, Boolean>> result =
-        entityService.conditionallyProduceMCLAsync(
-            opContext,
-            oldAspect,
-            null, // oldSystemMetadata
+    MetadataChangeLog mcl =
+        PegasusUtils.constructMCL(
+            testMCP,
+            PegasusUtils.urnToEntityName(TEST_URN),
+            TEST_URN,
+            STATUS_ASPECT_NAME,
+            TEST_AUDIT_STAMP,
             newAspect,
             systemMetadata,
-            testMCP,
-            TEST_URN,
-            TEST_AUDIT_STAMP,
+            oldAspect,
+            null);
+
+    MCLEmitResult result =
+        entityService.conditionallyProduceMCLAsync(
+            opContext,
             opContext
                 .getEntityRegistry()
                 .getEntitySpec(TEST_URN.getEntityType())
-                .getAspectSpec(STATUS_ASPECT_NAME));
+                .getAspectSpec(STATUS_ASPECT_NAME),
+            mcl);
 
     // Assert
-    assertFalse(result.isPresent(), "Should not produce MCL when system metadata is no-op");
+    assertFalse(result.isEmitted(), "Should not produce MCL when system metadata is no-op");
     verify(mockEventProducer, never()).produceMetadataChangeLog(any(), any(), any());
   }
 
@@ -424,23 +429,29 @@ public class EntityServiceImplTest {
     RecordTemplate sameAspect = newAspect;
 
     // Act
-    Optional<Pair<Future<?>, Boolean>> result =
-        entityService.conditionallyProduceMCLAsync(
-            opContext,
-            sameAspect,
-            null, // oldSystemMetadata
+    MetadataChangeLog mcl =
+        PegasusUtils.constructMCL(
+            testMCP,
+            PegasusUtils.urnToEntityName(TEST_URN),
+            TEST_URN,
+            STATUS_ASPECT_NAME,
+            TEST_AUDIT_STAMP,
             sameAspect,
             SystemMetadataUtils.createDefaultSystemMetadata(),
-            testMCP,
-            TEST_URN,
-            TEST_AUDIT_STAMP,
+            sameAspect,
+            null);
+
+    MCLEmitResult result =
+        entityService.conditionallyProduceMCLAsync(
+            opContext,
             opContext
                 .getEntityRegistry()
                 .getEntitySpec(TEST_URN.getEntityType())
-                .getAspectSpec(STATUS_ASPECT_NAME));
+                .getAspectSpec(STATUS_ASPECT_NAME),
+            mcl);
 
     // Assert
-    assertFalse(result.isPresent(), "Should not produce MCL when aspects are equal");
+    assertFalse(result.isEmitted(), "Should not produce MCL when aspects are equal");
     verify(mockEventProducer, never()).produceMetadataChangeLog(any(), any(), any());
   }
 
@@ -451,23 +462,29 @@ public class EntityServiceImplTest {
     SystemMetadataUtils.setNoOp(systemMetadata, false); // Makes it not a no-op
 
     // Act
-    Optional<Pair<Future<?>, Boolean>> result =
-        entityService.conditionallyProduceMCLAsync(
-            opContext,
-            oldAspect,
-            null, // oldSystemMetadata
+    MetadataChangeLog mcl =
+        PegasusUtils.constructMCL(
+            testMCP,
+            PegasusUtils.urnToEntityName(TEST_URN),
+            TEST_URN,
+            STATUS_ASPECT_NAME,
+            TEST_AUDIT_STAMP,
             newAspect,
             systemMetadata,
-            testMCP,
-            TEST_URN,
-            TEST_AUDIT_STAMP,
+            oldAspect,
+            null);
+
+    MCLEmitResult result =
+        entityService.conditionallyProduceMCLAsync(
+            opContext,
             opContext
                 .getEntityRegistry()
                 .getEntitySpec(TEST_URN.getEntityType())
-                .getAspectSpec(STATUS_ASPECT_NAME));
+                .getAspectSpec(STATUS_ASPECT_NAME),
+            mcl);
 
     // Assert
-    assertTrue(result.isPresent(), "Should produce MCL when changes exist");
+    assertTrue(result.isEmitted(), "Should produce MCL when changes exist");
     verify(mockEventProducer, times(1))
         .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
   }
@@ -480,6 +497,7 @@ public class EntityServiceImplTest {
             mock(AspectDao.class),
             mockEventProducer,
             true, // alwaysEmitChangeLog set to true
+            false, // cdcModeChangeLog set to false
             mock(PreProcessHooks.class),
             0,
             true,
@@ -488,24 +506,30 @@ public class EntityServiceImplTest {
     RecordTemplate sameAspect = newAspect;
 
     // Act
-    Optional<Pair<Future<?>, Boolean>> result =
+    MetadataChangeLog mcl =
+        PegasusUtils.constructMCL(
+            testMCP,
+            PegasusUtils.urnToEntityName(TEST_URN),
+            TEST_URN,
+            STATUS_ASPECT_NAME,
+            TEST_AUDIT_STAMP,
+            sameAspect,
+            SystemMetadataUtils.createDefaultSystemMetadata(),
+            sameAspect,
+            null);
+
+    MCLEmitResult result =
         entityService.conditionallyProduceMCLAsync(
             opContext,
-            sameAspect,
-            null, // oldSystemMetadata
-            sameAspect, // Same aspect
-            SystemMetadataUtils.createDefaultSystemMetadata(),
-            testMCP,
-            TEST_URN,
-            TEST_AUDIT_STAMP,
             opContext
                 .getEntityRegistry()
                 .getEntitySpec(TEST_URN.getEntityType())
-                .getAspectSpec(STATUS_ASPECT_NAME));
+                .getAspectSpec(STATUS_ASPECT_NAME),
+            mcl);
 
     // Assert
     assertTrue(
-        result.isPresent(),
+        result.isEmitted(),
         "Should produce MCL when alwaysEmitChangeLog is true, regardless of no-op status");
     verify(mockEventProducer, times(1))
         .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
@@ -526,24 +550,30 @@ public class EntityServiceImplTest {
             .setAspect(GenericRecordUtils.serializeAspect(sameLineageAspect));
 
     // Act
-    Optional<Pair<Future<?>, Boolean>> result =
+    MetadataChangeLog mcl =
+        PegasusUtils.constructMCL(
+            datasetMCP,
+            PegasusUtils.urnToEntityName(datasetUrn),
+            datasetUrn,
+            UPSTREAM_LINEAGE_ASPECT_NAME,
+            TEST_AUDIT_STAMP,
+            sameLineageAspect,
+            SystemMetadataUtils.createDefaultSystemMetadata(),
+            sameLineageAspect,
+            null);
+
+    MCLEmitResult result =
         entityService.conditionallyProduceMCLAsync(
             opContext,
-            sameLineageAspect,
-            null, // oldSystemMetadata
-            sameLineageAspect, // Same aspect
-            SystemMetadataUtils.createDefaultSystemMetadata(),
-            datasetMCP,
-            datasetUrn,
-            TEST_AUDIT_STAMP,
             opContext
                 .getEntityRegistry()
                 .getEntitySpec(datasetUrn.getEntityType())
-                .getAspectSpec(UPSTREAM_LINEAGE_ASPECT_NAME));
+                .getAspectSpec(UPSTREAM_LINEAGE_ASPECT_NAME),
+            mcl);
 
     // Assert
     assertTrue(
-        result.isPresent(),
+        result.isEmitted(),
         "Should produce MCL when aspect has lineage relationship, regardless of no-op status");
     verify(mockEventProducer, times(1))
         .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
@@ -950,6 +980,7 @@ public class EntityServiceImplTest {
         new EntityServiceImpl(
             mockAspectDao,
             mockEventProducer,
+            false,
             false,
             mock(PreProcessHooks.class),
             0,

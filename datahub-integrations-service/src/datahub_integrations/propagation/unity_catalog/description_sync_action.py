@@ -35,25 +35,25 @@ class DescriptionSyncConfig(ConfigModel):
     """
 
     enabled: bool = Field(
-        True,
+        default=True,
         description="Indicates whether tag propagation is enabled or not.",
         examples=[True],
     )
 
     table_description_sync_enabled: bool = Field(
-        True,
+        default=True,
         description="Indicates whether table description sync is enabled or not.",
         examples=[True],
     )
 
     column_description_sync_enabled: bool = Field(
-        True,
+        default=True,
         description="Indicates whether column description sync is enabled or not.",
         examples=[True],
     )
 
     container_description_sync_enabled: bool = Field(
-        True,
+        default=True,
         description="Indicates whether container description sync is enabled or not.",
         examples=[True],
     )

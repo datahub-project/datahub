@@ -13,6 +13,7 @@ import { Message } from '@app/shared/Message';
 import { Button } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import analytics, { EventType, ObfuscatedOidcSettings } from '@src/app/analytics';
+import { getRuntimeBasePath } from '@utils/runtimeBasePath';
 
 import { useGetSsoSettingsQuery, useUpdateSsoSettingsMutation } from '@graphql/settings.generated';
 import { OidcSettings } from '@types';
@@ -85,7 +86,7 @@ const DEFAULT_SETTINGS: OidcSettings = {
     discoveryUri: '',
 };
 
-const BASE_URL = `${window.location.origin}`;
+const BASE_URL = `${window.location.origin}${getRuntimeBasePath()}`;
 
 const isConfigAbsent = (field: any): boolean => {
     if (field === null || field === undefined) {

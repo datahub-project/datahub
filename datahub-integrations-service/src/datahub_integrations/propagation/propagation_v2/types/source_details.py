@@ -5,23 +5,23 @@ from pydantic import BaseModel, Field
 
 class SourceDetails(BaseModel):
     origin: str | None = Field(
-        None,
+        default=None,
         description="Origin entity for the documentation. This is the entity that triggered the documentation propagation.",
     )
     via: str | None = Field(
-        None,
+        default=None,
         description="Via entity for the documentation. This is the direct entity that the documentation was propagated through.",
     )
     propagated: bool | None = Field(
-        None,
+        default=None,
         description="Indicates whether the metadata element was propagated.",
     )
     actor: str | None = Field(
-        None,
+        default=None,
         description="Actor that triggered the metadata propagation.",
     )
     propagation_started_at: int | None = Field(
-        None,
+        default=None,
         description="Timestamp when the metadata propagation event happened.",
     )
     propagation_depth: int | None = Field(

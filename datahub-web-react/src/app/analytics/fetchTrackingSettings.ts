@@ -1,6 +1,8 @@
 /**
  * Fetch analytics configurations from the GraphQL backend.
  */
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
+
 export async function fetchTrackingSettings() {
     const { NODE_ENV } = import.meta.env;
 
@@ -27,7 +29,7 @@ export async function fetchTrackingSettings() {
       }
     `;
 
-    const response = await fetch('/api/v2/graphql', {
+    const response = await fetch(resolveRuntimePath('/api/v2/graphql'), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

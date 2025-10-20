@@ -6,7 +6,11 @@
     },
     {
       "type": "internal",
-      "text": "Let me say hello back to the user"
+      "text": "Let me say hello back to the user",
+      "plan_id": null,
+      "plan_step": null,
+      "step_status": null,
+      "plan_status": null
     },
     {
       "type": "assistant",

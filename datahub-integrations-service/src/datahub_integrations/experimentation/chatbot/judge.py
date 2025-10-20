@@ -12,7 +12,8 @@ from datahub_integrations.chat.chat_history import (
     ToolResultError,
 )
 from datahub_integrations.experimentation.chatbot.chatbot import ExpectedToolCall
-from datahub_integrations.gen_ai.bedrock import BedrockModel, call_bedrock_llm
+from datahub_integrations.gen_ai.bedrock import call_bedrock_llm
+from datahub_integrations.gen_ai.model_config import BedrockModel
 
 JUDGE_CACHE_ENABLED = True
 if JUDGE_CACHE_ENABLED and not TYPE_CHECKING:

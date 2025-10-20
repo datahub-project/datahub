@@ -11,7 +11,7 @@ import { StartStopAction } from '@app/entityV2/shared/tabs/Dataset/Validations/a
 import { SubscribeAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/SubscribeAction';
 import { useIsOnSiblingsView } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 
-import { Assertion, DataContract, Monitor } from '@types';
+import { Assertion, DataContract, Maybe, Monitor } from '@types';
 
 const ActionList = styled.div`
     display: flex;
@@ -24,7 +24,7 @@ const ActionList = styled.div`
 type Props = {
     assertion: Assertion;
     monitor?: Monitor;
-    contract?: DataContract;
+    contract?: Maybe<DataContract>;
     canEditAssertion: boolean;
     canEditMonitor: boolean;
     canEditContract: boolean;
@@ -49,10 +49,9 @@ export const Actions = ({
             <RunAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
             <SubscribeAction assertion={assertion} refetch={refetch} />
             {/** Currently, we do not handle adding to a contract in siblings mode, since we only load the root node's contract. */}
-            {(isSiblingsView && (
+            {isSiblingsView ? null : (
                 <ContractAction assertion={assertion} contract={contract} canEdit={canEditContract} refetch={refetch} />
-            )) ||
-                null}
+            )}
             <CopyLinkAction assertion={assertion} />
             <CopyUrnAction assertion={assertion} />
             <DeleteAction

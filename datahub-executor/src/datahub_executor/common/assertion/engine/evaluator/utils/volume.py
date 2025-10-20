@@ -18,7 +18,7 @@ def get_filter_parameters(assertion: Assertion) -> Optional[Dict]:
     """
     volume_assertion = assertion.volume_assertion
     if volume_assertion is not None and volume_assertion.filter is not None:
-        return volume_assertion.filter.__dict__
+        return volume_assertion.filter.model_dump()
     return None
 
 

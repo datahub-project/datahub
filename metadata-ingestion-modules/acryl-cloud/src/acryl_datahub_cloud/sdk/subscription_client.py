@@ -6,7 +6,7 @@ from typing_extensions import TypeAlias
 
 import datahub.metadata.schema_classes as models
 from acryl_datahub_cloud.sdk.entities.assertion import Assertion
-from acryl_datahub_cloud.sdk.entities.subscription import Subscription
+from acryl_datahub_cloud.sdk.entities.subscription import Subscription, SubscriptionKey
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.emitter.mce_builder import make_ts_millis
 from datahub.emitter.rest_emitter import EmitMode
@@ -120,8 +120,14 @@ class SubscriptionClient:
             skip_cache=True,
         )
         if not existing_subscriptions:
-            # new subscription
+            # new subscription - use stable ID generation
+            subscription_key = SubscriptionKey(
+                entity_urn=dataset_urn.urn(),
+                actor_urn=parsed_subscriber_urn.urn(),
+            )
+
             subscription = Subscription(
+                id=f"urn:li:subscription:{subscription_key.guid()}",
                 info=models.SubscriptionInfoClass(
                     entityUrn=dataset_urn.urn(),
                     actorUrn=parsed_subscriber_urn.urn(),

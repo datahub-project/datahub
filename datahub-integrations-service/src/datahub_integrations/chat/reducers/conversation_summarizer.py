@@ -20,14 +20,14 @@ from datahub_integrations.chat.context_reducer import (
     ContextReducerConfig,
     TokenCountEstimator,
 )
-from datahub_integrations.gen_ai.bedrock import BedrockModel
+from datahub_integrations.gen_ai.model_config import BedrockModel
 
 _CREATE_SUMMARY_SYSTEM_PROMPT = """\
 You are a helpful AI assistant tasked with summarizing conversations.
 Provide a concise and complete summary of the entire conversation.
 Focus on information that would be helpful for continuing the conversation, such as
 user's query, assistant's reasoning, key findings from tool results relevant to answering user's query.
-You must include important DataHub entities and their URNS from existing messages.
+You must include important DataHub entities with their human-readable identifiers (qualifiedName for datasets, dashboardId for dashboards, etc.) from existing messages.
 You must not include information that is not present in the existing messages.
 """
 
@@ -36,7 +36,7 @@ You are a helpful AI assistant tasked with summarizing conversations.
 Extend existing summary by taking into account the new messages in conversation.
 Focus on information that would be helpful for continuing the conversation, such as
 user's query, assistant's reasoning, key findings from tool results relevant to answering user's query.
-You must include important DataHub entities and their URNS from existing messages.
+You must include important DataHub entities with their human-readable identifiers (qualifiedName for datasets, dashboardId for dashboards, etc.) from existing messages.
 You must not include information that is not present in the existing messages.
 """
 

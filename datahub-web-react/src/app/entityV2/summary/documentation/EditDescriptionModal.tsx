@@ -54,6 +54,7 @@ export default function EditDescriptionModal({
                     text: 'Cancel',
                     variant: 'text',
                     onClick: () => closeModal(),
+                    buttonDataTestId: 'cancel-button',
                 },
                 {
                     text: 'Propose',
@@ -73,6 +74,7 @@ export default function EditDescriptionModal({
                         closeModal();
                     },
                     disabled: !canEditDescription,
+                    buttonDataTestId: 'publish-button',
                 },
             ]}
         >
@@ -82,6 +84,7 @@ export default function EditDescriptionModal({
                 hideHighlightToolbar
                 onChange={(description) => setUpdatedDescription(description)}
                 toolbarStyles={toolbarStyles}
+                dataTestId="description-editor"
             />
         </Modal>
     );
