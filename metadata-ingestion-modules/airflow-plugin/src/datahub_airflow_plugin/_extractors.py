@@ -1,16 +1,9 @@
 import contextlib
 import logging
+import sys
 import unittest.mock
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from openlineage.airflow.extractors import (
-    BaseExtractor,
-    ExtractorManager as OLExtractorManager,
-    TaskMetadata,
-)
-from openlineage.airflow.extractors.snowflake_extractor import SnowflakeExtractor
-from openlineage.airflow.extractors.sql_extractor import SqlExtractor
-from openlineage.airflow.utils import get_operator_class, try_import_from_string
 from openlineage.client.facet import (
     ExtractionError,
     ExtractionErrorRunFacet,
@@ -28,14 +21,90 @@ from datahub.sql_parsing.sqlglot_lineage import (
 from datahub_airflow_plugin._airflow_shims import Operator
 from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
 
+# Conditional imports for Airflow 2 vs Airflow 3 OpenLineage support
+IS_AIRFLOW_3 = False
+try:
+    # Airflow 3.x: Use native OpenLineage provider
+    from airflow.providers.openlineage.extractors.base import (
+        BaseExtractor,
+        OperatorLineage,
+    )
+    from airflow.providers.openlineage.extractors.manager import (
+        ExtractorManager as OLExtractorManager,
+    )
+    from airflow.providers.openlineage.utils.utils import (
+        get_operator_class,
+        try_import_from_string,
+    )
+
+    IS_AIRFLOW_3 = True
+
+    try:
+        from airflow.providers.openlineage.extractors.snowflake import (
+            SnowflakeExtractor,
+        )
+    except ImportError:
+        SnowflakeExtractor = None  # type: ignore
+    try:
+        from airflow.providers.openlineage.extractors.sql import SqlExtractor
+    except ImportError:
+        SqlExtractor = None  # type: ignore
+
+    # For Airflow 3, TaskMetadata doesn't exist
+    # Define it as a module-level variable pointing to Any for mypy
+    if not TYPE_CHECKING:
+        TaskMetadata: Any = type("TaskMetadata", (), {})
+except (ImportError, ModuleNotFoundError):
+    # Airflow 2.x: Use standalone openlineage-airflow package
+    from openlineage.airflow.extractors import (
+        BaseExtractor,
+        ExtractorManager as OLExtractorManager,
+        TaskMetadata,
+    )
+    from openlineage.airflow.extractors.snowflake_extractor import SnowflakeExtractor
+    from openlineage.airflow.extractors.sql_extractor import SqlExtractor
+    from openlineage.airflow.utils import get_operator_class, try_import_from_string
+
+    # For Airflow 2, OperatorLineage doesn't exist
+    if not TYPE_CHECKING:
+        OperatorLineage: Any = type("OperatorLineage", (), {})
+
 if TYPE_CHECKING:
     from airflow.models import DagRun, TaskInstance
 
     from datahub.ingestion.graph.client import DataHubGraph
 
+    # For type checking, define a union type that covers both versions
+    if sys.version_info >= (3, 10):
+        from typing import TypeAlias
+    else:
+        from typing_extensions import TypeAlias
+
+    try:
+        from airflow.providers.openlineage.extractors.base import (
+            OperatorLineage as _OperatorLineage,
+        )
+    except ImportError:
+        _OperatorLineage = Any  # type: ignore[misc,assignment]
+
+    try:
+        from openlineage.airflow.extractors import TaskMetadata as _TaskMetadata
+    except ImportError:
+        _TaskMetadata = Any  # type: ignore[misc,assignment]
+
+    # Define ExtractResult as a proper type alias for mypy
+    ExtractResult: TypeAlias = Any  # Union of TaskMetadata | OperatorLineage
+
 logger = logging.getLogger(__name__)
 _DATAHUB_GRAPH_CONTEXT_KEY = "datahub_graph"
 SQL_PARSING_RESULT_KEY = "datahub_sql"
+
+# Runtime type alias for the return type of extract() methods
+if not TYPE_CHECKING:
+    if IS_AIRFLOW_3:
+        ExtractResult = OperatorLineage
+    else:
+        ExtractResult = TaskMetadata
 
 
 class ExtractorManager(OLExtractorManager):
@@ -72,23 +141,25 @@ class ExtractorManager(OLExtractorManager):
     @contextlib.contextmanager
     def _patch_extractors(self):
         with contextlib.ExitStack() as stack:
-            # Patch the SqlExtractor.extract() method.
-            stack.enter_context(
-                unittest.mock.patch.object(
-                    SqlExtractor,
-                    "extract",
-                    _sql_extractor_extract,
+            # Patch the SqlExtractor.extract() method if available
+            if SqlExtractor is not None:
+                stack.enter_context(
+                    unittest.mock.patch.object(
+                        SqlExtractor,
+                        "extract",
+                        _sql_extractor_extract,
+                    )
                 )
-            )
 
-            # Patch the SnowflakeExtractor.default_schema property.
-            stack.enter_context(
-                unittest.mock.patch.object(
-                    SnowflakeExtractor,
-                    "default_schema",
-                    property(_snowflake_default_schema),
+            # Patch the SnowflakeExtractor.default_schema property if available
+            if SnowflakeExtractor is not None:
+                stack.enter_context(
+                    unittest.mock.patch.object(
+                        SnowflakeExtractor,
+                        "default_schema",
+                        property(_snowflake_default_schema),
+                    )
                 )
-            )
 
             # TODO: Override the BigQuery extractor to use the DataHub SQL parser.
             # self.extractor_manager.add_extractor()
@@ -105,7 +176,7 @@ class ExtractorManager(OLExtractorManager):
         task_instance: Optional["TaskInstance"] = None,
         task_uuid: Optional[str] = None,
         graph: Optional["DataHubGraph"] = None,
-    ) -> TaskMetadata:
+    ) -> ExtractResult:
         self._graph = graph
         with self._patch_extractors():
             return super().extract_metadata(
@@ -130,35 +201,40 @@ class ExtractorManager(OLExtractorManager):
         return extractor
 
 
-class GenericSqlExtractor(SqlExtractor):
-    # Note that the extract() method is patched elsewhere.
+if SqlExtractor is not None:
 
-    @property
-    def default_schema(self):
-        return super().default_schema
+    class GenericSqlExtractor(SqlExtractor):  # type: ignore
+        # Note that the extract() method is patched elsewhere.
 
-    def _get_scheme(self) -> Optional[str]:
-        # Best effort conversion to DataHub platform names.
+        @property
+        def default_schema(self):
+            return super().default_schema
 
-        with contextlib.suppress(Exception):
-            if self.hook:
-                if hasattr(self.hook, "get_uri"):
-                    uri = self.hook.get_uri()
-                    return get_platform_from_sqlalchemy_uri(uri)
+        def _get_scheme(self) -> Optional[str]:
+            # Best effort conversion to DataHub platform names.
 
-        return self.conn.conn_type or super().dialect
+            with contextlib.suppress(Exception):
+                if self.hook:
+                    if hasattr(self.hook, "get_uri"):
+                        uri = self.hook.get_uri()
+                        return get_platform_from_sqlalchemy_uri(uri)
 
-    def _get_database(self) -> Optional[str]:
-        if self.conn:
-            # For BigQuery, the "database" is the project name.
-            if hasattr(self.conn, "project_id"):
-                return self.conn.project_id
+            return self.conn.conn_type or super().dialect
 
-            return self.conn.schema
-        return None
+        def _get_database(self) -> Optional[str]:
+            if self.conn:
+                # For BigQuery, the "database" is the project name.
+                if hasattr(self.conn, "project_id"):
+                    return self.conn.project_id
+
+                return self.conn.schema
+            return None
+else:
+    # SqlExtractor is not available (should not happen in normal usage)
+    GenericSqlExtractor = None  # type: ignore
 
 
-def _sql_extractor_extract(self: "SqlExtractor") -> TaskMetadata:
+def _sql_extractor_extract(self: "SqlExtractor") -> Optional[ExtractResult]:
     # Why not override the OL sql_parse method directly, instead of overriding
     # extract()? A few reasons:
     #
@@ -197,17 +273,50 @@ def _sql_extractor_extract(self: "SqlExtractor") -> TaskMetadata:
     )
 
 
+def _normalize_sql(sql: str) -> str:
+    """Normalize SQL for logging (strip extra whitespace)"""
+    if SqlExtractor is not None and hasattr(SqlExtractor, "_normalize_sql"):
+        return SqlExtractor._normalize_sql(sql)
+    # Fallback normalization
+    return " ".join(sql.split())
+
+
+def _create_lineage_metadata(
+    task_name: str,
+    run_facets: Dict[str, Any],
+    job_facets: Dict[str, Any],
+) -> Optional[ExtractResult]:
+    """Create TaskMetadata (Airflow 2) or OperatorLineage (Airflow 3)"""
+    if IS_AIRFLOW_3:
+        # Airflow 3: Return OperatorLineage (no name field)
+        return OperatorLineage(  # type: ignore
+            inputs=[],
+            outputs=[],
+            run_facets=run_facets,
+            job_facets=job_facets,
+        )
+    else:
+        # Airflow 2: Return TaskMetadata (with name field)
+        return TaskMetadata(  # type: ignore
+            name=task_name,
+            inputs=[],
+            outputs=[],
+            run_facets=run_facets,
+            job_facets=job_facets,
+        )
+
+
 def _parse_sql_into_task_metadata(
     self: "BaseExtractor",
     sql: str,
     platform: str,
     default_database: Optional[str],
     default_schema: Optional[str],
-) -> TaskMetadata:
+) -> Optional[ExtractResult]:
     task_name = f"{self.operator.dag_id}.{self.operator.task_id}"
 
     run_facets = {}
-    job_facets = {"sql": SqlJobFacet(query=SqlExtractor._normalize_sql(sql))}
+    job_facets = {"sql": SqlJobFacet(query=_normalize_sql(sql))}
 
     # Prepare to run the SQL parser.
     graph = self.context.get(_DATAHUB_GRAPH_CONTEXT_KEY, None)
@@ -250,17 +359,11 @@ def _parse_sql_into_task_metadata(
     # facet dict in the extractor's processing logic.
     run_facets[SQL_PARSING_RESULT_KEY] = sql_parsing_result  # type: ignore
 
-    return TaskMetadata(
-        name=task_name,
-        inputs=[],
-        outputs=[],
-        run_facets=run_facets,
-        job_facets=job_facets,
-    )
+    return _create_lineage_metadata(task_name, run_facets, job_facets)
 
 
 class BigQueryInsertJobOperatorExtractor(BaseExtractor):
-    def extract(self) -> Optional[TaskMetadata]:
+    def extract(self) -> Optional[ExtractResult]:
         from airflow.providers.google.cloud.operators.bigquery import (
             BigQueryInsertJobOperator,  # type: ignore
         )
@@ -304,7 +407,7 @@ class BigQueryInsertJobOperatorExtractor(BaseExtractor):
 
 
 class AthenaOperatorExtractor(BaseExtractor):
-    def extract(self) -> Optional[TaskMetadata]:
+    def extract(self) -> Optional[ExtractResult]:
         from airflow.providers.amazon.aws.operators.athena import (
             AthenaOperator,  # type: ignore
         )

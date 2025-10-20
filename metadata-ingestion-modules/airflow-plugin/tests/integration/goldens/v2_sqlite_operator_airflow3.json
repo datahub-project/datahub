@@ -7,14 +7,14 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "catchup": "False",
-                "description": "None",
-                "doc_md": "None",
+                "catchup": "false",
+                "description": "",
+                "doc_md": "",
                 "fileloc": "<fileloc>",
-                "is_paused_upon_creation": "None",
-                "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
-                "tags": "set()",
-                "timezone": "Timezone('UTC')"
+                "is_paused_upon_creation": "",
+                "start_date": "2023-01-01T00:00:00+00:00",
+                "tags": "[]",
+                "timezone": "UTC"
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=sqlite_operator",
             "name": "sqlite_operator",
@@ -354,7 +354,7 @@
             "name": "sqlite_operator_create_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1760102472754,
+                "time": 1760951144058,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -417,7 +417,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760102472754,
+            "timestampMillis": 1760951144058,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -434,14 +434,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1760102474758,
+            "timestampMillis": 1760951146133,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1760102474758
+            "lastUpdatedTimestamp": 1760951146133
         }
     }
 },
@@ -641,7 +641,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760102474764,
+            "timestampMillis": 1760951146137,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -797,7 +797,7 @@
             "name": "sqlite_operator_populate_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1760102475215,
+                "time": 1760951146786,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -860,7 +860,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760102475215,
+            "timestampMillis": 1760951146786,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -877,14 +877,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1760102476006,
+            "timestampMillis": 1760951148301,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1760102476006
+            "lastUpdatedTimestamp": 1760951148301
         }
     }
 },
@@ -1014,7 +1014,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760102476020,
+            "timestampMillis": 1760951148311,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1241,7 +1241,7 @@
             "name": "sqlite_operator_transform_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1760102476294,
+                "time": 1760951148738,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1330,7 +1330,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760102476294,
+            "timestampMillis": 1760951148738,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1347,14 +1347,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1760102477152,
+            "timestampMillis": 1760951150526,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1760102477152
+            "lastUpdatedTimestamp": 1760951150526
         }
     }
 },
@@ -1611,7 +1611,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760102477165,
+            "timestampMillis": 1760951150537,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1767,7 +1767,7 @@
             "name": "sqlite_operator_cleanup_costs_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1760102477363,
+                "time": 1760951150821,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -1830,7 +1830,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760102477363,
+            "timestampMillis": 1760951150821,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1847,14 +1847,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1760102478430,
+            "timestampMillis": 1760951152558,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1760102478430
+            "lastUpdatedTimestamp": 1760951152558
         }
     }
 },
@@ -2001,7 +2001,7 @@
             "name": "sqlite_operator_cleanup_processed_costs_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1760102477367,
+                "time": 1760951150811,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -2064,7 +2064,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760102477367,
+            "timestampMillis": 1760951150811,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -2081,14 +2081,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1760102478805,
+            "timestampMillis": 1760951152829,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1760102478805
+            "lastUpdatedTimestamp": 1760951152829
         }
     }
 },
@@ -2218,7 +2218,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760102478461,
+            "timestampMillis": 1760951152574,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -2357,7 +2357,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760102478826,
+            "timestampMillis": 1760951152847,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

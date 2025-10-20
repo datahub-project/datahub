@@ -362,6 +362,14 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
                 "aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
             },
         ).get_uri(),
+        "AIRFLOW_CONN_MY_BIGQUERY": Connection(
+            conn_id="my_bigquery",
+            conn_type="google_cloud_platform",
+            extra={
+                "project": "test_project",
+                "key_path": "/dev/null",
+            },
+        ).get_uri(),
         "AIRFLOW_CONN_MY_SQLITE": Connection(
             conn_id="my_sqlite",
             conn_type="sqlite",
@@ -755,6 +763,7 @@ test_cases_airflow3 = [
     DagTestCase("custom_operator_sql_parsing"),
     DagTestCase("datahub_emitter_operator_jinja_template_dag"),
     DagTestCase("athena_operator"),
+    DagTestCase("bigquery_insert_job_operator"),
 ]
 
 

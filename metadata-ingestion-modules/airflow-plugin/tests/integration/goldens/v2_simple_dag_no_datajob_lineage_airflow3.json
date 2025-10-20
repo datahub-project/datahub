@@ -7,14 +7,14 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "catchup": "False",
-                "description": "'A simple DAG that runs a few fake data tasks.'",
-                "doc_md": "None",
+                "catchup": "false",
+                "description": "A simple DAG that runs a few fake data tasks.",
+                "doc_md": "",
                 "fileloc": "<fileloc>",
-                "is_paused_upon_creation": "None",
-                "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
-                "tags": "set()",
-                "timezone": "Timezone('UTC')"
+                "is_paused_upon_creation": "",
+                "start_date": "2023-01-01T00:00:00+00:00",
+                "tags": "[]",
+                "timezone": "UTC"
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=simple_dag",
             "name": "simple_dag",
@@ -255,7 +255,7 @@
             "name": "simple_dag_task_1_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1760086930409,
+                "time": 1760950991898,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -292,7 +292,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760086930409,
+            "timestampMillis": 1760950991898,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -395,7 +395,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760086931802,
+            "timestampMillis": 1760950994048,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -518,7 +518,7 @@
             "name": "simple_dag_run_another_data_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1760086932246,
+                "time": 1760950994460,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -555,7 +555,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760086932246,
+            "timestampMillis": 1760950994460,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -658,7 +658,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760086933052,
+            "timestampMillis": 1760950996029,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

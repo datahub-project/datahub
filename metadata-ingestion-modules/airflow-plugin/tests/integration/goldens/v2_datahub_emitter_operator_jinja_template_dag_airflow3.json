@@ -7,14 +7,14 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "catchup": "False",
-                "description": "'An example dag with jinja template'",
-                "doc_md": "None",
+                "catchup": "false",
+                "description": "An example dag with jinja template",
+                "doc_md": "",
                 "fileloc": "<fileloc>",
-                "is_paused_upon_creation": "None",
-                "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
-                "tags": "{'example_tag'}",
-                "timezone": "Timezone('UTC')"
+                "is_paused_upon_creation": "",
+                "start_date": "2023-01-01T00:00:00+00:00",
+                "tags": "[\"example_tag\"]",
+                "timezone": "UTC"
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=datahub_emitter_operator_jinja_template_dag",
             "name": "datahub_emitter_operator_jinja_template_dag",
@@ -237,7 +237,7 @@
             "name": "datahub_emitter_operator_jinja_template_dag_datahub_emitter_operator_jinja_template_dag_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1760087770386,
+                "time": 1760951257948,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -262,7 +262,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760087770386,
+            "timestampMillis": 1760951257948,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -435,7 +435,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760087771748,
+            "timestampMillis": 1760951261187,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

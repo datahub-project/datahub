@@ -7,14 +7,14 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "catchup": "False",
-                "description": "None",
-                "doc_md": "None",
+                "catchup": "false",
+                "description": "",
+                "doc_md": "",
                 "fileloc": "<fileloc>",
-                "is_paused_upon_creation": "None",
-                "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
-                "tags": "set()",
-                "timezone": "Timezone('UTC')"
+                "is_paused_upon_creation": "",
+                "start_date": "2023-01-01T00:00:00+00:00",
+                "tags": "[]",
+                "timezone": "UTC"
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=basic_iolets",
             "name": "basic_iolets",
@@ -345,7 +345,7 @@
             "name": "basic_iolets_run_data_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1760086959255,
+                "time": 1760951028488,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -490,7 +490,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760086959255,
+            "timestampMillis": 1760951028488,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -507,14 +507,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1760086960526,
+            "timestampMillis": 1760951032004,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1760086960526
+            "lastUpdatedTimestamp": 1760951032004
         }
     }
 },
@@ -525,14 +525,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1760086960530,
+            "timestampMillis": 1760951032023,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1760086960530
+            "lastUpdatedTimestamp": 1760951032023
         }
     }
 },
@@ -731,7 +731,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760086960545,
+            "timestampMillis": 1760951032102,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

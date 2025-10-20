@@ -7,14 +7,14 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "catchup": "False",
-                "description": "None",
-                "doc_md": "None",
+                "catchup": "false",
+                "description": "",
+                "doc_md": "",
                 "fileloc": "<fileloc>",
-                "is_paused_upon_creation": "None",
-                "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
-                "tags": "set()",
-                "timezone": "Timezone('UTC')"
+                "is_paused_upon_creation": "",
+                "start_date": "2023-01-01T00:00:00+00:00",
+                "tags": "[]",
+                "timezone": "UTC"
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=athena_operator",
             "name": "athena_operator",
@@ -217,7 +217,7 @@
             "name": "athena_operator_transform_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1760087798139,
+                "time": 1760951294696,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -242,7 +242,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760087798139,
+            "timestampMillis": 1760951294696,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -448,7 +448,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1760087799481,
+            "timestampMillis": 1760951297849,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

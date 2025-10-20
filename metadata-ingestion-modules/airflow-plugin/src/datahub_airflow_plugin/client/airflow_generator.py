@@ -1,5 +1,6 @@
 # mypy: ignore-errors
 # type: ignore  # SerializedDAG and parent_dag compatibility issues
+import json
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Union, cast
 
@@ -183,9 +184,31 @@ class AirflowGenerator:
             "timezone",
         ]
 
+        def _serialize_dag_property(value) -> str:
+            """Serialize DAG property values to string format (JSON-compatible when possible)."""
+            if value is None:
+                return ""
+            elif isinstance(value, bool):
+                return "true" if value else "false"
+            elif isinstance(value, datetime):
+                return value.isoformat()
+            elif isinstance(value, (set, frozenset)):
+                # Convert set to JSON array string
+                return json.dumps(sorted(list(value)))
+            elif hasattr(value, "name"):  # Handle timezone objects
+                return str(value.name) if hasattr(value, "name") else str(value)
+            elif isinstance(value, (int, float)):
+                return str(value)
+            elif isinstance(value, str):
+                return value
+            else:
+                # For other types, convert to string but avoid repr() format
+                return str(value)
+
         for key in allowed_flow_keys:
             if hasattr(dag, key):
-                flow_property_bag[key] = repr(getattr(dag, key))
+                value = getattr(dag, key)
+                flow_property_bag[key] = _serialize_dag_property(value)
 
         data_flow.properties = flow_property_bag
         base_url = conf.get("webserver", "base_url")
