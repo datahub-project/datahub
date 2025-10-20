@@ -6,6 +6,8 @@ from functools import lru_cache
 from typing import Dict, List, Optional
 
 from looker_sdk.sdk.api40.models import (
+    LookmlModelExplore,
+    LookmlModelExploreField,
     WriteQuery,
 )
 
@@ -293,6 +295,36 @@ class AbstractViewUpstream(ABC):
 
         return upstream_column_refs
 
+    @classmethod
+    @lru_cache(maxsize=1000)
+    def get_explore_fields_from_looker_api(
+        cls, looker_client: "LookerAPI", model_name: str, explore_name: str
+    ) -> LookmlModelExplore:
+        """
+        Get fields from Looker API for the given explore.
+        Only queries for the fields we need (dimensions, measures, and dimension groups)
+        to optimize API performance.
+
+        Note: This is a cached method to optimize API performance since a single explore can have multiple views.
+        When we associate a view with an explore, we try to associate as many views as possible with the same explore to reduce the number of API calls.
+
+        Returns:
+            LookmlModelExplore: The explore with the fields.
+        Raises:
+            Exception: If there is an error getting the explore from the Looker API.
+        """
+        try:
+            fields_to_query = ["fields"]
+            explore: LookmlModelExplore = looker_client.lookml_model_explore(
+                model_name,
+                explore_name,
+                fields=fields_to_query,
+            )
+            return explore
+        except Exception as e:
+            logger.error(f"Error getting explore from Looker API: {e}")
+            raise e
+
 
 class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
     """
@@ -359,7 +391,6 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         self._get_upstream_dataset_urn = lru_cache(maxsize=1)(
             self.__get_upstream_dataset_urn
         )
-
         # Initialize the cache
         # Done to fallback to other implementations if the Looker Query API fails
         self._get_spr()
@@ -473,11 +504,226 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         prefix = f"{intervals[0]}s" if intervals else "days"
         return f"{prefix}_{dim_group_name}"
 
+    def _is_field_from_current_view(
+        self, field: LookmlModelExploreField, current_view_name: str
+    ) -> bool:
+        """
+        Check if a field belongs to the current view based on the original_view attribute.
+
+        Args:
+            field: The field object from the explore
+            current_view_name: The name of the current view we're processing
+
+        Returns:
+            True if the field belongs to the current view, False otherwise
+        """
+        # Check if the field has an original_view attribute and it matches our current view
+        if hasattr(field, "view"):
+            return field.view == current_view_name
+
+        # If no view attribute, we can't determine the source view
+        # In this case, we'll be conservative and include the field
+        logger.debug(f"Field {field.name} has no view attribute, including it")
+        return True
+
+    def _get_fields_from_looker_api(self, explore_name: str) -> List[str]:
+        """
+        Get fields from Looker API for the given explore.
+        Only queries for the fields we need (dimensions, measures, and dimension groups)
+        to optimize API performance.
+
+        Sample Response: [{
+                "align": "left",
+                "can_filter": true,
+                "category": "dimension",
+                "default_filter_value": null,
+                "description": "",
+                "enumerations": null,
+                "field_group_label": null,
+                "fill_style": null,
+                "fiscal_month_offset": 0,
+                "has_allowed_values": false,
+                "hidden": false,
+                "is_filter": false,
+                "is_numeric": false,
+                "label": "Customer Analysis User Purchase Status",
+                "label_from_parameter": null,
+                "label_short": "User Purchase Status",
+                "map_layer": null,
+                "name": "customer_analysis.user_purchase_status",
+                "strict_value_format": false,
+                "requires_refresh_on_sort": false,
+                "sortable": true,
+                "suggestions": null,
+                "synonyms": [],
+                "tags": [],
+                "type": "string",
+                "user_attribute_filter_types": [
+                    "string",
+                    "advanced_filter_string"
+                ],
+                "value_format": null,
+                "view": "customer_analysis",
+                "view_label": "Customer Analysis",
+                "dynamic": false,
+                "week_start_day": "monday",
+                "original_view": "users",
+                "dimension_group": null,
+                "error": null,
+                "field_group_variant": "User Purchase Status",
+                "measure": false,
+                "parameter": false,
+                "primary_key": false,
+                "project_name": "anush-dev-project",
+                "scope": "customer_analysis",
+                "suggest_dimension": "customer_analysis.user_purchase_status",
+                "suggest_explore": "customer_analysis",
+                "suggestable": true,
+                "is_fiscal": false,
+                "is_timeframe": false,
+                "can_time_filter": false,
+                "time_interval": null,
+                "lookml_link": "/projects/anush-dev-project/files/views%2Fusers.view.lkml?line=52",
+                "period_over_period_params": null,
+                "permanent": null,
+                "source_file": "views/users.view.lkml",
+                "source_file_path": "anush-dev-project/views/users.view.lkml",
+                "sql": "CASE\n        WHEN ${user_metrics.purchase_count} = 0 THEN 'Prospect'\n        WHEN ${user_metrics.purchase_count} = 1 THEN 'New Customer'\n        WHEN ${user_metrics.purchase_count} BETWEEN 2 AND 5 THEN 'Happy Customer'\n        ELSE 'Loyal Customer'\n      END ",
+                "sql_case": null,
+                "filters": null,
+                "times_used": 0
+            }
+        ]
+        Returns:
+            List of field names in Looker API format
+        """
+        view_fields: List[str] = []
+        # Get the current view name to filter fields
+        current_view_name = self.view_context.name()
+
+        try:
+            logger.debug(
+                f"Attempting to get explore details from Looker API for explore: {explore_name} and view: {current_view_name}"
+            )
+            # Only query for the fields we need to optimize API performance
+            explore: LookmlModelExplore = self.get_explore_fields_from_looker_api(
+                self.looker_client, self.looker_view_id_cache.model_name, explore_name
+            )
+
+            if explore and explore.fields:
+                # Creating a map to de-dup dimension group fields - adding all of them adds to the query length, we dont need all of them for CLL
+                dimension_group_fields_mapping: Dict[str, str] = {}
+                # Get dimensions from API
+                if explore.fields.dimensions:
+                    for dim_field in explore.fields.dimensions:
+                        if dim_field.name and self._is_field_from_current_view(
+                            dim_field, current_view_name
+                        ):
+                            # Skipping adding dimension group fields if already added
+                            if (
+                                dim_field.dimension_group
+                                and dim_field.dimension_group
+                                in dimension_group_fields_mapping
+                            ):
+                                continue
+                            else:
+                                assert (
+                                    dim_field.dimension_group is not None
+                                )  # HAPPY linter
+                                dimension_group_fields_mapping[
+                                    dim_field.dimension_group
+                                ] = dim_field.name
+
+                            view_fields.append(dim_field.name)
+                            logger.debug(
+                                f"Added dimension field from API: {dim_field.name} (dimension_group: {dim_field.dimension_group})"
+                            )
+
+                # Get measures from API
+                if explore.fields.measures:
+                    for measure_field in explore.fields.measures:
+                        if measure_field.name and self._is_field_from_current_view(
+                            measure_field, current_view_name
+                        ):
+                            view_fields.append(measure_field.name)
+                            logger.debug(
+                                f"Added measure field from API: {measure_field.name}"
+                            )
+            else:
+                logger.warning(
+                    f"No fields found in explore '{explore_name}' from Looker API, falling back to view context"
+                )
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to get explore details from Looker API for explore '{explore_name}': {e}. Falling back to view context."
+            )
+
+        return view_fields
+
+    def _get_fields_from_view_context(self) -> List[str]:
+        """
+        Get fields from view context as fallback.
+
+        Returns:
+            List of field names in Looker API format
+        """
+        view_fields: List[str] = []
+
+        logger.debug(
+            f"Using view context as fallback for view: {self.view_context.name()}"
+        )
+
+        # Add dimension fields in the format: <view_name>.<dimension_name> or <view_name>.<measure_name>
+        for field in self.view_context.dimensions() + self.view_context.measures():
+            field_name = field.get(NAME)
+            assert field_name  # Happy linter
+            view_fields.append(self._get_looker_api_field_name(field_name))
+
+        for dim_group in self.view_context.dimension_groups():
+            dim_group_type_str = dim_group.get(VIEW_FIELD_TYPE_ATTRIBUTE)
+            
+            logger.debug(
+                f"Processing dimension group from view context: {dim_group.get(NAME, 'unknown')}, type: {dim_group_type_str}"
+            )
+
+            if dim_group_type_str is None:
+                logger.warning(
+                    f"Dimension group '{dim_group.get(NAME, 'unknown')}' has None type, skipping"
+                )
+                continue
+
+            try:
+                dim_group_type: ViewFieldDimensionGroupType = (
+                    ViewFieldDimensionGroupType(dim_group_type_str)
+                )
+
+                if dim_group_type == ViewFieldDimensionGroupType.TIME:
+                    view_fields.append(
+                        self._get_looker_api_field_name(
+                            self._get_time_dim_group_field_name(dim_group)
+                        )
+                    )
+                elif dim_group_type == ViewFieldDimensionGroupType.DURATION:
+                    view_fields.append(
+                        self._get_looker_api_field_name(
+                            self._get_duration_dim_group_field_name(dim_group)
+                        )
+                    )
+            except Exception as e:
+                logger.error(f"View-name: {self.view_context.name()}: {e}")
+                # Continue processing other fields instead of failing completely
+                continue
+
+        return view_fields
+
     def _get_sql_write_query(self) -> WriteQuery:
         """
         Constructs a WriteQuery object to obtain the SQL representation of the current Looker view.
 
-        We need to list all the fields for the view to get the SQL representation of the view - this fully resolved SQL for view dimensions and measures.
+        This method now uses the Looker API to get explore details directly, providing more comprehensive
+        field information compared to relying solely on view context. It falls back to view context
+        if API calls fail.
 
         The method uses the view_to_explore_map to determine the correct explore name to use in the WriteQuery.
         This is crucial because the Looker Query API expects the explore name (not the view name) as the "view" parameter.
@@ -488,45 +734,29 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             WriteQuery: The WriteQuery object if fields are found and explore name is available, otherwise None.
 
         Raises:
-            ValueError: If the explore name is not found in the view_to_explore_map for the current view.
             ValueError: If no fields are found for the view.
         """
-
-        # Collect all dimension and measure fields for the view.
-        view_fields: List[str] = []
-        # Add dimension fields in the format: <view_name>.<dimension_name> or <view_name>.<measure_name>
-        for field in self.view_context.dimensions() + self.view_context.measures():
-            field_name = field.get(NAME)
-            assert field_name  # Happy linter
-            view_fields.append(self._get_looker_api_field_name(field_name))
-
-        for dim_group in self.view_context.dimension_groups():
-            dim_group_type: ViewFieldDimensionGroupType = ViewFieldDimensionGroupType(
-                dim_group.get(VIEW_FIELD_TYPE_ATTRIBUTE)
-            )
-
-            if dim_group_type == ViewFieldDimensionGroupType.TIME:
-                view_fields.append(
-                    self._get_looker_api_field_name(
-                        self._get_time_dim_group_field_name(dim_group)
-                    )
-                )
-            elif dim_group_type == ViewFieldDimensionGroupType.DURATION:
-                view_fields.append(
-                    self._get_looker_api_field_name(
-                        self._get_duration_dim_group_field_name(dim_group)
-                    )
-                )
 
         # Use explore name from view_to_explore_map if available
         # explore_name is always present in the view_to_explore_map because of the check in view_upstream.create_view_upstream
         explore_name = self.view_to_explore_map.get(self.view_context.name())
         assert explore_name  # Happy linter
 
+        # Try to get fields from Looker API first for more comprehensive information
+        view_fields = self._get_fields_from_looker_api(explore_name)
+
+        # Fallback to view context if API didn't provide fields or failed
+        if not view_fields:
+            view_fields = self._get_fields_from_view_context()
+
         if not view_fields:
             raise ValueError(
                 f"No fields found for view '{self.view_context.name()}'. Cannot proceed with Looker API for view lineage."
             )
+
+        logger.debug(
+            f"Final field list for view '{self.view_context.name()}': {view_fields}"
+        )
 
         # Construct and return the WriteQuery object.
         # The 'limit' is set to "1" as the query is only used to obtain SQL, not to fetch data.
