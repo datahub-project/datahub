@@ -8,12 +8,14 @@ References:
 - Dashboard JSON structure: https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/view-dashboard-json-model/
 """
 
+import logging
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from datahub.emitter.mcp_builder import ContainerKey
 
+logger = logging.getLogger(__name__)
 # Grafana-specific type definitions for better type safety
 GrafanaQueryTarget = Dict[
     str, Any
@@ -89,7 +91,14 @@ class Dashboard(_GrafanaBaseModel):
     def parse_obj(cls, data: Dict[str, Any]) -> "Dashboard":
         """Custom parsing to handle nested panel extraction."""
         dashboard_data = data.get("dashboard", {})
-        panels = cls.extract_panels(dashboard_data.get("panels", []))
+        _panel_data = dashboard_data.get("panels", [])
+        panels = []
+        try:
+            panels = cls.extract_panels(_panel_data)
+        except Exception as e:
+            logger.warning(
+                f"Error extracting panels from dashboard for dashboard panels {_panel_data} : {e}"
+            )
 
         # Extract meta.folderId from nested structure
         meta = dashboard_data.get("meta", {})
@@ -99,6 +108,10 @@ class Dashboard(_GrafanaBaseModel):
         dashboard_dict = {**dashboard_data, "panels": panels, "folder_id": folder_id}
         if "meta" in dashboard_dict:
             del dashboard_dict["meta"]
+
+        # Handle refresh field type mismatch - convert boolean to string
+        if "refresh" in dashboard_dict and isinstance(dashboard_dict["refresh"], bool):
+            dashboard_dict["refresh"] = str(dashboard_dict["refresh"])
 
         return super().parse_obj(dashboard_dict)
 

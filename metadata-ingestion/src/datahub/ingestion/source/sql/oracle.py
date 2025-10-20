@@ -37,7 +37,7 @@ from datahub.ingestion.source.sql.sql_config import (
 
 logger = logging.getLogger(__name__)
 
-oracledb.version = "8.3.0"
+oracledb.version = "8.3.0"  # type: ignore[assignment]
 sys.modules["cx_Oracle"] = oracledb
 
 extra_oracle_types = {

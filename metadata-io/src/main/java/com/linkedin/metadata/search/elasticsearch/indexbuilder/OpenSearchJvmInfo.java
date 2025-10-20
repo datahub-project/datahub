@@ -2,12 +2,15 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
 import org.apache.http.HttpEntity;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.client.*;
@@ -15,13 +18,12 @@ import org.opensearch.client.*;
 /** Utility class to retrieve OpenSearch node JVM information via direct REST calls */
 public class OpenSearchJvmInfo {
 
-  private final RestHighLevelClient highLevelClient;
-  private final RestClient lowLevelClient;
+  private final SearchClientShim<?> highLevelClient;
   private final ObjectMapper objectMapper;
 
-  public OpenSearchJvmInfo(RestHighLevelClient highLevelClient) {
+  @SuppressWarnings("unchecked")
+  public OpenSearchJvmInfo(@Nonnull SearchClientShim<?> highLevelClient) {
     this.highLevelClient = highLevelClient;
-    this.lowLevelClient = highLevelClient.getLowLevelClient();
     this.objectMapper = new ObjectMapper();
   }
 
@@ -38,7 +40,7 @@ public class OpenSearchJvmInfo {
     Request request = new Request("GET", "/_nodes/stats");
     request.addParameter("filter_path", "nodes.*.jvm,nodes.*.roles");
 
-    Response response = lowLevelClient.performRequest(request);
+    RawResponse response = highLevelClient.performLowLevelRequest(request);
     HttpEntity entity = response.getEntity();
     String responseBody = EntityUtils.toString(entity);
 

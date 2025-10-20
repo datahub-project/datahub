@@ -20,9 +20,11 @@ CREATE USER datahub WITH PASSWORD 'Datahub1234';
 
 ## Redshift Setup
 
-1. Grant the following permissions to your `datahub` user. For most users, the **minimal set** below will be sufficient:
+1. Grant the following permissions to your `datahub` user. For most users, the **recommended set** below will be sufficient:
 
-### Minimal Required Permissions (Recommended)
+### Recommended Permissions
+
+For a typical provisioned cluster with default settings:
 
 ```sql
 -- Core system access (required for lineage and usage statistics)
@@ -48,13 +50,26 @@ GRANT SELECT ON pg_catalog.pg_attrdef TO datahub;
 -- Datashare lineage (enabled by default)
 GRANT SELECT ON pg_catalog.svv_datashares TO datahub;
 
--- Choose ONE based on your Redshift type:
--- For Provisioned Clusters:
+-- Provisioned cluster materialized views
 GRANT SELECT ON pg_catalog.stv_mv_info TO datahub;
+```
 
--- For Serverless Workgroups:
--- GRANT SELECT ON pg_catalog.svv_user_info TO datahub;
--- GRANT SELECT ON pg_catalog.svv_mv_info TO datahub;
+### Additional Permissions Based on Your Configuration
+
+**For Serverless Workgroups:**
+
+```sql
+-- Use these instead of stv_mv_info (from Provisioned section above)
+GRANT SELECT ON pg_catalog.svv_user_info TO datahub;
+GRANT SELECT ON pg_catalog.svv_mv_info TO datahub;
+```
+
+**For Shared Databases (Datashare Consumers):**
+
+```sql
+-- Required when is_shared_database = True
+GRANT SELECT ON pg_catalog.svv_redshift_tables TO datahub;
+GRANT SELECT ON pg_catalog.svv_redshift_columns TO datahub;
 ```
 
 ### Data Access Permissions (Required for Profiling/Classification)
@@ -71,21 +86,45 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO datahub;
 GRANT SELECT ON ALL TABLES IN SCHEMA your_schema_name TO datahub;
 
 -- For production environments (future tables/views):
--- IMPORTANT: Only works for objects created by the user running this command
+-- IMPORTANT: Default privileges only apply to objects created by the user who runs this command
+-- Option 1: If you (as admin) will create all future tables/views:
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO datahub;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON VIEWS TO datahub;
 ALTER DEFAULT PRIVILEGES IN SCHEMA your_schema_name GRANT SELECT ON TABLES TO datahub;
 ALTER DEFAULT PRIVILEGES IN SCHEMA your_schema_name GRANT SELECT ON VIEWS TO datahub;
---
--- Alternative: Run this periodically to catch all new objects regardless of creator:
--- GRANT SELECT ON ALL TABLES IN SCHEMA your_schema_name TO datahub;
+
+-- Option 2: If other users will create tables/views, run this for each user:
+-- ALTER DEFAULT PRIVILEGES FOR ROLE other_user_name IN SCHEMA public GRANT SELECT ON TABLES TO datahub;
+-- ALTER DEFAULT PRIVILEGES FOR ROLE other_user_name IN SCHEMA public GRANT SELECT ON VIEWS TO datahub;
+
+-- Option 3: For all future users (requires superuser):
+-- ALTER DEFAULT PRIVILEGES FOR ALL ROLES IN SCHEMA public GRANT SELECT ON TABLES TO datahub;
+-- ALTER DEFAULT PRIVILEGES FOR ALL ROLES IN SCHEMA public GRANT SELECT ON VIEWS TO datahub;
 ```
 
-### Additional Permissions (Only if needed)
+:::caution Data Access vs Metadata Access
+
+**The permissions are split into two categories:**
+
+1. **System table permissions** (above) - Required for metadata extraction, lineage, and usage statistics
+2. **Data access permissions** (this section) - Required for data profiling, classification, and any feature that reads actual table content
+
+**Default privileges only apply to objects created by the user who ran the ALTER DEFAULT PRIVILEGES command.** If multiple users create tables in your schemas, you need to:
+
+1. **Run the commands as each user**, OR
+2. **Use `FOR ROLE other_user_name`** for each user who creates objects, OR
+3. **Use `FOR ALL ROLES`** (requires superuser privileges)
+
+**Common gotcha**: If User A runs `ALTER DEFAULT PRIVILEGES` and User B creates a table, DataHub won't have access to User B's table unless you used Option 2 or 3 above.
+
+**Alternative approach**: Instead of default privileges, consider using a scheduled job to periodically grant access to new tables:
 
 ```sql
--- Only if using shared databases (datashare consumers):
--- GRANT SELECT ON pg_catalog.svv_redshift_tables TO datahub;
--- GRANT SELECT ON pg_catalog.svv_redshift_columns TO datahub;
+-- Run this periodically to catch new tables
+GRANT SELECT ON ALL TABLES IN SCHEMA your_schema_name TO datahub;
 ```
+
+:::
 
 ## Next Steps
 
