@@ -32,7 +32,7 @@ class TestSnowflakeIntegration:
             account_id="test_account",
             warehouse="test_warehouse",
             username="test_user",
-            password="test_password",
+            password="test_password",  # type: ignore[arg-type]  # Pydantic coerces str to SecretStr
             role="test_role",
         )
 
@@ -82,7 +82,7 @@ class TestSnowflakeIntegration:
             account_id="test_account",
             warehouse="test_warehouse",
             username="test_user",
-            password="test_password",
+            password="test_password",  # type: ignore[arg-type]  # Pydantic coerces str to SecretStr
             role="test_role",
         )
 
@@ -117,7 +117,7 @@ class TestSnowflakeIntegration:
             account_id="test_account",
             warehouse="test_warehouse",
             username="test_user",
-            password="test_password",
+            password="test_password",  # type: ignore[arg-type]  # Pydantic coerces str to SecretStr
             role="test_role",
         )
 
@@ -191,7 +191,7 @@ class TestSnowflakeIntegration:
             account_id="test_account",
             warehouse="test_warehouse",
             username="test_user",
-            password="test_password",
+            password="test_password",  # type: ignore[arg-type]  # Pydantic coerces str to SecretStr
             role="test_role",
         )
 

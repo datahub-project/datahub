@@ -2,6 +2,8 @@
 
 from unittest.mock import Mock, mock_open, patch
 
+import pydantic
+
 from datahub_integrations.propagation.snowflake.config import (
     SnowflakeAuthenticationType,
     SnowflakeConnectionConfigPermissive,
@@ -17,7 +19,7 @@ class TestSnowflakeConnectionConfigPermissive:
             account_id="test_account",
             warehouse="test_warehouse",
             username="test_user",
-            password="test_password",
+            password="test_password",  # type: ignore[arg-type]  # Pydantic coerces str to SecretStr
             role="test_role",
             authentication_type=SnowflakeAuthenticationType.DEFAULT_AUTHENTICATOR.value,
         )
@@ -65,7 +67,7 @@ dxbLu6CnWvI0oVR7zQRxB3xfhTq0V/7qGz5E5JGXVH5p8I4kF0m7kbhRkAJ8YGv4
             account_id="test_account",
             warehouse="test_warehouse",
             username="test_user",
-            password="test_password",
+            password="test_password",  # type: ignore[arg-type]  # Pydantic coerces str to SecretStr
             role="test_role",
             authentication_type=SnowflakeAuthenticationType.DEFAULT_AUTHENTICATOR.value,
         )
@@ -159,7 +161,7 @@ dxbLu6CnWvI0oVR7zQRxB3xfhTq0V/7qGz5E5JGXVH5p8I4kF0m7kbhRkAJ8YGv4
             role="test_role",
             authentication_type=SnowflakeAuthenticationType.KEY_PAIR_AUTHENTICATOR.value,
             private_key="test_key",
-            private_key_password="my_password",
+            private_key_password="my_password",  # type: ignore[arg-type]  # Pydantic coerces str to SecretStr
         )
 
         result = config._get_password_bytes()
@@ -168,8 +170,6 @@ dxbLu6CnWvI0oVR7zQRxB3xfhTq0V/7qGz5E5JGXVH5p8I4kF0m7kbhRkAJ8YGv4
 
     def test_get_password_bytes_handles_secret_str_password(self) -> None:
         """Test _get_password_bytes handles pydantic SecretStr password."""
-        import pydantic
-
         config = SnowflakeConnectionConfigPermissive(
             account_id="test_account",
             warehouse="test_warehouse",
@@ -191,7 +191,7 @@ dxbLu6CnWvI0oVR7zQRxB3xfhTq0V/7qGz5E5JGXVH5p8I4kF0m7kbhRkAJ8YGv4
             account_id="test_account",
             warehouse="test_warehouse",
             username="test_user",
-            password="test_password",
+            password="test_password",  # type: ignore[arg-type]  # Pydantic coerces str to SecretStr
             role="test_role",
             authentication_type=SnowflakeAuthenticationType.DEFAULT_AUTHENTICATOR.value,
         )
