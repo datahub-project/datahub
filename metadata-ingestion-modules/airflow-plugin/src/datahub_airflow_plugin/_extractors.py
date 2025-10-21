@@ -154,7 +154,7 @@ class ExtractorManager(OLExtractorManager):
                 return super().extract_metadata(  # type: ignore[call-arg,arg-type]
                     dagrun,
                     task,
-                    complete,
+                    complete,  # type: ignore[arg-type]
                     task_instance,
                     task_uuid,
                 )
