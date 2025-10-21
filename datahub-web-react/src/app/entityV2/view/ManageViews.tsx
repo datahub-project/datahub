@@ -1,5 +1,6 @@
 import { Button, PageTitle, Tabs, colors } from '@components';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { Tab } from '@components/components/Tabs/Tabs';
@@ -63,6 +64,7 @@ const tabUrlMap = {
  * Component used for displaying the 'Manage Views' experience.
  */
 export const ManageViews = () => {
+    const location = useLocation();
     const [showViewBuilder, setShowViewBuilder] = useState(false);
     const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
 
@@ -85,7 +87,7 @@ export const ManageViews = () => {
 
     useEffect(() => {
         if (selectedTab === undefined) {
-            const currentPath = window.location.pathname;
+            const currentPath = location.pathname;
 
             const currentTab = Object.entries(tabUrlMap).find(([, url]) => url === currentPath)?.[0] as TabType;
             if (currentTab) {
@@ -94,9 +96,9 @@ export const ManageViews = () => {
                 setSelectedTab(null);
             }
         }
-    }, [selectedTab]);
+    }, [selectedTab, location.pathname]);
 
-    const getCurrentUrl = useCallback(() => window.location.pathname, []);
+    const getCurrentUrl = useCallback(() => location.pathname, [location.pathname]);
 
     return (
         <PageContainer>

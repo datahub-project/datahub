@@ -112,14 +112,31 @@ export const ViewsList = ({ viewType = DataHubViewType.Personal }: Props) => {
     const start = (page - 1) * pageSize;
 
     const isPersonal = viewType === DataHubViewType.Personal;
-    const viewsQuery = isPersonal ? useListMyViewsQuery : useListGlobalViewsQuery;
 
-    const { loading, error, data } = viewsQuery({
+    const {
+        loading: loadingPersonal,
+        error: errorPersonal,
+        data: dataPersonal,
+    } = useListMyViewsQuery({
         variables: {
             start,
             count: pageSize,
         },
         fetchPolicy: 'cache-first',
+        skip: !isPersonal,
+    });
+
+    const {
+        loading: loadingGlobal,
+        error: errorGlobal,
+        data: dataGlobal,
+    } = useListGlobalViewsQuery({
+        variables: {
+            start,
+            count: pageSize,
+        },
+        fetchPolicy: 'cache-first',
+        skip: isPersonal,
     });
 
     const onChangePage = (newPage: number) => {
@@ -130,9 +147,9 @@ export const ViewsList = ({ viewType = DataHubViewType.Personal }: Props) => {
     /**
      * Render variables.
      */
-    const viewsData = isPersonal
-        ? (data as ListMyViewsQuery)?.listMyViews
-        : (data as ListGlobalViewsQuery)?.listGlobalViews;
+    const viewsData = isPersonal ? dataPersonal?.listMyViews : dataGlobal?.listGlobalViews;
+    const loading = loadingPersonal || loadingGlobal;
+    const error = errorPersonal || errorGlobal;
     const totalViews = viewsData?.total || 0;
     const views = searchViews(viewsData?.views || [], query);
 
@@ -148,7 +165,7 @@ export const ViewsList = ({ viewType = DataHubViewType.Personal }: Props) => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading Views..." />}
+            {!viewsData && loading && <Message type="loading" content="Loading Views..." />}
             {error && message.error({ content: `Failed to load Views! An unexpected error occurred.`, duration: 3 })}
             <ViewsContainer>
                 <StyledTabToolbar>
