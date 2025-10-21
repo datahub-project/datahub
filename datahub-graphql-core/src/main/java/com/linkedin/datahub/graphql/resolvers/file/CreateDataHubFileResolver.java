@@ -34,16 +34,22 @@ public class CreateDataHubFileResolver
     final CreateDataHubFileInput input =
         bindArgument(environment.getArgument("input"), CreateDataHubFileInput.class);
 
-    // Get storage bucket from configuration
+    // Get storage bucket from configuration and create BucketStorageLocation
     String storageBucket = _s3Configuration.getBucketName();
     if (storageBucket == null || storageBucket.isEmpty()) {
       log.error("Storage bucket is not configured when creating dataHubFile entity ");
       storageBucket = "";
     }
-    final String finalStorageBucket = storageBucket;
 
     String id = input.getId();
     String storageKey = input.getStorageKey();
+
+    // Create BucketStorageLocation object
+    com.linkedin.file.BucketStorageLocation bucketStorageLocation =
+        new com.linkedin.file.BucketStorageLocation();
+    bucketStorageLocation.setStorageBucket(storageBucket);
+    bucketStorageLocation.setStorageKey(storageKey);
+
     String originalFileName = input.getOriginalFileName();
     String mimeType = input.getMimeType();
     Long sizeInBytes = input.getSizeInBytes();
@@ -70,8 +76,7 @@ public class CreateDataHubFileResolver
                 _dataHubFileService.createDataHubFile(
                     context.getOperationContext(),
                     id,
-                    finalStorageBucket,
-                    storageKey,
+                    bucketStorageLocation,
                     originalFileName,
                     mimeType,
                     sizeInBytes,

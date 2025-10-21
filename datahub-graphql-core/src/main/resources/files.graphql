@@ -79,9 +79,9 @@ type DataHubFile implements Entity {
 }
 
 """
-Information about a DataHub file
+Information where a file is stored
 """
-type DataHubFileInfo {
+type BucketStorageLocation {
   """
   The storage bucket this file is stored in
   """
@@ -91,6 +91,16 @@ type DataHubFileInfo {
   The key for where this file is stored inside of the given bucket
   """
   storageKey: String!
+}
+
+"""
+Information about a DataHub file
+"""
+type DataHubFileInfo {
+  """
+  Info about where a file is stored
+  """
+  bucketStorageLocation: BucketStorageLocation!
 
   """
   The original filename as uploaded by the user

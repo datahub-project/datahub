@@ -42,12 +42,16 @@ public class DataHubFileServiceTest {
     when(mockEntityClient.exists(any(), any())).thenReturn(false);
     when(mockEntityClient.batchIngestProposals(any(), anyList(), eq(false))).thenReturn(null);
 
+    com.linkedin.file.BucketStorageLocation location =
+        new com.linkedin.file.BucketStorageLocation();
+    location.setStorageBucket("my-bucket");
+    location.setStorageKey("path/to/file.png");
+
     Urn urn =
         service.createDataHubFile(
             mockOpContext,
             "test-file-id",
-            "my-bucket",
-            "path/to/file.png",
+            location,
             "file.png",
             "image/png",
             1024L,
@@ -72,12 +76,16 @@ public class DataHubFileServiceTest {
         UrnUtils.getUrn(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,test,PROD),testField)");
 
+    com.linkedin.file.BucketStorageLocation location =
+        new com.linkedin.file.BucketStorageLocation();
+    location.setStorageBucket("my-bucket");
+    location.setStorageKey("path/to/file.png");
+
     Urn urn =
         service.createDataHubFile(
             mockOpContext,
             "test-file-id",
-            "my-bucket",
-            "path/to/file.png",
+            location,
             "file.png",
             "image/png",
             1024L,
@@ -96,11 +104,15 @@ public class DataHubFileServiceTest {
   public void testCreateDataHubFileAlreadyExists() throws Exception {
     when(mockEntityClient.exists(any(), any())).thenReturn(true);
 
+    com.linkedin.file.BucketStorageLocation location =
+        new com.linkedin.file.BucketStorageLocation();
+    location.setStorageBucket("my-bucket");
+    location.setStorageKey("path/to/file.png");
+
     service.createDataHubFile(
         mockOpContext,
         "test-file-id",
-        "my-bucket",
-        "path/to/file.png",
+        location,
         "file.png",
         "image/png",
         1024L,
@@ -117,11 +129,15 @@ public class DataHubFileServiceTest {
         .when(mockEntityClient)
         .batchIngestProposals(any(), anyList(), eq(false));
 
+    com.linkedin.file.BucketStorageLocation location =
+        new com.linkedin.file.BucketStorageLocation();
+    location.setStorageBucket("my-bucket");
+    location.setStorageKey("path/to/file.png");
+
     service.createDataHubFile(
         mockOpContext,
         "test-file-id",
-        "my-bucket",
-        "path/to/file.png",
+        location,
         "file.png",
         "image/png",
         1024L,
@@ -153,9 +169,13 @@ public class DataHubFileServiceTest {
 
   @Test
   public void testGetDataHubFileInfoFound() throws Exception {
+    com.linkedin.file.BucketStorageLocation location =
+        new com.linkedin.file.BucketStorageLocation();
+    location.setStorageBucket("my-bucket");
+    location.setStorageKey("path/to/file.png");
+
     DataHubFileInfo fileInfo = new DataHubFileInfo();
-    fileInfo.setStorageBucket("my-bucket");
-    fileInfo.setStorageKey("path/to/file.png");
+    fileInfo.setBucketStorageLocation(location);
     fileInfo.setOriginalFileName("file.png");
     fileInfo.setMimeType("image/png");
     fileInfo.setSizeInBytes(1024L);
@@ -173,8 +193,8 @@ public class DataHubFileServiceTest {
     DataHubFileInfo result = service.getDataHubFileInfo(mockOpContext, fileUrn);
 
     assertNotNull(result);
-    assertEquals(result.getStorageBucket(), "my-bucket");
-    assertEquals(result.getStorageKey(), "path/to/file.png");
+    assertEquals(result.getBucketStorageLocation().getStorageBucket(), "my-bucket");
+    assertEquals(result.getBucketStorageLocation().getStorageKey(), "path/to/file.png");
     assertEquals(result.getOriginalFileName(), "file.png");
   }
 

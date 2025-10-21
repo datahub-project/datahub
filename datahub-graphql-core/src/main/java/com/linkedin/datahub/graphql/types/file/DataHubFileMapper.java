@@ -65,8 +65,16 @@ public class DataHubFileMapper implements ModelMapper<EntityResponse, DataHubFil
     com.linkedin.datahub.graphql.generated.DataHubFileInfo graphqlFileInfo =
         new com.linkedin.datahub.graphql.generated.DataHubFileInfo();
 
-    graphqlFileInfo.setStorageBucket(gmsFileInfo.getStorageBucket());
-    graphqlFileInfo.setStorageKey(gmsFileInfo.getStorageKey());
+    // Map bucket storage location
+    if (gmsFileInfo.getBucketStorageLocation() != null) {
+      com.linkedin.file.BucketStorageLocation gmsLocation = gmsFileInfo.getBucketStorageLocation();
+      com.linkedin.datahub.graphql.generated.BucketStorageLocation graphqlLocation =
+          new com.linkedin.datahub.graphql.generated.BucketStorageLocation();
+      graphqlLocation.setStorageBucket(gmsLocation.getStorageBucket());
+      graphqlLocation.setStorageKey(gmsLocation.getStorageKey());
+      graphqlFileInfo.setBucketStorageLocation(graphqlLocation);
+    }
+
     graphqlFileInfo.setOriginalFileName(gmsFileInfo.getOriginalFileName());
     graphqlFileInfo.setMimeType(gmsFileInfo.getMimeType());
     graphqlFileInfo.setSizeInBytes(gmsFileInfo.getSizeInBytes());

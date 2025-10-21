@@ -54,8 +54,7 @@ public class CreateDataHubFileResolverTest {
     when(mockService.createDataHubFile(
             any(),
             eq(TEST_FILE_ID),
-            eq(TEST_STORAGE_BUCKET),
-            eq(TEST_STORAGE_KEY),
+            any(),
             eq(TEST_FILE_NAME),
             eq(TEST_MIME_TYPE),
             eq(TEST_SIZE),
@@ -66,10 +65,14 @@ public class CreateDataHubFileResolverTest {
         .thenReturn(fileUrn);
 
     // Mock EntityResponse with a valid aspect map
+    com.linkedin.file.BucketStorageLocation location =
+        new com.linkedin.file.BucketStorageLocation();
+    location.setStorageBucket(TEST_STORAGE_BUCKET);
+    location.setStorageKey(TEST_STORAGE_KEY);
+
     EntityResponse mockResponse = mock(EntityResponse.class);
     DataHubFileInfo fileInfo = new DataHubFileInfo();
-    fileInfo.setStorageBucket(TEST_STORAGE_BUCKET);
-    fileInfo.setStorageKey(TEST_STORAGE_KEY);
+    fileInfo.setBucketStorageLocation(location);
     fileInfo.setOriginalFileName(TEST_FILE_NAME);
     fileInfo.setMimeType(TEST_MIME_TYPE);
     fileInfo.setSizeInBytes(TEST_SIZE);
@@ -101,8 +104,7 @@ public class CreateDataHubFileResolverTest {
         .createDataHubFile(
             any(),
             eq(TEST_FILE_ID),
-            eq(TEST_STORAGE_BUCKET),
-            eq(TEST_STORAGE_KEY),
+            any(),
             eq(TEST_FILE_NAME),
             eq(TEST_MIME_TYPE),
             eq(TEST_SIZE),
@@ -144,8 +146,7 @@ public class CreateDataHubFileResolverTest {
     when(mockService.createDataHubFile(
             any(),
             eq(TEST_FILE_ID),
-            eq(TEST_STORAGE_BUCKET),
-            eq(TEST_STORAGE_KEY),
+            any(),
             eq(TEST_FILE_NAME),
             eq(TEST_MIME_TYPE),
             eq(TEST_SIZE),
@@ -156,10 +157,14 @@ public class CreateDataHubFileResolverTest {
         .thenReturn(fileUrn);
 
     // Mock EntityResponse
+    com.linkedin.file.BucketStorageLocation location =
+        new com.linkedin.file.BucketStorageLocation();
+    location.setStorageBucket(TEST_STORAGE_BUCKET);
+    location.setStorageKey(TEST_STORAGE_KEY);
+
     EntityResponse mockResponse = mock(EntityResponse.class);
     DataHubFileInfo fileInfo = new DataHubFileInfo();
-    fileInfo.setStorageBucket(TEST_STORAGE_BUCKET);
-    fileInfo.setStorageKey(TEST_STORAGE_KEY);
+    fileInfo.setBucketStorageLocation(location);
     fileInfo.setOriginalFileName(TEST_FILE_NAME);
     fileInfo.setMimeType(TEST_MIME_TYPE);
     fileInfo.setSizeInBytes(TEST_SIZE);
@@ -195,10 +200,9 @@ public class CreateDataHubFileResolverTest {
             any(),
             eq(TEST_FILE_ID),
             any(),
-            any(),
-            any(),
-            any(),
-            any(),
+            eq(TEST_FILE_NAME),
+            eq(TEST_MIME_TYPE),
+            eq(TEST_SIZE),
             any(),
             eq(assetUrn),
             eq(schemaFieldUrn),
@@ -225,7 +229,7 @@ public class CreateDataHubFileResolverTest {
     input.setScenario(UploadDownloadScenario.ASSET_DOCUMENTATION);
 
     when(mockService.createDataHubFile(
-            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+            any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenThrow(new RuntimeException("File already exists"));
     when(mockEnv.getArgument(eq("input"))).thenReturn(input);
     when(mockEnv.getContext()).thenReturn(mockContext);
@@ -233,8 +237,7 @@ public class CreateDataHubFileResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
     verify(mockService, times(1))
-        .createDataHubFile(
-            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .createDataHubFile(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -260,8 +263,7 @@ public class CreateDataHubFileResolverTest {
     when(mockService.createDataHubFile(
             any(),
             eq(TEST_FILE_ID),
-            eq(TEST_STORAGE_BUCKET),
-            eq(TEST_STORAGE_KEY),
+            any(),
             eq(TEST_FILE_NAME),
             eq(TEST_MIME_TYPE),
             eq(TEST_SIZE),
@@ -272,10 +274,14 @@ public class CreateDataHubFileResolverTest {
         .thenReturn(fileUrn);
 
     // Mock EntityResponse
+    com.linkedin.file.BucketStorageLocation location =
+        new com.linkedin.file.BucketStorageLocation();
+    location.setStorageBucket(TEST_STORAGE_BUCKET);
+    location.setStorageKey(TEST_STORAGE_KEY);
+
     EntityResponse mockResponse = mock(EntityResponse.class);
     DataHubFileInfo fileInfo = new DataHubFileInfo();
-    fileInfo.setStorageBucket(TEST_STORAGE_BUCKET);
-    fileInfo.setStorageKey(TEST_STORAGE_KEY);
+    fileInfo.setBucketStorageLocation(location);
     fileInfo.setOriginalFileName(TEST_FILE_NAME);
     fileInfo.setMimeType(TEST_MIME_TYPE);
     fileInfo.setSizeInBytes(TEST_SIZE);
@@ -304,6 +310,6 @@ public class CreateDataHubFileResolverTest {
 
     verify(mockService, times(1))
         .createDataHubFile(
-            any(), any(), any(), any(), any(), any(), any(), any(), eq(null), eq(null), eq(null));
+            any(), any(), any(), any(), any(), any(), any(), eq(null), eq(null), eq(null));
   }
 }

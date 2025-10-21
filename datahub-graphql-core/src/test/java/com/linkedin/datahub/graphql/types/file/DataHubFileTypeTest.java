@@ -218,10 +218,15 @@ public class DataHubFileTypeTest {
   }
 
   private EntityResponse createMockEntityResponse(String urn, String fileName) {
+    // Create BucketStorageLocation
+    com.linkedin.file.BucketStorageLocation location =
+        new com.linkedin.file.BucketStorageLocation();
+    location.setStorageBucket("my-bucket");
+    location.setStorageKey("path/to/" + fileName);
+
     // Create GMS file info
     DataHubFileInfo gmsFileInfo = new DataHubFileInfo();
-    gmsFileInfo.setStorageBucket("my-bucket");
-    gmsFileInfo.setStorageKey("path/to/" + fileName);
+    gmsFileInfo.setBucketStorageLocation(location);
     gmsFileInfo.setOriginalFileName(fileName);
     gmsFileInfo.setMimeType("image/png");
     gmsFileInfo.setSizeInBytes(1024L);
@@ -247,10 +252,15 @@ public class DataHubFileTypeTest {
   }
 
   private EntityResponse createComplexMockEntityResponse(String urn) {
+    // Create BucketStorageLocation
+    com.linkedin.file.BucketStorageLocation location =
+        new com.linkedin.file.BucketStorageLocation();
+    location.setStorageBucket("my-bucket");
+    location.setStorageKey("path/to/complex-file.pdf");
+
     // Create GMS file info with references and optional fields
     DataHubFileInfo gmsFileInfo = new DataHubFileInfo();
-    gmsFileInfo.setStorageBucket("my-bucket");
-    gmsFileInfo.setStorageKey("path/to/complex-file.pdf");
+    gmsFileInfo.setBucketStorageLocation(location);
     gmsFileInfo.setOriginalFileName("complex-file.pdf");
     gmsFileInfo.setMimeType("application/pdf");
     gmsFileInfo.setSizeInBytes(2048L);

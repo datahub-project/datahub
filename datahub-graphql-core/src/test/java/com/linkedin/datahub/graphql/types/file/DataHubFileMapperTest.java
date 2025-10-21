@@ -21,10 +21,15 @@ public class DataHubFileMapperTest {
     // Create test data
     Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:test-file-123");
 
+    // Create BucketStorageLocation
+    com.linkedin.file.BucketStorageLocation location =
+        new com.linkedin.file.BucketStorageLocation();
+    location.setStorageBucket("my-bucket");
+    location.setStorageKey("path/to/file.png");
+
     // Create GMS file info
     DataHubFileInfo gmsFileInfo = new DataHubFileInfo();
-    gmsFileInfo.setStorageBucket("my-bucket");
-    gmsFileInfo.setStorageKey("path/to/file.png");
+    gmsFileInfo.setBucketStorageLocation(location);
     gmsFileInfo.setOriginalFileName("file.png");
     gmsFileInfo.setMimeType("image/png");
     gmsFileInfo.setSizeInBytes(1024L);
@@ -55,8 +60,9 @@ public class DataHubFileMapperTest {
 
     // Verify info
     assertNotNull(result.getInfo());
-    assertEquals(result.getInfo().getStorageBucket(), "my-bucket");
-    assertEquals(result.getInfo().getStorageKey(), "path/to/file.png");
+    assertNotNull(result.getInfo().getBucketStorageLocation());
+    assertEquals(result.getInfo().getBucketStorageLocation().getStorageBucket(), "my-bucket");
+    assertEquals(result.getInfo().getBucketStorageLocation().getStorageKey(), "path/to/file.png");
     assertEquals(result.getInfo().getOriginalFileName(), "file.png");
     assertEquals(result.getInfo().getMimeType(), "image/png");
     assertEquals(result.getInfo().getSizeInBytes(), Long.valueOf(1024L));
@@ -80,10 +86,15 @@ public class DataHubFileMapperTest {
         UrnUtils.getUrn(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,test,PROD),testField)");
 
+    // Create BucketStorageLocation
+    com.linkedin.file.BucketStorageLocation location =
+        new com.linkedin.file.BucketStorageLocation();
+    location.setStorageBucket("my-bucket");
+    location.setStorageKey("path/to/file.png");
+
     // Create GMS file info
     DataHubFileInfo gmsFileInfo = new DataHubFileInfo();
-    gmsFileInfo.setStorageBucket("my-bucket");
-    gmsFileInfo.setStorageKey("path/to/file.png");
+    gmsFileInfo.setBucketStorageLocation(location);
     gmsFileInfo.setOriginalFileName("file.png");
     gmsFileInfo.setMimeType("image/png");
     gmsFileInfo.setSizeInBytes(1024L);
@@ -125,10 +136,15 @@ public class DataHubFileMapperTest {
     // Create test data
     Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:test-file-123");
 
+    // Create BucketStorageLocation
+    com.linkedin.file.BucketStorageLocation location =
+        new com.linkedin.file.BucketStorageLocation();
+    location.setStorageBucket("my-bucket");
+    location.setStorageKey("path/to/file.png");
+
     // Create GMS file info with optional fields (contentHash)
     DataHubFileInfo gmsFileInfo = new DataHubFileInfo();
-    gmsFileInfo.setStorageBucket("my-bucket");
-    gmsFileInfo.setStorageKey("path/to/file.png");
+    gmsFileInfo.setBucketStorageLocation(location);
     gmsFileInfo.setOriginalFileName("file.png");
     gmsFileInfo.setMimeType("image/png");
     gmsFileInfo.setSizeInBytes(1024L);
@@ -156,7 +172,8 @@ public class DataHubFileMapperTest {
 
     // Verify basic fields work with optional contentHash
     assertNotNull(result.getInfo());
-    assertEquals(result.getInfo().getStorageBucket(), "my-bucket");
+    assertNotNull(result.getInfo().getBucketStorageLocation());
+    assertEquals(result.getInfo().getBucketStorageLocation().getStorageBucket(), "my-bucket");
     assertEquals(result.getInfo().getOriginalFileName(), "file.png");
   }
 
@@ -180,10 +197,15 @@ public class DataHubFileMapperTest {
     // Create test data
     Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:test-file-123");
 
+    // Create BucketStorageLocation
+    com.linkedin.file.BucketStorageLocation location =
+        new com.linkedin.file.BucketStorageLocation();
+    location.setStorageBucket("my-bucket");
+    location.setStorageKey("path/to/file.png");
+
     // Create GMS file info without references
     DataHubFileInfo gmsFileInfo = new DataHubFileInfo();
-    gmsFileInfo.setStorageBucket("my-bucket");
-    gmsFileInfo.setStorageKey("path/to/file.png");
+    gmsFileInfo.setBucketStorageLocation(location);
     gmsFileInfo.setOriginalFileName("file.png");
     gmsFileInfo.setMimeType("image/png");
     gmsFileInfo.setSizeInBytes(1024L);

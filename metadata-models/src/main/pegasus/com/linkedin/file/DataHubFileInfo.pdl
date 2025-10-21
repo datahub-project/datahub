@@ -11,20 +11,9 @@ import com.linkedin.common.Urn
 }
 record DataHubFileInfo {
   /**
-   * The storage bucket this file is stored in
+   * Info about where a file is stored
    */
-  @Searchable = {
-    "fieldType": "KEYWORD"
-  }
-  storageBucket: string
-
-  /**
-   * The key for where this file is stored inside of the given bucket
-   */
-  @Searchable = {
-    "fieldType": "KEYWORD"
-  }
-  storageKey: string
+  bucketStorageLocation: BucketStorageLocation
 
   /**
    * The original filename as uploaded by the user
