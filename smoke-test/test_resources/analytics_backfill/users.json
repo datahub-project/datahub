@@ -1,0 +1,222 @@
+[
+  {
+    "username": "sam.davis",
+    "first_name": "Sam",
+    "last_name": "Davis",
+    "email": "sam.davis@example.com",
+    "display_name": "Sam Davis",
+    "title": "Data Analyst",
+    "department": "HR",
+    "team": "Platform",
+    "slack": "@sam.davis"
+  },
+  {
+    "username": "jack.chen1",
+    "first_name": "Jack",
+    "last_name": "Chen",
+    "email": "jack.chen1@example.com",
+    "display_name": "Jack Chen",
+    "title": "Software Engineer",
+    "department": "Customer Success",
+    "team": "Growth",
+    "slack": "@jack.chen1"
+  },
+  {
+    "username": "tara.zhang2",
+    "first_name": "Tara",
+    "last_name": "Zhang",
+    "email": "tara.zhang2@example.com",
+    "display_name": "Tara Zhang",
+    "title": "Analytics Engineer",
+    "department": "Sales",
+    "team": "Data Governance",
+    "slack": "@tara.zhang2"
+  },
+  {
+    "username": "emma.smith3",
+    "first_name": "Emma",
+    "last_name": "Smith",
+    "email": "emma.smith3@example.com",
+    "display_name": "Emma Smith",
+    "title": "Data Architect",
+    "department": "Finance",
+    "team": "Analytics",
+    "slack": "@emma.smith3"
+  },
+  {
+    "username": "rachel.johnson4",
+    "first_name": "Rachel",
+    "last_name": "Johnson",
+    "email": "rachel.johnson4@example.com",
+    "display_name": "Rachel Johnson",
+    "title": "Data Architect",
+    "department": "Marketing",
+    "team": "Data Infrastructure",
+    "slack": "@rachel.johnson4"
+  },
+  {
+    "username": "emma.xavier5",
+    "first_name": "Emma",
+    "last_name": "Xavier",
+    "email": "emma.xavier5@example.com",
+    "display_name": "Emma Xavier",
+    "title": "Analytics Engineer",
+    "department": "Operations",
+    "team": "Platform",
+    "slack": "@emma.xavier5"
+  },
+  {
+    "username": "sam.anderson6",
+    "first_name": "Sam",
+    "last_name": "Anderson",
+    "email": "sam.anderson6@example.com",
+    "display_name": "Sam Anderson",
+    "title": "ML Engineer",
+    "department": "Product",
+    "team": "Data Quality",
+    "slack": "@sam.anderson6"
+  },
+  {
+    "username": "emma.harris7",
+    "first_name": "Emma",
+    "last_name": "Harris",
+    "email": "emma.harris7@example.com",
+    "display_name": "Emma Harris",
+    "title": "Product Manager",
+    "department": "HR",
+    "team": "Growth",
+    "slack": "@emma.harris7"
+  },
+  {
+    "username": "yara.xavier8",
+    "first_name": "Yara",
+    "last_name": "Xavier",
+    "email": "yara.xavier8@example.com",
+    "display_name": "Yara Xavier",
+    "title": "Data Analyst",
+    "department": "Marketing",
+    "team": "Platform",
+    "slack": "@yara.xavier8"
+  },
+  {
+    "username": "frank.chen9",
+    "first_name": "Frank",
+    "last_name": "Chen",
+    "email": "frank.chen9@example.com",
+    "display_name": "Frank Chen",
+    "title": "ML Engineer",
+    "department": "Data Science",
+    "team": "ML Platform",
+    "slack": "@frank.chen9"
+  },
+  {
+    "username": "kate.zhang10",
+    "first_name": "Kate",
+    "last_name": "Zhang",
+    "email": "kate.zhang10@example.com",
+    "display_name": "Kate Zhang",
+    "title": "ML Engineer",
+    "department": "Customer Success",
+    "team": "Analytics",
+    "slack": "@kate.zhang10"
+  },
+  {
+    "username": "maya.evans11",
+    "first_name": "Maya",
+    "last_name": "Evans",
+    "email": "maya.evans11@example.com",
+    "display_name": "Maya Evans",
+    "title": "BI Developer",
+    "department": "Marketing",
+    "team": "Data Quality",
+    "slack": "@maya.evans11"
+  },
+  {
+    "username": "liam.anderson12",
+    "first_name": "Liam",
+    "last_name": "Anderson",
+    "email": "liam.anderson12@example.com",
+    "display_name": "Liam Anderson",
+    "title": "Data Architect",
+    "department": "Product",
+    "team": "Data Governance",
+    "slack": "@liam.anderson12"
+  },
+  {
+    "username": "wendy.johnson13",
+    "first_name": "Wendy",
+    "last_name": "Johnson",
+    "email": "wendy.johnson13@example.com",
+    "display_name": "Wendy Johnson",
+    "title": "BI Developer",
+    "department": "Sales",
+    "team": "Core Product",
+    "slack": "@wendy.johnson13"
+  },
+  {
+    "username": "olivia.vargas14",
+    "first_name": "Olivia",
+    "last_name": "Vargas",
+    "email": "olivia.vargas14@example.com",
+    "display_name": "Olivia Vargas",
+    "title": "Product Manager",
+    "department": "Legal",
+    "team": "Platform",
+    "slack": "@olivia.vargas14"
+  },
+  {
+    "username": "emma.o'brien15",
+    "first_name": "Emma",
+    "last_name": "O'Brien",
+    "email": "emma.o'brien15@example.com",
+    "display_name": "Emma O'Brien",
+    "title": "Data Architect",
+    "department": "Operations",
+    "team": "Business Intelligence",
+    "slack": "@emma.o'brien15"
+  },
+  {
+    "username": "yara.rodriguez16",
+    "first_name": "Yara",
+    "last_name": "Rodriguez",
+    "email": "yara.rodriguez16@example.com",
+    "display_name": "Yara Rodriguez",
+    "title": "Product Manager",
+    "department": "Data Science",
+    "team": "ML Platform",
+    "slack": "@yara.rodriguez16"
+  },
+  {
+    "username": "wendy.xavier17",
+    "first_name": "Wendy",
+    "last_name": "Xavier",
+    "email": "wendy.xavier17@example.com",
+    "display_name": "Wendy Xavier",
+    "title": "BI Developer",
+    "department": "Engineering",
+    "team": "Growth",
+    "slack": "@wendy.xavier17"
+  },
+  {
+    "username": "rachel.quinn18",
+    "first_name": "Rachel",
+    "last_name": "Quinn",
+    "email": "rachel.quinn18@example.com",
+    "display_name": "Rachel Quinn",
+    "title": "Analytics Engineer",
+    "department": "Marketing",
+    "team": "Data Infrastructure",
+    "slack": "@rachel.quinn18"
+  },
+  {
+    "username": "henry.wilson19",
+    "first_name": "Henry",
+    "last_name": "Wilson",
+    "email": "henry.wilson19@example.com",
+    "display_name": "Henry Wilson",
+    "title": "Data Analyst",
+    "department": "HR",
+    "team": "Data Infrastructure",
+    "slack": "@henry.wilson19"
+  }
+]

@@ -64,6 +64,7 @@ smoke-test/spark-smoke-test/__pycache__/
 # cypress integration test generated files
 **/cypress/videos
 **/cypress/screenshots
+**/cypress/results
 **/cypress/node_modules
 
 # Metadata Ingestion Generated
