@@ -136,9 +136,13 @@ class SnowflakeMetadataSyncAction(ExtendedAction[SelectedAsset]):
                 self.snowflake_helper.apply_tag_or_term(
                     entity_to_apply, tag_to_apply, self.ctx.graph
                 )
-            else:
+            elif directive.operation == "REMOVE":
                 self.snowflake_helper.remove_tag_or_term(
                     entity_to_apply, tag_to_apply, self.ctx.graph
+                )
+            else:
+                logger.warning(
+                    f"Unknown operation '{directive.operation}' for tag/term propagation. Skipping."
                 )
 
     def act(self, event: EventEnvelope) -> None:

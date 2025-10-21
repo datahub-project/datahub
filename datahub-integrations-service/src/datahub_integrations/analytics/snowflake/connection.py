@@ -4,7 +4,7 @@ from typing import Optional, Union
 
 from datahub.configuration.common import ConnectionModel
 from datahub.ingestion.graph.client import DataHubGraph
-from pydantic import field_validator, model_validator
+from pydantic import SecretStr, field_validator, model_validator
 
 from datahub_integrations.app import graph
 from datahub_integrations.graphql.connection import (
@@ -31,8 +31,8 @@ class SnowflakeConnection(_FrozenConnectionModel):  # type: ignore[misc]  # Froz
     authentication_type: Union[SnowflakeAuthenticationType, str] = (
         SnowflakeAuthenticationType.DEFAULT_AUTHENTICATOR
     )
-    private_key: Optional[str] = None
-    private_key_password: Optional[str] = None
+    private_key: Optional[SecretStr] = None
+    private_key_password: Optional[SecretStr] = None
 
     @field_validator("authentication_type", mode="before")
     @classmethod

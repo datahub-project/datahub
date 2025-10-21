@@ -53,7 +53,11 @@ class SnowflakeAnalyticsEngine(AnalyticsEngine):
             "password": self.connection.password,
             "role": self.connection.role,
             "authentication_type": auth_type_str,  # SnowflakeConnectionConfig expects str
-            "private_key": self.connection.private_key,
+            "private_key": (
+                self.connection.private_key.get_secret_value()
+                if self.connection.private_key
+                else None
+            ),
             "private_key_password": self.connection.private_key_password,
         }
 

@@ -2,9 +2,13 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
+import sqlglot
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 
 logger = logging.getLogger(__name__)
+
+# Snowflake dialect for SQL identifier formatting
+_SNOWFLAKE_DIALECT = sqlglot.Dialect.get_or_raise("snowflake")
 
 
 @dataclass(frozen=True)
@@ -68,48 +72,39 @@ class URNParser:
 
 
 class SQLIdentifierFormatter:
-    """Handles formatting and quoting of SQL identifiers."""
+    """Handles formatting and quoting of SQL identifiers using sqlglot."""
 
     # Characters that require an identifier to be quoted
-    SPECIAL_CHARS_REQUIRING_QUOTES = {" ", "-", ".", "/", "\\", "(", ")", "[", "]"}
-
-    # SQL reserved words that require quoting
-    RESERVED_WORDS = {
-        "SELECT",
-        "FROM",
-        "WHERE",
-        "INSERT",
-        "UPDATE",
-        "DELETE",
-        "CREATE",
-        "DROP",
-        "ALTER",
-        "TABLE",
-        "VIEW",
-        "INDEX",
-        "DATABASE",
-        "SCHEMA",
-        "COLUMN",
-        "COMMENT",
-        "ORDER",
-        "GROUP",
-        "BY",
-        "HAVING",
-        "UNION",
-        "JOIN",
-        "INNER",
-        "LEFT",
-        "RIGHT",
-        "FULL",
-        "OUTER",
-        "ON",
-        "AS",
-        "AND",
-        "OR",
-        "NOT",
-        "NULL",
-        "TRUE",
-        "FALSE",
+    # Expanded set based on Snowflake documentation
+    SPECIAL_CHARS_REQUIRING_QUOTES = {
+        " ",
+        "-",
+        ".",
+        "/",
+        "\\",
+        "(",
+        ")",
+        "[",
+        "]",
+        "*",
+        "?",
+        "!",
+        "@",
+        "#",
+        "$",
+        "%",
+        "^",
+        "&",
+        "+",
+        "=",
+        "{",
+        "}",
+        "|",
+        ":",
+        ";",
+        "<",
+        ">",
+        ",",
     }
 
     @staticmethod
@@ -117,6 +112,7 @@ class SQLIdentifierFormatter:
         """
         Format a Snowflake identifier with smart quoting.
         Only quotes when necessary (special characters, spaces, reserved words).
+        Uses sqlglot's comprehensive keyword list for accurate detection.
         """
         if not identifier:
             return identifier
@@ -132,9 +128,16 @@ class SQLIdentifierFormatter:
 
     @staticmethod
     def _should_quote_identifier(identifier: str) -> bool:
-        """Determine if an identifier needs to be quoted."""
+        """
+        Determine if an identifier needs to be quoted.
+        Uses sqlglot's keyword list for comprehensive reserved word detection.
+        """
         if not identifier:
             return False
+
+        # Quote if starts with a number
+        if identifier[0].isdigit():
+            return True
 
         # Quote if contains special characters or spaces
         if any(
@@ -143,12 +146,8 @@ class SQLIdentifierFormatter:
         ):
             return True
 
-        # Quote if starts with a number
-        if identifier[0].isdigit():
-            return True
-
-        # Quote if it's a reserved word
-        if identifier.upper() in SQLIdentifierFormatter.RESERVED_WORDS:
+        # Quote if it's a reserved keyword (using sqlglot's comprehensive list)
+        if identifier.upper() in _SNOWFLAKE_DIALECT.tokenizer_class.KEYWORDS:
             return True
 
         return False

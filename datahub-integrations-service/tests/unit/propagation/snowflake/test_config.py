@@ -26,9 +26,9 @@ class TestSnowflakeConnectionConfigPermissive:
 
         # Should not include private_key for password auth
         assert "private_key" not in connect_args
-        # Should include performance settings
-        assert "CLIENT_PREFETCH_THREADS" in connect_args
-        assert "CLIENT_SESSION_KEEP_ALIVE" in connect_args
+        # Should include performance settings (lowercase keys as per Snowflake connector)
+        assert "client_prefetch_threads" in connect_args
+        assert "client_session_keep_alive" in connect_args
 
     def test_get_connect_args_key_pair_auth_with_private_key_string(self) -> None:
         """Test get_connect_args with key pair authentication using private_key string."""

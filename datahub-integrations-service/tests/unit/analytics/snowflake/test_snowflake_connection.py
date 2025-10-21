@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
+from pydantic import SecretStr
 
 from datahub_integrations.analytics.snowflake.connection import SnowflakeConnection
 
@@ -39,8 +40,8 @@ class TestSnowflakeConnection:
 
         assert key_connection.authentication_type == "KEY_PAIR_AUTHENTICATOR"
         assert key_connection.password is None
-        assert key_connection.private_key == test_private_key
-        assert key_connection.private_key_password == "key_password"
+        assert key_connection.private_key.get_secret_value() == test_private_key
+        assert key_connection.private_key_password.get_secret_value() == "key_password"
 
     def test_datahub_integration_parses_json_blob_correctly(self) -> None:
         """Test that from_datahub correctly parses nested JSON configuration from GraphQL response."""
@@ -93,7 +94,7 @@ class TestSnowflakeConnection:
         connection = SnowflakeConnection.from_datahub(mock_graph)
 
         # Verify that JSON parsing correctly unescaped the newlines
-        assert connection.private_key == test_private_key
+        assert connection.private_key.get_secret_value() == test_private_key
         assert connection.authentication_type == "KEY_PAIR_AUTHENTICATOR"
         assert connection.password is None
 
