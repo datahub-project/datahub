@@ -399,7 +399,7 @@ services:
   opensearch:
     profiles: *opensearch-profiles
     hostname: search
-    image: ${DATAHUB_SEARCH_IMAGE:-opensearchproject/opensearch}:${DATAHUB_SEARCH_TAG:-2.17.0}
+    image: ${DATAHUB_SEARCH_IMAGE:-opensearchproject/opensearch}:${DATAHUB_SEARCH_TAG:-2.19.3}
     ports:
       - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
     env_file: elasticsearch/env/docker.env

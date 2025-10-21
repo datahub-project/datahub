@@ -36,12 +36,12 @@ buildscript {
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.74.2'
-  ext.mavenVersion = '3.6.3'
+  ext.mavenVersion = '3.8.1'
   ext.versionGradle = '8.14.3'
   ext.springVersion = '6.2.11'
   ext.springBootVersion = '3.4.5'
   ext.springKafkaVersion = '3.3.8'
-  ext.openTelemetryVersion = '1.49.0'
+  ext.openTelemetryVersion = '1.54.1'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.1'
@@ -55,7 +55,7 @@ buildscript {
   ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
   ext.log4jVersion = '2.23.1'
   ext.slf4jVersion = '1.7.36'
-  ext.logbackClassic = '1.5.18'
+  ext.logbackClassic = '1.5.19'
   ext.hadoop3Version = '3.3.6'
   ext.kafkaVersion = '8.0.0'
   ext.hazelcastVersion = '5.3.6'
@@ -126,14 +126,15 @@ project.ext.externalDependency = [
     'awaitility': 'org.awaitility:awaitility:4.2.0',
     'avro': 'org.apache.avro:avro:1.11.4',
     'avroCompiler': 'org.apache.avro:avro-compiler:1.11.4',
-    'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.23',
+    'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.25',
     'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.3.2',
+    'awsSdk2Bom': 'software.amazon.awssdk:bom:2.23.6',
     'awsS3': "software.amazon.awssdk:s3:$awsSdk2Version",
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.15',
-    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.5.4',
+    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.5.6',
     'awsRds':"software.amazon.awssdk:rds:$awsSdk2Version",
-    'azureIdentityExtensions': 'com.azure:azure-identity-extensions:1.2.2',
-    'azureIdentity': 'com.azure:azure-identity:1.15.4',
+    'azureIdentityExtensions': 'com.azure:azure-identity-extensions:1.2.5',
+    'azureIdentity': 'com.azure:azure-identity:1.18.1',
     'cacheApi': 'javax.cache:cache-api:1.1.0',
     'commonsCli': 'commons-cli:commons-cli:1.5.0',
     'commonsIo': 'commons-io:commons-io:2.17.0',
@@ -238,7 +239,7 @@ project.ext.externalDependency = [
     'opentelemetryExporter': 'io.opentelemetry:opentelemetry-exporter-otlp:' + openTelemetryVersion,
     'openTelemetryExporterLogging': 'io.opentelemetry:opentelemetry-exporter-logging:' + openTelemetryVersion,
     'openTelemetryExporterCommon': 'io.opentelemetry:opentelemetry-exporter-otlp-common:' + openTelemetryVersion,
-    'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.15.0',
+    'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.20.1',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     'parquet': 'org.apache.parquet:parquet-avro:1.15.2',
     'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.13.1',
@@ -319,7 +320,7 @@ allprojects {
 
   // Apply test-logger plugin for better test output
   apply plugin: 'com.adarshr.test-logger'
-  
+
   testlogger {
     theme 'mocha' // Clean, modern output
     showExceptions true
@@ -430,7 +431,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: 'commons-httpclient', module: 'commons-httpclient'
     exclude group: 'commons-collections', module: 'commons-collections'
     exclude group: 'commons-lang', module: 'commons-lang'
-    
+
     // Tomcat excluded for jetty
     exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
     exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'
@@ -513,6 +514,7 @@ subprojects {
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
         implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
+        implementation('com.squareup.okhttp3:okhttp:4.12.0')
         implementation(externalDependency.commonsIo)
         implementation(externalDependency.protobuf)
       }

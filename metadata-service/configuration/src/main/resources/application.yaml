@@ -157,6 +157,13 @@ datahub:
   policies:
     systemPolicyUrnList: ${DATAHUB_SYSTEM_POLICY_URN_LIST:} # Additional policy urns that should not allow deletion, comma separated list like urn:li:dataHubPolicy:my-policy
 
+  s3:
+    bucketName: ${DATAHUB_BUCKET_NAME:#{null}} # The S3 bucket name to use for storing data
+    roleArn: ${DATAHUB_ROLE_ARN:#{null}} # The AWS IAM role ARN to assume for S3 access
+    presignedUploadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_UPLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
+    presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
+    assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product-assets}
+
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
   retention:
