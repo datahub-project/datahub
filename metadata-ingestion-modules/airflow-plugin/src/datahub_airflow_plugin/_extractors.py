@@ -20,54 +20,17 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub_airflow_plugin._airflow_shims import Operator
 from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
-
-# Conditional imports for Airflow 2 vs Airflow 3 OpenLineage support
-IS_AIRFLOW_3 = False
-try:
-    # Airflow 3.x: Use native OpenLineage provider
-    from airflow.providers.openlineage.extractors.base import (
-        BaseExtractor,
-        OperatorLineage,
-    )
-    from airflow.providers.openlineage.extractors.manager import (
-        ExtractorManager as OLExtractorManager,
-    )
-    from airflow.providers.openlineage.utils.utils import (
-        get_operator_class,
-        try_import_from_string,
-    )
-
-    IS_AIRFLOW_3 = True
-
-    try:
-        from airflow.providers.openlineage.extractors.snowflake import (
-            SnowflakeExtractor,
-        )
-    except ImportError:
-        SnowflakeExtractor = None  # type: ignore
-    try:
-        from airflow.providers.openlineage.extractors.sql import SqlExtractor
-    except ImportError:
-        SqlExtractor = None  # type: ignore
-
-    # For Airflow 3, TaskMetadata doesn't exist
-    # Define it as a module-level variable pointing to Any for mypy
-    if not TYPE_CHECKING:
-        TaskMetadata: Any = type("TaskMetadata", (), {})
-except (ImportError, ModuleNotFoundError):
-    # Airflow 2.x: Use standalone openlineage-airflow package
-    from openlineage.airflow.extractors import (
-        BaseExtractor,
-        ExtractorManager as OLExtractorManager,
-        TaskMetadata,
-    )
-    from openlineage.airflow.extractors.snowflake_extractor import SnowflakeExtractor
-    from openlineage.airflow.extractors.sql_extractor import SqlExtractor
-    from openlineage.airflow.utils import get_operator_class, try_import_from_string
-
-    # For Airflow 2, OperatorLineage doesn't exist
-    if not TYPE_CHECKING:
-        OperatorLineage: Any = type("OperatorLineage", (), {})
+from datahub_airflow_plugin._openlineage_compat import (
+    IS_AIRFLOW_3,
+    BaseExtractor,
+    OLExtractorManager,
+    OperatorLineage,
+    SnowflakeExtractor,
+    SqlExtractor,
+    TaskMetadata,
+    get_operator_class,
+    try_import_from_string,
+)
 
 if TYPE_CHECKING:
     from airflow.models import DagRun, TaskInstance
