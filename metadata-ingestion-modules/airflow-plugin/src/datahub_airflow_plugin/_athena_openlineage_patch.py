@@ -9,6 +9,9 @@ DataHub's SQL parser instead, enabling column-level lineage extraction.
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
+import datahub.emitter.mce_builder as builder
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+
 if TYPE_CHECKING:
     from airflow.models.taskinstance import TaskInstance
     from airflow.providers.openlineage.extractors import OperatorLineage
@@ -55,10 +58,6 @@ def patch_athena_operator() -> None:
             2. Enhances it with DataHub SQL parsing result for column lineage
             """
             try:
-                from datahub.sql_parsing.sqlglot_lineage import (
-                    create_lineage_sql_parsed_result,
-                )
-
                 logger.info(
                     f"DataHub patched Athena get_openlineage_facets_on_complete called for query: {self.query[:100]}"
                 )
@@ -96,7 +95,7 @@ def patch_athena_operator() -> None:
                         query=self.query,
                         platform=platform,
                         platform_instance=None,
-                        env="PROD",
+                        env=builder.DEFAULT_ENV,
                         default_db=default_database,
                         default_schema=None,
                     )

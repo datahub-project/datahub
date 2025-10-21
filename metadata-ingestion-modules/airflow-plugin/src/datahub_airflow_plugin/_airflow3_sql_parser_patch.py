@@ -58,10 +58,48 @@ def _datahub_generate_openlineage_metadata_from_sql(
     This is necessary because in Airflow 3.0+, SQL operators call SQLParser directly
     rather than using extractors. We intercept this call and use DataHub's SQL parser
     to generate lineage with column-level lineage support.
+
+    When OpenLineage plugin is enabled (disable_openlineage_plugin=False), we call both
+    parsers: OpenLineage gets its own parsing results, while DataHub's enhanced parsing
+    is stored in a custom facet for the DataHub listener to extract.
     """
     try:
         # Import here to avoid circular dependency (datahub_listener -> _airflow_compat -> this module)
+        from datahub_airflow_plugin._config import get_lineage_config
         from datahub_airflow_plugin.datahub_listener import get_airflow_plugin_listener
+
+        # Check if OpenLineage plugin is enabled
+        try:
+            config = get_lineage_config()
+            openlineage_enabled = not config.disable_openlineage_plugin
+        except Exception as e:
+            logger.warning(
+                f"Could not load config to check disable_openlineage_plugin: {e}"
+            )
+            openlineage_enabled = False
+
+        # If OpenLineage is enabled, call the original parser first to get its results
+        ol_result = None
+        if openlineage_enabled and _original_sql_parser_method is not None:
+            try:
+                logger.debug(
+                    "OpenLineage plugin enabled - calling original parser for OpenLineage"
+                )
+                ol_result = _original_sql_parser_method(
+                    self,
+                    sql,
+                    hook,
+                    database_info,
+                    database,
+                    sqlalchemy_engine,
+                    use_connection,
+                )
+                logger.debug(f"OpenLineage parser result: {ol_result}")
+            except Exception as e:
+                logger.warning(
+                    f"Error calling original OpenLineage parser, will use only DataHub parser: {e}",
+                    exc_info=True,
+                )
 
         # Handle missing database_info by creating a minimal one from connection
         if database_info is None:
@@ -91,6 +129,11 @@ def _datahub_generate_openlineage_metadata_from_sql(
         if platform == "generic" and database_info:
             # Use the actual connection type instead of "generic"
             platform = getattr(database_info, "scheme", platform) or platform
+            if platform == "generic":
+                raise ValueError(
+                    "Could not determine platform from generic dialect or database_info"
+                )
+
         platform = OL_SCHEME_TWEAKS.get(platform, platform)
 
         # Get default database and schema
@@ -128,8 +171,38 @@ def _datahub_generate_openlineage_metadata_from_sql(
 
         logger.debug(f"DataHub SQL parser result: {sql_parsing_result}")
 
+        # Store the sql_parsing_result in run_facets for later retrieval by the DataHub listener
+        # We use a custom facet key that the listener can check for
+        DATAHUB_SQL_PARSING_RESULT_KEY = "datahub_sql_parsing_result"
+
+        # If OpenLineage plugin is enabled and we got a result from the original parser,
+        # use OpenLineage's result but add DataHub's parsing to the facets
+        if ol_result is not None:
+            logger.debug(
+                "Using OpenLineage parser result for OperatorLineage, "
+                "adding DataHub parsing to run_facets"
+            )
+            # Add DataHub's SQL parsing result to the existing run_facets
+            # OperatorLineage is frozen (uses @define), so we need to create a new dict
+            updated_run_facets = dict(ol_result.run_facets or {})
+            updated_run_facets[DATAHUB_SQL_PARSING_RESULT_KEY] = sql_parsing_result
+
+            # Create new OperatorLineage with OpenLineage's inputs/outputs but DataHub's facet
+            operator_lineage = OperatorLineage(  # type: ignore[misc]
+                inputs=ol_result.inputs,
+                outputs=ol_result.outputs,
+                job_facets=ol_result.job_facets,
+                run_facets=updated_run_facets,
+            )
+            return operator_lineage
+
+        # OpenLineage is disabled or original parser failed - use DataHub's parsing for everything
+        logger.debug(
+            "OpenLineage plugin disabled or parser unavailable - "
+            "using DataHub parser result for OperatorLineage"
+        )
+
         # Convert DataHub URNs to OpenLineage Dataset objects
-        # We extract table components from URNs and convert them to OL format
         def _urn_to_ol_dataset(urn: str) -> "OpenLineageDataset":
             """Convert DataHub URN to OpenLineage Dataset format."""
             # Parse URN to extract database, schema, table
@@ -154,11 +227,6 @@ def _datahub_generate_openlineage_metadata_from_sql(
 
         inputs = [_urn_to_ol_dataset(urn) for urn in sql_parsing_result.in_tables]
         outputs = [_urn_to_ol_dataset(urn) for urn in sql_parsing_result.out_tables]
-
-        # Store the sql_parsing_result in run_facets for later retrieval by the listener
-        # We use a custom facet key that the listener can check for
-        # Note: We cannot add attributes directly to OperatorLineage as it uses @define (frozen)
-        DATAHUB_SQL_PARSING_RESULT_KEY = "datahub_sql_parsing_result"
 
         run_facets = {DATAHUB_SQL_PARSING_RESULT_KEY: sql_parsing_result}
 
@@ -192,6 +260,15 @@ def patch_sqlparser() -> None:
     Patch SQLParser.generate_openlineage_metadata_from_sql to use DataHub's SQL parser.
 
     This should be called early in the plugin initialization, before any SQL operators are used.
+
+    When both DataHub and OpenLineage plugins are enabled (disable_openlineage_plugin=False),
+    the patch calls BOTH parsers:
+    - OpenLineage's original parser provides inputs/outputs for OpenLineage plugin
+    - DataHub's enhanced parser (with column-level lineage) is stored in run_facets
+      for DataHub listener to extract
+
+    When only DataHub is enabled (disable_openlineage_plugin=True), only DataHub's
+    parser runs and provides both the OperatorLineage structure and the enhanced parsing.
     """
     global _original_sql_parser_method
 

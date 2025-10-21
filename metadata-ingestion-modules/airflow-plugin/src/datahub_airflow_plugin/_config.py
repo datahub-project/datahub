@@ -133,13 +133,23 @@ def get_lineage_config() -> DatahubLineageConfig:
     log_level = conf.get("datahub", "log_level", fallback=None)
     debug_emitter = conf.get("datahub", "debug_emitter", fallback=False)
 
-    # For Airflow 3.0+, we need OpenLineage plugin enabled for SQL parsing
-    # For Airflow < 3.0, disable it by default to avoid conflicts
-    import airflow
-    import packaging.version
-
-    airflow_version = packaging.version.parse(airflow.__version__)
-    default_disable_openlineage = airflow_version < packaging.version.parse("3.0.0")
+    # Disable OpenLineage plugin by default (disable_openlineage_plugin=True) for all versions.
+    # This is the safest default since most DataHub users only want DataHub's lineage.
+    #
+    # When disable_openlineage_plugin=True (default):
+    # - Only DataHub plugin runs (OpenLineagePlugin.listeners are cleared if present)
+    # - In Airflow 3: SQLParser calls only DataHub's enhanced parser
+    # - In Airflow 2: DataHub uses its own extractors
+    # - DataHub gets enhanced parsing with column-level lineage
+    #
+    # When disable_openlineage_plugin=False (opt-in for dual plugin mode):
+    # - Both DataHub and OpenLineage plugins run side-by-side
+    # - In Airflow 3: SQLParser calls BOTH parsers
+    #   - OpenLineage plugin uses its own parsing results (inputs/outputs)
+    #   - DataHub extracts its enhanced parsing (with column-level lineage) from run_facets
+    #   - Both plugins get their expected parsing without interference
+    # - In Airflow 2: Not recommended - may cause conflicts
+    default_disable_openlineage = True
 
     disable_openlineage_plugin = conf.get(
         "datahub", "disable_openlineage_plugin", fallback=default_disable_openlineage

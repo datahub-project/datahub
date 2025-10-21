@@ -56,13 +56,19 @@ assert AIRFLOW_PATCHED
 # Approach suggested by https://stackoverflow.com/a/11887885/5004662.
 # AIRFLOW_VERSION already defined above for conditional imports
 PLUGGY_VERSION = packaging.version.parse(pluggy.__version__)
-HAS_AIRFLOW_STANDALONE_CMD = AIRFLOW_VERSION >= packaging.version.parse("2.2.0.dev0")
-HAS_AIRFLOW_LISTENER_API = AIRFLOW_VERSION >= packaging.version.parse("2.3.0.dev0")
-HAS_AIRFLOW_DAG_LISTENER_API = AIRFLOW_VERSION >= packaging.version.parse("2.5.0.dev0")
-HAS_AIRFLOW_DATASET_LISTENER_API = AIRFLOW_VERSION >= packaging.version.parse(
+HAS_AIRFLOW_STANDALONE_CMD: bool = AIRFLOW_VERSION >= packaging.version.parse(
+    "2.2.0.dev0"
+)
+HAS_AIRFLOW_LISTENER_API: bool = AIRFLOW_VERSION >= packaging.version.parse(
+    "2.3.0.dev0"
+)
+HAS_AIRFLOW_DAG_LISTENER_API: bool = AIRFLOW_VERSION >= packaging.version.parse(
+    "2.5.0.dev0"
+)
+HAS_AIRFLOW_DATASET_LISTENER_API: bool = AIRFLOW_VERSION >= packaging.version.parse(
     "2.8.0.dev0"
 )
-NEEDS_AIRFLOW_LISTENER_MODULE = AIRFLOW_VERSION < packaging.version.parse(
+NEEDS_AIRFLOW_LISTENER_MODULE: bool = AIRFLOW_VERSION < packaging.version.parse(
     "2.5.0.dev0"
 ) or PLUGGY_VERSION <= packaging.version.parse("1.0.0")
 

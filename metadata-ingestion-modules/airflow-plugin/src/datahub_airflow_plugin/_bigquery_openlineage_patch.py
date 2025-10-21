@@ -10,6 +10,9 @@ column-level lineage extraction.
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
+import datahub.emitter.mce_builder as builder
+from datahub_airflow_plugin.datahub_listener import get_airflow_plugin_listener
+
 if TYPE_CHECKING:
     from airflow.models.taskinstance import TaskInstance
     from airflow.providers.openlineage.extractors import OperatorLineage
@@ -58,7 +61,6 @@ def patch_bigquery_insert_job_operator() -> None:
             2. Enhances it with DataHub SQL parsing result for column lineage
             """
             try:
-                import datahub.emitter.mce_builder as builder
                 from datahub.sql_parsing.sqlglot_lineage import (
                     create_lineage_sql_parsed_result,
                 )
@@ -103,11 +105,6 @@ def patch_bigquery_insert_job_operator() -> None:
                     logger.info(
                         f"Running DataHub SQL parser for BigQuery (platform={platform}, "
                         f"default_db={default_database}): {sql}"
-                    )
-
-                    # Get DataHub graph instance if available
-                    from datahub_airflow_plugin.datahub_listener import (
-                        get_airflow_plugin_listener,
                     )
 
                     listener = get_airflow_plugin_listener()
