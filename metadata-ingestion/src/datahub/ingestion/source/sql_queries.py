@@ -306,7 +306,8 @@ class SqlQueriesSource(Source):
         except Exception as e:
             self.report.warning(
                 title="Error reading S3 file",
-                message=f"Failed to read S3 file: {self.config.query_file}",
+                message=f"Failed to read S3 file",
+                context=self.config.query_file,
                 exc=e,
             )
             raise
