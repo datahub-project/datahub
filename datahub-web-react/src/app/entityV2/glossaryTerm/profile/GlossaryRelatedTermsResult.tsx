@@ -74,7 +74,11 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
                             {glossaryRelatedTermType}
                         </Typography.Title>
                         {canEditRelatedTerms && (
-                            <Button variant="text" onClick={() => setIsShowingAddModal(true)}>
+                            <Button
+                                variant="text"
+                                onClick={() => setIsShowingAddModal(true)}
+                                data-testid="add-related-term-button"
+                            >
                                 <CustomIcon iconSvg={addTerm} /> Add Terms
                             </Button>
                         )}

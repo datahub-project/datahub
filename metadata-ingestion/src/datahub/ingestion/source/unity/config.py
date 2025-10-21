@@ -49,6 +49,12 @@ class LineageDataSource(ConfigEnum):
     API = "API"
 
 
+class UsageDataSource(ConfigEnum):
+    AUTO = "AUTO"
+    SYSTEM_TABLES = "SYSTEM_TABLES"
+    API = "API"
+
+
 class UnityCatalogProfilerConfig(ConfigModel):
     method: str = Field(
         description=(
@@ -285,6 +291,17 @@ class UnityCatalogSourceConfig(
         description="Generate usage statistics.",
     )
 
+    usage_data_source: UsageDataSource = pydantic.Field(
+        default=UsageDataSource.AUTO,
+        description=(
+            "Source for usage/query history data extraction. Options: "
+            f"'{UsageDataSource.AUTO.value}' (default) - Automatically use system.query.history table when SQL warehouse is configured, otherwise fall back to REST API. "
+            "This provides better performance for multi-workspace setups and large query volumes when warehouse_id is set. "
+            f"'{UsageDataSource.SYSTEM_TABLES.value}' - Force use of system.query.history table (requires SQL warehouse and SELECT permission on system.query.history). "
+            f"'{UsageDataSource.API.value}' - Force use of REST API endpoints for query history (legacy method, may have limitations with multiple workspaces)."
+        ),
+    )
+
     # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[
         UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig
@@ -442,6 +459,20 @@ class UnityCatalogSourceConfig(
         if lineage_data_source == LineageDataSource.SYSTEM_TABLES and not warehouse_id:
             raise ValueError(
                 f"lineage_data_source='{LineageDataSource.SYSTEM_TABLES.value}' requires warehouse_id to be set"
+            )
+
+        return values
+
+    @pydantic.root_validator(skip_on_failure=True)
+    def validate_usage_data_source_with_warehouse(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        usage_data_source = values.get("usage_data_source", UsageDataSource.AUTO)
+        warehouse_id = values.get("warehouse_id")
+
+        if usage_data_source == UsageDataSource.SYSTEM_TABLES and not warehouse_id:
+            raise ValueError(
+                f"usage_data_source='{UsageDataSource.SYSTEM_TABLES.value}' requires warehouse_id to be set"
             )
 
         return values

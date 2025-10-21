@@ -107,7 +107,11 @@ export default function DataProductsTab() {
     return (
         <>
             <TabToolbar>
-                <Button type="text" onClick={() => setIsCreateModalVisible(true)}>
+                <Button
+                    type="text"
+                    onClick={() => setIsCreateModalVisible(true)}
+                    data-testid="create-data-product-button"
+                >
                     <PlusOutlined /> New Data Product
                 </Button>
                 <SearchBar

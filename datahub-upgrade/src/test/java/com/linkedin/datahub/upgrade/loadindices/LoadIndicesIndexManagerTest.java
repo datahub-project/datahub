@@ -262,7 +262,7 @@ public class LoadIndicesIndexManagerTest {
     assertTrue(indexManager.isSettingsOptimized());
 
     // Now test restore
-    assertThrows(IOException.class, () -> indexManager.restoreFromConfiguration());
+    assertThrows(RuntimeException.class, () -> indexManager.restoreFromConfiguration());
   }
 
   @Test

@@ -33,6 +33,7 @@ export const DEFAULT_MODULE_URNS = [
     'urn:li:dataHubPageModule:child_hierarchy',
     'urn:li:dataHubPageModule:data_products',
     'urn:li:dataHubPageModule:related_terms',
+    'urn:li:dataHubPageModule:platforms',
 ];
 
 export const DEFAULT_TEMPLATE_URN = 'urn:li:dataHubPageTemplate:home_default_1';
