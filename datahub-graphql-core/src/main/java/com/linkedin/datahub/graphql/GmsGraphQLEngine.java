@@ -82,6 +82,7 @@ import com.linkedin.datahub.graphql.resolvers.entity.EntityExistsResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.versioning.LinkAssetVersionResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.versioning.UnlinkAssetVersionResolver;
+import com.linkedin.datahub.graphql.resolvers.files.GetPresignedUploadUrlResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchAssignFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchRemoveFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.CreateDynamicFormAssignmentResolver;
@@ -344,6 +345,7 @@ import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.execution.DataFetcherResult;
@@ -431,6 +433,7 @@ public class GmsGraphQLEngine {
   private final ViewsConfiguration viewsConfiguration;
   private final SearchBarConfiguration searchBarConfiguration;
   private final SearchCardConfiguration searchCardConfiguration;
+  private final SearchFlagsConfiguration searchFlagsConfiguration;
   private final HomePageConfiguration homePageConfiguration;
   private final ChromeExtensionConfiguration chromeExtensionConfiguration;
 
@@ -488,6 +491,8 @@ public class GmsGraphQLEngine {
 
   private final GraphQLConfiguration graphQLConfiguration;
   private final MetricUtils metricUtils;
+
+  private final S3Util s3Util;
 
   private final BusinessAttributeType businessAttributeType;
 
@@ -566,6 +571,7 @@ public class GmsGraphQLEngine {
     this.viewsConfiguration = args.viewsConfiguration;
     this.searchBarConfiguration = args.searchBarConfiguration;
     this.searchCardConfiguration = args.searchCardConfiguration;
+    this.searchFlagsConfiguration = args.searchFlagsConfiguration;
     this.homePageConfiguration = args.homePageConfiguration;
     this.featureFlags = args.featureFlags;
     this.chromeExtensionConfiguration = args.chromeExtensionConfiguration;
@@ -621,6 +627,7 @@ public class GmsGraphQLEngine {
     this.dataHubPageModuleType = new PageModuleType(entityClient);
     this.graphQLConfiguration = args.graphQLConfiguration;
     this.metricUtils = args.metricUtils;
+    this.s3Util = args.s3Util;
 
     this.businessAttributeType = new BusinessAttributeType(entityClient);
     // Init Lists
@@ -845,7 +852,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(QUERY_SCHEMA_FILE))
         .addSchema(fileBasedSchema(TEMPLATE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(MODULE_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(FILES_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -975,6 +983,7 @@ public class GmsGraphQLEngine {
                         this.viewsConfiguration,
                         this.searchBarConfiguration,
                         this.searchCardConfiguration,
+                        this.searchFlagsConfiguration,
                         this.homePageConfiguration,
                         this.featureFlags,
                         this.chromeExtensionConfiguration,
@@ -1108,7 +1117,11 @@ public class GmsGraphQLEngine {
                     new DocPropagationSettingsResolver(this.settingsService))
                 .dataFetcher(
                     "globalHomePageSettings",
-                    new GlobalHomePageSettingsResolver(this.settingsService)));
+                    new GlobalHomePageSettingsResolver(this.settingsService))
+                .dataFetcher(
+                    "getPresignedUploadUrl",
+                    new GetPresignedUploadUrlResolver(
+                        this.s3Util, this.datahubConfiguration.getS3())));
   }
 
   private DataFetcher getEntitiesResolver() {

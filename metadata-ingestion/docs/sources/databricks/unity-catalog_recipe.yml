@@ -1,5 +1,5 @@
 source:
-  type: unity-catalog
+  type: databricks
   config:
     workspace_url: https://my-workspace.cloud.databricks.com
     token: "<token>"
