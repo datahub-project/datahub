@@ -1,0 +1,17 @@
+subNavigationMode: false
+microFrontends: []
+#  # sample entry, uncomment and modify as needed
+#  - id: example-1
+#    label: Example MFE Yaml Item
+#    path: /example-mfe-item
+#    remoteEntry: http://example.com/remoteEntry.js
+#    module: exampleApplication/mount
+#    #flags is enforced to be a list with two boolean entries
+#    flags:
+#      enabled: true
+#      showInNav: true
+#    # permissions is enforced to be an array
+#    permissions:
+#      - example_permission
+#    # navIcon value is name of any icon in "@phosphor-icons/react" that you decide to use for your mfe, can be found in https://github.com/phosphor-icons/react/tree/master/src/csr
+#    navIcon: Gear
