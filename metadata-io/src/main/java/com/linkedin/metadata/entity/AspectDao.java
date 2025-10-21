@@ -216,7 +216,10 @@ public interface AspectDao {
   @Nonnull
   Stream<EntityAspect> streamAspects(String entityName, String aspectName);
 
-  int deleteUrn(@Nullable TransactionContext txContext, @Nonnull final String urn);
+  int deleteUrn(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn);
 
   @Nonnull
   ListResult<String> listLatestAspectMetadata(

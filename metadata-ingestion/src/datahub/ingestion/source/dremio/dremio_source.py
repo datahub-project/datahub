@@ -22,6 +22,7 @@ from datahub.ingestion.api.source import (
     SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.dremio.dremio_api import (
     DremioAPIOperations,
     DremioEdition,
@@ -54,7 +55,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
-    PROFILING,
+    IngestionHighStage,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
@@ -86,11 +87,31 @@ class DremioSourceMapEntry:
 @platform_name("Dremio")
 @config_class(DremioSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.DREMIO_SPACE,
+        SourceCapabilityModifier.DREMIO_SOURCE,
+    ],
+)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.TABLE,
+    ],
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Extract column-level lineage",
+    subtype_modifier=[
+        SourceCapabilityModifier.TABLE,
+    ],
+)
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
@@ -262,7 +283,7 @@ class DremioSource(StatefulIngestionSourceBase):
             # Profiling
             if self.config.is_profiling_enabled():
                 with (
-                    self.report.new_stage(PROFILING),
+                    self.report.new_high_stage(IngestionHighStage.PROFILING),
                     ThreadPoolExecutor(
                         max_workers=self.config.profiling.max_workers
                     ) as executor,

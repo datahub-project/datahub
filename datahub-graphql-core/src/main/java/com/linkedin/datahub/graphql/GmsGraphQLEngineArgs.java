@@ -13,15 +13,7 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
-import com.linkedin.metadata.config.ChromeExtensionConfiguration;
-import com.linkedin.metadata.config.DataHubConfiguration;
-import com.linkedin.metadata.config.GraphQLConfiguration;
-import com.linkedin.metadata.config.HomePageConfiguration;
-import com.linkedin.metadata.config.IngestionConfiguration;
-import com.linkedin.metadata.config.SearchBarConfiguration;
-import com.linkedin.metadata.config.TestsConfiguration;
-import com.linkedin.metadata.config.ViewsConfiguration;
-import com.linkedin.metadata.config.VisualConfiguration;
+import com.linkedin.metadata.config.*;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
@@ -45,6 +37,7 @@ import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.services.RestrictedService;
@@ -77,6 +70,8 @@ public class GmsGraphQLEngineArgs {
   DataHubConfiguration datahubConfiguration;
   ViewsConfiguration viewsConfiguration;
   SearchBarConfiguration searchBarConfiguration;
+  SearchCardConfiguration searchCardConfiguration;
+  SearchFlagsConfiguration searchFlagsConfiguration;
   HomePageConfiguration homePageConfiguration;
   SiblingGraphService siblingGraphService;
   GroupService groupService;
@@ -104,6 +99,6 @@ public class GmsGraphQLEngineArgs {
   PageModuleService pageModuleService;
   boolean systemTelemetryEnabled;
   MetricUtils metricUtils;
-
+  S3Util s3Util;
   // any fork specific args should go below this line
 }

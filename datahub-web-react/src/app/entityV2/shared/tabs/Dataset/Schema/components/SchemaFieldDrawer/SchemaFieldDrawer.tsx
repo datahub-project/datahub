@@ -13,7 +13,7 @@ import {
     TABS_WIDTH,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawerTabs';
 import SchemaFieldQueriesSidebarTab from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldQueriesSidebarTab';
-import StatsSidebarView from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarView';
+import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsTabWrapper';
 import { SchemaTimelineSection } from '@app/entityV2/shared/tabs/Dataset/Timeline/SchemaTimelineSection';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -198,7 +198,7 @@ export default function SchemaFieldDrawer({
         {
             name: 'Statistics',
             icon: ChartBar,
-            component: StatsSidebarView,
+            component: StatsTabWrapper,
             properties: {
                 expandedField,
                 fieldProfile,
@@ -247,7 +247,7 @@ export default function SchemaFieldDrawer({
                     closable={false}
                 >
                     {expandedField && (
-                        <DrawerContent>
+                        <DrawerContent data-testid="schema-field-drawer-content">
                             <FieldHeader
                                 setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                                 expandedField={expandedField}

@@ -2,8 +2,8 @@ import { CloseCircleFilled } from '@ant-design/icons';
 import { Empty, Select } from 'antd';
 import React, { MouseEvent } from 'react';
 
-import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
 import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
+import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
 import useParentSelector from '@app/entityV2/shared/EntityDropdown/useParentSelector';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -97,11 +97,13 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
                     autoCompleteResultsLoading,
                     entityRegistry,
                 )}
+                data-testid="parent-domain-select"
             />
             <BrowserWrapper isHidden={!isShowingDomainNavigator}>
                 <DomainNavigator
                     domainUrnToHide={isMoving ? domainUrn : undefined}
                     selectDomainOverride={selectDomain}
+                    isCollapsed={false}
                 />
             </BrowserWrapper>
         </ClickOutside>

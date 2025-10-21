@@ -27,6 +27,17 @@ const injectMeticulous = () => {
     };
 };
 
+// since we have base: './' for relative paths, vite will set static assets at "./assets/..."
+// with a base path configured we can't find them. We want simple "assets/..."
+export function stripDotSlashFromAssets() {
+    return {
+        name: 'strip-dot-slash',
+        transformIndexHtml(html) {
+            return html.replace(/src="\.\//g, 'src="').replace(/href="\.\//g, 'href="');
+        },
+    };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
     const { viteStaticCopy } = await import('vite-plugin-static-copy');
@@ -55,6 +66,7 @@ export default defineConfig(async ({ mode }) => {
 
     return {
         appType: 'spa',
+        base: './', // Always use root - runtime base path detection handles deployment paths
         plugins: [
             ...devPlugins,
             react(),
@@ -95,6 +107,7 @@ export default defineConfig(async ({ mode }) => {
                 uploadToken: process.env.CODECOV_TOKEN,
                 gitService: 'github',
             }),
+            stripDotSlashFromAssets(),
         ],
         // optimizeDeps: {
         //     include: ['@ant-design/colors', '@ant-design/icons', 'lodash-es', '@ant-design/icons/es/icons'],
@@ -134,7 +147,7 @@ export default defineConfig(async ({ mode }) => {
                 enabled: true,
                 provider: 'v8',
                 reporter: ['text', 'json', 'html'],
-                include: ['src/**/*'],
+                include: ['src/**/*.ts'],
                 reportsDirectory: '../build/coverage-reports/datahub-web-react/',
                 exclude: [],
             },

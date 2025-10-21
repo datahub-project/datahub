@@ -1,9 +1,18 @@
 {
-  "generated_at": "2025-07-24T13:24:05.751563+00:00",
+  "generated_at": "2025-08-28T07:13:19.226648+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
       "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Extract ABS containers and folders",
+          "subtype_modifier": [
+            "Folder",
+            "ABS container"
+          ],
+          "supported": true
+        },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
@@ -468,7 +477,9 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database"
+          ],
           "supported": true
         },
         {
@@ -530,13 +541,6 @@
       "platform_id": "file-based-lineage",
       "platform_name": "File Based Lineage",
       "support_status": "CERTIFIED"
-    },
-    "datahub-mock-data": {
-      "capabilities": [],
-      "classname": "datahub.ingestion.source.mock_data.datahub_mock_data.DataHubMockDataSource",
-      "platform_id": "fake",
-      "platform_name": "fake",
-      "support_status": "TESTING"
     },
     "dbt": {
       "capabilities": [
@@ -607,7 +611,9 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Folder"
+          ],
           "supported": true
         },
         {
@@ -640,7 +646,18 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Dremio Space",
+            "Dremio Source"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Extract column-level lineage",
+          "subtype_modifier": [
+            "Table"
+          ],
           "supported": true
         },
         {
@@ -688,7 +705,9 @@
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Table"
+          ],
           "supported": true
         }
       ],
@@ -817,6 +836,38 @@
       "platform_id": "elasticsearch",
       "platform_name": "Elasticsearch",
       "support_status": "CERTIFIED"
+    },
+    "excel": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.excel.source.ExcelSource",
+      "platform_id": "excel",
+      "platform_name": "Excel",
+      "support_status": "INCUBATING"
     },
     "feast": {
       "capabilities": [
@@ -1229,7 +1280,7 @@
           "capability": "CONTAINERS",
           "description": "Enabled by default",
           "subtype_modifier": [
-            "Database",
+            "Catalog",
             "Schema"
           ],
           "supported": true
@@ -2215,7 +2266,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Workspace",
+            "Semantic Model"
+          ],
           "supported": true
         },
         {
@@ -2319,6 +2373,12 @@
           "supported": true
         },
         {
+          "capability": "TAGS",
+          "description": "Supported by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "subtype_modifier": null,
@@ -2387,8 +2447,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Extract table-level lineage",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -2411,7 +2472,7 @@
           "capability": "CONTAINERS",
           "description": "Enabled by default",
           "subtype_modifier": [
-            "Database",
+            "Catalog",
             "Schema"
           ],
           "supported": true
@@ -2520,7 +2581,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Disabled by default. ",
+          "description": "Disabled by default.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2598,7 +2659,8 @@
           "capability": "CONTAINERS",
           "description": "Enabled by default",
           "subtype_modifier": [
-            "Database"
+            "Database",
+            "Schema"
           ],
           "supported": true
         },
@@ -2622,7 +2684,7 @@
         },
         {
           "capability": "USAGE_STATS",
-          "description": "Enabled by default, can be disabled via configuration `include_usage_statistics`",
+          "description": "Optionally enabled via `include_usage_statistics`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2812,6 +2874,15 @@
           "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Extract table-level lineage for Salesforce objects",
+          "subtype_modifier": [
+            "Custom Object",
+            "Object"
+          ],
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.salesforce.SalesforceSource",
@@ -2895,6 +2966,38 @@
       "classname": "datahub.ingestion.source.slack.slack.SlackSource",
       "platform_id": "slack",
       "platform_name": "Slack",
+      "support_status": "TESTING"
+    },
+    "snaplogic": {
+      "capabilities": [
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Not supported yet",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "SnapLogic does not support platform instances",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.snaplogic.snaplogic.SnaplogicSource",
+      "platform_id": "snaplogic",
+      "platform_name": "SnapLogic",
       "support_status": "TESTING"
     },
     "snowflake": {
@@ -3110,6 +3213,12 @@
           "supported": true
         },
         {
+          "capability": "TAGS",
+          "description": "Supported by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "subtype_modifier": null,
@@ -3207,7 +3316,9 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database"
+          ],
           "supported": true
         },
         {
@@ -3339,8 +3450,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Extract table-level lineage",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true

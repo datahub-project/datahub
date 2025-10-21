@@ -5,78 +5,48 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 DataHub's Subscriptions and Notifications feature gives you real-time change alerts on data assets of your choice.
-With this feature, you can set up subscriptions to specific changes for an Entity – and DataHub will notify you when those changes happen. Currently, DataHub supports notifications on Slack and Email, with support for Microsoft Teams forthcoming.
+Currently, DataHub supports notifications on Slack, Microsoft Teams, and Email. Subscriptions can be created for both individual users and groups.
 
-Email will work out of box. For installing the DataHub Slack App, see:
-👉 [Configure Slack for Notifications](slack/saas-slack-setup.md)
+## Prerequisites
+
+Email subscriptions & notifications are enabled by default.
+
+To install the Slack App, see:
+👉 [Configure Slack for Notifications](slack/saas-slack-setup.md).
+
+To install the Microsoft Teams App, see:
+👉 [Configure Microsoft Teams for Notifications](teams/saas-teams-setup.md).
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-user-notifications-in-slack.png"/>
 </p>
 
-This feature is especially useful in helping you stay on top of any upstream changes that could impact the assets you or your stakeholders rely on. It eliminates the need for you and your team to manually check for upstream changes, or for upstream stakeholders to identify and notify impacted users.
-As a user, you can subscribe to and receive notifications about changes such as deprecations, schema changes, changes in ownership, assertions, or incidents. You’ll always been in the know about potential data quality issues so you can proactively manage your data resources.
+## Enabling Notifications
 
-## Platform Admin Notifications
+### Personal Notifications
 
-Datahub provides three levels of notifications:
+To manage personal notification settings, go to Settings > "My Notifications".
+From here, enable or disable each notification channel & provide your handle.
 
-- **Platform-level**
-- **Group-level** (described in other sections)
-- **User-level** (described in other sections)
+### Group Notifications
 
-**Setting Platform-Level Notifications:**
-This requires appropriate permissions. Go to `Settings` > `Notifications` (under the `Platform` section, not `My Notifications`).
-
-**Platform-level Notifications:**
-Platform-level notifications are applied to all assets within Datahub.
-Example: If "An owner is added or removed from a data asset" is ticked, the designated Slack channel or email will receive notifications for any such changes across all assets.
-
-**Our Recommendations:**
-
-Notifying on tag changes for every asset in the platform would be noisy, and so we recommend to use these platform-level notifications only where appropriate. For example, we recommend notifications for ingestion failures routed to a central Slack channel or email. This will help you proactively ensure your Datahub metadata stays fresh.
-
-## Prerequisites
-
-Once you have [configured Slack within your DataHub instance](slack/saas-slack-setup.md), you will be able to subscribe to any Entity in DataHub and begin recieving notifications via DM.
-
-To begin receiving personal notifications, go to Settings > "My Notifications". From here, toggle on Slack Notifications and input your Slack Member ID.
+To manage group notifications, navigate to the group page, and select the **Notifications** tab.
+Here, you can enable or disable each notification channel & provide relevant handles.
 
 If you want to create and manage group-level Subscriptions for your team, you will need [the following privileges](../../docs/authorization/roles.md#role-privileges):
 
 - Manage Group Notification Settings
 - Manage Group Subscriptions
 
-And to manage other user's subscriptions:
+**Admin-only:** And to manage other user's subscriptions:
 
 - Manage User Subscriptions
 
 ## Using DataHub’s Subscriptions and Notifications Feature
 
-The first step is identifying the assets you want to subscribe to.
+The first step to getting notified is identifying the assets you want to subscribe to.
 DataHub’s [Lineage and Impact Analysis features](../../docs/act-on-metadata/impact-analysis.md#lineage-impact-analysis-setup-prerequisites-and-permissions) can help you identify upstream entities that could impact the assets you use and are responsible for.
-You can use the Subscriptions and Notifications feature to sign up for updates for your entire team, or just for yourself.
-
-### Subscribing Your Team/Group to Notifications
-
-The dropdown menu next to the Subscribe button lets you choose who the subscription is for. To create a group subscription, click on Manage Group Subscriptions.
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-subscription-dropdown.png"/>
-</p>
-
-Next, customize the group’s subscriptions by selecting the types of changes you want the group to be notified about.
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-group-subscription-settings.png"/>
-</p>
-
-Connect to Slack. Currently, DataHub Cloud's Subscriptions and Notifications feature integrates only with Slack. Add your group’s Slack Channel ID to receive notifications on Slack.
-(You can find your Channel ID in the About section of your channel on Slack.)
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-group-set-channel-id.png"/>
-</p>
+You can use the Subscriptions && Notifications feature to sign up for updates for your entire team, or just for yourself.
 
 ### Individually Subscribing to an Entity
 
@@ -99,6 +69,27 @@ You can find your Slack Member ID in your profile settings.
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-user-set-user-id.png"/>
 </p>
 :::
+
+### Subscribing Your Team/Group to Notifications
+
+The dropdown menu next to the Subscribe button lets you choose who the subscription is for. To create a group subscription, click on Manage Group Subscriptions.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-subscription-dropdown.png"/>
+</p>
+
+Next, customize the group’s subscriptions by selecting the types of changes you want the group to be notified about.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-group-subscription-settings.png"/>
+</p>
+
+Connect to Slack. Currently, DataHub Cloud's Subscriptions and Notifications feature integrates only with Slack. Add your group’s Slack Channel ID to receive notifications on Slack.
+(You can find your Channel ID in the About section of your channel on Slack.)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-group-set-channel-id.png"/>
+</p>
 
 ### Managing Your Subscriptions
 
@@ -156,6 +147,10 @@ Then select individual assertions you'd like to subscribe to:
 <p align="center">
   <img width="70%" alt="7" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-assertion-sub-resub-1.jpg" />
 </p>
+
+## Programmatically Managing Subscriptions
+
+You can create and remove subscriptions programmatically using the [GraphQL APIs](/docs/api/graphql/overview.md) or the [Python Subscriptions SDK](/docs/api/tutorials/subscriptions.md).
 
 ## FAQ
 

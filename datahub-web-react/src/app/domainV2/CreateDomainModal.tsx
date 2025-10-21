@@ -3,15 +3,19 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
+import { UpdatedDomain, useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import DomainParentSelect from '@app/entityV2/shared/EntityDropdown/DomainParentSelect';
 import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { Button } from '@src/alchemy-components';
 
 import { useCreateDomainMutation } from '@graphql/domain.generated';
+import { DataHubPageModuleType, EntityType } from '@types';
 
 const SuggestedNamesGroup = styled.div`
     margin-top: 8px;
@@ -48,7 +52,7 @@ const AdvancedLabel = styled(Typography.Text)`
 
 type Props = {
     onClose: () => void;
-    onCreate: (
+    onCreate?: (
         urn: string,
         id: string | undefined,
         name: string,
@@ -66,12 +70,14 @@ const DESCRIPTION_FIELD_NAME = 'description';
 export default function CreateDomainModal({ onClose, onCreate }: Props) {
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const [createDomainMutation] = useCreateDomainMutation();
-    const { entityData } = useDomainsContextV2();
+    const { entityData, setNewDomain } = useDomainsContextV2();
     const [selectedParentUrn, setSelectedParentUrn] = useState<string>(
         (isNestedDomainsEnabled && entityData?.urn) || '',
     );
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [form] = Form.useForm();
+
+    const { reloadByKeyType } = useReloadableContext();
 
     const onCreateDomain = () => {
         createDomainMutation({
@@ -94,14 +100,31 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         content: `Created domain!`,
                         duration: 3,
                     });
-                    onCreate(
+                    onCreate?.(
                         data?.createDomain || '',
                         form.getFieldValue(ID_FIELD_NAME),
                         form.getFieldValue(NAME_FIELD_NAME),
                         form.getFieldValue(DESCRIPTION_FIELD_NAME),
                         selectedParentUrn || undefined,
                     );
+                    const newDomain: UpdatedDomain = {
+                        urn: data?.createDomain || '',
+                        type: EntityType.Domain,
+                        id: form.getFieldValue(ID_FIELD_NAME),
+                        properties: {
+                            name: form.getFieldValue(NAME_FIELD_NAME),
+                            description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
+                        },
+                        parentDomain: selectedParentUrn || undefined,
+                    };
+                    setNewDomain(newDomain);
                     form.resetFields();
+                    // Reload modules
+                    // ChildHierarchy - to reload shown child domains on asset summary tab
+                    reloadByKeyType(
+                        [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.ChildHierarchy)],
+                        3000,
+                    );
                 }
             })
             .catch((e) => {

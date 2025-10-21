@@ -1,7 +1,7 @@
 package com.linkedin.datahub.upgrade.system.entities;
 
 import static com.linkedin.metadata.Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME;
-import static com.linkedin.metadata.graph.elastic.ESGraphQueryDAO.RELATIONSHIP_TYPE;
+import static com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants.RELATIONSHIP_TYPE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;

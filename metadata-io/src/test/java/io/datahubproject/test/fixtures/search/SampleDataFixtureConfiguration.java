@@ -1,8 +1,8 @@
 package io.datahubproject.test.fixtures.search;
 
 import static com.linkedin.metadata.Constants.*;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.config.SearchTestContainerConfiguration.REFRESH_INTERVAL_SECONDS;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -39,6 +39,7 @@ import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
@@ -51,7 +52,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -71,9 +71,9 @@ public class SampleDataFixtureConfiguration {
    */
   @Autowired private ESBulkProcessor _bulkProcessor;
 
-  @Autowired private RestHighLevelClient _searchClient;
+  @Autowired private SearchClientShim<?> _searchClient;
 
-  @Autowired private RestHighLevelClient _longTailSearchClient;
+  @Autowired private SearchClientShim<?> _longTailSearchClient;
 
   @Autowired
   @Qualifier("fixtureCustomSearchConfig")
@@ -143,14 +143,14 @@ public class SampleDataFixtureConfiguration {
 
   @Bean
   protected ESWriteDAO esWriteDAO() {
-    return new ESWriteDAO(TEST_ES_SEARCH_CONFIG, _searchClient, _bulkProcessor);
+    return new ESWriteDAO(TEST_OS_SEARCH_CONFIG, _searchClient, _bulkProcessor);
   }
 
   @Bean("sampleDataESIndexBuilder")
   protected ESIndexBuilder esIndexBuilder() {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
     return new ESIndexBuilder(
-        _searchClient, 1, 0, 1, 1, Map.of(), true, false, false, TEST_ES_SEARCH_CONFIG, gitVersion);
+        _searchClient, 1, 0, 1, 1, Map.of(), true, false, false, TEST_OS_SEARCH_CONFIG, gitVersion);
   }
 
   protected ElasticSearchService entitySearchServiceHelper(
@@ -164,8 +164,7 @@ public class SampleDataFixtureConfiguration {
         new ESSearchDAO(
             _searchClient,
             false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            TEST_ES_SEARCH_CONFIG,
+            TEST_OS_SEARCH_CONFIG,
             _customSearchConfiguration,
             queryFilterRewriteChain,
             false,
@@ -173,7 +172,7 @@ public class SampleDataFixtureConfiguration {
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
             _searchClient,
-            TEST_ES_SEARCH_CONFIG,
+            TEST_OS_SEARCH_CONFIG,
             _customSearchConfiguration,
             queryFilterRewriteChain,
             TEST_SEARCH_SERVICE_CONFIG);
@@ -202,14 +201,9 @@ public class SampleDataFixtureConfiguration {
             _bulkProcessor,
             indexConvention,
             new ESGraphWriteDAO(
-                indexConvention, _bulkProcessor, 1, TEST_ES_SEARCH_CONFIG.getSearch().getGraph()),
+                indexConvention, _bulkProcessor, 1, TEST_OS_SEARCH_CONFIG.getSearch().getGraph()),
             new ESGraphQueryDAO(
-                _searchClient,
-                opContext.getLineageRegistry(),
-                indexConvention,
-                TEST_GRAPH_SERVICE_CONFIG,
-                TEST_ES_SEARCH_CONFIG,
-                null),
+                _searchClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null),
             indexBuilder,
             indexConvention.getIdHashAlgo());
     graphService.reindexAll(Collections.emptySet());

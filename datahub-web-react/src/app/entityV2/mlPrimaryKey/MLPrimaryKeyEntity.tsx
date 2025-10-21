@@ -45,10 +45,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
         return (
             <DotChartOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
@@ -195,6 +192,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

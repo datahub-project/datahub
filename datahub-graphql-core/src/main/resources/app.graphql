@@ -218,6 +218,26 @@ type SearchBarConfig {
 }
 
 """
+Configurations related to the Search card
+"""
+type SearchCardConfig {
+  """
+  Whether the search card should show description
+  """
+  showDescription: Boolean!
+}
+
+"""
+Configurations related the Search Flags
+"""
+type SearchFlagsConfig {
+  """
+  Default value for skipHighlighting search flag. Currently used in Search Page and Search Bar
+  """
+  defaultSkipHighlighting: Boolean!
+}
+
+"""
 Variants of APIs used in the Search bar to get data
 """
 enum PersonalSidebarSection {
@@ -317,6 +337,16 @@ type AppConfig {
   Configurations related to the Search bar
   """
   searchBarConfig: SearchBarConfig!
+
+  """
+  Configurations related to the Search card
+  """
+  searchCardConfig: SearchCardConfig!
+
+  """
+  Configurations related the Search Flags
+  """
+  searchFlagsConfig: SearchFlagsConfig!
 
   """
   Feature flags telling the UI whether a feature is enabled or not
@@ -749,6 +779,11 @@ type FeatureFlagsConfig {
   showLineageExpandMore: Boolean!
 
   """
+  If turned on, show the re-designed Stats tab on the entity page
+  """
+  showStatsTabRedesign: Boolean!
+
+  """
   If turned on, show the re-designed home page
   """
   showHomePageRedesign: Boolean!
@@ -772,6 +807,21 @@ type FeatureFlagsConfig {
   Enables displaying the homepage user role underneath the name. Only available for custom home page.
   """
   showHomepageUserRole: Boolean!
+
+  """
+  If enabled, show the default external links on the entity page
+  """
+  showDefaultExternalLinks: Boolean!
+
+  """
+  Enables displaying the asset summary page
+  """
+  assetSummaryPageV1: Boolean!
+
+  """
+  If enabled, allows uploading of files for documentation.
+  """
+  documentationFileUploadV1: Boolean!
 }
 
 """

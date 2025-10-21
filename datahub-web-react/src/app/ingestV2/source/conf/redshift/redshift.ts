@@ -3,7 +3,7 @@ import { SourceConfig } from '@app/ingestV2/source/conf/types';
 import redshiftLogo from '@images/redshiftlogo.png';
 
 const placeholderRecipe = `\
-source: 
+source:
     type: redshift
     config:
         # Coordinates
