@@ -243,14 +243,15 @@ class RedshiftDataDictionary:
     def get_query_result(
         conn: redshift_connector.Connection, query: str
     ) -> redshift_connector.Cursor:
-        with PerfTimer() as timer, conn.cursor() as cursor:
+        cursor = conn.cursor()
+        with PerfTimer() as timer:
             query_hash_id = hash(query)
             logger.info(f"Executing query [{query_hash_id}]\n{query}")
             cursor.execute(query)
             logger.info(
                 f"Time taken query [{query_hash_id}: {timer.elapsed_seconds():.3f} seconds"
             )
-            return cursor
+        return cursor
 
     @staticmethod
     def get_databases(conn: redshift_connector.Connection) -> List[str]:

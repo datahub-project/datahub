@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Generic, Optional, Type, TypeVar
 
 import pydantic
-from pydantic import root_validator
+from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
@@ -73,14 +73,14 @@ class StatefulIngestionConfig(ConfigModel):
         description="If set to True, ignores the current checkpoint state.",
     )
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        if values.get("enabled"):
-            if values.get("state_provider") is None:
-                values["state_provider"] = DynamicTypedStateProviderConfig(
+    @model_validator(mode="after")
+    def validate_config(self) -> "StatefulIngestionConfig":
+        if self.enabled:
+            if self.state_provider is None:
+                self.state_provider = DynamicTypedStateProviderConfig(
                     type="datahub", config={}
                 )
-        return values
+        return self
 
 
 CustomConfig = TypeVar("CustomConfig", bound=StatefulIngestionConfig)
@@ -108,17 +108,19 @@ class StatefulLineageConfigMixin(ConfigModel):
         "store_last_lineage_extraction_timestamp", "enable_stateful_lineage_ingestion"
     )
 
-    @root_validator(skip_on_failure=True)
-    def lineage_stateful_option_validator(cls, values: Dict) -> Dict:
-        sti = values.get("stateful_ingestion")
-        if not sti or not sti.enabled:
-            if values.get("enable_stateful_lineage_ingestion"):
-                logger.warning(
-                    "Stateful ingestion is disabled, disabling enable_stateful_lineage_ingestion config option as well"
-                )
-                values["enable_stateful_lineage_ingestion"] = False
-
-        return values
+    @model_validator(mode="after")
+    def lineage_stateful_option_validator(self) -> "StatefulLineageConfigMixin":
+        try:
+            sti = getattr(self, "stateful_ingestion", None)
+            if not sti or not getattr(sti, "enabled", False):
+                if getattr(self, "enable_stateful_lineage_ingestion", False):
+                    logger.warning(
+                        "Stateful ingestion is disabled, disabling enable_stateful_lineage_ingestion config option as well"
+                    )
+                    self.enable_stateful_lineage_ingestion = False
+        except (AttributeError, RecursionError) as e:
+            logger.debug(f"Skipping stateful lineage validation due to: {e}")
+        return self
 
 
 class StatefulProfilingConfigMixin(ConfigModel):
@@ -133,16 +135,19 @@ class StatefulProfilingConfigMixin(ConfigModel):
         "store_last_profiling_timestamps", "enable_stateful_profiling"
     )
 
-    @root_validator(skip_on_failure=True)
-    def profiling_stateful_option_validator(cls, values: Dict) -> Dict:
-        sti = values.get("stateful_ingestion")
-        if not sti or not sti.enabled:
-            if values.get("enable_stateful_profiling"):
-                logger.warning(
-                    "Stateful ingestion is disabled, disabling enable_stateful_profiling config option as well"
-                )
-                values["enable_stateful_profiling"] = False
-        return values
+    @model_validator(mode="after")
+    def profiling_stateful_option_validator(self) -> "StatefulProfilingConfigMixin":
+        try:
+            sti = getattr(self, "stateful_ingestion", None)
+            if not sti or not getattr(sti, "enabled", False):
+                if getattr(self, "enable_stateful_profiling", False):
+                    logger.warning(
+                        "Stateful ingestion is disabled, disabling enable_stateful_profiling config option as well"
+                    )
+                    self.enable_stateful_profiling = False
+        except (AttributeError, RecursionError) as e:
+            logger.debug(f"Skipping stateful profiling validation due to: {e}")
+        return self
 
 
 class StatefulUsageConfigMixin(BaseTimeWindowConfig):
@@ -157,16 +162,21 @@ class StatefulUsageConfigMixin(BaseTimeWindowConfig):
         "store_last_usage_extraction_timestamp", "enable_stateful_usage_ingestion"
     )
 
-    @root_validator(skip_on_failure=True)
-    def last_usage_extraction_stateful_option_validator(cls, values: Dict) -> Dict:
-        sti = values.get("stateful_ingestion")
-        if not sti or not sti.enabled:
-            if values.get("enable_stateful_usage_ingestion"):
-                logger.warning(
-                    "Stateful ingestion is disabled, disabling enable_stateful_usage_ingestion config option as well"
-                )
-                values["enable_stateful_usage_ingestion"] = False
-        return values
+    @model_validator(mode="after")
+    def last_usage_extraction_stateful_option_validator(
+        self,
+    ) -> "StatefulUsageConfigMixin":
+        try:
+            sti = getattr(self, "stateful_ingestion", None)
+            if not sti or not getattr(sti, "enabled", False):
+                if getattr(self, "enable_stateful_usage_ingestion", False):
+                    logger.warning(
+                        "Stateful ingestion is disabled, disabling enable_stateful_usage_ingestion config option as well"
+                    )
+                    self.enable_stateful_usage_ingestion = False
+        except (AttributeError, RecursionError) as e:
+            logger.debug(f"Skipping stateful usage validation due to: {e}")
+        return self
 
 
 @dataclass
