@@ -1091,10 +1091,16 @@ class LookMLSource(StatefulIngestionSourceBase):
         total_views = len(view_to_explore)
         total_explores = len(explore_to_views)
 
-        logger.info(
-            f"View-explore optimization: Using {unique_explores_used}/{total_explores} "
-            f"explores for {total_views} views (efficiency: {(1 - unique_explores_used / total_explores):.1%} savings)"
-        )
+        if total_explores > 0:
+            efficiency = (1 - unique_explores_used / total_explores) * 100
+            logger.info(
+                f"View-explore optimization: Using {unique_explores_used}/{total_explores} "
+                f"explores for {total_views} views (efficiency: {efficiency:.1f}% savings)"
+            )
+        else:
+            logger.info(
+                f"View-explore optimization: No explores to optimize for {total_views} views"
+            )
 
         return view_to_explore
 

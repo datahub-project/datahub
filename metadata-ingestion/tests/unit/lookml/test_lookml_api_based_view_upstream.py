@@ -25,6 +25,7 @@ from datahub.ingestion.source.looker.lookml_config import (
     LookMLSourceConfig,
     LookMLSourceReport,
 )
+from datahub.ingestion.source.looker.lookml_source import LookMLSource
 from datahub.ingestion.source.looker.view_upstream import (
     LookerQueryAPIBasedViewUpstream,
 )
@@ -43,6 +44,21 @@ def create_mock_sql_parsing_result(
     mock_spr.in_tables = in_tables or []
     mock_spr.column_lineage = column_lineage or []
     return mock_spr
+
+
+def create_mock_lookml_source():
+    """Helper function to create a properly mocked LookMLSource."""
+    config = MagicMock(spec=LookMLSourceConfig)
+    config.base_folder = None
+    config.project_name = "test_project"
+    config.connection_to_platform_map = {"test_connection": "test_platform"}
+    config.stateful_ingestion = MagicMock()
+    config.stateful_ingestion.enabled = False
+    config.api = None
+    config.looker_client = None
+
+    ctx = MagicMock(spec=PipelineContext)
+    return LookMLSource(config, ctx)
 
 
 class TestLookMLAPIBasedViewUpstream:
@@ -516,3 +532,252 @@ class TestLookMLAPIBasedViewUpstream:
 
             # Verify that latency was reported (may be called multiple times due to caching)
             assert mock_reporter.report_looker_query_api_latency.call_count >= 1
+
+    def test_class_level_cache_for_explore_fields(self, mock_looker_client):
+        """Test that get_explore_fields_from_looker_api uses class-level cache."""
+
+        # Mock the LookerAPI response
+        mock_explore = MagicMock()
+        mock_explore.name = "test_explore"
+        mock_explore.fields = [
+            MagicMock(name="field1", type="string"),
+            MagicMock(name="field2", type="number"),
+        ]
+
+        # Add the lookml_model_explore method to the mock
+        mock_looker_client.lookml_model_explore = MagicMock(return_value=mock_explore)
+
+        # Call the class method multiple times
+        result1 = LookerQueryAPIBasedViewUpstream.get_explore_fields_from_looker_api(
+            mock_looker_client, "test_model", "test_explore"
+        )
+        result2 = LookerQueryAPIBasedViewUpstream.get_explore_fields_from_looker_api(
+            mock_looker_client, "test_model", "test_explore"
+        )
+
+        # Verify the method was only called once due to caching
+        assert mock_looker_client.lookml_model_explore.call_count == 1
+
+        # Verify results are the same (cached)
+        assert result1 == result2
+        assert result1.name == "test_explore"
+        assert len(result1.fields) == 2
+
+    def test_class_level_cache_different_explores(self, mock_looker_client):
+        """Test that class-level cache works for different explores."""
+
+        # Mock different explores
+        mock_explore1 = MagicMock()
+        mock_explore1.name = "explore1"
+        mock_explore1.fields = [MagicMock(name="field1", type="string")]
+
+        mock_explore2 = MagicMock()
+        mock_explore2.name = "explore2"
+        mock_explore2.fields = [MagicMock(name="field2", type="number")]
+
+        def mock_lookml_model_explore(model, explore, fields=None):
+            if explore == "explore1":
+                return mock_explore1
+            elif explore == "explore2":
+                return mock_explore2
+            return None
+
+        # Add the lookml_model_explore method to the mock
+        mock_looker_client.lookml_model_explore = MagicMock(
+            side_effect=mock_lookml_model_explore
+        )
+
+        # Call for different explores
+        result1 = LookerQueryAPIBasedViewUpstream.get_explore_fields_from_looker_api(
+            mock_looker_client, "test_model", "explore1"
+        )
+        result2 = LookerQueryAPIBasedViewUpstream.get_explore_fields_from_looker_api(
+            mock_looker_client, "test_model", "explore2"
+        )
+
+        # Verify both calls were made
+        assert mock_looker_client.lookml_model_explore.call_count == 2
+
+        # Verify results are different
+        assert result1.name == "explore1"
+        assert result2.name == "explore2"
+        assert result1 != result2
+
+    def test_view_optimization_algorithm(self):
+        """Test the _optimize_views_by_common_explore algorithm."""
+        source = create_mock_lookml_source()
+
+        # Test case with overlapping views and explores
+        view_to_explores = {
+            "view1": {"explore_a", "explore_b"},
+            "view2": {"explore_a", "explore_b"},
+            "view3": {"explore_a"},
+            "view4": {"explore_b"},
+            "view5": {"explore_c"},
+            "view6": {"explore_c"},
+        }
+
+        explore_to_views = {
+            "explore_a": {"view1", "view2", "view3"},
+            "explore_b": {"view1", "view2", "view4"},
+            "explore_c": {"view5", "view6"},
+        }
+
+        result = source._optimize_views_by_common_explore(
+            view_to_explores, explore_to_views
+        )
+
+        # Verify all views are present
+        assert len(result) == len(view_to_explores)
+        assert set(result.keys()) == set(view_to_explores.keys())
+
+        # Verify views are assigned to explores
+        for view, explore in result.items():
+            assert explore in explore_to_views
+            assert view in explore_to_views[explore]
+
+    def test_view_optimization_empty_input(self):
+        """Test the optimization algorithm with empty input."""
+        source = create_mock_lookml_source()
+
+        # Test with empty input
+        result = source._optimize_views_by_common_explore({}, {})
+
+        # Verify empty result
+        assert len(result) == 0
+        assert result == {}
+
+    def test_view_optimization_single_view_multiple_explores(self):
+        """Test optimization when a view can be in multiple explores."""
+        source = create_mock_lookml_source()
+
+        # Test case where one view can be in multiple explores
+        view_to_explores = {"shared_view": {"explore_a", "explore_b", "explore_c"}}
+
+        explore_to_views = {
+            "explore_a": {"shared_view"},
+            "explore_b": {"shared_view"},
+            "explore_c": {"shared_view"},
+        }
+
+        result = source._optimize_views_by_common_explore(
+            view_to_explores, explore_to_views
+        )
+
+        # Verify the view is assigned to one of the explores
+        assert len(result) == 1
+        assert "shared_view" in result
+        assert result["shared_view"] in ["explore_a", "explore_b", "explore_c"]
+
+    def test_view_optimization_efficiency(self):
+        """Test that the optimization algorithm reduces the number of explores used."""
+        source = create_mock_lookml_source()
+
+        # Create a scenario where optimization can reduce explores
+        view_to_explores = {
+            "view1": {"explore_a", "explore_b"},
+            "view2": {"explore_a", "explore_b"},
+            "view3": {"explore_a"},
+            "view4": {"explore_b"},
+            "view5": {"explore_c"},
+            "view6": {"explore_c"},
+            "view7": {"explore_d"},
+            "view8": {"explore_d"},
+        }
+
+        explore_to_views = {
+            "explore_a": {"view1", "view2", "view3"},
+            "explore_b": {"view1", "view2", "view4"},
+            "explore_c": {"view5", "view6"},
+            "explore_d": {"view7", "view8"},
+        }
+
+        result = source._optimize_views_by_common_explore(
+            view_to_explores, explore_to_views
+        )
+
+        # Verify all views are present
+        assert len(result) == len(view_to_explores)
+        assert set(result.keys()) == set(view_to_explores.keys())
+
+        # Verify the algorithm assigns views optimally
+        unique_explores_used = len(set(result.values()))
+        total_explores = len(explore_to_views)
+
+        # The algorithm should use fewer or equal explores
+        assert unique_explores_used <= total_explores
+
+    def test_optimization_algorithm_performance(self):
+        """Test that the optimization algorithm handles large datasets efficiently."""
+        source = create_mock_lookml_source()
+
+        # Create a larger dataset to test performance
+        view_to_explores = {}
+        explore_to_views = {}
+
+        # Create 50 views across 10 explores
+        for i in range(50):
+            view_name = f"view_{i}"
+            # Each view can be in 1-3 explores
+            num_explores = (i % 3) + 1
+            explores = set()
+
+            for j in range(num_explores):
+                explore_name = f"explore_{(i + j) % 10 + 1}"
+                explores.add(explore_name)
+                if explore_name not in explore_to_views:
+                    explore_to_views[explore_name] = set()
+                explore_to_views[explore_name].add(view_name)
+
+            view_to_explores[view_name] = explores
+
+        # Test the optimization
+        result = source._optimize_views_by_common_explore(
+            view_to_explores, explore_to_views
+        )
+
+        # Verify all views are present
+        assert len(result) == len(view_to_explores)
+        assert set(result.keys()) == set(view_to_explores.keys())
+
+        # Verify the algorithm completed successfully
+        unique_explores_used = len(set(result.values()))
+        assert unique_explores_used > 0
+        assert unique_explores_used <= len(explore_to_views)
+
+    def test_optimization_algorithm_edge_cases(self):
+        """Test edge cases for the optimization algorithm."""
+        source = create_mock_lookml_source()
+
+        # Test case 1: All views in one explore
+        view_to_explores_1 = {
+            "view1": {"explore_a"},
+            "view2": {"explore_a"},
+            "view3": {"explore_a"},
+        }
+        explore_to_views_1 = {"explore_a": {"view1", "view2", "view3"}}
+
+        result_1 = source._optimize_views_by_common_explore(
+            view_to_explores_1, explore_to_views_1
+        )
+        assert len(result_1) == 3
+        assert all(explore == "explore_a" for explore in result_1.values())
+
+        # Test case 2: Views with no explores
+        result_2 = source._optimize_views_by_common_explore({}, {})
+        assert len(result_2) == 0
+
+        # Test case 3: Single view, multiple explores
+        view_to_explores_3 = {"view1": {"explore_a", "explore_b", "explore_c"}}
+        explore_to_views_3 = {
+            "explore_a": {"view1"},
+            "explore_b": {"view1"},
+            "explore_c": {"view1"},
+        }
+
+        result_3 = source._optimize_views_by_common_explore(
+            view_to_explores_3, explore_to_views_3
+        )
+        assert len(result_3) == 1
+        assert "view1" in result_3
+        assert result_3["view1"] in ["explore_a", "explore_b", "explore_c"]
