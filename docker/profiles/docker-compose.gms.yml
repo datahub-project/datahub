@@ -343,6 +343,8 @@ services:
       - debug-backend
       - debug-backend-aws
     depends_on:
+      opensearch:
+        condition: service_healthy
       mysql:
         condition: service_healthy
       opensearch-setup-dev:
