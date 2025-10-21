@@ -1,16 +1,11 @@
-import re
-from typing import Iterable, List, Union
-
-import pymysql  # noqa: F401
-from pydantic.fields import Field
-from sqlalchemy import text, util
 # This import verifies that the dependencies are available.
 import logging
-from typing import TYPE_CHECKING, Any, List, Optional
+import re
+from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Union
 
 import pymysql  # noqa: F401
 from pydantic.fields import Field
-from sqlalchemy import create_engine, event, inspect, util
+from sqlalchemy import create_engine, event, inspect, text, util
 from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine import Row
@@ -19,7 +14,7 @@ from sqlalchemy.engine.reflection import Inspector
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import HiddenFromDocs
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -270,6 +265,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 context=procedure.name,
                 exc=e,
             )
+
     def _setup_rds_iam_event_listener(
         self, engine: "Engine", database_name: Optional[str] = None
     ) -> None:
