@@ -210,6 +210,28 @@ scalaVersions.each { sv ->
     relocate 'com.google.errorprone', 'io.acryl.shaded.com.google.errorprone'
     relocate 'com.sun.jna', 'io.acryl.shaded.com.sun.jna'
 
+    // Additional relocations to prevent classloading conflicts (issue #14989)
+    relocate 'antlr', 'io.acryl.shaded.antlr'
+    relocate 'org.antlr', 'io.acryl.shaded.org.antlr'
+    relocate 'org.apache.avro', 'io.acryl.shaded.org.apache.avro'
+    relocate 'org.codehaus.jackson', 'io.acryl.shaded.org.codehaus.jackson'
+    relocate 'org.eclipse.jetty', 'io.acryl.shaded.org.eclipse.jetty'
+    relocate 'jakarta.json', 'io.acryl.shaded.jakarta.json'
+    relocate 'org.reactivestreams', 'io.acryl.shaded.org.reactivestreams'
+    relocate 'net.jpountz', 'io.acryl.shaded.net.jpountz'
+    relocate 'org.xerial', 'io.acryl.shaded.org.xerial'
+    relocate 'software.amazon', 'io.acryl.shaded.software.amazon'
+    relocate 'nonapi.io', 'io.acryl.shaded.nonapi.io'
+    relocate 'org.publicsuffix', 'io.acryl.shaded.org.publicsuffix'
+    relocate 'io.swagger', 'io.acryl.shaded.io.swagger'
+    relocate 'io.micrometer', 'io.acryl.shaded.io.micrometer'
+    relocate 'io.confluent', 'io.acryl.shaded.io.confluent'
+    relocate 'io.github', 'io.acryl.shaded.io.github'
+    relocate 'io.datahubproject', 'io.acryl.shaded.io.datahubproject'
+    // NOTE: Do NOT relocate io.openlineage - we have customized OpenLineage classes in src/main/java/io/openlineage/
+    // that must remain at io.openlineage package to properly override the upstream dependency
+    relocate 'com.eclipsesource', 'io.acryl.shaded.com.eclipsesource'
+
     // Debug output to verify we're using the right dependency
     doFirst {
       println "Building JAR for Scala ${sv}"
