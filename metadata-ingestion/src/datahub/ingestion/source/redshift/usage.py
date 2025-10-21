@@ -1,12 +1,12 @@
 import collections
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import cachetools
-import pydantic.error_wrappers
 import redshift_connector
+from pydantic import ValidationError, field_validator
 from pydantic.fields import Field
 from pydantic.main import BaseModel
 
@@ -62,6 +62,26 @@ class RedshiftAccessEvent(BaseModel):
     operation_type: Optional[str] = None
     starttime: datetime
     endtime: datetime
+
+    @field_validator("starttime", "endtime", mode="before")
+    @classmethod
+    def ensure_utc_datetime(cls, v):
+        """Ensure datetime fields are treated as UTC for consistency with Pydantic V1 behavior.
+
+        Pydantic V2 assumes local timezone for naive datetime strings, whereas Pydantic V1 assumed UTC.
+        This validator restores V1 behavior to maintain timestamp consistency.
+        """
+        if isinstance(v, str):
+            # Parse as naive datetime, then assume UTC (matching V1 behavior)
+            dt = datetime.fromisoformat(v)
+            if dt.tzinfo is None:
+                # Treat naive datetime as UTC (this was the V1 behavior)
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+        elif isinstance(v, datetime) and v.tzinfo is None:
+            # If we get a naive datetime object, assume UTC
+            return v.replace(tzinfo=timezone.utc)
+        return v
 
 
 class RedshiftUsageExtractor:
@@ -291,7 +311,7 @@ class RedshiftUsageExtractor:
                             else None
                         ),
                     )
-                except pydantic.error_wrappers.ValidationError as e:
+                except ValidationError as e:
                     logging.warning(
                         f"Validation error on access event creation from row {row}. The error was: {e} Skipping ...."
                     )
