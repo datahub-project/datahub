@@ -400,21 +400,25 @@ class Dataset(StrictModel):
             dataset_urn = DatasetUrn.from_string(self.urn)
             return str(dataset_urn.get_data_platform_urn())
 
-    @model_validator(mode="after")
-    def urn_must_be_present(self) -> "Dataset":
-        if not self.urn:
-            assert self.id, "id must be present if urn is not"
-            assert self.platform, "platform must be present if urn is not"
-            assert self.env, "env must be present if urn is not"
-            self.urn = make_dataset_urn(self.platform, self.id, self.env)
-        return self
+    @field_validator("urn", mode="before")
+    @classmethod
+    def urn_must_be_present(cls, v, info):
+        if not v:
+            values = info.data
+            assert "id" in values, "id must be present if urn is not"
+            assert "platform" in values, "platform must be present if urn is not"
+            assert "env" in values, "env must be present if urn is not"
+            return make_dataset_urn(values["platform"], values["id"], values["env"])
+        return v
 
-    @model_validator(mode="after")
-    def name_filled_with_id_if_not_present(self) -> "Dataset":
-        if not self.name:
-            assert self.id, "id must be present if name is not"
-            self.name = self.id
-        return self
+    @field_validator("name", mode="before")
+    @classmethod
+    def name_filled_with_id_if_not_present(cls, v, info):
+        if not v:
+            values = info.data
+            assert "id" in values, "id must be present if name is not"
+            return values["id"]
+        return v
 
     @field_validator("platform")
     @classmethod
