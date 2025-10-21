@@ -1,10 +1,12 @@
 package com.linkedin.datahub.upgrade.sqlsetup;
 
 import lombok.AllArgsConstructor;
+import lombok.ToString;
 import lombok.Value;
 
 @Value
 @AllArgsConstructor
+@ToString(exclude = {"cdcPassword", "createUserPassword"})
 public class SqlSetupArgs {
   boolean createTables;
   boolean createDatabase; // PostgreSQL only

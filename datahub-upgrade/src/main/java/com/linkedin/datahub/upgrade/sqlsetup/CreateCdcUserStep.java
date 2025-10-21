@@ -90,8 +90,7 @@ public class CreateCdcUserStep implements UpgradeStep {
         log.info("CDC user '{}' created successfully", args.getCdcUser());
       }
     } catch (Exception e) {
-      log.error("Failed to create CDC user: {}", e.getMessage());
-      throw e;
+      throw new RuntimeException("Failed to create CDC user: " + e.getMessage(), e);
     }
 
     result.setExecutionTimeMs(System.currentTimeMillis() - startTime);

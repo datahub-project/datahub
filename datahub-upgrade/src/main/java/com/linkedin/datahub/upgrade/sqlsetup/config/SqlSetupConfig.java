@@ -1,12 +1,12 @@
 package com.linkedin.datahub.upgrade.sqlsetup.config;
 
-import com.linkedin.datahub.upgrade.UpgradeUtils;
 import com.linkedin.datahub.upgrade.sqlsetup.DatabaseType;
 import com.linkedin.datahub.upgrade.sqlsetup.JdbcUrlParser;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetup;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.EnvironmentUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -57,14 +57,14 @@ public class SqlSetupConfig {
     DatabaseType dbType = detectDatabaseType();
 
     // Configure based on SqlSetup-specific environment variables only
-    boolean createTables = UpgradeUtils.getBoolean("CREATE_TABLES", true);
-    boolean createDatabase = UpgradeUtils.getBoolean("CREATE_DB", true);
-    boolean createUser = UpgradeUtils.getBoolean("CREATE_USER", false);
-    String createUserIamRole = UpgradeUtils.getString("IAM_ROLE");
+    boolean createTables = EnvironmentUtils.getBoolean("CREATE_TABLES", true);
+    boolean createDatabase = EnvironmentUtils.getBoolean("CREATE_DB", true);
+    boolean createUser = EnvironmentUtils.getBoolean("CREATE_USER", false);
+    String createUserIamRole = EnvironmentUtils.getString("IAM_ROLE");
     boolean iamAuthEnabled = createUserIamRole != null && !createUserIamRole.trim().isEmpty();
-    boolean cdcEnabled = UpgradeUtils.getBoolean("CDC_MCL_PROCESSING_ENABLED", false);
-    String cdcUser = UpgradeUtils.getString("CDC_USER", "datahub_cdc");
-    String cdcPassword = UpgradeUtils.getString("CDC_PASSWORD", "datahub_cdc");
+    boolean cdcEnabled = EnvironmentUtils.getBoolean("CDC_MCL_PROCESSING_ENABLED", false);
+    String cdcUser = EnvironmentUtils.getString("CDC_USER", "datahub_cdc");
+    String cdcPassword = EnvironmentUtils.getString("CDC_PASSWORD", "datahub_cdc");
 
     // Extract database connection info from Spring Ebean configuration
     if (ebeanUrl == null || ebeanUrl.trim().isEmpty()) {
@@ -83,12 +83,12 @@ public class SqlSetupConfig {
     if (createUser) {
       if (iamAuthEnabled) {
         // IAM authentication: only set username, no password
-        createUserUsername = UpgradeUtils.getString("CREATE_USER_USERNAME");
+        createUserUsername = EnvironmentUtils.getString("CREATE_USER_USERNAME");
         createUserPassword = null; // No password for IAM auth
       } else {
         // Traditional authentication: set both username and password
-        createUserUsername = UpgradeUtils.getString("CREATE_USER_USERNAME");
-        createUserPassword = UpgradeUtils.getString("CREATE_USER_PASSWORD");
+        createUserUsername = EnvironmentUtils.getString("CREATE_USER_USERNAME");
+        createUserPassword = EnvironmentUtils.getString("CREATE_USER_PASSWORD");
       }
     } else {
       // When CREATE_USER is disabled, these fields are not used

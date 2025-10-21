@@ -1,7 +1,6 @@
 package com.linkedin.datahub.upgrade;
 
-import static com.linkedin.datahub.upgrade.conditions.SqlSetupCondition.isSqlSetupEnabled;
-
+import com.linkedin.datahub.upgrade.conditions.SqlSetupCondition;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetup;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -12,6 +11,50 @@ import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 
+/**
+ * Main application entry point for DataHub upgrade operations.
+ *
+ * <p>This application provides a comprehensive upgrade framework for DataHub that supports multiple
+ * types of upgrade operations:
+ *
+ * <h3>Available Upgrade Types:</h3>
+ *
+ * <ul>
+ *   <li><strong>SqlSetup</strong> - Initializes database schema and tables required for DataHub
+ *       operation
+ *   <li><strong>LoadIndices</strong> - Loads and initializes search indices for entity discovery
+ *   <li><strong>RestoreIndices</strong> - Restores search indices from backup or rebuilds them from
+ *       database
+ *   <li><strong>RestoreBackup</strong> - Restores DataHub data from backup files
+ *   <li><strong>RemoveUnknownAspects</strong> - Cleans up unknown or invalid aspect data
+ *   <li><strong>SystemUpdate</strong> - Performs comprehensive system updates including blocking
+ *       and non-blocking operations
+ *   <li><strong>SystemUpdateBlocking</strong> - Executes blocking system updates that require
+ *       service downtime
+ *   <li><strong>SystemUpdateNonBlocking</strong> - Executes non-blocking system updates that can
+ *       run while services are active
+ *   <li><strong>SystemUpdateCron</strong> - Scheduled system updates for maintenance operations
+ *   <li><strong>ReindexDebug</strong> - Debug tool for reindexing operations
+ * </ul>
+ *
+ * <h3>Command Line Usage:</h3>
+ *
+ * <pre>
+ * java -jar datahub-upgrade.jar -u SqlSetup
+ * java -jar datahub-upgrade.jar -u SystemUpdate
+ * java -jar datahub-upgrade.jar -u RestoreIndices -a batchSize=1000
+ * </pre>
+ *
+ * <h3>Configuration:</h3>
+ *
+ * <p>Upgrade configurations are selected conditionally based on the upgrade type: - LoadIndices and
+ * SqlSetup use minimal configurations (exclude Kafka components) - General upgrades use full
+ * configuration with all DataHub components
+ *
+ * <h3>Error Handling:</h3>
+ *
+ * <p>The application exits with code 1 on upgrade failure, code 0 on success.
+ */
 @SuppressWarnings("checkstyle:HideUtilityClassConstructor")
 @Slf4j
 public class UpgradeCliApplication {
@@ -19,7 +62,7 @@ public class UpgradeCliApplication {
   public static void main(String[] args) {
     log.info("Starting UpgradeCli Application...");
 
-    if (isSqlSetupEnabled()) {
+    if (SqlSetupCondition.isSqlSetupEnabled()) {
       log.info("Starting SQL Setup Bootstrap Application...");
 
       boolean sqlSetupSuccess = runSqlSetup();
@@ -40,8 +83,8 @@ public class UpgradeCliApplication {
   }
 
   /**
-   * Manually run SQL setup upgrade without using UpgradeCli. This prevents the application from
-   * exiting after SQL setup completion.
+   * Run SQL setup upgrade without using UpgradeCli. This prevents the application from exiting
+   * after SQL setup completion.
    *
    * @return true if SQL setup succeeded, false otherwise
    */

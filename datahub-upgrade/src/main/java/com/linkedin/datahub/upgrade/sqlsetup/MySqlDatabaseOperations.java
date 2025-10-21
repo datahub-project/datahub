@@ -6,36 +6,73 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import lombok.extern.slf4j.Slf4j;
 
-/** MySQL-specific implementation of database operations for SqlSetup. */
+/**
+ * MySQL-specific implementation of database operations for SqlSetup.
+ *
+ * <p><strong>MySQL DDL Limitations:</strong>
+ *
+ * <p>While MySQL is more permissive than PostgreSQL, it still has limitations on prepared
+ * statements for DDL operations:
+ *
+ * <ul>
+ *   <li><strong>Object Names Cannot Be Parameterized:</strong> MySQL does not allow parameter
+ *       placeholders (?) for database object names in most DDL statements. For example:
+ *       <ul>
+ *         <li>❌ {@code CREATE USER ?@'%' IDENTIFIED BY ?} - Invalid
+ *         <li>✅ {@code CREATE USER 'username'@'%' IDENTIFIED BY 'password'} - Valid
+ *       </ul>
+ *   <li><strong>Identifier Quoting:</strong> MySQL uses backticks (`) for identifier quoting and
+ *       single quotes for string literals. Proper escaping prevents SQL injection.
+ *   <li><strong>Limited Prepared Statement Support:</strong> Some DDL operations like {@code CREATE
+ *       USER} and {@code GRANT} statements cannot be parameterized, requiring string concatenation.
+ * </ul>
+ *
+ * <p>This implementation uses string concatenation with proper escaping for DDL operations that
+ * cannot be parameterized, while using prepared statements where possible (e.g., existence checks).
+ */
 @Slf4j
 public class MySqlDatabaseOperations implements DatabaseOperations {
 
   @Override
   public String createIamUserSql(String username, String iamRole) {
     // MySQL - IAM authentication with configurable role
-    return "CREATE USER '"
-        + username
-        + "'@'%' IDENTIFIED WITH AWSAuthenticationPlugin AS '"
-        + iamRole
-        + "';";
+    String escapedUser = escapeMysqlStringLiteral(username);
+    String escapedRole = escapeMysqlStringLiteral(iamRole);
+    return "CREATE USER "
+        + escapedUser
+        + "@'%' IDENTIFIED WITH AWSAuthenticationPlugin AS "
+        + escapedRole
+        + ";";
   }
 
   @Override
   public String createTraditionalUserSql(String username, String password) {
     // MySQL - traditional authentication
-    return "CREATE USER '" + username + "'@'%' IDENTIFIED BY '" + password + "';";
+    String escapedUser = escapeMysqlStringLiteral(username);
+    String escapedPassword = escapeMysqlStringLiteral(password);
+    return "CREATE USER " + escapedUser + "@'%' IDENTIFIED BY " + escapedPassword + ";";
   }
 
   @Override
   public String grantPrivilegesSql(String username, String databaseName) {
-    // MySQL
-    return "GRANT ALL PRIVILEGES ON `" + databaseName + "`.* TO '" + username + "'@'%';";
+    // MySQL - properly escape identifiers
+    String escapedUser = escapeMysqlStringLiteral(username);
+    String escapedDatabase = escapeMysqlIdentifier(databaseName);
+    return "GRANT ALL PRIVILEGES ON " + escapedDatabase + ".* TO " + escapedUser + "@'%';";
   }
 
   @Override
   public String createCdcUserSql(String cdcUser, String cdcPassword) {
     // MySQL - CDC user with replication privileges (matching original init-cdc.sql)
-    return "CREATE USER IF NOT EXISTS '" + cdcUser + "'@'%' IDENTIFIED BY '" + cdcPassword + "';";
+    // Properly escape string literals to prevent SQL injection
+    String escapedUser = escapeMysqlStringLiteral(cdcUser);
+    String escapedPassword = escapeMysqlStringLiteral(cdcPassword);
+
+    return "CREATE USER IF NOT EXISTS "
+        + escapedUser
+        + "@'%' IDENTIFIED BY "
+        + escapedPassword
+        + ";";
   }
 
   @Override
@@ -132,5 +169,37 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
           originalUrl);
       return originalUrl;
     }
+  }
+
+  /**
+   * Escape MySQL identifier by wrapping in backticks and escaping any existing backticks. This
+   * prevents SQL injection when using identifiers in DDL statements.
+   *
+   * @param identifier the identifier to escape
+   * @return the escaped identifier wrapped in backticks
+   */
+  private String escapeMysqlIdentifier(String identifier) {
+    if (identifier == null) {
+      throw new IllegalArgumentException("Identifier cannot be null");
+    }
+    // Escape backticks by doubling them, then wrap in backticks
+    String escaped = identifier.replace("`", "``");
+    return "`" + escaped + "`";
+  }
+
+  /**
+   * Escape MySQL string literal by wrapping in single quotes and escaping any existing single
+   * quotes. This prevents SQL injection when using string literals in DDL statements.
+   *
+   * @param literal the string literal to escape
+   * @return the escaped string literal wrapped in single quotes
+   */
+  private String escapeMysqlStringLiteral(String literal) {
+    if (literal == null) {
+      throw new IllegalArgumentException("String literal cannot be null");
+    }
+    // Escape single quotes by doubling them, then wrap in single quotes
+    String escaped = literal.replace("'", "''");
+    return "'" + escaped + "'";
   }
 }

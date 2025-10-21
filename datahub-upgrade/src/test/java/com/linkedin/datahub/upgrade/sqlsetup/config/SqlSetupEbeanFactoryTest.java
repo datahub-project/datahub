@@ -111,7 +111,9 @@ public class SqlSetupEbeanFactoryTest {
         sqlSetupEbeanFactory.createServer(mockDatabaseConfig);
         assertTrue(false, "Expected RuntimeException to be thrown");
       } catch (RuntimeException e) {
-        assertEquals(e.getMessage(), "Database connection failed");
+        assertEquals(
+            e.getMessage(),
+            "Failed to create SqlSetup database connection: Database connection failed");
       }
     }
   }
@@ -242,7 +244,9 @@ public class SqlSetupEbeanFactoryTest {
         sqlSetupEbeanFactory.createServer(mockDatabaseConfig);
         assertTrue(false, "Expected RuntimeException to be thrown");
       } catch (RuntimeException e) {
-        assertEquals(e.getMessage(), "Database connection failed");
+        assertEquals(
+            e.getMessage(),
+            "Failed to create SqlSetup database connection: Database connection failed");
       }
     }
   }

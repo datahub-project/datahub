@@ -18,6 +18,7 @@ dependencies {
   implementation project(':metadata-service:restli-client-api')
   implementation project(':metadata-service:configuration')
   implementation project(':metadata-dao-impl:kafka-producer')
+  implementation project(':metadata-utils')
   implementation externalDependency.charle
 
   implementation externalDependency.mustache

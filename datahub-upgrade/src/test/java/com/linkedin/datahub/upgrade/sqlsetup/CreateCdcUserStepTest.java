@@ -457,9 +457,11 @@ public class CreateCdcUserStepTest {
               "testdb",
               null);
       createCdcUserStep.createCdcUser(testArgs);
-      assertTrue(false, "Expected SQLException to be thrown");
+      assertTrue(false, "Expected RuntimeException to be thrown");
     } catch (Exception e) {
-      assertTrue(e instanceof SQLException);
+      assertTrue(e instanceof RuntimeException);
+      assertTrue(e.getMessage().contains("Failed to create CDC user"));
+      assertTrue(e.getCause() instanceof SQLException);
     }
   }
 

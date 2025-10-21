@@ -1,10 +1,9 @@
 package com.linkedin.datahub.upgrade.sqlsetup.config;
 
-import static com.linkedin.datahub.upgrade.UpgradeUtils.getBoolean;
-
 import com.linkedin.datahub.upgrade.sqlsetup.DatabaseOperations;
 import com.linkedin.datahub.upgrade.sqlsetup.DatabaseType;
 import com.linkedin.datahub.upgrade.sqlsetup.JdbcUrlParser;
+import com.linkedin.metadata.utils.EnvironmentUtils;
 import io.ebean.Database;
 import io.ebean.DatabaseFactory;
 import io.ebean.config.DatabaseConfig;
@@ -33,7 +32,7 @@ public class SqlSetupEbeanFactory {
     String modifiedUrl = originalUrl;
 
     // Check if database creation is needed
-    boolean createDb = getBoolean("CREATE_DB", true);
+    boolean createDb = EnvironmentUtils.getBoolean("CREATE_DB", true);
 
     // Parse the JDBC URL to determine database type
     JdbcUrlParser.JdbcInfo jdbcInfo = JdbcUrlParser.parseJdbcUrl(originalUrl);
@@ -48,8 +47,8 @@ public class SqlSetupEbeanFactory {
     try {
       return DatabaseFactory.create(serverConfig);
     } catch (Exception e) {
-      log.error("Failed to create SqlSetup database connection: {}", e.getMessage());
-      throw e;
+      throw new RuntimeException(
+          "Failed to create SqlSetup database connection: " + e.getMessage(), e);
     }
   }
 }

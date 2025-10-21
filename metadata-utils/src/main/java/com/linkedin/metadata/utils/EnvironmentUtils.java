@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade;
+package com.linkedin.metadata.utils;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -7,10 +7,46 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public class UpgradeUtils {
+/**
+ * Utility class for environment variable and system property management.
+ *
+ * <p>This class provides methods for:
+ *
+ * <ul>
+ *   <li>Parsing command-line arguments in key=value format
+ *   <li>Reading configuration values from environment variables and system properties
+ *   <li>Type conversion for boolean, string, integer, and long values
+ * </ul>
+ *
+ * <p>Environment variables take precedence over system properties for all configuration methods.
+ */
+public class EnvironmentUtils {
 
   private static final String KEY_VALUE_DELIMITER = "=";
 
+  /**
+   * Gets a string value from environment variables or system properties. Environment variables take
+   * precedence over system properties.
+   *
+   * @param key the configuration key
+   * @return the string value or null if not set
+   */
+  private static String getValue(String key) {
+    // Check environment variables first, then system properties for testing
+    String value = System.getenv(key);
+    if (value == null) {
+      value = System.getProperty(key);
+    }
+    return value;
+  }
+
+  /**
+   * Parses a list of command-line arguments in key=value format.
+   *
+   * @param args the list of arguments to parse
+   * @return a map where keys are argument names and values are Optional containing the value or
+   *     empty if no value provided
+   */
   public static Map<String, Optional<String>> parseArgs(final List<String> args) {
     if (args == null) {
       return Collections.emptyMap();
@@ -35,11 +71,7 @@ public class UpgradeUtils {
    * @return the boolean value
    */
   public static boolean getBoolean(String key, boolean defaultValue) {
-    // Check environment variables first, then system properties for testing
-    String value = System.getenv(key);
-    if (value == null) {
-      value = System.getProperty(key);
-    }
+    String value = getValue(key);
     if (value == null) {
       return defaultValue;
     }
@@ -55,11 +87,7 @@ public class UpgradeUtils {
    * @return the string value
    */
   public static String getString(String key, String defaultValue) {
-    // Check environment variables first, then system properties for testing
-    String value = System.getenv(key);
-    if (value == null) {
-      value = System.getProperty(key);
-    }
+    String value = getValue(key);
     return value != null ? value : defaultValue;
   }
 
@@ -72,11 +100,7 @@ public class UpgradeUtils {
    * @return the integer value
    */
   public static int getInt(String key, int defaultValue) {
-    // Check environment variables first, then system properties for testing
-    String value = System.getenv(key);
-    if (value == null) {
-      value = System.getProperty(key);
-    }
+    String value = getValue(key);
     if (value == null) {
       return defaultValue;
     }
@@ -96,11 +120,7 @@ public class UpgradeUtils {
    * @return the long value
    */
   public static long getLong(String key, long defaultValue) {
-    // Check environment variables first, then system properties for testing
-    String value = System.getenv(key);
-    if (value == null) {
-      value = System.getProperty(key);
-    }
+    String value = getValue(key);
     if (value == null) {
       return defaultValue;
     }
@@ -118,7 +138,7 @@ public class UpgradeUtils {
    * @return true if the key is set, false otherwise
    */
   public static boolean isSet(String key) {
-    return System.getenv(key) != null || System.getProperty(key) != null;
+    return getValue(key) != null;
   }
 
   /**
@@ -132,5 +152,5 @@ public class UpgradeUtils {
     return getString(key, null);
   }
 
-  private UpgradeUtils() {}
+  private EnvironmentUtils() {}
 }

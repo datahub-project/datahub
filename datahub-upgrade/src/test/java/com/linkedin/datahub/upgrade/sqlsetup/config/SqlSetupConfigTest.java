@@ -6,7 +6,6 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-import com.linkedin.datahub.upgrade.UpgradeUtils;
 import com.linkedin.datahub.upgrade.sqlsetup.DatabaseType;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetup;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
@@ -374,55 +373,6 @@ public class SqlSetupConfigTest {
   }
 
   @Test
-  public void testGetBooleanEnv() {
-    // Test with "true" value
-    System.setProperty("TEST_BOOL_TRUE", "true");
-    boolean resultTrue = UpgradeUtils.getBoolean("TEST_BOOL_TRUE", false);
-    assertTrue(resultTrue);
-
-    // Test with "1" value
-    System.setProperty("TEST_BOOL_ONE", "1");
-    boolean resultOne = UpgradeUtils.getBoolean("TEST_BOOL_ONE", false);
-    assertTrue(resultOne);
-
-    // Test with "false" value
-    System.setProperty("TEST_BOOL_FALSE", "false");
-    boolean resultFalse = UpgradeUtils.getBoolean("TEST_BOOL_FALSE", true);
-    assertTrue(!resultFalse);
-
-    // Test with missing environment variable
-    System.clearProperty("TEST_BOOL_MISSING");
-    boolean resultMissing = UpgradeUtils.getBoolean("TEST_BOOL_MISSING", true);
-    assertTrue(resultMissing);
-  }
-
-  @Test
-  public void testGetStringEnv() throws Exception {
-    System.setProperty("TEST_STRING_ENV", "test_value");
-    String result = UpgradeUtils.getString("TEST_STRING_ENV", "default_value");
-    assertEquals(result, "test_value");
-
-    System.clearProperty("TEST_STRING_ENV");
-    String defaultResult = UpgradeUtils.getString("TEST_STRING_ENV", "default_value");
-    assertEquals(defaultResult, "default_value");
-  }
-
-  @Test
-  public void testGetIntEnv() throws Exception {
-    System.setProperty("TEST_INT_ENV", "42");
-    int result = UpgradeUtils.getInt("TEST_INT_ENV", 10);
-    assertEquals(result, 42);
-
-    System.clearProperty("TEST_INT_ENV");
-    int defaultResult = UpgradeUtils.getInt("TEST_INT_ENV", 10);
-    assertEquals(defaultResult, 10);
-
-    System.setProperty("TEST_INT_ENV_INVALID", "not_a_number");
-    int invalidResult = UpgradeUtils.getInt("TEST_INT_ENV_INVALID", 10);
-    assertEquals(invalidResult, 10);
-  }
-
-  @Test
   public void testCreateUserEnvironmentVariables() throws Exception {
     // Test that CREATE_USER_USERNAME and CREATE_USER_PASSWORD are used when CREATE_USER is enabled
     System.setProperty("CREATE_USER", "true");
@@ -438,13 +388,6 @@ public class SqlSetupConfigTest {
     assertEquals(args.isCreateUser(), true);
     assertEquals(args.getCreateUserUsername(), "newuser");
     assertEquals(args.getCreateUserPassword(), "newpass");
-
-    // Clean up
-    System.clearProperty("CREATE_USER");
-    System.clearProperty("CREATE_USER_USERNAME");
-    System.clearProperty("CREATE_USER_PASSWORD");
-    System.clearProperty("ebean.createUserUsername");
-    System.clearProperty("ebean.createUserPassword");
   }
 
   @Test(expectedExceptions = IllegalStateException.class)
@@ -460,11 +403,6 @@ public class SqlSetupConfigTest {
     } catch (IllegalStateException e) {
       assert e.getMessage().contains("CREATE_USER_USERNAME");
       throw e;
-    } finally {
-      // Clean up
-      System.clearProperty("CREATE_USER");
-      System.clearProperty("ebean.createUserUsername");
-      System.clearProperty("ebean.createUserPassword");
     }
   }
 
@@ -484,13 +422,6 @@ public class SqlSetupConfigTest {
     assertEquals(args.isCreateUser(), false);
     assertEquals(args.getCreateUserUsername(), null); // Not used when CREATE_USER=false
     assertEquals(args.getCreateUserPassword(), null); // Not used when CREATE_USER=false
-
-    // Clean up
-    System.clearProperty("CREATE_USER");
-    System.clearProperty("CREATE_USER_USERNAME");
-    System.clearProperty("CREATE_USER_PASSWORD");
-    System.clearProperty("ebean.createUserUsername");
-    System.clearProperty("ebean.createUserPassword");
   }
 
   @Test

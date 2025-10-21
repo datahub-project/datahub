@@ -6,6 +6,34 @@ import java.sql.SQLException;
 /**
  * Interface for database-specific operations in SqlSetup. This allows for clean separation of
  * database-specific logic and makes it easy to add support for new database types.
+ *
+ * <p><strong>Important Note on Prepared Statements and DDL:</strong>
+ *
+ * <p>Many DDL (Data Definition Language) statements in this interface cannot use prepared
+ * statements with parameter placeholders (?). This is due to several database-specific limitations:
+ *
+ * <ul>
+ *   <li><strong>Object Names Cannot Be Parameterized:</strong> Database identifiers (table names,
+ *       column names, user names, database names) cannot be parameterized in prepared statements.
+ *       For example, {@code CREATE TABLE ? (id INT)} is invalid SQL.
+ *   <li><strong>PostgreSQL Limitations:</strong> PostgreSQL has strict rules about parameterized
+ *       statements. Many DDL operations like {@code CREATE USER}, {@code GRANT}, and {@code ALTER}
+ *       statements cannot use parameter placeholders for object names.
+ *   <li><strong>MySQL Limitations:</strong> While MySQL is more permissive, many DDL statements
+ *       still cannot be parameterized, especially those involving user creation and privilege
+ *       management.
+ *   <li><strong>SQL Injection Mitigation:</strong> Instead of prepared statements, we use proper
+ *       identifier escaping and quoting to prevent SQL injection. For example:
+ *       <ul>
+ *         <li>PostgreSQL: Double quotes around identifiers {@code "user_name"}
+ *         <li>MySQL: Backticks around identifiers {@code `user_name`}
+ *         <li>String escaping for passwords and other string literals
+ *       </ul>
+ * </ul>
+ *
+ * <p>Where prepared statements <em>are</em> used (like in {@code createDatabaseIfNotExists} and
+ * {@code selectDatabase}), they are used for simple operations that can be parameterized, such as
+ * checking database existence or executing USE statements.
  */
 public interface DatabaseOperations {
 

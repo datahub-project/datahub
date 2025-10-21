@@ -6,42 +6,75 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import lombok.extern.slf4j.Slf4j;
 
-/** PostgreSQL-specific implementation of database operations for SqlSetup. */
+/**
+ * PostgreSQL-specific implementation of database operations for SqlSetup.
+ *
+ * <p><strong>PostgreSQL DDL Limitations:</strong>
+ *
+ * <p>PostgreSQL has strict limitations on prepared statements for DDL operations:
+ *
+ * <ul>
+ *   <li><strong>Object Names Cannot Be Parameterized:</strong> PostgreSQL does not allow parameter
+ *       placeholders (?) for database object names in DDL statements. For example:
+ *       <ul>
+ *         <li>❌ {@code CREATE USER ? WITH PASSWORD ?} - Invalid
+ *         <li>✅ {@code CREATE USER "username" WITH PASSWORD 'password'} - Valid
+ *       </ul>
+ *   <li><strong>Transaction Block Restrictions:</strong> Some DDL operations like {@code CREATE
+ *       DATABASE} cannot run inside transaction blocks, requiring special handling with
+ *       auto-commit.
+ *   <li><strong>Identifier Quoting:</strong> PostgreSQL uses double quotes for identifier quoting
+ *       and single quotes for string literals. Proper escaping prevents SQL injection.
+ * </ul>
+ *
+ * <p>This implementation uses string concatenation with proper escaping instead of prepared
+ * statements for DDL operations, while still using prepared statements where possible (e.g.,
+ * existence checks).
+ */
 @Slf4j
 public class PostgresDatabaseOperations implements DatabaseOperations {
 
   @Override
   public String createIamUserSql(String username, String iamRole) {
     // PostgreSQL - IAM authentication (requires additional setup)
-    return "CREATE USER \"" + username + "\" WITH LOGIN;";
+    String escapedUser = escapePostgresIdentifier(username);
+    return "CREATE USER " + escapedUser + " WITH LOGIN;";
   }
 
   @Override
   public String createTraditionalUserSql(String username, String password) {
-    return "CREATE USER \"" + username + "\" WITH PASSWORD '" + password + "';";
+    String escapedUser = escapePostgresIdentifier(username);
+    String escapedPassword = escapePostgresStringLiteral(password);
+    return "CREATE USER " + escapedUser + " WITH PASSWORD " + escapedPassword + ";";
   }
 
   @Override
   public String grantPrivilegesSql(String username, String databaseName) {
-    return "GRANT ALL PRIVILEGES ON DATABASE \"" + databaseName + "\" TO \"" + username + "\";";
+    String escapedUser = escapePostgresIdentifier(username);
+    String escapedDatabase = escapePostgresIdentifier(databaseName);
+    return "GRANT ALL PRIVILEGES ON DATABASE " + escapedDatabase + " TO " + escapedUser + ";";
   }
 
   @Override
   public String createCdcUserSql(String cdcUser, String cdcPassword) {
     // PostgreSQL CDC user creation with comprehensive privileges
+    // Properly escape identifiers and string literals to prevent SQL injection
+    String escapedUser = escapePostgresIdentifier(cdcUser);
+    String escapedPassword = escapePostgresStringLiteral(cdcPassword);
+
     return String.format(
         """
         DO
         $$
         BEGIN
-            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '%s') THEN
-                CREATE USER "%s" WITH PASSWORD '%s';
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = %s) THEN
+                CREATE USER %s WITH PASSWORD %s;
             END IF;
         END
         $$;
-        ALTER USER "%s" WITH REPLICATION;
+        ALTER USER %s WITH REPLICATION;
         """,
-        cdcUser, cdcUser, cdcPassword, cdcUser);
+        escapedPassword, escapedUser, escapedPassword, escapedUser);
   }
 
   @Override
@@ -127,6 +160,28 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
   /**
    * Create PostgreSQL database using direct JDBC connection outside of transaction. This is
    * required because PostgreSQL's CREATE DATABASE cannot run inside a transaction block.
+   *
+   * <p><strong>Why Prepared Statements Cannot Be Used:</strong>
+   *
+   * <p>PostgreSQL's {@code CREATE DATABASE} statement cannot be parameterized with prepared
+   * statements. The database name must be embedded directly in the SQL string. This is a
+   * fundamental limitation of PostgreSQL's DDL implementation, not a choice in this code.
+   *
+   * <p>Example of what doesn't work:
+   *
+   * <pre>{@code
+   * // ❌ This is invalid PostgreSQL syntax
+   * PreparedStatement stmt = connection.prepareStatement("CREATE DATABASE ?");
+   * stmt.setString(1, databaseName);
+   * }</pre>
+   *
+   * <p>Instead, we use proper identifier escaping to prevent SQL injection:
+   *
+   * <pre>{@code
+   * // ✅ This is the correct approach
+   * String escapedDatabaseName = databaseName.replace("\"", "\"\"");
+   * String createDbSql = "CREATE DATABASE \"" + escapedDatabaseName + "\"";
+   * }</pre>
    */
   private void createPostgresDatabaseDirectly(String databaseName, Connection connection)
       throws SQLException {
@@ -152,5 +207,37 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
         }
       }
     }
+  }
+
+  /**
+   * Escape PostgreSQL identifier by wrapping in double quotes and escaping any existing double
+   * quotes. This prevents SQL injection when using identifiers in DDL statements.
+   *
+   * @param identifier the identifier to escape
+   * @return the escaped identifier wrapped in double quotes
+   */
+  private String escapePostgresIdentifier(String identifier) {
+    if (identifier == null) {
+      throw new IllegalArgumentException("Identifier cannot be null");
+    }
+    // Escape double quotes by doubling them, then wrap in double quotes
+    String escaped = identifier.replace("\"", "\"\"");
+    return "\"" + escaped + "\"";
+  }
+
+  /**
+   * Escape PostgreSQL string literal by wrapping in single quotes and escaping any existing single
+   * quotes. This prevents SQL injection when using string literals in DDL statements.
+   *
+   * @param literal the string literal to escape
+   * @return the escaped string literal wrapped in single quotes
+   */
+  private String escapePostgresStringLiteral(String literal) {
+    if (literal == null) {
+      throw new IllegalArgumentException("String literal cannot be null");
+    }
+    // Escape single quotes by doubling them, then wrap in single quotes
+    String escaped = literal.replace("'", "''");
+    return "'" + escaped + "'";
   }
 }

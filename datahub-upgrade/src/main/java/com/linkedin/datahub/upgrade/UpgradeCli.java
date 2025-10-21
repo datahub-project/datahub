@@ -85,61 +85,61 @@ public class UpgradeCli implements CommandLineRunner {
     if (restoreIndices != null) {
       _upgradeManager.register(restoreIndices);
     } else {
-      log.warn("RestoreIndices upgrade not available - bean not found");
+      log.info("RestoreIndices upgrade not available - bean not found");
     }
 
     if (restoreBackup != null) {
       _upgradeManager.register(restoreBackup);
     } else {
-      log.warn("RestoreBackup upgrade not available - bean not found");
+      log.info("RestoreBackup upgrade not available - bean not found");
     }
 
     if (removeUnknownAspects != null) {
       _upgradeManager.register(removeUnknownAspects);
     } else {
-      log.warn("RemoveUnknownAspects upgrade not available - bean not found");
+      log.info("RemoveUnknownAspects upgrade not available - bean not found");
     }
 
     if (sqlSetup != null) {
       _upgradeManager.register(sqlSetup);
     } else {
-      log.warn("SqlSetup upgrade not available - bean not found");
+      log.info("SqlSetup upgrade not available - bean not found");
     }
 
     if (loadIndices != null) {
       _upgradeManager.register(loadIndices);
     } else {
-      log.warn("LoadIndices upgrade not available - bean not found");
+      log.info("LoadIndices upgrade not available - bean not found");
     }
 
     if (systemUpdate != null) {
       _upgradeManager.register(systemUpdate);
     } else {
-      log.warn("SystemUpdate upgrade not available - bean not found");
+      log.info("SystemUpdate upgrade not available - bean not found");
     }
 
     if (systemUpdateBlocking != null) {
       _upgradeManager.register(systemUpdateBlocking);
     } else {
-      log.warn("SystemUpdateBlocking upgrade not available - bean not found");
+      log.info("SystemUpdateBlocking upgrade not available - bean not found");
     }
 
     if (systemUpdateNonBlocking != null) {
       _upgradeManager.register(systemUpdateNonBlocking);
     } else {
-      log.warn("SystemUpdateNonBlocking upgrade not available - bean not found");
+      log.info("SystemUpdateNonBlocking upgrade not available - bean not found");
     }
 
     if (systemUpdateCron != null) {
       _upgradeManager.register(systemUpdateCron);
     } else {
-      log.warn("SystemUpdateCron upgrade not available - bean not found");
+      log.info("SystemUpdateCron upgrade not available - bean not found");
     }
 
     if (reindexDebug != null) {
       _upgradeManager.register(reindexDebug);
     } else {
-      log.warn("ReindexDebug upgrade not available - bean not found");
+      log.info("ReindexDebug upgrade not available - bean not found");
     }
 
     final Args args = new Args();
