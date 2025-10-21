@@ -1108,6 +1108,7 @@ module.exports = {
         "docs/modeling/extending-the-metadata-model",
         "docs/advanced/api-tracing",
         "datahub-web-react/src/app/analytics/README",
+        // "smoke-test/test_resources/analytics_backfill/README",
         "docker/datahub-upgrade/README",
         "metadata-ingestion/adding-source",
         "docs/how/add-custom-ingestion-source",
