@@ -21,6 +21,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./gradlew :metadata-ingestion:lintFix       # Python linting auto-fix (ruff only)
 ```
 
+If you are using git worktrees then exclude this as that might cause git related failures when running any gradle command.
+
+```
+./gradlew ... -x generateGitPropertiesGlobal
+```
+
+**IMPORTANT: Verifying Python code changes:**
+
+- **ALWAYS use `./gradlew :metadata-ingestion:lintFix`** to verify Python code changes
+- **NEVER use `python3 -m py_compile`** - it doesn't catch style issues or type errors
+- lintFix runs ruff formatting and fixing automatically, ensuring code quality
+- For smoke-test changes, the lintFix command will also check those files
+
 **Development setup:**
 
 ```bash
@@ -66,6 +79,15 @@ Each Python module has a gradle setup similar to `metadata-ingestion/` (document
 - **URNs**: Unique identifiers (`urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)`)
 - **MCE/MCL**: Metadata Change Events/Logs for updates
 - **Entity Registry**: YAML config defining entity-aspect relationships (`metadata-models/src/main/resources/entity-registry.yml`)
+
+### Validation Architecture
+
+**IMPORTANT**: Validation must work across all APIs (GraphQL, OpenAPI, RestLI).
+
+- **Never add validation in API-specific layers** (GraphQL resolvers, REST controllers) - this only protects one API
+- **Always implement AspectPayloadValidators** in `metadata-io/src/main/java/com/linkedin/metadata/aspect/validation/`
+- **Register as Spring beans** in `SpringStandardPluginConfiguration.java`
+- **Follow existing patterns**: See `SystemPolicyValidator.java` and `PolicyFieldTypeValidator.java` as examples
 
 ## Development Flow
 

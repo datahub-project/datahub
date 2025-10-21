@@ -1490,7 +1490,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       Set<Urn> entityUrns) {
 
     int defaultPageSize = graphServiceConfig.getLimit().getResults().getApiDefault();
-    int slices = config.getSearch().getGraph().getImpact().getSlices();
+    int slices = Math.max(2, config.getSearch().getGraph().getImpact().getSlices());
 
     return searchWithSlices(
         opContext,

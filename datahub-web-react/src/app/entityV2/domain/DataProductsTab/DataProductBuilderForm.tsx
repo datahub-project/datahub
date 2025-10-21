@@ -1,12 +1,12 @@
+import { Editor } from '@components';
 import { Form, Input, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
 import { DataProductBuilderState } from '@app/entityV2/domain/DataProductsTab/types';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { Editor as MarkdownEditor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 
-const StyledEditor = styled(MarkdownEditor)`
+const StyledEditor = styled(Editor)`
     border: 1px solid ${ANTD_GRAY[4]};
 `;
 
@@ -36,6 +36,7 @@ export default function DataProductBuilderForm({ builderState, updateBuilderStat
                 rules={[{ min: 1, max: 500 }]}
                 hasFeedback
                 label={<Typography.Text strong>Name</Typography.Text>}
+                data-testid="name-input"
                 required
             >
                 <Input

@@ -31,6 +31,9 @@ from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import
 from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
     EnsureAspectSizeProcessor,
 )
+from datahub.ingestion.api.auto_work_units.auto_validate_input_fields import (
+    ValidateInputFieldsProcessor,
+)
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import ExamplesReport, Report
@@ -215,6 +218,7 @@ class SourceReport(ExamplesReport, IngestionStageReport):
     event_not_produced_warn: bool = True
     events_produced: int = 0
     events_produced_per_sec: int = 0
+    num_input_fields_filtered: int = 0
 
     _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
 
@@ -543,6 +547,7 @@ class Source(Closeable, metaclass=ABCMeta):
             browse_path_processor,
             partial(auto_workunit_reporter, self.get_report()),
             auto_patch_last_modified,
+            ValidateInputFieldsProcessor(self.get_report()).validate_input_fields,
             EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
         ]
 

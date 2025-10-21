@@ -1,17 +1,17 @@
 import time
+from typing import Any, Dict
 
 import pytest
 
-from tests.utils import delete_urns_from_file, ingest_file_via_rest
+from conftest import _ingest_cleanup_data_impl
+from tests.utils import delete_entity, execute_graphql
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ingest_cleanup_data(auth_session, graph_client, request):
-    print("ingesting incidents test data")
-    ingest_file_via_rest(auth_session, "tests/incidents/data.json")
-    yield
-    print("removing incidents test data")
-    delete_urns_from_file(graph_client, "tests/incidents/data.json")
+def ingest_cleanup_data(auth_session, graph_client):
+    yield from _ingest_cleanup_data_impl(
+        auth_session, graph_client, "tests/incidents/data.json", "incidents"
+    )
 
 
 TEST_DATASET_URN = (
@@ -25,62 +25,54 @@ def test_list_dataset_incidents(auth_session):
     # Sleep for eventual consistency (not ideal)
     time.sleep(2)
 
-    list_dataset_incidents_json = {
-        "query": """query dataset($urn: String!) {\n
-            dataset(urn: $urn) {\n
-              incidents(state: ACTIVE, start: 0, count: 10) {\n
-                start\n
-                count\n
-                total\n
-                incidents {\n
-                  urn\n
-                  type\n
-                  incidentType\n
-                  title\n
-                  description\n
-                  incidentStatus {\n
-                    state\n
-                    message\n
-                    lastUpdated {\n
-                      time\n
-                      actor\n
-                    }\n
-                  }\n
-                  source {\n
-                    type\n
-                    source {\n
-                      ... on Assertion {\n
-                        urn\n
-                        info {\n
+    list_dataset_incidents_query = """query dataset($urn: String!) {
+            dataset(urn: $urn) {
+              incidents(state: ACTIVE, start: 0, count: 10) {
+                start
+                count
+                total
+                incidents {
+                  urn
+                  type
+                  incidentType
+                  title
+                  description
+                  incidentStatus {
+                    state
+                    message
+                    lastUpdated {
+                      time
+                      actor
+                    }
+                  }
+                  source {
+                    type
+                    source {
+                      ... on Assertion {
+                        urn
+                        info {
                           type
-                        }\n
-                      }\n
-                    }\n
-                  }\n
-                  entity {\n
-                    urn\n
-                  }\n
-                  created {\n
-                    time\n
-                    actor\n
-                  }\n
-                }\n
-              }\n
-            }\n
-        }""",
-        "variables": {"urn": TEST_DATASET_URN},
-    }
+                        }
+                      }
+                    }
+                  }
+                  entity {
+                    urn
+                  }
+                  created {
+                    time
+                    actor
+                  }
+                }
+              }
+            }
+        }"""
+    list_dataset_incidents_variables: Dict[str, Any] = {"urn": TEST_DATASET_URN}
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql",
-        json=list_dataset_incidents_json,
+    res_data = execute_graphql(
+        auth_session, list_dataset_incidents_query, list_dataset_incidents_variables
     )
-    response.raise_for_status()
-    res_data = response.json()
 
-    assert res_data
-    assert "errors" not in res_data
-    assert res_data["data"]
     assert res_data["data"]["dataset"]["incidents"] == {
         "start": 0,
         "count": 10,
@@ -111,110 +103,88 @@ def test_list_dataset_incidents(auth_session):
 @pytest.mark.dependency(depends=["test_list_dataset_incidents"])
 def test_raise_resolve_incident(auth_session):
     # Raise new incident
-    raise_incident_json = {
-        "query": """mutation raiseIncident($input: RaiseIncidentInput!) {\n
+    raise_incident_query = """mutation raiseIncident($input: RaiseIncidentInput!) {
             raiseIncident(input: $input)
-        }""",
-        "variables": {
-            "input": {
-                "type": "OPERATIONAL",
-                "title": "test title 2",
-                "description": "test description 2",
-                "resourceUrn": TEST_DATASET_URN,
-                "priority": "CRITICAL",
-            }
-        },
+        }"""
+    raise_incident_variables: Dict[str, Any] = {
+        "input": {
+            "type": "OPERATIONAL",
+            "title": "test title 2",
+            "description": "test description 2",
+            "resourceUrn": TEST_DATASET_URN,
+            "priority": "CRITICAL",
+        }
     }
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=raise_incident_json
+    res_data = execute_graphql(
+        auth_session, raise_incident_query, raise_incident_variables
     )
-    response.raise_for_status()
-    res_data = response.json()
 
-    assert res_data
-    assert "errors" not in res_data
-    assert res_data["data"]
     assert res_data["data"]["raiseIncident"] is not None
 
     new_incident_urn = res_data["data"]["raiseIncident"]
 
     # Resolve the incident.
-    update_incident_status = {
-        "query": """mutation updateIncidentStatus($urn: String!, $input: IncidentStatusInput!) {\n
+    update_incident_status_query = """mutation updateIncidentStatus($urn: String!, $input: IncidentStatusInput!) {
             updateIncidentStatus(urn: $urn, input: $input)
-        }""",
-        "variables": {
-            "urn": new_incident_urn,
-            "input": {
-                "state": "RESOLVED",
-                "message": "test message 2",
-            },
+        }"""
+    update_incident_status_variables: Dict[str, Any] = {
+        "urn": new_incident_urn,
+        "input": {
+            "state": "RESOLVED",
+            "message": "test message 2",
         },
     }
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=update_incident_status
+    res_data = execute_graphql(
+        auth_session, update_incident_status_query, update_incident_status_variables
     )
-    response.raise_for_status()
-    res_data = response.json()
 
-    assert res_data
-    assert "errors" not in res_data
-    assert res_data["data"]
     assert res_data["data"]["updateIncidentStatus"] is True
 
     # Sleep for eventual consistency (not ideal)
     time.sleep(2)
 
     # Fetch the dataset's incidents to confirm there's a resolved incident.new_incident_urn
-    list_dataset_incidents_json = {
-        "query": """query dataset($urn: String!) {\n
-            dataset(urn: $urn) {\n
-              incidents(state: RESOLVED, start: 0, count: 10) {\n
-                start\n
-                count\n
-                total\n
-                incidents {\n
-                  urn\n
-                  type\n
-                  incidentType\n
-                  title\n
-                  description\n
-                  priority\n
-                  incidentStatus {\n
-                    state\n
-                    message\n
-                    lastUpdated {\n
-                      time\n
-                      actor\n
-                    }\n
-                  }\n
-                  entity {\n
-                    urn\n
-                  }\n
-                  created {\n
-                    time\n
-                    actor\n
-                  }\n
-                }\n
-              }\n
-            }\n
-        }""",
-        "variables": {"urn": TEST_DATASET_URN},
-    }
+    list_resolved_incidents_query = """query dataset($urn: String!) {
+            dataset(urn: $urn) {
+              incidents(state: RESOLVED, start: 0, count: 10) {
+                start
+                count
+                total
+                incidents {
+                  urn
+                  type
+                  incidentType
+                  title
+                  description
+                  priority
+                  incidentStatus {
+                    state
+                    message
+                    lastUpdated {
+                      time
+                      actor
+                    }
+                  }
+                  entity {
+                    urn
+                  }
+                  created {
+                    time
+                    actor
+                  }
+                }
+              }
+            }
+        }"""
+    list_resolved_incidents_variables: Dict[str, Any] = {"urn": TEST_DATASET_URN}
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql",
-        json=list_dataset_incidents_json,
+    res_data = execute_graphql(
+        auth_session, list_resolved_incidents_query, list_resolved_incidents_variables
     )
-    response.raise_for_status()
-    res_data = response.json()
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["dataset"]["incidents"]["total"] is not None
-    assert "errors" not in res_data
 
     # Find the new incident and do the comparison.
     active_incidents = res_data["data"]["dataset"]["incidents"]["incidents"]
@@ -228,11 +198,5 @@ def test_raise_resolve_incident(auth_session):
     assert new_incident["incidentStatus"]["state"] == "RESOLVED"
     assert new_incident["priority"] == "CRITICAL"
 
-    delete_json = {"urn": new_incident_urn}
-
     # Cleanup: Delete the incident
-    response = auth_session.post(
-        f"{auth_session.gms_url()}/entities?action=delete", json=delete_json
-    )
-
-    response.raise_for_status()
+    delete_entity(auth_session, new_incident_urn)
