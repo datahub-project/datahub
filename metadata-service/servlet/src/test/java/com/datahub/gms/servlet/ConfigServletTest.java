@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,12 +25,14 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.util.Collections;
+import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.web.context.WebApplicationContext;
 import org.testng.annotations.AfterMethod;
@@ -46,6 +49,9 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
   private OperationContext operationContext;
 
   @Autowired private WebApplicationContext webApplicationContext;
+
+  @MockitoBean(name = "searchClientShim", answers = Answers.RETURNS_MOCKS)
+  SearchClientShim<?> searchClientShim;
 
   @Mock private ServletContext servletContext;
   @Mock private HttpServletRequest request;

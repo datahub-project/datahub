@@ -17,6 +17,7 @@ import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Sc
 import useUsageStatsRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useUsageStatsRenderer';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import translateFieldPath from '@src/app/entityV2/dataset/profile/schema/utils/translateFieldPath';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { EditableSchemaMetadata, EntityType, SchemaField, SchemaMetadata, UsageQueryResult } from '@types';
 
@@ -212,7 +213,11 @@ export default function CompactSchemaTable({
                 }}
             />
             {hasSeeMore && (
-                <StyledButton type="text" size="small" href={entityRegistry.getEntityUrl(EntityType.Dataset, urn)}>
+                <StyledButton
+                    type="text"
+                    size="small"
+                    href={resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Dataset, urn))}
+                >
                     View {rows.length - numberOfRowsToShow} More
                 </StyledButton>
             )}

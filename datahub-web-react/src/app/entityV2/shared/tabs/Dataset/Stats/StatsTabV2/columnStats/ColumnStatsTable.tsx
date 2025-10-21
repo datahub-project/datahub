@@ -154,6 +154,7 @@ function ColumnStatsTable({ columnStats, searchQuery }: Props) {
                 maxHeight="475px"
                 onRowClick={onRowClick}
                 rowClassName={getRowClassName}
+                rowDataTestId={(row) => `row-${row.column}`}
                 rowRefs={rowRefs}
                 headerRef={headerRef}
             />

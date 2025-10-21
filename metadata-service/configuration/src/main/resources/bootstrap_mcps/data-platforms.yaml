@@ -10,7 +10,7 @@
     name: adlsGen1
     displayName: Azure Data Lake (Gen 1)
     type: FILE_SYSTEM
-    logoUrl: "/assets/platforms/adlslogo.png"
+    logoUrl: "assets/platforms/adlslogo.png"
 - entityUrn: urn:li:dataPlatform:adlsGen2
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -20,7 +20,7 @@
     name: adlsGen2
     displayName: Azure Data Lake (Gen 2)
     type: FILE_SYSTEM
-    logoUrl: "/assets/platforms/adlslogo.png"
+    logoUrl: "assets/platforms/adlslogo.png"
 - entityUrn: urn:li:dataPlatform:airflow
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -30,7 +30,7 @@
     name: airflow
     displayName: Airflow
     type: OTHERS
-    logoUrl: "/assets/platforms/airflowlogo.png"
+    logoUrl: "assets/platforms/airflowlogo.png"
 - entityUrn: urn:li:dataPlatform:ambry
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -49,7 +49,7 @@
     name: clickhouse
     displayName: ClickHouse
     type: RELATIONAL_DB
-    logoUrl: "/assets/platforms/clickhouselogo.png"
+    logoUrl: "assets/platforms/clickhouselogo.png"
 - entityUrn: urn:li:dataPlatform:cockroachdb
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -59,7 +59,7 @@
     name: cockroachdb
     displayName: CockroachDb
     type: RELATIONAL_DB
-    logoUrl: "/assets/platforms/cockroachdblogo.png"
+    logoUrl: "assets/platforms/cockroachdblogo.png"
 - entityUrn: urn:li:dataPlatform:couchbase
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -69,7 +69,7 @@
     name: couchbase
     displayName: Couchbase
     type: KEY_VALUE_STORE
-    logoUrl: "/assets/platforms/couchbaselogo.png"
+    logoUrl: "assets/platforms/couchbaselogo.png"
 - entityUrn: urn:li:dataPlatform:dagster
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -79,7 +79,7 @@
     name: dagster
     displayName: Dagster
     type: OTHERS
-    logoUrl: "/assets/platforms/dagsterlogo.svg"
+    logoUrl: "assets/platforms/dagsterlogo.svg"
 - entityUrn: urn:li:dataPlatform:external
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -98,7 +98,7 @@
     name: hdfs
     displayName: HDFS
     type: FILE_SYSTEM
-    logoUrl: "/assets/platforms/hadooplogo.png"
+    logoUrl: "assets/platforms/hadooplogo.png"
 - entityUrn: urn:li:dataPlatform:hana
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -108,7 +108,7 @@
     name: hana
     displayName: SAP HANA
     type: RELATIONAL_DB
-    logoUrl: "/assets/platforms/hanalogo.png"
+    logoUrl: "assets/platforms/hanalogo.png"
 - entityUrn: urn:li:dataPlatform:hive
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -118,7 +118,7 @@
     name: hive
     displayName: Hive
     type: FILE_SYSTEM
-    logoUrl: "/assets/platforms/hivelogo.png"
+    logoUrl: "assets/platforms/hivelogo.png"
 - entityUrn: urn:li:dataPlatform:hudi
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -128,7 +128,7 @@
     name: hudi
     displayName: Hudi
     type: FILE_SYSTEM
-    logoUrl: "/assets/platforms/hudilogo.png"
+    logoUrl: "assets/platforms/hudilogo.png"
 - entityUrn: urn:li:dataPlatform:iceberg
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -138,7 +138,7 @@
     name: iceberg
     displayName: Iceberg
     type: FILE_SYSTEM
-    logoUrl: "/assets/platforms/iceberglogo.png"
+    logoUrl: "assets/platforms/iceberglogo.png"
 - entityUrn: urn:li:dataPlatform:s3
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -148,7 +148,7 @@
     name: s3
     displayName: AWS S3
     type: FILE_SYSTEM
-    logoUrl: "/assets/platforms/s3.png"
+    logoUrl: "assets/platforms/s3.png"
 - entityUrn: urn:li:dataPlatform:kafka
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -158,7 +158,7 @@
     name: kafka
     displayName: Kafka
     type: MESSAGE_BROKER
-    logoUrl: "/assets/platforms/kafkalogo.png"
+    logoUrl: "assets/platforms/kafkalogo.png"
 - entityUrn: urn:li:dataPlatform:kafka-connect
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -168,7 +168,7 @@
     name: kafka-connect
     displayName: Kafka Connect
     type: OTHERS
-    logoUrl: "/assets/platforms/kafkalogo.png"
+    logoUrl: "assets/platforms/kafkalogo.png"
 - entityUrn: urn:li:dataPlatform:kusto
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -178,7 +178,7 @@
     name: kusto
     displayName: Kusto
     type: OLAP_DATASTORE
-    logoUrl: "/assets/platforms/kustologo.png"
+    logoUrl: "assets/platforms/kustologo.png"
 - entityUrn: urn:li:dataPlatform:mode
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -188,7 +188,7 @@
     name: mode
     displayName: Mode
     type: KEY_VALUE_STORE
-    logoUrl: "/assets/platforms/modelogo.png"
+    logoUrl: "assets/platforms/modelogo.png"
 - entityUrn: urn:li:dataPlatform:mongodb
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -198,7 +198,7 @@
     name: mongodb
     displayName: MongoDB
     type: KEY_VALUE_STORE
-    logoUrl: "/assets/platforms/mongodblogo.png"
+    logoUrl: "assets/platforms/mongodblogo.png"
 - entityUrn: urn:li:dataPlatform:mysql
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -208,7 +208,7 @@
     name: mysql
     displayName: MySQL
     type: RELATIONAL_DB
-    logoUrl: "/assets/platforms/mysqllogo.png"
+    logoUrl: "assets/platforms/mysqllogo.png"
 - entityUrn: urn:li:dataPlatform:db2
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -218,7 +218,7 @@
     name: db2
     displayName: DB2
     type: RELATIONAL_DB
-    logoUrl: "/assets/platforms/db2logo.png"
+    logoUrl: "assets/platforms/db2logo.png"
 - entityUrn: urn:li:dataPlatform:mariadb
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -228,7 +228,7 @@
     name: mariadb
     displayName: MariaDB
     type: RELATIONAL_DB
-    logoUrl: "/assets/platforms/mariadblogo.png"
+    logoUrl: "assets/platforms/mariadblogo.png"
 - entityUrn: urn:li:dataPlatform:OpenApi
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -238,7 +238,7 @@
     name: openapi
     displayName: OpenAPI
     type: OTHERS
-    logoUrl: "/assets/platforms/openapilogo.png"
+    logoUrl: "assets/platforms/openapilogo.png"
 - entityUrn: urn:li:dataPlatform:oracle
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -248,7 +248,7 @@
     name: oracle
     displayName: Oracle
     type: RELATIONAL_DB
-    logoUrl: "/assets/platforms/oraclelogo.png"
+    logoUrl: "assets/platforms/oraclelogo.png"
 - entityUrn: urn:li:dataPlatform:pinot
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -258,7 +258,7 @@
     name: pinot
     displayName: Pinot
     type: OLAP_DATASTORE
-    logoUrl: "/assets/platforms/pinotlogo.png"
+    logoUrl: "assets/platforms/pinotlogo.png"
 - entityUrn: urn:li:dataPlatform:postgres
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -268,7 +268,7 @@
     name: postgres
     displayName: PostgreSQL
     type: RELATIONAL_DB
-    logoUrl: "/assets/platforms/postgreslogo.png"
+    logoUrl: "assets/platforms/postgreslogo.png"
 - entityUrn: urn:li:dataPlatform:prefect
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -278,7 +278,7 @@
     name: prefect
     displayName: Prefect
     type: OTHERS
-    logoUrl: "/assets/platforms/prefectlogo.png"
+    logoUrl: "assets/platforms/prefectlogo.png"
 - entityUrn: urn:li:dataPlatform:presto
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -288,7 +288,7 @@
     name: prefect
     displayName: Prefect
     type: OTHERS
-    logoUrl: "/assets/platforms/prefectlogo.png"
+    logoUrl: "assets/platforms/prefectlogo.png"
 - entityUrn: urn:li:dataPlatform:presto
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -298,7 +298,7 @@
     name: presto
     displayName: Presto
     type: QUERY_ENGINE
-    logoUrl: "/assets/platforms/prestologo.png"
+    logoUrl: "assets/platforms/prestologo.png"
 - entityUrn: urn:li:dataPlatform:tableau
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -308,7 +308,7 @@
     name: tableau
     displayName: Tableau
     type: OTHERS
-    logoUrl: "/assets/platforms/tableaulogo.svg"
+    logoUrl: "assets/platforms/tableaulogo.svg"
 - entityUrn: urn:li:dataPlatform:teradata
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -318,7 +318,7 @@
     name: teradata
     displayName: Teradata
     type: RELATIONAL_DB
-    logoUrl: "/assets/platforms/teradatalogo.png"
+    logoUrl: "assets/platforms/teradatalogo.png"
 - entityUrn: urn:li:dataPlatform:voldemort
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -337,7 +337,7 @@
     name: snowflake
     displayName: Snowflake
     type: RELATIONAL_DB
-    logoUrl: "/assets/platforms/snowflakelogo.png"
+    logoUrl: "assets/platforms/snowflakelogo.png"
 - entityUrn: urn:li:dataPlatform:redshift
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -347,7 +347,7 @@
     name: redshift
     displayName: Redshift
     type: RELATIONAL_DB
-    logoUrl: "/assets/platforms/redshiftlogo.png"
+    logoUrl: "assets/platforms/redshiftlogo.png"
 - entityUrn: urn:li:dataPlatform:mssql
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -357,7 +357,7 @@
     name: mssql
     displayName: SQL Server
     type: RELATIONAL_DB
-    logoUrl: "/assets/platforms/mssqllogo.png"
+    logoUrl: "assets/platforms/mssqllogo.png"
 - entityUrn: urn:li:dataPlatform:bigquery
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -367,7 +367,7 @@
     name: bigquery
     displayName: BigQuery
     type: RELATIONAL_DB
-    logoUrl: "/assets/platforms/bigquerylogo.png"
+    logoUrl: "assets/platforms/bigquerylogo.png"
 - entityUrn: urn:li:dataPlatform:druid
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -377,7 +377,7 @@
     name: druid
     displayName: Druid
     type: OLAP_DATASTORE
-    logoUrl: "/assets/platforms/druidlogo.png"
+    logoUrl: "assets/platforms/druidlogo.png"
 - entityUrn: urn:li:dataPlatform:looker
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -387,7 +387,7 @@
     name: looker
     displayName: Looker
     type: OTHERS
-    logoUrl: "/assets/platforms/lookerlogo.svg"
+    logoUrl: "assets/platforms/lookerlogo.svg"
 - entityUrn: urn:li:dataPlatform:feast
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -397,7 +397,7 @@
     name: feast
     displayName: Feast
     type: OTHERS
-    logoUrl: "/assets/platforms/feastlogo.png"
+    logoUrl: "assets/platforms/feastlogo.png"
 - entityUrn: urn:li:dataPlatform:sagemaker
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -407,7 +407,7 @@
     name: sagemaker
     displayName: SageMaker
     type: OTHERS
-    logoUrl: "/assets/platforms/sagemakerlogo.png"
+    logoUrl: "assets/platforms/sagemakerlogo.png"
 - entityUrn: urn:li:dataPlatform:mlflow
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -417,7 +417,7 @@
     name: mlflow
     displayName: MLflow
     type: OTHERS
-    logoUrl: "/assets/platforms/mlflowlogo2.png"
+    logoUrl: "assets/platforms/mlflowlogo2.png"
 - entityUrn: urn:li:dataPlatform:glue
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -427,7 +427,7 @@
     name: glue
     displayName: Glue
     type: OTHERS
-    logoUrl: "/assets/platforms/gluelogo.png"
+    logoUrl: "assets/platforms/gluelogo.png"
 - entityUrn: urn:li:dataPlatform:redash
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -437,7 +437,7 @@
     name: redash
     displayName: Redash
     type: OTHERS
-    logoUrl: "/assets/platforms/redashlogo.png"
+    logoUrl: "assets/platforms/redashlogo.png"
 - entityUrn: urn:li:dataPlatform:athena
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -447,7 +447,7 @@
     name: athena
     displayName: AWS Athena
     type: RELATIONAL_DB
-    logoUrl: "/assets/platforms/awsathenalogo.png"
+    logoUrl: "assets/platforms/awsathenalogo.png"
 - entityUrn: urn:li:dataPlatform:spark
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -457,7 +457,7 @@
     name: spark
     displayName: Spark
     type: OTHERS
-    logoUrl: "/assets/platforms/sparklogo.png"
+    logoUrl: "assets/platforms/sparklogo.png"
 - entityUrn: urn:li:dataPlatform:dbt
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -467,7 +467,7 @@
     name: dbt
     displayName: dbt
     type: OTHERS
-    logoUrl: "/assets/platforms/dbtlogo.png"
+    logoUrl: "assets/platforms/dbtlogo.png"
 - entityUrn: urn:li:dataPlatform:elasticsearch
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -477,7 +477,7 @@
     name: elasticsearch
     displayName: Elasticsearch
     type: OTHERS
-    logoUrl: "/assets/platforms/elasticsearchlogo.png"
+    logoUrl: "assets/platforms/elasticsearchlogo.png"
 - entityUrn: urn:li:dataPlatform:great-expectations
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -486,7 +486,7 @@
     name: Great Expectations
     displayName: Great Expectations
     type: OTHERS
-    logoUrl: "/assets/platforms/greatexpectationslogo.png"
+    logoUrl: "assets/platforms/greatexpectationslogo.png"
     datasetNameDelimiter: "."
 - entityUrn: urn:li:dataPlatform:powerbi
   entityType: dataPlatform
@@ -497,7 +497,7 @@
     name: powerbi
     displayName: Power BI
     type: OTHERS
-    logoUrl: "/assets/platforms/powerbilogo.png"
+    logoUrl: "assets/platforms/powerbilogo.png"
 - entityUrn: urn:li:dataPlatform:presto-on-hive
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -507,7 +507,7 @@
     name: presto-on-hive
     displayName: Presto on Hive
     type: FILE_SYSTEM
-    logoUrl: "/assets/platforms/prestoonhivelogo.png"
+    logoUrl: "assets/platforms/prestoonhivelogo.png"
 - entityUrn: urn:li:dataPlatform:metabase
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -517,7 +517,7 @@
     name: metabase
     displayName: Metabase
     type: OTHERS
-    logoUrl: "/assets/platforms/metabaselogo.svg"
+    logoUrl: "assets/platforms/metabaselogo.svg"
 - entityUrn: urn:li:dataPlatform:nifi
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -527,7 +527,7 @@
     name: nifi
     displayName: NiFi
     type: OTHERS
-    logoUrl: "/assets/platforms/nifilogo.svg"
+    logoUrl: "assets/platforms/nifilogo.svg"
 - entityUrn: urn:li:dataPlatform:superset
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -537,7 +537,7 @@
     name: superset
     displayName: Superset
     type: OTHERS
-    logoUrl: "/assets/platforms/supersetlogo.png"
+    logoUrl: "assets/platforms/supersetlogo.png"
 - entityUrn: urn:li:dataPlatform:preset
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -547,7 +547,7 @@
     name: preset
     displayName: Preset
     type: OTHERS
-    logoUrl: "/assets/platforms/presetlogo.svg"
+    logoUrl: "assets/platforms/presetlogo.svg"
 - entityUrn: urn:li:dataPlatform:trino
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -557,7 +557,7 @@
     name: trino
     displayName: Trino
     type: QUERY_ENGINE
-    logoUrl: "/assets/platforms/trinologo.png"
+    logoUrl: "assets/platforms/trinologo.png"
 - entityUrn: urn:li:dataPlatform:pulsar
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -567,7 +567,7 @@
     name: pulsar
     displayName: Pulsar
     type: MESSAGE_BROKER
-    logoUrl: "/assets/platforms/pulsarlogo.png"
+    logoUrl: "assets/platforms/pulsarlogo.png"
 - entityUrn: urn:li:dataPlatform:salesforce
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -577,7 +577,7 @@
     name: salesforce
     displayName: Salesforce
     type: OTHERS
-    logoUrl: "/assets/platforms/logo-salesforce.svg"
+    logoUrl: "assets/platforms/logo-salesforce.svg"
 - entityUrn: urn:li:dataPlatform:unknown
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -596,7 +596,7 @@
     name: delta-lake
     displayName: Delta Lake
     type: OTHERS
-    logoUrl: "/assets/platforms/deltalakelogo.png"
+    logoUrl: "assets/platforms/deltalakelogo.png"
 - entityUrn: urn:li:dataPlatform:databricks
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -606,7 +606,7 @@
     name: databricks
     displayName: Databricks
     type: OTHERS
-    logoUrl: "/assets/platforms/databrickslogo.png"
+    logoUrl: "assets/platforms/databrickslogo.png"
 - entityUrn: urn:li:dataPlatform:vertica
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -616,7 +616,7 @@
     name: vertica
     displayName: Vertica
     type: OLAP_DATASTORE
-    logoUrl: "/assets/platforms/verticalogo.png"
+    logoUrl: "assets/platforms/verticalogo.png"
 - entityUrn: urn:li:dataPlatform:gcs
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -626,7 +626,7 @@
     name: gcs
     displayName: Google Cloud Storage
     type: FILE_SYSTEM
-    logoUrl: "/assets/platforms/gcslogo.svg"
+    logoUrl: "assets/platforms/gcslogo.svg"
 - entityUrn: urn:li:dataPlatform:slack
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -636,7 +636,7 @@
     name: Slack
     displayName: Slack
     type: OTHERS
-    logoUrl: "/assets/platforms/slacklogo.png"
+    logoUrl: "assets/platforms/slacklogo.png"
 - entityUrn: urn:li:dataPlatform:microsoft-teams
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -646,7 +646,7 @@
     name: Microsoft Teams
     displayName: Microsoft Teams
     type: OTHERS
-    logoUrl: "/assets/platforms/teamslogo.png"
+    logoUrl: "assets/platforms/teamslogo.png"
 - entityUrn: urn:li:dataPlatform:dynamodb
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -656,7 +656,7 @@
     name: dynamodb
     displayName: DynamoDB
     type: KEY_VALUE_STORE
-    logoUrl: "/assets/platforms/dynamodblogo.png"
+    logoUrl: "assets/platforms/dynamodblogo.png"
 - entityUrn: urn:li:dataPlatform:fivetran
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -666,7 +666,7 @@
     name: fivetran
     displayName: Fivetran
     type: OTHERS
-    logoUrl: "/assets/platforms/fivetranlogo.png"
+    logoUrl: "assets/platforms/fivetranlogo.png"
 - entityUrn: urn:li:dataPlatform:csv
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -676,7 +676,7 @@
     name: csv
     displayName: CSV
     type: OTHERS
-    logoUrl: "/assets/platforms/csv-logo.png"
+    logoUrl: "assets/platforms/csv-logo.png"
 - entityUrn: urn:li:dataPlatform:qlik-sense
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -686,7 +686,7 @@
     name: qlik-sense
     displayName: Qlik Sense
     type: OTHERS
-    logoUrl: "/assets/platforms/qliklogo.png"
+    logoUrl: "assets/platforms/qliklogo.png"
 - entityUrn: urn:li:dataPlatform:file
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -696,7 +696,7 @@
     name: file
     displayName: File
     type: OTHERS
-    logoUrl: "/assets/platforms/file-logo.svg"
+    logoUrl: "assets/platforms/file-logo.svg"
 - entityUrn: urn:li:dataPlatform:excel
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -706,7 +706,7 @@
     displayName: Excel
     type: OTHERS
     datasetNameDelimiter: "/"
-    logoUrl: "/assets/platforms/excel-logo.svg"
+    logoUrl: "assets/platforms/excel-logo.svg"
 - entityUrn: urn:li:dataPlatform:sigma
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -716,7 +716,7 @@
     name: sigma
     displayName: Sigma
     type: OTHERS
-    logoUrl: "/assets/platforms/sigmalogo.png"
+    logoUrl: "assets/platforms/sigmalogo.png"
 - entityUrn: urn:li:dataPlatform:sac
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -726,7 +726,7 @@
     name: sac
     displayName: SAP Analytics Cloud
     type: OTHERS
-    logoUrl: "/assets/platforms/saclogo.svg"
+    logoUrl: "assets/platforms/saclogo.svg"
 - entityUrn: urn:li:dataPlatform:dremio
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -736,7 +736,7 @@
     name: dremio
     displayName: Dremio
     type: QUERY_ENGINE
-    logoUrl: "/assets/platforms/dremiologo.png"
+    logoUrl: "assets/platforms/dremiologo.png"
 - entityUrn: urn:li:dataPlatform:cassandra
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -746,7 +746,7 @@
     name: cassandra
     displayName: Cassandra
     type: KEY_VALUE_STORE
-    logoUrl: "/assets/platforms/cassandralogo.png"
+    logoUrl: "assets/platforms/cassandralogo.png"
 - entityUrn: urn:li:dataPlatform:neo4j
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -756,7 +756,7 @@
     name: neo4j
     displayName: Neo4j
     type: OTHERS
-    logoUrl: "/assets/platforms/neo4j.png"
+    logoUrl: "assets/platforms/neo4j.png"
 - entityUrn: urn:li:dataPlatform:vertexai
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -766,7 +766,7 @@
     name: vertexai
     displayName: vertexai
     type: OTHERS
-    logoUrl: "/assets/platforms/vertexai.png"
+    logoUrl: "assets/platforms/vertexai.png"
 - entityUrn: urn:li:dataPlatform:hex
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -776,7 +776,7 @@
     name: hex
     displayName: Hex
     type: OTHERS
-    logoUrl: "/assets/platforms/hex.png"
+    logoUrl: "assets/platforms/hex.png"
 - entityUrn: urn:li:dataPlatform:grafana
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -786,7 +786,7 @@
     name: grafana
     displayName: Grafana
     type: OTHERS
-    logoUrl: "/assets/platforms/grafana.png"
+    logoUrl: "assets/platforms/grafana.png"
 - entityUrn: urn:li:dataPlatform:controlm
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -796,7 +796,7 @@
     name: controlm
     displayName: Control-M
     type: OTHERS
-    logoUrl: "/assets/platforms/controlmlogo.png"
+    logoUrl: "assets/platforms/controlmlogo.png"
 - entityUrn: urn:li:dataPlatform:abinitio
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -806,7 +806,7 @@
     name: abinitio
     displayName: Ab Initio
     type: OTHERS
-    logoUrl: "/assets/platforms/abinitiologo.png"
+    logoUrl: "assets/platforms/abinitiologo.png"
 - entityUrn: urn:li:dataPlatform:informatica
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -816,4 +816,4 @@
     name: informatica
     displayName: Informatica
     type: OTHERS
-    logoUrl: "/assets/platforms/informaticalogo.png"
+    logoUrl: "assets/platforms/informaticalogo.png"

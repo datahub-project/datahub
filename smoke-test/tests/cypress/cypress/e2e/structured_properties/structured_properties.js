@@ -85,6 +85,39 @@ const showStructuredPropertyInColumnsTable = (prop) => {
   cy.waitTextVisible(updateToastMessage);
 };
 
+const showStructuredPropertyInAssetSummaryTab = (prop) => {
+  cy.get('[data-testid="structured-props-table"]').contains(prop.name).click();
+  cy.get(
+    '[data-testid="structured-props-show-in-asset-summary-switch"]',
+  ).click();
+  cy.get('[data-testid="structured-props-create-update-button"]').click();
+  cy.waitTextVisible(updateToastMessage);
+};
+
+const hideStructuredPropertyInAssetSummaryTabWhenEmpty = (prop) => {
+  cy.getWithTestId("structured-props-table").contains(prop.name).click();
+  cy.getWithTestId(
+    "structured-props-hide-in-asset-summary-when-empty-checkbox",
+  ).click({ force: true });
+  cy.getWithTestId("structured-props-create-update-button").click();
+  cy.waitTextVisible(updateToastMessage);
+};
+
+const openEntityAssetSummaryTab = () => {
+  cy.get('[id="entity-sidebar-tabs-tab-Summary"]').then(($el) => {
+    const isSelected = $el.attr("aria-selected") === "true";
+    if (!isSelected) cy.wrap($el).click();
+  });
+};
+
+const ensureStructuredPropertyIsAvailableInAssetSummaryTab = (prop) => {
+  cy.get('[id="entity-profile-v2-sidebar"]').should("contain", prop.name);
+};
+
+const ensureStructuredPropertyIsNotAvailableInAssetSummaryTab = (prop) => {
+  cy.get('[id="entity-profile-v2-sidebar"]').should("not.contain", prop.name);
+};
+
 const addStructuredPropertyToField = (prop) => {
   cy.goToDataset(datasetUrn, datasetName);
   cy.contains(fieldName);
@@ -252,5 +285,59 @@ describe("Verify manage structured properties functionalities", () => {
       .should("not.exist");
     goToStructuredProperties();
     deleteStructuredProperty(fieldStructuredProperty);
+  });
+
+  it("Verify property is available in asset summary tab when empty", () => {
+    const property = {
+      ...structuredProperty,
+      name: "Property-showInSummaryTab",
+    };
+
+    createStructuredProperty(property);
+    showStructuredPropertyInAssetSummaryTab(property);
+    cy.goToDataset(datasetUrn, datasetName);
+
+    openEntityAssetSummaryTab();
+    ensureStructuredPropertyIsAvailableInAssetSummaryTab(property);
+
+    goToStructuredProperties();
+    deleteStructuredProperty(property);
+  });
+
+  it("Verify property is not available in asset summary tab when it's empty", () => {
+    const property = {
+      ...structuredProperty,
+      name: "Property-hideInSummaryTabWithoutValue",
+    };
+    createStructuredProperty(property);
+    showStructuredPropertyInAssetSummaryTab(property);
+    goToStructuredProperties();
+    hideStructuredPropertyInAssetSummaryTabWhenEmpty(property);
+    cy.goToDataset(datasetUrn, datasetName);
+
+    openEntityAssetSummaryTab();
+    ensureStructuredPropertyIsNotAvailableInAssetSummaryTab(property);
+
+    goToStructuredProperties();
+    deleteStructuredProperty(property);
+  });
+
+  it("Verify property is available in asset summary tab when it isn't empty", () => {
+    const property = {
+      ...structuredProperty,
+      name: "Property-hideInSummaryTabWhenEmptyWithValue",
+    };
+    createStructuredProperty(property);
+    showStructuredPropertyInAssetSummaryTab(property);
+    goToStructuredProperties();
+    hideStructuredPropertyInAssetSummaryTabWhenEmpty(property);
+    cy.goToDataset(datasetUrn, datasetName);
+    addStructuredPropertyToEntity(property);
+
+    openEntityAssetSummaryTab();
+    ensureStructuredPropertyIsAvailableInAssetSummaryTab(property);
+
+    goToStructuredProperties();
+    deleteStructuredProperty(property);
   });
 });
