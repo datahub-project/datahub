@@ -53,6 +53,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.LongSupplier;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -66,6 +67,8 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
   private static final String TEST_DATASET_URN = "urn:li:dataset:1";
   private static final String TEST_MONITOR_URN = "urn:li:monitor:1";
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:1";
+
+  @Mock private static LongSupplier timeProvider = () -> 1000L;
 
   @Mock private AssertionService assertionService;
 
@@ -119,7 +122,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
     // Act
     UpsertDatasetSchemaAssertionMonitorResolver resolver =
         new UpsertDatasetSchemaAssertionMonitorResolver(
-            assertionService, monitorService, graphClient);
+            assertionService, monitorService, graphClient, timeProvider);
     CompletableFuture<Assertion> future = resolver.get(dataFetchingEnvironment);
     Assertion assertion = future.get();
 
@@ -134,7 +137,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
             Mockito.eq(com.linkedin.assertion.SchemaAssertionCompatibility.SUPERSET),
             Mockito.any(SchemaMetadata.class),
             Mockito.any(AssertionActions.class),
-            Mockito.eq(null));
+            Mockito.any(AssertionSource.class));
     verify(monitorService, times(1))
         .upsertAssertionMonitor(
             any(OperationContext.class),
@@ -218,7 +221,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
     // Act
     UpsertDatasetSchemaAssertionMonitorResolver resolver =
         new UpsertDatasetSchemaAssertionMonitorResolver(
-            assertionService, monitorService, graphClient);
+            assertionService, monitorService, graphClient, timeProvider);
     CompletableFuture<Assertion> future = resolver.get(dataFetchingEnvironment);
     Assertion assertion = future.get();
 
@@ -256,6 +259,8 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
     // Arrange
     UpsertDatasetSchemaAssertionMonitorInput input = new UpsertDatasetSchemaAssertionMonitorInput();
     when(dataFetchingEnvironment.getArgument("assertionUrn")).thenReturn(null);
+    final QueryContext mockContext = getMockAllowContext();
+    when(dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(dataFetchingEnvironment.getArgument("input")).thenReturn(input);
 
     // Assert
@@ -361,7 +366,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolverTest {
 
     UpsertDatasetSchemaAssertionMonitorResolver resolver =
         new UpsertDatasetSchemaAssertionMonitorResolver(
-            mockAssertionService, mockMonitorService, mockGraphClient);
+            mockAssertionService, mockMonitorService, mockGraphClient, timeProvider);
 
     CompletionException e =
         expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());

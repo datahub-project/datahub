@@ -804,7 +804,7 @@ public class AssertionService extends BaseService {
     final AssertionInfo assertion = new AssertionInfo();
     assertion.setDatasetAssertion(datasetAssertion);
     assertion.setType(AssertionType.DATASET);
-    assertion.setSource(getNativeAssertionSource(actorUrn));
+    assertion.setSource(createAssertionSource(actorUrn, AssertionSourceType.EXTERNAL));
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(
