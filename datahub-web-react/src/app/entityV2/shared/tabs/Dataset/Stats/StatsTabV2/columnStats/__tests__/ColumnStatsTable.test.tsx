@@ -7,7 +7,16 @@ import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema
 import ColumnStatsTable from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/columnStats/ColumnStatsTable';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
-import { DatasetFieldProfile } from '@types';
+// Local type definition to match the component's interface
+interface DatasetFieldProfile {
+    fieldPath: string;
+    nullCount?: number | null;
+    nullProportion?: number | null;
+    uniqueCount?: number | null;
+    uniqueProportion?: number | null;
+    min?: string | null;
+    max?: string | null;
+}
 
 // Mock the hooks and dependencies
 vi.mock('@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema');
@@ -37,7 +46,7 @@ describe('ColumnStatsTable', () => {
             nullable: true,
             recursive: false,
         },
-    ] as any[];
+    ];
 
     const mockColumnStats: DatasetFieldProfile[] = [
         {
@@ -58,17 +67,23 @@ describe('ColumnStatsTable', () => {
             min: 'alice@example.com',
             max: 'zoe@example.com',
         },
-    ] as DatasetFieldProfile[];
+    ];
 
     beforeEach(() => {
         mockUseGetEntityWithSchema.mockReturnValue({
             entityWithSchema: {
                 schemaMetadata: {
-                    fields: mockSchemaFields,
+                    fields: mockSchemaFields as any,
+                    name: 'test_schema',
+                    version: 1,
+                    platformUrn: 'urn:li:dataPlatform:test',
+                    hash: 'test_hash',
                 } as any,
                 editableSchemaMetadata: null,
             },
-        } as any);
+            loading: false,
+            refetch: vi.fn(),
+        });
     });
 
     afterEach(() => {
@@ -157,16 +172,22 @@ describe('ColumnStatsTable', () => {
                 nullable: true,
                 recursive: false,
             },
-        ] as any[];
+        ];
 
         mockUseGetEntityWithSchema.mockReturnValue({
             entityWithSchema: {
                 schemaMetadata: {
-                    fields: simpleFields,
+                    fields: simpleFields as any,
+                    name: 'test_schema',
+                    version: 1,
+                    platformUrn: 'urn:li:dataPlatform:test',
+                    hash: 'test_hash',
                 } as any,
                 editableSchemaMetadata: null,
             },
-        } as any);
+            loading: false,
+            refetch: vi.fn(),
+        });
 
         render(
             <MockedProvider mocks={[]} addTypename={false}>
