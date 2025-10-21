@@ -243,7 +243,7 @@ class RedshiftDataDictionary:
     def get_query_result(
         conn: redshift_connector.Connection, query: str
     ) -> redshift_connector.Cursor:
-        cursor = conn.cursor()
+        cursor: redshift_connector.Cursor = conn.cursor()
         with PerfTimer() as timer:
             query_hash_id = hash(query)
             logger.info(f"Executing query [{query_hash_id}]\n{query}")
