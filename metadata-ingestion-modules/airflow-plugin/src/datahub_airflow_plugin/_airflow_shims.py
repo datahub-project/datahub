@@ -40,17 +40,6 @@ except (ModuleNotFoundError, ImportError):
             MappedOperator = None  # type: ignore
         Operator = BaseOperator  # type: ignore
 
-# EmptyOperator import - prefer standard provider in Airflow 3.x
-try:
-    from airflow.providers.standard.operators.empty import EmptyOperator
-except (ModuleNotFoundError, ImportError):
-    try:
-        from airflow.operators.empty import EmptyOperator  # type: ignore
-    except (ModuleNotFoundError, ImportError):
-        from airflow.operators.dummy import (
-            DummyOperator as EmptyOperator,  # type: ignore
-        )
-
 # ExternalTaskSensor import - prefer standard provider in Airflow 3.x
 try:
     from airflow.providers.standard.sensors.external_task import ExternalTaskSensor
@@ -159,16 +148,19 @@ def get_task_outlets(operator: "Operator") -> List:
 
 __all__ = [
     "AIRFLOW_VERSION",
-    "HAS_AIRFLOW_LISTENER_API",
+    "BaseOperator",
     "Operator",
     "MappedOperator",
-    "EmptyOperator",
     "ExternalTaskSensor",
-    "USE_NATIVE_OPENLINEAGE_PROVIDER",
-    "HAS_OPENLINEAGE",
+    "HAS_AIRFLOW_STANDALONE_CMD",
+    "HAS_AIRFLOW_LISTENER_API",
+    "HAS_AIRFLOW_DAG_LISTENER_API",
+    "HAS_AIRFLOW_DATASET_LISTENER_API",
     "TaskHolder",
     "OpenLineagePlugin",
     "get_operator_class",
     "try_import_from_string",
     "redact_with_exclusions",
+    "get_task_inlets",
+    "get_task_outlets",
 ]

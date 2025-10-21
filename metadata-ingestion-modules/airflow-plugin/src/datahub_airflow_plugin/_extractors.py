@@ -80,35 +80,13 @@ if TYPE_CHECKING:
     else:
         from typing_extensions import TypeAlias
 
-    # Import types for type checking to avoid redefinition errors
-    try:
-        from airflow.providers.openlineage.extractors.base import (
-            BaseExtractor,
-            OperatorLineage as _OperatorLineage,
-        )
-        from airflow.providers.openlineage.extractors.manager import (
-            ExtractorManager as OLExtractorManager,
-        )
-        from airflow.providers.openlineage.utils.utils import (
-            get_operator_class,
-            try_import_from_string,
-        )
-    except ImportError:
-        _OperatorLineage = Any  # type: ignore[misc,assignment]
-        BaseExtractor = Any  # type: ignore[misc,assignment]
-        OLExtractorManager = Any  # type: ignore[misc,assignment]
-        get_operator_class = Any  # type: ignore[misc,assignment]
-        try_import_from_string = Any  # type: ignore[misc,assignment]
-
-    try:
-        from openlineage.airflow.extractors import TaskMetadata as _TaskMetadata
-    except ImportError:
-        _TaskMetadata = Any  # type: ignore[misc,assignment]
-
-    # Define ExtractResult as a proper type alias for mypy
+    # Define proper type aliases for the union type
+    # Note: BaseExtractor, OLExtractorManager, etc. are already imported above at runtime
     from typing import Union
 
-    ExtractResult: TypeAlias = Union[_TaskMetadata, _OperatorLineage]
+    ExtractResult: TypeAlias = Union[
+        Any, Any
+    ]  # Will be TaskMetadata or OperatorLineage at runtime
 
 logger = logging.getLogger(__name__)
 _DATAHUB_GRAPH_CONTEXT_KEY = "datahub_graph"
