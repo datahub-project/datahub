@@ -9,7 +9,7 @@ from functools import partial
 from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
 
 import ijson
-from pydantic import validator
+from pydantic import field_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigEnum
@@ -103,7 +103,8 @@ class FileSourceConfig(StatefulIngestionConfigBase):
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @validator("file_extension", always=True)
+    @field_validator("file_extension")
+    @classmethod
     def add_leading_dot_to_extension(cls, v: str) -> str:
         if v:
             if v.startswith("."):

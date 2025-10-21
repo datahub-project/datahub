@@ -2,7 +2,7 @@ import os
 from typing import Optional, Set
 
 import pydantic
-from pydantic import Field, root_validator
+from pydantic import Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
@@ -132,20 +132,20 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
         default=True, description="Copy system metadata from the source system"
     )
 
-    @root_validator(skip_on_failure=True)
-    def check_ingesting_data(cls, values):
+    @model_validator(mode="after")
+    def check_ingesting_data(self):
         if (
-            not values.get("database_connection")
-            and not values.get("kafka_connection")
-            and not values.get("pull_from_datahub_api")
+            not self.database_connection
+            and not self.kafka_connection
+            and not self.pull_from_datahub_api
         ):
             raise ValueError(
                 "Your current config will not ingest any data."
                 " Please specify at least one of `database_connection` or `kafka_connection`, ideally both."
             )
-        return values
+        return self
 
-    @pydantic.validator("database_connection")
+    @pydantic.field_validator("database_connection")
     def validate_mysql_scheme(
         cls, v: SQLAlchemyConnectionConfig
     ) -> SQLAlchemyConnectionConfig:

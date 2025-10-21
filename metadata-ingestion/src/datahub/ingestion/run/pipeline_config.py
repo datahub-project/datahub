@@ -2,9 +2,9 @@ import datetime
 import logging
 import random
 import string
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
-from pydantic import Field, validator
+from pydantic import Field, model_validator
 
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig, HiddenFromDocs
 from datahub.ingestion.graph.config import DatahubClientConfig
@@ -96,19 +96,17 @@ class PipelineConfig(ConfigModel):
         None  # the raw dict that was parsed to construct this config
     )
 
-    @validator("run_id", pre=True, always=True)
-    def run_id_should_be_semantic(
-        cls, v: Optional[str], values: Dict[str, Any], **kwargs: Any
-    ) -> str:
-        if v == DEFAULT_RUN_ID:
+    @model_validator(mode="after")
+    def run_id_should_be_semantic(self) -> "PipelineConfig":
+        if self.run_id == DEFAULT_RUN_ID:
             source_type = None
-            if "source" in values and hasattr(values["source"], "type"):
-                source_type = values["source"].type
+            if hasattr(self.source, "type"):
+                source_type = self.source.type
 
-            return _generate_run_id(source_type)
+            self.run_id = _generate_run_id(source_type)
         else:
-            assert v is not None
-            return v
+            assert self.run_id is not None
+        return self
 
     @classmethod
     def from_dict(
@@ -121,5 +119,5 @@ class PipelineConfig(ConfigModel):
     def get_raw_dict(self) -> Dict:
         result = self._raw_dict
         if result is None:
-            result = self.dict()
+            result = self.model_dump()
         return result

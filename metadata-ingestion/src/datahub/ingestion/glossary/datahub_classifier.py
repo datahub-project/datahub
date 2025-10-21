@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 from datahub_classify.helper_classes import ColumnInfo
 from datahub_classify.infotype_predictor import predict_infotypes
 from datahub_classify.reference_input import input1 as default_config
-from pydantic import validator
+from pydantic import field_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
@@ -114,7 +114,7 @@ class DataHubClassifierConfig(ConfigModel):
         description="Minimum number of non-null column values required to process `values` prediction factor.",
     )
 
-    @validator("info_types_config")
+    @field_validator("info_types_config")
     def input_config_selectively_overrides_default_config(cls, info_types_config):
         for infotype, infotype_config in DEFAULT_CLASSIFIER_CONFIG.items():
             if infotype not in info_types_config:

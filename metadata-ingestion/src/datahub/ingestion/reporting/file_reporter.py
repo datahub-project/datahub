@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Any, Dict
 
-from pydantic import validator
+from pydantic import field_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
@@ -16,7 +16,8 @@ class FileReporterConfig(ConfigModel):
     filename: str
     format: str = "json"
 
-    @validator("format")
+    @field_validator("format")
+    @classmethod
     def only_json_supported(cls, v):
         if v and v.lower() != "json":
             raise ValueError(

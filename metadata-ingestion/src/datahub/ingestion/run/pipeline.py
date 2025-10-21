@@ -215,7 +215,7 @@ class Pipeline:
                     sink_class = sink_registry.get(self.sink_type)
 
                 with _add_init_error_context(f"configure the sink ({self.sink_type})"):
-                    sink_config = self.config.sink.dict().get("config") or {}
+                    sink_config = self.config.sink.model_dump().get("config") or {}
                     self.sink = exit_stack.enter_context(
                         sink_class.create(sink_config, self.ctx)
                     )
@@ -245,7 +245,7 @@ class Pipeline:
                 ):
                     self.source = inner_exit_stack.enter_context(
                         source_class.create(
-                            self.config.source.dict().get("config", {}), self.ctx
+                            self.config.source.model_dump().get("config", {}), self.ctx
                         )
                     )
                     logger.debug(
@@ -288,7 +288,7 @@ class Pipeline:
             for transformer in self.config.transformers:
                 transformer_type = transformer.type
                 transformer_class = transform_registry.get(transformer_type)
-                transformer_config = transformer.dict().get("config", {})
+                transformer_config = transformer.model_dump().get("config", {})
                 self.transformers.append(
                     transformer_class.create(transformer_config, self.ctx)
                 )
@@ -323,7 +323,7 @@ class Pipeline:
         for reporter in self.config.reporting:
             reporter_type = reporter.type
             reporter_class = reporting_provider_registry.get(reporter_type)
-            reporter_config_dict = reporter.dict().get("config", {})
+            reporter_config_dict = reporter.model_dump().get("config", {})
             try:
                 self.reporters.append(
                     reporter_class.create(

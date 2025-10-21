@@ -178,7 +178,7 @@ def test_platform_resource_base_model():
         == models.SerializedValueContentTypeClass.JSON
     )
     assert platform_resource_info_mcp.aspect.value.blob == json.dumps(
-        test_model.dict(), sort_keys=True
+        test_model.model_dump(), sort_keys=True
     ).encode("utf-8")
     assert platform_resource_info_mcp.aspect.value.schemaType == "JSON"
     assert platform_resource_info_mcp.aspect.value.schemaRef == TestModel.__name__

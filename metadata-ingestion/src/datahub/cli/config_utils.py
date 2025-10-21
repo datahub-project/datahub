@@ -146,7 +146,7 @@ def write_gms_config(
             logger.debug(
                 f"Failed to retrieve config from file {DATAHUB_CONFIG_PATH}: {e}. This isn't fatal."
             )
-        config_dict = {**previous_config, **config.dict()}
+        config_dict = {**previous_config, **config.model_dump()}
     else:
-        config_dict = config.dict()
+        config_dict = config.model_dump()
     persist_raw_datahub_config(config_dict)

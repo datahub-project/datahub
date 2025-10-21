@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import Any, Dict, Iterable, List, Optional
 
-from pydantic import validator
+from pydantic import field_validator
 from pydantic.fields import Field
 
 import datahub.metadata.schema_classes as models
@@ -51,7 +51,8 @@ class EntityConfig(EnvConfigMixin):
     platform: str
     platform_instance: Optional[str] = None
 
-    @validator("type")
+    @field_validator("type")
+    @classmethod
     def type_must_be_supported(cls, v: str) -> str:
         allowed_types = ["dataset"]
         if v not in allowed_types:
@@ -60,7 +61,8 @@ class EntityConfig(EnvConfigMixin):
             )
         return v
 
-    @validator("name")
+    @field_validator("name")
+    @classmethod
     def validate_name(cls, v: str) -> str:
         if v.startswith("urn:li:"):
             raise ValueError(
@@ -77,7 +79,8 @@ class FineGrainedLineageConfig(ConfigModel):
     transformOperation: Optional[str]
     confidenceScore: Optional[float] = 1.0
 
-    @validator("upstreamType")
+    @field_validator("upstreamType")
+    @classmethod
     def upstream_type_must_be_supported(cls, v: str) -> str:
         allowed_types = [
             FineGrainedLineageUpstreamTypeClass.FIELD_SET,
@@ -90,7 +93,8 @@ class FineGrainedLineageConfig(ConfigModel):
             )
         return v
 
-    @validator("downstreamType")
+    @field_validator("downstreamType")
+    @classmethod
     def downstream_type_must_be_supported(cls, v: str) -> str:
         allowed_types = [
             FineGrainedLineageDownstreamTypeClass.FIELD_SET,
@@ -124,7 +128,8 @@ class LineageFileSourceConfig(ConfigModel):
 class LineageConfig(VersionedConfig):
     lineage: List[EntityNodeConfig]
 
-    @validator("version")
+    @field_validator("version")
+    @classmethod
     def version_must_be_1(cls, v):
         if v != "1":
             raise ValueError("Only version 1 is supported")

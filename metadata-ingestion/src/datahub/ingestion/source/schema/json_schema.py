@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 import jsonref
 import requests
-from pydantic import AnyHttpUrl, DirectoryPath, FilePath, validator
+from pydantic import AnyHttpUrl, DirectoryPath, FilePath, field_validator
 from pydantic.fields import Field
 
 import datahub.metadata.schema_classes as models
@@ -90,7 +90,7 @@ class JsonSchemaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMix
         description="Use this if URI-s need to be modified during reference resolution. Simple string match - replace capabilities are supported.",
     )
 
-    @validator("path")
+    @field_validator("path")
     def download_http_url_to_temp_file(cls, v):
         if isinstance(v, AnyHttpUrl):
             try:

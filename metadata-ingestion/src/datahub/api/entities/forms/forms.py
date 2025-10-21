@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Optional, Union
 
 import yaml
-from pydantic import Field, validator
+from pydantic import Field, model_validator
 from ruamel.yaml import YAML
 from typing_extensions import Literal
 
@@ -70,11 +70,13 @@ class Prompt(ConfigModel):
     structured_property_urn: Optional[str] = Field(default=None, validate_default=True)
     required: Optional[bool] = None
 
-    @validator("structured_property_urn", pre=True, always=True)
-    def structured_property_urn_must_be_present(cls, v, values):
-        if not v and values.get("structured_property_id"):
-            return Urn.make_structured_property_urn(values["structured_property_id"])
-        return v
+    @model_validator(mode="after")
+    def structured_property_urn_must_be_present(self) -> "Prompt":
+        if not self.structured_property_urn and self.structured_property_id:
+            self.structured_property_urn = Urn.make_structured_property_urn(
+                self.structured_property_id
+            )
+        return self
 
 
 class FormType(Enum):
@@ -122,13 +124,13 @@ class Forms(ConfigModel):
     group_owners: Optional[List[str]] = None  # can be group IDs or urns
     actors: Optional[Actors] = None
 
-    @validator("urn", pre=True, always=True)
-    def urn_must_be_present(cls, v, values):
-        if not v:
-            if values.get("id") is None:
+    @model_validator(mode="after")
+    def urn_must_be_present(self) -> "Forms":
+        if not self.urn:
+            if self.id is None:
                 raise ValueError("Form id must be present if urn is not")
-            return f"urn:li:form:{values['id']}"
-        return v
+            self.urn = f"urn:li:form:{self.id}"
+        return self
 
     @staticmethod
     def create(file: str) -> None:

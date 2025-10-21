@@ -19,8 +19,8 @@ from pydantic import (
     BaseModel,
     Field,
     StrictStr,
-    root_validator,
-    validator,
+    field_validator,
+    model_validator,
 )
 from ruamel.yaml import YAML
 from typing_extensions import TypeAlias
@@ -213,13 +213,14 @@ class SchemaFieldSpecification(StrictModel):
             ),
         )
 
-    @validator("urn", pre=True, always=True)
-    def either_id_or_urn_must_be_filled_out(cls, v, values):
-        if not v and not values.get("id"):
+    @model_validator(mode="after")
+    def either_id_or_urn_must_be_filled_out(self) -> "SchemaFieldSpecification":
+        if not self.urn and not self.id:
             raise ValueError("Either id or urn must be present")
-        return v
+        return self
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def sync_doc_into_description(cls, values: Dict) -> Dict:
         """Synchronize doc into description field if doc is provided."""
         description = values.get("description")
@@ -348,7 +349,8 @@ class SchemaSpecification(BaseModel):
     fields: Optional[List[SchemaFieldSpecification]] = None
     raw_schema: Optional[str] = None
 
-    @validator("file")
+    @field_validator("file")
+    @classmethod
     def file_must_be_avsc(cls, v):
         if v and not v.endswith(".avsc"):
             raise ValueError("file must be a .avsc file")
@@ -359,7 +361,8 @@ class Ownership(ConfigModel):
     id: str
     type: str
 
-    @validator("type")
+    @field_validator("type")
+    @classmethod
     def ownership_type_must_be_mappable_or_custom(cls, v: str) -> str:
         _, _ = validate_ownership_type(v)
         return v
@@ -397,29 +400,31 @@ class Dataset(StrictModel):
             dataset_urn = DatasetUrn.from_string(self.urn)
             return str(dataset_urn.get_data_platform_urn())
 
-    @validator("urn", pre=True, always=True)
-    def urn_must_be_present(cls, v, values):
-        if not v:
-            assert "id" in values, "id must be present if urn is not"
-            assert "platform" in values, "platform must be present if urn is not"
-            assert "env" in values, "env must be present if urn is not"
-            return make_dataset_urn(values["platform"], values["id"], values["env"])
-        return v
+    @model_validator(mode="after")
+    def urn_must_be_present(self) -> "Dataset":
+        if not self.urn:
+            assert self.id, "id must be present if urn is not"
+            assert self.platform, "platform must be present if urn is not"
+            assert self.env, "env must be present if urn is not"
+            self.urn = make_dataset_urn(self.platform, self.id, self.env)
+        return self
 
-    @validator("name", pre=True, always=True)
-    def name_filled_with_id_if_not_present(cls, v, values):
-        if not v:
-            assert "id" in values, "id must be present if name is not"
-            return values["id"]
-        return v
+    @model_validator(mode="after")
+    def name_filled_with_id_if_not_present(self) -> "Dataset":
+        if not self.name:
+            assert self.id, "id must be present if name is not"
+            self.name = self.id
+        return self
 
-    @validator("platform")
+    @field_validator("platform")
+    @classmethod
     def platform_must_not_be_urn(cls, v):
         if v.startswith("urn:li:dataPlatform:"):
             return v[len("urn:li:dataPlatform:") :]
         return v
 
-    @validator("structured_properties")
+    @field_validator("structured_properties")
+    @classmethod
     def simplify_structured_properties(cls, v):
         return StructuredPropertiesHelper.simplify_structured_properties_list(v)
 

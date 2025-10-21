@@ -111,11 +111,11 @@ def test_trino_ingest(
                             platform_instance="local_server",
                         )
                     },
-                ).dict(),
+                ).model_dump(),
             },
             "sink": {
                 "type": "file",
-                "config": FileSinkConfig(filename=str(events_file)).dict(),
+                "config": FileSinkConfig(filename=str(events_file)).model_dump(),
             },
         }
 
@@ -161,11 +161,11 @@ def test_trino_hive_ingest(
                     ],
                     max_workers=1,
                 ),
-            ).dict(),
+            ).model_dump(),
         },
         "sink": {
             "type": "file",
-            "config": FileSinkConfig(filename=str(events_file)).dict(),
+            "config": FileSinkConfig(filename=str(events_file)).model_dump(),
         },
     }
 
@@ -221,11 +221,11 @@ def test_trino_instance_ingest(
                         platform_instance="local_server",
                     )
                 },
-            ).dict(),
+            ).model_dump(),
         },
         "sink": {
             "type": "file",
-            "config": FileSinkConfig(filename=str(events_file)).dict(),
+            "config": FileSinkConfig(filename=str(events_file)).model_dump(),
         },
     }
 
