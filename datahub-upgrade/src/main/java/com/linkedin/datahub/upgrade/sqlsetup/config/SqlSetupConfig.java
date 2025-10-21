@@ -159,9 +159,7 @@ public class SqlSetupConfig {
       }
     }
 
-    // Fallback to MySQL as default
-    log.debug("No database type detected from Spring Ebean configuration, defaulting to MySQL");
-    return DatabaseType.MYSQL;
+    throw new IllegalStateException("No database type detected from Spring Ebean configuration");
   }
 
   /**
