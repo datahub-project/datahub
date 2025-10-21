@@ -1138,7 +1138,11 @@ def test_diamond_problem(pytestconfig: pytest.Config, tmp_path: pathlib.Path) ->
 def test_empty_column_in_snowflake_lineage(
     pytestconfig: pytest.Config, tmp_path: pathlib.Path
 ) -> None:
-    """Test that column lineage with empty string column names doesn't cause errors."""
+    """Test that column lineage with empty string column names doesn't cause errors.
+
+    Note: Uses KnownQueryLineageInfo instead of ObservedQuery since empty column names from
+    external systems would require mocking _run_sql_parser().
+    """
     aggregator = SqlParsingAggregator(
         platform="snowflake",
         generate_lineage=True,
@@ -1194,7 +1198,11 @@ def test_empty_column_in_snowflake_lineage(
 def test_empty_downstream_column_in_snowflake_lineage(
     pytestconfig: pytest.Config, tmp_path: pathlib.Path
 ) -> None:
-    """Test that column lineage with empty downstream column names doesn't cause errors."""
+    """Test that column lineage with empty downstream column names doesn't cause errors.
+
+    Note: Uses KnownQueryLineageInfo instead of ObservedQuery since empty column names from
+    external systems would require mocking _run_sql_parser().
+    """
     aggregator = SqlParsingAggregator(
         platform="snowflake",
         generate_lineage=True,
@@ -1241,7 +1249,11 @@ def test_empty_downstream_column_in_snowflake_lineage(
 def test_partial_empty_downstream_column_in_snowflake_lineage(
     pytestconfig: pytest.Config, tmp_path: pathlib.Path
 ) -> None:
-    """Test that column lineage with mix of empty and valid downstream columns works correctly."""
+    """Test that column lineage with mix of empty and valid downstream columns works correctly.
+
+    Note: Uses KnownQueryLineageInfo instead of ObservedQuery since empty column names from
+    external systems would require mocking _run_sql_parser().
+    """
     aggregator = SqlParsingAggregator(
         platform="snowflake",
         generate_lineage=True,
