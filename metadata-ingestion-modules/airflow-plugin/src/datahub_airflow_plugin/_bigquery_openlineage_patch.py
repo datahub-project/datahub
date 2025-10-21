@@ -11,7 +11,6 @@ import logging
 from typing import TYPE_CHECKING, Any, Optional
 
 import datahub.emitter.mce_builder as builder
-from datahub_airflow_plugin.datahub_listener import get_airflow_plugin_listener
 
 if TYPE_CHECKING:
     from airflow.models.taskinstance import TaskInstance
@@ -63,6 +62,9 @@ def patch_bigquery_insert_job_operator() -> None:
             try:
                 from datahub.sql_parsing.sqlglot_lineage import (
                     create_lineage_sql_parsed_result,
+                )
+                from datahub_airflow_plugin.datahub_listener import (
+                    get_airflow_plugin_listener,
                 )
 
                 # Extract SQL from configuration
