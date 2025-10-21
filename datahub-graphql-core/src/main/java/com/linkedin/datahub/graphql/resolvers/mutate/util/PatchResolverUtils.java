@@ -15,7 +15,6 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ArrayPrimaryKeyInput;
 import com.linkedin.datahub.graphql.generated.PatchEntityInput;
 import com.linkedin.datahub.graphql.generated.PatchOperationInput;
-import com.linkedin.datahub.graphql.generated.PatchOperationType;
 import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
 import com.linkedin.datahub.graphql.generated.SystemMetadataInput;
 import com.linkedin.events.metadata.ChangeType;
@@ -398,53 +397,7 @@ public class PatchResolverUtils {
   @Nonnull
   private static List<PatchOperationInput> validateAndTransformPatchOperations(
       @Nonnull List<PatchOperationInput> operations, @Nonnull QueryContext context) {
-
-    return operations.stream()
-        .map(
-            op -> {
-              // Handle glossary-specific validation
-              if (isGlossaryDefinitionOperation(op)) {
-                return transformGlossaryDefinitionOperation(op);
-              }
-              return op;
-            })
-        .collect(Collectors.toList());
-  }
-
-  /**
-   * Checks if a patch operation is targeting a glossary definition field
-   *
-   * @param op Patch operation to check
-   * @return true if this is a glossary definition operation
-   */
-  private static boolean isGlossaryDefinitionOperation(@Nonnull PatchOperationInput op) {
-    return "/definition".equals(op.getPath())
-        && (op.getOp() == PatchOperationType.ADD || op.getOp() == PatchOperationType.REPLACE);
-  }
-
-  /**
-   * Transforms a glossary definition operation to handle null values properly
-   *
-   * @param op Original patch operation
-   * @return Transformed patch operation
-   */
-  @Nonnull
-  private static PatchOperationInput transformGlossaryDefinitionOperation(
-      @Nonnull PatchOperationInput op) {
-    PatchOperationInput transformed = new PatchOperationInput();
-    transformed.setOp(op.getOp());
-    transformed.setPath(op.getPath());
-    transformed.setFrom(op.getFrom());
-
-    // Convert null to empty string for glossary definitions
-    String value = op.getValue();
-    if (value == null || "null".equals(value) || "\"null\"".equals(value)) {
-      transformed.setValue("\"\""); // Empty string
-    } else {
-      transformed.setValue(value);
-    }
-
-    return transformed;
+    return operations; // No transformation needed
   }
 
   /**
