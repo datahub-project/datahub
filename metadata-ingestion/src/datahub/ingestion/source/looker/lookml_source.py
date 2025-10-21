@@ -794,7 +794,6 @@ class LookMLSource(StatefulIngestionSourceBase):
                             if self.source_config.emit_reachable_views_only:
                                 explore_reachable_views.add(view_name.include)
 
-                            # Build view-to-explores mapping efficiently
                             view_to_explores[view_name.include].add(explore.name)
                             explore_to_views[explore.name].add(view_name.include)
                 except Exception as e:
@@ -809,6 +808,16 @@ class LookMLSource(StatefulIngestionSourceBase):
             processed_view_files = processed_view_map.setdefault(
                 model.connection, set()
             )
+
+            view_to_explore_map = {}
+            if view_to_explores and explore_to_views:
+                view_to_explore_map = self._optimize_views_by_common_explore(
+                    view_to_explores, explore_to_views
+                )
+            else:
+                logger.warning(
+                    f"Either view_to_explores: {view_to_explores} or explore_to_views: {explore_to_views} is empty"
+                )
 
             project_name = self.get_project_name(model_name)
 
@@ -894,9 +903,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 config=self.source_config,
                                 ctx=self.ctx,
                                 looker_client=self.looker_client,
-                                view_to_explore_map=self._optimize_views_by_common_explore(
-                                    view_to_explores, explore_to_views
-                                ),
+                                view_to_explore_map=view_to_explore_map,
                             )
                         except Exception as e:
                             self.reporter.report_warning(
@@ -1074,10 +1081,7 @@ class LookMLSource(StatefulIngestionSourceBase):
         view_to_explore: Dict[str, str] = {}
 
         # For each view, find the explore with maximum size that contains it
-        for view_name in view_to_explores:
-            # Get all explores that contain this view from pre-built mapping
-            candidate_explores = view_to_explores[view_name]
-
+        for view_name, candidate_explores in view_to_explores.items():
             if candidate_explores:
                 # Find explore with maximum size using max() with key function
                 # This assings the view to the explore with the most views that contains it
@@ -1102,6 +1106,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                 f"View-explore optimization: No explores to optimize for {total_views} views"
             )
 
+        logger.debug(f"Final View-to-explore mapping: {view_to_explore}")
         return view_to_explore
 
     def get_report(self):

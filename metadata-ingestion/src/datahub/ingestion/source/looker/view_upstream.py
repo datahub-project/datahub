@@ -611,6 +611,9 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             )
 
             if explore and explore.fields:
+                logger.debug(
+                    f"Looker API response for explore fields: {explore.fields}"
+                )
                 # Creating a map to de-dup dimension group fields - adding all of them adds to the query length, we dont need all of them for CLL
                 dimension_group_fields_mapping: Dict[str, str] = {}
                 # Get dimensions from API
@@ -654,10 +657,13 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                     f"No fields found in explore '{explore_name}' from Looker API, falling back to view context"
                 )
 
-        except Exception as e:
+        except Exception:
             logger.warning(
-                f"Failed to get explore details from Looker API for explore '{explore_name}': {e}. Falling back to view context."
+                f"Failed to get explore details from Looker API for explore '{explore_name}'. Current view: {self.view_context.name()} and view_fields: {view_fields}. Falling back to view csontext.",
+                exc_info=True,
             )
+            # Resetting view_fields to trigger fallback to view context
+            view_fields = []
 
         return view_fields
 
@@ -682,7 +688,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
         for dim_group in self.view_context.dimension_groups():
             dim_group_type_str = dim_group.get(VIEW_FIELD_TYPE_ATTRIBUTE)
-            
+
             logger.debug(
                 f"Processing dimension group from view context: {dim_group.get(NAME, 'unknown')}, type: {dim_group_type_str}"
             )
@@ -710,8 +716,11 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                             self._get_duration_dim_group_field_name(dim_group)
                         )
                     )
-            except Exception as e:
-                logger.error(f"View-name: {self.view_context.name()}: {e}")
+            except Exception:
+                logger.error(
+                    f"Failed to process dimension group for View-name: {self.view_context.name()}",
+                    exc_info=True,
+                )
                 # Continue processing other fields instead of failing completely
                 continue
 
