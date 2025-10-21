@@ -3,10 +3,11 @@ import { useApolloClient } from '@apollo/client';
 import { useAppConfig } from '@src/app/useAppConfig';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
-import { GetPresignedUploadUrlDocument, useCreateDataHubFileMutation } from '@graphql/app.generated';
+import { GetPresignedUploadUrlDocument } from '@graphql/app.generated';
 import { UploadDownloadScenario } from '@types';
 
-const PRODUCT_ASSETS_FOLDER = 'product-assets';
+import useCreateFile from './useCreateFile';
+import { PRODUCT_ASSETS_FOLDER } from '../constants';
 
 interface Props {
     scenario: UploadDownloadScenario;
@@ -17,8 +18,7 @@ interface Props {
 export default function useFileUpload({ scenario, assetUrn, schemaField }: Props) {
     const client = useApolloClient();
     const { config } = useAppConfig();
-
-    const [createFile] = useCreateDataHubFileMutation();
+    const { createFile } = useCreateFile({ scenario, assetUrn, schemaField });
 
     const uploadFile = async (file: File) => {
         const { data } = await client.query({
@@ -52,21 +52,12 @@ export default function useFileUpload({ scenario, assetUrn, schemaField }: Props
             throw new Error(`Failed to upload file: ${response.statusText}`);
         }
 
-        await createFile({
-            variables: {
-                input: {
-                    id: fileId,
-                    mimeType: file.type,
-                    originalFileName: file.name,
-                    referencedByAsset: assetUrn,
-                    schemaField,
-                    scenario,
-                    sizeInBytes: file.size,
-                    storageBucket: 'test', // TODO:: should it be here?
-                    storageKey: `${PRODUCT_ASSETS_FOLDER}/${fileId}`,
-                },
-            },
-        });
+        // Confirming of file uploading
+        try {
+            await createFile(fileId, file);
+        } catch (error) {
+            throw new Error(`Failed to upload file: ${error}`);
+        }
 
         return resolveRuntimePath(`/openapi/v1/files/${PRODUCT_ASSETS_FOLDER}/${fileId}`);
     };
