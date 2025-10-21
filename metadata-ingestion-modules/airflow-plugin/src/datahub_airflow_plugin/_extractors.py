@@ -152,7 +152,11 @@ class ExtractorManager(OLExtractorManager):
             else:
                 # Airflow 2: Use bool for complete parameter
                 return super().extract_metadata(
-                    dagrun, task, complete, task_instance, task_uuid  # type: ignore[arg-type]
+                    dagrun,
+                    task,
+                    complete,  # type: ignore[arg-type]
+                    task_instance,
+                    task_uuid,
                 )
 
     def _get_extractor(self, task: "Operator") -> Optional[BaseExtractor]:
