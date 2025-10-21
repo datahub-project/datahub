@@ -702,7 +702,7 @@ queries_with_create_table AS (
     FROM SVL_STATEMENTTEXT
     WHERE type IN ('DDL', 'QUERY')                              -- Include both DDL and QUERY (CREATE TABLE AS SELECT)
       AND starttime >= '{start_time_str}'                       -- {start_time}
-      AND endtime < '{end_time_str}'                            -- {end_time}
+      AND starttime < '{end_time_str}'                          -- {end_time}
       AND sequence < {_QUERY_SEQUENCE_LIMIT}
       -- Look for any fragment containing CREATE (TEMP)? TABLE keywords for early filtering of queries
       AND (text ILIKE '%CREATE%TABLE%'    
