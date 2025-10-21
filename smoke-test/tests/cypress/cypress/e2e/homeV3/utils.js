@@ -158,7 +158,11 @@ export function createDocumentationModule(name, text) {
   clickFirstAddModuleButton();
   cy.getWithTestId("add-documentation-module").click();
   cy.getWithTestId("module-name").should("be.visible").type(name);
-  cy.getWithTestId("rich-text-documentation").should("be.visible").type(text);
+  cy.getWithTestId("rich-text-documentation")
+    .should("be.visible")
+    .within(() => {
+      cy.get(".remirror-editor-wrapper").type(text);
+    });
   cy.getWithTestId("create-update-module-button").click();
 }
 

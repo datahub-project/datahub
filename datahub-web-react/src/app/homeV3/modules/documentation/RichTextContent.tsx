@@ -26,7 +26,8 @@ const RichTextContent = ({ content, form }: Props) => {
                         content={content}
                         placeholder="Write some text here..."
                         hideBorder
-                        dataTestId='"rich-text-documentation"'
+                        dataTestId="rich-text-documentation"
+                        onChange={(newContent) => form.setFieldValue('content', newContent)}
                     />
                 </EditorContainer>
             </Form.Item>
