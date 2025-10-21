@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Store the original SQLParser method for fallback
-_original_sql_parser_method: Optional[Callable[..., Optional["OperatorLineage"]]] = None
+_original_sql_parser_method: Optional[Callable[..., Any]] = None
 
 
 def _datahub_generate_openlineage_metadata_from_sql(
@@ -163,7 +163,7 @@ def _datahub_generate_openlineage_metadata_from_sql(
         run_facets = {DATAHUB_SQL_PARSING_RESULT_KEY: sql_parsing_result}
 
         # Create OperatorLineage with DataHub's results
-        operator_lineage = OperatorLineage(
+        operator_lineage = OperatorLineage(  # type: ignore[misc]
             inputs=inputs,
             outputs=outputs,
             job_facets={"sql": SqlJobFacet(query=sql)},
@@ -204,7 +204,7 @@ def patch_sqlparser() -> None:
                 SQLParser.generate_openlineage_metadata_from_sql
             )
 
-        SQLParser.generate_openlineage_metadata_from_sql = (  # type: ignore[method-assign]
+        SQLParser.generate_openlineage_metadata_from_sql = (  # type: ignore[assignment,method-assign]
             _datahub_generate_openlineage_metadata_from_sql
         )
         logger.info(
