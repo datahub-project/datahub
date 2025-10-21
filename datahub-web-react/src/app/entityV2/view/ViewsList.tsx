@@ -8,12 +8,7 @@ import { DEFAULT_LIST_VIEWS_PAGE_SIZE, searchViews } from '@app/entityV2/view/ut
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 
-import {
-    ListGlobalViewsQuery,
-    ListMyViewsQuery,
-    useListGlobalViewsQuery,
-    useListMyViewsQuery,
-} from '@graphql/view.generated';
+import { useListGlobalViewsQuery, useListMyViewsQuery } from '@graphql/view.generated';
 import { DataHubViewType } from '@types';
 
 const PaginationContainer = styled.div`
