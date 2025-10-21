@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import { GenericEntityUpdate } from '@app/entity/shared/types';
-import { sanitizeRichText } from '@app/entityV2/shared/tabs/Documentation/components/editor/utils';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { sanitizeRichText } from '@src/alchemy-components/components/Editor/utils';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
 import { useProposeUpdateDescriptionMutation } from '@graphql/proposals.generated';

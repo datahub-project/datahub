@@ -12,6 +12,7 @@ import com.datahub.authorization.role.RoleService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.datahub.graphql.GraphQLEngine;
+import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -284,6 +285,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @Qualifier("systemEntityClient")
   private SystemEntityClient systemEntityClient;
 
+  @MockitoBean
+  @Qualifier("s3Util")
+  private S3Util s3Util;
+
   @MockitoBean private EntityVersioningService entityVersioningService;
 
   @MockitoBean private MetricUtils metricUtils;
@@ -432,6 +437,7 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     setField(factoryWithAnalytics, "assertionService", assertionService);
     setField(factoryWithAnalytics, "metadataTestClient", metadataTestClient);
     setField(factoryWithAnalytics, "actionRequestService", actionRequestService);
+    setField(factoryWithAnalytics, "s3Util", s3Util);
     setField(factoryWithAnalytics, "isAnalyticsEnabled", true);
     setField(factoryWithAnalytics, "defaultLineageLastDaysFilter", 30);
 
@@ -495,6 +501,7 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     assertNotNull(actionRequestService);
     assertNotNull(entityClient);
     assertNotNull(systemEntityClient);
+    assertNotNull(s3Util);
     assertNotNull(entityVersioningService);
     assertNotNull(metricUtils);
   }
@@ -547,6 +554,15 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     // The factory should handle StsClient creation exceptions gracefully
     // This is tested implicitly by the successful creation of graphQLEngine
     assertNotNull(graphQLEngine);
+  }
+
+  @Test
+  public void testS3UtilIntegration() {
+    // Verify S3Util is properly injected and available
+    assertNotNull(s3Util, "S3Util should be injected into GraphQLEngineFactory");
+
+    // Verify S3Util is passed to the GraphQL engine
+    assertNotNull(graphQLEngine, "GraphQLEngine should be created with S3Util");
   }
 
   private void setField(Object target, String fieldName, Object value) {

@@ -3,10 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
 import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
-import { sanitizeRichText } from '@app/entityV2/shared/tabs/Documentation/components/editor/utils';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { useDescriptionUtils } from '@app/entityV2/summary/documentation/useDescriptionUtils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { sanitizeRichText } from '@src/alchemy-components/components/Editor/utils';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
 import { useProposeUpdateDescriptionMutation } from '@graphql/proposals.generated';
@@ -21,7 +21,7 @@ vi.mock('@app/entity/shared/EntityContext', () => ({
 vi.mock('@app/entityV2/shared/tabs/Documentation/utils', () => ({
     getAssetDescriptionDetails: vi.fn(),
 }));
-vi.mock('@app/entityV2/shared/tabs/Documentation/components/editor/utils', () => ({
+vi.mock('@src/alchemy-components/components/Editor/utils', () => ({
     sanitizeRichText: vi.fn((text) => text),
 }));
 vi.mock('@app/useEntityRegistry', () => ({

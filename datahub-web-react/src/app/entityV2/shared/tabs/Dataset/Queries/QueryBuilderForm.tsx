@@ -7,7 +7,7 @@ import InferDocsPanel from '@app/entityV2/shared/components/inferredDocs/InferDo
 import { useShouldShowInferDocumentationButton } from '@app/entityV2/shared/components/inferredDocs/utils';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { QueryBuilderState } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
-import { Editor as MarkdownEditor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+import { Editor as MarkdownEditor } from '@src/alchemy-components';
 
 import { EntityType } from '@types';
 
@@ -56,7 +56,6 @@ export default function QueryBuilderForm({ state, updateState }: Props) {
     };
 
     const updateDescription = (description) => {
-        console.log(description);
         updateState({
             ...state,
             description,

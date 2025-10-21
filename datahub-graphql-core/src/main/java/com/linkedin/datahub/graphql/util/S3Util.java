@@ -2,20 +2,18 @@ package com.linkedin.datahub.graphql.util;
 
 import com.linkedin.entity.client.EntityClient;
 import java.time.Duration;
-import java.time.Instant;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import software.amazon.awssdk.auth.credentials.AwsCredentials;
-import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
 import software.amazon.awssdk.services.sts.model.Credentials;
@@ -23,118 +21,70 @@ import software.amazon.awssdk.services.sts.model.Credentials;
 @Slf4j
 public class S3Util {
 
-  private volatile S3Client s3Client;
+  private final S3Client s3Client;
   private final EntityClient entityClient;
 
-  // For credential refresh when using assumed roles
-  @Nullable private final StsClient stsClient;
-  @Nullable private final String roleArn;
-  private volatile Instant credentialsExpiry;
-
-  // Thread-safe access to S3Client refresh
-  private final ReentrantReadWriteLock clientLock = new ReentrantReadWriteLock();
+  // Optional S3Presigner for testing purposes
+  @Nullable private final S3Presigner s3Presigner;
 
   public S3Util(@Nonnull S3Client s3Client, @Nonnull EntityClient entityClient) {
+    this(s3Client, entityClient, null);
+  }
+
+  public S3Util(
+      @Nonnull S3Client s3Client,
+      @Nonnull EntityClient entityClient,
+      @Nullable S3Presigner s3Presigner) {
     this.s3Client = s3Client;
     this.entityClient = entityClient;
-    this.stsClient = null;
-    this.roleArn = null;
-    this.credentialsExpiry = null;
+    this.s3Presigner = s3Presigner;
   }
 
   public S3Util(
       @Nonnull EntityClient entityClient, @Nonnull StsClient stsClient, @Nonnull String roleArn) {
+    this(entityClient, stsClient, roleArn, null);
+  }
+
+  public S3Util(
+      @Nonnull EntityClient entityClient,
+      @Nonnull StsClient stsClient,
+      @Nonnull String roleArn,
+      @Nullable S3Presigner s3Presigner) {
     this.entityClient = entityClient;
-    this.stsClient = stsClient;
-    this.roleArn = roleArn;
-
-    // Initialize with fresh credentials
-    refreshS3ClientIfNeeded();
+    this.s3Presigner = s3Presigner;
+    this.s3Client = createS3Client(stsClient, roleArn);
   }
 
-  /**
-   * Thread-safe method to refresh S3Client if credentials are expired or missing. Uses
-   * double-checked locking pattern for performance.
-   */
-  private void refreshS3ClientIfNeeded() {
-    // Fast path: check if refresh is needed without acquiring write lock
-    if (s3Client != null
-        && credentialsExpiry != null
-        && Instant.now().isBefore(credentialsExpiry.minus(Duration.ofMinutes(5)))) {
-      return; // Credentials are still valid (with 5-minute buffer)
-    }
-
-    clientLock.writeLock().lock();
+  /** Creates S3Client with StsAssumeRoleCredentialsProvider for automatic credential refresh. */
+  private static S3Client createS3Client(@Nonnull StsClient stsClient, @Nonnull String roleArn) {
     try {
-      // Double-check after acquiring write lock
-      if (s3Client != null
-          && credentialsExpiry != null
-          && Instant.now().isBefore(credentialsExpiry.minus(Duration.ofMinutes(5)))) {
-        return;
-      }
+      log.info("Creating S3Client for role: {}", roleArn);
 
-      log.info("Refreshing S3 client credentials for role: {}", roleArn);
+      StsAssumeRoleCredentialsProvider credentialsProvider =
+          StsAssumeRoleCredentialsProvider.builder()
+              .stsClient(stsClient)
+              .refreshRequest(r -> r.roleArn(roleArn).roleSessionName("s3-session"))
+              .asyncCredentialUpdateEnabled(true) // Enable background credential refresh
+              .build();
 
-      // Assume the role to get temporary credentials
-      Credentials assumedCredentials =
-          assumeRole(stsClient, roleArn, "s3-streaming-upload-session");
-
-      // Close old client if it exists
-      if (s3Client != null) {
-        try {
-          s3Client.close();
-        } catch (Exception e) {
-          log.warn("Failed to close old S3 client", e);
-        }
-      }
-
-      // Update client and expiry time atomically
-      this.s3Client = createS3ClientWithAssumedRole(stsClient, roleArn);
-      this.credentialsExpiry = assumedCredentials.expiration();
-
-      log.info(
-          "Successfully refreshed S3 client. New credentials expire at: {}", credentialsExpiry);
-
-    } catch (Exception e) {
-      log.error("Failed to refresh S3 client with assumed role: roleArn={}", roleArn, e);
-      throw new RuntimeException(
-          "Failed to refresh S3 client with assumed role: " + e.getMessage(), e);
-    } finally {
-      clientLock.writeLock().unlock();
-    }
-  }
-
-  /** This is not thread safe and should not be used directly */
-  private static S3Client createS3ClientWithAssumedRole(
-      @Nonnull StsClient stsClient, @Nonnull String roleArn) {
-    try {
-      // Assume the role to get temporary credentials
-      Credentials assumedCredentials = assumeRole(stsClient, roleArn, "s3-session");
-
-      // Create AWS credentials from the assumed role credentials
-      AwsCredentials awsCredentials =
-          AwsSessionCredentials.create(
-              assumedCredentials.accessKeyId(),
-              assumedCredentials.secretAccessKey(),
-              assumedCredentials.sessionToken());
-
-      var clientBuilder =
-          S3Client.builder().credentialsProvider(StaticCredentialsProvider.create(awsCredentials));
+      var clientBuilder = S3Client.builder().credentialsProvider(credentialsProvider);
 
       // Configure endpoint URL if provided (for LocalStack or custom S3 endpoints)
       String endpointUrl = System.getenv("AWS_ENDPOINT_URL");
       if (endpointUrl != null && !endpointUrl.isEmpty()) {
+        log.info("Configuring S3Client with custom endpoint: {}", endpointUrl);
         clientBuilder.endpointOverride(java.net.URI.create(endpointUrl));
         // Force path-style access for LocalStack compatibility
         clientBuilder.forcePathStyle(true);
       }
 
-      return clientBuilder.build();
+      S3Client client = clientBuilder.build();
+      log.info("Successfully created S3Client for role: {}", roleArn);
+      return client;
 
     } catch (Exception e) {
-      log.error("Failed to create S3 client with assumed role: roleArn={}", roleArn, e);
-      throw new RuntimeException(
-          "Failed to create S3 client with assumed role: " + e.getMessage(), e);
+      log.error("Failed to create S3 client: roleArn={}", roleArn, e);
+      throw new RuntimeException("Failed to create S3 clien: " + e.getMessage(), e);
     }
   }
 
@@ -153,6 +103,25 @@ public class S3Util {
     }
   }
 
+  private S3Presigner getPresigner() {
+    if (this.s3Presigner != null) {
+      return this.s3Presigner;
+    }
+
+    var presignerBuilder =
+        S3Presigner.builder()
+            .credentialsProvider(s3Client.serviceClientConfiguration().credentialsProvider())
+            .region(s3Client.serviceClientConfiguration().region());
+
+    // Apply the same endpoint configuration as the S3Client
+    String endpointUrl = System.getenv("AWS_ENDPOINT_URL");
+    if (endpointUrl != null && !endpointUrl.isEmpty()) {
+      presignerBuilder.endpointOverride(java.net.URI.create(endpointUrl));
+    }
+
+    return presignerBuilder.build();
+  }
+
   /**
    * Generate a pre-signed URL for downloading an S3 object
    *
@@ -163,19 +132,9 @@ public class S3Util {
    */
   public String generatePresignedDownloadUrl(
       @Nonnull String bucket, @Nonnull String key, int expirationSeconds) {
-    // Refresh credentials if needed (only for assumed role scenarios)
-    if (stsClient != null && roleArn != null) {
-      refreshS3ClientIfNeeded();
-    }
-
-    clientLock.readLock().lock();
     try {
       // Create a pre-signer using the same configuration as the S3 client
-      try (S3Presigner presigner =
-          S3Presigner.builder()
-              .credentialsProvider(s3Client.serviceClientConfiguration().credentialsProvider())
-              .region(s3Client.serviceClientConfiguration().region())
-              .build()) {
+      try (S3Presigner presigner = getPresigner()) {
 
         // Create the GetObjectRequest
         GetObjectRequest getObjectRequest =
@@ -195,8 +154,46 @@ public class S3Util {
     } catch (Exception e) {
       log.error("Failed to generate presigned URL for bucket: {}, key: {}", bucket, key, e);
       throw new RuntimeException("Failed to generate presigned URL: " + e.getMessage(), e);
-    } finally {
-      clientLock.readLock().unlock();
+    }
+  }
+
+  /**
+   * Generate a pre-signed URL for uploading an S3 object
+   *
+   * @param bucket The S3 bucket name
+   * @param key The S3 object key
+   * @param expirationSeconds The expiration time in seconds
+   * @param contentType The content type of the object to be uploaded (e.g., "image/jpeg",
+   *     "application/pdf")
+   * @return The pre-signed URL
+   */
+  public String generatePresignedUploadUrl(
+      @Nonnull String bucket,
+      @Nonnull String key,
+      int expirationSeconds,
+      @Nullable String contentType) {
+    try {
+      // Create a pre-signer using the same configuration as the S3 client
+      try (S3Presigner presigner = getPresigner()) {
+
+        // Create the PutObjectRequest
+        PutObjectRequest putObjectRequest =
+            PutObjectRequest.builder().bucket(bucket).contentType(contentType).key(key).build();
+
+        // Create the presign request
+        PutObjectPresignRequest presignRequest =
+            PutObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofSeconds(expirationSeconds))
+                .putObjectRequest(putObjectRequest)
+                .build();
+
+        // Generate the presigned URL
+        PresignedPutObjectRequest presignedRequest = presigner.presignPutObject(presignRequest);
+        return presignedRequest.url().toString();
+      }
+    } catch (Exception e) {
+      log.error("Failed to generate presigned upload URL for bucket: {}, key: {}", bucket, key, e);
+      throw new RuntimeException("Failed to generate presigned upload URL: " + e.getMessage(), e);
     }
   }
 }
