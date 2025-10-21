@@ -1,3 +1,4 @@
+from typing import Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -561,6 +562,7 @@ class TestLookMLAPIBasedViewUpstream:
         # Verify results are the same (cached)
         assert result1 == result2
         assert result1.name == "test_explore"
+        assert result1.fields is not None
         assert len(result1.fields) == 2
 
     def test_class_level_cache_different_explores(self, mock_looker_client):
@@ -713,7 +715,7 @@ class TestLookMLAPIBasedViewUpstream:
 
         # Create a larger dataset to test performance
         view_to_explores = {}
-        explore_to_views = {}
+        explore_to_views: Dict[str, set] = {}
 
         # Create 50 views across 10 explores
         for i in range(50):
