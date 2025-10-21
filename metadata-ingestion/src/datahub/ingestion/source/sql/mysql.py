@@ -4,10 +4,20 @@ from typing import Iterable, List, Union
 import pymysql  # noqa: F401
 from pydantic.fields import Field
 from sqlalchemy import text, util
+# This import verifies that the dependencies are available.
+import logging
+from typing import TYPE_CHECKING, Any, List, Optional
+
+import pymysql  # noqa: F401
+from pydantic.fields import Field
+from sqlalchemy import create_engine, event, inspect, util
 from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine import Row
 from sqlalchemy.engine.reflection import Inspector
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Engine
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.decorators import (
@@ -19,6 +29,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import (
+    AwsConnectionConfig,
+    RDSIAMTokenManager,
+)
 from datahub.ingestion.source.sql.sql_common import (
     SqlWorkUnit,
     make_sqlalchemy_type,
@@ -28,6 +42,7 @@ from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
 from datahub.ingestion.source.sql.sql_utils import (
     gen_database_key,
 )
+from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
     generate_procedure_container_workunits,
@@ -41,6 +56,9 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemySource,
 )
 from datahub.metadata.schema_classes import BytesTypeClass
+from datahub.utilities.str_enum import StrEnum
+
+logger = logging.getLogger(__name__)
 
 SET.__repr__ = util.generic_repr  # type:ignore
 
@@ -80,10 +98,32 @@ AND ROUTINE_SCHEMA = :schema
 """
 
 
+class MySQLAuthMode(StrEnum):
+    """Authentication mode for MySQL connection."""
+
+    PASSWORD = "PASSWORD"
+    AWS_IAM = "AWS_IAM"
+
+
 class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
     # defaults
     host_port: str = Field(default="localhost:3306", description="MySQL host URL.")
     scheme: HiddenFromDocs[str] = "mysql+pymysql"
+
+    # Authentication configuration
+    auth_mode: MySQLAuthMode = Field(
+        default=MySQLAuthMode.PASSWORD,
+        description="Authentication mode to use for the MySQL connection. "
+        "Options are 'PASSWORD' (default) for standard username/password authentication, "
+        "or 'AWS_IAM' for AWS RDS IAM authentication.",
+    )
+    aws_config: AwsConnectionConfig = Field(
+        default_factory=AwsConnectionConfig,
+        description="AWS configuration for RDS IAM authentication (only used when auth_mode is AWS_IAM). "
+        "Provides full control over AWS credentials, region, profiles, role assumption, retry logic, and proxy settings. "
+        "If not explicitly configured, boto3 will automatically use the default credential chain and region from "
+        "environment variables (AWS_DEFAULT_REGION, AWS_REGION), AWS config files (~/.aws/config), or IAM role metadata.",
+    )
 
 
 class MySQLConfig(
@@ -114,10 +154,26 @@ class MySQLSource(TwoTierSQLAlchemySource):
 
     config: MySQLConfig
 
-    def __init__(self, config, ctx):
+    def __init__(self, config: MySQLConfig, ctx: Any):
         super().__init__(config, ctx, self.get_platform())
 
-    def get_platform(self) -> str:
+        self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
+        if config.auth_mode == MySQLAuthMode.AWS_IAM:
+            hostname, port = parse_host_port(config.host_port, default_port=3306)
+            if port is None:
+                raise ValueError("Port must be specified for RDS IAM authentication")
+
+            if not config.username:
+                raise ValueError("username is required for RDS IAM authentication")
+
+            self._rds_iam_token_manager = RDSIAMTokenManager(
+                endpoint=hostname,
+                username=config.username,
+                port=port,
+                aws_config=config.aws_config,
+            )
+
+    def get_platform(self):
         return "mysql"
 
     @classmethod
@@ -214,6 +270,51 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 context=procedure.name,
                 exc=e,
             )
+    def _setup_rds_iam_event_listener(
+        self, engine: "Engine", database_name: Optional[str] = None
+    ) -> None:
+        """Setup SQLAlchemy event listener to inject RDS IAM tokens."""
+        if not (
+            self.config.auth_mode == MySQLAuthMode.AWS_IAM
+            and self._rds_iam_token_manager
+        ):
+            return
+
+        def do_connect_listener(_dialect, _conn_rec, _cargs, cparams):
+            if not self._rds_iam_token_manager:
+                raise RuntimeError("RDS IAM Token Manager is not initialized")
+            cparams["password"] = self._rds_iam_token_manager.get_token()
+            # PyMySQL requires SSL to be enabled for RDS IAM authentication.
+            # Preserve any existing SSL configuration, otherwise enable with default settings.
+            # The {"ssl": True} dict is a workaround to make PyMySQL recognize that SSL
+            # should be enabled, since the library requires a truthy value in the ssl parameter.
+            # See https://pymysql.readthedocs.io/en/latest/modules/connections.html#pymysql.connections.Connection
+            cparams["ssl"] = cparams.get("ssl") or {"ssl": True}
+
+        event.listen(engine, "do_connect", do_connect_listener)  # type: ignore[misc]
+
+    def get_inspectors(self):
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+
+        engine = create_engine(url, **self.config.options)
+        self._setup_rds_iam_event_listener(engine)
+
+        with engine.connect() as conn:
+            inspector = inspect(conn)
+            if self.config.database and self.config.database != "":
+                databases = [self.config.database]
+            else:
+                databases = inspector.get_schema_names()
+            for db in databases:
+                if self.config.database_pattern.allowed(db):
+                    url = self.config.get_sql_alchemy_url(current_db=db)
+                    db_engine = create_engine(url, **self.config.options)
+                    self._setup_rds_iam_event_listener(db_engine, database_name=db)
+
+                    with db_engine.connect() as conn:
+                        inspector = inspect(conn)
+                        yield inspector
 
     def add_profile_metadata(self, inspector: Inspector) -> None:
         if not self.config.is_profiling_enabled():

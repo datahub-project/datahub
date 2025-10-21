@@ -18,7 +18,9 @@ base_requirements = {
     "typing_extensions>=4.8.0",
     # Actual dependencies.
     "typing-inspect",
-    "pydantic>=2.4.0",
+    "pydantic>=2.4.0,<3.0.0",
+    # 2.41.3 https://github.com/pydantic/pydantic-core/issues/1841
+    "pydantic_core!=2.41.3",
     "mixpanel>=4.9.0",
     # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
     "sentry-sdk>=1.33.1",
@@ -92,7 +94,7 @@ sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
     # but not longer do.
-    "sqlglot[rs]==27.12.0",
+    "sqlglot[rs]==27.27.0",
     "patchy==2.8.0",
 }
 
@@ -292,9 +294,10 @@ iceberg_common = {
     # especially for AWS-based catalogs and warehouses, the properties `profile_name`, `region_name`,
     # `aws_access_key_id`, `aws_secret_access_key`, and `aws_session_token` were deprecated and removed in version
     # 0.8.0.
-    # - From v0.10.0, new signatures: `visit_timestamp_ns`, `visit_timestampz_ns` and `visit_unknown`
-    # need to be implemented (still to be done).
-    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.8.0,<0.10.0",
+    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.8.0",
+    # Pin pydantic due to incompatibility with pyiceberg 0.9.1.
+    # pyiceberg 0.9.1 requires pydantic>=2.0,<2.12
+    "pydantic<2.12",
     *cachetools_lib,
 }
 
@@ -365,18 +368,21 @@ slack = {
     "tenacity>=8.0.1",
 }
 
-databricks = {
-    # 0.1.11 appears to have authentication issues with azure databricks
-    # 0.22.0 has support for `include_browse` in metadata list apis
-    "databricks-sdk>=0.30.0",
-    "pyspark~=3.5.6",
-    "requests",
+databricks_common = {
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
     # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
     # in src/datahub/ingestion/source/unity/proxy.py (_patch_databricks_sql_proxy_auth)
     # as the fix was included natively in 3.0.0 via https://github.com/databricks/databricks-sql-python/pull/354
     "databricks-sql-connector>=2.8.0,<3.0.0",
+}
+
+databricks = {
+    # 0.1.11 appears to have authentication issues with azure databricks
+    # 0.22.0 has support for `include_browse` in metadata list apis
+    "databricks-sdk>=0.30.0",
+    "pyspark~=3.5.6",
+    "requests",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
     # databricks-sql-connector<3.0.0 requires pandas<2.2.0
     "pandas<2.2.0",
@@ -466,7 +472,14 @@ plugins: Dict[str, Set[str]] = {
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
-    "excel": {"openpyxl>=3.1.5", "pandas", *aws_common, *abs_base, *cachetools_lib, *data_lake_profiling},
+    "excel": {
+        "openpyxl>=3.1.5",
+        "pandas",
+        *aws_common,
+        *abs_base,
+        *cachetools_lib,
+        *data_lake_profiling,
+    },
     "cassandra": {
         "cassandra-driver>=3.28.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
@@ -525,12 +538,12 @@ plugins: Dict[str, Set[str]] = {
     "mongodb": {"pymongo>=4.8.0", "packaging"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc"},
-    "mysql": sql_common | mysql,
+    "mysql": sql_common | mysql | aws_common,
     # mariadb should have same dependency as mysql
     "mariadb": sql_common | mysql,
     "okta": {"okta~=1.7.0", "nest-asyncio"},
     "oracle": sql_common | {"oracledb"},
-    "postgres": sql_common | postgres_common,
+    "postgres": sql_common | postgres_common | aws_common,
     "presto": sql_common | pyhive_common | trino,
     # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
     "presto-on-hive": sql_common
@@ -579,10 +592,14 @@ plugins: Dict[str, Set[str]] = {
     ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
-    "unity-catalog": databricks | sql_common,
+    "unity-catalog": databricks_common | databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
-    "databricks": databricks | sql_common,
-    "fivetran": snowflake_common | bigquery_common | sqlalchemy_lib | sqlglot_lib,
+    "databricks": databricks_common | databricks | sql_common,
+    "fivetran": snowflake_common
+    | bigquery_common
+    | databricks_common
+    | sqlalchemy_lib
+    | sqlglot_lib,
     "snaplogic": set(),
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},
@@ -737,7 +754,7 @@ base_dev_requirements = {
             "cassandra",
             "neo4j",
             "vertexai",
-            "mssql-odbc"
+            "mssql-odbc",
         ]
         if plugin
         for dependency in plugins[plugin]

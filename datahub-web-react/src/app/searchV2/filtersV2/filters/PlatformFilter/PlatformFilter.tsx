@@ -14,6 +14,7 @@ export default function PlatformEntityFilter(props: FilterComponentProps) {
             renderEntity={renderEntity}
             entityTypes={[EntityType.DataPlatform]}
             filterName="Platforms"
+            dataTestId="filter-platform"
         />
     );
 }

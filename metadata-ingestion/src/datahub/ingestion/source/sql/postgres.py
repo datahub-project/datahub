@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
 
 # This import verifies that the dependencies are available.
 import psycopg2  # noqa: F401
@@ -14,8 +14,11 @@ import sqlalchemy.dialects.postgresql as custom_types
 from geoalchemy2 import Geometry  # noqa: F401
 from pydantic import BaseModel
 from pydantic.fields import Field
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.engine.reflection import Inspector
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Engine
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter import mce_builder
@@ -30,12 +33,17 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import (
+    AwsConnectionConfig,
+    RDSIAMTokenManager,
+)
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
 )
@@ -47,6 +55,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     MapTypeClass,
 )
+from datahub.utilities.str_enum import StrEnum
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -103,10 +112,32 @@ class ViewLineageEntry(BaseModel):
     dependent_schema: str
 
 
+class PostgresAuthMode(StrEnum):
+    """Authentication mode for PostgreSQL connection."""
+
+    PASSWORD = "PASSWORD"
+    AWS_IAM = "AWS_IAM"
+
+
 class BasePostgresConfig(BasicSQLAlchemyConfig):
     scheme: str = Field(default="postgresql+psycopg2", description="database scheme")
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(deny=["information_schema"])
+    )
+
+    # Authentication configuration
+    auth_mode: PostgresAuthMode = Field(
+        default=PostgresAuthMode.PASSWORD,
+        description="Authentication mode to use for the PostgreSQL connection. "
+        "Options are 'PASSWORD' (default) for standard username/password authentication, "
+        "or 'AWS_IAM' for AWS RDS IAM authentication.",
+    )
+    aws_config: AwsConnectionConfig = Field(
+        default_factory=AwsConnectionConfig,
+        description="AWS configuration for RDS IAM authentication (only used when auth_mode is AWS_IAM). "
+        "Provides full control over AWS credentials, region, profiles, role assumption, retry logic, and proxy settings. "
+        "If not explicitly configured, boto3 will automatically use the default credential chain and region from "
+        "environment variables (AWS_DEFAULT_REGION, AWS_REGION), AWS config files (~/.aws/config), or IAM role metadata.",
     )
 
 
@@ -152,6 +183,22 @@ class PostgresSource(SQLAlchemySource):
     def __init__(self, config: PostgresConfig, ctx: PipelineContext):
         super().__init__(config, ctx, self.get_platform())
 
+        self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
+        if config.auth_mode == PostgresAuthMode.AWS_IAM:
+            hostname, port = parse_host_port(config.host_port, default_port=5432)
+            if port is None:
+                raise ValueError("Port must be specified for RDS IAM authentication")
+
+            if not config.username:
+                raise ValueError("username is required for RDS IAM authentication")
+
+            self._rds_iam_token_manager = RDSIAMTokenManager(
+                endpoint=hostname,
+                username=config.username,
+                port=port,
+                aws_config=config.aws_config,
+            )
+
     def get_platform(self):
         return "postgres"
 
@@ -160,13 +207,36 @@ class PostgresSource(SQLAlchemySource):
         config = PostgresConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def _setup_rds_iam_event_listener(
+        self, engine: "Engine", database_name: Optional[str] = None
+    ) -> None:
+        """Setup SQLAlchemy event listener to inject RDS IAM tokens."""
+        if not (
+            self.config.auth_mode == PostgresAuthMode.AWS_IAM
+            and self._rds_iam_token_manager
+        ):
+            return
+
+        def do_connect_listener(_dialect, _conn_rec, _cargs, cparams):
+            if not self._rds_iam_token_manager:
+                raise RuntimeError("RDS IAM Token Manager is not initialized")
+            cparams["password"] = self._rds_iam_token_manager.get_token()
+            if cparams.get("sslmode") not in ("require", "verify-ca", "verify-full"):
+                cparams["sslmode"] = "require"
+
+        event.listen(engine, "do_connect", do_connect_listener)  # type: ignore[misc]
+
     def get_inspectors(self) -> Iterable[Inspector]:
         # Note: get_sql_alchemy_url will choose `sqlalchemy_uri` over the passed in database
         url = self.config.get_sql_alchemy_url(
             database=self.config.database or self.config.initial_database
         )
+
         logger.debug(f"sql_alchemy_url={url}")
+
         engine = create_engine(url, **self.config.options)
+        self._setup_rds_iam_event_listener(engine)
+
         with engine.connect() as conn:
             if self.config.database or self.config.sqlalchemy_uri:
                 inspector = inspect(conn)
@@ -174,14 +244,21 @@ class PostgresSource(SQLAlchemySource):
             else:
                 # pg_database catalog -  https://www.postgresql.org/docs/current/catalog-pg-database.html
                 # exclude template databases - https://www.postgresql.org/docs/current/manage-ag-templatedbs.html
+                # exclude rdsadmin - AWS RDS administrative database
                 databases = conn.execute(
-                    "SELECT datname from pg_database where datname not in ('template0', 'template1')"
+                    "SELECT datname from pg_database where datname not in ('template0', 'template1', 'rdsadmin')"
                 )
                 for db in databases:
                     if not self.config.database_pattern.allowed(db["datname"]):
                         continue
+
                     url = self.config.get_sql_alchemy_url(database=db["datname"])
-                    with create_engine(url, **self.config.options).connect() as conn:
+                    db_engine = create_engine(url, **self.config.options)
+                    self._setup_rds_iam_event_listener(
+                        db_engine, database_name=db["datname"]
+                    )
+
+                    with db_engine.connect() as conn:
                         inspector = inspect(conn)
                         yield inspector
 

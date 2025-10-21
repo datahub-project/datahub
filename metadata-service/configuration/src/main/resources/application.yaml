@@ -1,3 +1,7 @@
+# Hack to remove /
+path-mappings:
+  "/": ""
+
 # Name of the data hub component or container (used for tracing)
 spring.application.name: ${APPLICATION_NAME:datahub-gms}
 
@@ -109,9 +113,14 @@ secretService:
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
   serverEnv: ${DATAHUB_SERVER_ENV:core}
+  # The base path for the URL where DataHub will be deployed
+  basePath: ${DATAHUB_BASE_PATH:}
+
   gms:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
+    basePath: ${DATAHUB_GMS_BASE_PATH:}
+    basePathEnabled: ${DATAHUB_GMS_BASE_PATH_ENABLED:false}
     useSSL: ${DATAHUB_GMS_USE_SSL:${GMS_USE_SSL:false}}
     truststore:
       path: ${DATAHUB_GMS_SSL_TRUSTSTORE_PATH:#{null}} # Required if useSSL is true
@@ -147,6 +156,13 @@ datahub:
 
   policies:
     systemPolicyUrnList: ${DATAHUB_SYSTEM_POLICY_URN_LIST:} # Additional policy urns that should not allow deletion, comma separated list like urn:li:dataHubPolicy:my-policy
+
+  s3:
+    bucketName: ${DATAHUB_BUCKET_NAME:#{null}} # The S3 bucket name to use for storing data
+    roleArn: ${DATAHUB_ROLE_ARN:#{null}} # The AWS IAM role ARN to assume for S3 access
+    presignedUploadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_UPLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
+    presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
+    assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product-assets}
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
@@ -219,6 +235,56 @@ platformAnalytics:
     aspectTypes: ${ANALYTICS_GENERIC_ASPECT_TYPES:} # A filter list for the generic aspect events, i.e. events that don't fall into a typed bucket in the above specific event types
     userFilters: "${ANALYTICS_USER_FILTERS:}" # Filter out specific users' events from being published at all
 
+mclProcessing:
+  cdcSource:
+    enabled: ${CDC_MCL_PROCESSING_ENABLED:false} # Enable CDC Processing.
+    configureSource: ${CDC_CONFIGURE_SOURCE:false} # Set to false if externally configured.
+    type: debezium-kafka-connector  # Only supported type for now.
+    debeziumConfig: # Debezium-specific configuration
+      type: ${CDC_DB_TYPE:mysql} # Set to one of mysql or postgres to load additional db specific config.
+      name: ${DATAHUB_CDC_CONNECTOR_NAME:datahub-cdc-connector}
+      url: ${CDC_KAFKA_CONNECT_URL:http://kafka-connect:8083}
+      requestTimeoutMillis: ${CDC_KAFKA_CONNECT_REQUEST_TIMEOUT:10000} # request timeout for config rest API calls.
+      config: # Resulting config is the common config + the type specific config bassed on debeziumConfig.type
+        tasks.max: 1
+        topic.prefix: datahub
+        database.user: ${CDC_USER:datahub_cdc}
+        database.password: ${CDC_PASSWORD:datahub_cdc}
+        schema.history.internal.kafka.topic: datahub.schema-changes
+        value.converter.schemas.enable: false
+        key.converter: org.apache.kafka.connect.storage.StringConverter
+        value.converter: org.apache.kafka.connect.json.JsonConverter
+        message.key.columns: ${CDC_URN_KEY_SPEC:datahub.metadata_aspect_v2:urn}
+        transforms: route
+        transforms.route.type: org.apache.kafka.connect.transforms.RegexRouter
+        transforms.route.regex: ".*metadata_aspect_v2"
+        transforms.route.replacement: ${CDC_TOPIC_NAME:datahub.metadata_aspect_v2}
+        database.dbname: ${DATAHUB_DB_NAME:datahub}
+        # Default configs injected by System Update. Any additional configs are applied on top of these.
+        # Below are inferred from db connection config and injected by DebeziumCDCSetupStep.
+        #datahub.hostname
+        #database.port
+
+        # Below are inferred from available kafka configs
+        #schema.history.internal.kafka.bootstrap.servers: broker:29092
+
+      postgresConfig: # Used then CDC_DB_TYPE is set to postgres
+        connector.class: ${DEBEZIUM_CONNECTOR_CLASS:io.debezium.connector.postgresql.PostgresConnector}
+        plugin.name: ${DEBEZIUM_PLUGIN_NAME:pgoutput}
+        table.include.list: ${CDC_INCLUDE_TABLE:public.metadata_aspect_v2}
+        schema.include.list: ${CDC_INCLUDE_SCHEMA:public}
+        publication.autocreate.mode: disabled
+        publication.name: dbz_publication
+        message.key.columns: public.metadata_aspect_v2:urn
+        slot.name: debezium
+        database.server.name: datahub
+      mysqlConfig: # Used then CDC_DB_TYPE is set to mysql
+        connector.class: ${DEBEZIUM_CONNECTOR_CLASS:io.debezium.connector.mysql.MySqlConnector}
+        plugin.name: ${DEBEZIUM_PLUGIN_NAME:decoderbufs} # Use pgoutput for PostgreSQL, decoderbufs for others
+        table.include.list: ".*metadata_aspect_v2"
+        database.server.id: ${CDC_SERVER_ID:184001} # unique db ID per connector instance for MYSQL only
+        database.include.list: ${DATAHUB_DB_NAME:datahub} # For MYSQL only
+
 visualConfig:
   queriesTab:
     # Experimental! This env var is subject to change and may be deprecated in the future. The Queries tab has a larger
@@ -227,8 +293,8 @@ visualConfig:
   theme:
     themeId: ${REACT_APP_CUSTOM_THEME_ID:} # we have an enum defined on the frontend that this themeId maps to to render a specific custom theme file
   assets:
-    logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
-    faviconUrl: ${REACT_APP_FAVICON_URL:/assets/icons/favicon.ico}
+    logoUrl: ${REACT_APP_LOGO_URL:assets/platforms/datahublogo.png}
+    faviconUrl: ${REACT_APP_FAVICON_URL:assets/icons/favicon.ico}
   appTitle: ${REACT_APP_TITLE:}
   hideGlossary: ${REACT_APP_HIDE_GLOSSARY:false}
   showFullTitleInLineage: ${REACT_APP_SHOW_FULL_TITLE_IN_LINEAGE:false}
@@ -276,12 +342,20 @@ elasticsearch:
   connectionRequestTimeout: ${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:5000}
   username: ${ELASTICSEARCH_USERNAME:#{null}}
   password: ${ELASTICSEARCH_PASSWORD:#{null}}
-  pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:#{null}}
+  pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:}
   useSSL: ${ELASTICSEARCH_USE_SSL:false}
   opensearchUseAwsIamAuth: ${OPENSEARCH_USE_AWS_IAM_AUTH:false}
   region: ${AWS_REGION:#{null}}
-  implementation: ${ELASTICSEARCH_IMPLEMENTATION:elasticsearch} # elasticsearch or opensearch, for handling divergent cases
   idHashAlgo: ${ELASTIC_ID_HASH_ALGO:MD5}
+  dataNodeCount: ${ELASTICSEARCH_DATA_NODE_COUNT:1}
+  # Multi-client shim configuration
+  shim:
+    # Enable the search client shim (false = use legacy RestHighLevelClient)
+    enabled: ${ELASTICSEARCH_SHIM_ENABLED:false}
+    # Engine type: AUTO_DETECT, ELASTICSEARCH_7, ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2
+    engineType: ${ELASTICSEARCH_SHIM_ENGINE_TYPE:AUTO_DETECT}
+    # Whether to auto-detect the engine type by connecting to the cluster
+    autoDetectEngine: ${ELASTICSEARCH_SHIM_AUTO_DETECT:true}
   sslContext: # Required if useSSL is true
     protocol: ${ELASTICSEARCH_SSL_PROTOCOL:#{null}}
     secureRandomImplementation: ${ELASTICSEARCH_SSL_SECURE_RANDOM_IMPL:#{null}}
@@ -310,7 +384,7 @@ elasticsearch:
     enableBatchDelete: ${ES_BULK_ENABLE_BATCH_DELETE:false}
   index:
     prefix: ${INDEX_PREFIX:}
-    numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:1}
+    numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:${elasticsearch.dataNodeCount}}
     numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
     numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES:3}
     refreshIntervalSeconds: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:3} # increase to 30 if expected indexing rates to be greater than 100/s
@@ -369,9 +443,9 @@ elasticsearch:
       impact:
         maxHops: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS:1000} # the maximum hops to traverse for impact analysis
         maxRelations: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_RELATIONS:40000} # maximum number of relationships
-        slices: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SLICES:2} # number of slices for parallel search operations
-        keepAlive: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_KEEP_ALIVE:5m} # Point-in-Time keepAlive duration for impact analysis queries
-      maxThreads: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS:32} # maximum parallel lineage graph queries
+        slices: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SLICES:${elasticsearch.dataNodeCount}} # number of slices for parallel search operations
+        keepAlive: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_KEEP_ALIVE:55s} # Point-in-Time keepAlive duration for impact analysis queries
+      maxThreads: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS:16} # maximum parallel lineage graph queries
       queryOptimization: ${ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION:true} # reduce query nesting if possible
 
 # TODO: Kafka topic convention
@@ -418,6 +492,10 @@ kafka:
       name: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
       enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
 
+    cdcTopic:
+      name: ${CDC_TOPIC_NAME:datahub.metadata_aspect_v2}
+      enabled: ${CDC_MCL_PROCESSING_ENABLED:false}
+
     # Deprecated Topics (maintained for backward compatibility)
     metadataAuditEvent:
       name: ${METADATA_AUDIT_EVENT_NAME:MetadataAuditEvent_v4}
@@ -451,6 +529,16 @@ kafka:
         serializer: ${KAFKA_SERDE_EVENT_VALUE_SERIALIZER:io.confluent.kafka.serializers.KafkaAvroSerializer}
         deserializer: ${KAFKA_SERDE_EVENT_VALUE_DESERIALIZER:org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
         delegateDeserializer: ${KAFKA_SERDE_EVENT_VALUE_DELEGATE_DESERIALIZER:io.confluent.kafka.serializers.KafkaAvroDeserializer}
+    cdc:
+      key:
+        serializer: ${KAFKA_SERDE_CDC_KEY_SERIALIZER:org.apache.kafka.common.serialization.StringSerializer}
+        deserializer: ${KAFKA_SERDE_CDC_KEY_DESERIALIZER:org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
+        delegateDeserializer: ${KAFKA_SERDE_CDC_KEY_DELEGATE_DESERIALIZER:org.apache.kafka.common.serialization.StringDeserializer}
+      value:
+        serializer: ${KAFKA_SERDE_EVENT_VALUE_SERIALIZER:org.apache.kafka.common.serialization.StringSerializer}
+        deserializer: ${KAFKA_SERDE_EVENT_VALUE_DESERIALIZER:org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
+        delegateDeserializer: ${KAFKA_SERDE_EVENT_VALUE_DELEGATE_DESERIALIZER:org.apache.kafka.common.serialization.StringDeserializer}
+
   producer:
     retryCount: ${KAFKA_PRODUCER_RETRY_COUNT:3}
     deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:30000}
@@ -575,21 +663,25 @@ management:
       application: ${spring.application.name}
 
 # Useful to debug low-level Spring errors such as class version mismatches
-server:
-  server-header: false
 #  error:
 #    include-message: always
 #    include-binding-errors: always
 #    include-stacktrace: always
 
+# GMS needs to have its context path, / is used when undefined, DATAHUB_GMS_BASE_PATH otherwise
+server:
+  server-header: false
+  servlet:
+    context-path: ${DATAHUB_GMS_BASE_PATH:/}
+
 springdoc:
   cache:
     disabled: false
   swagger-ui:
-    path: /openapi/swagger-ui
-    urls-primary-name: DataHub v3 (OpenAPI)
+    path: ${path-mappings.${datahub.basePath:}:${datahub.basePath:}}/openapi/swagger-ui
+    disable-swagger-default-url: true
   api-docs:
-    path: /openapi/v3/api-docs
+    path: ${path-mappings.${datahub.basePath:}:${datahub.basePath:}}/openapi/v3/api-docs
     # Do not change this even though some APIs are using 3.1
     # Serialization of enum types will break
     version: openapi_3_0
@@ -627,6 +719,7 @@ systemUpdate:
   maxBackOffs: ${BOOTSTRAP_SYSTEM_UPDATE_MAX_BACK_OFFS:50}
   backOffFactor: ${BOOTSTRAP_SYSTEM_UPDATE_BACK_OFF_FACTOR:2} # Multiplicative factor for back off, default values will result in waiting 5min 15s
   waitForSystemUpdate: ${BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE:true}
+  cdcMode: ${SYSTEM_UPDATE_CDC_MODE:false}
   bootstrap:
     mcpConfig: ${SYSTEM_UPDATE_BOOTSTRAP_MCP_CONFIG:bootstrap_mcps.yaml}
   dataJobNodeCLL:
@@ -708,10 +801,11 @@ healthCheck:
   cacheDurationSeconds: ${HEALTH_CHECK_CACHE_DURATION_SECONDS:5}
 
 featureFlags:
-  showSimplifiedHomepageByDefault: ${SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT:false} # shows a simplified homepage with just datasets, charts and dashboards by default to users. this can be configured in user settings
+  showSimplifiedHomepageByDefault: ${SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT:false} # Deprecated in new UI. Shows a simplified homepage with just datasets, charts and dashboards by default to users. this can be configured in user settings
   lineageSearchCacheEnabled: ${LINEAGE_SEARCH_CACHE_ENABLED:true} # Enables in-memory cache for searchAcrossLineage query
   graphServiceDiffModeEnabled: ${GRAPH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for graph writes, uses a different code path that produces a diff from previous to next to write relationships instead of wholesale deleting edges and reading
   alwaysEmitChangeLog: ${ALWAYS_EMIT_CHANGE_LOG:false} # Enables always emitting a MCL even when no changes are detected. Used for Time Based Lineage when no changes occur.
+  cdcModeChangeLog: ${CDC_MCL_PROCESSING_ENABLED:false} # Enables CDCs to be used to generate MCLs. When false, GMS generates MCLs based on MCPs
   searchServiceDiffModeEnabled: ${SEARCH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for search document writes, reduces amount of writes to ElasticSearch documents for no-ops
   readOnlyModeEnabled: ${READ_ONLY_MODE_ENABLED:false} # Enables read only mode for an instance. Right now this only affects ability to edit user profile image URL but can be extended
   showAccessManagement: ${SHOW_ACCESS_MANAGEMENT:false} #Whether we should show AccessManagement tab in the datahub UI.
@@ -756,6 +850,7 @@ featureFlags:
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:false} # Enables displaying the asset summary page
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
+  documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -770,6 +865,9 @@ searchBar:
 
 searchCard:
   showDescription: ${SEARCH_CARD_SHOW_DESCRIPTION:false}
+
+searchFlags:
+  defaultSkipHighlighting: ${DEFAULT_SKIP_HIGHLIGHTING:false}
 
 homePage:
   firstInPersonalSidebar: ${FIRST_IN_PERSONAL_SIDEBAR:YOUR_ASSETS}

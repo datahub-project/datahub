@@ -3,7 +3,7 @@ import { SourceConfig } from '@app/ingestV2/source/conf/types';
 import postgresLogo from '@images/postgreslogo.png';
 
 const placeholderRecipe = `\
-source: 
+source:
     type: postgres
     config:
         # Coordinates
@@ -23,7 +23,7 @@ source:
         profiling:
             enabled: false
         stateful_ingestion:
-            enabled: true    
+            enabled: true
 `;
 
 export const POSTGRES = 'postgres';

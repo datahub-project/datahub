@@ -691,6 +691,13 @@ def _column_level_lineage(
             select_statement=select_statement,
         )
 
+    # Handle VALUES expressions separately - they have no upstream tables and no column lineage
+    if isinstance(select_statement, sqlglot.exp.Values):
+        return _ColumnLineageWithDebugInfo(
+            column_lineage=[],
+            select_statement=select_statement,
+        )
+
     assert isinstance(select_statement, _SupportedColumnLineageTypesTuple)
     try:
         root_scope = sqlglot.optimizer.build_scope(select_statement)
@@ -1176,7 +1183,12 @@ def _try_extract_select(
             statement = sqlglot.exp.Select().select("*").from_(statement)
     elif isinstance(statement, sqlglot.exp.Insert):
         # TODO Need to map column renames in the expressions part of the statement.
-        statement = statement.expression
+        # Preserve CTEs when extracting the SELECT expression from INSERT
+        original_ctes = statement.ctes
+        statement = statement.expression  # Get the SELECT expression from the INSERT
+        if isinstance(statement, sqlglot.exp.Query) and original_ctes:
+            for cte in original_ctes:
+                statement = statement.with_(alias=cte.alias, as_=cte.this)
     elif isinstance(statement, sqlglot.exp.Update):
         # Assumption: the output table is already captured in the modified tables list.
         statement = _extract_select_from_update(statement)

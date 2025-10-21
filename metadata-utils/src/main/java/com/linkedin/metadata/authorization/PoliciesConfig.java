@@ -694,6 +694,14 @@ public class PoliciesConfig {
                   ImmutableList.of(EDIT_LINEAGE_PRIVILEGE).stream())
               .collect(Collectors.toList()));
 
+  // Data Process Instance Privileges
+  public static final ResourcePrivileges DATA_PROCESS_INSTANCE_PRIVILEGES =
+      ResourcePrivileges.of(
+          "dataProcessInstance",
+          "Data Task/Pipeline Runs",
+          "Data Tasks/Pipeline Runs indexed by DataHub",
+          COMMON_ENTITY_PRIVILEGES);
+
   // Tag Privileges
   public static final ResourcePrivileges TAG_PRIVILEGES =
       ResourcePrivileges.of(
@@ -926,6 +934,7 @@ public class PoliciesConfig {
           CHART_PRIVILEGES,
           DATA_FLOW_PRIVILEGES,
           DATA_JOB_PRIVILEGES,
+          DATA_PROCESS_INSTANCE_PRIVILEGES,
           TAG_PRIVILEGES,
           CONTAINER_PRIVILEGES,
           DOMAIN_PRIVILEGES,
