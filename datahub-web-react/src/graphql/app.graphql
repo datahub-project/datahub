@@ -72,6 +72,9 @@ query appConfig {
         searchCardConfig {
             showDescription
         }
+        searchFlagsConfig {
+            defaultSkipHighlighting
+        }
         homePageConfig {
             firstInPersonalSidebar
         }
