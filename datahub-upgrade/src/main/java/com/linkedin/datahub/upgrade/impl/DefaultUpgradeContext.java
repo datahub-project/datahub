@@ -4,7 +4,7 @@ import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
-import com.linkedin.datahub.upgrade.UpgradeUtils;
+import com.linkedin.metadata.utils.EnvironmentUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +35,7 @@ public class DefaultUpgradeContext implements UpgradeContext {
     this.report = report;
     this.previousStepResults = previousStepResults;
     this.args = args;
-    this.parsedArgs = UpgradeUtils.parseArgs(args);
+    this.parsedArgs = EnvironmentUtils.parseArgs(args);
   }
 
   @Override

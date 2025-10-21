@@ -12,8 +12,9 @@ x-mysql-profiles-quickstart: &mysql-profiles-quickstart
   - quickstart-frontend
   - quickstart-storage
   - quickstart-consumers
-x-mysql-profiles-dev: &mysql-profiles-dev
-  - debug
+
+# Which profiles to run mysql setup
+x-mysql-setup-profiles-dev: &mysql-setup-profiles-dev
   - debug-min
   - debug-frontend
   - debug-backend
@@ -22,6 +23,7 @@ x-mysql-profiles-dev: &mysql-profiles-dev
   - debug-elasticsearch
   - debug-backend-aws
   - debug-aws
+
 x-mysql-profiles: &mysql-profiles
   - quickstart
   - quickstart-backend
@@ -197,7 +199,7 @@ services:
       - quickstart-consumers-cdc
   mysql-setup-dev:
     <<: *mysql-setup-common
-    profiles: *mysql-profiles-dev
+    profiles: *mysql-setup-profiles-dev
     image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-debug}
   mysql-setup-dev-cdc:
     <<: *mysql-setup-common

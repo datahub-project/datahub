@@ -8,6 +8,7 @@ import com.linkedin.datahub.upgrade.restoreaspect.RestoreAspect;
 import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.datahub.upgrade.secret.RotateSecrets;
+import com.linkedin.datahub.upgrade.sqlsetup.SqlSetup;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
@@ -17,7 +18,6 @@ import com.linkedin.datahub.upgrade.test.EvaluateTests;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
-import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +38,10 @@ public class UpgradeCli implements CommandLineRunner {
   }
 
   private final UpgradeManager _upgradeManager = new DefaultUpgradeManager();
+
+  @Autowired(required = false)
+  @Named("sqlSetup")
+  private SqlSetup sqlSetup;
 
   @Autowired(required = false)
   @Named("loadIndices")
@@ -81,15 +85,15 @@ public class UpgradeCli implements CommandLineRunner {
 
   // Saas-only
 
-  @Inject
+  @Autowired(required = false)
   @Named("restoreAspect")
   private RestoreAspect restoreAspect;
 
-  @Inject
+  @Autowired(required = false)
   @Named("propagateTerms")
   private PropagateTerms propagateTerms;
 
-  @Inject
+  @Autowired(required = false)
   @Named("rotateSecrets")
   private RotateSecrets rotateSecrets;
 
@@ -103,61 +107,82 @@ public class UpgradeCli implements CommandLineRunner {
     if (restoreIndices != null) {
       _upgradeManager.register(restoreIndices);
     } else {
-      log.warn("RestoreIndices upgrade not available - bean not found");
+      log.info("RestoreIndices upgrade not available - bean not found");
     }
 
     if (restoreBackup != null) {
       _upgradeManager.register(restoreBackup);
     } else {
-      log.warn("RestoreBackup upgrade not available - bean not found");
+      log.info("RestoreBackup upgrade not available - bean not found");
     }
 
     if (removeUnknownAspects != null) {
       _upgradeManager.register(removeUnknownAspects);
     } else {
-      log.warn("RemoveUnknownAspects upgrade not available - bean not found");
+      log.info("RemoveUnknownAspects upgrade not available - bean not found");
+    }
+
+    if (sqlSetup != null) {
+      _upgradeManager.register(sqlSetup);
+    } else {
+      log.info("SqlSetup upgrade not available - bean not found");
     }
 
     if (loadIndices != null) {
       _upgradeManager.register(loadIndices);
     } else {
-      log.warn("LoadIndices upgrade not available - bean not found");
+      log.info("LoadIndices upgrade not available - bean not found");
     }
 
     if (systemUpdate != null) {
       _upgradeManager.register(systemUpdate);
     } else {
-      log.warn("SystemUpdate upgrade not available - bean not found");
+      log.info("SystemUpdate upgrade not available - bean not found");
     }
 
     if (systemUpdateBlocking != null) {
       _upgradeManager.register(systemUpdateBlocking);
     } else {
-      log.warn("SystemUpdateBlocking upgrade not available - bean not found");
+      log.info("SystemUpdateBlocking upgrade not available - bean not found");
     }
 
     if (systemUpdateNonBlocking != null) {
       _upgradeManager.register(systemUpdateNonBlocking);
     } else {
-      log.warn("SystemUpdateNonBlocking upgrade not available - bean not found");
+      log.info("SystemUpdateNonBlocking upgrade not available - bean not found");
     }
 
     if (systemUpdateCron != null) {
       _upgradeManager.register(systemUpdateCron);
     } else {
-      log.warn("SystemUpdateCron upgrade not available - bean not found");
+      log.info("SystemUpdateCron upgrade not available - bean not found");
     }
 
     if (reindexDebug != null) {
       _upgradeManager.register(reindexDebug);
     } else {
-      log.warn("ReindexDebug upgrade not available - bean not found");
+      log.info("ReindexDebug upgrade not available - bean not found");
     }
 
     // Saas-only
-    _upgradeManager.register(restoreAspect);
-    _upgradeManager.register(propagateTerms);
-    _upgradeManager.register(rotateSecrets);
+    if (restoreAspect != null) {
+      _upgradeManager.register(restoreAspect);
+    } else {
+      log.warn("RestoreAspect upgrade not available - bean not found");
+    }
+
+    if (propagateTerms != null) {
+      _upgradeManager.register(propagateTerms);
+    } else {
+      log.warn("PropagateTerms upgrade not available - bean not found");
+    }
+
+    if (rotateSecrets != null) {
+      _upgradeManager.register(rotateSecrets);
+    } else {
+      log.warn("RotateSecrets upgrade not available - bean not found");
+    }
+
     if (evaluateTests != null) {
       _upgradeManager.register(evaluateTests);
     }
