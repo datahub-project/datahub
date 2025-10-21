@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLWorkerPoolThreadFactory;
+import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.actionrequest.ActionRequestFactory;
@@ -301,6 +302,10 @@ public class GraphQLEngineFactory {
   @Qualifier("semanticSearchService")
   private SemanticSearchService _semanticSearchService;
 
+  @Autowired(required = false)
+  @Qualifier("s3Util")
+  private S3Util s3Util;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -386,6 +391,7 @@ public class GraphQLEngineFactory {
     args.setActionWorkflowService(actionWorkflowService);
     args.setUserService(userService);
     args.setSemanticSearchService(_semanticSearchService);
+    args.setS3Util(s3Util);
 
     // Saas Only
     try {

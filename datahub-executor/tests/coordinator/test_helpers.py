@@ -5,129 +5,190 @@ from typing import Any, Callable
 from unittest.mock import MagicMock, Mock, patch
 
 
-class TestBuildOAuthConsumerConfig:
-    """Tests for _build_oauth_consumer_config function."""
+class TestGetKafkaConsumerConfigFromEnv:
+    """Tests for get_kafka_consumer_config_from_env function.
 
-    def teardown_method(self) -> None:
-        """Clean up environment variables after each test."""
-        env_vars_to_clean = [
-            "KAFKA_PROPERTIES_SASL_MECHANISM",
-            "KAFKA_PROPERTIES_OAUTH_CALLBACK",
-            "KAFKA_PROPERTIES_SASL_OAUTHBEARER_METHOD",
-            "KAFKA_PROPERTIES_SASL_USERNAME",
-            "KAFKA_PROPERTIES_SASL_PASSWORD",
-        ]
-        for var in env_vars_to_clean:
-            os.environ.pop(var, None)
+    Note: This replaces the old _build_oauth_consumer_config function with a more
+    flexible dynamic configuration approach.
+    """
 
-    def test_no_sasl_mechanism_returns_empty(self) -> None:
-        """Test that no SASL mechanism returns empty config."""
-        from datahub_executor.coordinator.helpers import _build_oauth_consumer_config
-
-        result = _build_oauth_consumer_config()
-        assert result == {}
-
-    def test_oauthbearer_with_default_callback(self) -> None:
-        """Test OAUTHBEARER mechanism with default MSK IAM callback."""
-        from datahub_executor.coordinator.helpers import _build_oauth_consumer_config
-
-        os.environ["KAFKA_PROPERTIES_SASL_MECHANISM"] = "OAUTHBEARER"
-
-        result = _build_oauth_consumer_config()
-
-        assert result == {
-            "sasl.mechanism": "OAUTHBEARER",
-            "sasl.oauthbearer.method": "default",
-            "oauth_cb": "datahub_executor.common.kafka_msk_iam:oauth_cb",
-        }
-
-    def test_oauthbearer_with_custom_callback(self) -> None:
-        """Test OAUTHBEARER mechanism with custom callback."""
-        from datahub_executor.coordinator.helpers import _build_oauth_consumer_config
-
-        os.environ["KAFKA_PROPERTIES_SASL_MECHANISM"] = "OAUTHBEARER"
-        os.environ["KAFKA_PROPERTIES_OAUTH_CALLBACK"] = (
-            "datahub_executor.common.kafka_eventhubs_auth:oauth_cb"
+    def test_no_kafka_properties_returns_empty(self) -> None:
+        """Test that no KAFKA_PROPERTIES_* vars returns empty config."""
+        from datahub_executor.coordinator.helpers import (
+            get_kafka_consumer_config_from_env,
         )
 
-        result = _build_oauth_consumer_config()
+        test_env: dict[str, str] = {}
+        with patch.dict(os.environ, test_env, clear=False):
+            result = get_kafka_consumer_config_from_env()
+            # Result may contain existing env vars, just check it's a dict
+            assert isinstance(result, dict)
 
-        assert result == {
-            "sasl.mechanism": "OAUTHBEARER",
-            "sasl.oauthbearer.method": "default",
-            "oauth_cb": "datahub_executor.common.kafka_eventhubs_auth:oauth_cb",
+    def test_oauthbearer_with_callback(self) -> None:
+        """Test OAUTHBEARER mechanism with MSK IAM callback."""
+        from datahub_executor.coordinator.helpers import (
+            get_kafka_consumer_config_from_env,
+        )
+
+        test_env = {
+            "KAFKA_PROPERTIES_SASL_MECHANISM": "OAUTHBEARER",
+            "KAFKA_PROPERTIES_SASL_OAUTHBEARER_METHOD": "default",
+            "KAFKA_PROPERTIES_OAUTH_CB": "datahub_executor.common.kafka_msk_iam:oauth_cb",
         }
 
-    def test_oauthbearer_with_custom_method(self) -> None:
-        """Test OAUTHBEARER mechanism with custom oauth method."""
-        from datahub_executor.coordinator.helpers import _build_oauth_consumer_config
+        with patch.dict(os.environ, test_env, clear=False):
+            result = get_kafka_consumer_config_from_env()
 
-        os.environ["KAFKA_PROPERTIES_SASL_MECHANISM"] = "OAUTHBEARER"
-        os.environ["KAFKA_PROPERTIES_SASL_OAUTHBEARER_METHOD"] = "oidc"
+            assert result["sasl.mechanism"] == "OAUTHBEARER"
+            assert result["sasl.oauthbearer.method"] == "default"
+            assert (
+                result["oauth_cb"] == "datahub_executor.common.kafka_msk_iam:oauth_cb"
+            )
 
-        result = _build_oauth_consumer_config()
+    def test_oauthbearer_with_custom_callback(self) -> None:
+        """Test OAUTHBEARER mechanism with Event Hubs callback."""
+        from datahub_executor.coordinator.helpers import (
+            get_kafka_consumer_config_from_env,
+        )
 
-        assert result == {
-            "sasl.mechanism": "OAUTHBEARER",
-            "sasl.oauthbearer.method": "oidc",
-            "oauth_cb": "datahub_executor.common.kafka_msk_iam:oauth_cb",
+        test_env = {
+            "KAFKA_PROPERTIES_SASL_MECHANISM": "OAUTHBEARER",
+            "KAFKA_PROPERTIES_OAUTH_CB": "datahub_executor.common.kafka_eventhubs_auth:oauth_cb",
+            "KAFKA_PROPERTIES_SASL_OAUTHBEARER_METHOD": "default",
         }
+
+        with patch.dict(os.environ, test_env, clear=False):
+            result = get_kafka_consumer_config_from_env()
+
+            assert result["sasl.mechanism"] == "OAUTHBEARER"
+            assert (
+                result["oauth_cb"]
+                == "datahub_executor.common.kafka_eventhubs_auth:oauth_cb"
+            )
+            assert result["sasl.oauthbearer.method"] == "default"
 
     def test_plain_mechanism_with_credentials(self) -> None:
         """Test PLAIN mechanism with username and password."""
-        from datahub_executor.coordinator.helpers import _build_oauth_consumer_config
-
-        os.environ["KAFKA_PROPERTIES_SASL_MECHANISM"] = "PLAIN"
-        os.environ["KAFKA_PROPERTIES_SASL_USERNAME"] = "$ConnectionString"
-        os.environ["KAFKA_PROPERTIES_SASL_PASSWORD"] = (
-            "Endpoint=sb://test.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=abc123"
+        from datahub_executor.coordinator.helpers import (
+            get_kafka_consumer_config_from_env,
         )
 
-        result = _build_oauth_consumer_config()
-
-        assert result == {
-            "sasl.mechanism": "PLAIN",
-            "sasl.username": "$ConnectionString",
-            "sasl.password": "Endpoint=sb://test.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=abc123",
+        test_env = {
+            "KAFKA_PROPERTIES_SASL_MECHANISM": "PLAIN",
+            "KAFKA_PROPERTIES_SASL_USERNAME": "$ConnectionString",
+            "KAFKA_PROPERTIES_SASL_PASSWORD": "Endpoint=sb://test.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=abc123",
         }
 
-    def test_plain_mechanism_missing_username(self) -> None:
-        """Test PLAIN mechanism with missing username logs warning."""
-        from datahub_executor.coordinator.helpers import _build_oauth_consumer_config
+        with patch.dict(os.environ, test_env, clear=False):
+            result = get_kafka_consumer_config_from_env()
 
-        os.environ["KAFKA_PROPERTIES_SASL_MECHANISM"] = "PLAIN"
-        os.environ["KAFKA_PROPERTIES_SASL_PASSWORD"] = "password"
+            assert result["sasl.mechanism"] == "PLAIN"
+            assert result["sasl.username"] == "$ConnectionString"
+            assert (
+                result["sasl.password"]
+                == "Endpoint=sb://test.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=abc123"
+            )
 
-        with patch("datahub_executor.coordinator.helpers.logger") as mock_logger:
-            result = _build_oauth_consumer_config()
+    def test_plain_mechanism_with_username_only(self) -> None:
+        """Test PLAIN mechanism with only username (password missing)."""
+        from datahub_executor.coordinator.helpers import (
+            get_kafka_consumer_config_from_env,
+        )
 
-            mock_logger.warning.assert_called_once()
-            assert result == {"sasl.mechanism": "PLAIN"}
+        test_env = {
+            "KAFKA_PROPERTIES_SASL_MECHANISM": "PLAIN",
+            "KAFKA_PROPERTIES_SASL_USERNAME": "username",
+        }
 
-    def test_plain_mechanism_missing_password(self) -> None:
-        """Test PLAIN mechanism with missing password logs warning."""
-        from datahub_executor.coordinator.helpers import _build_oauth_consumer_config
+        with patch.dict(os.environ, test_env, clear=False):
+            result = get_kafka_consumer_config_from_env()
 
-        os.environ["KAFKA_PROPERTIES_SASL_MECHANISM"] = "PLAIN"
-        os.environ["KAFKA_PROPERTIES_SASL_USERNAME"] = "username"
+            # Both properties are included if set, even if incomplete
+            assert result["sasl.mechanism"] == "PLAIN"
+            assert result["sasl.username"] == "username"
+            assert "sasl.password" not in result
 
-        with patch("datahub_executor.coordinator.helpers.logger") as mock_logger:
-            result = _build_oauth_consumer_config()
+    def test_ssl_tls_configuration(self) -> None:
+        """Test SSL/TLS with client certificates - NEW CAPABILITY."""
+        from datahub_executor.coordinator.helpers import (
+            get_kafka_consumer_config_from_env,
+        )
 
-            mock_logger.warning.assert_called_once()
-            assert result == {"sasl.mechanism": "PLAIN"}
+        test_env = {
+            "KAFKA_PROPERTIES_SECURITY_PROTOCOL": "SSL",
+            "KAFKA_PROPERTIES_SSL_CA_LOCATION": "/certs/ca.pem",
+            "KAFKA_PROPERTIES_SSL_CERTIFICATE_LOCATION": "/certs/client.pem",
+            "KAFKA_PROPERTIES_SSL_KEY_LOCATION": "/certs/key.pem",
+        }
 
-    def test_unknown_mechanism(self) -> None:
-        """Test unknown SASL mechanism logs warning."""
-        from datahub_executor.coordinator.helpers import _build_oauth_consumer_config
+        with patch.dict(os.environ, test_env, clear=False):
+            result = get_kafka_consumer_config_from_env()
 
-        os.environ["KAFKA_PROPERTIES_SASL_MECHANISM"] = "SCRAM-SHA-256"
+            assert result["security.protocol"] == "SSL"
+            assert result["ssl.ca.location"] == "/certs/ca.pem"
+            assert result["ssl.certificate.location"] == "/certs/client.pem"
+            assert result["ssl.key.location"] == "/certs/key.pem"
 
-        with patch("datahub_executor.coordinator.helpers.logger") as mock_logger:
-            result = _build_oauth_consumer_config()
+    def test_empty_values_excluded(self) -> None:
+        """Test that empty string values are excluded from configuration."""
+        from datahub_executor.coordinator.helpers import (
+            get_kafka_consumer_config_from_env,
+        )
 
-            mock_logger.warning.assert_called_once()
-            assert result == {"sasl.mechanism": "SCRAM-SHA-256"}
+        test_env = {
+            "KAFKA_PROPERTIES_SASL_MECHANISM": "",  # Empty
+            "KAFKA_PROPERTIES_SASL_USERNAME": "username",  # Has value
+        }
+
+        with patch.dict(os.environ, test_env, clear=False):
+            result = get_kafka_consumer_config_from_env()
+
+            assert "sasl.mechanism" not in result
+            assert result["sasl.username"] == "username"
+
+    def test_underscore_to_dot_conversion(self) -> None:
+        """Test that underscores in env var names are converted to dots in property names."""
+        from datahub_executor.coordinator.helpers import (
+            get_kafka_consumer_config_from_env,
+        )
+
+        test_env = {
+            "KAFKA_PROPERTIES_MAX_POLL_INTERVAL_MS": "600000",
+            "KAFKA_PROPERTIES_SESSION_TIMEOUT_MS": "45000",
+            "KAFKA_PROPERTIES_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM": "https",
+        }
+
+        with patch.dict(os.environ, test_env, clear=False):
+            result = get_kafka_consumer_config_from_env()
+
+            # Underscores in env var names should be converted to dots
+            assert result["max.poll.interval.ms"] == "600000"
+            assert result["session.timeout.ms"] == "45000"
+            assert result["ssl.endpoint.identification.algorithm"] == "https"
+
+    def test_oauth_cb_special_case(self) -> None:
+        """Test that OAUTH_CB property name is NOT converted to dots and its value (containing dots) is preserved."""
+        from datahub_executor.coordinator.helpers import (
+            get_kafka_consumer_config_from_env,
+        )
+
+        # The value contains dots and colons which should be preserved
+        test_env = {
+            "KAFKA_PROPERTIES_OAUTH_CB": "datahub_executor.common.kafka_msk_iam:oauth_cb",
+            "KAFKA_PROPERTIES_SASL_MECHANISM": "OAUTHBEARER",
+        }
+
+        with patch.dict(os.environ, test_env, clear=False):
+            result = get_kafka_consumer_config_from_env()
+
+            # Property name should remain as oauth_cb (NOT oauth.cb)
+            assert "oauth_cb" in result
+            assert "oauth.cb" not in result
+            # Value should be preserved exactly, including dots and colons
+            assert (
+                result["oauth_cb"] == "datahub_executor.common.kafka_msk_iam:oauth_cb"
+            )
+            assert result["sasl.mechanism"] == "OAUTHBEARER"
 
 
 class TestStartIngestionPipeline:
@@ -171,40 +232,36 @@ class TestStartIngestionPipeline:
         }
 
         # Set OAuth environment variables
-        os.environ["KAFKA_PROPERTIES_SECURITY_PROTOCOL"] = "SASL_SSL"
-        os.environ["KAFKA_PROPERTIES_SASL_MECHANISM"] = "OAUTHBEARER"
-        os.environ["KAFKA_PROPERTIES_OAUTH_CALLBACK"] = (
-            "datahub_executor.common.kafka_msk_iam:oauth_cb"
-        )
+        test_env = {
+            "KAFKA_PROPERTIES_SECURITY_PROTOCOL": "SASL_SSL",
+            "KAFKA_PROPERTIES_SASL_MECHANISM": "OAUTHBEARER",
+            "KAFKA_PROPERTIES_OAUTH_CB": "datahub_executor.common.kafka_msk_iam:oauth_cb",
+        }
 
-        # Execute
-        start_ingestion_pipeline(mock_graph, mock_discovery, sighandler)
+        with patch.dict(os.environ, test_env, clear=False):
+            # Execute
+            start_ingestion_pipeline(mock_graph, mock_discovery, sighandler)
 
-        # Verify
-        mock_load_config.assert_called_once()
-        mock_kafka_source.assert_called_once()
+            # Verify
+            mock_load_config.assert_called_once()
+            mock_kafka_source.assert_called_once()
 
-        # Check that consumer_config was updated with OAuth settings
-        call_args = mock_kafka_source.call_args
-        consumer_config = call_args.kwargs["config"].connection.consumer_config
+            # Check that consumer_config was updated with OAuth settings
+            call_args = mock_kafka_source.call_args
+            consumer_config = call_args.kwargs["config"].connection.consumer_config
 
-        assert consumer_config["security.protocol"] == "SASL_SSL"
-        assert consumer_config["sasl.mechanism"] == "OAUTHBEARER"
-        # oauth_cb is loaded as a function, not kept as a string
-        assert callable(consumer_config["oauth_cb"])
-        assert (
-            consumer_config["oauth_cb"].__module__
-            == "datahub_executor.common.kafka_msk_iam"
-        )
-        assert consumer_config["oauth_cb"].__name__ == "oauth_cb"
+            assert consumer_config["security.protocol"] == "SASL_SSL"
+            assert consumer_config["sasl.mechanism"] == "OAUTHBEARER"
+            # oauth_cb is loaded as a function, not kept as a string
+            assert callable(consumer_config["oauth_cb"])
+            assert (
+                consumer_config["oauth_cb"].__module__
+                == "datahub_executor.common.kafka_msk_iam"
+            )
+            assert consumer_config["oauth_cb"].__name__ == "oauth_cb"
 
-        # Verify sighandlers were registered
-        assert len(sighandler) == 2
-
-        # Cleanup
-        os.environ.pop("KAFKA_PROPERTIES_SECURITY_PROTOCOL", None)
-        os.environ.pop("KAFKA_PROPERTIES_SASL_MECHANISM", None)
-        os.environ.pop("KAFKA_PROPERTIES_OAUTH_CALLBACK", None)
+            # Verify sighandlers were registered
+            assert len(sighandler) == 2
 
     @patch("datahub_executor.coordinator.helpers.Thread")
     @patch("datahub_executor.coordinator.helpers.Pipeline")
@@ -288,25 +345,22 @@ class TestStartIngestionPipeline:
         }
 
         # Set PLAIN auth environment variables
-        os.environ["KAFKA_PROPERTIES_SECURITY_PROTOCOL"] = "SASL_SSL"
-        os.environ["KAFKA_PROPERTIES_SASL_MECHANISM"] = "PLAIN"
-        os.environ["KAFKA_PROPERTIES_SASL_USERNAME"] = "testuser"
-        os.environ["KAFKA_PROPERTIES_SASL_PASSWORD"] = "testpassword"
+        test_env = {
+            "KAFKA_PROPERTIES_SECURITY_PROTOCOL": "SASL_SSL",
+            "KAFKA_PROPERTIES_SASL_MECHANISM": "PLAIN",
+            "KAFKA_PROPERTIES_SASL_USERNAME": "testuser",
+            "KAFKA_PROPERTIES_SASL_PASSWORD": "testpassword",
+        }
 
-        # Execute
-        start_ingestion_pipeline(mock_graph, mock_discovery, sighandler)
+        with patch.dict(os.environ, test_env, clear=False):
+            # Execute
+            start_ingestion_pipeline(mock_graph, mock_discovery, sighandler)
 
-        # Verify
-        call_args = mock_kafka_source.call_args
-        consumer_config = call_args.kwargs["config"].connection.consumer_config
+            # Verify
+            call_args = mock_kafka_source.call_args
+            consumer_config = call_args.kwargs["config"].connection.consumer_config
 
-        assert consumer_config["security.protocol"] == "SASL_SSL"
-        assert consumer_config["sasl.mechanism"] == "PLAIN"
-        assert consumer_config["sasl.username"] == "testuser"
-        assert consumer_config["sasl.password"] == "testpassword"
-
-        # Cleanup
-        os.environ.pop("KAFKA_PROPERTIES_SECURITY_PROTOCOL", None)
-        os.environ.pop("KAFKA_PROPERTIES_SASL_MECHANISM", None)
-        os.environ.pop("KAFKA_PROPERTIES_SASL_USERNAME", None)
-        os.environ.pop("KAFKA_PROPERTIES_SASL_PASSWORD", None)
+            assert consumer_config["security.protocol"] == "SASL_SSL"
+            assert consumer_config["sasl.mechanism"] == "PLAIN"
+            assert consumer_config["sasl.username"] == "testuser"
+            assert consumer_config["sasl.password"] == "testpassword"

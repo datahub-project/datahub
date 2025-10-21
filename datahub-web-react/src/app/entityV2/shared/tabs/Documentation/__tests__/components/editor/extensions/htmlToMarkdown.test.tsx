@@ -1,4 +1,4 @@
-import { htmlToMarkdown } from '@app/entityV2/shared/tabs/Documentation/components/editor/extensions/htmlToMarkdown';
+import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
 
 const cases = [
     ['strike', '<strike>Lorem ipsum</strike>', '~Lorem ipsum~'],

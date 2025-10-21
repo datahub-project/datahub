@@ -4,6 +4,7 @@ import { Redirect, Route, Switch, useLocation } from 'react-router-dom';
 import { ActionRequestsPage } from '@app/actionrequest/ActionRequestsPage';
 import { ActionRequestsPage as ActionRequestsPageV2 } from '@app/actionrequestV2/ActionRequestsPage';
 import { AnalyticsPage } from '@app/analyticsDashboard/components/AnalyticsPage';
+import { AnalyticsPage as AnalyticsPageV2 } from '@app/analyticsDashboardV2/components/AnalyticsPage';
 import { ManageApplications } from '@app/applications/ManageApplications';
 import { Automations } from '@app/automations/Automations';
 import { BrowseResultsPage } from '@app/browse/BrowseResultsPage';
@@ -107,7 +108,10 @@ export const SearchRoutes = (): JSX.Element => {
                     <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                     {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
                     <Route path={PageRoutes.MANAGE_APPLICATIONS} render={() => <ManageApplications />} />
-                    <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
+                    <Route
+                        path={PageRoutes.ANALYTICS}
+                        render={() => (isThemeV2 ? <AnalyticsPageV2 /> : <AnalyticsPage />)}
+                    />
                     <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/permissions/policies" />} />
                     <Route
                         path={PageRoutes.SETTINGS_POLICIES}

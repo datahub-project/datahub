@@ -1,6 +1,9 @@
+import { Editor } from '@components';
 import { Modal, message } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
+
+import { sanitizeRichText } from '@components/components/Editor/utils';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
@@ -13,8 +16,6 @@ import {
 import ProposalDescriptionModal from '@app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import { DescriptionEditorToolbar } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditorToolbar';
 import SourceDescription from '@app/entityV2/shared/tabs/Documentation/components/SourceDescription';
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
-import { sanitizeRichText } from '@app/entityV2/shared/tabs/Documentation/components/editor/utils';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
 import { useAppConfig } from '@src/app/useAppConfig';
@@ -285,6 +286,7 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
                         content={updatedDescription}
                         onChange={handleEditorChange}
                         placeholder="Describe this asset to make it more discoverable. Tag @user or reference @asset to make your docs come to life!"
+                        hideBorder
                     />
                     {shouldShowInferDocsAction && (
                         <InferDocsPanelWrapper>

@@ -1,3 +1,4 @@
+import { Editor } from '@components';
 import { Button, Skeleton, Typography, message } from 'antd';
 import { Sparkle } from 'phosphor-react';
 import React, { useEffect, useRef, useState } from 'react';
@@ -9,7 +10,6 @@ import {
     useIsDocumentationInferenceEnabled,
 } from '@app/entityV2/shared/components/inferredDocs/utils';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import analytics, { EventType, InferDocsClickEvent } from '@src/app/analytics';
 
 const InferencePanelContainer = styled.div`

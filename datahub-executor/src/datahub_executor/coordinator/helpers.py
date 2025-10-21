@@ -43,61 +43,61 @@ logger = logging.getLogger(__name__)
 manager = None
 
 
-def _build_oauth_consumer_config() -> Dict[str, Any]:
+def get_kafka_consumer_config_from_env() -> Dict[str, Any]:
     """
-    Build OAuth consumer configuration based on environment variables.
+    Automatically extract Kafka consumer configuration from KAFKA_PROPERTIES_* environment variables.
 
-    Supports:
-    - AWS MSK IAM authentication (OAUTHBEARER)
-    - Azure Event Hubs OAuth (OAUTHBEARER)
-    - SASL PLAIN authentication (username/password)
+    This function provides a flexible way to configure any Kafka client property without code changes.
+    All KAFKA_PROPERTIES_* environment variables are automatically mapped to Kafka consumer properties.
+
+    Environment variable format: KAFKA_PROPERTIES_{PROPERTY_NAME} -> {property.name}
+    - Underscores in the property name are converted to dots
+    - Property names are lowercased
+    - Empty values are excluded
+
+    Examples:
+        KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL -> security.protocol=SASL_SSL
+        KAFKA_PROPERTIES_SASL_USERNAME=myuser -> sasl.username=myuser
+        KAFKA_PROPERTIES_SSL_CA_LOCATION=/path/to/ca.pem -> ssl.ca.location=/path/to/ca.pem
+
+    Special case:
+        KAFKA_PROPERTIES_OAUTH_CB is mapped to oauth_cb (not converted to dots)
+
+    Supported authentication mechanisms (non-exhaustive):
+    - SASL/PLAIN (username/password)
+    - SASL/SCRAM-SHA-256, SASL/SCRAM-SHA-512
+    - SASL/OAUTHBEARER (AWS MSK IAM, Azure Event Hubs)
+    - SASL/GSSAPI (Kerberos)
+    - SSL/TLS with certificates
+    - Any other Kafka client property
 
     Returns:
-        Dict with OAuth-specific Kafka consumer configuration
+        Dictionary of Kafka consumer configuration properties extracted from environment variables
     """
-    sasl_mechanism = os.environ.get("KAFKA_PROPERTIES_SASL_MECHANISM")
+    prefix = "KAFKA_PROPERTIES_"
+    consumer_config: Dict[str, Any] = {}
 
-    if not sasl_mechanism:
-        return {}
+    for env_var, value in os.environ.items():
+        if env_var.startswith(prefix) and value:  # Only include non-empty values
+            # Extract the parameter name (e.g., SECURITY_PROTOCOL)
+            param_name = env_var[len(prefix) :]
 
-    # For OAUTHBEARER (MSK IAM or Azure Event Hubs)
-    if sasl_mechanism == "OAUTHBEARER":
-        oauth_callback = os.environ.get(
-            "KAFKA_PROPERTIES_OAUTH_CALLBACK",
-            "datahub_executor.common.kafka_msk_iam:oauth_cb",
-        )
+            # Convert to Kafka property format (lowercase, underscores to dots)
+            # Special case: oauth_cb should remain as-is (callback parameter, not a dotted property)
+            if param_name == "OAUTH_CB":
+                kafka_prop = "oauth_cb"
+            else:
+                kafka_prop = param_name.lower().replace("_", ".")
 
-        config = {
-            "sasl.mechanism": "OAUTHBEARER",
-            "sasl.oauthbearer.method": os.environ.get(
-                "KAFKA_PROPERTIES_SASL_OAUTHBEARER_METHOD", "default"
-            ),
-            "oauth_cb": oauth_callback,
-        }
+            consumer_config[kafka_prop] = value
+            logger.debug(f"Mapped {env_var} -> {kafka_prop}={value}")
 
+    if consumer_config:
         logger.info(
-            f"Configured OAUTHBEARER authentication with callback: {oauth_callback}"
+            f"Loaded {len(consumer_config)} Kafka properties from KAFKA_PROPERTIES_* environment variables"
         )
-        return config
 
-    # For PLAIN mechanism (username/password)
-    sasl_username = os.environ.get("KAFKA_PROPERTIES_SASL_USERNAME")
-    sasl_password = os.environ.get("KAFKA_PROPERTIES_SASL_PASSWORD")
-
-    if sasl_username and sasl_password:
-        logger.info("Configured SASL PLAIN authentication")
-        return {
-            "sasl.mechanism": sasl_mechanism,
-            "sasl.username": sasl_username,
-            "sasl.password": sasl_password,
-        }
-
-    # If SASL mechanism is set but credentials are missing
-    logger.warning(
-        f"SASL mechanism '{sasl_mechanism}' is set but credentials are missing. "
-        "Set KAFKA_PROPERTIES_SASL_USERNAME and KAFKA_PROPERTIES_SASL_PASSWORD."
-    )
-    return {"sasl.mechanism": sasl_mechanism}
+    return consumer_config
 
 
 def start_ingestion_pipeline(
@@ -108,20 +108,16 @@ def start_ingestion_pipeline(
     config_dict = load_config_file(DATAHUB_EXECUTOR_INGESTION_PIPELINE_CONFIG_PATH)
     connection = config_dict.get("connection", {})
 
-    # Get base consumer config from file
-    consumer_config = connection.get("consumer_config", {}).copy()
+    # Step 1: Load environment variables as base config (lowest priority)
+    # This allows setting defaults via KAFKA_PROPERTIES_* environment variables
+    consumer_config = get_kafka_consumer_config_from_env()
 
-    # Override with environment variables if set
-    security_protocol = os.environ.get("KAFKA_PROPERTIES_SECURITY_PROTOCOL")
-    if security_protocol:
-        consumer_config["security.protocol"] = security_protocol
-        logger.info(f"Using security protocol from env: {security_protocol}")
+    # Step 2: Override with YAML config (highest priority)
+    # YAML configuration takes precedence over environment variables
+    yaml_consumer_config = connection.get("consumer_config", {})
+    consumer_config.update(yaml_consumer_config)
 
-    # Add OAuth configuration if SASL mechanism is configured
-    oauth_config = _build_oauth_consumer_config()
-    if oauth_config:
-        consumer_config.update(oauth_config)
-        logger.info("OAuth configuration added to Kafka consumer config")
+    logger.info(f"Final Kafka consumer config has {len(consumer_config)} properties")
 
     # Override bootstrap and schema registry from environment if set
     bootstrap = os.environ.get(

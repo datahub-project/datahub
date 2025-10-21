@@ -1,3 +1,4 @@
+import { Button, Editor, Modal } from '@components';
 import { Form, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -5,7 +6,6 @@ import styled from 'styled-components';
 import { useMutationUrn } from '@app/entity/shared/EntityContext';
 import InferDocsPanel from '@app/entityV2/shared/components/inferredDocs/InferDocsPanel';
 import { StyledEditor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/note/AssertionNoteTab';
-import { Button, Editor, Modal } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 const FormLabel = styled(Typography.Text)`
@@ -13,7 +13,11 @@ const FormLabel = styled(Typography.Text)`
     font-weight: bold;
 `;
 
-const StyledViewer = styled(Editor)``;
+const StyledViewer = styled(Editor)`
+    .remirror-editor.ProseMirror {
+        padding: 0;
+    }
+`;
 
 const OriginalDocumentation = styled(Form.Item)`
     margin-bottom: 12px;
