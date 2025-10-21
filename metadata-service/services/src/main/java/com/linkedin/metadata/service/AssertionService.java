@@ -471,7 +471,7 @@ public class AssertionService extends BaseService {
   public AssertionRunEvent getAssertionRunEvent(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn assertionUrn,
-      @Nonnull final long timestampMillis) {
+      final long timestampMillis) {
     Objects.requireNonNull(opContext, "opContext must not be null");
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(timestampMillis, "timestampMillis must not be null");

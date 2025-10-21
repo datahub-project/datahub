@@ -160,8 +160,12 @@ export const useSiblingOptionsForAssertionBuilder = (
     return optionsToAuthorOn;
 };
 
-// transform assertions into table data
-const mapAssertionData = (assertions: AssertionWithMonitorDetails[] | Assertion[]): AssertionListTableRow[] => {
+/**
+ * Transform data into {@link AssertionListTableRow }  data
+ */
+export const mapAssertionDataToTableProperties = (
+    assertions: AssertionWithMonitorDetails[] | Assertion[],
+): AssertionListTableRow[] => {
     return assertions.map((assertion: AssertionWithMonitorDetails) => {
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
 
@@ -169,6 +173,7 @@ const mapAssertionData = (assertions: AssertionWithMonitorDetails[] | Assertion[
         const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
         const isCompleted = mostRecentRun?.status === AssertionRunStatus.Complete;
         const rowData: AssertionListTableRow = {
+            key: assertion.urn,
             type: getAssertionType(assertion),
             lastUpdated: assertion.info?.lastUpdated as AuditStamp,
             tags: assertion.tags?.tags as TagAssociation[],
@@ -214,7 +219,7 @@ const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[
             });
             const group: AssertionStatusGroup = {
                 name: status,
-                assertions: mapAssertionData(filteredAssertions),
+                assertions: mapAssertionDataToTableProperties(filteredAssertions),
                 summary,
             };
             assertionGroup.push({ ...group, groupName: getGroupNameBySummary(group) });
@@ -243,7 +248,12 @@ const buildFilterOptions = (key: string, value: Record<string, number>, filterOp
         if (key === 'source') {
             displayName = RECOMMENDED_FILTER_NAME_MAP[name];
         }
-        const filterItem = { name, category: key, count, displayName } as AssertionRecommendedFilter;
+        const filterItem: AssertionRecommendedFilter = {
+            name,
+            category: key as 'status' | 'type' | 'source',
+            count,
+            displayName,
+        };
 
         filterOptions.recommendedFilters.push(filterItem);
         filterOptions.filterGroupOptions[key].push(filterItem);
@@ -275,7 +285,7 @@ const getColumnIdFromAssertion = (assertion: Assertion): string | null => {
  * 
  * 
 */
-const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorDetails[]) => {
+export const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorDetails[]) => {
     const filterOptions: AssertionFilterOptions = {
         filterGroupOptions: {
             type: [],
@@ -388,7 +398,7 @@ const groupColumnAssertions = (assertions: Assertion[]): AssertionColumnGroup[] 
     columnIdToAssertionMap.forEach((columnAssertions: Assertion[], columnId: string) => {
         const assertionColumnGroup: AssertionColumnGroup = {
             name: columnId,
-            assertions: mapAssertionData(columnAssertions),
+            assertions: mapAssertionDataToTableProperties(columnAssertions),
         };
         columnIdGroups.push(assertionColumnGroup);
     });
@@ -400,7 +410,7 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
     const assertionRawData: AssertionTable = {
         ...ASSERTION_DEFAULT_RAW_DATA,
     };
-    assertionRawData.assertions = mapAssertionData(filteredAssertions);
+    assertionRawData.assertions = mapAssertionDataToTableProperties(filteredAssertions);
     const assertionsByType = createAssertionGroups(filteredAssertions);
     assertionRawData.groupBy.type = getAssertionGroupsByDisplayOrder(assertionsByType);
     // separate out column assertion list for filter
@@ -408,7 +418,7 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
         assertionRawData.groupBy.type?.find((item) => item.type === AssertionType.Field)?.assertions || [];
 
     assertionRawData.groupBy.type?.forEach((item) => {
-        const transformedData = mapAssertionData(item.assertions);
+        const transformedData = mapAssertionDataToTableProperties(item.assertions);
         // eslint-disable-next-line  no-param-reassign
         item.assertions = transformedData;
         // eslint-disable-next-line  no-param-reassign

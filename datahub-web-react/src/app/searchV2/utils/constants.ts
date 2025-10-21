@@ -38,6 +38,7 @@ export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
 export const HAS_ASSET_LEVEL_LINEAGE_FILTER_NAME = 'hasAssetLevelLineageFeature';
 export const ASSERTION_TYPE_FILTER_NAME = 'assertionType';
 export const ASSERTION_SOURCE_FILTER_NAME = 'sourceType';
+export const ASSERTION_STATUS_FILTER_NAME = 'lastResultType';
 export const HAS_SIBLINGS_FILTER_NAME = 'hasSiblings';
 export const CHART_TYPE_FILTER_NAME = 'type';
 export const LAST_MODIFIED_FILTER_NAME = 'lastModifiedAt';

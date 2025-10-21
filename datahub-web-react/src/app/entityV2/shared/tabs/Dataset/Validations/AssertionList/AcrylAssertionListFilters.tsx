@@ -1,15 +1,20 @@
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import { FilterSelect } from '@app/entityV2/shared/FilterSelect';
+import { InlineListSearch } from '@app/entityV2/shared/components/search/InlineListSearch';
 import { AcrylAssertionRecommendedFilters } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionRecommendedFilters';
 import {
     ASSERTION_DEFAULT_FILTERS,
     ASSERTION_FILTER_TYPES,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
 import { useSetFilterFromURLParams } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/hooks';
-import { AssertionListFilter, AssertionTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
-import { FilterSelect } from '@src/app/entityV2/shared/FilterSelect';
-import { InlineListSearch } from '@src/app/entityV2/shared/components/search/InlineListSearch';
+import {
+    AssertionListFilter,
+    AssertionRecommendedFilter,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { extractFilterOptionListFromAssertions } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
+import { AssertionWithMonitorDetails } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 
 interface FilterItem {
     name: string;
@@ -19,12 +24,11 @@ interface FilterItem {
 }
 
 interface AcrylAssertionListFiltersProps {
-    filterOptions: any;
-    originalFilterOptions: any;
     setSelectedFilters: React.Dispatch<React.SetStateAction<AssertionListFilter>>;
-    filteredAssertions: AssertionTable;
+    filteredAssertions: AssertionWithMonitorDetails[];
     selectedFilters: any;
     handleFilterChange: (filter: any) => void;
+    totalAssertionCount: number;
 }
 
 const SearchFilterContainer = styled.div`
@@ -50,14 +54,14 @@ const StyledFilterContainer = styled.div`
 `;
 
 export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps> = ({
-    filterOptions,
-    originalFilterOptions,
     filteredAssertions,
     handleFilterChange,
     selectedFilters,
     setSelectedFilters,
+    totalAssertionCount,
 }) => {
-    const [appliedRecommendedFilters, setAppliedRecommendedFilters] = useState([]);
+    const filterOptions = extractFilterOptionListFromAssertions(filteredAssertions);
+    const [appliedRecommendedFilters, setAppliedRecommendedFilters] = useState<AssertionRecommendedFilter[]>([]);
 
     const handleSearchTextChange = (searchText: string) => {
         handleFilterChange({
@@ -89,7 +93,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
     const initialSelectedOptions = useMemo(() => {
         const { status, type, source, column } =
             selectedFilters.filterCriteria || ASSERTION_DEFAULT_FILTERS.filterCriteria;
-        const recommendedFilters = originalFilterOptions?.recommendedFilters || [];
+        const recommendedFilters = filterOptions?.recommendedFilters || [];
         // just set recommended filters for status, type & Others as of right now
         const selectedRecommendedFilters = recommendedFilters.filter(
             (item) =>
@@ -117,16 +121,17 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                 <InlineListSearch
                     searchText={selectedFilters.filterCriteria?.searchText}
                     debouncedSetFilterText={handleSearchTextChange}
-                    matchResultCount={filteredAssertions.searchMatchesCount || 0}
-                    numRows={filteredAssertions.totalCount || 0}
+                    matchResultCount={filteredAssertions?.length}
+                    numRows={totalAssertionCount}
                     entityTypeName="assertion"
+                    options={{ hideMatchCountText: true }}
                 />
 
                 {/* ************Render Filter Component ************************* */}
                 <FiltersContainer>
                     <StyledFilterContainer>
                         <FilterSelect
-                            filterOptions={originalFilterOptions?.filterGroupOptions || []}
+                            filterOptions={filterOptions?.filterGroupOptions || []}
                             onFilterChange={handleFilterOptionChange}
                             excludedCategories={[ASSERTION_FILTER_TYPES.TAG]}
                             initialSelectedOptions={initialSelectedOptions}

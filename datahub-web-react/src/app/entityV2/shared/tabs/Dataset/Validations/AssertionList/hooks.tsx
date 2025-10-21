@@ -1,5 +1,6 @@
-import { Typography } from 'antd';
+import { Tooltip, Typography } from 'antd';
 import { ColumnsType } from 'antd/es/table';
+import dayjs from 'dayjs';
 import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
@@ -35,12 +36,13 @@ const LastRun = styled(Typography.Text)`
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
-    max-width: 80px;
+    max-width: 120px;
     display: inline-block;
     font-size: 14px;
 `;
 
 const TABLE_HEADER_HEIGHT = 50;
+const DEFAULT_DATETIME_FORMAT = 'l @ LT (z)';
 
 export const useAssertionsTableColumns = ({
     contract,
@@ -58,7 +60,7 @@ export const useAssertionsTableColumns = ({
     isEntityReachable: boolean;
 }) => {
     const renderAssertionName = useCallback(
-        (_, record) => (
+        (_, record: AssertionListTableRow) => (
             <AssertionName
                 key={record.urn}
                 assertion={record.assertion}
@@ -73,26 +75,30 @@ export const useAssertionsTableColumns = ({
     );
 
     const renderCategory = useCallback(
-        (_, record) =>
+        (_, record: AssertionListTableRow) =>
             !record.groupName &&
             record?.type && <CategoryType key={record.urn}>{getAssertionGroupName(record.type)}</CategoryType>,
         [],
     );
 
     const renderLastRun = useCallback(
-        (_, record) =>
-            !record.groupName && <LastRun key={record.urn}>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>,
+        (_, record: AssertionListTableRow) =>
+            !record.groupName && (
+                <Tooltip placement="topLeft" title={dayjs(record.lastEvaluationTimeMs).format(DEFAULT_DATETIME_FORMAT)}>
+                    <LastRun key={record.urn}>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>
+                </Tooltip>
+            ),
         [],
     );
 
     const renderTags = useCallback(
-        (_, record) =>
+        (_, record: AssertionListTableRow) =>
             !record.groupName && <AcrylAssertionTagColumn key={record.urn} record={record} refetch={refetch} />,
         [refetch],
     );
 
     const renderActions = useCallback(
-        (_, record) => {
+        (_, record: AssertionListTableRow) => {
             const isSqlAssertion = record.type === AssertionType.Sql;
             return (
                 !record.groupName && (
@@ -123,9 +129,6 @@ export const useAssertionsTableColumns = ({
                 key: 'name',
                 render: renderAssertionName,
                 width: '35%',
-                sorter: (a, b) => {
-                    return a.description.localeCompare(b.description);
-                },
                 ellipsis: {
                     showTitle: false,
                 },
@@ -136,12 +139,7 @@ export const useAssertionsTableColumns = ({
                 key: 'type',
                 render: renderCategory,
                 width: '12%',
-                sorter: (a, b) => {
-                    if (a.type && b.type) {
-                        return getAssertionGroupName(a.type).localeCompare(getAssertionGroupName(b.type));
-                    }
-                    return 0;
-                },
+                sorter: true,
                 ellipsis: {
                     showTitle: false,
                 },
@@ -151,13 +149,8 @@ export const useAssertionsTableColumns = ({
                 dataIndex: 'lastEvaluation',
                 key: 'lastEvaluation',
                 render: renderLastRun,
-                width: '15%',
-                sorter: (sourceA, sourceB) => {
-                    if (!sourceA.lastEvaluationTimeMs || !sourceB.lastEvaluationTimeMs) {
-                        return 0;
-                    }
-                    return sourceA.lastEvaluationTimeMs - sourceB.lastEvaluationTimeMs;
-                },
+                width: '20%',
+                sorter: true,
                 defaultSortOrder: 'descend',
                 ellipsis: {
                     showTitle: false,
@@ -177,7 +170,7 @@ export const useAssertionsTableColumns = ({
                 title: '',
                 dataIndex: '',
                 key: 'actions',
-                width: '20%',
+                width: '15%',
                 render: renderActions,
                 fixed: 'right',
             },

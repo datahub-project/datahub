@@ -267,7 +267,7 @@ mclProcessing:
   cdcSource:
     enabled: ${CDC_MCL_PROCESSING_ENABLED:false} # Enable CDC Processing.
     configureSource: ${CDC_CONFIGURE_SOURCE:false} # Set to false if externally configured.
-    type: debezium-kafka-connector  # Only supported type for now.
+    type: debezium-kafka-connector # Only supported type for now.
     debeziumConfig: # Debezium-specific configuration
       type: ${CDC_DB_TYPE:mysql} # Set to one of mysql or postgres to load additional db specific config.
       name: ${DATAHUB_CDC_CONNECTOR_NAME:datahub-cdc-connector}
@@ -620,7 +620,6 @@ kafka:
       security:
         protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
 
-
 # Only required if GraphService type is neo4j
 neo4j:
   username: ${NEO4J_USERNAME:neo4j}
@@ -902,6 +901,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_BATCH_SIZE:5000}
     reprocess:
       enabled: ${REPROCESS_DEFAULT_POLICY_FIELDS:false}
+  assertionEntityField:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_BATCH_SIZE:500}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_DELAY_MS:1000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_LIMIT:0}
   ownershipTypes:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_BATCH_SIZE:1000}
@@ -1010,10 +1014,10 @@ featureFlags:
   showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true} # If turned on, show the expand more button (>>) in the lineage graph
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:true} # If turned on, show the re-designed Stats tab on the entity page
   showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:false} # If turned on, show the re-designed home page
-  lineageGraphV3: ${LINEAGE_GRAPH_V3:false}  # Enables the redesign of the lineage v2 graph
+  lineageGraphV3: ${LINEAGE_GRAPH_V3:false} # Enables the redesign of the lineage v2 graph
   showProductUpdates: ${SHOW_PRODUCT_UPDATES:true} # Whether to show in-product update popover on new updates.
-  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false}  # Enables logical models feature
-  showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false}  # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
+  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false} # Enables logical models feature
+  showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false} # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:false} # Enables displaying the asset summary page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
