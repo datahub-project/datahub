@@ -2,26 +2,31 @@ from unittest.mock import MagicMock, patch
 
 from google.api_core.exceptions import BadRequest
 
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQuerySchemaApiPerfReport,
     BigQueryV2Report,
 )
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigQuerySchemaApi
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    BigqueryProject,
+    BigQuerySchemaApi,
+)
 
 
 class TestBigQuerySchemaErrorHandling:
     """Test cases for BigQuery schema error handling."""
 
     def test_skip_schema_errors_config_default(self):
-        """Test that skip_schema_errors defaults to True."""
+        """Test that skip_schema_errors defaults to False."""
         config = BigQueryV2Config()
-        assert config.skip_schema_errors is True
-
-    def test_skip_schema_errors_config_can_be_disabled(self):
-        """Test that skip_schema_errors can be set to False."""
-        config = BigQueryV2Config(skip_schema_errors=False)
         assert config.skip_schema_errors is False
+
+    def test_skip_schema_errors_config_can_be_enabled(self):
+        """Test that skip_schema_errors can be set to True."""
+        config = BigQueryV2Config(skip_schema_errors=True)
+        assert config.skip_schema_errors is True
 
     @patch(
         "datahub.ingestion.source.bigquery_v2.bigquery_schema.BigQuerySchemaApi.get_query_result"
@@ -170,3 +175,125 @@ class TestBigQuerySchemaErrorHandling:
         mock_report.warning.assert_called()
         warning_call = mock_report.warning.call_args
         assert "Failed to retrieve columns for dataset" in warning_call[1]["title"]
+
+    def test_skip_schema_errors_config_with_dict_initialization(self):
+        """Test that skip_schema_errors can be set via dictionary initialization."""
+        config = BigQueryV2Config.parse_obj({"skip_schema_errors": True})
+        assert config.skip_schema_errors is True
+
+        config = BigQueryV2Config.parse_obj({"skip_schema_errors": False})
+        assert config.skip_schema_errors is False
+
+    def test_skip_schema_errors_config_with_other_options(self):
+        """Test that skip_schema_errors works correctly when combined with other config options."""
+        config = BigQueryV2Config.parse_obj(
+            {
+                "project_id": "test-project",
+                "skip_schema_errors": True,
+                "include_usage_statistics": False,
+                "include_table_lineage": False,
+            }
+        )
+        assert config.skip_schema_errors is True
+        assert config.project_ids == ["test-project"]
+        assert config.include_usage_statistics is False
+        assert config.include_table_lineage is False
+
+    def test_skip_schema_errors_config_type_validation(self):
+        """Test that skip_schema_errors accepts various boolean-like values and converts them properly."""
+        # Test string values that should be converted to boolean
+        config = BigQueryV2Config.parse_obj({"skip_schema_errors": "true"})
+        assert config.skip_schema_errors is True
+
+        config = BigQueryV2Config.parse_obj({"skip_schema_errors": "false"})
+        assert config.skip_schema_errors is False
+
+        # Test integer values that should be converted to boolean
+        config = BigQueryV2Config.parse_obj({"skip_schema_errors": 1})
+        assert config.skip_schema_errors is True
+
+        config = BigQueryV2Config.parse_obj({"skip_schema_errors": 0})
+        assert config.skip_schema_errors is False
+
+        # Test actual boolean values
+        config = BigQueryV2Config.parse_obj({"skip_schema_errors": True})
+        assert config.skip_schema_errors is True
+
+        config = BigQueryV2Config.parse_obj({"skip_schema_errors": False})
+        assert config.skip_schema_errors is False
+
+    @patch.object(BigQueryV2Config, "get_bigquery_client")
+    @patch.object(BigQueryV2Config, "get_projects_client")
+    def test_bigquery_source_skip_schema_errors_integration(
+        self, get_projects_client, get_bq_client_mock
+    ):
+        """Test that skip_schema_errors configuration is properly passed through the BigQuery source."""
+        # Test with skip_schema_errors=True
+        config = BigQueryV2Config.parse_obj(
+            {
+                "project_id": "test-project",
+                "skip_schema_errors": True,
+                "include_usage_statistics": False,
+                "include_table_lineage": False,
+            }
+        )
+        source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+        assert source.config.skip_schema_errors is True
+
+        # Test with skip_schema_errors=False
+        config = BigQueryV2Config.parse_obj(
+            {
+                "project_id": "test-project",
+                "skip_schema_errors": False,
+                "include_usage_statistics": False,
+                "include_table_lineage": False,
+            }
+        )
+        source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+        assert source.config.skip_schema_errors is False
+
+    @patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_schema_gen.BigQuerySchemaGenerator._process_schema"
+    )
+    @patch.object(BigQueryV2Config, "get_bigquery_client")
+    @patch.object(BigQueryV2Config, "get_projects_client")
+    def test_schema_generator_respects_skip_schema_errors_config(
+        self, get_projects_client, get_bq_client_mock, mock_process_schema
+    ):
+        """Test that BigQuerySchemaGenerator respects the skip_schema_errors configuration."""
+        # Mock _process_schema to raise a schema error
+        schema_error = Exception("Table does not have a schema")
+        mock_process_schema.side_effect = schema_error
+
+        # Test with skip_schema_errors=True - should not raise exception
+        config = BigQueryV2Config.parse_obj(
+            {
+                "project_id": "test-project",
+                "skip_schema_errors": True,
+                "include_usage_statistics": False,
+                "include_table_lineage": False,
+            }
+        )
+        source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+
+        # This should not raise an exception and should log warnings instead
+        project = BigqueryProject("test-project", "test-project")
+
+        # The method should handle the error gracefully when skip_schema_errors=True
+        workunits = list(
+            source.bq_schema_extractor._process_project_datasets(project, {})
+        )
+        # We expect no work units due to the error, but no exception should be raised
+        assert len(workunits) == 0
+
+    def test_config_inheritance_skip_schema_errors(self):
+        """Test that skip_schema_errors is properly inherited in the config hierarchy."""
+        # Test that BigQueryV2Config inherits skip_schema_errors from BigQueryBaseConfig
+        config = BigQueryV2Config.parse_obj({"skip_schema_errors": True})
+        assert hasattr(config, "skip_schema_errors")
+        assert config.skip_schema_errors is True
+
+        # Test default inheritance
+        config = BigQueryV2Config.parse_obj({})
+        assert hasattr(config, "skip_schema_errors")
+        assert config.skip_schema_errors is False
