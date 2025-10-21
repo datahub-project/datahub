@@ -28,7 +28,7 @@ from looker_sdk.sdk.api40.models import (
     User,
     WriteQuery,
 )
-from pydantic import validator
+from pydantic import field_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.platformresource.platform_resource import (
@@ -202,8 +202,9 @@ class LookerViewId:
             folder_path=os.path.dirname(self.file_path),
         )
 
-    @validator("view_name")
-    def remove_quotes(cls, v):
+    @field_validator("view_name")
+    @classmethod
+    def remove_quotes(cls, v: str) -> str:
         # Sanitize the name.
         v = v.replace('"', "").replace("`", "")
         return v
@@ -931,8 +932,9 @@ class LookerExplore:
     source_file: Optional[str] = None
     tags: List[str] = dataclasses_field(default_factory=list)
 
-    @validator("name")
-    def remove_quotes(cls, v):
+    @field_validator("name")
+    @classmethod
+    def remove_quotes(cls, v: str) -> str:
         # Sanitize the name.
         v = v.replace('"', "").replace("`", "")
         return v

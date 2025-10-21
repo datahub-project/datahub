@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 
 import botocore.exceptions
 import yaml
-from pydantic import validator
+from pydantic import field_validator
 from pydantic.fields import Field
 
 from datahub.api.entities.dataset.dataset import Dataset
@@ -221,7 +221,8 @@ class GlueSourceConfig(
     def lakeformation_client(self):
         return self.get_lakeformation_client()
 
-    @validator("glue_s3_lineage_direction")
+    @field_validator("glue_s3_lineage_direction")
+    @classmethod
     def check_direction(cls, v: str) -> str:
         if v.lower() not in ["upstream", "downstream"]:
             raise ValueError(
@@ -229,7 +230,8 @@ class GlueSourceConfig(
             )
         return v.lower()
 
-    @validator("platform")
+    @field_validator("platform")
+    @classmethod
     def platform_validator(cls, v: str) -> str:
         if not v or v in VALID_PLATFORMS:
             return v
