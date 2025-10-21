@@ -6,7 +6,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesVie
 import bson.timestamp
 import pymongo.collection
 from packaging import version
-from pydantic import PositiveInt, validator
+from pydantic import PositiveInt, field_validator
 from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
@@ -138,7 +138,8 @@ class MongoDBConfig(
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @validator("maxDocumentSize")
+    @field_validator("maxDocumentSize")
+    @classmethod
     def check_max_doc_size_filter_is_valid(cls, doc_size_filter_value):
         if doc_size_filter_value > 16793600:
             raise ValueError("maxDocumentSize must be a positive value <= 16793600.")

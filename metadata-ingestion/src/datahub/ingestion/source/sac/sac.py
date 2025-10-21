@@ -8,7 +8,7 @@ import pyodata
 import pyodata.v2.model
 import pyodata.v2.service
 from authlib.integrations.requests_client import OAuth2Session
-from pydantic import Field, SecretStr, validator
+from pydantic import Field, SecretStr, field_validator
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -159,7 +159,8 @@ class SACSourceConfig(
         description="Template for generating dataset urns of consumed queries, the placeholder {query} can be used within the template for inserting the name of the query",
     )
 
-    @validator("tenant_url", "token_url")
+    @field_validator("tenant_url", "token_url")
+    @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 

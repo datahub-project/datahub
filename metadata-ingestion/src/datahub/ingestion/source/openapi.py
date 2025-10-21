@@ -4,7 +4,7 @@ import warnings
 from abc import ABC
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from pydantic import validator
+from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
@@ -86,13 +86,11 @@ class OpenApiConfig(ConfigModel):
         default=True, description="Enable SSL certificate verification"
     )
 
-    @validator("bearer_token", always=True)
-    def ensure_only_one_token(
-        cls, bearer_token: Optional[str], values: Dict
-    ) -> Optional[str]:
-        if bearer_token is not None and values.get("token") is not None:
+    @model_validator(mode="after")
+    def ensure_only_one_token(self) -> "OpenApiConfig":
+        if self.bearer_token is not None and self.token is not None:
             raise ValueError("Unable to use 'token' and 'bearer_token' together.")
-        return bearer_token
+        return self
 
     def get_swagger(self) -> Dict:
         if self.get_token or self.token or self.bearer_token is not None:

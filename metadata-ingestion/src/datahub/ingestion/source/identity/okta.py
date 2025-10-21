@@ -11,7 +11,7 @@ import nest_asyncio
 from okta.client import Client as OktaClient
 from okta.exceptions import OktaAPIException
 from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
-from pydantic import validator
+from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -157,21 +157,21 @@ class OktaConfig(StatefulIngestionConfigBase):
     mask_group_id: bool = True
     mask_user_id: bool = True
 
-    @validator("okta_users_search")
-    def okta_users_one_of_filter_or_search(cls, v, values):
-        if v and values["okta_users_filter"]:
+    @model_validator(mode="after")
+    def okta_users_one_of_filter_or_search(self) -> "OktaConfig":
+        if self.okta_users_search and self.okta_users_filter:
             raise ValueError(
                 "Only one of okta_users_filter or okta_users_search can be set"
             )
-        return v
+        return self
 
-    @validator("okta_groups_search")
-    def okta_groups_one_of_filter_or_search(cls, v, values):
-        if v and values["okta_groups_filter"]:
+    @model_validator(mode="after")
+    def okta_groups_one_of_filter_or_search(self) -> "OktaConfig":
+        if self.okta_groups_search and self.okta_groups_filter:
             raise ValueError(
                 "Only one of okta_groups_filter or okta_groups_search can be set"
             )
-        return v
+        return self
 
 
 @dataclass

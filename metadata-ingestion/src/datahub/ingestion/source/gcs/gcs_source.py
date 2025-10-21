@@ -1,7 +1,7 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Iterable, List, Optional
 
-from pydantic import Field, SecretStr, validator
+from pydantic import Field, SecretStr, model_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
@@ -64,18 +64,16 @@ class GCSSourceConfig(
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @validator("path_specs", always=True)
-    def check_path_specs_and_infer_platform(
-        cls, path_specs: List[PathSpec], values: Dict
-    ) -> List[PathSpec]:
-        if len(path_specs) == 0:
+    @model_validator(mode="after")
+    def check_path_specs_and_infer_platform(self) -> "GCSSourceConfig":
+        if len(self.path_specs) == 0:
             raise ValueError("path_specs must not be empty")
 
         # Check that all path specs have the gs:// prefix.
-        if any([not is_gcs_uri(path_spec.include) for path_spec in path_specs]):
+        if any([not is_gcs_uri(path_spec.include) for path_spec in self.path_specs]):
             raise ValueError("All path_spec.include should start with gs://")
 
-        return path_specs
+        return self
 
 
 class GCSSourceReport(DataLakeSourceReport):

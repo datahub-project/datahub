@@ -26,7 +26,7 @@ import sqlglot
 import tenacity
 import yaml
 from liquid import Template, Undefined
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import ConnectionError
 from requests.models import HTTPBasicAuth, HTTPError
@@ -218,11 +218,13 @@ class ModeConfig(
         default=False, description="Exclude archived reports"
     )
 
-    @validator("connect_uri")
+    @field_validator("connect_uri")
+    @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
-    @validator("items_per_page")
+    @field_validator("items_per_page")
+    @classmethod
     def validate_items_per_page(cls, v):
         if 1 <= v <= DEFAULT_API_ITEMS_PER_PAGE:
             return v
