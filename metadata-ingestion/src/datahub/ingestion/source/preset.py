@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Optional
 
 import requests
-from pydantic import root_validator, validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.emitter.mce_builder import DEFAULT_ENV
@@ -55,16 +55,16 @@ class PresetConfig(SupersetConfig):
         description="Can be used to change mapping for database names in superset to what you have in datahub",
     )
 
-    @validator("connect_uri", "display_uri")
+    @field_validator("connect_uri", "display_uri")
+    @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
-    @root_validator(skip_on_failure=True)
-    def default_display_uri_to_connect_uri(cls, values):
-        base = values.get("display_uri")
-        if base is None:
-            values["display_uri"] = values.get("connect_uri")
-        return values
+    @model_validator(mode="after")
+    def default_display_uri_to_connect_uri(self) -> "PresetConfig":
+        if self.display_uri is None:
+            self.display_uri = self.connect_uri
+        return self
 
 
 @platform_name("Preset")

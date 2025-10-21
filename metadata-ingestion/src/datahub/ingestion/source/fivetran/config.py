@@ -4,7 +4,7 @@ import warnings
 from typing import Dict, Optional
 
 import pydantic
-from pydantic import Field, root_validator
+from pydantic import Field, model_validator
 from typing_extensions import Literal
 
 from datahub.configuration.common import (
@@ -90,7 +90,8 @@ class DatabricksDestinationConfig(UnityCatalogConnectionConfig):
     catalog: str = Field(description="The fivetran connector log catalog.")
     log_schema: str = Field(description="The fivetran connector log schema.")
 
-    @pydantic.validator("warehouse_id")
+    @pydantic.field_validator("warehouse_id")
+    @classmethod
     def warehouse_id_should_not_be_empty(cls, warehouse_id: Optional[str]) -> str:
         if warehouse_id is None or (warehouse_id and warehouse_id.strip() == ""):
             raise ValueError("Fivetran requires warehouse_id to be set")
@@ -122,29 +123,28 @@ class FivetranLogConfig(ConfigModel):
         "destination_config", "snowflake_destination_config"
     )
 
-    @root_validator(skip_on_failure=True)
-    def validate_destination_platfrom_and_config(cls, values: Dict) -> Dict:
-        destination_platform = values["destination_platform"]
-        if destination_platform == "snowflake":
-            if "snowflake_destination_config" not in values:
+    @model_validator(mode="after")
+    def validate_destination_platfrom_and_config(self) -> "FivetranLogConfig":
+        if self.destination_platform == "snowflake":
+            if self.snowflake_destination_config is None:
                 raise ValueError(
                     "If destination platform is 'snowflake', user must provide snowflake destination configuration in the recipe."
                 )
-        elif destination_platform == "bigquery":
-            if "bigquery_destination_config" not in values:
+        elif self.destination_platform == "bigquery":
+            if self.bigquery_destination_config is None:
                 raise ValueError(
                     "If destination platform is 'bigquery', user must provide bigquery destination configuration in the recipe."
                 )
-        elif destination_platform == "databricks":
-            if "databricks_destination_config" not in values:
+        elif self.destination_platform == "databricks":
+            if self.databricks_destination_config is None:
                 raise ValueError(
                     "If destination platform is 'databricks', user must provide databricks destination configuration in the recipe."
                 )
         else:
             raise ValueError(
-                f"Destination platform '{destination_platform}' is not yet supported."
+                f"Destination platform '{self.destination_platform}' is not yet supported."
             )
-        return values
+        return self
 
 
 @dataclasses.dataclass

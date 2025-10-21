@@ -192,12 +192,12 @@ class FivetranSource(StatefulIngestionSourceBase):
         return dict(
             **{
                 f"source.{k}": str(v)
-                for k, v in source_details.dict().items()
+                for k, v in source_details.model_dump().items()
                 if v is not None and not isinstance(v, bool)
             },
             **{
                 f"destination.{k}": str(v)
-                for k, v in destination_details.dict().items()
+                for k, v in destination_details.model_dump().items()
                 if v is not None and not isinstance(v, bool)
             },
         )

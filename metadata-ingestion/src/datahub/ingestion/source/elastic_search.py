@@ -8,7 +8,7 @@ from hashlib import md5
 from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type, Union
 
 from elasticsearch import Elasticsearch
-from pydantic import validator
+from pydantic import field_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -330,7 +330,8 @@ class ElasticsearchSourceConfig(
             self.profiling.operation_config
         )
 
-    @validator("host")
+    @field_validator("host")
+    @classmethod
     def host_colon_port_comma(cls, host_val: str) -> str:
         for entry in host_val.split(","):
             entry = remove_protocol(entry)

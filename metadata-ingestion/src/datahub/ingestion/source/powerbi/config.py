@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Dict, List, Literal, Optional, Union
 
 import pydantic
-from pydantic import root_validator, validator
+from pydantic import field_validator, model_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
@@ -540,8 +540,8 @@ class PowerBiDashboardSourceConfig(
         description="timeout in seconds for Metadata Rest Api.",
     )
 
-    @root_validator(skip_on_failure=True)
-    def validate_extract_column_level_lineage(cls, values: Dict) -> Dict:
+    @model_validator(mode="after")
+    def validate_extract_column_level_lineage(self) -> "PowerBiDashboardSourceConfig":
         flags = [
             "native_query_parsing",
             "enable_advance_lineage_sql_construct",
@@ -549,26 +549,23 @@ class PowerBiDashboardSourceConfig(
             "extract_dataset_schema",
         ]
 
-        if (
-            "extract_column_level_lineage" in values
-            and values["extract_column_level_lineage"] is False
-        ):
+        if self.extract_column_level_lineage is False:
             # Flag is not set. skip validation
-            return values
+            return self
 
         logger.debug(f"Validating additional flags: {flags}")
 
         is_flag_enabled: bool = True
         for flag in flags:
-            if flag not in values or values[flag] is False:
+            if not getattr(self, flag, True):
                 is_flag_enabled = False
 
         if not is_flag_enabled:
             raise ValueError(f"Enable all these flags in recipe: {flags} ")
 
-        return values
+        return self
 
-    @validator("dataset_type_mapping")
+    @field_validator("dataset_type_mapping")
     @classmethod
     def map_data_platform(cls, value):
         # For backward compatibility convert input PostgreSql to PostgreSQL
@@ -580,28 +577,32 @@ class PowerBiDashboardSourceConfig(
 
         return value
 
-    @root_validator(skip_on_failure=True)
-    def workspace_id_backward_compatibility(cls, values: Dict) -> Dict:
-        workspace_id = values.get("workspace_id")
-        workspace_id_pattern = values.get("workspace_id_pattern")
-
-        if workspace_id_pattern == AllowDenyPattern.allow_all() and workspace_id:
+    @model_validator(mode="after")
+    def workspace_id_backward_compatibility(self) -> "PowerBiDashboardSourceConfig":
+        if (
+            self.workspace_id_pattern == AllowDenyPattern.allow_all()
+            and self.workspace_id
+        ):
             logger.warning(
                 "workspace_id_pattern is not set but workspace_id is set, setting workspace_id as "
                 "workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern instead."
             )
-            values["workspace_id_pattern"] = AllowDenyPattern(
-                allow=[f"^{workspace_id}$"]
+            self.workspace_id_pattern = AllowDenyPattern(
+                allow=[f"^{self.workspace_id}$"]
             )
-        elif workspace_id_pattern != AllowDenyPattern.allow_all() and workspace_id:
+        elif (
+            self.workspace_id_pattern != AllowDenyPattern.allow_all()
+            and self.workspace_id
+        ):
             logger.warning(
                 "workspace_id will be ignored in favour of workspace_id_pattern. workspace_id will be deprecated, "
                 "please use workspace_id_pattern only."
             )
-            values.pop("workspace_id")
-        return values
+            self.workspace_id = None
+        return self
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def raise_error_for_dataset_type_mapping(cls, values: Dict) -> Dict:
         if (
             values.get("dataset_type_mapping") is not None
@@ -613,18 +614,18 @@ class PowerBiDashboardSourceConfig(
 
         return values
 
-    @root_validator(skip_on_failure=True)
-    def validate_extract_dataset_schema(cls, values: Dict) -> Dict:
-        if values.get("extract_dataset_schema") is False:
+    @model_validator(mode="after")
+    def validate_extract_dataset_schema(self) -> "PowerBiDashboardSourceConfig":
+        if self.extract_dataset_schema is False:
             add_global_warning(
                 "Please use `extract_dataset_schema: true`, otherwise dataset schema extraction will be skipped."
             )
-        return values
+        return self
 
-    @root_validator(skip_on_failure=True)
-    def validate_dsn_to_database_schema(cls, values: Dict) -> Dict:
-        if values.get("dsn_to_database_schema") is not None:
-            dsn_mapping = values.get("dsn_to_database_schema")
+    @model_validator(mode="after")
+    def validate_dsn_to_database_schema(self) -> "PowerBiDashboardSourceConfig":
+        if self.dsn_to_database_schema is not None:
+            dsn_mapping = self.dsn_to_database_schema
             if not isinstance(dsn_mapping, dict):
                 raise ValueError("dsn_to_database_schema must contain key-value pairs")
 
@@ -639,4 +640,4 @@ class PowerBiDashboardSourceConfig(
                         f"dsn_to_database_schema invalid mapping value: {value}"
                     )
 
-        return values
+        return self

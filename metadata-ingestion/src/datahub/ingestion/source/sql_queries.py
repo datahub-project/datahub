@@ -6,7 +6,7 @@ from datetime import datetime
 from functools import partial
 from typing import ClassVar, Iterable, List, Optional, Union
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.datetimes import parse_user_datetime
@@ -301,18 +301,21 @@ class QueryEntry(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    @validator("timestamp", pre=True)
+    @field_validator("timestamp", mode="before")
+    @classmethod
     def parse_timestamp(cls, v):
         return None if v is None else parse_user_datetime(str(v))
 
-    @validator("user", pre=True)
+    @field_validator("user", mode="before")
+    @classmethod
     def parse_user(cls, v):
         if v is None:
             return None
 
         return v if isinstance(v, CorpUserUrn) else CorpUserUrn(v)
 
-    @validator("downstream_tables", "upstream_tables", pre=True)
+    @field_validator("downstream_tables", "upstream_tables", mode="before")
+    @classmethod
     def parse_tables(cls, v):
         if not v:
             return []

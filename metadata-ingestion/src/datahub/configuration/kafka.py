@@ -1,4 +1,4 @@
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.configuration.env_vars import (
@@ -42,7 +42,8 @@ class _KafkaConnectionConfig(ConfigModel):
         description="The request timeout used when interacting with the Kafka APIs.",
     )
 
-    @validator("bootstrap")
+    @field_validator("bootstrap")
+    @classmethod
     def bootstrap_host_colon_port_comma(cls, val: str) -> str:
         for entry in val.split(","):
             validate_host_port(entry)
@@ -57,7 +58,7 @@ class KafkaConsumerConnectionConfig(_KafkaConnectionConfig):
         description="Extra consumer config serialized as JSON. These options will be passed into Kafka's DeserializingConsumer. See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#deserializingconsumer and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md .",
     )
 
-    @validator("consumer_config")
+    @field_validator("consumer_config")
     @classmethod
     def resolve_callback(cls, value: dict) -> dict:
         if CallableConsumerConfig.is_callable_config(value):
