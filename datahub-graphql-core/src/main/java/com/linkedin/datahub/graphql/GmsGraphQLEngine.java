@@ -437,6 +437,7 @@ public class GmsGraphQLEngine {
   private final ViewsConfiguration viewsConfiguration;
   private final SearchBarConfiguration searchBarConfiguration;
   private final SearchCardConfiguration searchCardConfiguration;
+  private final SearchFlagsConfiguration searchFlagsConfiguration;
   private final HomePageConfiguration homePageConfiguration;
   private final ChromeExtensionConfiguration chromeExtensionConfiguration;
 
@@ -576,6 +577,7 @@ public class GmsGraphQLEngine {
     this.viewsConfiguration = args.viewsConfiguration;
     this.searchBarConfiguration = args.searchBarConfiguration;
     this.searchCardConfiguration = args.searchCardConfiguration;
+    this.searchFlagsConfiguration = args.searchFlagsConfiguration;
     this.homePageConfiguration = args.homePageConfiguration;
     this.featureFlags = args.featureFlags;
     this.chromeExtensionConfiguration = args.chromeExtensionConfiguration;
@@ -990,6 +992,7 @@ public class GmsGraphQLEngine {
                         this.viewsConfiguration,
                         this.searchBarConfiguration,
                         this.searchCardConfiguration,
+                        this.searchFlagsConfiguration,
                         this.homePageConfiguration,
                         this.featureFlags,
                         this.chromeExtensionConfiguration,
