@@ -204,8 +204,8 @@ def patch_sqlparser() -> None:
                 SQLParser.generate_openlineage_metadata_from_sql
             )
 
-        SQLParser.generate_openlineage_metadata_from_sql = (
-            _datahub_generate_openlineage_metadata_from_sql  # type: ignore[assignment,method-assign,misc]
+        SQLParser.generate_openlineage_metadata_from_sql = (  # type: ignore[assignment,method-assign,misc]
+            _datahub_generate_openlineage_metadata_from_sql
         )
         logger.info(
             "Patched SQLParser.generate_openlineage_metadata_from_sql with DataHub SQL parser"
