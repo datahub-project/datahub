@@ -6,6 +6,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.PatchEntityInput;
@@ -61,7 +62,7 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
     final Authentication authentication = context.getAuthentication();
 
     // Check authorization using common utility method
-    if (!PatchResolverUtils.isAuthorizedForPatch(input, context)) {
+    if (!AuthorizationUtils.isAuthorizedForPatch(input, context)) {
       throw new AuthorizationException(
           authentication.getActor().toUrnStr() + " is unauthorized to update entities.");
     }

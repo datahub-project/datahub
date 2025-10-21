@@ -1,11 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
@@ -19,7 +16,6 @@ import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
 import com.linkedin.datahub.graphql.generated.SystemMetadataInput;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.GenericAspect;
@@ -337,36 +333,6 @@ public class PatchResolverUtils {
   }
 
   /**
-   * Checks authorization for patch operations
-   *
-   * @param input Patch entity input
-   * @param context Query context
-   * @return true if authorized, false otherwise
-   */
-  public static boolean isAuthorizedForPatch(
-      @Nonnull PatchEntityInput input, @Nonnull QueryContext context) {
-
-    // For patch operations, we need EDIT_ENTITY_PRIVILEGE
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()))));
-
-    // Use entity type from URN if not provided in input
-    String entityType = input.getEntityType();
-    if (entityType == null && input.getUrn() != null) {
-      try {
-        entityType = UrnUtils.getUrn(input.getUrn()).getEntityType();
-      } catch (Exception e) {
-        log.warn("Failed to extract entity type from URN: {}", input.getUrn(), e);
-      }
-    }
-
-    return AuthorizationUtils.isAuthorized(context, entityType, input.getUrn(), orPrivilegeGroups);
-  }
-
-  /**
    * Checks authorization for all entities in a batch
    *
    * @param inputs List of patch entity inputs
@@ -378,7 +344,7 @@ public class PatchResolverUtils {
 
     for (int i = 0; i < inputs.size(); i++) {
       PatchEntityInput input = inputs.get(i);
-      if (!isAuthorizedForPatch(input, context)) {
+      if (!AuthorizationUtils.isAuthorizedForPatch(input, context)) {
         throw new AuthorizationException(
             context.getAuthentication().getActor().toUrnStr()
                 + " is unauthorized to update entity "
