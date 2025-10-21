@@ -46,6 +46,61 @@ actions_router = fastapi.APIRouter()
 actions_gql = (pathlib.Path(__file__).parent / "actions.gql").read_text()
 
 
+def get_kafka_consumer_config_from_env() -> dict[str, Any]:
+    """
+    Automatically extract Kafka consumer configuration from KAFKA_PROPERTIES_* environment variables.
+
+    Any environment variable matching the pattern KAFKA_PROPERTIES_<PARAM> will be mapped to
+    <param> (lowercase with underscores converted to dots).
+
+    This provides a flexible way to configure any Kafka authentication mechanism without code changes,
+    matching the pattern used in datahub-executor for consistency across Python services.
+
+    Examples:
+        KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
+          → security.protocol=SASL_SSL
+
+        KAFKA_PROPERTIES_SASL_MECHANISM=PLAIN
+          → sasl.mechanism=PLAIN
+
+        KAFKA_PROPERTIES_SSL_CA_LOCATION=/path/to/ca.pem
+          → ssl.ca.location=/path/to/ca.pem
+
+        KAFKA_PROPERTIES_OAUTH_CB=datahub_actions.utils.kafka_msk_iam:oauth_cb
+          → oauth_cb=datahub_actions.utils.kafka_msk_iam:oauth_cb
+
+        KAFKA_PROPERTIES_SASL_OAUTHBEARER_METHOD=default
+          → sasl.oauthbearer.method=default
+
+    Returns:
+        Dictionary of Kafka consumer configuration properties
+    """
+    prefix = "KAFKA_PROPERTIES_"
+    consumer_config: dict[str, Any] = {}
+
+    for env_var, value in os.environ.items():
+        if env_var.startswith(prefix) and value:  # Only include non-empty values
+            # Extract the parameter name (e.g., SECURITY_PROTOCOL)
+            param_name = env_var[len(prefix) :]
+
+            # Convert to Kafka property format (lowercase, underscores to dots)
+            # Special case: oauth_cb should remain as-is (callback parameter, not a dotted property)
+            if param_name == "OAUTH_CB":
+                kafka_prop = "oauth_cb"
+            else:
+                kafka_prop = param_name.lower().replace("_", ".")
+
+            consumer_config[kafka_prop] = value
+            logger.debug(f"Mapped {env_var} -> {kafka_prop}={value}")
+
+    if consumer_config:
+        logger.info(
+            f"Loaded {len(consumer_config)} Kafka properties from KAFKA_PROPERTIES_* environment variables"
+        )
+
+    return consumer_config
+
+
 base_action_config: dict[str, Any] = {
     "source": {
         "type": "kafka",
@@ -59,35 +114,17 @@ base_action_config: dict[str, Any] = {
                 "bootstrap": "${KAFKA_BOOTSTRAP_SERVER:-broker:29092}",
                 "schema_registry_url": "${SCHEMA_REGISTRY_URL:-http://datahub-gms:8080/schema-registry/api/}",
                 "consumer_config": {
+                    # Default consumer configuration
                     "auto.offset.reset": "${KAFKA_AUTO_OFFSET_POLICY:-latest}",
-                    "security.protocol": "${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-PLAINTEXT}",
-                    **(
-                        {
-                            "sasl.mechanism": "${KAFKA_PROPERTIES_SASL_MECHANISM:-PLAIN}",
-                            "sasl.username": "${KAFKA_PROPERTIES_SASL_USERNAME:-}",
-                            "sasl.password": "${KAFKA_PROPERTIES_SASL_PASSWORD:-}",
-                        }
-                        if os.environ.get("KAFKA_PROPERTIES_SASL_MECHANISM")
-                        and os.environ.get("KAFKA_PROPERTIES_SASL_MECHANISM")
-                        != "OAUTHBEARER"
-                        else {}
-                    ),
-                    **(
-                        {
-                            "sasl.mechanism": "${KAFKA_PROPERTIES_SASL_MECHANISM:-OAUTHBEARER}",
-                            "sasl.oauthbearer.method": "${KAFKA_PROPERTIES_SASL_OAUTHBEARER_METHOD:-default}",
-                            "oauth_cb": "${KAFKA_PROPERTIES_OAUTH_CALLBACK:-datahub_actions.utils.kafka_msk_iam:oauth_cb}",
-                        }
-                        if os.environ.get("KAFKA_PROPERTIES_SASL_MECHANISM")
-                        == "OAUTHBEARER"
-                        else {}
-                    ),
                     # Reset these to their default values, as per
                     # https://docs.confluent.io/platform/current/installation/configuration/consumer-configs.html
                     # Undoing the changes in datahub-actions:
                     # https://github.com/acryldata/datahub-actions/blob/18c118d351346b3721cc3b07ce5dac0b58fa8b23/datahub-actions/src/datahub_actions/plugin/source/kafka/kafka_event_source.py#L134
                     "session.timeout.ms": 45 * 1000,
                     "max.poll.interval.ms": 300 * 1000,
+                    # All KAFKA_PROPERTIES_* environment variables are automatically included here,
+                    # allowing any Kafka authentication mechanism to be configured without code changes
+                    **get_kafka_consumer_config_from_env(),
                 },
             },
         },
