@@ -5,8 +5,10 @@ import static com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils.*;
 
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionSource;
+import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.SchemaAssertionCompatibility;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.CronSchedule;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -29,6 +31,7 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.LongSupplier;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -44,14 +47,24 @@ public class UpsertDatasetSchemaAssertionMonitorResolver
   private final AssertionService _assertionService;
   private final MonitorService _monitorService;
   private final GraphClient _graphClient;
+  final LongSupplier _timeProvider;
+
+  public UpsertDatasetSchemaAssertionMonitorResolver(
+      @Nonnull final AssertionService assertionService,
+      @Nonnull final MonitorService monitorService,
+      @Nonnull final GraphClient graphClient,
+      @Nonnull final LongSupplier timeProvider) {
+    _monitorService = Objects.requireNonNull(monitorService, "monitorService is required");
+    _assertionService = Objects.requireNonNull(assertionService, "assertionService is required");
+    _graphClient = Objects.requireNonNull(graphClient, "graphClient is required");
+    _timeProvider = Objects.requireNonNull(timeProvider, "timeProvider is required");
+  }
 
   public UpsertDatasetSchemaAssertionMonitorResolver(
       @Nonnull final AssertionService assertionService,
       @Nonnull final MonitorService monitorService,
       @Nonnull final GraphClient graphClient) {
-    _monitorService = Objects.requireNonNull(monitorService, "monitorService is required");
-    _assertionService = Objects.requireNonNull(assertionService, "assertionService is required");
-    _graphClient = Objects.requireNonNull(graphClient, "graphClient is required");
+    this(assertionService, monitorService, graphClient, () -> System.currentTimeMillis());
   }
 
   @Override
@@ -59,6 +72,7 @@ public class UpsertDatasetSchemaAssertionMonitorResolver
       throws Exception {
     final QueryContext context = environment.getContext();
     final String maybeAssertionUrn = environment.getArgument("assertionUrn");
+    final Urn actorUrn = UrnUtils.getUrn(context.getActorUrn());
     final UpsertDatasetSchemaAssertionMonitorInput input =
         ResolverUtils.bindArgument(
             environment.getArgument("input"), UpsertDatasetSchemaAssertionMonitorInput.class);
@@ -73,7 +87,10 @@ public class UpsertDatasetSchemaAssertionMonitorResolver
         throw new IllegalArgumentException("Failed to create Assertion. entityUrn is required.");
       }
       assertionUrn = _assertionService.generateAssertionUrn();
-      assertionSource = null;
+      assertionSource = new AssertionSource();
+      assertionSource.setCreated(
+          new AuditStamp().setActor(actorUrn).setTime(_timeProvider.getAsLong()));
+      assertionSource.setType(AssertionSourceType.NATIVE);
       entityUrn = UrnUtils.getUrn(input.getEntityUrn());
       log.debug(String.format("Creating assertion with urn %s ...", assertionUrn));
       monitorUrn = _monitorService.generateMonitorUrn(entityUrn);

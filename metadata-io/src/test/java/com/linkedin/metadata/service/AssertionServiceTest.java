@@ -2085,8 +2085,9 @@ public class AssertionServiceTest {
   }
 
   private static AssertionSource createAssertionSource() {
-    AssertionSource assertionSource = new AssertionSource();
-    assertionSource.setType(AssertionSourceType.NATIVE);
-    return assertionSource;
+    return new AssertionSource()
+        .setType(AssertionSourceType.NATIVE)
+        .setCreated(
+            new AuditStamp().setActor(TEST_ACTOR_URN).setTime(Instant.now().toEpochMilli()));
   }
 }
