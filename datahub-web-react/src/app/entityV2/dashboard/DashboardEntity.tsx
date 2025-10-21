@@ -46,7 +46,6 @@ import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTa
 import {
     SidebarTitleActionType,
     getDashboardLastUpdatedMs,
-    getDataProduct,
     getFirstSubType,
     isOutputPort,
 } from '@app/entityV2/shared/utils';
