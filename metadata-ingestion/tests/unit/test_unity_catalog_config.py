@@ -134,6 +134,9 @@ def test_warehouse_id_must_be_set_if_include_hive_metastore_is_true():
     assert config.warehouse_id is None
 
 
+@pytest.mark.skip(
+    reason="This test is making actual network calls with retries taking ~5 mins, needs to be mocked"
+)
 def test_warehouse_id_must_be_present_test_connection():
     """Test that connection succeeds when hive_metastore gets auto-disabled."""
     config_dict = {
@@ -293,9 +296,7 @@ def test_databricks_api_page_size_zero_allowed():
 
 def test_databricks_api_page_size_negative_invalid():
     """Test that databricks_api_page_size rejects negative values."""
-    with pytest.raises(
-        ValueError, match="ensure this value is greater than or equal to 0"
-    ):
+    with pytest.raises(ValueError, match="Input should be greater than or equal to 0"):
         UnityCatalogSourceConfig.parse_obj(
             {
                 "token": "token",
@@ -306,9 +307,7 @@ def test_databricks_api_page_size_negative_invalid():
             }
         )
 
-    with pytest.raises(
-        ValueError, match="ensure this value is greater than or equal to 0"
-    ):
+    with pytest.raises(ValueError, match="Input should be greater than or equal to 0"):
         UnityCatalogSourceConfig.parse_obj(
             {
                 "token": "token",
@@ -380,3 +379,119 @@ def test_ml_model_max_results_negative_invalid():
                 "ml_model_max_results": -100,
             }
         )
+
+
+def test_lineage_data_source_default():
+    """Test that lineage_data_source defaults to AUTO."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+        }
+    )
+    from datahub.ingestion.source.unity.config import LineageDataSource
+
+    assert config.lineage_data_source == LineageDataSource.AUTO
+
+
+def test_lineage_data_source_system_tables_requires_warehouse_id():
+    """Test that lineage_data_source=SYSTEM_TABLES requires warehouse_id."""
+    with pytest.raises(
+        ValueError,
+        match="lineage_data_source='SYSTEM_TABLES' requires warehouse_id to be set",
+    ):
+        UnityCatalogSourceConfig.parse_obj(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "include_tags": False,
+                "lineage_data_source": "SYSTEM_TABLES",
+            }
+        )
+
+
+def test_lineage_data_source_api_does_not_require_warehouse():
+    """Test that lineage_data_source=API does not require warehouse_id."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "lineage_data_source": "API",
+        }
+    )
+    from datahub.ingestion.source.unity.config import LineageDataSource
+
+    assert config.lineage_data_source == LineageDataSource.API
+    assert config.warehouse_id is None
+
+
+def test_usage_data_source_default():
+    """Test that usage_data_source defaults to AUTO."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+        }
+    )
+    from datahub.ingestion.source.unity.config import UsageDataSource
+
+    assert config.usage_data_source == UsageDataSource.AUTO
+
+
+def test_usage_data_source_system_tables_requires_warehouse_id():
+    """Test that usage_data_source=SYSTEM_TABLES requires warehouse_id."""
+    with pytest.raises(
+        ValueError,
+        match="usage_data_source='SYSTEM_TABLES' requires warehouse_id to be set",
+    ):
+        UnityCatalogSourceConfig.parse_obj(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "include_tags": False,
+                "usage_data_source": "SYSTEM_TABLES",
+            }
+        )
+
+
+def test_usage_data_source_api_does_not_require_warehouse():
+    """Test that usage_data_source=API does not require warehouse_id."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "usage_data_source": "API",
+        }
+    )
+    from datahub.ingestion.source.unity.config import UsageDataSource
+
+    assert config.usage_data_source == UsageDataSource.API
+    assert config.warehouse_id is None
+
+
+def test_usage_data_source_can_be_set_with_warehouse():
+    """Test that usage_data_source can be set to SYSTEM_TABLES with warehouse_id."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "warehouse_id": "test_warehouse",
+            "usage_data_source": "SYSTEM_TABLES",
+        }
+    )
+    from datahub.ingestion.source.unity.config import UsageDataSource
+
+    assert config.usage_data_source == UsageDataSource.SYSTEM_TABLES
+    assert config.warehouse_id == "test_warehouse"

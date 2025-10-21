@@ -520,7 +520,7 @@ export default function PolicyPrivilegeForm({
         const selectedItem = selectedTags?.find((term) => term?.urn === value);
         return (
             <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>
-                {selectedItem?.name}
+                {!!selectedItem && entityRegistry.getDisplayName(EntityType.Tag, selectedItem)}
             </StyleTag>
         );
     };

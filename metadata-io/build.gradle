@@ -44,6 +44,10 @@ dependencies {
   }
   api externalDependency.datastaxOssQueryBuilder
   api externalDependency.elasticSearchRest
+  
+  // Optional search client shim dependencies
+  api externalDependency.elasticsearch8Client
+  implementation externalDependency.awsRds
   implementation externalDependency.javatuples
   api externalDependency.javaxValidation
   runtimeOnly externalDependency.jna
@@ -123,6 +127,9 @@ dependencies {
     implementation(externalDependency.grpcProtobuf) {
       because("CVE-2023-1428, CVE-2023-32731")
     }
+    implementation(externalDependency.grpcNettyShaded) {
+      because("Security vulnerability in grpc-netty-shaded 1.68.3")
+    }
   }
 }
 
@@ -135,8 +142,11 @@ test {
   useTestNG() {
     suites 'src/test/resources/testng.xml'
   }
-  testLogging.showStandardStreams = true
-  testLogging.exceptionFormat = 'full'
+  testLogging {
+    events "failed", "skipped"
+    exceptionFormat "full"
+    showStandardStreams = false
+  }
 
   environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
 }

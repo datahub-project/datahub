@@ -36,6 +36,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final ViewsConfiguration _viewsConfiguration;
   private final SearchBarConfiguration _searchBarConfig;
   private final SearchCardConfiguration _searchCardConfig;
+  private final SearchFlagsConfiguration _searchFlagsConfig;
   private final HomePageConfiguration _homePageConfig;
   private final FeatureFlags _featureFlags;
   private final ChromeExtensionConfiguration _chromeExtensionConfiguration;
@@ -55,6 +56,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final ViewsConfiguration viewsConfiguration,
       final SearchBarConfiguration searchBarConfig,
       final SearchCardConfiguration searchCardConfig,
+      final SearchFlagsConfiguration searchFlagsConfig,
       final HomePageConfiguration homePageConfig,
       final FeatureFlags featureFlags,
       final ChromeExtensionConfiguration chromeExtensionConfiguration,
@@ -72,6 +74,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _viewsConfiguration = viewsConfiguration;
     _searchBarConfig = searchBarConfig;
     _searchCardConfig = searchCardConfig;
+    _searchFlagsConfig = searchFlagsConfig;
     _homePageConfig = homePageConfig;
     _featureFlags = featureFlags;
     _chromeExtensionConfiguration = chromeExtensionConfiguration;
@@ -211,6 +214,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     searchCardConfig.setShowDescription(_searchCardConfig.getShowDescription());
     appConfig.setSearchCardConfig(searchCardConfig);
 
+    final SearchFlagsConfig searchFlagsConfig = new SearchFlagsConfig();
+    searchFlagsConfig.setDefaultSkipHighlighting(_searchFlagsConfig.getDefaultSkipHighlighting());
+    appConfig.setSearchFlagsConfig(searchFlagsConfig);
+
     final HomePageConfig homePageConfig = new HomePageConfig();
     try {
       homePageConfig.setFirstInPersonalSidebar(
@@ -259,12 +266,14 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowIngestionPageRedesign(_featureFlags.isShowIngestionPageRedesign())
             .setShowLineageExpandMore(_featureFlags.isShowLineageExpandMore())
             .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
+            .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
             .setShowHomePageRedesign(_featureFlags.isShowHomePageRedesign())
             .setShowProductUpdates(_featureFlags.isShowProductUpdates())
             .setLineageGraphV3(_featureFlags.isLineageGraphV3())
             .setLogicalModelsEnabled(_featureFlags.isLogicalModelsEnabled())
             .setShowHomepageUserRole(_featureFlags.isShowHomepageUserRole())
             .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
+            .setDocumentationFileUploadV1(_featureFlags.isDocumentationFileUploadV1())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

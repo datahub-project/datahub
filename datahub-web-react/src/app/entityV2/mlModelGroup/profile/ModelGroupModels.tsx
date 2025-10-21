@@ -1,5 +1,6 @@
 import { Table, Typography } from 'antd';
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
@@ -31,7 +32,7 @@ const NameContainer = styled.div`
     align-items: center;
 `;
 
-const NameLink = styled.a`
+const NameLink = styled(Link)`
     font-weight: 700;
     color: inherit;
     font-size: 0.9rem;
@@ -95,7 +96,7 @@ export default function MLGroupModels() {
             width: 300,
             render: (_: any, record) => (
                 <NameContainer>
-                    <NameLink href={entityRegistry.getEntityUrl(EntityType.Mlmodel, record.urn)}>
+                    <NameLink to={entityRegistry.getEntityUrl(EntityType.Mlmodel, record.urn)}>
                         {record?.properties?.propertiesName || record?.name}
                     </NameLink>
                 </NameContainer>

@@ -4,7 +4,7 @@ import tempfile
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import lkml
 import lkml.simple
@@ -12,8 +12,7 @@ from looker_sdk.error import SDKError
 
 from datahub.configuration.git import GitInfo
 from datahub.emitter.mce_builder import make_schema_field_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import gen_containers
+from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -77,7 +76,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import BrowsePaths, Status
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     FineGrainedLineageDownstreamType,
@@ -85,18 +84,15 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     UpstreamLineage,
     ViewProperties,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    BrowsePathEntryClass,
-    BrowsePathsV2Class,
-    ContainerClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageUpstreamTypeClass,
-    SubTypesClass,
 )
+from datahub.sdk.container import Container
+from datahub.sdk.dataset import Dataset
+from datahub.sdk.entity import Entity
 from datahub.sql_parsing.sqlglot_lineage import ColumnRef
 
 VIEW_LANGUAGE_LOOKML: str = "lookml"
@@ -146,6 +142,8 @@ class LookerView:
         ctx: PipelineContext,
         extract_col_level_lineage: bool = False,
         populate_sql_logic_in_descriptions: bool = False,
+        looker_client: Optional[LookerAPI] = None,
+        view_to_explore_map: Optional[Dict[str, str]] = None,
     ) -> Optional["LookerView"]:
         view_name = view_context.name()
 
@@ -164,6 +162,8 @@ class LookerView:
             config=config,
             ctx=ctx,
             reporter=reporter,
+            looker_client=looker_client,
+            view_to_explore_map=view_to_explore_map,
         )
 
         field_type_vs_raw_fields = OrderedDict(
@@ -428,69 +428,40 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         return dataset_props
 
-    def _build_dataset_mcps(
-        self, looker_view: LookerView
-    ) -> List[MetadataChangeProposalWrapper]:
-        view_urn = looker_view.id.get_urn(self.source_config)
-
-        subTypeEvent = MetadataChangeProposalWrapper(
-            entityUrn=view_urn,
-            aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
-        )
-        events = [subTypeEvent]
+    def _build_dataset_entities(self, looker_view: LookerView) -> Iterable[Dataset]:
+        dataset_extra_aspects: List[Union[ViewProperties, Status]] = [
+            Status(removed=False)
+        ]
         if looker_view.view_details is not None:
-            viewEvent = MetadataChangeProposalWrapper(
-                entityUrn=view_urn,
-                aspect=looker_view.view_details,
-            )
-            events.append(viewEvent)
+            dataset_extra_aspects.append(looker_view.view_details)
 
-        project_key = gen_project_key(self.source_config, looker_view.id.project_name)
-
-        container = ContainerClass(container=project_key.as_urn())
-        events.append(
-            MetadataChangeProposalWrapper(entityUrn=view_urn, aspect=container)
-        )
-
-        events.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=view_urn,
-                aspect=looker_view.id.get_browse_path_v2(self.source_config),
-            )
-        )
-
-        return events
-
-    def _build_dataset_mce(self, looker_view: LookerView) -> MetadataChangeEvent:
-        """
-        Creates MetadataChangeEvent for the dataset, creating upstream lineage links
-        """
-        logger.debug(f"looker_view = {looker_view.id}")
-
-        dataset_snapshot = DatasetSnapshot(
-            urn=looker_view.id.get_urn(self.source_config),
-            aspects=[],  # we append to this list later on
-        )
-        browse_paths = BrowsePaths(
-            paths=[looker_view.id.get_browse_path(self.source_config)]
-        )
-
-        dataset_snapshot.aspects.append(browse_paths)
-        dataset_snapshot.aspects.append(Status(removed=False))
-        upstream_lineage = self._get_upstream_lineage(looker_view)
-        if upstream_lineage is not None:
-            dataset_snapshot.aspects.append(upstream_lineage)
         schema_metadata = LookerUtil._get_schema(
             self.source_config.platform_name,
             looker_view.id.view_name,
             looker_view.fields,
             self.reporter,
         )
-        if schema_metadata is not None:
-            dataset_snapshot.aspects.append(schema_metadata)
-        dataset_snapshot.aspects.append(self._get_custom_properties(looker_view))
 
-        return MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        custom_properties: DatasetPropertiesClass = self._get_custom_properties(
+            looker_view
+        )
+
+        yield Dataset(
+            platform=self.source_config.platform_name,
+            name=looker_view.id.get_view_dataset_name(self.source_config),
+            display_name=looker_view.id.view_name,
+            platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+            subtype=DatasetSubTypes.VIEW,
+            parent_container=looker_view.id.get_view_dataset_parent_container(
+                self.source_config
+            ),
+            schema=schema_metadata,
+            custom_properties=custom_properties.customProperties,
+            external_url=custom_properties.externalUrl,
+            upstreams=self._get_upstream_lineage(looker_view),
+            extra_aspects=dataset_extra_aspects,
+        )
 
     def get_project_name(self, model_name: str) -> str:
         if self.source_config.project_name is not None:
@@ -554,7 +525,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         with tempfile.TemporaryDirectory("lookml_tmp") as tmp_dir:
             # Clone the base_folder if necessary.
             if not self.source_config.base_folder:
@@ -715,7 +686,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                 tmp_dir, project, project_visited, manifest_constants
             )
 
-    def get_internal_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
+    def get_internal_workunits(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:  # noqa: C901
         assert self.source_config.base_folder
         viewfile_loader = LookerViewFileLoader(
             self.source_config.project_name,
@@ -737,6 +708,11 @@ class LookMLSource(StatefulIngestionSourceBase):
         # Key: view unique identifier - determined by variables present in config `view_naming_pattern`
         # Value: Tuple(model file name, connection name)
         view_connection_map: Dict[str, Tuple[str, str]] = {}
+
+        # Map of view name to explore name for API-based view lineage
+        # A view can be referenced by multiple explores, we only need one of the explores to use Looker Query API
+        # Key: view_name, Value: explore_name
+        view_to_explore_map: Dict[str, str] = {}
 
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
@@ -792,37 +768,37 @@ class LookMLSource(StatefulIngestionSourceBase):
                 )
             )
 
-            if self.source_config.emit_reachable_views_only:
-                model_explores_map = {d["name"]: d for d in model.explores}
-                for explore_dict in model.explores:
-                    try:
-                        if LookerRefinementResolver.is_refinement(explore_dict["name"]):
-                            continue
+            model_explores_map = {d["name"]: d for d in model.explores}
+            for explore_dict in model.explores:
+                try:
+                    if LookerRefinementResolver.is_refinement(explore_dict["name"]):
+                        continue
 
-                        explore_dict = (
-                            looker_refinement_resolver.apply_explore_refinement(
-                                explore_dict
-                            )
-                        )
-                        explore: LookerExplore = LookerExplore.from_dict(
-                            model_name,
-                            explore_dict,
-                            model.resolved_includes,
-                            viewfile_loader,
-                            self.reporter,
-                            model_explores_map,
-                        )
-                        if explore.upstream_views:
-                            for view_name in explore.upstream_views:
+                    explore_dict = looker_refinement_resolver.apply_explore_refinement(
+                        explore_dict
+                    )
+                    explore: LookerExplore = LookerExplore.from_dict(
+                        model_name,
+                        explore_dict,
+                        model.resolved_includes,
+                        viewfile_loader,
+                        self.reporter,
+                        model_explores_map,
+                    )
+                    if explore.upstream_views:
+                        for view_name in explore.upstream_views:
+                            if self.source_config.emit_reachable_views_only:
                                 explore_reachable_views.add(view_name.include)
-                    except Exception as e:
-                        self.reporter.report_warning(
-                            title="Failed to process explores",
-                            message="Failed to process explore dictionary.",
-                            context=f"Explore Details: {explore_dict}",
-                            exc=e,
-                        )
-                        logger.debug("Failed to process explore", exc_info=e)
+                            # Build view to explore mapping for API-based view lineage
+                            view_to_explore_map[view_name.include] = explore.name
+                except Exception as e:
+                    self.reporter.report_warning(
+                        title="Failed to process explores",
+                        message="Failed to process explore dictionary.",
+                        context=f"Explore Details: {explore_dict}",
+                        exc=e,
+                    )
+                    logger.debug("Failed to process explore", exc_info=e)
 
             processed_view_files = processed_view_map.setdefault(
                 model.connection, set()
@@ -911,6 +887,10 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 populate_sql_logic_in_descriptions=self.source_config.populate_sql_logic_for_missing_descriptions,
                                 config=self.source_config,
                                 ctx=self.ctx,
+                                looker_client=self.looker_client,
+                                view_to_explore_map=view_to_explore_map
+                                if view_to_explore_map
+                                else None,
                             )
                         except Exception as e:
                             self.reporter.report_warning(
@@ -949,7 +929,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                         maybe_looker_view.id.project_name
                                         not in self.processed_projects
                                     ):
-                                        yield from self.gen_project_workunits(
+                                        yield from self.gen_project_containers(
                                             maybe_looker_view.id.project_name
                                         )
 
@@ -957,15 +937,10 @@ class LookMLSource(StatefulIngestionSourceBase):
                                             maybe_looker_view.id.project_name
                                         )
 
-                                    for mcp in self._build_dataset_mcps(
+                                    yield from self._build_dataset_entities(
                                         maybe_looker_view
-                                    ):
-                                        yield mcp.as_workunit()
-                                    mce = self._build_dataset_mce(maybe_looker_view)
-                                    yield MetadataWorkUnit(
-                                        id=f"lookml-view-{maybe_looker_view.id}",
-                                        mce=mce,
                                     )
+
                                     processed_view_files.add(include.include)
                                 else:
                                     (
@@ -994,28 +969,24 @@ class LookMLSource(StatefulIngestionSourceBase):
             self.source_config.tag_measures_and_dimensions
             and self.reporter.events_produced != 0
         ):
-            # Emit tag MCEs for measures and dimensions:
+            # Emit tag MCEs for measures and dimensions if we produced any explores:
             for tag_mce in LookerUtil.get_tag_mces():
-                yield MetadataWorkUnit(
-                    id=f"tag-{tag_mce.proposedSnapshot.urn}", mce=tag_mce
-                )
+                # Convert MCE to MCPs
+                for mcp in mcps_from_mce(tag_mce):
+                    yield mcp.as_workunit()
 
-    def gen_project_workunits(self, project_name: str) -> Iterable[MetadataWorkUnit]:
+    def gen_project_containers(self, project_name: str) -> Iterable[Container]:
         project_key = gen_project_key(
             self.source_config,
             project_name,
         )
-        yield from gen_containers(
+
+        yield Container(
             container_key=project_key,
-            name=project_name,
-            sub_types=[BIContainerSubTypes.LOOKML_PROJECT],
+            display_name=project_name,
+            subtype=BIContainerSubTypes.LOOKML_PROJECT,
+            parent_container=["Folders"],
         )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=project_key.as_urn(),
-            aspect=BrowsePathsV2Class(
-                path=[BrowsePathEntryClass("Folders")],
-            ),
-        ).as_workunit()
 
     def report_skipped_unreachable_views(
         self,

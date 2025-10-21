@@ -97,13 +97,82 @@ If you have multiple projects in your BigQuery setup, the role should be granted
 
 To profile BigQuery external tables backed by Google Drive document, you need to grant document's "Viewer" access to service account's email address (`client_email` in credentials json file). To find the Google Drive document linked to BigQuery table, open the BigQuery console, locate the needed table, select "Details" from the drop-down menu in the top-right corner and refer "Source" field . To share access of Google Drive document, open the document, click "Share" in the top-right corner, add the service account's email address that needs "Viewer" access. ![Google Drive Sharing Dialog](https://github.com/datahub-project/static-assets/raw/main/imgs/integrations/bigquery/google_drive_share.png)
 
-### Lineage Computation Details
+### Lineage and Usage Computation Details
 
-When `use_exported_bigquery_audit_metadata` is set to `true`, lineage information will be computed using exported bigquery logs. On how to setup exported bigquery audit logs, refer to the following [docs](https://cloud.google.com/bigquery/docs/reference/auditlogs#defining_a_bigquery_log_sink_using_gcloud) on BigQuery audit logs. Note that only protoPayloads with "type.googleapis.com/google.cloud.audit.BigQueryAuditMetadata" are supported by the current ingestion version. The `bigquery_audit_metadata_datasets` parameter will be used only if `use_exported_bigquery_audit_metadat` is set to `true`.
+DataHub's BigQuery connector supports two approaches for extracting lineage and usage statistics:
 
-Note: the `bigquery_audit_metadata_datasets` parameter receives a list of datasets, in the format $PROJECT.$DATASET. This way queries from a multiple number of projects can be used to compute lineage information.
+#### Modern Approach (Default): `use_queries_v2: true`
 
-Note: Since bigquery source also supports dataset level lineage, the auth client will require additional permissions to be able to access the google audit logs. Refer the permissions section in bigquery-usage section below which also accesses the audit logs.
+**Recommended for most users** - Uses BigQuery's Information Schema for efficient metadata extraction.
+
+- **Data Source**: BigQuery Information Schema (`INFORMATION_SCHEMA.JOBS*` tables)
+- **Features**:
+  - Advanced lineage extraction using SQL parsing
+  - Query entities with full query text
+  - Query popularity statistics and rankings
+  - Multi-region support via `region_qualifiers`
+  - Table and column-level usage statistics
+- **Requirements**:
+  - `bigquery.jobs.listAll` permission on target projects
+  - No additional Cloud Logging permissions needed
+
+**Configuration**:
+
+```yaml
+source:
+  type: bigquery
+  config:
+    use_queries_v2: true # Default
+    include_queries: true # Enable query entities
+    include_query_usage_statistics: true # Query popularity stats
+    region_qualifiers: ["region-us", "region-eu"] # Multi-region support
+```
+
+#### Legacy Approach: `use_queries_v2: false`
+
+**Use when you need specific legacy features** - Processes BigQuery audit logs for metadata extraction.
+
+- **Data Source**: BigQuery audit logs (two options below)
+- **Features**:
+  - Basic table-level lineage and usage statistics
+  - `upstream_lineage_in_report` debugging feature
+  - Works with existing audit log exports
+
+**Two data source options**:
+
+##### Option 1: Google Cloud Logging API (Default)
+
+```yaml
+source:
+  type: bigquery
+  config:
+    use_queries_v2: false
+    use_exported_bigquery_audit_metadata: false # Default
+```
+
+- **Requirements**: `logging.logEntries.list` and `logging.privateLogEntries.list` permissions
+- **Limitations**: API rate limits, potential costs for large volumes
+
+##### Option 2: Pre-exported Audit Logs in BigQuery Tables
+
+```yaml
+source:
+  type: bigquery
+  config:
+    use_queries_v2: false
+    use_exported_bigquery_audit_metadata: true
+    bigquery_audit_metadata_datasets:
+      - "my-project.audit_dataset"
+      - "another-project.audit_logs"
+```
+
+- **Requirements**:
+  - Pre-exported audit logs in BigQuery tables
+  - Tables must be named `cloudaudit_googleapis_com_data_access`
+  - Only protoPayloads with `type.googleapis.com/google.cloud.audit.BigQueryAuditMetadata` are supported
+- **Benefits**: No Cloud Logging API limits, better for large-scale ingestion
+- **Setup**: Follow [BigQuery audit logs export guide](https://cloud.google.com/bigquery/docs/reference/auditlogs#defining_a_bigquery_log_sink_using_gcloud)
+- **Note**: The `bigquery_audit_metadata_datasets` parameter accepts datasets in `$PROJECT.$DATASET` format, allowing lineage computation from multiple projects.
 
 ### Profiling Details
 

@@ -6,12 +6,14 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { getNameFromType } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
-import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveOwnerMutation } from '@graphql/mutations.generated';
-import { EntityType, Owner } from '@types';
+import { DataHubPageModuleType, EntityType, Owner } from '@types';
 
 const OwnerWrapper = styled.div``;
 
@@ -26,7 +28,7 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
-    const { setReloadHomepageModules } = usePageTemplateContext();
+    const { reloadByKeyType } = useReloadableContext();
     const { user } = useUserContext();
 
     let name = '';
@@ -65,7 +67,13 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
                 entityUrn,
             });
             const isCurrentUserRemoved = user?.urn === owner.owner.urn;
-            if (isCurrentUserRemoved) setReloadHomepageModules(true);
+            // Reload modules
+            // OwnedAssets - update Your assets module on home page
+            if (isCurrentUserRemoved)
+                reloadByKeyType(
+                    [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.OwnedAssets)],
+                    3000,
+                );
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {

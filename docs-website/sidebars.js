@@ -212,6 +212,11 @@ module.exports = {
           ],
         },
         {
+          label: "Custom Asset Summaries",
+          type: "doc",
+          id: "docs/features/feature-guides/custom-asset-summaries",
+        },
+        {
           label: "Custom Home Page",
           type: "doc",
           id: "docs/features/feature-guides/custom-home-page",
@@ -268,6 +273,27 @@ module.exports = {
               label: "Managing Lineage via UI",
               type: "doc",
               id: "docs/features/feature-guides/ui-lineage",
+            },
+          ],
+        },
+        {
+          label: "Logical Models",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/logical-models/overview",
+          },
+          items: [
+            {
+              label: "Overview",
+              type: "doc",
+              id: "docs/features/feature-guides/logical-models/overview",
+            },
+            {
+              label: "Centralized Management",
+              type: "doc",
+              id: "docs/features/feature-guides/logical-models/centralized-management",
+              className: "saasOnly",
             },
           ],
         },
@@ -421,6 +447,20 @@ module.exports = {
       ],
     },
     {
+      Teams: [
+        {
+          type: "doc",
+          id: "docs/managed-datahub/teams/saas-teams-app",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/teams/saas-teams-setup",
+          className: "saasOnly",
+        },
+      ],
+    },
+    {
       "Operator Guides": [
         {
           type: "doc",
@@ -450,6 +490,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_0_3_14",
         "docs/managed-datahub/release-notes/v_0_3_13",
         "docs/managed-datahub/release-notes/v_0_3_12",
         "docs/managed-datahub/release-notes/v_0_3_11",
@@ -523,7 +564,10 @@ module.exports = {
             type: "doc",
             id: "metadata-ingestion/docs/transformer/intro",
           },
-          items: ["metadata-ingestion/docs/transformer/dataset_transformer"],
+          items: [
+            "metadata-ingestion/docs/transformer/dataset_transformer",
+            "metadata-ingestion/docs/transformer/universal_transformers",
+          ],
         },
       ],
     },
@@ -953,6 +997,7 @@ module.exports = {
         },
         "docs/authentication/introducing-metadata-service-authentication",
         "docs/authentication/personal-access-tokens",
+        "docs/authentication/external-oauth-providers",
       ],
     },
     {
@@ -975,10 +1020,12 @@ module.exports = {
         },
         "docs/how/backup-datahub",
         "docs/how/restore-indices",
+        "docs/how/load-indices",
         "docs/advanced/db-retention",
         "docs/advanced/monitoring",
         "docs/deploy/telemetry",
         "docs/how/kafka-config",
+        "docs/how/configure-cdc",
         "docs/how/jattach-guide",
       ],
     },

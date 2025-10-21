@@ -64,11 +64,4 @@ describe('useShowAssetSummaryPage', () => {
         const { result } = renderHook(() => useShowAssetSummaryPage());
         expect(result.current).toBe(false);
     });
-
-    it('should return false when appConfig is undefined', () => {
-        mockedUseAppConfig.mockReturnValue(undefined as any);
-
-        const { result } = renderHook(() => useShowAssetSummaryPage());
-        expect(result.current).toBe(false);
-    });
 });

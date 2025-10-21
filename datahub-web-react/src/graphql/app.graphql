@@ -72,6 +72,9 @@ query appConfig {
         searchCardConfig {
             showDescription
         }
+        searchFlagsConfig {
+            defaultSkipHighlighting
+        }
         homePageConfig {
             firstInPersonalSidebar
         }
@@ -107,11 +110,13 @@ query appConfig {
             showLineageExpandMore
             showStatsTabRedesign
             showHomePageRedesign
+            showDefaultExternalLinks
             showProductUpdates
             lineageGraphV3
             logicalModelsEnabled
             showHomepageUserRole
             assetSummaryPageV1
+            documentationFileUploadV1
         }
         chromeExtensionConfig {
             enabled

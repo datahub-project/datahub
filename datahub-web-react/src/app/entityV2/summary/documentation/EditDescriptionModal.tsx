@@ -1,6 +1,9 @@
 import { Editor, Modal } from '@components';
+import { message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
 
 const StyledEditor = styled(Editor)`
     border: none;
@@ -37,6 +40,7 @@ export default function EditDescriptionModal({
     emptyDescriptionText,
     closeModal,
 }: Props) {
+    const canEditDescription = useDocumentationPermission();
     return (
         <Modal
             title="Edit Description"
@@ -48,13 +52,22 @@ export default function EditDescriptionModal({
                     text: 'Cancel',
                     variant: 'text',
                     onClick: () => closeModal(),
+                    buttonDataTestId: 'cancel-button',
                 },
                 {
                     text: 'Publish',
                     onClick: () => {
-                        handleDescriptionUpdate();
+                        handleDescriptionUpdate().catch((e) => {
+                            message.destroy();
+                            message.error({
+                                content: `Failed to update description: \n ${e.message || ''}`,
+                                duration: 3,
+                            });
+                        });
                         closeModal();
                     },
+                    disabled: !canEditDescription,
+                    buttonDataTestId: 'publish-button',
                 },
             ]}
         >
@@ -64,6 +77,7 @@ export default function EditDescriptionModal({
                 hideHighlightToolbar
                 onChange={(description) => setUpdatedDescription(description)}
                 toolbarStyles={toolbarStyles}
+                dataTestId="description-editor"
             />
         </Modal>
     );

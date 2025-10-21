@@ -215,6 +215,7 @@ export function useModuleOperations(
                 templateUrn: templateToUpdate.urn,
                 moduleType: module.properties.type,
                 isPersonal,
+                location: templateType,
             });
         },
         [context, isEditingModule, updateTemplateWithModule, templateType],
@@ -253,9 +254,10 @@ export function useModuleOperations(
                 templateUrn: templateToUpdate.urn,
                 moduleType: module.properties.type,
                 isPersonal,
+                location: templateType,
             });
         },
-        [context, removeModuleFromTemplate, deletePageModule],
+        [context, removeModuleFromTemplate, templateType, deletePageModule],
     );
 
     // Takes input and makes a call to create a module then add that module to the template
@@ -324,6 +326,7 @@ export function useModuleOperations(
                         templateUrn: templateToUpdate?.urn ?? '',
                         moduleType: moduleFragment.properties.type,
                         isPersonal,
+                        location: templateType,
                     });
 
                     // If we created a new module to replace a global one, remove the old module first
@@ -429,9 +432,10 @@ export function useModuleOperations(
                 type: EventType.HomePageTemplateModuleMove,
                 templateUrn: templateToUpdate.urn,
                 isPersonal,
+                location: templateType,
             });
         },
-        [context, moveModuleInTemplate],
+        [context, moveModuleInTemplate, templateType],
     );
 
     return {

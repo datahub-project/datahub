@@ -9,10 +9,9 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
-import { Tooltip } from '@src/alchemy-components';
+import { Editor, Tooltip } from '@src/alchemy-components';
 import CompactMarkdownViewer from '@src/app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 
 import { UpdateDatasetMutation } from '@graphql/dataset.generated';
@@ -98,6 +97,7 @@ const StyledViewer = styled(Editor)`
 const DescriptionWrapper = styled.span`
     display: inline-flex;
     align-items: center;
+    width: 100%;
 `;
 
 const AddModalWrapper = styled.div``;
@@ -219,13 +219,13 @@ export default function DescriptionField({
                                     customStyle={{ fontSize: '12px' }}
                                     scrollableY={false}
                                 />
+                                {isSchemaEditable && isEdited && <EditedLabel>(edited)</EditedLabel>}
                             </DescriptionWrapper>
                         </Tooltip>
                         {/* </StripMarkdownText> */}
                     </>
                 )
             )}
-            {isSchemaEditable && isEdited && <EditedLabel>(edited)</EditedLabel>}
             {showAddModal && (
                 <AddModalWrapper onClick={(e) => e.stopPropagation()}>
                     <UpdateDescriptionModal

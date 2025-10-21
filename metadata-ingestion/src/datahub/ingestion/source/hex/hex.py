@@ -1,3 +1,4 @@
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional
@@ -45,7 +46,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.sdk.main_client import DataHubClient
 
 
@@ -122,7 +122,11 @@ class HexSourceConfig(
 
     @root_validator(pre=True)
     def validate_lineage_times(cls, data: Dict[str, Any]) -> Dict[str, Any]:
-        # lineage_end_time default = now
+        # In-place update of the input dict would cause state contamination. This was discovered through test failures
+        # in test_hex.py where the same dict is reused.
+        # So a deepcopy is performed first.
+        data = deepcopy(data)
+
         if "lineage_end_time" not in data or data["lineage_end_time"] is None:
             data["lineage_end_time"] = datetime.now(tz=timezone.utc)
         # if string is given, parse it
@@ -167,7 +171,6 @@ class HexSourceConfig(
 class HexReport(
     StaleEntityRemovalSourceReport,
     HexApiReport,
-    IngestionStageReport,
     HexQueryFetcherReport,
 ):
     pass

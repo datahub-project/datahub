@@ -39,6 +39,7 @@ public class AppConfigResolverTest {
   @Mock private ViewsConfiguration mockViewsConfiguration;
   @Mock private SearchBarConfiguration mockSearchBarConfiguration;
   @Mock private SearchCardConfiguration mockSearchCardConfiguration;
+  @Mock private SearchFlagsConfiguration mockSearchFlagsConfiguration;
   @Mock private HomePageConfiguration mockHomePageConfiguration;
   @Mock private FeatureFlags mockFeatureFlags;
   @Mock private ChromeExtensionConfiguration mockChromeExtensionConfiguration;
@@ -67,6 +68,7 @@ public class AppConfigResolverTest {
     when(mockViewsConfiguration.isEnabled()).thenReturn(true);
     when(mockSearchBarConfiguration.getApiVariant()).thenReturn("AUTOCOMPLETE_FOR_MULTIPLE");
     when(mockSearchCardConfiguration.getShowDescription()).thenReturn(true);
+    when(mockSearchFlagsConfiguration.getDefaultSkipHighlighting()).thenReturn(false);
     when(mockHomePageConfiguration.getFirstInPersonalSidebar()).thenReturn("YOUR_ASSETS");
     when(mockChromeExtensionConfiguration.isEnabled()).thenReturn(false);
     when(mockChromeExtensionConfiguration.isLineageEnabled()).thenReturn(false);
@@ -89,6 +91,7 @@ public class AppConfigResolverTest {
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
             mockHomePageConfiguration,
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
@@ -132,6 +135,7 @@ public class AppConfigResolverTest {
     when(mockFeatureFlags.isLogicalModelsEnabled()).thenReturn(false);
     when(mockFeatureFlags.isShowHomepageUserRole()).thenReturn(false);
     when(mockFeatureFlags.isAssetSummaryPageV1()).thenReturn(false);
+    when(mockFeatureFlags.isDocumentationFileUploadV1()).thenReturn(false);
   }
 
   @Test
@@ -188,6 +192,7 @@ public class AppConfigResolverTest {
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
             mockHomePageConfiguration,
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
@@ -355,6 +360,7 @@ public class AppConfigResolverTest {
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
             mockHomePageConfiguration,
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
@@ -385,6 +391,7 @@ public class AppConfigResolverTest {
             mockViewsConfiguration,
             mockSearchBarConfiguration,
             mockSearchCardConfiguration,
+            mockSearchFlagsConfiguration,
             mockHomePageConfiguration,
             mockFeatureFlags,
             mockChromeExtensionConfiguration,

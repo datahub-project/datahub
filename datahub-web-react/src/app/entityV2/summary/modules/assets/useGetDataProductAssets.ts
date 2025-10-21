@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useHistory } from 'react-router';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useListDataProductAssetsQuery } from '@graphql/search.generated';
@@ -12,6 +13,7 @@ const NUMBER_OF_ASSETS_TO_FETCH = 10;
 export const useGetDataProductAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH) => {
     const { urn, entityType } = useEntityData();
     const history = useHistory();
+    const { isReloading, onReloadingFinished } = useModuleContext();
 
     const getInputVariables = useCallback(
         (start: number, count: number) => ({
@@ -34,7 +36,8 @@ export const useGetDataProductAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH
     } = useListDataProductAssetsQuery({
         variables: getInputVariables(0, initialCount),
         skip: entityType !== EntityType.DataProduct,
-        fetchPolicy: 'cache-first',
+        fetchPolicy: isReloading ? 'cache-and-network' : 'cache-first',
+        onCompleted: () => onReloadingFinished?.(),
     });
 
     const entityRegistry = useEntityRegistryV2();
