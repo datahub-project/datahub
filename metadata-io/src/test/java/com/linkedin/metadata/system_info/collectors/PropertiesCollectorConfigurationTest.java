@@ -456,6 +456,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.plugin.retention.path",
           "datahub.serverEnv",
           "datahub.serverType",
+          "datahub.s3.bucketName",
+          "datahub.s3.roleArn",
+          "datahub.s3.presignedUploadUrlExpirationSeconds",
+          "datahub.s3.presignedDownloadUrlExpirationSeconds",
+          "datahub.s3.assetPathPrefix",
 
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",
@@ -553,6 +558,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.bulkProcessor.numRetries",
           "elasticsearch.bulkProcessor.refreshPolicy",
           "elasticsearch.bulkProcessor.requestsLimit",
+          "elasticsearch.bulkProcessor.sizeLimit",
+          "elasticsearch.bulkProcessor.threadCount",
+          "elasticsearch.dataNodeCount",
           "elasticsearch.bulkProcessor.retryInterval",
           "elasticsearch.connectionRequestTimeout",
           "elasticsearch.host",

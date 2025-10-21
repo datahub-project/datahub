@@ -296,7 +296,12 @@ function EntityActions(props: Props) {
                         placement="bottom"
                         data-testid="data-product-batch-add"
                     >
-                        <Button variant="outline" onClick={() => setIsBatchSetDataProductModalVisible(true)} size="sm">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsBatchSetDataProductModalVisible(true)}
+                            size="sm"
+                            data-testid="data-product-batch-add"
+                        >
                             <LinkOutlined />
                             Add Assets
                         </Button>

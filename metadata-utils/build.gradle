@@ -32,6 +32,10 @@ dependencies {
   compileOnly externalDependency.lombok
   runtimeOnly externalDependency.javaxMail
 
+  implementation platform(externalDependency.awsSdk2Bom)
+  implementation 'software.amazon.awssdk:s3'
+  implementation 'software.amazon.awssdk:sts'
+
   annotationProcessor externalDependency.lombok
 
   testImplementation project(':test-models')

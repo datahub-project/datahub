@@ -58,7 +58,7 @@ public class DataHubSystemAuthenticator implements Authenticator {
       if (authorizationHeader.startsWith("Basic ") || authorizationHeader.startsWith("basic ")) {
 
         String credentials = authorizationHeader.substring(6);
-        String[] splitCredentials = credentials.split(":");
+        String[] splitCredentials = credentials.split(":", 2);
 
         if (splitCredentials.length == 2
             && this.systemClientId.equals(splitCredentials[0])

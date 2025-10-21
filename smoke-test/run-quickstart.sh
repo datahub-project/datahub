@@ -15,7 +15,7 @@ echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
 
 echo "DATAHUB_VERSION = $DATAHUB_VERSION"
 DATAHUB_SEARCH_IMAGE="${DATAHUB_SEARCH_IMAGE:=opensearchproject/opensearch}"
-DATAHUB_SEARCH_TAG="${DATAHUB_SEARCH_TAG:=2.17.0}"
+DATAHUB_SEARCH_TAG="${DATAHUB_SEARCH_TAG:=2.19.3}"
 XPACK_SECURITY_ENABLED="${XPACK_SECURITY_ENABLED:=plugins.security.disabled=true}"
 ELASTICSEARCH_USE_SSL="${ELASTICSEARCH_USE_SSL:=false}"
 USE_AWS_ELASTICSEARCH="${USE_AWS_ELASTICSEARCH:=true}"
@@ -33,6 +33,7 @@ XPACK_SECURITY_ENABLED="$XPACK_SECURITY_ENABLED" ELASTICSEARCH_USE_SSL="$ELASTIC
 USE_AWS_ELASTICSEARCH="$USE_AWS_ELASTICSEARCH" \
 DATAHUB_VERSION=${DATAHUB_VERSION} \
 ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS=1 \
+POLICY_CACHE_REFRESH_INTERVAL_SECONDS=10 \
 DATAHUB_ACTIONS_IMAGE=acryldata/datahub-actions \
 DATAHUB_LOCAL_ACTIONS_ENV=`pwd`/test_resources/actions/actions.env  \
 docker compose --project-directory ../docker/profiles --profile ${PROFILE_NAME:-quickstart-consumers} up -d --quiet-pull --wait --wait-timeout 900
