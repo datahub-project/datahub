@@ -79,8 +79,7 @@ x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart-postgres-cdc
   - quickstart-consumers
   - quickstart-consumers-cdc
-x-opensearch-profiles-dev: &opensearch-profiles-dev
-  - debug
+x-opensearch-setup-profiles-dev: &opensearch-setup-profiles-dev
   - debug-min
   - debug-datahub-actions
   - debug-frontend
@@ -434,7 +433,7 @@ services:
       datahub_setup_job: true
   opensearch-setup-dev:
     <<: *opensearch-setup
-    profiles: *opensearch-profiles-dev
+    profiles: *opensearch-setup-profiles-dev
     hostname: opensearch-setup-dev
     image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-debug}
     environment:
