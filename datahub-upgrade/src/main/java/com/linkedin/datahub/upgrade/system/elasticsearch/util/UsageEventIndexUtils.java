@@ -61,7 +61,7 @@ public class UsageEventIndexUtils {
           || response.getStatusLine().getStatusCode() == 201) {
         log.info("Successfully created ILM policy: {}", policyName);
       } else {
-        log.warn(
+        log.error(
             "ILM policy creation returned status: {}", response.getStatusLine().getStatusCode());
       }
     } catch (ResponseException e) {
