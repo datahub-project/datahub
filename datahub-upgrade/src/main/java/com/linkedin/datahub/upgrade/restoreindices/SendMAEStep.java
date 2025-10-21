@@ -224,6 +224,7 @@ public class SendMAEStep implements UpgradeStep {
               context.report().addLine("End of data.");
               break;
             } else {
+              log.error("Failure processing restore indices batch.", e);
               return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
             }
           }
@@ -239,6 +240,7 @@ public class SendMAEStep implements UpgradeStep {
           List<RestoreIndicesResult> tmpResults = iterateFutures(futures);
           for (RestoreIndicesResult tmpResult : tmpResults) {
             if (tmpResult == null) {
+              log.error("Failure processing restore indices batch.", e);
               // return error if there was an error processing a future
               return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
             }
