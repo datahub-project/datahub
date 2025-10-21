@@ -32,16 +32,21 @@ if TYPE_CHECKING:
         IS_AIRFLOW_3: bool = True
     except ImportError:
         # Airflow 2 types
-        from openlineage.airflow.extractors import (
+        from openlineage.airflow.extractors import (  # type: ignore[no-redef]
             BaseExtractor,
             ExtractorManager as OLExtractorManager,
             TaskMetadata,
         )
-        from openlineage.airflow.extractors.snowflake_extractor import (
+        from openlineage.airflow.extractors.snowflake_extractor import (  # type: ignore[no-redef]
             SnowflakeExtractor,
         )
-        from openlineage.airflow.extractors.sql_extractor import SqlExtractor
-        from openlineage.airflow.utils import get_operator_class, try_import_from_string
+        from openlineage.airflow.extractors.sql_extractor import (
+            SqlExtractor,  # type: ignore[no-redef]
+        )
+        from openlineage.airflow.utils import (  # type: ignore[no-redef]
+            get_operator_class,
+            try_import_from_string,
+        )
 
         OperatorLineage: Any  # type: ignore[no-redef]  # Doesn't exist in Airflow 2
         IS_AIRFLOW_3: bool = False  # type: ignore[no-redef]

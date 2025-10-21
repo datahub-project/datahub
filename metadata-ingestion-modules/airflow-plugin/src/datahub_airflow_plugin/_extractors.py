@@ -88,8 +88,8 @@ class ExtractorManager(OLExtractorManager):
             for operator in _sql_operator_overrides:
                 self.task_to_extractor.extractors[operator] = GenericSqlExtractor  # type: ignore[attr-defined]
 
-            self.task_to_extractor.extractors["AthenaOperator"] = (
-                AthenaOperatorExtractor  # type: ignore[attr-defined]
+            self.task_to_extractor.extractors["AthenaOperator"] = (  # type: ignore[attr-defined]
+                AthenaOperatorExtractor
             )
 
             self.task_to_extractor.extractors["BigQueryInsertJobOperator"] = (  # type: ignore[attr-defined]
