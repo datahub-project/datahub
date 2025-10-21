@@ -61,7 +61,9 @@ jobs:
           "benjiaming",
           "deepgarg760",
           "petemango",
-          "askumar27"
+          "askumar27",
+          "kyungsoo-datahub",
+          "AdrianMachado"
           ]'),
           github.actor
           )
