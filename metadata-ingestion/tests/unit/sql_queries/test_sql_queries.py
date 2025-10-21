@@ -541,7 +541,7 @@ class TestSqlQueriesSource:
 
         source = SqlQueriesSource(pipeline_context, config)
 
-        # Generate work units (these will be converted to workunits by the processors)
+        # Generate work units
         work_units = list(source.get_workunits_internal())
 
         # Should generate some work units (exact number depends on SQL aggregator behavior)
