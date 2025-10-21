@@ -101,7 +101,9 @@ class StatefulLineageConfigMixin(ConfigModel):
         default=True,
         description="Enable stateful lineage ingestion."
         " This will store lineage window timestamps after successful lineage ingestion. "
-        "and will not run lineage ingestion for same timestamps in subsequent run. ",
+        "and will not run lineage ingestion for same timestamps in subsequent run. "
+        "NOTE: This only works with use_queries_v2=False (legacy extraction path). "
+        "For queries v2, use enable_stateful_time_window instead.",
     )
 
     _store_last_lineage_extraction_timestamp = pydantic_renamed_field(
@@ -150,7 +152,9 @@ class StatefulUsageConfigMixin(BaseTimeWindowConfig):
         default=True,
         description="Enable stateful lineage ingestion."
         " This will store usage window timestamps after successful usage ingestion. "
-        "and will not run usage ingestion for same timestamps in subsequent run. ",
+        "and will not run usage ingestion for same timestamps in subsequent run. "
+        "NOTE: This only works with use_queries_v2=False (legacy extraction path). "
+        "For queries v2, use enable_stateful_time_window instead.",
     )
 
     _store_last_usage_extraction_timestamp = pydantic_renamed_field(
