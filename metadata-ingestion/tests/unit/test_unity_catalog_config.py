@@ -17,6 +17,7 @@ def test_within_thirty_days():
             "workspace_url": "https://workspace_url",
             "include_usage_statistics": True,
             "include_hive_metastore": False,
+            "include_tags": False,
             "start_time": FROZEN_TIME - timedelta(days=30),
         }
     )
@@ -55,6 +56,7 @@ def test_profiling_requires_warehouses_id():
             "token": "token",
             "workspace_url": "https://workspace_url",
             "include_hive_metastore": False,
+            "include_tags": False,
             "profiling": {"enabled": False, "method": "ge"},
         }
     )
@@ -65,6 +67,7 @@ def test_profiling_requires_warehouses_id():
             {
                 "token": "token",
                 "include_hive_metastore": False,
+                "include_tags": False,
                 "workspace_url": "workspace_url",
             }
         )
@@ -118,28 +121,32 @@ def test_set_different_warehouse_id_from_profiling():
 
 
 def test_warehouse_id_must_be_set_if_include_hive_metastore_is_true():
-    with pytest.raises(
-        ValueError,
-        match="When `include_hive_metastore` is set, `warehouse_id` must be set.",
-    ):
-        UnityCatalogSourceConfig.parse_obj(
-            {
-                "token": "token",
-                "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
-                "include_hive_metastore": True,
-            }
-        )
+    """Test that include_hive_metastore is auto-disabled when warehouse_id is missing."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
+            "include_hive_metastore": True,
+        }
+    )
+    # Should automatically disable hive_metastore when warehouse_id is missing
+    assert config.include_hive_metastore is False
+    assert config.warehouse_id is None
 
 
+@pytest.mark.skip(
+    reason="This test is making actual network calls with retries taking ~5 mins, needs to be mocked"
+)
 def test_warehouse_id_must_be_present_test_connection():
+    """Test that connection succeeds when hive_metastore gets auto-disabled."""
     config_dict = {
         "token": "token",
         "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
-        "include_hive_metastore": True,
+        "include_hive_metastore": True,  # Will be auto-disabled
     }
     report = UnityCatalogSource.test_connection(config_dict)
-    assert report.internal_failure
-    print(report.internal_failure_reason)
+    # Should succeed since include_hive_metastore gets auto-disabled
+    assert not report.internal_failure
 
 
 def test_set_profiling_warehouse_id_from_global():
@@ -157,6 +164,84 @@ def test_set_profiling_warehouse_id_from_global():
     assert config.profiling.warehouse_id == "my_global_warehouse_id"
 
 
+def test_warehouse_id_auto_disables_tags_when_missing():
+    """Test that include_tags is automatically disabled when warehouse_id is missing."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,  # Disable to test tag validation specifically
+            # include_tags defaults to True, warehouse_id is missing
+        }
+    )
+    # Should automatically disable tags when warehouse_id is missing
+    assert config.include_tags is False
+    assert config.warehouse_id is None
+
+
+def test_warehouse_id_not_required_when_tags_disabled():
+    """Test that warehouse_id is not required when include_tags=False."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,  # Explicitly disable tags
+            # warehouse_id is missing but should be allowed
+        }
+    )
+    assert config.include_tags is False
+    assert config.warehouse_id is None
+
+
+def test_warehouse_id_explicit_true_auto_disables():
+    """Test that explicitly setting include_tags=True gets auto-disabled when warehouse_id is missing."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": True,  # Explicitly enable tags
+            # warehouse_id is missing
+        }
+    )
+    # Should automatically disable tags even when explicitly set to True
+    assert config.include_tags is False
+    assert config.warehouse_id is None
+
+
+def test_warehouse_id_with_tags_enabled_succeeds():
+    """Test that providing warehouse_id with include_tags=True succeeds."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": True,
+            "warehouse_id": "test_warehouse_123",
+        }
+    )
+    assert config.include_tags is True
+    assert config.warehouse_id == "test_warehouse_123"
+
+
+def test_warehouse_id_validation_with_hive_metastore_precedence():
+    """Test that both hive_metastore and tags are auto-disabled when warehouse_id is missing."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": True,  # Should be auto-disabled
+            "include_tags": True,  # Should be auto-disabled
+            # warehouse_id is missing
+        }
+    )
+    # Both should be auto-disabled when warehouse_id is missing
+    assert config.include_hive_metastore is False
+    assert config.include_tags is False
+    assert config.warehouse_id is None
+
+
 def test_databricks_api_page_size_default():
     """Test that databricks_api_page_size defaults to 0."""
     config = UnityCatalogSourceConfig.parse_obj(
@@ -164,6 +249,7 @@ def test_databricks_api_page_size_default():
             "token": "token",
             "workspace_url": "https://test.databricks.com",
             "include_hive_metastore": False,
+            "include_tags": False,
         }
     )
     assert config.databricks_api_page_size == 0
@@ -176,6 +262,7 @@ def test_databricks_api_page_size_valid_values():
             "token": "token",
             "workspace_url": "https://test.databricks.com",
             "include_hive_metastore": False,
+            "include_tags": False,
             "databricks_api_page_size": 100,
         }
     )
@@ -186,6 +273,7 @@ def test_databricks_api_page_size_valid_values():
             "token": "token",
             "workspace_url": "https://test.databricks.com",
             "include_hive_metastore": False,
+            "include_tags": False,
             "databricks_api_page_size": 1000,
         }
     )
@@ -199,6 +287,7 @@ def test_databricks_api_page_size_zero_allowed():
             "token": "token",
             "workspace_url": "https://test.databricks.com",
             "include_hive_metastore": False,
+            "include_tags": False,
             "databricks_api_page_size": 0,
         }
     )
@@ -207,26 +296,202 @@ def test_databricks_api_page_size_zero_allowed():
 
 def test_databricks_api_page_size_negative_invalid():
     """Test that databricks_api_page_size rejects negative values."""
-    with pytest.raises(
-        ValueError, match="ensure this value is greater than or equal to 0"
-    ):
+    with pytest.raises(ValueError, match="Input should be greater than or equal to 0"):
         UnityCatalogSourceConfig.parse_obj(
             {
                 "token": "token",
                 "workspace_url": "https://test.databricks.com",
                 "include_hive_metastore": False,
+                "include_tags": False,
                 "databricks_api_page_size": -1,
             }
         )
 
+    with pytest.raises(ValueError, match="Input should be greater than or equal to 0"):
+        UnityCatalogSourceConfig.parse_obj(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "include_tags": False,
+                "databricks_api_page_size": -100,
+            }
+        )
+
+
+def test_include_ml_model_default():
+    """Test that include_ml_model_aliases defaults to False."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+        }
+    )
+    assert config.include_ml_model_aliases is False
+    assert config.ml_model_max_results == 1000
+
+
+def test_include_ml_model_aliases_explicit_true():
+    """Test that include_ml_model_aliases can be set to True."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_ml_model_aliases": True,
+        }
+    )
+    assert config.include_ml_model_aliases is True
+
+
+def test_ml_model_max_results_valid_values():
+    """Test that ml_model_max_results accepts valid positive integers."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "ml_model_max_results": 2000,
+        }
+    )
+    assert config.ml_model_max_results == 2000
+
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "ml_model_max_results": 1,
+        }
+    )
+    assert config.ml_model_max_results == 1
+
+
+def test_ml_model_max_results_negative_invalid():
+    """Test that ml_model_max_results rejects negative values."""
+    with pytest.raises(ValueError):
+        UnityCatalogSourceConfig.parse_obj(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "ml_model_max_results": -100,
+            }
+        )
+
+
+def test_lineage_data_source_default():
+    """Test that lineage_data_source defaults to AUTO."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+        }
+    )
+    from datahub.ingestion.source.unity.config import LineageDataSource
+
+    assert config.lineage_data_source == LineageDataSource.AUTO
+
+
+def test_lineage_data_source_system_tables_requires_warehouse_id():
+    """Test that lineage_data_source=SYSTEM_TABLES requires warehouse_id."""
     with pytest.raises(
-        ValueError, match="ensure this value is greater than or equal to 0"
+        ValueError,
+        match="lineage_data_source='SYSTEM_TABLES' requires warehouse_id to be set",
     ):
         UnityCatalogSourceConfig.parse_obj(
             {
                 "token": "token",
                 "workspace_url": "https://test.databricks.com",
                 "include_hive_metastore": False,
-                "databricks_api_page_size": -100,
+                "include_tags": False,
+                "lineage_data_source": "SYSTEM_TABLES",
             }
         )
+
+
+def test_lineage_data_source_api_does_not_require_warehouse():
+    """Test that lineage_data_source=API does not require warehouse_id."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "lineage_data_source": "API",
+        }
+    )
+    from datahub.ingestion.source.unity.config import LineageDataSource
+
+    assert config.lineage_data_source == LineageDataSource.API
+    assert config.warehouse_id is None
+
+
+def test_usage_data_source_default():
+    """Test that usage_data_source defaults to AUTO."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+        }
+    )
+    from datahub.ingestion.source.unity.config import UsageDataSource
+
+    assert config.usage_data_source == UsageDataSource.AUTO
+
+
+def test_usage_data_source_system_tables_requires_warehouse_id():
+    """Test that usage_data_source=SYSTEM_TABLES requires warehouse_id."""
+    with pytest.raises(
+        ValueError,
+        match="usage_data_source='SYSTEM_TABLES' requires warehouse_id to be set",
+    ):
+        UnityCatalogSourceConfig.parse_obj(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "include_tags": False,
+                "usage_data_source": "SYSTEM_TABLES",
+            }
+        )
+
+
+def test_usage_data_source_api_does_not_require_warehouse():
+    """Test that usage_data_source=API does not require warehouse_id."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "usage_data_source": "API",
+        }
+    )
+    from datahub.ingestion.source.unity.config import UsageDataSource
+
+    assert config.usage_data_source == UsageDataSource.API
+    assert config.warehouse_id is None
+
+
+def test_usage_data_source_can_be_set_with_warehouse():
+    """Test that usage_data_source can be set to SYSTEM_TABLES with warehouse_id."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "warehouse_id": "test_warehouse",
+            "usage_data_source": "SYSTEM_TABLES",
+        }
+    )
+    from datahub.ingestion.source.unity.config import UsageDataSource
+
+    assert config.usage_data_source == UsageDataSource.SYSTEM_TABLES
+    assert config.warehouse_id == "test_warehouse"

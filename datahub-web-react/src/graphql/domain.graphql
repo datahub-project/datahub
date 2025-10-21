@@ -6,6 +6,9 @@ query getDomain($urn: String!) {
         properties {
             name
             description
+            createdOn {
+                time
+            }
         }
         parentDomains {
             ...parentDomainsFields
@@ -17,17 +20,7 @@ query getDomain($urn: String!) {
             ...entityPrivileges
         }
         institutionalMemory {
-            elements {
-                url
-                actor {
-                    ...resolvedActorFields
-                }
-                description
-                created {
-                    actor
-                    time
-                }
-            }
+            ...institutionalMemoryFields
         }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
@@ -45,6 +38,9 @@ query getDomain($urn: String!) {
         }
         ...domainEntitiesFields
         ...notes
+        settings {
+            ...AssetSettingsFields
+        }
     }
 }
 

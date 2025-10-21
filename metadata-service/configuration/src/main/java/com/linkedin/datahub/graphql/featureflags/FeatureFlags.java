@@ -7,8 +7,8 @@ import lombok.Data;
 public class FeatureFlags {
   private boolean showSimplifiedHomepageByDefault = false;
   private boolean lineageSearchCacheEnabled = false;
-  private boolean pointInTimeCreationEnabled = false;
   private boolean alwaysEmitChangeLog = false;
+  private boolean cdcModeChangeLog = false;
   private boolean readOnlyModeEnabled = false;
   private boolean showSearchFiltersV2 = false;
   private boolean showBrowseV2 = false;
@@ -49,4 +49,6 @@ public class FeatureFlags {
   private boolean logicalModelsEnabled = false;
   private boolean showHomepageUserRole = false;
   private boolean assetSummaryPageV1 = false;
+  private boolean showDefaultExternalLinks = true;
+  private boolean documentationFileUploadV1 = false;
 }

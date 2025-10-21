@@ -74,4 +74,5 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
             callback(err, f"Failed to write record: {err}")
 
     def close(self) -> None:
+        super().close()
         self.emitter.flush()

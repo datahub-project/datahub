@@ -63,6 +63,7 @@ export default function StorageSizeGraph() {
     return (
         <GraphCard
             title={chartName}
+            dataTestId="storage-size-card"
             isEmpty={data.length === 0 || !canViewDatasetProfile}
             emptyContent={!canViewDatasetProfile && <NoPermission statName="storage size" />}
             loading={loading}
@@ -80,6 +81,7 @@ export default function StorageSizeGraph() {
             )}
             renderGraph={() => (
                 <LineChart
+                    dataTestId="storage-size-chart"
                     data={data}
                     bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
                     leftAxisProps={{ hideZero: true, tickFormat: bytesFormatter }}

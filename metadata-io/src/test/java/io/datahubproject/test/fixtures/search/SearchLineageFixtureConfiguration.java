@@ -1,8 +1,8 @@
 package io.datahubproject.test.fixtures.search;
 
 import static com.linkedin.metadata.Constants.*;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 
 import com.linkedin.entity.client.EntityClient;
@@ -15,6 +15,7 @@ import com.linkedin.metadata.config.cache.CacheConfiguration;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -38,6 +39,7 @@ import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
@@ -49,7 +51,6 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -60,11 +61,11 @@ import org.springframework.context.annotation.Import;
 
 @TestConfiguration
 @Import(SearchCommonTestConfiguration.class)
-public class SearchLineageFixtureConfiguration {
+public abstract class SearchLineageFixtureConfiguration {
 
   @Autowired private ESBulkProcessor bulkProcessor;
 
-  @Autowired private RestHighLevelClient searchClient;
+  @Autowired private SearchClientShim<?> searchClient;
 
   @Autowired
   @Qualifier("fixtureCustomSearchConfig")
@@ -104,9 +105,16 @@ public class SearchLineageFixtureConfiguration {
         .getSideEffects()
         .setSchemaField(new MetadataChangeProposalConfig.SideEffectConfig());
     conf.getMetadataChangeProposal().getSideEffects().getSchemaField().setEnabled(false);
-    conf.setElasticSearch(TEST_ES_SEARCH_CONFIG);
+    conf.setElasticSearch(getElasticSearchConfiguration());
     return conf;
   }
+
+  /**
+   * Abstract method that child classes must implement to provide the correct
+   * ElasticSearchConfiguration. This allows different implementations (OpenSearch vs Elasticsearch)
+   * to use their respective configurations.
+   */
+  protected abstract ElasticSearchConfiguration getElasticSearchConfiguration();
 
   @Bean(name = "searchLineageEntitySearchService")
   protected ElasticSearchService entitySearchService(
@@ -124,7 +132,7 @@ public class SearchLineageFixtureConfiguration {
             true,
             false,
             false,
-            TEST_ES_SEARCH_CONFIG,
+            TEST_OS_SEARCH_CONFIG,
             gitVersion);
     IndexConfiguration indexConfiguration = new IndexConfiguration();
     indexConfiguration.setMinSearchFilterLength(3);
@@ -133,19 +141,19 @@ public class SearchLineageFixtureConfiguration {
         new ESSearchDAO(
             searchClient,
             false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchConfiguration(),
             customSearchConfiguration,
             queryFilterRewriteChain,
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
             searchClient,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchConfiguration(),
             customSearchConfiguration,
             queryFilterRewriteChain,
             TEST_SEARCH_SERVICE_CONFIG);
-    ESWriteDAO writeDAO = new ESWriteDAO(TEST_ES_SEARCH_CONFIG, searchClient, bulkProcessor);
+    ESWriteDAO writeDAO =
+        new ESWriteDAO(getElasticSearchConfiguration(), searchClient, bulkProcessor);
 
     return new ElasticSearchService(
         indexBuilder,
@@ -174,7 +182,17 @@ public class SearchLineageFixtureConfiguration {
   protected ESIndexBuilder esIndexBuilder() {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
     return new ESIndexBuilder(
-        searchClient, 1, 1, 1, 1, Map.of(), true, true, false, TEST_ES_SEARCH_CONFIG, gitVersion);
+        searchClient,
+        1,
+        1,
+        1,
+        1,
+        Map.of(),
+        true,
+        true,
+        false,
+        getElasticSearchConfiguration(),
+        gitVersion);
   }
 
   @Bean(name = "searchLineageGraphService")
@@ -190,16 +208,12 @@ public class SearchLineageFixtureConfiguration {
             bulkProcessor,
             indexConvention,
             new ESGraphWriteDAO(
-                indexConvention, bulkProcessor, 1, TEST_ES_SEARCH_CONFIG.getSearch().getGraph()),
-            new ESGraphQueryDAO(
-                searchClient,
-                false,
-                ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-                lineageRegistry,
                 indexConvention,
-                TEST_GRAPH_SERVICE_CONFIG,
-                TEST_ES_SEARCH_CONFIG,
-                null),
+                bulkProcessor,
+                1,
+                getElasticSearchConfiguration().getSearch().getGraph()),
+            new ESGraphQueryDAO(
+                searchClient, TEST_GRAPH_SERVICE_CONFIG, getElasticSearchConfiguration(), null),
             indexBuilder,
             indexConvention.getIdHashAlgo());
     graphService.reindexAll(Collections.emptySet());

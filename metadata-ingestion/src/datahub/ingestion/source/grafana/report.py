@@ -3,11 +3,10 @@ from dataclasses import dataclass
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 
 
 @dataclass
-class GrafanaSourceReport(StaleEntityRemovalSourceReport, IngestionStageReport):
+class GrafanaSourceReport(StaleEntityRemovalSourceReport):
     # Entity counters
     dashboards_scanned: int = 0
     charts_scanned: int = 0

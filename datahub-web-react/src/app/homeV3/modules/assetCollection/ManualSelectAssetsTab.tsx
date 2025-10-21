@@ -1,10 +1,12 @@
-import { Checkbox, Loader, SearchBar, Text } from '@components';
+import { Checkbox, Loader, SearchBar, Text, colors } from '@components';
+import { Divider } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import AssetFilters from '@app/homeV3/modules/assetCollection/AssetFilters';
 import EmptySection from '@app/homeV3/modules/assetCollection/EmptySection';
+import SelectedAssetsSection from '@app/homeV3/modules/assetCollection/SelectedAssetsSection';
 import useGetAssetResults from '@app/homeV3/modules/assetCollection/useGetAssetResults';
 import { LoaderContainer } from '@app/homeV3/styledComponents';
 import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
@@ -28,6 +30,31 @@ const ResultsContainer = styled.div`
 const ScrollableResultsContainer = styled.div`
     max-height: inherit;
     overflow-y: auto;
+`;
+
+const Container = styled.div`
+    display: flex;
+    width: 100%;
+    gap: 8px;
+`;
+
+const LeftSection = styled.div`
+    flex: 6;
+    min-width: 0;
+`;
+
+const RightSection = styled.div`
+    flex: 4;
+    width: calc(40% - 20px);
+`;
+
+const VerticalDivider = styled(Divider)`
+    color: ${colors.gray[100]};
+    height: auto;
+`;
+
+const SearchHeader = styled(Text)`
+    margin-bottom: 8px;
 `;
 
 type Props = {
@@ -62,6 +89,7 @@ const ManualSelectAssetsTab = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
                     size="xs"
                     isChecked={selectedAssetUrns?.includes(entity.urn)}
                     onCheckboxChange={() => handleCheckboxChange(entity.urn)}
+                    data-testid="asset-selection-checkbox"
                 />
             </ItemDetailsContainer>
         );
@@ -90,17 +118,31 @@ const ManualSelectAssetsTab = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     }
 
     return (
-        <>
-            <SearchBar value={searchQuery} onChange={handleSearchChange} />
-            <AssetFilters
-                searchQuery={searchQuery}
-                appliedFilters={appliedFilters}
-                updateFieldFilters={updateFieldFilters}
-            />
-            <ResultsContainer>
-                <ScrollableResultsContainer>{content}</ScrollableResultsContainer>
-            </ResultsContainer>
-        </>
+        <Container>
+            <LeftSection>
+                <SearchHeader color="gray" weight="bold">
+                    Search and Select Assets
+                </SearchHeader>
+                <SearchBar value={searchQuery} onChange={handleSearchChange} />
+                <AssetFilters
+                    searchQuery={searchQuery}
+                    appliedFilters={appliedFilters}
+                    updateFieldFilters={updateFieldFilters}
+                />
+                <ResultsContainer>
+                    <ScrollableResultsContainer data-testid="select-assets-search-results">
+                        {content}
+                    </ScrollableResultsContainer>
+                </ResultsContainer>
+            </LeftSection>
+            <VerticalDivider type="vertical" />
+            <RightSection>
+                <SelectedAssetsSection
+                    selectedAssetUrns={selectedAssetUrns}
+                    setSelectedAssetUrns={setSelectedAssetUrns}
+                />
+            </RightSection>
+        </Container>
     );
 };
 

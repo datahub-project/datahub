@@ -170,7 +170,7 @@ type Query {
   getEntityCounts(input: EntityCountInput): EntityCountResults
 
   """
-  List all DataHub Domains
+  Lists all DataHub Domains belonging to the specified parent. If no parent is specified, lists root domains.
   """
   listDomains(input: ListDomainsInput!): ListDomainsResult
 
@@ -600,9 +600,22 @@ type Mutation {
   batchRemoveOwners(input: BatchRemoveOwnersInput!): Boolean
 
   """
-  Add a link, or institutional memory, from a particular Entity
+  Add a link, or institutional memory, for a particular asset
   """
   addLink(input: AddLinkInput!): Boolean
+
+  """
+  Update a link, or institutional memory, for a particular asset.
+  A combo of link label and url create a unique identifier for which link to update.
+  """
+  updateLink(input: UpdateLinkInput!): Boolean
+
+  """
+  Upsert a link, or institutional memory, for a particular asset.
+  A combo of link label and url create a unique identifier to update a link,
+  or add a new link if no links with label/url combo are found.
+  """
+  upsertLink(input: UpsertLinkInput!): Boolean
 
   """
   Remove a link, or institutional memory, from a particular Entity
@@ -1983,6 +1996,11 @@ type Actor {
   List of users for which the role is provisioned
   """
   users: [RoleUser!]
+
+  """
+  List of groups for which the role is provisioned
+  """
+  groups: [RoleGroup!]
 }
 
 type RoleUser {
@@ -1990,6 +2008,13 @@ type RoleUser {
   Linked corp user of a role
   """
   user: CorpUser!
+}
+
+type RoleGroup {
+  """
+  Linked corp group of a role
+  """
+  group: CorpGroup!
 }
 
 type RoleProperties {
@@ -2592,6 +2617,11 @@ type GlossaryTermProperties {
   Schema definition of glossary term
   """
   rawSchema: String
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp
 }
 
 """
@@ -2628,6 +2658,11 @@ type GlossaryNode implements Entity {
   Recursively get the lineage of glossary nodes for this entity
   """
   parentNodes: ParentNodesResult
+
+  """
+  References to internal resources related to the Glossary Node
+  """
+  institutionalMemory: InstitutionalMemory
 
   """
   Privileges given to a user relevant to this entity
@@ -2717,6 +2752,11 @@ type GlossaryNodeProperties {
   Custom properties of the Glossary Node
   """
   customProperties: [CustomPropertiesEntry!]
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp
 }
 
 """
@@ -3292,6 +3332,11 @@ type InstitutionalMemoryMetadata {
   created: AuditStamp!
 
   """
+  An AuditStamp corresponding to the updating of this resource
+  """
+  updated: AuditStamp
+
+  """
   Deprecated, use label instead
   Description of the resource
   """
@@ -3301,6 +3346,21 @@ type InstitutionalMemoryMetadata {
   Reference back to the owned urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  Settings for this record of institutional memory
+  """
+  settings: InstitutionalMemoryMetadataSettings
+}
+
+"""
+Settings for an institutional memory record
+"""
+type InstitutionalMemoryMetadataSettings {
+  """
+  Show record in asset preview like on entity header and search previews
+  """
+  showInAssetPreview: Boolean!
 }
 
 """
@@ -3554,6 +3614,16 @@ type SchemaFieldEntity implements EntityWithRelationships & Entity {
   deprecation status of the schema field
   """
   deprecation: Deprecation
+
+  """
+  Tags associated with the field
+  """
+  tags: GlobalTags
+
+  """
+  Glossary terms associated with the field
+  """
+  glossaryTerms: GlossaryTerms
 }
 
 """
@@ -4834,6 +4904,11 @@ type Owner {
   Reference back to the owned urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  Information about who, why, and how this metadata was applied
+  """
+  attribution: MetadataAttribution
 }
 
 """
@@ -4954,6 +5029,16 @@ type TagAssociation {
   Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  The context of how/why this tag is associated
+  """
+  context: String
+
+  """
+  Information about who, why, and how this metadata was applied
+  """
+  attribution: MetadataAttribution
 }
 
 """
@@ -5003,6 +5088,16 @@ type GlossaryTermAssociation {
   Reference back to the associated urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  The context of how/why this term is associated
+  """
+  context: String
+
+  """
+  Information about who, why, and how this metadata was applied
+  """
+  attribution: MetadataAttribution
 }
 
 """
@@ -9119,6 +9214,78 @@ input AddLinkInput {
   The urn of the resource or entity to attach the link to, for example a dataset urn
   """
   resourceUrn: String!
+
+  """
+  Optional settings input for this link
+  """
+  settings: LinkSettingsInput
+}
+
+input LinkSettingsInput {
+  """
+  Determines whether this link should be shown in the asset preview like entity header and search result cards
+  """
+  showInAssetPreview: Boolean
+}
+
+"""
+Input provided when updating the association between a Metadata Entity and a Link
+"""
+input UpdateLinkInput {
+  """
+  Current url of the link
+  """
+  currentUrl: String!
+
+  """
+  Current label of the link
+  """
+  currentLabel: String!
+
+  """
+  The new url of the link
+  """
+  linkUrl: String!
+
+  """
+  The new label of the link
+  """
+  label: String!
+
+  """
+  The new optional settings input for the link
+  """
+  settings: LinkSettingsInput
+
+  """
+  The urn of the resource or entity to attach the link to, for example a dataset urn
+  """
+  resourceUrn: String!
+}
+
+"""
+Input provided when upsert the association between a Metadata Entity and a Link
+"""
+input UpsertLinkInput {
+  """
+  The url of the link to add or update
+  """
+  linkUrl: String!
+
+  """
+  The url of the link to add or update
+  """
+  label: String!
+
+  """
+  The urn of the resource or entity to attach the link to, for example a dataset urn
+  """
+  resourceUrn: String!
+
+  """
+  Optional settings input for this link
+  """
+  settings: LinkSettingsInput
 }
 
 """
@@ -9126,9 +9293,14 @@ Input provided when removing the association between a Metadata Entity and a Lin
 """
 input RemoveLinkInput {
   """
-  The url of the link to add or remove, which uniquely identifies the Link
+  The url of the link to remove, which uniquely identifies the Link
   """
   linkUrl: String!
+
+  """
+  The label of the link to remove, which uniquely identifies the Link
+  """
+  label: String
 
   """
   The urn of the resource or entity to attach the link to, for example a dataset urn
@@ -10274,6 +10446,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   Additional read only properties about the ML Model Group
   """
   properties: MLModelGroupProperties
+
+  """
+  References to internal resources related to the ml model group
+  """
+  institutionalMemory: InstitutionalMemory
 
   """
   Ownership metadata of the MLModelGroup
@@ -11422,6 +11599,11 @@ type DomainProperties {
   Description of the Domain
   """
   description: String
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp
 }
 
 """
@@ -12992,6 +13174,11 @@ type DataProductProperties {
   Custom properties of the Data Product
   """
   customProperties: [CustomPropertiesEntry!]
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp
 }
 
 """

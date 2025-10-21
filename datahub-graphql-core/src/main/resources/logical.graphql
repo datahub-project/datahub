@@ -1,0 +1,32 @@
+interface HasLogicalParent {
+  """
+  If this entity represents a physical asset, this is its logical parent, from which metadata can propagate.
+  """
+  logicalParent: Entity
+}
+
+extend type Dataset implements HasLogicalParent {
+  """
+  If this entity represents a physical asset, this is its logical parent, from which metadata can propagate.
+  """
+  logicalParent: Entity
+}
+
+extend type SchemaFieldEntity implements HasLogicalParent {
+  """
+  If this entity represents a physical asset, this is its logical parent, from which metadata can propagate.
+  """
+  logicalParent: Entity
+}
+
+input SetLogicalParentInput {
+  resourceUrn: String!
+  parentUrn: String
+}
+
+extend type Mutation {
+  """
+  Set or unset an entity's logical parent
+  """
+  setLogicalParent(input: SetLogicalParentInput!): Boolean
+}

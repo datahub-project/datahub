@@ -112,6 +112,7 @@ export default function TreeNodeRenderer({ node, depth }: Props) {
                             isChecked={isSelected}
                             setIsChecked={() => toggleSelected(node)}
                             isIntermediate={isIntermediatelySelected}
+                            dataTestId="hierarchy-selection-checkbox"
                         />
                     </>
                 )}

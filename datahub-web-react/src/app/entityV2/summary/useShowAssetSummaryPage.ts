@@ -1,9 +1,6 @@
-import { useAppConfig } from '@app/useAppConfig';
+import { useFeatureFlag } from '@app/sharedV2/hooks/useFeatureFlag';
 
 export function useShowAssetSummaryPage() {
-    const appConfig = useAppConfig();
-    if (appConfig?.loaded) {
-        return appConfig.config.featureFlags.assetSummaryPageV1;
-    }
-    return false;
+    const assetSummaryPageV1 = useFeatureFlag('assetSummaryPageV1');
+    return assetSummaryPageV1;
 }

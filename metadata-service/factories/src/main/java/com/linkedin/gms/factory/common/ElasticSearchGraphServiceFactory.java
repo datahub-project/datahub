@@ -35,7 +35,8 @@ public class ElasticSearchGraphServiceFactory {
       final ConfigurationProvider configurationProvider,
       final EntityRegistry entityRegistry,
       @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
-      MetricUtils metricUtils) {
+      MetricUtils metricUtils,
+      @Qualifier("esGraphQueryDAO") final ESGraphQueryDAO esGraphQueryDAO) {
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
     return new ElasticSearchGraphService(
         lineageRegistry,
@@ -46,16 +47,19 @@ public class ElasticSearchGraphServiceFactory {
             components.getBulkProcessor(),
             components.getConfig().getBulkProcessor().getNumRetries(),
             configurationProvider.getElasticSearch().getSearch().getGraph()),
-        new ESGraphQueryDAO(
-            components.getSearchClient(),
-            configurationProvider.getFeatureFlags().isPointInTimeCreationEnabled(),
-            configurationProvider.getElasticSearch().getImplementation(),
-            lineageRegistry,
-            components.getIndexConvention(),
-            configurationProvider.getGraphService(),
-            configurationProvider.getElasticSearch(),
-            metricUtils),
+        esGraphQueryDAO,
         components.getIndexBuilder(),
         idHashAlgo);
+  }
+
+  @Bean(name = "esGraphQueryDAO")
+  @Nonnull
+  protected ESGraphQueryDAO createESGraphQueryDAO(
+      final ConfigurationProvider configurationProvider, MetricUtils metricUtils) {
+    return new ESGraphQueryDAO(
+        components.getSearchClient(),
+        configurationProvider.getGraphService(),
+        configurationProvider.getElasticSearch(),
+        metricUtils);
   }
 }

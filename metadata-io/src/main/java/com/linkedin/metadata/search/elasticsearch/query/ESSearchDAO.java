@@ -1,6 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
-import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
+import static com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil.X_CONTENT_REGISTRY;
 import static com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder.URN_FIELD;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
@@ -32,12 +32,12 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHan
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,15 +56,11 @@ import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.core.CountRequest;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.search.SearchModule;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
 /** A search DAO for Elasticsearch backend. */
@@ -72,16 +68,9 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 @RequiredArgsConstructor
 @Accessors(chain = true)
 public class ESSearchDAO {
-  private static final NamedXContentRegistry X_CONTENT_REGISTRY;
 
-  static {
-    SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
-    X_CONTENT_REGISTRY = new NamedXContentRegistry(searchModule.getNamedXContents());
-  }
-
-  private final RestHighLevelClient client;
+  private final SearchClientShim<?> client;
   private final boolean pointInTimeCreationEnabled;
-  private final String elasticSearchImpl;
   @Nonnull private final ElasticSearchConfiguration searchConfiguration;
   @Nullable private final CustomSearchConfiguration customSearchConfiguration;
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
@@ -89,9 +78,8 @@ public class ESSearchDAO {
   @Nonnull private final SearchServiceConfiguration searchServiceConfig;
 
   public ESSearchDAO(
-      RestHighLevelClient client,
+      SearchClientShim<?> client,
       boolean pointInTimeCreationEnabled,
-      String elasticSearchImpl,
       @Nonnull ElasticSearchConfiguration searchConfiguration,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
@@ -99,7 +87,6 @@ public class ESSearchDAO {
     this(
         client,
         pointInTimeCreationEnabled,
-        elasticSearchImpl,
         searchConfiguration,
         customSearchConfiguration,
         queryFilterRewriteChain,
@@ -649,15 +636,13 @@ public class ESSearchDAO {
     if (hasSliceOptions && isSliceDisabled()) {
       throw new IllegalStateException(
           "Slice options are not supported with the current ES implementation: "
-              + elasticSearchImpl
+              + client.getEngineType()
               + ". Please disable slice options in the search flags.");
     }
 
     boolean usePIT = (pointInTimeCreationEnabled || hasSliceOptions) && keepAlive != null;
     String pitId =
-        usePIT
-            ? ESUtils.computePointInTime(scrollId, keepAlive, elasticSearchImpl, client, indexArray)
-            : null;
+        usePIT ? ESUtils.computePointInTime(scrollId, keepAlive, client, indexArray) : null;
     Object[] sort = scrollId != null ? SearchAfterWrapper.fromScrollId(scrollId).getSort() : null;
 
     SearchRequest searchRequest =
@@ -751,7 +736,7 @@ public class ESSearchDAO {
   }
 
   private boolean isSliceDisabled() {
-    return ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH.equalsIgnoreCase(elasticSearchImpl);
+    return SearchClientShim.SearchEngineType.ELASTICSEARCH_7.equals(client.getEngineType());
   }
 
   public ExplainResponse explain(

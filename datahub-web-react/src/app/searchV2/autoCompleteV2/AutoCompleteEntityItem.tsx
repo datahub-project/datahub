@@ -111,9 +111,11 @@ interface EntityAutocompleteItemProps {
     navigateOnlyOnNameClick?: boolean;
     dragIconRenderer?: () => React.ReactNode;
     hideSubtitle?: boolean;
+    hideType?: boolean;
     hideMatches?: boolean;
     padding?: string;
     onClick?: () => void;
+    dataTestId?: string;
 }
 
 export default function AutoCompleteEntityItem({
@@ -126,9 +128,11 @@ export default function AutoCompleteEntityItem({
     navigateOnlyOnNameClick,
     dragIconRenderer,
     hideSubtitle,
+    hideType,
     hideMatches,
     padding,
     onClick,
+    dataTestId,
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
@@ -165,7 +169,12 @@ export default function AutoCompleteEntityItem({
     );
 
     return (
-        <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick} $padding={padding} onClick={onClick}>
+        <Container
+            $navigateOnlyOnNameClick={navigateOnlyOnNameClick}
+            $padding={padding}
+            onClick={onClick}
+            data-testid={dataTestId}
+        >
             <ContentContainer>
                 {dragIconRenderer ? (
                     <Icons>
@@ -211,15 +220,17 @@ export default function AutoCompleteEntityItem({
                 </DescriptionContainer>
             </ContentContainer>
 
-            <TypeContainer>
-                {customDetailsRenderer ? (
-                    customDetailsRenderer(entity)
-                ) : (
-                    <Text color={variantProps?.typeColor} colorLevel={variantProps?.typeColorLevel} size="sm">
-                        {displayType}
-                    </Text>
-                )}
-            </TypeContainer>
+            {!hideType && (
+                <TypeContainer>
+                    {customDetailsRenderer ? (
+                        customDetailsRenderer(entity)
+                    ) : (
+                        <Text color={variantProps?.typeColor} colorLevel={variantProps?.typeColorLevel} size="sm">
+                            {displayType}
+                        </Text>
+                    )}
+                </TypeContainer>
+            )}
         </Container>
     );
 }
