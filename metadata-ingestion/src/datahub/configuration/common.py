@@ -140,6 +140,18 @@ class ConfigModel(BaseModel):
 
     @classmethod
     def parse_obj_allow_extras(cls, obj: Any) -> Self:
+        """Parse an object while allowing extra fields.
+
+        'parse_obj' in Pydantic v1 is equivalent to 'model_validate' in Pydantic v2.
+        However, 'parse_obj_allow_extras' in v1 is not directly available in v2.
+
+        `model_validate(..., strict=False)` does not work because it still raises errors on extra fields;
+        strict=False only affects type coercion and validation strictness, not extra field handling.
+
+        This method temporarily modifies the model's configuration to allow extra fields
+
+        TODO: Do we really need to support this behaviour? Consider removing this method in future.
+        """
         if PYDANTIC_VERSION_2:
             try:
                 with unittest.mock.patch.dict(
