@@ -53,12 +53,6 @@ extend type Mutation {
   Update the applications settings.
   """
   updateApplicationsSettings(input: UpdateApplicationsSettingsInput!): Boolean!
-
-  """
-  Clears the product update cache and refetches from the remote source.
-  Returns the updated product update information, or null if unavailable.
-  """
-  refreshProductUpdate: ProductUpdate
 }
 
 """

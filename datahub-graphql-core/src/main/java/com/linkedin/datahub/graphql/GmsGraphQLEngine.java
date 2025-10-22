@@ -54,7 +54,6 @@ import com.linkedin.datahub.graphql.resolvers.chart.BrowseV2Resolver;
 import com.linkedin.datahub.graphql.resolvers.chart.ChartStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.config.ProductUpdateResolver;
-import com.linkedin.datahub.graphql.resolvers.config.RefreshProductUpdateResolver;
 import com.linkedin.datahub.graphql.resolvers.connection.UpsertConnectionResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ParentContainersResolver;
@@ -1432,10 +1431,7 @@ public class GmsGraphQLEngine {
                   "updateApplicationsSettings",
                   new UpdateApplicationsSettingsResolver(this.settingsService))
               .dataFetcher(
-                  "updateAssetSettings", new UpdateAssetSettingsResolver(this.entityClient))
-              .dataFetcher(
-                  "refreshProductUpdate",
-                  new RefreshProductUpdateResolver(this.productUpdateService, this.featureFlags));
+                  "updateAssetSettings", new UpdateAssetSettingsResolver(this.entityClient));
 
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
