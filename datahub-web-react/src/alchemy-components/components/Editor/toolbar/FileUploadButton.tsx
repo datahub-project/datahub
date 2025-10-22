@@ -1,4 +1,4 @@
-import { Button, Dropdown, Text, Tooltip, colors } from '@components';
+import { Button, Dropdown, Text, Tooltip, colors, notification } from '@components';
 import { useRemirrorContext } from '@remirror/react';
 import { FileArrowUp } from 'phosphor-react';
 import React, { useRef, useState } from 'react';
@@ -66,8 +66,11 @@ export const FileUploadButton = () => {
                 files.map(async (file) => {
                     const validation = validateFile(file, { allowedTypes: supportedTypes });
                     if (!validation.isValid) {
-                        // TODO: Handle validation errors
-                        return;
+                        console.error(validation.error);
+                        notification.error({
+                            message: 'Upload Failed',
+                            description: validation.displayError || validation.error,
+                        });
                     }
 
                     // Create placeholder node
@@ -80,13 +83,22 @@ export const FileUploadButton = () => {
                             const finalUrl = await onFileUpload(file);
                             fileExtension.updateNodeWithUrl(remirrorContext.view, attrs.id, finalUrl);
                         } catch (uploadError) {
-                            // TODO: Handle upload errors
+                            console.error(uploadError);
+                            fileExtension.removeNode(remirrorContext.view, attrs.id);
+                            notification.error({
+                                message: 'Upload Failed',
+                                description: 'Something went wrong',
+                            });
                         }
                     }
                 }),
             );
         } catch (error) {
-            // Error processing file - skip silently
+            console.error(error);
+            notification.error({
+                message: 'Upload Failed',
+                description: 'Something went wrong',
+            });
         } finally {
             input.value = '';
             setShowDropdown(false);
