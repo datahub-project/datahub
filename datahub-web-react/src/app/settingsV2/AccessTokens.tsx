@@ -34,18 +34,6 @@ const TokensContainer = styled.div`
     padding-top: 0px;
 `;
 
-const TokensHeaderContainer = styled.div`
-    && {
-        padding-left: 0px;
-    }
-`;
-
-const TokensTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 8px;
-    }
-`;
-
 const StyledAlert = styled(Alert)`
     padding-top: 12px;
     padding-bottom: 12px;
