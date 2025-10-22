@@ -1784,7 +1784,7 @@ class TableauSiteSource:
 
         # Check if this datasource uses Virtual Connection tables first
         vc_upstreams, vc_id_to_urn = self.get_upstream_vc_tables(
-            datasource.get(c.FIELDS) or [],
+            datasource.get(c.ID),
         )
 
         # When tableau workbook connects to published datasource, it creates an embedded
@@ -1959,40 +1959,47 @@ class TableauSiteSource:
         ], csql_id_to_urn
 
     def get_upstream_vc_tables(
-        self, fields: List[dict]
+        self, datasource_id: str
     ) -> Tuple[List[Upstream], Dict[str, str]]:
-        """Extract upstream Virtual Connection tables from datasource fields."""
+        """Extract upstream Virtual Connection tables from stored VC relationships."""
         upstream_vc_urns = set()
         vc_id_to_urn = {}
 
-        for field in fields:
-            if not field.get(c.UPSTREAM_COLUMNS):
-                continue
+        # Check if this datasource has VC relationships stored
+        if datasource_id not in self.vc_processor.datasource_vc_relationships:
+            logger.debug(f"No VC relationships found for datasource {datasource_id}")
+            return [], {}
 
-            for upstream_col in field[c.UPSTREAM_COLUMNS]:
-                if (
-                    upstream_col
-                    and upstream_col.get(c.TABLE)
-                    and upstream_col.get(c.TABLE)[c.TYPE_NAME]
-                    == c.VIRTUAL_CONNECTION_TABLE
-                ):
-                    table = upstream_col.get(c.TABLE)
-                    upstream_table_id = table[c.ID]
-                    virtual_connection = table.get(c.VIRTUAL_CONNECTION, {})
-                    vc_id = virtual_connection.get(c.ID)
-                    table_name = table.get(c.NAME)
+        vc_refs = self.vc_processor.datasource_vc_relationships[datasource_id]
+        logger.debug(
+            f"Found {len(vc_refs)} VC references for datasource {datasource_id}"
+        )
 
-                    if vc_id and table_name:
-                        # Create VC table URN - datasource should point to VC table, not underlying DB table
-                        vc_table_name = f"{vc_id}.{table_name}"
-                        vc_urn = builder.make_dataset_urn_with_platform_instance(
-                            platform=self.platform,
-                            name=vc_table_name,
-                            platform_instance=self.config.platform_instance,
-                            env=self.config.env,
-                        )
-                        vc_id_to_urn[upstream_table_id] = vc_urn
-                        upstream_vc_urns.add(vc_urn)
+        # Group by VC table to avoid duplicates
+        vc_tables_seen = set()
+
+        for vc_ref in vc_refs:
+            vc_table_id = vc_ref.get("vc_table_id")
+            vc_id = vc_ref.get("vc_id")
+            vc_table_name = vc_ref.get("vc_table_name")
+
+            if vc_id and vc_table_name and vc_table_id:
+                # Create VC table URN - datasource should point to VC table, not underlying DB table
+                vc_table_full_name = f"{vc_id}.{vc_table_name}"
+
+                if vc_table_full_name not in vc_tables_seen:
+                    vc_tables_seen.add(vc_table_full_name)
+
+                    vc_urn = builder.make_dataset_urn_with_platform_instance(
+                        platform=self.platform,
+                        name=vc_table_full_name,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
+                    vc_id_to_urn[vc_table_id] = vc_urn
+                    upstream_vc_urns.add(vc_urn)
+
+                    logger.debug(f"Added VC upstream: {vc_table_full_name} -> {vc_urn}")
 
         return [
             Upstream(dataset=vc_urn, type=DatasetLineageType.TRANSFORMED)
@@ -2119,6 +2126,7 @@ class TableauSiteSource:
         logger.debug(
             f"Processing column-level lineage for datasource {datasource.get(c.ID)} with {len(table_id_to_urn)} table mappings"
         )
+        logger.debug(f"Table ID to URN mappings: {list(table_id_to_urn.keys())}")
 
         for field in datasource.get(c.FIELDS) or []:
             field_name = field.get(c.NAME)
@@ -2152,11 +2160,17 @@ class TableauSiteSource:
                     ):
                         # This is required for column level lineage to work correctly as
                         # DataHub Snowflake source lowercases all field names in the schema.
+                        # Also normalize column names to match Snowflake identifier rules
+                        # (spaces and special chars become underscores)
                         #
                         # It should not be done if snowflake tables are not pre ingested but
                         # parsed from SQL queries or ingested from Tableau metadata (in this case
                         # it just breaks case sensitive table level linage)
-                        name = name.lower()
+                        original_name = name
+                        name = self._normalize_snowflake_column_name(name)
+                        logger.debug(
+                            f"Applied Snowflake column normalization: '{original_name}' -> '{name}'"
+                        )
                     input_columns.append(
                         builder.make_schema_field_urn(
                             parent_urn=parent_dataset_urn,
@@ -2188,6 +2202,26 @@ class TableauSiteSource:
             DatasetUrn.from_string(urn).get_data_platform_urn().platform_name
             == "snowflake"
         )
+
+    def _normalize_snowflake_column_name(self, column_name: str) -> str:
+        """
+        Normalize column name to match Snowflake identifier rules.
+        Snowflake converts spaces and special characters to underscores and lowercases names.
+        """
+        import re
+
+        # Convert to lowercase first
+        normalized = column_name.lower()
+
+        # Replace non-alphanumeric characters (except underscore) with underscore
+        # This matches Snowflake's identifier normalization rules
+        normalized = re.sub(r"[^a-zA-Z0-9_]", "_", normalized)
+
+        # If name starts with non-letter/underscore, prefix with underscore
+        if re.match(r"^[^a-zA-Z_]", normalized):
+            normalized = "_" + normalized
+
+        return normalized
 
     def get_upstream_fields_of_field_in_datasource(
         self, datasource: dict, datasource_urn: str

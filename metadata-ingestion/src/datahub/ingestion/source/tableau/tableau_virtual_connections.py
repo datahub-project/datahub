@@ -429,17 +429,19 @@ class VirtualConnectionProcessor:
                                 f"Creating column lineage: VC column '{vc_col_name}' -> DB column '{db_col_name}'"
                             )
 
-                            # Apply the same casing logic as embedded datasources for Snowflake
+                            # Apply the same normalization logic as embedded datasources for Snowflake
                             final_db_col_name = db_col_name
                             if (
                                 self.tableau_source.is_snowflake_urn(db_table_urn)
                                 and not self.config.ingest_tables_external
                             ):
                                 # This is required for column level lineage to work correctly as
-                                # DataHub Snowflake source lowercases all field names in the schema.
-                                final_db_col_name = db_col_name.lower()
+                                # DataHub Snowflake source normalizes all field names in the schema.
+                                final_db_col_name = self.tableau_source._normalize_snowflake_column_name(
+                                    db_col_name
+                                )
                                 logger.debug(
-                                    f"Applied Snowflake lowercase conversion: '{db_col_name}' -> '{final_db_col_name}'"
+                                    f"Applied Snowflake normalization: '{db_col_name}' -> '{final_db_col_name}'"
                                 )
 
                             # Create fine-grained lineage using simple field names (not v2 format)
@@ -841,15 +843,19 @@ class VirtualConnectionProcessor:
                     if vc_col_name.lower() in db_column_map:
                         db_col_name = db_column_map[vc_col_name.lower()]
 
-                        # Apply the same casing logic as embedded datasources for Snowflake
+                        # Apply the same normalization logic as embedded datasources for Snowflake
                         final_db_col_name = db_col_name
                         if (
                             self.tableau_source.is_snowflake_urn(db_table_urn)
                             and not self.config.ingest_tables_external
                         ):
                             # This is required for column level lineage to work correctly as
-                            # DataHub Snowflake source lowercases all field names in the schema.
-                            final_db_col_name = db_col_name.lower()
+                            # DataHub Snowflake source normalizes all field names in the schema.
+                            final_db_col_name = (
+                                self.tableau_source._normalize_snowflake_column_name(
+                                    db_col_name
+                                )
+                            )
 
                         # Create fine-grained lineage
                         fine_grained_lineages.append(
