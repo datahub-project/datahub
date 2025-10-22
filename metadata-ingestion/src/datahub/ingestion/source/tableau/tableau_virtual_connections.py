@@ -11,7 +11,7 @@ from datahub.emitter.mcp_builder import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau_common import (
-    create_vc_schema_field_v2,
+    create_vc_schema_field,
     virtual_connection_detailed_graphql_query,
     virtual_connection_graphql_query,
 )
@@ -236,8 +236,7 @@ class VirtualConnectionProcessor:
                 description = column.get(c.DESCRIPTION)
 
                 # Create schema field for the column
-                schema_field = create_vc_schema_field_v2(
-                    table_name=table_name,
+                schema_field = create_vc_schema_field(
                     column_name=column_name,
                     column_type=column_type,
                     description=description,

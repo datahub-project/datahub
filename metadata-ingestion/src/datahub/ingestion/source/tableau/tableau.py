@@ -1809,6 +1809,13 @@ class TableauSiteSource:
             upstream_tables.extend(csql_upstreams)
             table_id_to_urn.update(csql_id_to_urn)
 
+            # This adds an edge to upstream VirtualConnectionTables using `fields`.`upstreamColumns`.`table`
+            vc_upstreams, vc_id_to_urn = self.get_upstream_vc_tables(
+                datasource.get(c.FIELDS) or [],
+            )
+            upstream_tables.extend(vc_upstreams)
+            table_id_to_urn.update(vc_id_to_urn)
+
         logger.debug(
             f"A total of {len(upstream_tables)} upstream table edges found for datasource {datasource[c.ID]}"
         )
@@ -1824,18 +1831,42 @@ class TableauSiteSource:
             # Tableau's metadata graphql API sometimes returns an empty list for upstreamTables
             # for embedded datasources. However, the upstreamColumns field often includes information.
             # This attempts to populate upstream table information from the upstreamColumns field.
-            table_id_to_urn = {
-                column[c.TABLE][c.ID]: builder.make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    column[c.TABLE][c.ID],
-                    self.config.platform_instance,
-                    self.config.env,
-                )
-                for field in datasource.get(c.FIELDS, [])
-                for column in field.get(c.UPSTREAM_COLUMNS, [])
-                if column.get(c.TABLE, {}).get(c.TYPE_NAME) == c.CUSTOM_SQL_TABLE
-                and column.get(c.TABLE, {}).get(c.ID)
-            }
+            # Build table_id_to_urn mapping for CustomSQL and VirtualConnection tables
+            table_id_to_urn = {}
+
+            # Handle CustomSQL tables
+            for field in datasource.get(c.FIELDS, []):
+                for column in field.get(c.UPSTREAM_COLUMNS, []):
+                    table = column.get(c.TABLE, {})
+                    table_type = table.get(c.TYPE_NAME)
+                    table_id = table.get(c.ID)
+
+                    if table_id and table_type == c.CUSTOM_SQL_TABLE:
+                        table_id_to_urn[table_id] = (
+                            builder.make_dataset_urn_with_platform_instance(
+                                self.platform,
+                                table_id,
+                                self.config.platform_instance,
+                                self.config.env,
+                            )
+                        )
+                    elif table_id and table_type == c.VIRTUAL_CONNECTION_TABLE:
+                        # For Virtual Connection tables, create URN using VC_ID.TABLE_NAME format
+                        virtual_connection = table.get(c.VIRTUAL_CONNECTION, {})
+                        vc_id = virtual_connection.get(c.ID)
+                        table_name = table.get(c.NAME)
+
+                        if vc_id and table_name:
+                            # Use the same format as VirtualConnectionProcessor: {vc_id}.{table_name}
+                            vc_table_name = f"{vc_id}.{table_name}"
+                            table_id_to_urn[table_id] = (
+                                builder.make_dataset_urn_with_platform_instance(
+                                    self.platform,
+                                    vc_table_name,
+                                    self.config.platform_instance,
+                                    self.config.env,
+                                )
+                            )
             fine_grained_lineages = self.get_upstream_columns_of_fields_in_datasource(
                 datasource, datasource_urn, table_id_to_urn
             )
@@ -1917,6 +1948,46 @@ class TableauSiteSource:
             Upstream(dataset=csql_urn, type=DatasetLineageType.TRANSFORMED)
             for csql_urn in upstream_csql_urns
         ], csql_id_to_urn
+
+    def get_upstream_vc_tables(
+        self, fields: List[dict]
+    ) -> Tuple[List[Upstream], Dict[str, str]]:
+        """Extract upstream Virtual Connection tables from datasource fields."""
+        upstream_vc_urns = set()
+        vc_id_to_urn = {}
+
+        for field in fields:
+            if not field.get(c.UPSTREAM_COLUMNS):
+                continue
+            for upstream_col in field[c.UPSTREAM_COLUMNS]:
+                if (
+                    upstream_col
+                    and upstream_col.get(c.TABLE)
+                    and upstream_col.get(c.TABLE)[c.TYPE_NAME]
+                    == c.VIRTUAL_CONNECTION_TABLE
+                ):
+                    table = upstream_col.get(c.TABLE)
+                    upstream_table_id = table[c.ID]
+                    virtual_connection = table.get(c.VIRTUAL_CONNECTION, {})
+                    vc_id = virtual_connection.get(c.ID)
+                    table_name = table.get(c.NAME)
+
+                    if vc_id and table_name:
+                        # Use the same format as VirtualConnectionProcessor: {vc_id}.{table_name}
+                        vc_table_name = f"{vc_id}.{table_name}"
+                        vc_urn = builder.make_dataset_urn_with_platform_instance(
+                            platform=self.platform,
+                            name=vc_table_name,
+                            platform_instance=self.config.platform_instance,
+                            env=self.config.env,
+                        )
+                        vc_id_to_urn[upstream_table_id] = vc_urn
+                        upstream_vc_urns.add(vc_urn)
+
+        return [
+            Upstream(dataset=vc_urn, type=DatasetLineageType.TRANSFORMED)
+            for vc_urn in upstream_vc_urns
+        ], vc_id_to_urn
 
     def get_upstream_tables(
         self,

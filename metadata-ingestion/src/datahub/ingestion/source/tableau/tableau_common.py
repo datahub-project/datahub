@@ -1087,28 +1087,24 @@ def optimize_query_filter(query_filter: dict) -> dict:
     return optimized_query
 
 
-def create_vc_schema_field_v2(
-    table_name: str,
+def create_vc_schema_field(
     column_name: str,
     column_type: str,
     description: Optional[str] = None,
     ingest_tags: bool = False,
 ) -> SchemaField:
-    """Create a SchemaField for Virtual Connection using v2 specification."""
-    # Clean table and column names
-
-    TypeClass = FIELD_TYPE_MAPPING.get(column_type, NullTypeClass)
-
-    # Create v2 field path with cleaned names
-    field_path = (
-        f"[type={column_type.lower() if column_type else 'unknown'}].{column_name}"
-    )
+    """Create a SchemaField for Virtual Connection using standard Tableau approach."""
+    # Use the same logic as tableau_field_to_schema_field
+    nativeDataType = column_type
+    if nativeDataType is None:
+        nativeDataType = "UNKNOWN"
+    TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
 
     schema_field = SchemaField(
-        fieldPath=field_path,
+        fieldPath=column_name,
         type=SchemaFieldDataType(type=TypeClass()),
         description=description or "",
-        nativeDataType=column_type or "UNKNOWN",
+        nativeDataType=nativeDataType,
         globalTags=(
             get_tags_from_params([column_type or "UNKNOWN"]) if ingest_tags else None
         ),
