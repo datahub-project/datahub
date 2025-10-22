@@ -71,7 +71,6 @@ describe('handleAccessRoles (EntityV2)', () => {
                 __typename: 'Dataset',
             },
         };
-
         const externalRole = handleAccessRoles(externalRolesQuery);
         expect(externalRole).toHaveLength(0);
         expect(externalRole).toEqual([]);
