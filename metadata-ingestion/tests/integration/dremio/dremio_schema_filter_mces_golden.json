@@ -680,7 +680,7 @@
             "qualifiedName": "Samples.samples.dremio.com.NYC-weather.csv",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -752,11 +752,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -909,7 +909,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD)",
@@ -965,7 +965,7 @@
             "qualifiedName": "Samples.samples.dremio.com.Dremio University.googleplaystore.csv",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -1037,11 +1037,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -1242,7 +1242,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD)",
@@ -1302,7 +1302,7 @@
             "qualifiedName": "Samples.samples.dremio.com.Dremio University.oracle-departments.xlsx",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -1374,11 +1374,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -1471,7 +1471,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/oracle-departments.xlsx,PROD)",
@@ -1531,7 +1531,7 @@
             "qualifiedName": "Samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -1603,11 +1603,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -1760,7 +1760,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD)",
@@ -1825,11 +1825,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129477930,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD)",
@@ -1999,11 +1999,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129477935,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/oracle-departments.xlsx,PROD)",
@@ -2074,11 +2074,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129477938,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD)",
@@ -2204,11 +2204,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129477940,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD)",

@@ -1810,7 +1810,7 @@
             "qualifiedName": "space.warehouse",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -1900,11 +1900,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -2084,7 +2084,7 @@
             "qualifiedName": "space.test_folder.customers",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -2174,11 +2174,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -2326,7 +2326,7 @@
             "qualifiedName": "space.test_folder.metadata_aspect",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -2416,11 +2416,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -2580,7 +2580,7 @@
             "qualifiedName": "space.test_folder.metadata_index",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -2670,11 +2670,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -2834,7 +2834,7 @@
             "qualifiedName": "space.test_folder.metadata_index_view",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -2924,11 +2924,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -3052,7 +3052,7 @@
             "qualifiedName": "space.test_folder.orders",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -3142,11 +3142,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -3258,7 +3258,7 @@
             "qualifiedName": "space.test_folder.raw",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -3348,11 +3348,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -3476,7 +3476,7 @@
             "qualifiedName": "s3.warehouse",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -3548,11 +3548,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -3645,7 +3645,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.//warehouse,PROD)",
@@ -3697,7 +3697,7 @@
             "qualifiedName": "mysql.metagalaxy.metadata_aspect",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -3769,11 +3769,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -3902,7 +3902,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD)",
@@ -3958,7 +3958,7 @@
             "qualifiedName": "mysql.metagalaxy.metadata_index",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -4030,11 +4030,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -4163,7 +4163,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD)",
@@ -4219,7 +4219,7 @@
             "qualifiedName": "mysql.metagalaxy.metadata_index_view",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -4291,11 +4291,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -4388,7 +4388,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD)",
@@ -4444,7 +4444,7 @@
             "qualifiedName": "mysql.northwind.customers",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -4516,11 +4516,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -4637,7 +4637,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
@@ -4693,7 +4693,7 @@
             "qualifiedName": "mysql.northwind.orders",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -4765,11 +4765,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -4850,7 +4850,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
@@ -4906,7 +4906,7 @@
             "qualifiedName": "Samples.samples.dremio.com.NYC-weather.csv",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -4978,11 +4978,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -5135,7 +5135,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD)",
@@ -5191,7 +5191,7 @@
             "qualifiedName": "Samples.samples.dremio.com.Dremio University.googleplaystore.csv",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -5263,11 +5263,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -5468,7 +5468,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD)",
@@ -5528,7 +5528,7 @@
             "qualifiedName": "Samples.samples.dremio.com.Dremio University.oracle-departments.xlsx",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -5600,11 +5600,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -5697,7 +5697,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/oracle-departments.xlsx,PROD)",
@@ -5757,7 +5757,7 @@
             "qualifiedName": "Samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet",
             "description": "",
             "created": {
-                "time": 0
+                "time": 1697353200000
             },
             "tags": []
         }
@@ -5829,11 +5829,11 @@
             "platform": "urn:li:dataPlatform:dremio",
             "version": 0,
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "lastModified": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:unknown"
             },
             "hash": "",
@@ -5986,7 +5986,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD)",
@@ -6051,11 +6051,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136077,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD)",
@@ -6159,11 +6159,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136081,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD)",
@@ -6267,11 +6267,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136083,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD)",
@@ -6342,11 +6342,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136085,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
@@ -6439,11 +6439,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136086,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
@@ -6503,11 +6503,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136087,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.//warehouse,PROD)",
@@ -6578,11 +6578,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136088,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD)",
@@ -6752,11 +6752,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136090,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/oracle-departments.xlsx,PROD)",
@@ -6827,11 +6827,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136092,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD)",
@@ -6957,11 +6957,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136094,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD)",
@@ -7087,11 +7087,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136095,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,mysql.northwind.customers,PROD)",
@@ -7201,11 +7201,11 @@
             },
             "source": "SYSTEM",
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1761129136097,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
@@ -7301,11 +7301,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136099,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,mysql.metagalaxy.metadata_aspect,PROD)",
@@ -7428,11 +7428,11 @@
             },
             "source": "SYSTEM",
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1761129136100,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
@@ -7534,11 +7534,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136103,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,mysql.metagalaxy.metadata_index,PROD)",
@@ -7661,11 +7661,11 @@
             },
             "source": "SYSTEM",
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1761129136104,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
@@ -7767,11 +7767,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136106,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,mysql.metagalaxy.metadata_index_view,PROD)",
@@ -7855,11 +7855,11 @@
             },
             "source": "SYSTEM",
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1761129136108,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
@@ -7943,11 +7943,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136109,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,mysql.northwind.orders,PROD)",
@@ -8018,11 +8018,11 @@
             },
             "source": "SYSTEM",
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1761129136110,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
@@ -8100,11 +8100,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136112,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD)",
@@ -8134,11 +8134,11 @@
             },
             "source": "SYSTEM",
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1761129136114,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
@@ -8198,11 +8198,11 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1761129136115,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
-                        "time": 0,
+                        "time": 1697353200000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,samples.samples.dremio.com.nyc-weather.csv,PROD)",
@@ -8351,11 +8351,11 @@
             },
             "source": "SYSTEM",
             "created": {
-                "time": 0,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1761129136117,
+                "time": 1697353200000,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
