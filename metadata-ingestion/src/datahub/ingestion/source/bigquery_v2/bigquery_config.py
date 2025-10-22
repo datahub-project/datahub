@@ -541,11 +541,12 @@ class BigQueryV2Config(
 
         return v
 
-    @root_validator(pre=False, skip_on_failure=True)
-    def validate_queries_v2_stateful_ingestion(cls, values: Dict) -> Dict:
-        if values.get("use_queries_v2"):
-            if values.get("enable_stateful_lineage_ingestion") or values.get(
-                "enable_stateful_usage_ingestion"
+    @model_validator(mode="after")
+    def validate_queries_v2_stateful_ingestion(self) -> "BigQueryV2Config":
+        if self.use_queries_v2:
+            if (
+                self.enable_stateful_lineage_ingestion
+                or self.enable_stateful_usage_ingestion
             ):
                 logger.warning(
                     "enable_stateful_lineage_ingestion and enable_stateful_usage_ingestion are deprecated "
@@ -553,7 +554,7 @@ class BigQueryV2Config(
                     "For queries v2, use enable_stateful_time_window instead to enable stateful ingestion "
                     "for the unified time window extraction (lineage + usage + operations + queries)."
                 )
-        return values
+        return self
 
     def get_table_pattern(self, pattern: List[str]) -> str:
         return "|".join(pattern) if pattern else ""

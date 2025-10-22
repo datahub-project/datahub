@@ -195,16 +195,16 @@ class StatefulTimeWindowConfigMixin(BaseTimeWindowConfig):
         "and queries together from a single audit log and uses a unified time window.",
     )
 
-    @root_validator(skip_on_failure=True)
-    def time_window_stateful_option_validator(cls, values: Dict) -> Dict:
-        sti = values.get("stateful_ingestion")
-        if not sti or not sti.enabled:
-            if values.get("enable_stateful_time_window"):
+    @model_validator(mode="after")
+    def time_window_stateful_option_validator(self) -> "StatefulTimeWindowConfigMixin":
+        sti = getattr(self, "stateful_ingestion", None)
+        if not sti or not getattr(sti, "enabled", False):
+            if getattr(self, "enable_stateful_time_window", False):
                 logger.warning(
                     "Stateful ingestion is disabled, disabling enable_stateful_time_window config option as well"
                 )
-                values["enable_stateful_time_window"] = False
-        return values
+                self.enable_stateful_time_window = False
+        return self
 
 
 @dataclass
