@@ -110,19 +110,19 @@ const MAX_FILE_SIZE_IN_BYTES = 2 * 1000 * 1000 * 1000; // 2GB
  */
 export const getExtensionFromFileName = (fileName: string): string | undefined => {
     if (typeof fileName !== 'string') {
-    return undefined;
-  }
-  
-  // Get the part after the last dot, but only if it's not at the start or end
-  const lastDotIndex = fileName.lastIndexOf('.');
-  
-  // No dot found, or dot is at the beginning (hidden file like .gitignore)
-  // or dot is at the very end (filename like "file.")
-  if (lastDotIndex === -1 || lastDotIndex === 0 || lastDotIndex === fileName.length - 1) {
-    return undefined;
-  }
-  
-  return fileName.slice(lastDotIndex + 1).toLowerCase();
+        return undefined;
+    }
+
+    // Get the part after the last dot, but only if it's not at the start or end
+    const lastDotIndex = fileName.lastIndexOf('.');
+
+    // No dot found, or dot is at the beginning (hidden file like .gitignore)
+    // or dot is at the very end (filename like "file.")
+    if (lastDotIndex === -1 || lastDotIndex === 0 || lastDotIndex === fileName.length - 1) {
+        return undefined;
+    }
+
+    return fileName.slice(lastDotIndex + 1).toLowerCase();
 };
 
 /**
