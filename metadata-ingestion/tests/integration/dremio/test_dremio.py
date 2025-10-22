@@ -469,7 +469,7 @@ def populate_minio(pytestconfig, s3_bkt):
     yield
 
 
-@travel(FROZEN_TIME)
+@travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_dremio_ingest(
     test_resources_dir,
@@ -492,7 +492,7 @@ def test_dremio_ingest(
     )
 
 
-@travel(FROZEN_TIME)
+@travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_dremio_platform_instance_urns(
     test_resources_dir,
@@ -576,7 +576,7 @@ def test_dremio_platform_instance_urns(
     )
 
 
-@travel(FROZEN_TIME)
+@travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_dremio_schema_filter(
     test_resources_dir,
