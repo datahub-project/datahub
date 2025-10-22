@@ -14,6 +14,8 @@ import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
 import { Button } from '@src/alchemy-components';
 
+import { IngestionSource } from '@types';
+
 export const ControlsContainer = styled.div`
     display: flex;
     justify-content: space-between;
@@ -61,13 +63,23 @@ interface Props {
     isEditing: boolean;
     displayRecipe: string;
     sourceConfigs?: SourceConfig;
+    selectedSource?: IngestionSource;
     setStagedRecipe: (recipe: string) => void;
     onClickNext: () => void;
     goToPrevious?: () => void;
 }
 
 function RecipeBuilder(props: Props) {
-    const { state, isEditing, displayRecipe, sourceConfigs, setStagedRecipe, onClickNext, goToPrevious } = props;
+    const {
+        state,
+        isEditing,
+        displayRecipe,
+        sourceConfigs,
+        setStagedRecipe,
+        onClickNext,
+        goToPrevious,
+        selectedSource,
+    } = props;
     const { type } = state;
     const [isViewingForm, setIsViewingForm] = useState(true);
     const [hideDocsHint, setHideDocsHint] = useState(false);
@@ -119,6 +131,7 @@ function RecipeBuilder(props: Props) {
             {isViewingForm && (
                 <RecipeForm
                     state={state}
+                    selectedSource={selectedSource}
                     isEditing={isEditing}
                     displayRecipe={displayRecipe}
                     sourceConfigs={sourceConfigs}

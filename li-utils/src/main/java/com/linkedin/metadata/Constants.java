@@ -18,7 +18,14 @@ public class Constants {
   public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
   public static final String SYSTEM_ACTOR =
       "urn:li:corpuser:__datahub_system"; // DataHub internal service principal.
-  public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN"; // Unknown principal.
+  // Actor ID for unauthenticated requests
+  public static final String ANONYMOUS_ACTOR_ID = "__anonymous";
+  // Unauthenticated requests (no valid credentials provided).
+  public static final String ANONYMOUS_ACTOR = "urn:li:corpuser:" + ANONYMOUS_ACTOR_ID;
+  // Unknown principal (identity exists but cannot be determined).
+  public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN";
+  public static final Urn SYSTEM_POLICY_ZERO = UrnUtils.getUrn("urn:li:dataHubPolicy:0");
+  public static final Urn SYSTEM_POLICY_ONE = UrnUtils.getUrn("urn:li:dataHubPolicy:1");
   public static final Long ASPECT_LATEST_VERSION = 0L;
   public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
   public static final String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:";
@@ -167,6 +174,8 @@ public class Constants {
   public static final String EDITABLE_SCHEMA_METADATA_ASPECT_NAME = "editableSchemaMetadata";
   public static final String VIEW_PROPERTIES_ASPECT_NAME = "viewProperties";
   public static final String DATASET_PROFILE_ASPECT_NAME = "datasetProfile";
+  public static final String DATASET_USAGE_STATISTICS_ASPECT_NAME = "datasetUsageStatistics";
+  public static final String DATASET_OPERATION_ASPECT_NAME = "operation";
 
   public static final String STRUCTURED_PROPERTIES_ASPECT_NAME = "structuredProperties";
   public static final String FORMS_ASPECT_NAME = "forms";
@@ -368,6 +377,7 @@ public class Constants {
   public static final String QUERY_SUBJECTS_ASPECT_NAME = "querySubjects";
 
   // DataProduct
+  public static final String DATA_PRODUCT_KEY_ASPECT_NAME = "dataProductKey";
   public static final String DATA_PRODUCT_PROPERTIES_ASPECT_NAME = "dataProductProperties";
   public static final String DATA_PRODUCTS_ASPECT_NAME = "dataProducts";
 
@@ -400,6 +410,10 @@ public class Constants {
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
   public static final String GLOBAL_SETTINGS_INFO_ASPECT_NAME = "globalSettingsInfo";
   public static final Urn GLOBAL_SETTINGS_URN = Urn.createFromTuple(GLOBAL_SETTINGS_ENTITY_NAME, 0);
+  public static final String ASSET_SETTINGS_ASPECT_NAME = "assetSettings";
+
+  // Timeseries
+  public static final String ES_FIELD_TIMESTAMP = "timestampMillis";
 
   // Connection
   public static final String DATAHUB_CONNECTION_ENTITY_NAME = "dataHubConnection";
@@ -468,6 +482,10 @@ public class Constants {
   public static final String DATAHUB_PAGE_MODULE_PROPERTIES_ASPECT_NAME =
       "dataHubPageModuleProperties";
 
+  // File
+  public static final String DATAHUB_FILE_ENTITY_NAME = "dataHubFile";
+  public static final String DATAHUB_FILE_INFO_ASPECT_NAME = "dataHubFileInfo";
+
   // Step
   public static final String DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME =
       "dataHubStepStateProperties";
@@ -504,6 +522,9 @@ public class Constants {
   public static final String IS_LATEST_FIELD_NAME = "isLatest";
   public static final String VERSION_SET_FIELD_NAME = "versionSet";
   public static final String VERSION_LABEL_FIELD_NAME = "version";
+
+  // Logical
+  public static final String LOGICAL_PARENT_ASPECT_NAME = "logicalParent";
 
   public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
 

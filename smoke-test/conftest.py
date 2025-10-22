@@ -1,20 +1,26 @@
 import os
 
 import pytest
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from _pytest.nodes import Item
 import requests
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph, get_default_graph
 
 from tests.test_result_msg import send_message
 from tests.utils import (
     TestSessionWrapper,
     get_frontend_session,
     wait_for_healthcheck_util,
+    ingest_file_via_rest,
+    delete_urns,
+    delete_urns_from_file,
+    wait_for_writes_to_sync,
 )
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
+# Suppress logging manager to prevent I/O errors during pytest teardown
+os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
 
 
 def build_auth_session():
@@ -47,6 +53,57 @@ def graph_client(auth_session) -> DataHubGraph:
 @pytest.fixture(scope="session")
 def openapi_graph_client(auth_session) -> DataHubGraph:
     return build_graph_client(auth_session, openapi_ingestion=True)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def clear_graph_cache():
+    """Clear the get_default_graph LRU cache before each test.
+
+    This ensures that tests using run_datahub_cmd() with custom environment
+    variables get a fresh DataHubGraph instance instead of a cached one with
+    stale credentials.
+    """
+    get_default_graph.cache_clear()
+    yield
+
+
+def _ingest_cleanup_data_impl(
+    auth_session,
+    graph_client,
+    data_file: str,
+    test_name: str,
+    to_delete_urns: Optional[List[str]] = None
+):
+    """Helper for ingesting test data with automatic cleanup.
+
+    Args:
+        auth_session: The authenticated session
+        graph_client: The DataHub graph client
+        data_file: Path to the data file to ingest
+        test_name: Name of the test (for logging)
+        to_delete_urns: URNs to delete after cleanup
+
+    Usage in test files:
+        @pytest.fixture(scope="module", autouse=True)
+        def ingest_cleanup_data(auth_session, graph_client):
+            yield from _ingest_cleanup_data_impl(
+                auth_session, graph_client,
+                "tests/tags_and_terms/data.json",
+                "tags_and_terms"
+            )
+    """
+    print(f"deleting {test_name} test data for idempotency")
+    delete_urns_from_file(graph_client, data_file)
+    print(f"ingesting {test_name} test data")
+    ingest_file_via_rest(auth_session, data_file)
+    wait_for_writes_to_sync()
+    yield
+    print(f"removing {test_name} test data")
+    delete_urns_from_file(graph_client, data_file)
+    if to_delete_urns:
+        delete_urns(graph_client, to_delete_urns)
+    wait_for_writes_to_sync()
+
 
 
 def pytest_sessionfinish(session, exitstatus):

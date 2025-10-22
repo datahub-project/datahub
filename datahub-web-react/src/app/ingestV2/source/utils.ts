@@ -134,33 +134,39 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
             .filter((item) => item != null);
     };
 
+    /* Extract items from a report (source or sink) */
+    const extractItemsFromReport = (report: any): StructuredReportLogEntry[] => {
+        if (!report) {
+            return [];
+        }
+
+        const failures = Array.isArray(report.failures)
+            ? mapItemArray(report.failures || [], StructuredReportItemLevel.ERROR)
+            : mapItemObject(report.failures || {}, StructuredReportItemLevel.ERROR);
+
+        const warnings = Array.isArray(report.warnings)
+            ? mapItemArray(report.warnings || [], StructuredReportItemLevel.WARN)
+            : mapItemObject(report.warnings || {}, StructuredReportItemLevel.WARN);
+
+        const infos = Array.isArray(report.infos)
+            ? mapItemArray(report.infos || [], StructuredReportItemLevel.INFO)
+            : mapItemObject(report.infos || {}, StructuredReportItemLevel.INFO);
+
+        return [...failures, ...warnings, ...infos];
+    };
+
     try {
         const sourceReport = structuredReportObj.source?.report;
+        const sinkReport = structuredReportObj.sink?.report;
 
-        if (!sourceReport) {
+        if (!sourceReport && !sinkReport) {
             return null;
         }
 
-        // Else fallback to using the legacy fields
-        const failures = Array.isArray(sourceReport.failures)
-            ? /* Use V2 failureList if present */
-              mapItemArray(sourceReport.failures || [], StructuredReportItemLevel.ERROR)
-            : /* Else use the legacy object type */
-              mapItemObject(sourceReport.failures || {}, StructuredReportItemLevel.ERROR);
+        const sourceItems = extractItemsFromReport(sourceReport);
+        const sinkItems = extractItemsFromReport(sinkReport);
 
-        const warnings = Array.isArray(sourceReport.warnings)
-            ? /* Use V2 warning if present */
-              mapItemArray(sourceReport.warnings || [], StructuredReportItemLevel.WARN)
-            : /* Else use the legacy object type */
-              mapItemObject(sourceReport.warnings || {}, StructuredReportItemLevel.WARN);
-
-        const infos = Array.isArray(sourceReport.infos)
-            ? /* Use V2 infos if present */
-              mapItemArray(sourceReport.infos || [], StructuredReportItemLevel.INFO)
-            : /* Else use the legacy object type */
-              mapItemObject(sourceReport.infos || {}, StructuredReportItemLevel.INFO);
-
-        return createStructuredReport([...failures, ...warnings, ...infos]);
+        return createStructuredReport([...sourceItems, ...sinkItems]);
     } catch (e) {
         console.warn('Failed to extract structured report from ingestion report!', e);
         return null;
@@ -192,6 +198,23 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
 
     // 4. Return JSON report
     return structuredReport;
+};
+
+export const getAspectsBySubtypes = (structuredReportObject: any, entityRegistry: EntityRegistry) => {
+    const searchEntityTypesInCamelCase = new Set(entityRegistry.getSearchEntityTypesAsCamelCase());
+
+    const aspectsBySubtypes = structuredReportObject?.source?.report?.aspects_by_subtypes;
+    if (!aspectsBySubtypes) {
+        return null;
+    }
+    Object.keys(aspectsBySubtypes).forEach((entityName) => {
+        if (!searchEntityTypesInCamelCase.has(entityName)) {
+            // We are doing this otherwise in the UI we will show a total number
+            // On clicking view all the number will not match
+            delete aspectsBySubtypes[entityName];
+        }
+    });
+    return aspectsBySubtypes;
 };
 
 /** *
@@ -237,6 +260,7 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
  */
 export const getEntitiesIngestedByTypeOrSubtype = (
     result: Partial<ExecutionRequestResult>,
+    entityRegistry: EntityRegistry,
 ): EntityTypeCount[] | null => {
     const structuredReportObject = extractStructuredReportPOJO(result);
     if (!structuredReportObject) {
@@ -264,11 +288,11 @@ export const getEntitiesIngestedByTypeOrSubtype = (
          *     ...
          * }
          */
-        const entities = structuredReportObject.source.report.aspects_by_subtypes;
+        const entities = getAspectsBySubtypes(structuredReportObject, entityRegistry);
         const entitiesIngestedByType: { [key: string]: number } = {};
-        Object.entries(entities).forEach(([entityName, aspects_by_subtypes]) => {
+        Object.entries(entities).forEach(([entityName, aspectsBySubtypes]) => {
             // Use the status aspect count instead of max count
-            Object.entries(aspects_by_subtypes as any)?.forEach(([subtype, aspects]) => {
+            Object.entries(aspectsBySubtypes as any)?.forEach(([subtype, aspects]) => {
                 const statusCount = (aspects as any)?.status;
                 if (statusCount !== undefined) {
                     entitiesIngestedByType[subtype !== 'unknown' ? subtype : entityName] = statusCount;
@@ -300,8 +324,8 @@ export const getEntitiesIngestedByTypeOrSubtype = (
  * @param result - The result of the execution request.
  * @returns {number | null}
  */
-export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>) => {
-    const entityTypeCounts = getEntitiesIngestedByTypeOrSubtype(result);
+export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>, entityRegistry: EntityRegistry) => {
+    const entityTypeCounts = getEntitiesIngestedByTypeOrSubtype(result, entityRegistry);
     if (!entityTypeCounts) {
         return null;
     }
@@ -309,12 +333,15 @@ export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>
     return entityTypeCounts.reduce((total, entityType) => total + entityType.count, 0);
 };
 
-export const getOtherIngestionContents = (executionResult: Partial<ExecutionRequestResult>) => {
+export const getOtherIngestionContents = (
+    executionResult: Partial<ExecutionRequestResult>,
+    entityRegistry: EntityRegistry,
+) => {
     const structuredReportObject = extractStructuredReportPOJO(executionResult);
     if (!structuredReportObject) {
         return null;
     }
-    const aspectsBySubtypes = structuredReportObject?.source?.report?.aspects_by_subtypes;
+    const aspectsBySubtypes = getAspectsBySubtypes(structuredReportObject, entityRegistry);
 
     if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
         return null;
@@ -380,12 +407,15 @@ export const getOtherIngestionContents = (executionResult: Partial<ExecutionRequ
     return result;
 };
 
-export const getIngestionContents = (executionResult: Partial<ExecutionRequestResult>) => {
+export const getIngestionContents = (
+    executionResult: Partial<ExecutionRequestResult>,
+    entityRegistry: EntityRegistry,
+) => {
     const structuredReportObject = extractStructuredReportPOJO(executionResult);
     if (!structuredReportObject) {
         return null;
     }
-    const aspectsBySubtypes = structuredReportObject?.source?.report?.aspects_by_subtypes;
+    const aspectsBySubtypes = getAspectsBySubtypes(structuredReportObject, entityRegistry);
 
     if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
         return null;

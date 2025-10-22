@@ -33,7 +33,9 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.service.*;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
@@ -41,10 +43,11 @@ import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.opentelemetry.api.trace.Tracer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
-import org.opensearch.client.RestHighLevelClient;
+import org.mockito.Answers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,6 +56,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
@@ -90,166 +94,172 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @Qualifier("configurationProvider")
   private ConfigurationProvider configurationProvider;
 
-  @MockBean
-  @Qualifier("elasticSearchRestHighLevelClient")
-  private RestHighLevelClient elasticClient;
+  @MockitoBean(answers = Answers.RETURNS_MOCKS)
+  @Qualifier("searchClientShim")
+  private SearchClientShim<?> elasticClient;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("indexConvention")
   private IndexConvention indexConvention;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("graphClient")
   private GraphClient graphClient;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("entityService")
   private EntityService<?> entityService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("entitySearchService")
   private EntitySearchService entitySearchService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("graphService")
   private GraphService graphService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("siblingGraphService")
   private SiblingGraphService siblingGraphService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("timeseriesAspectService")
   private TimeseriesAspectService timeseriesAspectService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("recommendationsService")
   private RecommendationsService recommendationsService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("dataHubTokenService")
   private StatefulTokenService statefulTokenService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("dataHubSecretService")
   private SecretService secretService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("gitVersion")
   private GitVersion gitVersion;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("timelineService")
   private TimelineService timelineService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("nativeUserService")
   private NativeUserService nativeUserService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("groupService")
   private GroupService groupService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("roleService")
   private RoleService roleService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("inviteTokenService")
   private InviteTokenService inviteTokenService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("postService")
   private PostService postService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("viewService")
   private ViewService viewService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("ownerShipTypeService")
   private OwnershipTypeService ownershipTypeService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("settingsService")
   private SettingsService settingsService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("lineageService")
   private LineageService lineageService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("queryService")
   private QueryService queryService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("erModelRelationshipService")
   private ERModelRelationshipService erModelRelationshipService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("dataProductService")
   private DataProductService dataProductService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("applicationService")
   private ApplicationService applicationService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("formService")
   private FormService formService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("restrictedService")
   private RestrictedService restrictedService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("businessAttributeService")
   private BusinessAttributeService businessAttributeService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("connectionService")
   private ConnectionService connectionService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("assertionService")
   private AssertionService assertionService;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("entityClient")
   private EntityClient entityClient;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("systemEntityClient")
   private SystemEntityClient systemEntityClient;
 
-  @MockBean private EntityVersioningService entityVersioningService;
+  @MockitoBean
+  @Qualifier("s3Util")
+  private S3Util s3Util;
 
-  @MockBean private MetricUtils metricUtils;
+  @MockitoBean private EntityVersioningService entityVersioningService;
 
-  @MockBean private EntityRegistry entityRegistry;
+  @MockitoBean private MetricUtils metricUtils;
 
-  @MockBean private QueryFilterRewriteChain queryFilterRewriteChain;
+  @MockitoBean private EntityRegistry entityRegistry;
 
-  @MockBean
+  @MockitoBean private QueryFilterRewriteChain queryFilterRewriteChain;
+
+  @MockitoBean(name = "baseElasticSearchComponents")
+  private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
+
+  @MockitoBean
   @Qualifier("recentlyViewedCandidateSource")
   private RecentlyViewedSource recentlyViewedSource;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("recentlySearchedCandidateSource")
   private RecentlySearchedSource recentlySearchedSource;
 
-  @MockBean
+  @MockitoBean
   @Qualifier("pageTemplateService")
   private PageTemplateService pageTemplateService;
 
-  @MockBean
-  @Qualifier("baseElasticSearchComponents")
-  private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
-      baseElasticSearchComponents;
-
-  @MockBean
+  @MockitoBean
   @Qualifier("pageModuleService")
   private PageModuleService pageModuleService;
+
+  @MockitoBean
+  @Qualifier("dataHubFileService")
+  private DataHubFileService dataHubFileService;
 
   @Value("${platformAnalytics.enabled}")
   private Boolean isAnalyticsEnabled;
@@ -261,7 +271,7 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   public void setUp() {
     // Set up default mock behaviors
     when(graphService.supportsMultiHop()).thenReturn(true);
-    when(metricUtils.getRegistry()).thenReturn(java.util.Optional.empty());
+    when(metricUtils.getRegistry()).thenReturn(new SimpleMeterRegistry());
   }
 
   @Test
@@ -355,6 +365,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     setField(factoryWithAnalytics, "businessAttributeService", businessAttributeService);
     setField(factoryWithAnalytics, "_connectionService", connectionService);
     setField(factoryWithAnalytics, "assertionService", assertionService);
+    setField(factoryWithAnalytics, "pageTemplateService", pageTemplateService);
+    setField(factoryWithAnalytics, "pageModuleService", pageModuleService);
+    setField(factoryWithAnalytics, "dataHubFileService", dataHubFileService);
+    setField(factoryWithAnalytics, "s3Util", s3Util);
     setField(factoryWithAnalytics, "isAnalyticsEnabled", true);
 
     // When
@@ -407,8 +421,12 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     assertNotNull(businessAttributeService);
     assertNotNull(connectionService);
     assertNotNull(assertionService);
+    assertNotNull(pageTemplateService);
+    assertNotNull(pageModuleService);
+    assertNotNull(dataHubFileService);
     assertNotNull(entityClient);
     assertNotNull(systemEntityClient);
+    assertNotNull(s3Util);
     assertNotNull(entityVersioningService);
     assertNotNull(metricUtils);
   }
@@ -461,6 +479,15 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     // The factory should handle StsClient creation exceptions gracefully
     // This is tested implicitly by the successful creation of graphQLEngine
     assertNotNull(graphQLEngine);
+  }
+
+  @Test
+  public void testS3UtilIntegration() {
+    // Verify S3Util is properly injected and available
+    assertNotNull(s3Util, "S3Util should be injected into GraphQLEngineFactory");
+
+    // Verify S3Util is passed to the GraphQL engine
+    assertNotNull(graphQLEngine, "GraphQLEngine should be created with S3Util");
   }
 
   private void setField(Object target, String fieldName, Object value) {

@@ -28,8 +28,8 @@ module.exports = {
         },
         {
           type: "link",
-          label: "Adoption Stories",
-          href: "https://datahub.com/adoption-stories/",
+          label: "Customer Stories",
+          href: "https://datahub.com/resources/?2004611554=dh-stories",
         },
       ],
     },
@@ -48,6 +48,11 @@ module.exports = {
           type: "category",
           link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
           items: [
+            {
+              label: "Overview",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertions",
+            },
             {
               label: "Column Assertions",
               type: "doc",
@@ -91,6 +96,12 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Adding Notes to Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertion-notes",
+              className: "saasOnly",
+            },
+            {
               label: "Open Assertions Specification",
               type: "category",
               link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
@@ -105,9 +116,19 @@ module.exports = {
           ],
         },
         {
-          label: "Access Management",
+          label: "Data Access Workflows",
           type: "doc",
-          id: "docs/features/feature-guides/access-management",
+          id: "docs/managed-datahub/workflows/access-workflows",
+        },
+        {
+          label: "Data Access Roles",
+          type: "doc",
+          id: "docs/features/feature-guides/access-roles",
+        },
+        {
+          label: "Applications",
+          type: "doc",
+          id: "docs/features/feature-guides/applications",
         },
         {
           label: "Automations",
@@ -191,6 +212,16 @@ module.exports = {
           ],
         },
         {
+          label: "Custom Asset Summaries",
+          type: "doc",
+          id: "docs/features/feature-guides/custom-asset-summaries",
+        },
+        {
+          label: "Custom Home Page",
+          type: "doc",
+          id: "docs/features/feature-guides/custom-home-page",
+        },
+        {
           label: "Data Contract",
           type: "doc",
           id: "docs/managed-datahub/observe/data-contract",
@@ -242,6 +273,27 @@ module.exports = {
               label: "Managing Lineage via UI",
               type: "doc",
               id: "docs/features/feature-guides/ui-lineage",
+            },
+          ],
+        },
+        {
+          label: "Logical Models",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/logical-models/overview",
+          },
+          items: [
+            {
+              label: "Overview",
+              type: "doc",
+              id: "docs/features/feature-guides/logical-models/overview",
+            },
+            {
+              label: "Centralized Management",
+              type: "doc",
+              id: "docs/features/feature-guides/logical-models/centralized-management",
+              className: "saasOnly",
             },
           ],
         },
@@ -395,6 +447,20 @@ module.exports = {
       ],
     },
     {
+      Teams: [
+        {
+          type: "doc",
+          id: "docs/managed-datahub/teams/saas-teams-app",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/teams/saas-teams-setup",
+          className: "saasOnly",
+        },
+      ],
+    },
+    {
       "Operator Guides": [
         {
           type: "doc",
@@ -410,7 +476,7 @@ module.exports = {
     },
     {
       type: "doc",
-      id: "docs/managed-datahub/approval-workflows",
+      id: "docs/managed-datahub/change-proposals",
       className: "saasOnly",
     },
     {
@@ -424,6 +490,8 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_0_3_14",
+        "docs/managed-datahub/release-notes/v_0_3_13",
         "docs/managed-datahub/release-notes/v_0_3_12",
         "docs/managed-datahub/release-notes/v_0_3_11",
         "docs/managed-datahub/release-notes/v_0_3_10",
@@ -496,7 +564,10 @@ module.exports = {
             type: "doc",
             id: "metadata-ingestion/docs/transformer/intro",
           },
-          items: ["metadata-ingestion/docs/transformer/dataset_transformer"],
+          items: [
+            "metadata-ingestion/docs/transformer/dataset_transformer",
+            "metadata-ingestion/docs/transformer/universal_transformers",
+          ],
         },
       ],
     },
@@ -880,6 +951,7 @@ module.exports = {
         "docs/api/tutorials/dashboard-chart",
         "docs/api/tutorials/dataflow-datajob",
         "docs/api/tutorials/mlmodel-mlmodelgroup",
+        "docs/api/tutorials/applications",
         {
           type: "doc",
           id: "docs/api/tutorials/ml",
@@ -892,6 +964,7 @@ module.exports = {
         },
         "docs/api/tutorials/owners",
         "docs/api/tutorials/structured-properties",
+        "docs/api/tutorials/subscriptions",
         "docs/api/tutorials/tags",
         "docs/api/tutorials/terms",
         {
@@ -924,6 +997,7 @@ module.exports = {
         },
         "docs/authentication/introducing-metadata-service-authentication",
         "docs/authentication/personal-access-tokens",
+        "docs/authentication/external-oauth-providers",
       ],
     },
     {
@@ -946,10 +1020,12 @@ module.exports = {
         },
         "docs/how/backup-datahub",
         "docs/how/restore-indices",
+        "docs/how/load-indices",
         "docs/advanced/db-retention",
         "docs/advanced/monitoring",
         "docs/deploy/telemetry",
         "docs/how/kafka-config",
+        "docs/how/configure-cdc",
         "docs/how/jattach-guide",
       ],
     },
@@ -1119,7 +1195,6 @@ module.exports = {
     // - "docker/datahub-ingestion/README",
     // - "docker/elasticsearch-setup/README",
     // - "docker/ingestion/README",
-    // - "docker/kafka-setup/README",
     // - "docker/mariadb/README",
     // - "docker/mysql/README",
     // - "docker/neo4j/README",

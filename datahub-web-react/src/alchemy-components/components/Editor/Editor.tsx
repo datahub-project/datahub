@@ -9,6 +9,7 @@ import {
     CodeBlockExtension,
     CodeExtension,
     DropCursorExtension,
+    FontSizeExtension,
     HardBreakExtension,
     HeadingExtension,
     HistoryExtension,
@@ -26,6 +27,7 @@ import {
 
 import { EditorContainer, EditorTheme } from '@components/components/Editor/EditorTheme';
 import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
+import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
 import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
 import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
 import { DataHubMentionsExtension } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
@@ -35,6 +37,8 @@ import { FloatingToolbar } from '@components/components/Editor/toolbar/FloatingT
 import { TableCellMenu } from '@components/components/Editor/toolbar/TableCellMenu';
 import { Toolbar } from '@components/components/Editor/toolbar/Toolbar';
 
+import { notEmpty } from '@app/entityV2/shared/utils';
+
 type EditorProps = {
     readOnly?: boolean;
     content?: string;
@@ -42,10 +46,28 @@ type EditorProps = {
     className?: string;
     doNotFocus?: boolean;
     placeholder?: string;
+    hideHighlightToolbar?: boolean;
+    toolbarStyles?: React.CSSProperties;
+    dataTestId?: string;
+    onKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void;
+    hideBorder?: boolean;
+    uploadFile?: (file: File) => Promise<string>;
 };
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
-    const { content, readOnly, onChange, className, placeholder } = props;
+    const {
+        content,
+        readOnly,
+        onChange,
+        className,
+        placeholder,
+        hideHighlightToolbar,
+        toolbarStyles,
+        dataTestId,
+        onKeyDown,
+        hideBorder,
+        uploadFile,
+    } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
@@ -59,6 +81,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new HeadingExtension({}),
             new HistoryExtension({}),
             new HorizontalRuleExtension({}),
+            new FileDragDropExtension({ onFileUpload: uploadFile }),
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),
@@ -68,6 +91,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new UnderlineExtension(),
             new StrikeExtension(),
             new TableExtension({ resizable: false }),
+            new FontSizeExtension({}),
             ...(readOnly ? [] : [new HistoryExtension({})]),
         ],
         content,
@@ -82,14 +106,20 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         }
     });
     useEffect(() => {
-        if (readOnly && content) {
+        if (readOnly && notEmpty(content)) {
             manager.store.commands.setContent(content);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [readOnly, content]);
 
     return (
-        <EditorContainer className={className}>
+        <EditorContainer
+            className={className}
+            data-testid={dataTestId}
+            $readOnly={readOnly}
+            onKeyDown={onKeyDown}
+            $hideBorder={hideBorder}
+        >
             <ThemeProvider theme={EditorTheme}>
                 <Remirror
                     classNames={['ant-typography']}
@@ -100,9 +130,9 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                 >
                     {!readOnly && (
                         <>
-                            <Toolbar />
+                            <Toolbar styles={toolbarStyles} />
                             <CodeBlockToolbar />
-                            <FloatingToolbar />
+                            {!hideHighlightToolbar && <FloatingToolbar />}
                             <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />
                             <MentionsComponent />
                             {onChange && <OnChangeMarkdown onChange={onChange} />}

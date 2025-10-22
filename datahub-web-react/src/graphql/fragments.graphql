@@ -11,6 +11,9 @@ fragment globalTagsFields on GlobalTags {
             }
         }
         associatedUrn
+        attribution {
+            ...attributionFields
+        }
     }
 }
 
@@ -107,6 +110,9 @@ fragment glossaryNode on GlossaryNode {
     properties {
         name
         description
+        createdOn {
+            time
+        }
     }
     displayProperties {
         ...displayPropertiesFields
@@ -178,6 +184,9 @@ fragment glossaryTerms on GlossaryTerms {
             urn
         }
         associatedUrn
+        attribution {
+            ...attributionFields
+        }
     }
 }
 
@@ -335,6 +344,9 @@ fragment ownershipFields on Ownership {
             }
         }
         associatedUrn
+        attribution {
+            ...attributionFields
+        }
     }
     lastModified {
         time
@@ -363,11 +375,32 @@ fragment institutionalMemoryFields on InstitutionalMemory {
             ...resolvedActorFields
         }
         description
+        label
         created {
             actor
             time
         }
         associatedUrn
+        settings {
+            showInAssetPreview
+        }
+    }
+}
+
+fragment attributionFields on MetadataAttribution {
+    time
+    actor {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+    source {
+        urn
+        type
+    }
+    sourceDetail {
+        key
+        value
     }
 }
 
@@ -375,20 +408,7 @@ fragment documentationFields on Documentation {
     documentations {
         documentation
         attribution {
-            time
-            actor {
-                urn
-                type
-                ...entityDisplayNameFields
-            }
-            source {
-                urn
-                type
-            }
-            sourceDetail {
-                key
-                value
-            }
+            ...attributionFields
         }
     }
 }
@@ -532,6 +552,9 @@ fragment nonRecursiveDataJobFields on DataJob {
     subTypes {
         typeNames
     }
+    platform {
+        ...platformFields
+    }
 }
 
 fragment dataJobFields on DataJob {
@@ -603,6 +626,9 @@ fragment dataJobFields on DataJob {
     }
     dataTransformLogic {
         ...dataTransformLogicFields
+    }
+    platform {
+        ...platformFields
     }
 }
 
@@ -947,6 +973,12 @@ fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
     documentation {
         ...documentationFields
     }
+    tags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
 }
 
 fragment entitySchemaFieldFields on SchemaField {
@@ -1077,6 +1109,9 @@ fragment nonRecursiveMLModel on MLModel {
             properties {
                 name
             }
+            editableProperties {
+                description
+            }
         }
         customProperties {
             key
@@ -1181,6 +1216,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     browsePathV2 {
         ...browsePathV2Fields
+    }
+    institutionalMemory {
+        ...institutionalMemoryFields
     }
 }
 
@@ -1542,6 +1580,7 @@ fragment datasetERModelRelationshipFields on Dataset {
 fragment structuredPropertyFields on StructuredPropertyEntity {
     urn
     type
+    exists
     definition {
         displayName
         qualifiedName
@@ -1613,6 +1652,7 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
         showInSearchFilters
         showAsAssetBadge
         showInAssetSummary
+        hideInAssetSummaryWhenEmpty
         showInColumnsTable
     }
 }
@@ -1636,6 +1676,9 @@ fragment structuredPropertiesFields on StructuredPropertiesEntry {
         ...entityDisplayNameFields
     }
     associatedUrn
+    attribution {
+        ...attributionFields
+    }
 }
 
 fragment autoRenderAspectFields on RawAspect {
@@ -1764,6 +1807,7 @@ fragment entityPrivileges on EntityPrivileges {
     canViewDatasetUsage
     canViewDatasetProfile
     canViewDatasetOperations
+    canManageAssetSummary
 }
 
 fragment businessAttribute on BusinessAttributeAssociation {
@@ -1915,6 +1959,9 @@ fragment ingestionSourceFields on IngestionSource {
         urn
         type
         name
+    }
+    source {
+        type
     }
 }
 

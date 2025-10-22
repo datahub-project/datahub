@@ -195,12 +195,16 @@ public class SearchDocumentTransformer {
 
     Optional<ObjectNode> result = Optional.empty();
 
+    final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
+    searchDocument.put("urn", urn.toString());
+
+    // Check if the entity has any searchable aspects
+    EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
+    boolean entityHasSearchableAspects = !entitySpec.getSearchableFieldSpecs().isEmpty();
+
     if (!extractedSearchableFields.isEmpty()
         || !extractedSearchScoreFields.isEmpty()
         || !extractedSearchRefFields.isEmpty()) {
-      final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
-      searchDocument.put("urn", urn.toString());
-
       extractedSearchableFields.forEach(
           (key, values) ->
               setSearchableValue(key, values, searchDocument, forDelete, mclCreateAuditStamp));
@@ -211,9 +215,13 @@ public class SearchDocumentTransformer {
       extractedSearchScoreFields.forEach(
           (key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
       result = Optional.of(searchDocument);
-    } else if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
-      final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
-      searchDocument.put("urn", urn.toString());
+    } else if (entityHasSearchableAspects) {
+      // If entity has searchable aspects but current aspect has no searchable fields,
+      // still create a search document with just the URN
+      result = Optional.of(searchDocument);
+    }
+
+    if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
       setStructuredPropertiesSearchValue(
           opContext, new StructuredProperties(aspect.data()), searchDocument, forDelete);
       result = Optional.of(searchDocument);

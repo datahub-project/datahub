@@ -16,6 +16,18 @@ public class EbeanTestUtils {
   }
 
   @Nonnull
+  public static Database createNamedTestServer(String instanceId, String serverName) {
+    DatabaseConfig config = createTestingH2ServerConfig(instanceId);
+    config.setName(serverName);
+    config.setDefaultServer(false); // Explicitly set as non-default to avoid conflicts
+
+    // Add the required entity packages for DataHub
+    config.getPackages().add("com.linkedin.metadata.entity.ebean");
+
+    return DatabaseFactory.create(config);
+  }
+
+  @Nonnull
   private static DatabaseConfig createTestingH2ServerConfig(String instanceId) {
     DataSourceConfig dataSourceConfig = new DataSourceConfig();
     dataSourceConfig.setUsername("tester");

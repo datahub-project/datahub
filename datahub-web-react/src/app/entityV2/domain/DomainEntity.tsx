@@ -23,6 +23,9 @@ import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/Sid
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityTab } from '@app/entityV2/shared/types';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 
 import { useGetDomainQuery } from '@graphql/domain.generated';
 import { Domain, EntityType, SearchResult } from '@types';
@@ -60,14 +63,7 @@ export class DomainEntity implements Entity<Domain> {
             );
         }
 
-        return (
-            <DomainIcon
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
-            />
-        );
+        return <DomainIcon style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />;
     };
 
     isSearchEnabled = () => true;
@@ -100,43 +96,7 @@ export class DomainEntity implements Entity<Domain> {
             isNameEditable
             isIconEditable
             isColorEditable
-            tabs={[
-                {
-                    id: EntityProfileTab.SUMMARY_TAB,
-                    name: 'Summary',
-                    component: DomainSummaryTab,
-                    icon: SUMMARY_TAB_ICON,
-                },
-                {
-                    id: EntityProfileTab.DOMAIN_ENTITIES_TAB,
-                    name: 'Assets',
-                    getCount: (entityData, _) => {
-                        return entityData?.entities?.total;
-                    },
-                    component: DomainEntitiesTab,
-                    icon: AppstoreOutlined,
-                },
-                {
-                    id: EntityProfileTab.DOCUMENTATION_TAB,
-                    name: 'Documentation',
-                    component: DocumentationTab,
-                    icon: FileOutlined,
-                },
-                {
-                    id: EntityProfileTab.DATA_PRODUCTS_TAB,
-                    name: 'Data Products',
-                    getCount: (entityData, _) => {
-                        return entityData?.dataProducts?.total;
-                    },
-                    component: DataProductsTab,
-                    icon: FileDoneOutlined,
-                },
-                {
-                    name: 'Properties',
-                    component: PropertiesTab,
-                    icon: UnorderedListOutlined,
-                },
-            ]}
+            tabs={this.getProfileTabs()}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
@@ -175,6 +135,51 @@ export class DomainEntity implements Entity<Domain> {
         },
     ];
 
+    getProfileTabs = (): EntityTab[] => {
+        const showSummaryTab = useShowAssetSummaryPage();
+        return [
+            {
+                id: EntityProfileTab.SUMMARY_TAB,
+                name: 'Summary',
+                component: showSummaryTab ? SummaryTab : DomainSummaryTab,
+                icon: SUMMARY_TAB_ICON,
+            },
+            {
+                id: EntityProfileTab.DOMAIN_ENTITIES_TAB,
+                name: 'Assets',
+                getCount: (entityData, _) => {
+                    return entityData?.entities?.total;
+                },
+                component: DomainEntitiesTab,
+                icon: AppstoreOutlined,
+            },
+            ...(!showSummaryTab
+                ? [
+                      {
+                          id: EntityProfileTab.DOCUMENTATION_TAB,
+                          name: 'Documentation',
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                      },
+                  ]
+                : []),
+            {
+                id: EntityProfileTab.DATA_PRODUCTS_TAB,
+                name: 'Data Products',
+                getCount: (entityData, _) => {
+                    return entityData?.dataProducts?.total;
+                },
+                component: DataProductsTab,
+                icon: FileDoneOutlined,
+            },
+            {
+                name: 'Properties',
+                component: PropertiesTab,
+                icon: UnorderedListOutlined,
+            },
+        ];
+    };
+
     renderPreview = (previewType: PreviewType, data: Domain) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
@@ -207,6 +212,7 @@ export class DomainEntity implements Entity<Domain> {
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
                 headerDropdownItems={headerDropdownItems}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

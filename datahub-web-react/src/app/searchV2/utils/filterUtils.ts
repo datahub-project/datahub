@@ -214,3 +214,7 @@ export function combineOrFilters(orFilter1: AndFilterInput[], orFilter2: AndFilt
 
     return mergedFilter;
 }
+
+export function excludeEmptyAndFilters(filters: AndFilterInput[] | undefined): AndFilterInput[] | undefined {
+    return filters?.filter((filter) => filter.and?.length);
+}

@@ -3051,8 +3051,12 @@
             "upstreams": [
                 {
                     "auditStamp": {
+                        "time": 1638860400000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
                         "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
+                        "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD)",
                     "type": "VIEW"
@@ -3068,7 +3072,8 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD),betStatusId)"
                     ],
-                    "confidenceScore": 1.0
+                    "transformOperation": "COPY: `bet`.`betStatusId` AS `betStatusId`",
+                    "confidenceScore": 0.9
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -3079,7 +3084,8 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD),channelId)"
                     ],
-                    "confidenceScore": 1.0
+                    "transformOperation": "COPY: `bet`.`channelId` AS `channelId`",
+                    "confidenceScore": 0.9
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -3090,7 +3096,8 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD),combination)"
                     ],
-                    "confidenceScore": 1.0
+                    "transformOperation": "COPY: `bet`.`combination` AS `combination`",
+                    "confidenceScore": 0.9
                 }
             ]
         }
@@ -3098,7 +3105,8 @@
     "systemMetadata": {
         "lastObserved": 1638860400000,
         "runId": "unity-catalog-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-test-pipeline"
     }
 },
 {

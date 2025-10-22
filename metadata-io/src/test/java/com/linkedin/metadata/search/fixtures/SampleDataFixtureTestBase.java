@@ -42,6 +42,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -58,7 +59,6 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import org.junit.Assert;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.AnalyzeRequest;
 import org.opensearch.client.indices.AnalyzeResponse;
 import org.opensearch.client.indices.GetMappingsRequest;
@@ -68,6 +68,7 @@ import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortBuilder;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringContextTests {
@@ -81,13 +82,51 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   protected abstract EntityClient getEntityClient();
 
   @Nonnull
-  protected abstract RestHighLevelClient getSearchClient();
+  protected abstract SearchClientShim<?> getSearchClient();
 
   @Nonnull
   protected abstract OperationContext getOperationContext();
 
   @Nonnull
   protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
+
+  @BeforeClass
+  public void verifyDataAvailability() {
+    // Wait for sample data to be available before running tests
+    // This verifies that the basic search functionality works and returns expected counts
+    Map<String, Integer> expectedTypes =
+        Map.of(
+            "dataset", 13,
+            "chart", 0,
+            "container", 2,
+            "dashboard", 0,
+            "tag", 0,
+            "mlmodel", 0);
+
+    waitForDataAvailability(
+        () -> {
+          SearchResult testResult =
+              searchAcrossEntities(getOperationContext(), getSearchService(), "test");
+
+          // Check if we get the expected entity counts
+          for (Map.Entry<String, Integer> entry : expectedTypes.entrySet()) {
+            long actualCount =
+                testResult.getEntities().stream()
+                    .map(SearchEntity::getEntity)
+                    .filter(entity -> entry.getKey().equals(entity.getEntityType()))
+                    .count();
+
+            if (actualCount != entry.getValue()) {
+              return false;
+            }
+          }
+          return true;
+        },
+        30, // Wait up to 30 seconds
+        String.format(
+            "Sample data not available after 30 seconds. Expected entity counts: %s",
+            expectedTypes));
+  }
 
   @Test
   public void testSearchFieldConfig() throws IOException {
@@ -123,8 +162,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
       EntitySpec entitySpec = entry.getKey();
       GetMappingsRequest req = new GetMappingsRequest().indices(entry.getValue());
 
-      GetMappingsResponse resp =
-          getSearchClient().indices().getMapping(req, RequestOptions.DEFAULT);
+      GetMappingsResponse resp = getSearchClient().getIndexMapping(req, RequestOptions.DEFAULT);
       Map<String, Map<String, Object>> mappings =
           (Map<String, Map<String, Object>>)
               resp.mappings().get(entry.getValue()).sourceAsMap().get("properties");
@@ -261,7 +299,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   @Test
   public void testDatasetHasTags() throws IOException {
     GetMappingsRequest req = new GetMappingsRequest().indices("smpldat_datasetindex_v2");
-    GetMappingsResponse resp = getSearchClient().indices().getMapping(req, RequestOptions.DEFAULT);
+    GetMappingsResponse resp = getSearchClient().getIndexMapping(req, RequestOptions.DEFAULT);
     Map<String, Map<String, String>> mappings =
         (Map<String, Map<String, String>>)
             resp.mappings().get("smpldat_datasetindex_v2").sourceAsMap().get("properties");
@@ -2186,10 +2224,6 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
   private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request)
       throws IOException {
-    return getSearchClient()
-        .indices()
-        .analyze(request, RequestOptions.DEFAULT)
-        .getTokens()
-        .stream();
+    return getSearchClient().analyzeIndex(request, RequestOptions.DEFAULT).getTokens().stream();
   }
 }

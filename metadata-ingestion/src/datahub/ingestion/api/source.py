@@ -25,12 +25,14 @@ from typing_extensions import LiteralString, Self
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
     auto_patch_last_modified,
 )
 from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
     EnsureAspectSizeProcessor,
+)
+from datahub.ingestion.api.auto_work_units.auto_validate_input_fields import (
+    ValidateInputFieldsProcessor,
 )
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
@@ -46,8 +48,15 @@ from datahub.ingestion.api.source_helpers import (
     auto_workunit,
     auto_workunit_reporter,
 )
+from datahub.ingestion.api.source_protocols import (
+    MetadataWorkUnitIterable,
+    ProfilingCapable,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.sdk.entity import Entity
+from datahub.ingestion.source_report.ingestion_stage import (
+    IngestionHighStage,
+    IngestionStageReport,
+)
 from datahub.telemetry import stats
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
@@ -81,11 +90,24 @@ class StructuredLogLevel(Enum):
     ERROR = logging.ERROR
 
 
+class StructuredLogCategory(Enum):
+    """
+    This is used to categorise the errors mainly based on the biggest impact area
+    This is to be used to help in self-serve understand the impact of any log entry
+    More enums to be added as logs are updated to be self-serve
+    """
+
+    LINEAGE = "LINEAGE"
+    USAGE = "USAGE"
+    PROFILING = "PROFILING"
+
+
 @dataclass
 class StructuredLogEntry(Report):
     title: Optional[str]
     message: str
     context: LossyList[str]
+    log_category: Optional[StructuredLogCategory] = None
 
 
 @dataclass
@@ -108,9 +130,10 @@ class StructuredLogs(Report):
         exc: Optional[BaseException] = None,
         log: bool = False,
         stacklevel: int = 1,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
         """
-        Report a user-facing warning for the ingestion run.
+        Report a user-facing log for the ingestion run.
 
         Args:
             level: The level of the log entry.
@@ -118,6 +141,9 @@ class StructuredLogs(Report):
             title: The category / heading to present on for this message in the UI.
             context: Additional context (e.g. where, how) for the log entry.
             exc: The exception associated with the event. We'll show the stack trace when in debug mode.
+            log_category: The type of the log entry. This is used to categorise the log entry.
+            log: Whether to log the entry to the console.
+            stacklevel: The stack level to use for the log entry.
         """
 
         # One for this method, and one for the containing report_* call.
@@ -160,6 +186,7 @@ class StructuredLogs(Report):
                 title=title,
                 message=message,
                 context=context_list,
+                log_category=log_category,
             )
         else:
             if context is not None:
@@ -187,10 +214,11 @@ class StructuredLogs(Report):
 
 
 @dataclass
-class SourceReport(ExamplesReport):
+class SourceReport(ExamplesReport, IngestionStageReport):
     event_not_produced_warn: bool = True
     events_produced: int = 0
     events_produced_per_sec: int = 0
+    num_input_fields_filtered: int = 0
 
     _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
 
@@ -219,9 +247,19 @@ class SourceReport(ExamplesReport):
         context: Optional[str] = None,
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
+        """
+        See docs of StructuredLogs.report_log for details of args
+        """
         self._structured_logs.report_log(
-            StructuredLogLevel.WARN, message, title, context, exc, log=False
+            StructuredLogLevel.WARN,
+            message,
+            title,
+            context,
+            exc,
+            log=False,
+            log_category=log_category,
         )
 
     def warning(
@@ -231,9 +269,19 @@ class SourceReport(ExamplesReport):
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
         log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
+        """
+        See docs of StructuredLogs.report_log for details of args
+        """
         self._structured_logs.report_log(
-            StructuredLogLevel.WARN, message, title, context, exc, log=log
+            StructuredLogLevel.WARN,
+            message,
+            title,
+            context,
+            exc,
+            log=log,
+            log_category=log_category,
         )
 
     def report_failure(
@@ -243,9 +291,19 @@ class SourceReport(ExamplesReport):
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
         log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
+        """
+        See docs of StructuredLogs.report_log for details of args
+        """
         self._structured_logs.report_log(
-            StructuredLogLevel.ERROR, message, title, context, exc, log=log
+            StructuredLogLevel.ERROR,
+            message,
+            title,
+            context,
+            exc,
+            log=log,
+            log_category=log_category,
         )
 
     def failure(
@@ -255,9 +313,19 @@ class SourceReport(ExamplesReport):
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
         log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
+        """
+        See docs of StructuredLogs.report_log for details of args
+        """
         self._structured_logs.report_log(
-            StructuredLogLevel.ERROR, message, title, context, exc, log=log
+            StructuredLogLevel.ERROR,
+            message,
+            title,
+            context,
+            exc,
+            log=log,
+            log_category=log_category,
         )
 
     def info(
@@ -267,9 +335,19 @@ class SourceReport(ExamplesReport):
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
         log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
+        """
+        See docs of StructuredLogs.report_log for details of args
+        """
         self._structured_logs.report_log(
-            StructuredLogLevel.INFO, message, title, context, exc, log=log
+            StructuredLogLevel.INFO,
+            message,
+            title,
+            context,
+            exc,
+            log=log,
+            log_category=log_category,
         )
 
     @contextlib.contextmanager
@@ -279,6 +357,7 @@ class SourceReport(ExamplesReport):
         title: Optional[LiteralString] = None,
         context: Optional[str] = None,
         level: StructuredLogLevel = StructuredLogLevel.ERROR,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> Iterator[None]:
         # Convenience method that helps avoid boilerplate try/except blocks.
         # TODO: I'm not super happy with the naming here - it's not obvious that this
@@ -287,7 +366,12 @@ class SourceReport(ExamplesReport):
             yield
         except Exception as exc:
             self._structured_logs.report_log(
-                level, message=message, title=title, context=context, exc=exc
+                level,
+                message=message,
+                title=title,
+                context=context,
+                exc=exc,
+                log_category=log_category,
             )
 
     def __post_init__(self) -> None:
@@ -457,12 +541,13 @@ class Source(Closeable, metaclass=ABCMeta):
             auto_status_aspect,
             auto_materialize_referenced_tags_terms,
             partial(
-                auto_fix_duplicate_schema_field_paths, platform=self._infer_platform()
+                auto_fix_duplicate_schema_field_paths, platform=self.infer_platform()
             ),
-            partial(auto_fix_empty_field_paths, platform=self._infer_platform()),
+            partial(auto_fix_empty_field_paths, platform=self.infer_platform()),
             browse_path_processor,
             partial(auto_workunit_reporter, self.get_report()),
             auto_patch_last_modified,
+            ValidateInputFieldsProcessor(self.get_report()).validate_input_fields,
             EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
         ]
 
@@ -479,13 +564,31 @@ class Source(Closeable, metaclass=ABCMeta):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         workunit_processors = self.get_workunit_processors()
         workunit_processors.append(AutoSystemMetadata(self.ctx).stamp)
-        return self._apply_workunit_processors(
+        # Process main workunits
+        yield from self._apply_workunit_processors(
             workunit_processors, auto_workunit(self.get_workunits_internal())
         )
+        # Process profiling workunits
+        yield from self._process_profiling_stage(workunit_processors)
+
+    def _process_profiling_stage(
+        self, processors: List[Optional[MetadataWorkUnitProcessor]]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process profiling stage if source supports it."""
+        if (
+            not isinstance(self, ProfilingCapable)
+            or not self.is_profiling_enabled_internal()
+        ):
+            return
+        with self.get_report().new_high_stage(IngestionHighStage.PROFILING):
+            profiling_stream = self._apply_workunit_processors(
+                processors, auto_workunit(self.get_profiling_internal())
+            )
+            yield from profiling_stream
 
     def get_workunits_internal(
         self,
-    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper, Entity]]:
+    ) -> MetadataWorkUnitIterable:
         raise NotImplementedError(
             "get_workunits_internal must be implemented if get_workunits is not overriden."
         )
@@ -509,7 +612,7 @@ class Source(Closeable, metaclass=ABCMeta):
     def close(self) -> None:
         self.get_report().close()
 
-    def _infer_platform(self) -> Optional[str]:
+    def infer_platform(self) -> Optional[str]:
         config = self.get_config()
         platform = (
             getattr(config, "platform_name", None)
@@ -524,7 +627,7 @@ class Source(Closeable, metaclass=ABCMeta):
     def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
         config = self.get_config()
 
-        platform = self._infer_platform()
+        platform = self.infer_platform()
         env = getattr(config, "env", None)
         browse_path_drop_dirs = [
             platform,

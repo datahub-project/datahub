@@ -6,9 +6,10 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
 from ruamel.yaml import YAML
+from typing_extensions import assert_never
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, LaxStr
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
@@ -110,8 +111,9 @@ class DataProduct(ConfigModel):
     description: Optional[str] = None
     tags: Optional[List[str]] = None
     terms: Optional[List[str]] = None
-    properties: Optional[Dict[str, str]] = None
+    properties: Optional[Dict[str, LaxStr]] = None
     external_url: Optional[str] = None
+    output_ports: Optional[List[str]] = None
     _original_yaml_dict: Optional[dict] = None
 
     @pydantic.validator("assets", each_item=True)
@@ -121,6 +123,22 @@ class DataProduct(ConfigModel):
         except Exception as e:
             raise ValueError(f"asset {v} is not an urn: {e}") from e
 
+        return v
+
+    @pydantic.validator("output_ports", each_item=True)
+    def output_ports_must_be_urns(cls, v: str) -> str:
+        try:
+            Urn.create_from_string(v)
+        except Exception as e:
+            raise ValueError(f"Output port {v} is not an urn: {e}") from e
+
+        return v
+
+    @pydantic.validator("output_ports", each_item=True)
+    def output_ports_must_be_from_asset_list(cls, v: str, values: dict) -> str:
+        assets = values.get("assets", [])
+        if v not in assets:
+            raise ValueError(f"Output port {v} is not in asset list")
         return v
 
     @property
@@ -180,6 +198,7 @@ class DataProduct(ConfigModel):
                         DataProductAssociationClass(
                             destinationUrn=asset,
                             created=self._mint_auditstamp("yaml"),
+                            outputPort=asset in (self.output_ports or []),
                         )
                         for asset in self.assets
                     ]
@@ -203,6 +222,7 @@ class DataProduct(ConfigModel):
                         DataProductAssociationClass(
                             destinationUrn=asset,
                             created=self._mint_auditstamp("yaml"),
+                            outputPort=asset in (self.output_ports or []),
                         )
                         for asset in self.assets or []
                     ],
@@ -368,6 +388,13 @@ class DataProduct(ConfigModel):
             external_url=(
                 data_product_properties.externalUrl if data_product_properties else None
             ),
+            output_ports=[
+                e.destinationUrn
+                for e in (data_product_properties.assets or [])
+                if e.outputPort
+            ]
+            if data_product_properties
+            else None,
         )
 
     def _patch_ownership(
@@ -414,7 +441,9 @@ class DataProduct(ConfigModel):
                                 "type": new_owner_type_map[owner_urn],
                             }
                     else:
-                        patches_drop[i] = o
+                        patches_drop[i] = o.model_dump()
+                else:
+                    assert_never(o)
 
         # Figure out what if any are new owners to add
         new_owners_to_add = {o for o in new_owner_type_map} - set(owners_matched)

@@ -30,6 +30,7 @@ from typing_extensions import deprecated
 
 from datahub._codegen.aspect import _Aspect
 from datahub.cli import config_utils
+from datahub.cli.cli_utils import guess_frontend_url_from_gms_url
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
@@ -76,7 +77,15 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
-from datahub.metadata.urns import CorpUserUrn, Urn
+from datahub.metadata.urns import (
+    CorpUserUrn,
+    MlFeatureTableUrn,
+    MlFeatureUrn,
+    MlModelGroupUrn,
+    MlModelUrn,
+    MlPrimaryKeyUrn,
+    Urn,
+)
 from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.str_enum import StrEnum
@@ -118,8 +127,16 @@ def entity_type_to_graphql(entity_type: str) -> str:
     """Convert the entity types into GraphQL "EntityType" enum values."""
 
     # Hard-coded special cases.
-    if entity_type == CorpUserUrn.ENTITY_TYPE:
-        return "CORP_USER"
+    special_cases = {
+        CorpUserUrn.ENTITY_TYPE: "CORP_USER",
+        MlModelUrn.ENTITY_TYPE: "MLMODEL",
+        MlModelGroupUrn.ENTITY_TYPE: "MLMODEL_GROUP",
+        MlFeatureTableUrn.ENTITY_TYPE: "MLFEATURE_TABLE",
+        MlFeatureUrn.ENTITY_TYPE: "MLFEATURE",
+        MlPrimaryKeyUrn.ENTITY_TYPE: "MLPRIMARY_KEY",
+    }
+    if entity_type in special_cases:
+        return special_cases[entity_type]
 
     # Convert camelCase to UPPER_UNDERSCORE.
     entity_type = (
@@ -191,7 +208,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         Note: Only supported with DataHub Cloud.
         """
 
-        if not self.server_config:
+        if not hasattr(self, "server_config") or not self.server_config:
             self.test_connection()
 
         base_url = self.server_config.raw_config.get("baseUrl")
@@ -822,11 +839,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def _bulk_fetch_schema_info_by_filter(
         self,
         *,
-        platform: Optional[str] = None,
+        platform: Union[None, str, List[str]] = None,
         platform_instance: Optional[str] = None,
         env: Optional[str] = None,
         query: Optional[str] = None,
-        container: Optional[str] = None,
+        container: Union[None, str, List[str]] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 100,
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
@@ -898,11 +915,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         self,
         *,
         entity_types: Optional[Sequence[str]] = None,
-        platform: Optional[str] = None,
+        platform: Union[None, str, List[str]] = None,
         platform_instance: Optional[str] = None,
         env: Optional[str] = None,
         query: Optional[str] = None,
-        container: Optional[str] = None,
+        container: Union[None, str, List[str]] = None,
         status: Optional[RemovedStatusFilter] = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 5000,
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
@@ -955,7 +972,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 $orFilters: [AndFilterInput!],
                 $batchSize: Int!,
                 $scrollId: String,
-                $skipCache: Boolean!) {
+                $skipCache: Boolean!,
+                $includeSoftDeleted: Boolean) {
 
                 scrollAcrossEntities(input: {
                     query: $query,
@@ -967,6 +985,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                         skipHighlighting: true
                         skipAggregates: true
                         skipCache: $skipCache
+                        includeSoftDeleted: $includeSoftDeleted
                     }
                 }) {
                     nextScrollId
@@ -986,6 +1005,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "orFilters": orFilters,
             "batchSize": batch_size,
             "skipCache": skip_cache,
+            "includeSoftDeleted": (
+                None
+                if status is None
+                else status != RemovedStatusFilter.NOT_SOFT_DELETED
+            ),
         }
 
         for entity in self._scroll_across_entities(graphql_query, variables):
@@ -995,11 +1019,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         self,
         *,
         entity_types: Optional[List[str]] = None,
-        platform: Optional[str] = None,
+        platform: Union[None, str, List[str]] = None,
         platform_instance: Optional[str] = None,
         env: Optional[str] = None,
         query: Optional[str] = None,
-        container: Optional[str] = None,
+        container: Union[None, str, List[str]] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 5000,
         extra_and_filters: Optional[List[RawSearchFilterRule]] = None,
@@ -2047,6 +2071,202 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         )
 
         return res["reportAssertionResult"]
+
+    def _get_invite_token(self) -> str:
+        """
+        Retrieve an invite token for user creation.
+
+        Returns:
+            Invite token string
+
+        Raises:
+            OperationalError: If invite token retrieval fails
+        """
+        get_invite_token_query = """
+            query getInviteToken($input: GetInviteTokenInput!) {
+                getInviteToken(input: $input) {
+                    inviteToken
+                }
+            }
+        """
+
+        try:
+            invite_token_response = self.execute_graphql(
+                query=get_invite_token_query,
+                variables={"input": {}},
+            )
+            invite_token = invite_token_response.get("getInviteToken", {}).get(
+                "inviteToken"
+            )
+            if not invite_token:
+                raise OperationalError(
+                    "Failed to retrieve invite token. Ensure you have admin permissions.",
+                    {},
+                )
+            return invite_token
+        except Exception as e:
+            raise OperationalError(
+                f"Failed to retrieve invite token: {str(e)}", {}
+            ) from e
+
+    def _create_user_with_token(
+        self,
+        user_urn: str,
+        email: str,
+        display_name: str,
+        password: str,
+        invite_token: str,
+    ) -> None:
+        """
+        Create a user using the signup endpoint.
+
+        Args:
+            user_urn: User URN (urn:li:corpuser:{user_id})
+            email: User's email address
+            display_name: Full display name for the user
+            password: User's password
+            invite_token: Invite token for user creation
+
+        Raises:
+            OperationalError: If user creation fails
+        """
+        frontend_url = guess_frontend_url_from_gms_url(self._gms_server)
+        signup_url = f"{frontend_url}/signUp"
+        signup_payload = {
+            "userUrn": user_urn,
+            "email": email,
+            "fullName": display_name,
+            "password": password,
+            "title": "Other",
+            "inviteToken": invite_token,
+        }
+
+        logger.debug(
+            f"Creating user with URN={user_urn}, email={email} at URL: {signup_url}"
+        )
+        logger.debug(
+            f"Signup payload: {json.dumps({**signup_payload, 'password': '***'})}"
+        )
+
+        try:
+            response = self._session.post(signup_url, json=signup_payload)
+            logger.debug(f"Response status code: {response.status_code}")
+            logger.debug(f"Response headers: {dict(response.headers)}")
+            logger.debug(f"Response content length: {len(response.text)}")
+
+            response.raise_for_status()
+
+            # The /signUp endpoint returns 200 with empty body on success
+            logger.debug("User created successfully")
+
+        except HTTPError as http_err:
+            error_details = {
+                "url": signup_url,
+                "status_code": response.status_code,
+                "response_text": response.text[:500],
+            }
+            try:
+                error_json = response.json()
+                error_details["error_response"] = error_json
+                error_msg = error_json.get("message", str(http_err))
+            except JSONDecodeError:
+                error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+
+            raise OperationalError(
+                f"Failed to create user: {error_msg}",
+                error_details,
+            ) from http_err
+        except Exception as e:
+            raise OperationalError(
+                f"Failed to create user: {str(e)}",
+                {"url": signup_url, "error_type": type(e).__name__},
+            ) from e
+
+    def _assign_role_to_user(self, user_urn: str, role: str) -> None:
+        """
+        Assign a role to a user.
+
+        Args:
+            user_urn: User URN
+            role: Role to assign (Admin, Editor, or Reader)
+
+        Raises:
+            ValueError: If role is invalid
+        """
+        normalized_role = role.capitalize()
+        valid_roles = ["Admin", "Editor", "Reader"]
+        if normalized_role not in valid_roles:
+            raise ValueError(
+                f"Invalid role '{role}'. Must be one of: {', '.join(valid_roles)}"
+            )
+
+        role_urn = f"urn:li:dataHubRole:{normalized_role}"
+
+        batch_assign_role_mutation = """
+            mutation batchAssignRole($input: BatchAssignRoleInput!) {
+                batchAssignRole(input: $input)
+            }
+        """
+
+        try:
+            self.execute_graphql(
+                query=batch_assign_role_mutation,
+                variables={"input": {"roleUrn": role_urn, "actors": [user_urn]}},
+            )
+        except Exception as e:
+            logger.warning(f"Role assignment failed for user {user_urn}: {str(e)}")
+            raise
+
+    def create_native_user(
+        self,
+        user_id: str,
+        email: str,
+        display_name: str,
+        password: str,
+        role: Optional[str] = None,
+    ) -> str:
+        """
+        Create a native DataHub user with email/password authentication.
+
+        Args:
+            user_id: User identifier (will be used in the URN)
+            email: User's email address
+            display_name: Full display name for the user
+            password: User's password
+            role: Optional role to assign (Admin, Editor, or Reader)
+
+        Returns:
+            User URN of the created user (urn:li:corpuser:{user_id})
+
+        Raises:
+            OperationalError: If user creation fails
+            ValueError: If role is invalid
+        """
+        # Validate role before creating user
+        if role:
+            normalized_role = role.capitalize()
+            valid_roles = ["Admin", "Editor", "Reader"]
+            if normalized_role not in valid_roles:
+                raise ValueError(
+                    f"Invalid role '{role}'. Must be one of: {', '.join(valid_roles)}"
+                )
+
+        user_urn = f"urn:li:corpuser:{user_id}"
+
+        invite_token = self._get_invite_token()
+        self._create_user_with_token(
+            user_urn, email, display_name, password, invite_token
+        )
+
+        if role:
+            try:
+                self._assign_role_to_user(user_urn, role)
+            except Exception as e:
+                logger.warning(
+                    f"User {email} created successfully, but role assignment failed: {str(e)}"
+                )
+
+        return user_urn
 
     def close(self) -> None:
         self._make_schema_resolver.cache_clear()

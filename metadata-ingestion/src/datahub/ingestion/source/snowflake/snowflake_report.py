@@ -9,7 +9,6 @@ from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionReport,
 )
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.lossy_collections import LossyDict
@@ -96,7 +95,6 @@ class SnowflakeV2Report(
     SnowflakeUsageReport,
     StatefulIngestionReport,
     ClassificationReportMixin,
-    IngestionStageReport,
 ):
     account_locator: Optional[str] = None
     region: Optional[str] = None
@@ -128,6 +126,7 @@ class SnowflakeV2Report(
     # "Information schema query returned too much data. Please repeat query with more selective predicates.""
     # This will result in overall increase in time complexity
     num_get_tables_for_schema_queries: int = 0
+    num_get_views_for_schema_queries: int = 0
 
     # these will be non-zero if the user choses to enable the extract_tags = "with_lineage" option, which requires
     # individual queries per object (database, schema, table) and an extra query per table to get the tags on the columns.

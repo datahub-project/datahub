@@ -12,7 +12,7 @@ import RollbackExecutionConfirmation from '@app/ingestV2/executions/components/c
 import SourceColumn from '@app/ingestV2/executions/components/columns/SourceColumn';
 import { ExecutionCancelInfo, ExecutionRequestRecord } from '@app/ingestV2/executions/types';
 import TableFooter from '@app/ingestV2/shared/components/TableFooter';
-import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
+import DateTimeColumn, { wrapDateTimeColumnWithHover } from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import DurationColumn from '@app/ingestV2/shared/components/columns/DurationColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
@@ -93,6 +93,7 @@ export default function ExecutionsTable({
             key: 'startedAt',
             render: (record) => <DateTimeColumn time={record.startedAt} showRelative />,
             width: '15%',
+            cellWrapper: (content, record) => wrapDateTimeColumnWithHover(content, record.startedAt),
         },
         {
             title: 'Duration',
@@ -148,6 +149,7 @@ export default function ExecutionsTable({
                         <TableFooter hiddenItemsMessage="Some executions may be hidden" colSpan={tableColumns.length} />
                     ) : null
                 }
+                data-testid="executions-table"
             />
             <RollbackExecutionConfirmation
                 isOpen={!!runIdOfRollbackConfirmation}
