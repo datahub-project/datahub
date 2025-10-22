@@ -429,6 +429,19 @@ class VirtualConnectionProcessor:
                                 f"Creating column lineage: VC column '{vc_col_name}' -> DB column '{db_col_name}'"
                             )
 
+                            # Apply the same casing logic as embedded datasources for Snowflake
+                            final_db_col_name = db_col_name
+                            if (
+                                self.tableau_source.is_snowflake_urn(db_table_urn)
+                                and not self.config.ingest_tables_external
+                            ):
+                                # This is required for column level lineage to work correctly as
+                                # DataHub Snowflake source lowercases all field names in the schema.
+                                final_db_col_name = db_col_name.lower()
+                                logger.debug(
+                                    f"Applied Snowflake lowercase conversion: '{db_col_name}' -> '{final_db_col_name}'"
+                                )
+
                             # Create fine-grained lineage using simple field names (not v2 format)
                             # The VC URN already includes the VC ID, so we just need the column name
                             fine_grained_lineages.append(
@@ -442,7 +455,7 @@ class VirtualConnectionProcessor:
                                     upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                                     upstreams=[
                                         builder.make_schema_field_urn(
-                                            db_table_urn, db_col_name
+                                            db_table_urn, final_db_col_name
                                         )
                                     ],
                                 )
@@ -473,12 +486,18 @@ class VirtualConnectionProcessor:
         upstream_tables: List[UpstreamClass] = []
         fine_grained_lineages: List[FineGrainedLineageClass] = []
 
+        logger.debug(f"Creating VC lineage for datasource URN: {datasource_urn}")
+        logger.debug(
+            f"Available datasource VC relationships: {list(self.datasource_vc_relationships.keys())}"
+        )
+
         # Extract datasource ID from URN
         try:
             # URN format: urn:li:dataset:(urn:li:dataPlatform:tableau,datasource_id,PROD)
             urn_parts = datasource_urn.split(",")
             if len(urn_parts) >= 2:
                 datasource_id = urn_parts[1]
+                logger.debug(f"Extracted datasource ID: {datasource_id}")
             else:
                 logger.warning(
                     f"Could not extract datasource ID from URN: {datasource_urn}"
@@ -491,6 +510,9 @@ class VirtualConnectionProcessor:
             return upstream_tables, fine_grained_lineages
 
         if datasource_id not in self.datasource_vc_relationships:
+            logger.debug(
+                f"No VC relationships found for datasource ID: {datasource_id}"
+            )
             return upstream_tables, fine_grained_lineages
 
         vc_references = self.datasource_vc_relationships[datasource_id]
@@ -728,7 +750,11 @@ class VirtualConnectionProcessor:
                 self._create_table_upstream_lineage(table_info, table_urn)
             )
 
-            if upstream_tables:
+            if upstream_tables or fine_grained_lineages:
+                logger.debug(
+                    f"Emitting upstream lineage for VC table '{table_name}': "
+                    f"{len(upstream_tables)} upstream tables, {len(fine_grained_lineages)} fine-grained lineages"
+                )
                 upstream_lineage = UpstreamLineageClass(
                     upstreams=upstream_tables,
                     fineGrainedLineages=fine_grained_lineages or None,
@@ -737,6 +763,8 @@ class VirtualConnectionProcessor:
                     table_urn,
                     upstream_lineage,
                 )
+            else:
+                logger.debug(f"No upstream lineage to emit for VC table '{table_name}'")
 
             # Add table to the VC folder container
             vc_folder_key = self.gen_vc_folder_key(vc_id)
@@ -764,12 +792,17 @@ class VirtualConnectionProcessor:
             return [], []
 
         # Find matching database table
+        logger.debug(f"Creating upstream lineage for VC table: {table_name}")
         matched_db_table = self.tableau_source._find_matching_database_table(table_name)
         if not matched_db_table:
             logger.warning(
                 f"No matching database table found for VC table: {table_name}"
             )
             return [], []
+
+        logger.debug(
+            f"Found matching database table for VC table '{table_name}': {matched_db_table.get('name', 'Unknown')}"
+        )
 
         # Create database table URN
         db_table_urn = self.tableau_source._create_database_table_urn(matched_db_table)
@@ -808,6 +841,16 @@ class VirtualConnectionProcessor:
                     if vc_col_name.lower() in db_column_map:
                         db_col_name = db_column_map[vc_col_name.lower()]
 
+                        # Apply the same casing logic as embedded datasources for Snowflake
+                        final_db_col_name = db_col_name
+                        if (
+                            self.tableau_source.is_snowflake_urn(db_table_urn)
+                            and not self.config.ingest_tables_external
+                        ):
+                            # This is required for column level lineage to work correctly as
+                            # DataHub Snowflake source lowercases all field names in the schema.
+                            final_db_col_name = db_col_name.lower()
+
                         # Create fine-grained lineage
                         fine_grained_lineages.append(
                             FineGrainedLineageClass(
@@ -820,7 +863,7 @@ class VirtualConnectionProcessor:
                                 upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                                 upstreams=[
                                     builder.make_schema_field_urn(
-                                        db_table_urn, db_col_name
+                                        db_table_urn, final_db_col_name
                                     )
                                 ],
                             )

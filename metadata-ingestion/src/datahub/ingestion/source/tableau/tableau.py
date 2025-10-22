@@ -2942,8 +2942,13 @@ class TableauSiteSource:
             )
 
             # Add VC lineage to existing lineage
+            logger.debug(f"Creating VC lineage for datasource: {datasource_urn}")
             vc_upstream_tables, vc_fine_grained_lineages = (
                 self.vc_processor.create_datasource_vc_lineage(datasource_urn)
+            )
+            logger.debug(
+                f"VC lineage created: {len(vc_upstream_tables)} upstream tables, "
+                f"{len(vc_fine_grained_lineages)} fine-grained lineages"
             )
 
             # Combine with existing upstream tables
@@ -2955,7 +2960,7 @@ class TableauSiteSource:
             # Update report statistics
             self.report.num_vc_lineages_created += len(vc_fine_grained_lineages)
 
-            if upstream_tables or vc_fine_grained_lineages:
+            if upstream_tables or all_fine_grained_lineages:
                 upstream_lineage = UpstreamLineage(
                     upstreams=upstream_tables,
                     fineGrainedLineages=sorted(
@@ -4319,11 +4324,11 @@ class TableauSiteSource:
                         yield from self.vc_processor.emit_virtual_connections()
                         logger.debug("Virtual Connection emission complete")
 
-                    # STEP 4: NOW emit datasource → VC lineage (mappings are built now!)
+                    # Note: Datasource → VC lineage is already emitted during individual datasource emission
+                    # in emit_embedded_datasources() and emit_published_datasources() via create_datasource_vc_lineage()
                     logger.info(
-                        "Step 4: Creating datasource → VC lineage with built mappings"
+                        "Step 4: VC lineage already emitted during datasource processing"
                     )
-                    yield from self.vc_processor.emit_datasource_vc_lineages()
 
                     logger.info("=== VIRTUAL CONNECTIONS PROCESSING COMPLETE ===")
 
