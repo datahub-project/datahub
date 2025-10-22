@@ -155,6 +155,26 @@ public class ScimGroupRepositoryTest extends ScimRepositoryTestBase {
     ValidatableResponse userCreateResponse = post("/Users", userCreateBody);
     String userCreated = userCreateResponse.extract().body().path(CREATED);
 
+    // Create the second user
+    String user2CreateBody =
+        String.format(
+            """
+            {
+              "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+              "userName": "%s"
+            }
+            """,
+            userName2);
+
+    ValidatableResponse user2CreateResponse = post("/Users", user2CreateBody);
+    user2CreateResponse
+        .statusCode(201)
+        .body(
+            "schemas", contains("urn:ietf:params:scim:schemas:core:2.0:User"),
+            "userName", is(userName2),
+            "id", is(userId2),
+            "meta.resourceType", is("User"));
+
     String patchAddBody =
         String.format(
             """
