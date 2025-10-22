@@ -1,27 +1,16 @@
-import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
+import { PageTitle } from '@components';
 
 import { PostList } from '@app/settingsV2/posts/PostsList';
 
-export const PageContainer = styled.div`
-    padding-top: 20px;
+const PageContainer = styled.div`
+    padding: 16px 20px;
     width: 100%;
     display: flex;
     flex-direction: column;
     overflow: auto;
-`;
-
-export const PageHeaderContainer = styled.div`
-    && {
-        padding-left: 24px;
-    }
-`;
-
-export const PageTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 12px;
-    }
+    gap: 16px;
 `;
 
 const ListContainer = styled.div`
@@ -33,12 +22,10 @@ const ListContainer = styled.div`
 export default function ManagePosts() {
     return (
         <PageContainer>
-            <PageHeaderContainer data-testid="managePostsV2">
-                <PageTitle level={3}>Home Page</PageTitle>
-                <Typography.Paragraph type="secondary">
-                    View and manage pinned announcements and links that appear to all users on the landing page.
-                </Typography.Paragraph>
-            </PageHeaderContainer>
+            <PageTitle 
+                title="Home Page" 
+                subTitle="View and manage pinned announcements and links that appear to all users on the landing page."
+            />
             <ListContainer>
                 <PostList />
             </ListContainer>

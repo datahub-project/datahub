@@ -16,6 +16,7 @@ import { scrollToTop } from '@app/shared/searchUtils';
 import { getLocaleTimezone } from '@app/shared/time/timeUtils';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageTitle } from '@components';
 
 import { useListAccessTokensQuery, useRevokeAccessTokenMutation } from '@graphql/auth.generated';
 import { useListUsersQuery } from '@graphql/user.generated';
@@ -23,9 +24,7 @@ import { EntityType, FacetFilterInput } from '@types';
 
 const SourceContainer = styled.div`
     width: 100%;
-    padding-top: 20px;
-    padding-right: 40px;
-    padding-left: 40px;
+    padding: 16px 20px;
     display: flex;
     flex-direction: column;
     overflow: auto;
@@ -322,12 +321,10 @@ export const AccessTokens = () => {
             {tokensError && message.error('Failed to load tokens :(')}
             {revokeTokenError && message.error('Failed to update the Token :(')}
             <TokensContainer>
-                <TokensHeaderContainer>
-                    <TokensTitle level={2}>Manage Access Tokens</TokensTitle>
-                    <Typography.Paragraph type="secondary">
-                        Manage Access Tokens for use with DataHub APIs.
-                    </Typography.Paragraph>
-                </TokensHeaderContainer>
+                <PageTitle 
+                    title="Manage Access Tokens" 
+                    subTitle="Manage Access Tokens for use with DataHub APIs."
+                />
             </TokensContainer>
             <Divider />
             {isTokenAuthEnabled === false && (
