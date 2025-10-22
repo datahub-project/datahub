@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     createFileNodeAttributes,
     generateFileId,
+    getExtensionFromFileName,
     getFileTypeFromFilename,
     getFileTypeFromUrl,
     handleFileDownload,
@@ -266,6 +267,25 @@ describe('fileUtils', () => {
 
         it('should handle filenames with multiple dots', () => {
             expect(getFileTypeFromFilename('my.file.name.pdf')).toBe('application/pdf');
+        });
+    });
+
+    describe('getExtensionFromFileName', () => {
+        it('should extract extension from filename with single dot', () => {
+            expect(getExtensionFromFileName('document.pdf')).toBe('pdf');
+            expect(getExtensionFromFileName('image.jpg')).toBe('jpg');
+            expect(getExtensionFromFileName('spreadsheet.xlsx')).toBe('xlsx');
+        });
+
+        it('should extract extension from filename with multiple dots', () => {
+            expect(getExtensionFromFileName('my.file.name.pdf')).toBe('pdf');
+            expect(getExtensionFromFileName('archive.tar.gz')).toBe('gz');
+        });
+
+        it('should be case insensitive', () => {
+            expect(getExtensionFromFileName('file.PDF')).toBe('pdf');
+            expect(getExtensionFromFileName('file.PNG')).toBe('png');
+            expect(getExtensionFromFileName('file.TXT')).toBe('txt');
         });
     });
 });
