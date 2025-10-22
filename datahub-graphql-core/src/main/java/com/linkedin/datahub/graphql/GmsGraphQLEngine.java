@@ -994,7 +994,8 @@ public class GmsGraphQLEngine {
                         this.homePageConfiguration,
                         this.featureFlags,
                         this.chromeExtensionConfiguration,
-                        this.settingsService))
+                        this.settingsService,
+                        this.s3Util != null))
                 .dataFetcher(
                     "latestProductUpdate",
                     new ProductUpdateResolver(this.productUpdateService, this.featureFlags))
