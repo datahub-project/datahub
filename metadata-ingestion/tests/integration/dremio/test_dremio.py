@@ -539,8 +539,11 @@ def test_dremio_platform_instance_urns(
 
         # Check dataset URN structure
         if mce["entityType"] == "dataset" and "entityUrn" in mce:
-            assert "test-platform.dremio" in mce["entityUrn"], (
+            assert "test-platform." in mce["entityUrn"], (
                 f"Platform instance missing in dataset URN: {mce['entityUrn']}"
+            )
+            assert "test-platform.dremio." not in mce["entityUrn"], (
+                f"URN has incorrect double dremio prefix: {mce['entityUrn']}"
             )
 
         # Check aspects for both datasets and containers

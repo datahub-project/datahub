@@ -1884,7 +1884,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -1908,7 +1908,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1926,7 +1926,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1943,7 +1943,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1959,7 +1959,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -1977,7 +1977,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -2119,7 +2119,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2135,7 +2135,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -2163,7 +2163,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -2187,7 +2187,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -2205,7 +2205,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2222,7 +2222,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -2238,7 +2238,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -2256,7 +2256,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -2362,7 +2362,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2378,7 +2378,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -2410,7 +2410,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -2434,7 +2434,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -2452,7 +2452,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2469,7 +2469,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -2485,7 +2485,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -2503,7 +2503,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -2621,7 +2621,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2637,7 +2637,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -2669,7 +2669,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -2693,7 +2693,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -2711,7 +2711,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2728,7 +2728,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -2744,7 +2744,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -2762,7 +2762,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -2880,7 +2880,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2896,7 +2896,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -2928,7 +2928,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -2952,7 +2952,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -2970,7 +2970,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2987,7 +2987,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -3003,7 +3003,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -3021,7 +3021,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -3103,7 +3103,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -3119,7 +3119,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -3151,7 +3151,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -3175,7 +3175,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -3193,7 +3193,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -3210,7 +3210,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -3226,7 +3226,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -3244,7 +3244,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -3314,7 +3314,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -3330,7 +3330,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -3362,7 +3362,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -3386,7 +3386,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -3404,7 +3404,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -3421,7 +3421,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -3437,7 +3437,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -3455,7 +3455,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -3537,7 +3537,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -3553,7 +3553,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -3585,7 +3585,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -3609,7 +3609,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -3627,7 +3627,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -3644,7 +3644,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -3660,7 +3660,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -3742,7 +3742,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -3758,7 +3758,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -3783,7 +3783,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -3811,7 +3811,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -3835,7 +3835,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -3853,7 +3853,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -3870,7 +3870,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -3886,7 +3886,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -4004,7 +4004,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -4020,7 +4020,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -4045,7 +4045,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -4077,7 +4077,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -4101,7 +4101,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -4119,7 +4119,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -4136,7 +4136,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -4152,7 +4152,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -4270,7 +4270,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -4286,7 +4286,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -4311,7 +4311,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -4343,7 +4343,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -4367,7 +4367,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -4385,7 +4385,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -4402,7 +4402,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -4418,7 +4418,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -4500,7 +4500,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -4516,7 +4516,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -4541,7 +4541,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -4573,7 +4573,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -4597,7 +4597,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -4615,7 +4615,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -4632,7 +4632,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -4648,7 +4648,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -4754,7 +4754,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -4770,7 +4770,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -4795,7 +4795,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -4827,7 +4827,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -4851,7 +4851,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -4869,7 +4869,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -4886,7 +4886,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -4902,7 +4902,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -4972,7 +4972,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -4988,7 +4988,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -5013,7 +5013,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -5045,7 +5045,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -5069,7 +5069,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -5087,7 +5087,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -5104,7 +5104,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -5120,7 +5120,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -5262,7 +5262,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -5278,7 +5278,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -5303,7 +5303,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -5335,7 +5335,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -5359,7 +5359,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -5377,7 +5377,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -5394,7 +5394,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -5410,7 +5410,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -5600,7 +5600,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -5616,7 +5616,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -5641,7 +5641,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -5677,7 +5677,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -5701,7 +5701,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -5719,7 +5719,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -5736,7 +5736,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -5752,7 +5752,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -5834,7 +5834,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -5850,7 +5850,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -5875,7 +5875,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -5911,7 +5911,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -5935,7 +5935,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -5953,7 +5953,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -5970,7 +5970,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -5986,7 +5986,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -6128,7 +6128,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -6144,7 +6144,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -6169,7 +6169,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -6213,7 +6213,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -6240,7 +6240,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD),urn)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD),urn)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6251,7 +6251,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD),createdfor)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD),createdfor)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6262,7 +6262,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD),createdby)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD),createdby)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6273,7 +6273,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD),createdon)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD),createdon)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6284,7 +6284,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD),metadata)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD),metadata)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6295,7 +6295,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD),version)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD),version)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6306,7 +6306,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_aspect,PROD),aspect)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD),aspect)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -6321,7 +6321,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -6348,7 +6348,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD),doubleVal)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD),doubleVal)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6359,7 +6359,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6370,7 +6370,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD),urn)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD),urn)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6381,7 +6381,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD),aspect)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD),aspect)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6392,7 +6392,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD),path)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD),path)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6403,7 +6403,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD),longVal)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD),longVal)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6414,7 +6414,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index,PROD),stringVal)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD),stringVal)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -6429,7 +6429,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -6456,7 +6456,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD),doubleVal)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index_view,PROD),doubleVal)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6467,7 +6467,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD),path)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index_view,PROD),path)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6478,7 +6478,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD),urn)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index_view,PROD),urn)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6489,7 +6489,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.metagalaxy.metadata_index_view,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index_view,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -6504,7 +6504,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -6531,7 +6531,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6542,7 +6542,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD),company)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD),company)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6553,7 +6553,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD),last_name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD),last_name)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6564,7 +6564,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD),first_name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD),first_name)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6575,7 +6575,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD),email_address)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD),email_address)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6586,7 +6586,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.customers,PROD),priority)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD),priority)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -6601,7 +6601,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -6628,7 +6628,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.orders,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.orders,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6639,7 +6639,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.orders,PROD),description)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.orders,PROD),description)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6650,7 +6650,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.mysql.northwind.orders,PROD),customer_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.orders,PROD),customer_id)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -6665,7 +6665,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -6692,7 +6692,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6703,7 +6703,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD),name)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6714,7 +6714,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD),age)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD),age)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6725,7 +6725,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD),salary)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD),salary)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -6740,7 +6740,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -6767,7 +6767,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),A)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),A)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6778,7 +6778,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),B)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),B)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6789,7 +6789,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),C)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),C)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6800,7 +6800,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),D)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),D)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6811,7 +6811,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),E)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),E)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6822,7 +6822,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),F)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),F)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6833,7 +6833,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),G)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),G)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6844,7 +6844,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),H)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),H)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6855,7 +6855,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),I)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),I)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6866,7 +6866,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),J)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),J)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6877,7 +6877,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),K)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),K)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6888,7 +6888,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),L)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),L)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6899,7 +6899,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),M)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),M)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -6914,7 +6914,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -6941,7 +6941,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD),MANAGER_ID)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD),MANAGER_ID)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6952,7 +6952,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD),DEPARTMENT_NAME)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD),DEPARTMENT_NAME)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6963,7 +6963,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD),LOCATION_ID)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD),LOCATION_ID)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -6974,7 +6974,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD),DEPARTMENT_ID)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD),DEPARTMENT_ID)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -6989,7 +6989,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -7016,7 +7016,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),B)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD),B)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -7027,7 +7027,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),C)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD),C)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -7038,7 +7038,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),D)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD),D)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -7049,7 +7049,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),E)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD),E)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -7060,7 +7060,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),I)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD),I)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -7071,7 +7071,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),H)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD),H)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -7082,7 +7082,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),G)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD),G)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -7093,7 +7093,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),F)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD),F)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -7104,7 +7104,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),A)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD),A)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -7119,7 +7119,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -7146,7 +7146,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_start_date_sk)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_start_date_sk)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -7157,7 +7157,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_catalog_page_sk)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_catalog_page_sk)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -7168,7 +7168,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_catalog_page_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_catalog_page_id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -7179,7 +7179,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_end_date_sk)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_end_date_sk)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -7190,7 +7190,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_department)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_department)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -7201,7 +7201,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_catalog_number)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_catalog_number)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -7212,7 +7212,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_catalog_page_number)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_catalog_page_number)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -7223,7 +7223,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_description)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_description)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -7234,7 +7234,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_type)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_type)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -7249,7 +7249,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -7266,7 +7266,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.customers%2CPROD%29"
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.customers%2CPROD%29"
                 }
             ]
         }
@@ -7279,7 +7279,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.customers%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.customers%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -7308,7 +7308,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.customers%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.customers%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -7318,7 +7318,7 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.customers,PROD)"
                 },
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.customers,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.customers,PROD)"
                 }
             ]
         }
@@ -7331,7 +7331,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.customers%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.customers%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -7347,7 +7347,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_aspect,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -7364,7 +7364,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_aspect%2CPROD%29"
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.metadata_aspect%2CPROD%29"
                 }
             ]
         }
@@ -7377,7 +7377,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_aspect%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.metadata_aspect%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -7406,7 +7406,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_aspect%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.metadata_aspect%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -7416,7 +7416,7 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_aspect,PROD)"
                 },
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_aspect,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_aspect,PROD)"
                 }
             ]
         }
@@ -7429,7 +7429,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_aspect%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.metadata_aspect%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -7445,7 +7445,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -7462,7 +7462,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_index%2CPROD%29"
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.metadata_index%2CPROD%29"
                 }
             ]
         }
@@ -7475,7 +7475,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_index%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.metadata_index%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -7504,7 +7504,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_index%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.metadata_index%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -7514,7 +7514,7 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index,PROD)"
                 },
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index,PROD)"
                 }
             ]
         }
@@ -7527,7 +7527,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_index%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.metadata_index%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -7543,7 +7543,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index_view,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -7560,7 +7560,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index_view,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_index_view%2CPROD%29"
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.metadata_index_view%2CPROD%29"
                 }
             ]
         }
@@ -7573,7 +7573,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_index_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.metadata_index_view%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -7602,7 +7602,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_index_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.metadata_index_view%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -7612,7 +7612,7 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.metagalaxy.metadata_index_view,PROD)"
                 },
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.metadata_index_view,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.metadata_index_view,PROD)"
                 }
             ]
         }
@@ -7625,7 +7625,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_index_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.metadata_index_view%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -7641,7 +7641,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -7658,7 +7658,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.orders,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.orders%2CPROD%29"
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.orders%2CPROD%29"
                 }
             ]
         }
@@ -7671,7 +7671,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.orders%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.orders%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -7700,7 +7700,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.orders%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.orders%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -7710,7 +7710,7 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.mysql.northwind.orders,PROD)"
                 },
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.orders,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.orders,PROD)"
                 }
             ]
         }
@@ -7723,7 +7723,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.orders%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.orders%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -7739,7 +7739,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -7754,63 +7754,63 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.raw%2CPROD%29"
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.raw%2CPROD%29"
                 }
             ],
             "fineGrainedLineages": [
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD),id)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD),id)"
                     ],
                     "transformOperation": "COPY: \"warehouse\".\"id\" AS \"id\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.raw%2CPROD%29"
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.raw%2CPROD%29"
                 },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD),name)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD),name)"
                     ],
                     "transformOperation": "COPY: \"warehouse\".\"name\" AS \"name\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.raw%2CPROD%29"
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.raw%2CPROD%29"
                 },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD),age)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD),age)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD),age)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD),age)"
                     ],
                     "transformOperation": "COPY: \"warehouse\".\"age\" AS \"age\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.raw%2CPROD%29"
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.raw%2CPROD%29"
                 },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD),salary)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD),salary)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD),salary)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD),salary)"
                     ],
                     "transformOperation": "COPY: \"warehouse\".\"salary\" AS \"salary\"",
                     "confidenceScore": 0.9,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.raw%2CPROD%29"
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.raw%2CPROD%29"
                 }
             ]
         }
@@ -7823,7 +7823,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.raw%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.raw%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -7852,41 +7852,41 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.raw%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.raw%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
         "json": {
             "subjects": [
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD)"
                 },
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD),age)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD),age)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD),id)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD),id)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD),name)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD),name)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.s3.warehouse,PROD),salary)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.s3.warehouse,PROD),salary)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD),id)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD),id)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD),name)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD),name)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD),age)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD),age)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.test_folder.raw,PROD),salary)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.test_folder.raw,PROD),salary)"
                 }
             ]
         }
@@ -7899,7 +7899,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.raw%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.raw%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -7915,7 +7915,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.warehouse,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.warehouse,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -7932,7 +7932,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.warehouse%2CPROD%29"
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.warehouse%2CPROD%29"
                 }
             ]
         }
@@ -7945,7 +7945,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.warehouse%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.warehouse%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -7974,7 +7974,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.warehouse%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.warehouse%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -7984,7 +7984,7 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.samples.samples.dremio.com.nyc-weather.csv,PROD)"
                 },
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.dremio.space.warehouse,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,test-platform.space.warehouse,PROD)"
                 }
             ]
         }
@@ -7997,7 +7997,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.warehouse%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.warehouse%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -8013,7 +8013,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.customers%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.customers%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8029,7 +8029,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_aspect%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.metadata_aspect%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8045,7 +8045,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_index%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.metadata_index%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8061,7 +8061,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.metadata_index_view%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.metadata_index_view%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8077,7 +8077,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.orders%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.orders%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8093,7 +8093,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.test_folder.raw%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.test_folder.raw%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8109,7 +8109,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.dremio.space.warehouse%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Adremio%2Ctest-platform.space.warehouse%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
