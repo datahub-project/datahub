@@ -1022,7 +1022,8 @@ public class GmsGraphQLEngine {
                         this.chromeExtensionConfiguration,
                         this.settingsService,
                         this.classificationConfiguration,
-                        this.defaultLineageLastDaysFilter))
+                        this.defaultLineageLastDaysFilter,
+                        this.s3Util != null))
                 .dataFetcher(
                     "latestProductUpdate",
                     new ProductUpdateResolver(this.productUpdateService, this.featureFlags))
