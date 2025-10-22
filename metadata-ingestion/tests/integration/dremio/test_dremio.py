@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 import subprocess
@@ -6,6 +7,7 @@ from typing import Dict
 import boto3
 import pytest
 import requests
+from future.backports.datetime import tzinfo
 from time_machine import travel
 
 from datahub.testing import mce_helpers
@@ -14,7 +16,7 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 pytestmark = pytest.mark.integration_batch_4
 
-FROZEN_TIME = "2023-10-15 07:00:00"
+FROZEN_TIME = datetime.datetime(2023, 10, 15, 7, 0, tzinfo=datetime.timezone.utc)
 MINIO_PORT = 9000
 MYSQL_PORT = 3306
 
