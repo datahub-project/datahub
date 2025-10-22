@@ -116,8 +116,8 @@ public class GetPresignedUploadUrlResolver
 
     if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION) {
       return String.format(
-          "%s/%s/%s",
-          s3Configuration.getBucketName(), s3Configuration.getAssetPathPrefix(), fileId);
+          "%s/%s",
+          s3Configuration.getAssetPathPrefix(), fileId);
     } else {
       throw new IllegalArgumentException("Unsupported upload scenario: " + scenario);
     }
