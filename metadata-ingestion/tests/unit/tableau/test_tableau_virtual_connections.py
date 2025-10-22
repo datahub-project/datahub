@@ -3,6 +3,7 @@ from typing import Any, Dict, List, cast
 from unittest import mock
 
 from freezegun import freeze_time
+from tableauserverclient.models import SiteItem
 
 import datahub.ingestion.source.tableau.tableau_constant as c
 from datahub.ingestion.api.common import PipelineContext
@@ -11,6 +12,7 @@ from datahub.ingestion.source.tableau.tableau import (
     TableauSiteSource,
     TableauSourceReport,
 )
+from datahub.ingestion.source.tableau.tableau_common import LineageResult
 from datahub.ingestion.source.tableau.tableau_virtual_connections import (
     VCFolderKey,
     VirtualConnectionProcessor,
@@ -31,8 +33,6 @@ class TestVirtualConnectionProcessor:
         """Set up test fixtures."""
         self.config = TableauConfig.parse_obj(default_config)
         self.ctx = PipelineContext(run_id="test")
-
-        from tableauserverclient.models import SiteItem
 
         with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
             mock_site = mock.MagicMock(
@@ -250,21 +250,20 @@ class TestVirtualConnectionProcessor:
         vc_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,vc-123,PROD)"
 
         vc_tables = cast(List[Dict[str, Any]], virtual_connection.get(c.TABLES, []))
-        upstream_tables, fine_grained_lineages = (
-            self.vc_processor._create_vc_upstream_lineage(
-                virtual_connection, vc_tables, vc_urn
-            )
+        result = self.vc_processor._create_vc_upstream_lineage(
+            virtual_connection, vc_tables, vc_urn
         )
 
-        # Should return lists
-        assert isinstance(upstream_tables, List)
-        assert isinstance(fine_grained_lineages, List)
+        # Should return LineageResult dataclass
+        assert isinstance(result, LineageResult)
+        assert isinstance(result.upstream_tables, List)
+        assert isinstance(result.fine_grained_lineages, List)
 
         # Should have found upstream datasources
-        if upstream_tables:
-            assert len(upstream_tables) > 0
+        if result.upstream_tables:
+            assert len(result.upstream_tables) > 0
             # Check that upstream is properly formed
-            upstream = upstream_tables[0]
+            upstream = result.upstream_tables[0]
             assert hasattr(upstream, "dataset")
             assert hasattr(upstream, "type")
 
@@ -272,13 +271,11 @@ class TestVirtualConnectionProcessor:
         """Test datasource VC lineage creation when no relationships exist."""
         datasource_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,ds-123,PROD)"
 
-        upstream_tables, fine_grained_lineages = (
-            self.vc_processor.create_datasource_vc_lineage(datasource_urn)
-        )
+        result = self.vc_processor.create_datasource_vc_lineage(datasource_urn)
 
         # Should return empty lists when no relationships exist
-        assert upstream_tables == []
-        assert fine_grained_lineages == []
+        assert result.upstream_tables == []
+        assert result.fine_grained_lineages == []
 
     def test_create_datasource_vc_lineage_with_relationships(self):
         """Test datasource VC lineage creation with existing relationships."""
@@ -301,13 +298,11 @@ class TestVirtualConnectionProcessor:
         # Mock VC table to name mapping
         self.vc_processor.vc_table_id_to_name = {"vc-table-1": "test_table"}
 
-        upstream_tables, fine_grained_lineages = (
-            self.vc_processor.create_datasource_vc_lineage(datasource_urn)
-        )
+        result = self.vc_processor.create_datasource_vc_lineage(datasource_urn)
 
         # Should have created lineage
-        assert isinstance(upstream_tables, List)
-        assert isinstance(fine_grained_lineages, List)
+        assert isinstance(result.upstream_tables, List)
+        assert isinstance(result.fine_grained_lineages, List)
 
     def test_error_handling_in_lineage_creation(self):
         """Test error handling during lineage creation."""
@@ -325,15 +320,13 @@ class TestVirtualConnectionProcessor:
             List[Dict[str, Any]],
             vc_tables_raw if isinstance(vc_tables_raw, List) else [],
         )
-        upstream_tables, fine_grained_lineages = (
-            self.vc_processor._create_vc_upstream_lineage(
-                malformed_vc, vc_tables, vc_urn
-            )
+        result = self.vc_processor._create_vc_upstream_lineage(
+            malformed_vc, vc_tables, vc_urn
         )
 
         # Should return empty lists for malformed data
-        assert upstream_tables == []
-        assert fine_grained_lineages == []
+        assert result.upstream_tables == []
+        assert result.fine_grained_lineages == []
 
     def test_vc_folder_key_properties(self):
         """Test VCFolderKey properties and methods."""
@@ -402,13 +395,13 @@ class TestVirtualConnectionProcessor:
         vc_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,vc-empty,PROD)"
 
         vc_tables = cast(List[Dict[str, Any]], empty_vc.get(c.TABLES, []))
-        upstream_tables, fine_grained_lineages = (
-            self.vc_processor._create_vc_upstream_lineage(empty_vc, vc_tables, vc_urn)
+        result = self.vc_processor._create_vc_upstream_lineage(
+            empty_vc, vc_tables, vc_urn
         )
 
         # Should handle empty VCs gracefully
-        assert upstream_tables == []
-        assert fine_grained_lineages == []
+        assert result.upstream_tables == []
+        assert result.fine_grained_lineages == []
 
     def test_virtual_connection_table_name_mapping(self):
         """Test VC table ID to name mapping functionality."""
@@ -616,7 +609,7 @@ class TestVirtualConnectionProcessor:
         with mock.patch.object(
             self.vc_processor,
             "create_datasource_vc_lineage",
-            return_value=([], []),  # Returns tuple, not list
+            return_value=LineageResult(upstream_tables=[], fine_grained_lineages=[]),
         ) as mock_create_lineage:
             lineage_workunits = list(self.vc_processor.emit_datasource_vc_lineages())
 
@@ -631,12 +624,10 @@ class TestVirtualConnectionProcessor:
         table_info = {c.ID: "vc-table-1", c.NAME: "test_table", c.COLUMNS: []}
         table_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,vc-table-1,PROD)"
 
-        upstream_tables, fine_grained_lineages = (
-            self.vc_processor._create_table_upstream_lineage(table_info, table_urn)
-        )
+        result = self.vc_processor._create_table_upstream_lineage(table_info, table_urn)
 
-        assert upstream_tables == []
-        assert fine_grained_lineages == []
+        assert result.upstream_tables == []
+        assert result.fine_grained_lineages == []
 
     def test_create_table_upstream_lineage_with_datasources(self):
         """Test creating table upstream lineage with datasources."""
@@ -673,15 +664,15 @@ class TestVirtualConnectionProcessor:
                 return_value="urn:li:dataset:(urn:li:dataPlatform:tableau,db-table-123,PROD)",
             ),
         ):
-            upstream_tables, fine_grained_lineages = (
-                self.vc_processor._create_table_upstream_lineage(table_info, table_urn)
+            result = self.vc_processor._create_table_upstream_lineage(
+                table_info, table_urn
             )
 
             # Should create upstream entries and fine-grained lineage
             assert (
-                len(upstream_tables) >= 0
+                len(result.upstream_tables) >= 0
             )  # May be 0 or more depending on implementation
-            assert isinstance(fine_grained_lineages, List)
+            assert isinstance(result.fine_grained_lineages, List)
 
     def test_emit_virtual_connections_disabled(self):
         """Test emit_virtual_connections when disabled in config."""
@@ -785,7 +776,9 @@ class TestVirtualConnectionProcessor:
             mock.patch.object(
                 self.vc_processor,
                 "_create_table_upstream_lineage",
-                return_value=([], []),
+                return_value=LineageResult(
+                    upstream_tables=[], fine_grained_lineages=[]
+                ),
             ),
         ):
             workunits = list(self.vc_processor._emit_single_virtual_connection(vc))
@@ -920,3 +913,87 @@ class TestVirtualConnectionProcessor:
             assert (
                 self.vc_processor.vc_table_column_types["vc-table-1.col2"] == "STRING"
             )
+
+    def test_is_table_name_field_detection(self):
+        """Test _is_table_name_field method for detecting table names vs column fields."""
+        # Test table name patterns that should be filtered out
+        assert self.vc_processor._is_table_name_field(
+            "MARKET_SCAN (DW_COMPLIANCE.MARKET_SCAN)", "table"
+        )
+        assert self.vc_processor._is_table_name_field(
+            "QUARTERLY_REPORT (DW_COMPLIANCE.QUARTERLY_REPORT)", "table"
+        )
+        assert self.vc_processor._is_table_name_field(
+            "TABLE_NAME (SCHEMA.TABLE_NAME)", "table"
+        )
+
+        # Test with additional parentheses
+        assert self.vc_processor._is_table_name_field(
+            "INTERVENTION_20250221 (DW_COMPLIANCE.INTERVENTION_20250221) (1)", "table"
+        )
+
+        # Test uppercase schema-like patterns
+        assert self.vc_processor._is_table_name_field("DW_COMPLIANCE.MARKET_SCAN", "")
+        assert self.vc_processor._is_table_name_field("SCHEMA_NAME.TABLE_NAME", "")
+
+        # Test normal column names that should NOT be filtered
+        assert not self.vc_processor._is_table_name_field("customer_name", "column")
+        assert not self.vc_processor._is_table_name_field("Fee U24", "column")
+        assert not self.vc_processor._is_table_name_field("3a BSR", "column")
+        assert not self.vc_processor._is_table_name_field("Rake U24", "column")
+        assert not self.vc_processor._is_table_name_field("normal_field", "field")
+
+        # Test edge cases
+        assert not self.vc_processor._is_table_name_field("", "")
+        assert not self.vc_processor._is_table_name_field("single_word", "column")
+        assert not self.vc_processor._is_table_name_field("lowercase.field", "column")
+
+    def test_process_datasource_for_vc_refs_filters_table_names(self):
+        """Test that table name fields are properly filtered during VC reference processing."""
+        datasource = {
+            c.ID: "ds-123",
+            c.FIELDS: [
+                # This should be filtered out as it's a table name
+                {
+                    c.NAME: "MARKET_SCAN (DW_COMPLIANCE.MARKET_SCAN)",
+                    c.TYPE_NAME: "table",
+                    c.UPSTREAM_COLUMNS: [
+                        {
+                            c.NAME: "MARKET_SCAN (DW_COMPLIANCE.MARKET_SCAN)",
+                            c.TABLE: {
+                                c.ID: "vc-table-1",
+                                c.NAME: "MARKET_SCAN (DW_COMPLIANCE.MARKET_SCAN)",
+                                c.TYPE_NAME: c.VIRTUAL_CONNECTION_TABLE,
+                                "virtualConnection": {c.ID: "vc-123"},
+                            },
+                        }
+                    ],
+                },
+                # This should be processed as it's a real column
+                {
+                    c.NAME: "Fee U24",
+                    c.TYPE_NAME: "column",
+                    c.UPSTREAM_COLUMNS: [
+                        {
+                            c.NAME: "Fee U24",
+                            c.TABLE: {
+                                c.ID: "vc-table-1",
+                                c.NAME: "MARKET_SCAN (DW_COMPLIANCE.MARKET_SCAN)",
+                                c.TYPE_NAME: c.VIRTUAL_CONNECTION_TABLE,
+                                "virtualConnection": {c.ID: "vc-123"},
+                            },
+                        }
+                    ],
+                },
+            ],
+        }
+
+        self.vc_processor.process_datasource_for_vc_refs(datasource, "embedded")
+
+        # Should only have one VC reference (the real column, not the table name)
+        if "ds-123" in self.vc_processor.datasource_vc_relationships:
+            relationships = self.vc_processor.datasource_vc_relationships["ds-123"]
+            # Should only have the "Fee U24" field, not the table name field
+            field_names = [rel.get("field_name") for rel in relationships]
+            assert "Fee U24" in field_names
+            assert "MARKET_SCAN (DW_COMPLIANCE.MARKET_SCAN)" not in field_names

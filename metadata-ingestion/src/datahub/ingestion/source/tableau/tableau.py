@@ -25,7 +25,7 @@ from urllib.parse import quote, urlparse
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
-from pydantic import root_validator, validator
+from pydantic import BaseModel, root_validator, validator
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter
 from tableauserverclient import (
@@ -95,6 +95,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau_common import (
     FIELD_TYPE_MAPPING,
+    LineageResult,
     MetadataQueryException,
     TableauLineageOverrides,
     TableauUpstreamReference,
@@ -207,6 +208,17 @@ RETRIABLE_ERROR_CODES = [
     503,  # Service Unavailable
     504,  # Gateway Timeout
 ]
+
+
+class UpstreamTablesResult(BaseModel):
+    """Result of upstream table extraction with lineage information."""
+
+    upstream_tables: List[Upstream]
+    table_id_to_urn: Dict[str, str]
+
+    class Config:
+        arbitrary_types_allowed = True
+
 
 # From experience, this expiry time typically ranges from 50 minutes
 # to 2 hours but might as well be configurable. We will allow upto
@@ -1774,7 +1786,7 @@ class TableauSiteSource:
         datasource: dict,
         browse_path: Optional[str],
         is_embedded_ds: bool = False,
-    ) -> Tuple[List[Upstream], List[FineGrainedLineage]]:
+    ) -> LineageResult:
         upstream_tables: List[Upstream] = []
         fine_grained_lineages: List[FineGrainedLineage] = []
         table_id_to_urn = {}
@@ -1783,9 +1795,15 @@ class TableauSiteSource:
         upstream_tables.extend(upstream_datasources)
 
         # Check if this datasource uses Virtual Connection tables first
-        vc_upstreams, vc_id_to_urn = self.get_upstream_vc_tables(
-            datasource.get(c.ID),
-        )
+        datasource_id = datasource.get(c.ID)
+        if datasource_id:
+            vc_result = self.get_upstream_vc_tables(datasource_id)
+            vc_upstreams, vc_id_to_urn = (
+                vc_result.upstream_tables,
+                vc_result.table_id_to_urn,
+            )
+        else:
+            vc_upstreams, vc_id_to_urn = [], {}
 
         # When tableau workbook connects to published datasource, it creates an embedded
         # datasource inside workbook that connects to published datasource. Both embedded
@@ -1905,7 +1923,9 @@ class TableauSiteSource:
                     f"A total of {len(fine_grained_lineages)} upstream column edges found for datasource {datasource[c.ID]}"
                 )
 
-        return upstream_tables, fine_grained_lineages
+        return LineageResult(
+            upstream_tables=upstream_tables, fine_grained_lineages=fine_grained_lineages
+        )
 
     def get_upstream_datasources(self, datasource: dict) -> List[Upstream]:
         upstream_tables = []
@@ -1958,9 +1978,7 @@ class TableauSiteSource:
             for csql_urn in upstream_csql_urns
         ], csql_id_to_urn
 
-    def get_upstream_vc_tables(
-        self, datasource_id: str
-    ) -> Tuple[List[Upstream], Dict[str, str]]:
+    def get_upstream_vc_tables(self, datasource_id: str) -> UpstreamTablesResult:
         """Extract upstream Virtual Connection tables from stored VC relationships."""
         upstream_vc_urns = set()
         vc_id_to_urn = {}
@@ -1968,7 +1986,7 @@ class TableauSiteSource:
         # Check if this datasource has VC relationships stored
         if datasource_id not in self.vc_processor.datasource_vc_relationships:
             logger.debug(f"No VC relationships found for datasource {datasource_id}")
-            return [], {}
+            return UpstreamTablesResult(upstream_tables=[], table_id_to_urn={})
 
         vc_refs = self.vc_processor.datasource_vc_relationships[datasource_id]
         logger.debug(
@@ -2001,10 +2019,13 @@ class TableauSiteSource:
 
                     logger.debug(f"Added VC upstream: {vc_table_full_name} -> {vc_urn}")
 
-        return [
-            Upstream(dataset=vc_urn, type=DatasetLineageType.TRANSFORMED)
-            for vc_urn in upstream_vc_urns
-        ], vc_id_to_urn
+        return UpstreamTablesResult(
+            upstream_tables=[
+                Upstream(dataset=vc_urn, type=DatasetLineageType.TRANSFORMED)
+                for vc_urn in upstream_vc_urns
+            ],
+            table_id_to_urn=vc_id_to_urn,
+        )
 
     def _collect_vc_references_from_datasources(self) -> None:
         """Collect VC references from all datasources without emitting them."""
@@ -2205,23 +2226,11 @@ class TableauSiteSource:
 
     def _normalize_snowflake_column_name(self, column_name: str) -> str:
         """
-        Normalize column name to match Snowflake identifier rules.
-        Snowflake converts spaces and special characters to underscores and lowercases names.
+        Normalize column names for Snowflake compatibility.
+        Tableau typically converts spaces to underscores when mapping to Snowflake columns.
         """
-        import re
-
-        # Convert to lowercase first
-        normalized = column_name.lower()
-
-        # Replace non-alphanumeric characters (except underscore) with underscore
-        # This matches Snowflake's identifier normalization rules
-        normalized = re.sub(r"[^a-zA-Z0-9_]", "_", normalized)
-
-        # If name starts with non-letter/underscore, prefix with underscore
-        if re.match(r"^[^a-zA-Z_]", normalized):
-            normalized = "_" + normalized
-
-        return normalized
+        # Convert to lowercase and replace spaces with underscores
+        return column_name.lower().replace(" ", "_")
 
     def get_upstream_fields_of_field_in_datasource(
         self, datasource: dict, datasource_urn: str
@@ -2968,18 +2977,19 @@ class TableauSiteSource:
             or datasource.get(c.FIELDS)
         ):
             # datasource -> db table relations
-            (
-                upstream_tables,
-                fine_grained_lineages,
-            ) = self._create_upstream_table_lineage(
+            lineage_result = self._create_upstream_table_lineage(
                 datasource, browse_path, is_embedded_ds=is_embedded_ds
             )
+            upstream_tables = lineage_result.upstream_tables
+            fine_grained_lineages = lineage_result.fine_grained_lineages
 
             # Add VC lineage to existing lineage
             logger.debug(f"Creating VC lineage for datasource: {datasource_urn}")
-            vc_upstream_tables, vc_fine_grained_lineages = (
-                self.vc_processor.create_datasource_vc_lineage(datasource_urn)
+            vc_lineage_result = self.vc_processor.create_datasource_vc_lineage(
+                datasource_urn
             )
+            vc_upstream_tables = vc_lineage_result.upstream_tables
+            vc_fine_grained_lineages = vc_lineage_result.fine_grained_lineages
             logger.debug(
                 f"VC lineage created: {len(vc_upstream_tables)} upstream tables, "
                 f"{len(vc_fine_grained_lineages)} fine-grained lineages"

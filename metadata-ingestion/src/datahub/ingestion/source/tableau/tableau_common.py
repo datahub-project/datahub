@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 
+from pydantic import BaseModel
 from pydantic.fields import Field
 from tableauserverclient import Server
 
@@ -17,6 +18,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
+    Upstream,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
@@ -39,6 +41,16 @@ from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingRes
 from datahub.utilities.ordered_set import OrderedSet
 
 logger = logging.getLogger(__name__)
+
+
+class LineageResult(BaseModel):
+    """Result of lineage processing with upstream tables and fine-grained lineage."""
+
+    upstream_tables: List[Upstream]
+    fine_grained_lineages: List[FineGrainedLineage]
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class TableauLineageOverrides(ConfigModel):

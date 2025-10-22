@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 from freezegun import freeze_time
 from tableauserverclient import Server
+from tableauserverclient.models import SiteItem
 
 import datahub.ingestion.source.tableau.tableau_constant as c
 from datahub.emitter.mce_builder import DEFAULT_ENV, make_schema_field_urn
@@ -14,12 +15,14 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import TestConnectionReport
 from datahub.ingestion.source.tableau.tableau import (
     DEFAULT_PAGE_SIZE,
+    LineageResult,
     SiteIdContentUrl,
     TableauConfig,
     TableauPageSizeConfig,
     TableauSiteSource,
     TableauSource,
     TableauSourceReport,
+    UpstreamTablesResult,
 )
 from datahub.ingestion.source.tableau.tableau_common import (
     TableauLineageOverrides,
@@ -794,3 +797,173 @@ def test_get_owner_identifier_empty_dict():
 
     result = site_source._get_owner_identifier({})
     assert result is None
+
+
+class TestTableauSourceNewFeatures:
+    """Test suite for new Tableau source features including VC support and column normalization."""
+
+    def setup_method(self, method):
+        """Set up test fixtures."""
+        self.config = TableauConfig.parse_obj(default_config)
+        self.ctx = PipelineContext(run_id="test")
+
+        with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
+            mock_site = mock.MagicMock(
+                spec=SiteItem, id="test-site-id", content_url="test-site"
+            )
+
+            self.tableau_source = TableauSiteSource(
+                config=self.config,
+                ctx=self.ctx,
+                platform="tableau",
+                site=mock_site,
+                server=mock.MagicMock(),
+                report=TableauSourceReport(),
+            )
+
+    def test_normalize_snowflake_column_name(self):
+        """Test Snowflake column name normalization."""
+        # Test space to underscore conversion
+        assert (
+            self.tableau_source._normalize_snowflake_column_name("Customer Name")
+            == "customer_name"
+        )
+        assert (
+            self.tableau_source._normalize_snowflake_column_name("Fee U24") == "fee_u24"
+        )
+
+        # Test already normalized names
+        assert (
+            self.tableau_source._normalize_snowflake_column_name("customer_id")
+            == "customer_id"
+        )
+        assert (
+            self.tableau_source._normalize_snowflake_column_name("CUSTOMER_ID")
+            == "customer_id"
+        )
+
+        # Test edge cases
+        assert self.tableau_source._normalize_snowflake_column_name("") == ""
+        assert self.tableau_source._normalize_snowflake_column_name("_") == "_"
+        assert self.tableau_source._normalize_snowflake_column_name("a") == "a"
+
+    def test_get_upstream_vc_tables_with_relationships(self):
+        """Test get_upstream_vc_tables with existing VC relationships."""
+        datasource_id = "ds-123"
+
+        # Set up VC relationships
+        self.tableau_source.vc_processor.datasource_vc_relationships[datasource_id] = [
+            {
+                "vc_id": "vc-456",
+                "vc_table_id": "vc-table-1",
+                "vc_table_name": "test_table",
+                "column_name": "test_column",
+                "field_name": "test_field",
+            },
+            {
+                "vc_id": "vc-456",
+                "vc_table_id": "vc-table-2",
+                "vc_table_name": "another_table",
+                "column_name": "another_column",
+                "field_name": "another_field",
+            },
+        ]
+
+        result = self.tableau_source.get_upstream_vc_tables(datasource_id)
+
+        # Should return UpstreamTablesResult dataclass
+        assert isinstance(result, UpstreamTablesResult)
+        assert len(result.upstream_tables) == 2  # Two unique VC tables
+        assert len(result.table_id_to_urn) == 2
+
+        # Check that URNs are properly formatted
+        for urn in result.table_id_to_urn.values():
+            assert "urn:li:dataset:(urn:li:dataPlatform:tableau," in urn
+            assert "vc-456." in urn  # Should contain VC ID
+
+    def test_create_upstream_table_lineage_with_vc_tables(self):
+        """Test _create_upstream_table_lineage prioritizes VC tables for embedded datasources."""
+        datasource_id = "ds-123"
+        datasource = {
+            c.ID: datasource_id,
+            c.NAME: "Test Embedded Datasource",
+            c.FIELDS: [],
+            c.UPSTREAM_TABLES: [
+                {"id": "regular-table-1", "name": "regular_table"}
+            ],  # Regular tables
+            c.UPSTREAM_DATA_SOURCES: [],
+        }
+
+        # Set up VC relationships to simulate VC tables being available
+        self.tableau_source.vc_processor.datasource_vc_relationships[datasource_id] = [
+            {
+                "vc_id": "vc-456",
+                "vc_table_id": "vc-table-1",
+                "vc_table_name": "vc_test_table",
+                "column_name": "test_column",
+                "field_name": "test_field",
+            }
+        ]
+
+        result = self.tableau_source._create_upstream_table_lineage(
+            datasource, browse_path=None, is_embedded_ds=True
+        )
+
+        # Should return LineageResult with VC tables, not regular tables
+        assert isinstance(result, LineageResult)
+        assert len(result.upstream_tables) == 1
+
+        # Check that the upstream URN contains VC information
+        upstream_urn = result.upstream_tables[0].dataset
+        assert "vc-456.vc_test_table" in upstream_urn
+
+    def test_snowflake_column_normalization_in_lineage(self):
+        """Test that Snowflake column normalization is applied during lineage creation."""
+        datasource = {
+            c.ID: "ds-123",
+            c.NAME: "Test Datasource",
+            c.FIELDS: [
+                {
+                    c.NAME: "test_field",
+                    c.UPSTREAM_COLUMNS: [
+                        {
+                            c.NAME: "Customer Name",  # Should be normalized to customer_name
+                            c.TABLE: {c.ID: "table-1", c.TYPE_NAME: "DatabaseTable"},
+                        }
+                    ],
+                }
+            ],
+        }
+
+        # Mock Snowflake URN detection and ensure ingest_tables_external is False for normalization
+        with (
+            mock.patch.object(
+                self.tableau_source, "is_snowflake_urn", return_value=True
+            ),
+            mock.patch.object(
+                self.tableau_source.config, "ingest_tables_external", False
+            ),
+        ):
+            # Mock table ID to URN mapping
+            table_id_to_urn = {
+                "table-1": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.schema.table,PROD)"
+            }
+
+            fine_grained_lineages = (
+                self.tableau_source.get_upstream_columns_of_fields_in_datasource(
+                    datasource, "urn:li:dataset:test", table_id_to_urn
+                )
+            )
+
+            # Should have created fine-grained lineage with normalized column name
+            assert fine_grained_lineages is not None
+            assert len(fine_grained_lineages) == 1
+            lineage = fine_grained_lineages[0]
+
+            # Check that the upstream field URN contains the normalized column name
+            assert lineage.upstreams is not None
+            assert len(lineage.upstreams) > 0
+            upstream_field_urn = lineage.upstreams[0]
+            assert (
+                "customer_name" in upstream_field_urn
+            )  # Normalized from "Customer Name"
