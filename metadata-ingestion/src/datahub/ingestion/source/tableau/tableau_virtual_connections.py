@@ -261,10 +261,10 @@ class VirtualConnectionProcessor:
 
         return table_schemas
 
-    def _create_vc_upstream_lineage_v2(
+    def _create_vc_upstream_lineage(
         self, vc: dict, vc_tables: List[dict], vc_urn: str
     ) -> Tuple[List[UpstreamClass], List[FineGrainedLineageClass]]:
-        """Create upstream lineage for VC using v2 field paths"""
+        """Create upstream lineage for VC tables to their underlying database tables"""
         upstream_tables = []
         fine_grained_lineages = []
 
@@ -359,10 +359,14 @@ class VirtualConnectionProcessor:
         )
         return upstream_tables, fine_grained_lineages
 
-    def create_datasource_vc_lineage_v2(
+    def create_datasource_vc_lineage(
         self, datasource_urn: str
     ) -> Tuple[List[UpstreamClass], List[FineGrainedLineageClass]]:
-        """Create datasource to VC lineage using v2 field paths - pointing to specific VC tables"""
+        """Create datasource to VC column-level lineage.
+
+        Note: Table-level lineage is handled by get_upstream_vc_tables() in the main flow.
+        This method focuses on column-level lineage only.
+        """
         upstream_tables: List[UpstreamClass] = []
         fine_grained_lineages: List[FineGrainedLineageClass] = []
 
@@ -447,15 +451,10 @@ class VirtualConnectionProcessor:
                     env=self.config.env,
                 )
 
+                # Table-level lineage is handled by get_upstream_vc_tables()
+                # We only track the URN for column-level lineage
                 if vc_table_urn not in vc_table_urns_seen:
                     vc_table_urns_seen.add(vc_table_urn)
-                    upstream_tables.append(
-                        UpstreamClass(
-                            dataset=vc_table_urn,
-                            type=DatasetLineageTypeClass.TRANSFORMED,
-                        )
-                    )
-                    logger.debug(f"Added table-level upstream: {vc_table_urn}")
 
                 # Add column-level lineage with v2 field paths
                 if self.config.extract_column_level_lineage:
@@ -508,8 +507,8 @@ class VirtualConnectionProcessor:
             )
 
             # Get both table and column lineage
-            upstream_tables, fine_grained_lineages = (
-                self.create_datasource_vc_lineage_v2(datasource_urn)
+            upstream_tables, fine_grained_lineages = self.create_datasource_vc_lineage(
+                datasource_urn
             )
 
             if upstream_tables or fine_grained_lineages:
@@ -643,15 +642,6 @@ class VirtualConnectionProcessor:
                 c.DATASET,
                 table_urn,
             )
-
-            # Also add to project container if available
-            project_luid = self._get_vc_project_luid(vc)
-            if project_luid:
-                yield from add_entity_to_container(
-                    self.tableau_source.gen_project_key(project_luid),
-                    c.DATASET,
-                    dataset_snapshot.urn,
-                )
 
             yield self.tableau_source.get_metadata_change_event(dataset_snapshot)
             yield self.tableau_source.get_metadata_change_proposal(

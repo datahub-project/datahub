@@ -1959,6 +1959,7 @@ class TableauSiteSource:
         for field in fields:
             if not field.get(c.UPSTREAM_COLUMNS):
                 continue
+
             for upstream_col in field[c.UPSTREAM_COLUMNS]:
                 if (
                     upstream_col
@@ -1973,7 +1974,7 @@ class TableauSiteSource:
                     table_name = table.get(c.NAME)
 
                     if vc_id and table_name:
-                        # Use the same format as VirtualConnectionProcessor: {vc_id}.{table_name}
+                        # Create VC table URN - datasource should point to VC table, not underlying DB table
                         vc_table_name = f"{vc_id}.{table_name}"
                         vc_urn = builder.make_dataset_urn_with_platform_instance(
                             platform=self.platform,
@@ -1988,6 +1989,40 @@ class TableauSiteSource:
             Upstream(dataset=vc_urn, type=DatasetLineageType.TRANSFORMED)
             for vc_urn in upstream_vc_urns
         ], vc_id_to_urn
+
+    def _collect_vc_references_from_datasources(self) -> None:
+        """Collect VC references from all datasources without emitting them."""
+        # Collect from published datasources
+        if self.datasource_ids_being_used:
+            datasource_filter = (
+                {}
+                if self.config.emit_all_published_datasources
+                else {c.ID_WITH_IN: self.datasource_ids_being_used}
+            )
+            for datasource in self.get_connection_objects(
+                query=published_datasource_graphql_query,
+                connection_type=c.PUBLISHED_DATA_SOURCES_CONNECTION,
+                query_filter=datasource_filter,
+                page_size=self.config.effective_published_datasource_page_size,
+            ):
+                self.vc_processor.process_datasource_for_vc_refs(
+                    datasource, "published"
+                )
+
+        # Collect from embedded datasources
+        if self.embedded_datasource_ids_being_used:
+            datasource_filter = (
+                {}
+                if self.config.emit_all_embedded_datasources
+                else {c.ID_WITH_IN: self.embedded_datasource_ids_being_used}
+            )
+            for datasource in self.get_connection_objects(
+                query=embedded_datasource_graphql_query,
+                connection_type=c.EMBEDDED_DATA_SOURCES_CONNECTION,
+                query_filter=datasource_filter,
+                page_size=self.config.effective_embedded_datasource_page_size,
+            ):
+                self.vc_processor.process_datasource_for_vc_refs(datasource, "embedded")
 
     def get_upstream_tables(
         self,
@@ -2886,7 +2921,7 @@ class TableauSiteSource:
 
             # Add VC lineage to existing lineage
             vc_upstream_tables, vc_fine_grained_lineages = (
-                self.vc_processor.create_datasource_vc_lineage_v2(datasource_urn)
+                self.vc_processor.create_datasource_vc_lineage(datasource_urn)
             )
 
             # Combine with existing upstream tables
@@ -3024,9 +3059,6 @@ class TableauSiteSource:
             query_filter=datasource_filter,
             page_size=self.config.effective_published_datasource_page_size,
         ):
-            # Process for VC references before emission
-            self.vc_processor.process_datasource_for_vc_refs(datasource, "published")
-
             datasource = self.update_datasource_for_field_upstream(
                 datasource=datasource,
                 field_upstream_query=datasource_upstream_fields_graphql_query,
@@ -3724,9 +3756,6 @@ class TableauSiteSource:
             query_filter=datasource_filter,
             page_size=self.config.effective_embedded_datasource_page_size,
         ):
-            # Process for VC references before emission
-            self.vc_processor.process_datasource_for_vc_refs(datasource, "embedded")
-
             datasource = self.update_datasource_for_field_upstream(
                 datasource=datasource,
                 field_upstream_query=datasource_upstream_fields_graphql_query,
@@ -4179,7 +4208,16 @@ class TableauSiteSource:
                         timer.elapsed_seconds(digits=2)
                     )
 
-            # STEP 1: Process datasources first to collect VC references
+            # STEP 1: Collect VC references from datasources (without emitting yet)
+            if self.config.ingest_virtual_connections:
+                logger.debug("Collecting VC references from datasources")
+                self._collect_vc_references_from_datasources()
+
+                # Build VC mappings now that we have all references
+                logger.debug("Building VC mappings")
+                self.vc_processor.lookup_vc_ids_from_table_ids()
+
+            # STEP 2: Now emit datasources (VC lineage will work because mappings exist)
             if self.embedded_datasource_ids_being_used:
                 with PerfTimer() as timer:
                     yield from self.emit_embedded_datasources()
@@ -4194,13 +4232,10 @@ class TableauSiteSource:
                         self.site_content_url
                     ] = timer.elapsed_seconds(digits=2)
 
-            # STEP 2: Now process Virtual Connections (after collecting VC references from datasources)
+            # STEP 3: Now process Virtual Connections emission
             if self.config.ingest_virtual_connections:
                 with PerfTimer() as timer:
-                    logger.debug("Processing Virtual Connection lookups and emission")
-
-                    # Build VC mappings
-                    self.vc_processor.lookup_vc_ids_from_table_ids()
+                    logger.debug("Emitting Virtual Connections")
 
                     # Update report statistics
                     self.report.num_vc_table_references_found = len(
@@ -4223,7 +4258,7 @@ class TableauSiteSource:
                         yield from self.vc_processor.emit_virtual_connections()
                         logger.debug("Virtual Connection emission complete")
 
-                    # STEP 3: NOW emit datasource → VC lineage (mappings are built now!)
+                    # STEP 4: NOW emit datasource → VC lineage (mappings are built now!)
                     logger.debug("Creating datasource → VC lineage with built mappings")
                     yield from self.vc_processor.emit_datasource_vc_lineages()
 

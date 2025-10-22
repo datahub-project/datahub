@@ -251,7 +251,7 @@ class TestVirtualConnectionProcessor:
 
         vc_tables = cast(List[Dict[str, Any]], virtual_connection.get(c.TABLES, []))
         upstream_tables, fine_grained_lineages = (
-            self.vc_processor._create_vc_upstream_lineage_v2(
+            self.vc_processor._create_vc_upstream_lineage(
                 virtual_connection, vc_tables, vc_urn
             )
         )
@@ -268,19 +268,19 @@ class TestVirtualConnectionProcessor:
             assert hasattr(upstream, "dataset")
             assert hasattr(upstream, "type")
 
-    def test_create_datasource_vc_lineage_v2_no_relationships(self):
+    def test_create_datasource_vc_lineage_no_relationships(self):
         """Test datasource VC lineage creation when no relationships exist."""
         datasource_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,ds-123,PROD)"
 
         upstream_tables, fine_grained_lineages = (
-            self.vc_processor.create_datasource_vc_lineage_v2(datasource_urn)
+            self.vc_processor.create_datasource_vc_lineage(datasource_urn)
         )
 
         # Should return empty lists when no relationships exist
         assert upstream_tables == []
         assert fine_grained_lineages == []
 
-    def test_create_datasource_vc_lineage_v2_with_relationships(self):
+    def test_create_datasource_vc_lineage_with_relationships(self):
         """Test datasource VC lineage creation with existing relationships."""
         datasource_id = "ds-123"
         datasource_urn = (
@@ -302,7 +302,7 @@ class TestVirtualConnectionProcessor:
         self.vc_processor.vc_table_id_to_name = {"vc-table-1": "test_table"}
 
         upstream_tables, fine_grained_lineages = (
-            self.vc_processor.create_datasource_vc_lineage_v2(datasource_urn)
+            self.vc_processor.create_datasource_vc_lineage(datasource_urn)
         )
 
         # Should have created lineage
@@ -326,7 +326,7 @@ class TestVirtualConnectionProcessor:
             vc_tables_raw if isinstance(vc_tables_raw, List) else [],
         )
         upstream_tables, fine_grained_lineages = (
-            self.vc_processor._create_vc_upstream_lineage_v2(
+            self.vc_processor._create_vc_upstream_lineage(
                 malformed_vc, vc_tables, vc_urn
             )
         )
@@ -403,9 +403,7 @@ class TestVirtualConnectionProcessor:
 
         vc_tables = cast(List[Dict[str, Any]], empty_vc.get(c.TABLES, []))
         upstream_tables, fine_grained_lineages = (
-            self.vc_processor._create_vc_upstream_lineage_v2(
-                empty_vc, vc_tables, vc_urn
-            )
+            self.vc_processor._create_vc_upstream_lineage(empty_vc, vc_tables, vc_urn)
         )
 
         # Should handle empty VCs gracefully
@@ -515,10 +513,10 @@ class TestVirtualConnectionProcessor:
         assert schema_metadata.schemaName == "VirtualConnection_test.table1"
         assert len(schema_metadata.fields) >= 2
 
-        # Check that we have the expected field paths
+        # Check that we have the expected field paths (standard format)
         field_paths = [field.fieldPath for field in schema_metadata.fields]
-        assert "[type=integer].id" in field_paths
-        assert "[type=string].name" in field_paths
+        assert "id" in field_paths
+        assert "name" in field_paths
 
     def test_get_vc_project_luid(self):
         """Test getting VC project LUID."""
@@ -614,15 +612,15 @@ class TestVirtualConnectionProcessor:
         }
         self.vc_processor.vc_table_id_to_vc_id = {"vc-table-1": "vc-456"}
 
-        # Mock the create_datasource_vc_lineage_v2 method
+        # Mock the create_datasource_vc_lineage method
         with mock.patch.object(
             self.vc_processor,
-            "create_datasource_vc_lineage_v2",
+            "create_datasource_vc_lineage",
             return_value=([], []),  # Returns tuple, not list
         ) as mock_create_lineage:
             lineage_workunits = list(self.vc_processor.emit_datasource_vc_lineages())
 
-            # Should have called create_datasource_vc_lineage_v2
+            # Should have called create_datasource_vc_lineage
             mock_create_lineage.assert_called_once()
 
             # Should return work units (may be empty if no lineage)
@@ -818,9 +816,9 @@ class TestVirtualConnectionProcessor:
 
         # Should create field structure
         fields = schema_metadata.fields
-        # Should have the expected field path format
+        # Should have the expected field path format (standard format)
         field_paths = [field.fieldPath for field in fields]
-        assert "[type=integer].id" in field_paths
+        assert "id" in field_paths
 
     def test_lookup_vc_ids_from_table_ids_with_data(self):
         """Test lookup_vc_ids_from_table_ids with actual data."""
