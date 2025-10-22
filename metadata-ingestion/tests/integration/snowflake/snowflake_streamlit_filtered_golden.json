@@ -4061,12 +4061,12 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(snowflake,test_db.test_schema.streamlit_app_1)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_1)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:snowflake"
+            "platform": "urn:li:dataPlatform:streamlit"
         }
     },
     "systemMetadata": {
@@ -4239,7 +4239,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(snowflake,test_db.test_schema.streamlit_app_1)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_1)",
     "changeType": "UPSERT",
     "aspectName": "dashboardInfo",
     "aspect": {
@@ -4249,11 +4249,11 @@
                 "owner": "ACCOUNTADMIN",
                 "owner_role_type": "ROLE",
                 "url_id": "abc123def456_1",
-                "created": "2021-06-08T00:00:00+00:00",
                 "comment": "Comment for Streamlit App 1"
             },
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/streamlit-apps/TEST_DB.TEST_SCHEMA.STREAMLIT_APP_1",
             "title": "My Streamlit App 1",
-            "description": "Comment for Streamlit App 1",
+            "description": "",
             "charts": [],
             "datasets": [],
             "dashboards": [],
@@ -4271,13 +4271,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-1yl678",
+        "runId": "snowflake-2022_06_07-17_00_00-qn93va",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(snowflake,test_db.test_schema.streamlit_app_1)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_1)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -4405,7 +4405,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(snowflake,test_db.test_schema.streamlit_app_1)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_1)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -4439,7 +4439,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(snowflake,test_db.test_schema.streamlit_app_1)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_1)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -4452,26 +4452,6 @@
                 {
                     "id": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c",
                     "urn": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-00mwtu",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(snowflake,test_db.test_schema.streamlit_app_1)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:Streamlit"
                 }
             ]
         }
@@ -5064,7 +5044,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(snowflake,test_db.test_schema.streamlit_app_1)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_1)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -5171,22 +5151,6 @@
     "systemMetadata": {
         "lastObserved": 1654621200000,
         "runId": "snowflake-2022_06_07-17_00_00-s9xv4g",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:Streamlit",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "Streamlit"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-3y6mts",
         "lastRunId": "no-run-id-provided"
     }
 }

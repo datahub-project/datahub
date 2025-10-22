@@ -27,6 +27,7 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
     SNOWFLAKE_DATABASE,
+    STREAMLIT_PLATFORM,
     SnowflakeObjectDomain,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import (
@@ -472,6 +473,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             yield from self._process_procedures(procedures, snowflake_schema, db_name)
 
         if self.config.include_streamlits:
+            # TODO: Consider streaming apps one-by-one instead of loading all in memory
             streamlit_apps = self.fetch_streamlit_apps(snowflake_schema, db_name)
             yield from self._process_streamlit_apps(streamlit_apps)
 
@@ -628,22 +630,19 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             "owner": app.owner,
             "owner_role_type": app.owner_role_type,
             "url_id": app.url_id,
-            "created": app.created.isoformat(),
         }
         if app.comment:
             custom_properties["comment"] = app.comment
 
+        database_container_key = self.identifiers.gen_database_key(app.database_name)
         schema_container_key = self.identifiers.gen_schema_key(
             app.database_name, app.schema_name
         )
-        database_container_key = schema_container_key.parent_key()
-        assert database_container_key is not None  # schema always has a parent database
 
         dashboard = Dashboard(
-            platform="snowflake",
+            platform=STREAMLIT_PLATFORM,
             name=dashboard_id,
             display_name=app.title,
-            description=app.comment or "",
             platform_instance=self.config.platform_instance,
             custom_properties=custom_properties,
             created_at=app.created,

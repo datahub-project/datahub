@@ -38,6 +38,7 @@ import sacLogo from '@images/saclogo.svg';
 import sigmaLogo from '@images/sigmalogo.png';
 import snaplogic from '@images/snaplogic.png';
 import snowflakeLogo from '@images/snowflakelogo.png';
+import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.png';
 import trinoLogo from '@images/trinologo.png';
@@ -152,6 +153,8 @@ export const VERTEX_AI = 'vertexai';
 export const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
 export const SNAPLOGIC = 'snaplogic';
 export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
+export const STREAMLIT = 'streamlit';
+export const STREAMLIT_URN = `urn:li:dataPlatform:${STREAMLIT}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -200,6 +203,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [NEO4J_URN]: neo4j,
     [VERTEXAI_URN]: vertexAI,
     [SNAPLOGIC_URN]: snaplogic,
+    [STREAMLIT_URN]: streamlitLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {
