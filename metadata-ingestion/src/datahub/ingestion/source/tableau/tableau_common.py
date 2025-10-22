@@ -1103,11 +1103,9 @@ def create_vc_schema_field(
     schema_field = SchemaField(
         fieldPath=column_name,
         type=SchemaFieldDataType(type=TypeClass()),
-        description=description or "",
+        description=make_description_from_params(description or "", None),
         nativeDataType=nativeDataType,
-        globalTags=(
-            get_tags_from_params([column_type or "UNKNOWN"]) if ingest_tags else None
-        ),
+        globalTags=(get_tags_from_params([nativeDataType]) if ingest_tags else None),
     )
 
     return schema_field
