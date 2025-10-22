@@ -36,23 +36,9 @@ import { CodeBlockToolbar } from '@components/components/Editor/toolbar/CodeBloc
 import { FloatingToolbar } from '@components/components/Editor/toolbar/FloatingToolbar';
 import { TableCellMenu } from '@components/components/Editor/toolbar/TableCellMenu';
 import { Toolbar } from '@components/components/Editor/toolbar/Toolbar';
+import { EditorProps } from '@components/components/Editor/types';
 
 import { notEmpty } from '@app/entityV2/shared/utils';
-
-type EditorProps = {
-    readOnly?: boolean;
-    content?: string;
-    onChange?: (md: string) => void;
-    className?: string;
-    doNotFocus?: boolean;
-    placeholder?: string;
-    hideHighlightToolbar?: boolean;
-    toolbarStyles?: React.CSSProperties;
-    dataTestId?: string;
-    onKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void;
-    hideBorder?: boolean;
-    uploadFile?: (file: File) => Promise<string>;
-};
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
     const {
