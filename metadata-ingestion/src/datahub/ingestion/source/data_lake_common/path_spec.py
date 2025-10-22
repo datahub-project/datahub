@@ -262,9 +262,75 @@ class PathSpec(ConfigModel):
         return self.compiled_folder_include.parse(path)
 
     @model_validator(mode="after")
-    def validate_no_double_stars(self):
+    def validate_path_spec_comprehensive(self):
+        """
+        Comprehensive model validator that handles multiple interdependent validations.
+
+        Consolidates related validation logic to avoid order dependencies between multiple
+        model validators and ensures reliable cross-field validation. This approach is
+        preferred over multiple separate validators when:
+
+        1. Validations depend on multiple fields (e.g., sample_files depends on include)
+        2. One validation modifies a field that another validation checks
+        3. Field validators can't reliably access other field values or defaults
+        4. Order of execution between validators is important but undefined
+
+        By combining related validations, we ensure they execute in the correct sequence
+        and have access to all field values after Pydantic has processed defaults.
+        """
+        # Handle autodetect_partitions logic first
+        if self.autodetect_partitions:
+            include = self.include
+            if include.endswith("/"):
+                include = include[:-1]
+            if include.endswith("{table}"):
+                self.include = include + "/**"
+                # Allow double stars when we add them for autodetect_partitions
+                self.allow_double_stars = True
+
+        # Handle table_name logic
+        if self.table_name is None and "{table}" in self.include:
+            self.table_name = "{table}"
+        elif self.table_name is not None:
+            parsable_include = PathSpec.get_parsable_include(self.include)
+            compiled_include = parse.compile(parsable_include)
+            if not all(
+                x in compiled_include.named_fields
+                for x in parse.compile(self.table_name).named_fields
+            ):
+                raise ValueError(
+                    f"Not all named variables used in path_spec.table_name {self.table_name} are specified in path_spec.include {self.include}"
+                )
+
+        # Handle sample_files logic - turn off sampling for non-cloud URIs
+        is_s3 = is_s3_uri(self.include)
+        is_gcs = is_gcs_uri(self.include)
+        is_abs = is_abs_uri(self.include)
+        if not is_s3 and not is_gcs and not is_abs:
+            # Sampling only makes sense on s3 and gcs currently
+            self.sample_files = False
+
+        # Validate double stars
         if "**" in self.include and not self.allow_double_stars:
             raise ValueError("path_spec.include cannot contain '**'")
+
+        # Validate file extension
+        include_ext = os.path.splitext(self.include)[1].strip(".")
+        if not include_ext:
+            include_ext = (
+                "*"  # if no extension is provided, we assume all files are allowed
+            )
+        if (
+            include_ext not in self.file_types
+            and include_ext not in ["*", ""]
+            and not self.default_extension
+            and include_ext not in SUPPORTED_COMPRESSIONS
+        ):
+            raise ValueError(
+                f"file type specified ({include_ext}) in path_spec.include is not in specified file "
+                f'types. Please select one from {self.file_types} or specify ".*" to allow all types'
+            )
+
         return self
 
     @field_validator("file_types", mode="before")
@@ -289,17 +355,6 @@ class PathSpec(ConfigModel):
             )
         return v
 
-    @field_validator("sample_files", mode="before")
-    @classmethod
-    def turn_off_sampling_for_non_s3(cls, v, info):
-        is_s3 = is_s3_uri(info.data.get("include") or "")
-        is_gcs = is_gcs_uri(info.data.get("include") or "")
-        is_abs = is_abs_uri(info.data.get("include") or "")
-        if not is_s3 and not is_gcs and not is_abs:
-            # Sampling only makes sense on s3 and gcs currently
-            v = False
-        return v
-
     @field_validator("exclude")
     @classmethod
     def no_named_fields_in_exclude(cls, v: Optional[List[str]]) -> Optional[List[str]]:
@@ -311,22 +366,6 @@ class PathSpec(ConfigModel):
                     f"path_spec.exclude {item} should not contain any named variables"
                 )
         return v
-
-    @model_validator(mode="after")
-    def table_name_in_include(self):
-        if self.table_name is None and "{table}" in self.include:
-            self.table_name = "{table}"
-        elif self.table_name is not None:
-            parsable_include = PathSpec.get_parsable_include(self.include)
-            compiled_include = parse.compile(parsable_include)
-            if not all(
-                x in compiled_include.named_fields
-                for x in parse.compile(self.table_name).named_fields
-            ):
-                raise ValueError(
-                    f"Not all named variables used in path_spec.table_name {self.table_name} are specified in path_spec.include {self.include}"
-                )
-        return self
 
     @cached_property
     def is_s3(self):
@@ -474,36 +513,6 @@ class PathSpec(ConfigModel):
         glob_include = re.sub(r"\{[^}]+\}", "*", self.include)
         logger.debug(f"Setting _glob_include: {glob_include}")
         return glob_include
-
-    @model_validator(mode="after")
-    def validate_path_spec(self):
-        # First handle autodetect_partitions logic regardless of field validation
-        if self.autodetect_partitions:
-            include = self.include
-            if include.endswith("/"):
-                include = include[:-1]
-
-            if include.endswith("{table}"):
-                self.include = include + "/**"
-
-        include_ext = os.path.splitext(self.include)[1].strip(".")
-        if not include_ext:
-            include_ext = (
-                "*"  # if no extension is provided, we assume all files are allowed
-            )
-
-        if (
-            include_ext not in self.file_types
-            and include_ext not in ["*", ""]
-            and not self.default_extension
-            and include_ext not in SUPPORTED_COMPRESSIONS
-        ):
-            raise ValueError(
-                f"file type specified ({include_ext}) in path_spec.include is not in specified file "
-                f'types. Please select one from {self.file_types} or specify ".*" to allow all types'
-            )
-
-        return self
 
     def _extract_table_name(self, named_vars: dict) -> str:
         if self.table_name is None:
