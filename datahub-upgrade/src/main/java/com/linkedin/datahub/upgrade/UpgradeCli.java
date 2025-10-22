@@ -185,6 +185,8 @@ public class UpgradeCli implements CommandLineRunner {
 
     if (evaluateTests != null) {
       _upgradeManager.register(evaluateTests);
+    } else {
+      log.warn("EvaluateTests upgrade not available - bean not found");
     }
 
     final Args args = new Args();

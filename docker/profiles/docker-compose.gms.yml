@@ -343,10 +343,10 @@ services:
       - debug-backend
       - debug-backend-aws
     depends_on:
-      opensearch:
-        condition: service_healthy
       mysql:
         condition: service_healthy
+      opensearch-setup-dev:
+        condition: service_completed_successfully
   system-update-debug-aws: &system-update-debug
     <<: *datahub-system-update-service-dev
     environment:
