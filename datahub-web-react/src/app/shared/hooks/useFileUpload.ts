@@ -1,13 +1,12 @@
 import { useApolloClient } from '@apollo/client';
 
+import { PRODUCT_ASSETS_FOLDER } from '@app/shared/constants';
+import useCreateFile from '@app/shared/hooks/useCreateFile';
 import { useAppConfig } from '@src/app/useAppConfig';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { GetPresignedUploadUrlDocument } from '@graphql/app.generated';
 import { UploadDownloadScenario } from '@types';
-
-import useCreateFile from './useCreateFile';
-import { PRODUCT_ASSETS_FOLDER } from '../constants';
 
 interface Props {
     scenario: UploadDownloadScenario;
