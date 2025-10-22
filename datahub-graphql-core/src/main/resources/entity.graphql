@@ -1356,6 +1356,11 @@ enum EntityType {
   An DataHub Page Module
   """
   DATAHUB_PAGE_MODULE
+
+  """
+  An DataHub File
+  """
+  DATAHUB_FILE
 }
 
 """
