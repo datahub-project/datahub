@@ -72,8 +72,14 @@ class VirtualConnectionProcessor:
     ) -> None:
         """Process a single datasource for VC references - called during datasource emission"""
         datasource_id = datasource.get(c.ID)
+        datasource_name = datasource.get(c.NAME, "Unknown")
         if not datasource_id:
             return
+
+        logger.info(
+            f"Processing {datasource_type} datasource for VC references: "
+            f"ID={datasource_id}, Name={datasource_name}"
+        )
 
         vc_references = []
 
@@ -97,20 +103,34 @@ class VirtualConnectionProcessor:
                     vc_info = table.get("virtualConnection", {})
                     vc_id = vc_info.get(c.ID) if vc_info else None
 
-                    logger.debug(
-                        f"Found VC reference: field={field_name}, "
-                        f"vc_table={vc_table_name}, column={column_name}"
+                    logger.info(
+                        f"Found VC reference in {datasource_type} datasource '{datasource_name}': "
+                        f"field={field_name}, vc_table={vc_table_name}, column={column_name}, "
+                        f"vc_table_id={vc_table_id}, vc_id={vc_id}"
                     )
+
+                    # Store both the VC table name and the raw table name from Tableau
+                    # This helps with matching issues like "MARKET_SCAN (DW_COMPLIANCE.MARKET_SCAN)"
+                    raw_table_name = table.get(
+                        c.NAME
+                    )  # This is the exact name from Tableau
 
                     vc_references.append(
                         {
                             "field_name": field_name,
                             "vc_table_id": vc_table_id,
                             "vc_table_name": vc_table_name,
+                            "raw_table_name": raw_table_name,  # Store the raw name for better matching
                             "column_name": column_name,
                             "vc_id": vc_id,
                         }
                     )
+
+                    # Also store the raw table name for matching purposes
+                    if raw_table_name and raw_table_name != vc_table_name:
+                        logger.info(
+                            f"  Raw table name differs from VC table name: '{raw_table_name}' vs '{vc_table_name}'"
+                        )
 
                     # Collect VC table IDs for lookup
                     if vc_table_id and vc_table_id not in self.vc_table_ids_for_lookup:
@@ -119,17 +139,26 @@ class VirtualConnectionProcessor:
         # Store relationships
         if vc_references:
             self.datasource_vc_relationships[datasource_id] = vc_references
-            logger.debug(
-                f"Stored {len(vc_references)} VC relationships for datasource {datasource_id}"
+            logger.info(
+                f"Stored {len(vc_references)} VC relationships for {datasource_type} datasource "
+                f"'{datasource_name}' (ID: {datasource_id})"
+            )
+        else:
+            logger.info(
+                f"No VC references found in {datasource_type} datasource '{datasource_name}' (ID: {datasource_id})"
             )
 
     def lookup_vc_ids_from_table_ids(self) -> None:
         """Step 2: Lookup VC IDs from VC table IDs and store mappings"""
         if not self.vc_table_ids_for_lookup:
-            logger.debug("No VC table IDs to lookup")
+            logger.info(
+                "No VC table IDs to lookup - no Virtual Connection references found"
+            )
             return
 
-        logger.debug(f"Looking up {len(self.vc_table_ids_for_lookup)} VC table IDs")
+        logger.info(
+            f"Looking up {len(self.vc_table_ids_for_lookup)} VC table IDs: {self.vc_table_ids_for_lookup}"
+        )
 
         # Query all VCs to find matches
         for vc in self.tableau_source.get_connection_objects(
@@ -168,10 +197,22 @@ class VirtualConnectionProcessor:
                                 col_type
                             )
 
-        logger.debug(
-            f"Found {len(self.vc_table_id_to_vc_id)} VC table mappings, "
+        logger.info(
+            f"VC Lookup Results: Found {len(self.vc_table_id_to_vc_id)} VC table mappings, "
             f"will process {len(self.virtual_connection_ids_being_used)} VCs"
         )
+
+        # Log the mappings for debugging
+        for table_id, vc_id in self.vc_table_id_to_vc_id.items():
+            table_name = self.vc_table_id_to_name.get(table_id, "Unknown")
+            logger.info(
+                f"  VC Table Mapping: {table_name} (ID: {table_id}) -> VC: {vc_id}"
+            )
+
+        if not self.vc_table_id_to_vc_id:
+            logger.warning(
+                "No VC table mappings found! This may indicate a problem with VC table lookup."
+            )
 
     def emit_virtual_connections(self):
         """Emit Virtual Connection datasets with v2 schema fields"""
