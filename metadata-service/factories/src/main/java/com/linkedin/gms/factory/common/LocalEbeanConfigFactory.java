@@ -55,7 +55,7 @@ public class LocalEbeanConfigFactory {
 
   @Value("${ebean.captureStackTrace:false}")
   private Boolean captureStackTrace;
-  
+
   @Value("${ebean.useIamAuth:false}")
   private Boolean useIamAuth;
 
