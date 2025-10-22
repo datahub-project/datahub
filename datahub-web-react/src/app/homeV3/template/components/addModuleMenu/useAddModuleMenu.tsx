@@ -51,6 +51,17 @@ const YOUR_SUBSCRIPTIONS_MODULE: PageModuleFragment = {
     },
 };
 
+const PLATFORMS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:platforms',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Platforms',
+        type: DataHubPageModuleType.Platforms,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export const ASSETS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:assets',
     type: EntityType.DatahubPageModule,
@@ -282,6 +293,23 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             },
         };
 
+        const platforms = {
+            name: 'Platforms',
+            key: 'platforms',
+            label: (
+                <MenuItem
+                    description="Most used platforms in your organization"
+                    title="Platforms"
+                    icon="Database"
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(PLATFORMS_MODULE);
+            },
+            'data-testid': 'add-platforms-module',
+        };
+
         const assets = {
             name: 'Assets',
             key: 'assets',
@@ -350,7 +378,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             'data-testid': 'add-related-terms-module',
         };
 
-        const defaultHomeModules = [yourAssets, domains, yourSubscriptions];
+        const defaultHomeModules = [yourAssets, domains, yourSubscriptions, platforms];
         if (isWorkflowsEnabled) {
             defaultHomeModules.push(workflows);
         }

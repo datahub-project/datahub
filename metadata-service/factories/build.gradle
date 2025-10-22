@@ -62,11 +62,19 @@ dependencies {
   implementation externalDependency.awsPostgresIamAuth
   implementation externalDependency.awsRds
 
-  // AWS SDK for S3 file serving
+  // AWS SDK v2 dependencies - use BOM for version management
   implementation platform(externalDependency.awsSdk2Bom)
   implementation 'software.amazon.awssdk:regions'
   implementation 'software.amazon.awssdk:sts'
   implementation 'software.amazon.awssdk:s3'
+
+  // Exclude AWS SDK v1 to avoid conflicts with AWS SDK v2
+  configurations.all {
+    exclude group: 'com.amazonaws', module: 'aws-java-sdk-core'
+    exclude group: 'com.amazonaws', module: 'aws-java-sdk-sts'
+    exclude group: 'com.amazonaws', module: 'aws-java-sdk-s3'
+  }
+
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }

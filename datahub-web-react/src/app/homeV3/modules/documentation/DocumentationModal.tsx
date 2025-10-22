@@ -15,6 +15,7 @@ const ModalContent = styled.div`
     width: 100%;
 `;
 
+// Modal for editing rich text modules
 const DocumentationModal = () => {
     const {
         upsertModule,

@@ -167,11 +167,15 @@ describe('useAddModuleMenu', () => {
         // Check "Default" group - HomePage should have yourAssets and domains
         expect(items?.[1]).toHaveProperty('key', 'customLargeModulesGroup');
         // @ts-expect-error SubMenuItem should have children
-        expect(items?.[1]?.children).toHaveLength(3);
+        expect(items?.[1]?.children).toHaveLength(4);
         // @ts-expect-error SubMenuItem should have children
         expect(items?.[1]?.children?.[0]).toHaveProperty('key', 'your-assets');
         // @ts-expect-error SubMenuItem should have children
         expect(items?.[1]?.children?.[1]).toHaveProperty('key', 'domains');
+        // @ts-expect-error SubMenuItem should have children
+        expect(items?.[1]?.children?.[2]).toHaveProperty('key', 'your-subscriptions');
+        // @ts-expect-error SubMenuItem should have children
+        expect(items?.[1]?.children?.[3]).toHaveProperty('key', 'platforms');
     });
 
     it('should include admin created modules when available in global template for HomePage', () => {
@@ -377,7 +381,7 @@ describe('useAddModuleMenu', () => {
             // Check "Default" group has 4 children (with workflows)
             expect(items?.[1]).toHaveProperty('key', 'customLargeModulesGroup');
             // @ts-expect-error SubMenuItem should have children
-            expect(items?.[1]?.children).toHaveLength(4);
+            expect(items?.[1]?.children).toHaveLength(5);
             // @ts-expect-error SubMenuItem should have children
             expect(items?.[1]?.children?.[0]).toHaveProperty('key', 'your-assets');
             // @ts-expect-error SubMenuItem should have children
@@ -385,7 +389,9 @@ describe('useAddModuleMenu', () => {
             // @ts-expect-error SubMenuItem should have children
             expect(items?.[1]?.children?.[2]).toHaveProperty('key', 'your-subscriptions');
             // @ts-expect-error SubMenuItem should have children
-            expect(items?.[1]?.children?.[3]).toHaveProperty('key', 'workflows');
+            expect(items?.[1]?.children?.[3]).toHaveProperty('key', 'platforms');
+            // @ts-expect-error SubMenuItem should have children
+            expect(items?.[1]?.children?.[4]).toHaveProperty('key', 'workflows');
         });
     });
 
@@ -612,7 +618,7 @@ describe('useAddModuleMenu', () => {
 
             // Default modules should be HomePage defaults (not entity-specific)
             const defaultChildren = getChildren(result.current.items?.[1]);
-            expect(defaultChildren).toHaveLength(3);
+            expect(defaultChildren).toHaveLength(4);
             expect(defaultChildren[0]).toHaveProperty('key', 'your-assets');
             expect(defaultChildren[1]).toHaveProperty('key', 'domains');
             expect(defaultChildren[2]).toHaveProperty('key', 'your-subscriptions');

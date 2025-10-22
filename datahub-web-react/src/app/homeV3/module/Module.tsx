@@ -15,6 +15,7 @@ import DocumentationModule from '@app/homeV3/modules/documentation/Documentation
 import TopDomainsModule from '@app/homeV3/modules/domains/TopDomainsModule';
 import HierarchyViewModule from '@app/homeV3/modules/hierarchyViewModule/HierarchyViewModule';
 import LinkModule from '@app/homeV3/modules/link/LinkModule';
+import PlatformsModule from '@app/homeV3/modules/platforms/PlatformsModule';
 import SubscriptionsModule from '@app/homeV3/modules/subscriptions/SubscriptionsModule';
 
 import { DataHubPageModuleType } from '@types';
@@ -36,6 +37,7 @@ function Module(props: ModuleProps) {
         if (module.properties.type === DataHubPageModuleType.RelatedTerms) return RelatedTermsModule;
         if (module.properties.type === DataHubPageModuleType.SubscribedAssets) return SubscriptionsModule; // SaaS-only
         if (module.properties.type === DataHubPageModuleType.Workflows) return WorkflowsModule;
+        if (module.properties.type === DataHubPageModuleType.Platforms) return PlatformsModule;
 
         // TODO: remove the sample large module once we have other modules to fill this out
         console.error(`Issue finding module with type ${module.properties.type}`);
@@ -52,4 +54,7 @@ function Module(props: ModuleProps) {
 }
 
 // Export memoized component to prevent unnecessary re-renders
-export default memo(Module);
+const MemoizedModule = memo(Module);
+MemoizedModule.displayName = 'Module';
+
+export default MemoizedModule;

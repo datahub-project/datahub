@@ -465,6 +465,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.s3.bucketName",
           "datahub.s3.roleArn",
           "datahub.s3.presignedUploadUrlExpirationSeconds",
+          "datahub.s3.presignedDownloadUrlExpirationSeconds",
           "datahub.s3.assetPathPrefix",
 
           // Feature flags
@@ -509,6 +510,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showManageTags",
           "featureFlags.showNavBarRedesign",
           "featureFlags.showProductUpdates",
+          "featureFlags.productUpdatesJsonUrl",
+          "featureFlags.productUpdatesJsonFallbackResource",
           "featureFlags.showStatsTabRedesign",
           "featureFlags.showSearchBarAutocompleteRedesign",
           "featureFlags.showSearchFiltersV2",
@@ -803,6 +806,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "platformAnalytics.usageExport.userFilters",
           "searchBar.apiVariant",
           "searchCard.showDescription",
+          "searchFlags.defaultSkipHighlighting",
           "searchService.cache.hazelcast.serviceName",
           "searchService.cache.hazelcast.service-dns-timeout",
           "searchService.cache.hazelcast.kubernetes-api-retries",

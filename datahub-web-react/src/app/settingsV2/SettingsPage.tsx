@@ -131,7 +131,7 @@ export const SettingsPage = () => {
                 items: [
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: 'My Views',
+                        title: 'Views',
                         key: 'views',
                         link: `${url}/views`,
                         isHidden: !showViews,

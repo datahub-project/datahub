@@ -52,4 +52,8 @@ enum DataHubPageModuleType {
    * Module displaying workflows that can be started
    */
   WORKFLOWS
+  /**
+   * Module displaying the platforms in an instance
+   */
+  PLATFORMS
 }

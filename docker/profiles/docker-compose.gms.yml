@@ -349,6 +349,8 @@ services:
         condition: service_healthy
   system-update-debug-aws: &system-update-debug
     <<: *datahub-system-update-service-dev
+    environment:
+      <<: [*localstack-env]
     profiles:
       - debug-backend-aws
       - debug-aws

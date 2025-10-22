@@ -235,12 +235,12 @@ import {
     AZURE,
     BIGQUERY_BETA,
     CSV,
+    DATABRICKS,
     DBT_CLOUD,
     MYSQL,
     OKTA,
     POWER_BI,
     SAC,
-    UNITY_CATALOG,
     VERTICA,
 } from '@app/ingest/source/builder/constants';
 import { BIGQUERY } from '@app/ingest/source/conf/bigquery/bigquery';
@@ -500,7 +500,7 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
-    [UNITY_CATALOG]: {
+    [DATABRICKS]: {
         fields: [WORKSPACE_URL, WAREHOUSE_ID, TOKEN],
         filterFields: [
             UNITY_METASTORE_ID_ALLOW,
@@ -617,11 +617,4 @@ export const RECIPE_FIELDS: RecipeFields = {
 
 export const CONNECTORS_WITH_FORM = new Set(Object.keys(RECIPE_FIELDS));
 
-export const CONNECTORS_WITH_TEST_CONNECTION = new Set([
-    SNOWFLAKE,
-    LOOKER,
-    BIGQUERY_BETA,
-    BIGQUERY,
-    UNITY_CATALOG,
-    SAC,
-]);
+export const CONNECTORS_WITH_TEST_CONNECTION = new Set([SNOWFLAKE, LOOKER, BIGQUERY_BETA, BIGQUERY, DATABRICKS, SAC]);

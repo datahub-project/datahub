@@ -17,5 +17,22 @@ source:
     #     sslrootcert: "<<path to verification ca chain>>"
     #     sslmode: "verify-full"
 
+    # AWS RDS IAM Authentication (alternative to password)
+    # auth_mode: "AWS_IAM"
+    # aws_config:
+    #   aws_region: us-west-2
+
+    # Advanced AWS configuration with profiles, role assumption, and retry settings:
+    # auth_mode: "AWS_IAM"
+    # aws_config:
+    #   aws_region: us-west-2
+    #   aws_profile: production
+    #   aws_role: "arn:aws:iam::123456789:role/DataHubRole"
+    #   aws_retry_num: 10
+    #   aws_retry_mode: adaptive
+
+    # When auth_mode is "AWS_IAM", the password field is ignored
+    # AWS credentials can be configured via AWS CLI, environment variables, or IAM role
+
 sink:
   # sink configs

@@ -17,9 +17,19 @@ dependencies {
     implementation project(':metadata-integration:java:datahub-schematron:lib')
     implementation 'org.apache.iceberg:iceberg-core:1.6.1'
     implementation 'org.apache.iceberg:iceberg-aws:1.6.1'
-    implementation 'software.amazon.awssdk:sts:2.26.12'
-    implementation 'software.amazon.awssdk:iam-policy-builder:2.26.12'
-    implementation externalDependency.awsS3
+
+    // AWS SDK v2 dependencies - use BOM for version management
+    implementation platform(externalDependency.awsSdk2Bom)
+    implementation 'software.amazon.awssdk:sts'
+    implementation 'software.amazon.awssdk:iam-policy-builder'
+    implementation 'software.amazon.awssdk:s3'
+
+    // Exclude AWS SDK v1 to avoid conflicts with AWS SDK v2
+    configurations.all {
+        exclude group: 'com.amazonaws', module: 'aws-java-sdk-core'
+        exclude group: 'com.amazonaws', module: 'aws-java-sdk-sts'
+        exclude group: 'com.amazonaws', module: 'aws-java-sdk-s3'
+    }
 
     implementation externalDependency.reflections
     implementation externalDependency.springBoot

@@ -461,10 +461,6 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     subTypes {
         typeNames
     }
-    domain {
-        ...entityDomain
-    }
-    ...entityDataProduct
     parentContainers {
         ...parentContainersFields
     }
@@ -616,10 +612,6 @@ fragment searchResultsWithoutSchemaField on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
-        domain {
-            ...entityDomain
-        }
-        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -701,13 +693,6 @@ fragment searchResultsWithoutSchemaField on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
-        parentContainers {
-            ...parentContainersFields
-        }
-        domain {
-            ...entityDomain
-        }
-        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -785,10 +770,6 @@ fragment searchResultsWithoutSchemaField on Entity {
         parentContainers {
             ...parentContainersFields
         }
-        domain {
-            ...entityDomain
-        }
-        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -832,10 +813,6 @@ fragment searchResultsWithoutSchemaField on Entity {
         editableProperties {
             description
         }
-        domain {
-            ...entityDomain
-        }
-        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }

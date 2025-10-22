@@ -153,7 +153,6 @@ import com.linkedin.datahub.graphql.types.remoteexecutor.RemoteExecutorPoolType;
 import com.linkedin.datahub.graphql.types.remoteexecutor.RemoteExecutorType;
 import com.linkedin.datahub.graphql.types.subscription.SubscriptionType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
-import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
@@ -178,6 +177,7 @@ import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.test.MetadataTestClient;
 import graphql.schema.DataFetchingEnvironmentImpl;
 import graphql.schema.idl.RuntimeWiring;
@@ -322,7 +322,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     if (executorRoleArn == null || executorRoleArn.trim().isEmpty()) {
       log.info("Executor role ARN is not set, not creating S3Util");
     } else {
-      this.s3Util = new S3Util(args.getEntityClient(), args.getStsClient(), executorRoleArn);
+      this.s3Util = new S3Util(args.getStsClient(), executorRoleArn);
     }
 
     this.initialized = true;

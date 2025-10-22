@@ -1041,3 +1041,75 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **da4849895a** - feat(uploadFiles): add endpoint to get presigned upload url (#14943)
   *by v-tarasevich-blitz-brain on 2025-10-18*
 
+
+## Upstream Merge Session - 2025-10-22 00:13:29
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-10-18-000006`
+- **Merge Base**: `da4849895a4e7b1283019504384a87006b89b849`
+- **End Commit**: `fd00f04b0f8e95dac55cd5864f40bdb3a4101ee5`
+- **Total Commits**: 19
+- **Strategy**: stacked
+- **Started**: Wed Oct 22 00:13:29 UTC 2025
+
+### Commits Included in This Merge
+- **6fc68b6c6b** - feat(gms) Add new REST endpoint for retrieving files from S3 (#15048)
+  *by Chris Collins on 2025-10-17*
+
+- **d54dd9642d** - fix(security): Update dependencies to address multiple CVEs (#15045)
+  *by Esteban Gutierrez on 2025-10-18*
+
+- **ceafe2083b** - fix(security): Update dependencies to address multiple CVEs (addendum) (#15049)
+  *by Esteban Gutierrez on 2025-10-18*
+
+- **604e5df446** - chore(docker): upgrade OpenSearch from 2.17.0 to 2.19.3 (#15047)
+  *by Abe on 2025-10-19*
+
+- **33089b4eaa** - chore(docs): Clarifying listDomains query documentation (#15050)
+  *by skrydal on 2025-10-20*
+
+- **b4b96ab8f9** - feat(ui/ingest): unity-catalog => databricks (#14636)
+  *by Michael Maltese on 2025-10-20*
+
+- **22c602dcaf** - feat(ingest/postgres,mysql): Add iam auth support for MySql and Postgresql source (#14899)
+  *by Tamas Nemeth on 2025-10-21*
+
+- **0f63e6d367** - chore(redshift): log time taken queries (#15054)
+  *by Sergio Gómez Villamor on 2025-10-21*
+
+- **27fca1c0bf** - feat(ui/platform): Adds env variable to control default skipHighlighting search flag (#15038)
+  *by Saketh Varma on 2025-10-21*
+
+- **c436e97e84** - fix(ui): Removing unused props and trimming down the graphql objects (#15043)
+  *by Saketh Varma on 2025-10-21*
+
+- **bca63189fe** - ci(label): add username to pr-labeler (#15064)
+  *by Hyejin Yoon on 2025-10-21*
+
+- **0b5616208f** - docs(ingestion/bigquery): update docs to cover bigquery.tables.getData for use_tables_list_query_v2 parameter (#14728)
+  *by Jonny Dixon on 2025-10-21*
+
+- **de38fd048e** - feat(ui) Add new file upload to S3 extension in the UI (#15061)
+  *by Chris Collins on 2025-10-21*
+
+- **7628ab3fa4** - fix(redsfhit): fix closed cursor (#15065)
+  *by Sergio Gómez Villamor on 2025-10-21*
+
+- **d0bd2d50e4** - feat(ui): Show all views in settings (#14971)
+  *by Saketh Varma on 2025-10-21*
+
+- **8f21a6c6ce** - feat(homepage): add default platforms module on the homepage (#14942)
+  *by purnimagarg1 on 2025-10-22*
+
+- **2973da553f** - feat(sql-setup): system-update replacement for mysql/postgres setup (#15044)
+  *by david-leifker on 2025-10-21*
+
+- **edcc8bca76** - feat(elasticsearch-setup): system-update replacement for elasticsearch-setup (#15058)
+  *by david-leifker on 2025-10-21*
+
+- **fd00f04b0f** - SE-123: added product update resolver (#14980)
+  *by Ben Blazke on 2025-10-21*
+
