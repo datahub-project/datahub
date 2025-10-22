@@ -67,6 +67,36 @@ class VirtualConnectionProcessor:
             virtual_connection_id=vc_id,
         )
 
+    def _is_table_name_field(self, field_name: str, field_type: str) -> bool:
+        """
+        Determine if a field is actually a table name reference rather than a column field.
+        Common patterns:
+        - "TABLE_NAME (SCHEMA.TABLE_NAME)"
+        - Field name matches table name exactly
+        - Field has no proper column mapping
+        """
+        import re
+
+        # Pattern for "TABLE_NAME (SCHEMA.TABLE_NAME)" format
+        table_pattern = (
+            r"^([A-Z_]+)\s*\([A-Z_]+\.[A-Z_]+\)(\s*\([^)]+\))*(\s*\(\d+\))?$"
+        )
+
+        if re.match(table_pattern, field_name):
+            return True
+
+        # Additional checks for other table-like patterns
+        # If field name is all uppercase and contains schema-like patterns
+        if field_name.isupper() and ("." in field_name or "_" in field_name):
+            # Check if it looks like a fully qualified table name
+            parts = field_name.split(".")
+            if len(parts) >= 2 and all(
+                part.replace("_", "").isalnum() for part in parts
+            ):
+                return True
+
+        return False
+
     def process_datasource_for_vc_refs(
         self, datasource: dict, datasource_type: str
     ) -> None:
@@ -89,6 +119,15 @@ class VirtualConnectionProcessor:
             if not field_name:
                 continue
 
+            # Skip fields that are actually table names (common pattern: "TABLE_NAME (SCHEMA.TABLE_NAME)")
+            # These are not real column fields but table-level references
+            field_type = field.get(c.TYPE_NAME, "")
+            if self._is_table_name_field(field_name, field_type):
+                logger.debug(
+                    f"Skipping field '{field_name}' as it appears to be a table name reference, not a column field"
+                )
+                continue
+
             upstream_columns = field.get(c.UPSTREAM_COLUMNS, [])
             for upstream_col in upstream_columns:
                 table = upstream_col.get(c.TABLE, {})
@@ -102,6 +141,13 @@ class VirtualConnectionProcessor:
                     # Get VC info if available
                     vc_info = table.get("virtualConnection", {})
                     vc_id = vc_info.get(c.ID) if vc_info else None
+
+                    # Validate that this is a proper column mapping, not a table-level reference
+                    if not column_name or column_name == vc_table_name:
+                        logger.debug(
+                            f"Skipping invalid VC reference: field={field_name}, column={column_name}, table={vc_table_name}"
+                        )
+                        continue
 
                     logger.info(
                         f"Found VC reference in {datasource_type} datasource '{datasource_name}': "
@@ -128,7 +174,7 @@ class VirtualConnectionProcessor:
 
                     # Also store the raw table name for matching purposes
                     if raw_table_name and raw_table_name != vc_table_name:
-                        logger.info(
+                        logger.debug(
                             f"  Raw table name differs from VC table name: '{raw_table_name}' vs '{vc_table_name}'"
                         )
 
@@ -355,6 +401,11 @@ class VirtualConnectionProcessor:
                 vc_columns = vc_table.get(c.COLUMNS, [])
                 db_columns = matched_db_table.get(c.COLUMNS, [])
 
+                logger.debug(
+                    f"Creating column lineage for VC table '{vc_table_name}': "
+                    f"{len(vc_columns)} VC columns, {len(db_columns)} DB columns"
+                )
+
                 if vc_columns and db_columns:
                     # Create mapping of database column names (case-insensitive)
                     db_column_map = {
@@ -368,22 +419,24 @@ class VirtualConnectionProcessor:
                         if not vc_col_name:
                             continue
 
-                        vc_col_type = vc_column.get(c.REMOTE_TYPE, c.UNKNOWN)
+                        vc_column.get(c.REMOTE_TYPE, c.UNKNOWN)
 
                         # Check if this VC column matches a database column
                         if vc_col_name.lower() in db_column_map:
                             db_col_name = db_column_map[vc_col_name.lower()]
 
-                            # Create v2 field path for VC column
-                            vc_field_path = f"{vc_table_name}.[type={vc_col_type.lower()}].{vc_col_name}"
+                            logger.debug(
+                                f"Creating column lineage: VC column '{vc_col_name}' -> DB column '{db_col_name}'"
+                            )
 
-                            # Create fine-grained lineage
+                            # Create fine-grained lineage using simple field names (not v2 format)
+                            # The VC URN already includes the VC ID, so we just need the column name
                             fine_grained_lineages.append(
                                 FineGrainedLineageClass(
                                     downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                                     downstreams=[
                                         builder.make_schema_field_urn(
-                                            vc_urn, vc_field_path
+                                            vc_urn, vc_col_name
                                         )
                                     ],
                                     upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
@@ -394,6 +447,15 @@ class VirtualConnectionProcessor:
                                     ],
                                 )
                             )
+                        else:
+                            logger.debug(
+                                f"No matching DB column found for VC column '{vc_col_name}'"
+                            )
+                else:
+                    logger.debug(
+                        f"Skipping column lineage for VC table '{vc_table_name}': "
+                        f"VC columns={len(vc_columns)}, DB columns={len(db_columns)}"
+                    )
 
         logger.debug(
             f"Created {len(upstream_tables)} upstream table relationships for VC"

@@ -1782,26 +1782,28 @@ class TableauSiteSource:
         upstream_datasources = self.get_upstream_datasources(datasource)
         upstream_tables.extend(upstream_datasources)
 
+        # Check if this datasource uses Virtual Connection tables first
+        vc_upstreams, vc_id_to_urn = self.get_upstream_vc_tables(
+            datasource.get(c.FIELDS) or [],
+        )
+
         # When tableau workbook connects to published datasource, it creates an embedded
         # datasource inside workbook that connects to published datasource. Both embedded
         # and published datasource have same upstreamTables in this case.
-        if upstream_tables and is_embedded_ds:
+        # However, if the embedded datasource has VC references, we should use those instead.
+        if upstream_tables and is_embedded_ds and not vc_upstreams:
             logger.debug(
-                f"Embedded datasource {datasource.get(c.ID)} has upstreamDatasources.\
+                f"Embedded datasource {datasource.get(c.ID)} has upstreamDatasources but no VC tables.\
                 Setting only upstreamDatasources lineage. The upstreamTables lineage \
                     will be set via upstream published datasource."
             )
         else:
-            # Check if this datasource uses Virtual Connection tables first
-            vc_upstreams, vc_id_to_urn = self.get_upstream_vc_tables(
-                datasource.get(c.FIELDS) or [],
-            )
-
             if vc_upstreams:
                 # If VC tables are present, use only VC tables as upstreams (not regular database tables)
                 logger.debug(
                     f"Datasource {datasource.get(c.ID)} uses Virtual Connection tables. "
-                    f"Skipping regular upstreamTables processing to avoid duplicate lineage."
+                    f"Skipping regular upstreamTables processing to avoid duplicate lineage. "
+                    f"Found {len(vc_upstreams)} VC upstreams and {len(vc_id_to_urn)} VC table mappings."
                 )
                 upstream_tables.extend(vc_upstreams)
                 table_id_to_urn.update(vc_id_to_urn)
@@ -2114,6 +2116,10 @@ class TableauSiteSource:
         table_id_to_urn: Dict[str, str],
     ) -> List[FineGrainedLineage]:
         fine_grained_lineages = []
+        logger.debug(
+            f"Processing column-level lineage for datasource {datasource.get(c.ID)} with {len(table_id_to_urn)} table mappings"
+        )
+
         for field in datasource.get(c.FIELDS) or []:
             field_name = field.get(c.NAME)
             # upstreamColumns lineage will be set via upstreamFields.
@@ -2136,6 +2142,10 @@ class TableauSiteSource:
                 )
                 if name and upstream_table_id and upstream_table_id in table_id_to_urn:
                     parent_dataset_urn = table_id_to_urn[upstream_table_id]
+                    logger.debug(
+                        f"Creating column lineage: field={field_name}, upstream_column={name}, "
+                        f"table_id={upstream_table_id}, parent_urn={parent_dataset_urn}"
+                    )
                     if (
                         self.is_snowflake_urn(parent_dataset_urn)
                         and not self.config.ingest_tables_external
@@ -2152,6 +2162,11 @@ class TableauSiteSource:
                             parent_urn=parent_dataset_urn,
                             field_path=name,
                         )
+                    )
+                elif name and upstream_table_id:
+                    logger.debug(
+                        f"Skipping column lineage: field={field_name}, upstream_column={name}, "
+                        f"table_id={upstream_table_id} (not in table_id_to_urn mapping)"
                     )
 
             if input_columns:
