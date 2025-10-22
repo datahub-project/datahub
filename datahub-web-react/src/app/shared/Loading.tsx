@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 const LoadingWrapper = styled.div<{
     $marginTop?: number;
+    $width?: number;
     $justifyContent: 'center' | 'flex-start';
     $alignItems: 'center' | 'flex-start' | 'none';
 }>`
@@ -11,7 +12,7 @@ const LoadingWrapper = styled.div<{
     justify-content: ${(props) => props.$justifyContent};
     align-items: ${(props) => props.$alignItems};
     margin-top: ${(props) => (typeof props.$marginTop === 'number' ? `${props.$marginTop}px` : '25%')};
-    width: 100%;
+    width: ${({ $width }) => ($width !== undefined ? `${$width}px` : '100%')};
 `;
 
 const StyledLoading = styled(LoadingOutlined)<{ $height: number }>`
@@ -21,14 +22,21 @@ const StyledLoading = styled(LoadingOutlined)<{ $height: number }>`
 
 interface Props {
     height?: number;
+    width?: number;
     marginTop?: number;
     justifyContent?: 'center' | 'flex-start';
     alignItems?: 'center' | 'flex-start' | 'none';
 }
 
-export default function Loading({ height = 32, justifyContent = 'center', alignItems = 'none', marginTop }: Props) {
+export default function Loading({
+    height = 32,
+    width,
+    justifyContent = 'center',
+    alignItems = 'none',
+    marginTop,
+}: Props) {
     return (
-        <LoadingWrapper $marginTop={marginTop} $justifyContent={justifyContent} $alignItems={alignItems}>
+        <LoadingWrapper $marginTop={marginTop} $width={width} $justifyContent={justifyContent} $alignItems={alignItems}>
             <StyledLoading $height={height} />
         </LoadingWrapper>
     );

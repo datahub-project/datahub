@@ -7,6 +7,13 @@ extend type Query {
   ): GetPresignedUploadUrlResponse!
 }
 
+extend type Mutation {
+  """
+  Create a new DataHub file entity
+  """
+  createDataHubFile(input: CreateDataHubFileInput!): CreateDataHubFileResponse!
+}
+
 """
 Input for the getUploadPresignedUrl query.
 """
@@ -44,4 +51,149 @@ enum UploadDownloadScenario {
 type GetPresignedUploadUrlResponse {
   url: String!
   fileId: String!
+}
+
+"""
+A DataHub file entity representing a file stored in S3
+"""
+type DataHubFile implements Entity {
+  """
+  A primary key associated with the DataHub File
+  """
+  urn: String!
+
+  """
+  A standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  The main information about a DataHub file
+  """
+  info: DataHubFileInfo!
+
+  """
+  Granular API for querying edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Information where a file is stored
+"""
+type BucketStorageLocation {
+  """
+  The storage bucket this file is stored in
+  """
+  storageBucket: String!
+
+  """
+  The key for where this file is stored inside of the given bucket
+  """
+  storageKey: String!
+}
+
+"""
+Information about a DataHub file
+"""
+type DataHubFileInfo {
+  """
+  Info about where a file is stored
+  """
+  bucketStorageLocation: BucketStorageLocation!
+
+  """
+  The original filename as uploaded by the user
+  """
+  originalFileName: String!
+
+  """
+  MIME type of the file (e.g., image/png, application/pdf)
+  """
+  mimeType: String!
+
+  """
+  Size of the file in bytes
+  """
+  sizeInBytes: Long!
+
+  """
+  The scenario/context in which this file was uploaded
+  """
+  scenario: UploadDownloadScenario!
+
+  """
+  Optional entity this file is associated with
+  """
+  referencedByAsset: Entity
+
+  """
+  The dataset schema field this file is referenced by
+  """
+  schemaField: SchemaFieldEntity
+
+  """
+  Audit stamp for when and by whom this file was created
+  """
+  created: ResolvedAuditStamp!
+}
+
+"""
+Input for creating a DataHub file
+"""
+input CreateDataHubFileInput {
+  """
+  Unique id for the file (will be used to create the URN)
+  """
+  id: String!
+
+  """
+  The key for where this file is stored inside of the given bucket
+  """
+  storageKey: String!
+
+  """
+  The original filename as uploaded by the user
+  """
+  originalFileName: String!
+
+  """
+  MIME type of the file (e.g., image/png, application/pdf)
+  """
+  mimeType: String!
+
+  """
+  Size of the file in bytes
+  """
+  sizeInBytes: Long!
+
+  """
+  The scenario/context in which this file was uploaded
+  """
+  scenario: UploadDownloadScenario!
+
+  """
+  Optional URN of the entity this file is associated with
+  """
+  referencedByAsset: String
+
+  """
+  The dataset schema field urn this file is referenced by
+  """
+  schemaField: String
+
+  """
+  SHA-256 hash of file contents
+  """
+  contentHash: String
+}
+
+"""
+Response from creating a DataHub file
+"""
+type CreateDataHubFileResponse {
+  """
+  The created DataHub file entity
+  """
+  file: DataHubFile!
 }

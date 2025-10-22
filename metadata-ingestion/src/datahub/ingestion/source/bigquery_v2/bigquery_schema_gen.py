@@ -449,6 +449,7 @@ class BigQuerySchemaGenerator:
                 ):
                     yield wu
             except Exception as e:
+
                 # Check if this is a schema-related error that we can handle gracefully
                 error_str = str(e).lower()
                 is_schema_error = (
@@ -456,6 +457,20 @@ class BigQuerySchemaGenerator:
                     or "table not found" in error_str
                     or "dataset not found" in error_str
                     or "invalid table name" in error_str
+                )
+
+                # If configuration indicates we need table data access (for profiling or use_tables_list_query_v2),
+                # include bigquery.tables.getData in the error message since that's likely the missing permission
+                if self.config.have_table_data_read_permission:
+                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list, bigquery.tables.getData permissions?"
+                else:
+                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permissions?"
+
+                self.report.failure(
+                    title="Unable to get tables for dataset",
+                    message=action_mesage,
+                    context=f"{project_id}.{bigquery_dataset.name}",
+                    exc=e,
                 )
 
                 if is_schema_error and self.config.skip_schema_errors:
