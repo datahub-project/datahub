@@ -94,7 +94,7 @@ public class GetPresignedUploadUrlResolver
     // FYI: for schema field we have to apply another rules to check permissions
     if (schemaFieldUrn != null) {
       if (!DescriptionUtils.isAuthorizedToUpdateFieldDescription(
-          context, UrnUtils.getUrn(schemaFieldUrn))) {
+          context, UrnUtils.getUrn(assetUrn))) {
         throw new AuthorizationException(
             "Unauthorized to edit documentation for schema field: " + schemaFieldUrn);
       }
