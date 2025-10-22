@@ -27,10 +27,16 @@ input GetPresignedUploadUrlInput {
   The scenario for the upload (e.g., ASSET_DOCUMENTATION, PROFILE_IMAGE).
   """
   scenario: UploadDownloadScenario!
+
   """
   The URN of the asset associated with the upload (required when scenario is ASSET_DOCUMENTATION).
   """
   assetUrn: String
+
+  """
+  The dataset schema field this file is referenced by
+  """
+  schemaFieldUrn: String
 
   """
   Optional content type of file e.g. "application/pdf"
