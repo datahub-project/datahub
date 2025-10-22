@@ -1,6 +1,6 @@
+import { PageTitle } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { PageTitle } from '@components';
 
 import { OwnershipList } from '@app/entityV2/ownership/OwnershipList';
 

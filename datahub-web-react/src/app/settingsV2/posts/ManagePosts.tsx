@@ -1,6 +1,6 @@
+import { PageTitle } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { PageTitle } from '@components';
 
 import { PostList } from '@app/settingsV2/posts/PostsList';
 
@@ -22,9 +22,9 @@ const ListContainer = styled.div`
 export default function ManagePosts() {
     return (
         <PageContainer>
-            <PageTitle 
+            <PageTitle
                 data-testid="managePostsV2"
-                title="Home Page" 
+                title="Home Page"
                 subTitle="View and manage pinned announcements and links that appear to all users on the landing page."
             />
             <ListContainer>
