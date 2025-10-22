@@ -117,6 +117,9 @@ export const FileUploadButton = () => {
         </DropdownContainer>
     );
 
+    // Hide the button when uploading of files is disabled
+    if (!fileExtension.options.onFileUpload) return null;
+
     return (
         <Dropdown open={showDropdown} onOpenChange={(open) => setShowDropdown(open)} dropdownRender={dropdownContent}>
             <Tooltip title="Upload File">
