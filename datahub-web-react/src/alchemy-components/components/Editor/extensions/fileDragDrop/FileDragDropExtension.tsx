@@ -28,6 +28,7 @@ import {
     isFileUrl,
     validateFile,
 } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
+import { notification } from '@components/components/Notification/notification';
 
 interface FileDragDropOptions {
     onFileUpload?: (file: File) => Promise<string>;
@@ -109,6 +110,10 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
             const validation = validateFile(file, { allowedTypes: supportedTypes });
             if (!validation.isValid) {
                 console.error(validation.error);
+                notification.error({
+                    message: 'Upload Failed',
+                    description: validation.displayError || validation.error,
+                });
                 return; // Skip invalid files
             }
 
@@ -139,11 +144,20 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                     const finalUrl = await this.options.onFileUpload(file);
                     this.updateNodeWithUrl(view, placeholderAttrs.id, finalUrl);
                 } catch (uploadError) {
-                    // Upload failed silently - placeholder node remains
+                    console.error(uploadError);
+                    this.removeNode(view, placeholderAttrs.id);
+                    notification.error({
+                        message: 'Upload Failed',
+                        description: 'Something went wrong',
+                    });
                 }
             }
         } catch (error) {
-            // Error processing file - skip silently
+            console.error(error);
+            notification.error({
+                message: 'Upload Failed',
+                description: 'Something went wrong',
+            });
         }
     }
 
@@ -159,6 +173,14 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
         } else {
             this.updateFileNodeUrl(view, nodePos, nodeToUpdate, url);
         }
+    }
+
+    private removeNode(view: EditorView, nodeId: string) {
+        const { nodePos, nodeToUpdate } = this.findNodeById(view.state, nodeId);
+        if (!nodePos || !nodeToUpdate) return;
+
+        const updatedTransaction = view.state.tr.delete(nodePos, nodePos + nodeToUpdate.nodeSize);
+        view.dispatch(updatedTransaction);
     }
 
     private findNodeById(state: any, nodeId: string): { nodePos: number | null; nodeToUpdate: any } {
