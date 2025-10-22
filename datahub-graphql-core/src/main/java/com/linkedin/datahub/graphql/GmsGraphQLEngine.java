@@ -53,6 +53,7 @@ import com.linkedin.datahub.graphql.resolvers.businessattribute.UpdateBusinessAt
 import com.linkedin.datahub.graphql.resolvers.chart.BrowseV2Resolver;
 import com.linkedin.datahub.graphql.resolvers.chart.ChartStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
+import com.linkedin.datahub.graphql.resolvers.config.ProductUpdateResolver;
 import com.linkedin.datahub.graphql.resolvers.connection.UpsertConnectionResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ParentContainersResolver;
@@ -340,6 +341,7 @@ import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.PageModuleService;
 import com.linkedin.metadata.service.PageTemplateService;
+import com.linkedin.metadata.service.ProductUpdateService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
@@ -405,6 +407,7 @@ public class GmsGraphQLEngine {
   private final InviteTokenService inviteTokenService;
   private final PostService postService;
   private final SettingsService settingsService;
+  private final ProductUpdateService productUpdateService;
   private final ViewService viewService;
   private final OwnershipTypeService ownershipTypeService;
   private final LineageService lineageService;
@@ -433,6 +436,7 @@ public class GmsGraphQLEngine {
   private final ViewsConfiguration viewsConfiguration;
   private final SearchBarConfiguration searchBarConfiguration;
   private final SearchCardConfiguration searchCardConfiguration;
+  private final SearchFlagsConfiguration searchFlagsConfiguration;
   private final HomePageConfiguration homePageConfiguration;
   private final ChromeExtensionConfiguration chromeExtensionConfiguration;
 
@@ -546,6 +550,10 @@ public class GmsGraphQLEngine {
     this.viewService = args.viewService;
     this.ownershipTypeService = args.ownershipTypeService;
     this.settingsService = args.settingsService;
+    this.productUpdateService =
+        new ProductUpdateService(
+            args.featureFlags.getProductUpdatesJsonUrl(),
+            args.featureFlags.getProductUpdatesJsonFallbackResourceUrl());
     this.lineageService = args.lineageService;
     this.queryService = args.queryService;
     this.erModelRelationshipService = args.erModelRelationshipService;
@@ -570,6 +578,7 @@ public class GmsGraphQLEngine {
     this.viewsConfiguration = args.viewsConfiguration;
     this.searchBarConfiguration = args.searchBarConfiguration;
     this.searchCardConfiguration = args.searchCardConfiguration;
+    this.searchFlagsConfiguration = args.searchFlagsConfiguration;
     this.homePageConfiguration = args.homePageConfiguration;
     this.featureFlags = args.featureFlags;
     this.chromeExtensionConfiguration = args.chromeExtensionConfiguration;
@@ -981,10 +990,14 @@ public class GmsGraphQLEngine {
                         this.viewsConfiguration,
                         this.searchBarConfiguration,
                         this.searchCardConfiguration,
+                        this.searchFlagsConfiguration,
                         this.homePageConfiguration,
                         this.featureFlags,
                         this.chromeExtensionConfiguration,
                         this.settingsService))
+                .dataFetcher(
+                    "latestProductUpdate",
+                    new ProductUpdateResolver(this.productUpdateService, this.featureFlags))
                 .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
                 .dataFetcher("search", new SearchResolver(this.entityClient))
                 .dataFetcher(

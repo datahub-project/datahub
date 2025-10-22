@@ -72,6 +72,9 @@ query appConfig {
         searchCardConfig {
             showDescription
         }
+        searchFlagsConfig {
+            defaultSkipHighlighting
+        }
         homePageConfig {
             firstInPersonalSidebar
         }
@@ -148,6 +151,13 @@ query getHomePageSettings {
         defaultTemplate {
             ...PageTemplate
         }
+    }
+}
+
+query getPresignedUploadUrl($input: GetPresignedUploadUrlInput!) {
+    getPresignedUploadUrl(input: $input) {
+        url
+        fileId
     }
 }
 
