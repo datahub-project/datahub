@@ -323,6 +323,8 @@ ebean:
   waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
   postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
+  useIamAuth: ${EBEAN_USE_IAM_AUTH:false} # Generic IAM auth for cross-cloud compatibility
+  cloudProvider: ${EBEAN_CLOUD_PROVIDER:auto} # auto, aws, gcp, or traditional
   batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
 
 # Only required if entityService.impl is cassandra
@@ -845,6 +847,8 @@ featureFlags:
   showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:false} # If turned on, show the re-designed home page
   lineageGraphV3: ${LINEAGE_GRAPH_V3:false}  # Enables the redesign of the lineage v2 graph
   showProductUpdates: ${SHOW_PRODUCT_UPDATES:true} # Whether to show in-product update popover on new updates.
+  productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://raw.githubusercontent.com/datahub-project/datahub/master/metadata-service/configuration/src/main/resources/product-update.json} # URL to fetch product updates JSON from remote source.
+  productUpdatesJsonFallbackResource: ${PRODUCT_UPDATES_JSON_FALLBACK_RESOURCE:product-update.json} # Classpath resource to use as fallback when remote fetch fails.
   logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false}  # Enables logical models feature
   showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false}  # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"

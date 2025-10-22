@@ -125,7 +125,7 @@ Cypress.Commands.add("goToDomainList", () => {
 
 Cypress.Commands.add("goToViewsSettings", () => {
   cy.visit("/settings/views");
-  cy.waitTextVisible("Manage Views");
+  cy.waitTextVisible("Views");
 });
 
 Cypress.Commands.add("goToOwnershipTypesSettings", () => {

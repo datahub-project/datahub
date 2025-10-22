@@ -31,6 +31,7 @@ def stateful_source(mock_datahub_graph: DataHubGraph) -> Iterable[SnowflakeV2Sou
         account_id="ABC12345.ap-south-1",
         username="TST_USR",
         password="TST_PWD",
+        use_queries_v2=False,  # Use legacy path for testing redundant run skip handlers
         stateful_ingestion=StatefulStaleMetadataRemovalConfig(
             enabled=True,
             # Uses the graph from the pipeline context.
@@ -159,11 +160,6 @@ def test_redundant_run_skip_handler(
     suggested_start_time: datetime,
     suggested_end_time: datetime,
 ) -> None:
-    # mock_datahub_graph
-
-    # mocked_source = mock.MagicMock()
-    # mocked_config = mock.MagicMock()
-
     with mock.patch(
         "datahub.ingestion.source.state.stateful_ingestion_base.StateProviderWrapper.get_last_checkpoint"
     ) as mocked_fn:
