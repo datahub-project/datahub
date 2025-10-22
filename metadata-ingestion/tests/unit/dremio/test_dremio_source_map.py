@@ -10,7 +10,7 @@ from datahub.ingestion.source.dremio.dremio_source import (
 
 
 def test_build_source_map_simple():
-    # write unit test
+    """Test basic source mapping functionality with simple configuration"""
     config_mapping: List[DremioSourceMapping] = [
         DremioSourceMapping(source_name="source1", platform="S3", env="PROD"),
         DremioSourceMapping(source_name="source2", platform="redshift", env="DEV"),
@@ -58,7 +58,7 @@ def test_build_source_map_simple():
 
 
 def test_build_source_map_same_platform_multiple_sources():
-    # write unit test
+    """Test source mapping with multiple sources using the same platform and complex scenarios"""
     config_mapping: List[DremioSourceMapping] = [
         DremioSourceMapping(source_name="source1", platform="S3", env="PROD"),
         DremioSourceMapping(source_name="source2", platform="redshift", env="DEV"),

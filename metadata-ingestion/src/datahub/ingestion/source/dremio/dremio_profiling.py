@@ -1,7 +1,7 @@
 import logging
 import re
 import time
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -12,11 +12,13 @@ from datahub.ingestion.source.dremio.dremio_api import (
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_entities import DremioDataset
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
     QuantileClass,
 )
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +33,12 @@ class DremioProfiler:
         config: DremioSourceConfig,
         report: DremioSourceReport,
         api_operations: DremioAPIOperations,
+        state_handler: Optional[ProfilingHandler] = None,
     ) -> None:
         self.api_operations = api_operations
         self.config = config
         self.report = report
+        self.state_handler = state_handler
         self.QUERY_TIMEOUT = (
             config.profiling.query_timeout
         )  # 5 minutes timeout for each query
@@ -64,8 +68,13 @@ class DremioProfiler:
             )
             return
 
-        profile_data = self.profile_table(full_table_name, columns)
-        profile_aspect = self.populate_profile_aspect(profile_data)
+        with PerfTimer() as timer:
+            profile_data = self.profile_table(full_table_name, columns)
+            profile_aspect = self.populate_profile_aspect(profile_data)
+
+        logger.info(
+            f"Profiled table {full_table_name} with {len(columns)} columns in {timer.elapsed_seconds():.2f} seconds"
+        )
 
         if profile_aspect:
             self.report.report_entity_profiled(dataset.resource_name)
@@ -131,7 +140,12 @@ class DremioProfiler:
     def _profile_chunk(self, table_name: str, columns: List[Tuple[str, str]]) -> Dict:
         profile_sql = self._build_profile_sql(table_name, columns)
         try:
-            results = self.api_operations.execute_query(profile_sql)
+            with PerfTimer() as timer:
+                results = self.api_operations.execute_query(profile_sql)
+
+            logger.debug(
+                f"Profiling query for {table_name} ({len(columns)} columns) completed in {timer.elapsed_seconds():.2f} seconds"
+            )
             return self._parse_profile_results(results, columns)
         except DremioAPIException as e:
             raise e
