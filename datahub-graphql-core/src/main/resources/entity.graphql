@@ -1439,6 +1439,11 @@ enum EntityType {
   A DataHub subscription
   """
   SUBSCRIPTION
+
+  """
+  An DataHub File
+  """
+  DATAHUB_FILE
 }
 
 """
