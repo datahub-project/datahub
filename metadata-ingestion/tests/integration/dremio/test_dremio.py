@@ -7,7 +7,6 @@ from typing import Dict
 import boto3
 import pytest
 import requests
-from future.backports.datetime import tzinfo
 from time_machine import travel
 
 from datahub.testing import mce_helpers
