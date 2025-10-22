@@ -125,7 +125,7 @@ class DataHubClassifierConfig(ConfigModel):
                 # use default config for that prediction factor.
                 for factor, weight in (
                     info_types_config[infotype]
-                    .Prediction_Factors_and_Weights.dict()
+                    .Prediction_Factors_and_Weights.model_dump()
                     .items()
                 ):
                     if (
@@ -146,7 +146,7 @@ class DataHubClassifierConfig(ConfigModel):
             for (
                 factor,
                 weight,
-            ) in custom_infotype_config.Prediction_Factors_and_Weights.dict().items():
+            ) in custom_infotype_config.Prediction_Factors_and_Weights.model_dump().items():
                 if weight > 0:
                     assert getattr(custom_infotype_config, factor) is not None, (
                         f"Missing Configuration for Prediction Factor {factor} for Custom Info Type {custom_infotype}"
@@ -183,7 +183,7 @@ class DataHubClassifier(Classifier):
             column_infos=columns,
             confidence_level_threshold=self.config.confidence_level_threshold,
             global_config={
-                k: v.dict() for k, v in self.config.info_types_config.items()
+                k: v.model_dump() for k, v in self.config.info_types_config.items()
             },
             infotypes=self.config.info_types,
             minimum_values_threshold=self.config.minimum_values_threshold,

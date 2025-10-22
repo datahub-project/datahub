@@ -6,6 +6,7 @@ import pydantic
 import snowflake.connector
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
+from pydantic import field_validator, model_validator
 from snowflake.connector import SnowflakeConnection as NativeSnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector.network import (
@@ -125,26 +126,28 @@ class SnowflakeConnectionConfig(ConfigModel):
 
     rename_host_port_to_account_id = pydantic_renamed_field("host_port", "account_id")  # type: ignore[pydantic-field]
 
-    @pydantic.validator("account_id")
-    def validate_account_id(cls, account_id: str, values: Dict) -> str:
+    @field_validator("account_id")
+    @classmethod
+    def validate_account_id(cls, account_id: str, info: pydantic.ValidationInfo) -> str:
         account_id = remove_protocol(account_id)
         account_id = remove_trailing_slashes(account_id)
         # Get the domain from config, fallback to default
-        domain = values.get("snowflake_domain", DEFAULT_SNOWFLAKE_DOMAIN)
+        domain = info.data.get("snowflake_domain", DEFAULT_SNOWFLAKE_DOMAIN)
         snowflake_host_suffix = f".{domain}"
         account_id = remove_suffix(account_id, snowflake_host_suffix)
         return account_id
 
-    @pydantic.validator("authentication_type", always=True)
-    def authenticator_type_is_valid(cls, v, values):
+    @field_validator("authentication_type", mode="before")
+    @classmethod
+    def authenticator_type_is_valid(cls, v: Any, info: pydantic.ValidationInfo) -> Any:
         if v not in _VALID_AUTH_TYPES:
             raise ValueError(
                 f"unsupported authenticator type '{v}' was provided,"
                 f" use one of {list(_VALID_AUTH_TYPES.keys())}"
             )
         if (
-            values.get("private_key") is not None
-            or values.get("private_key_path") is not None
+            info.data.get("private_key") is not None
+            or info.data.get("private_key_path") is not None
         ) and v != "KEY_PAIR_AUTHENTICATOR":
             raise ValueError(
                 f"Either `private_key` and `private_key_path` is set but `authentication_type` is {v}. "
@@ -153,21 +156,22 @@ class SnowflakeConnectionConfig(ConfigModel):
         if v == "KEY_PAIR_AUTHENTICATOR":
             # If we are using key pair auth, we need the private key path and password to be set
             if (
-                values.get("private_key") is None
-                and values.get("private_key_path") is None
+                info.data.get("private_key") is None
+                and info.data.get("private_key_path") is None
             ):
                 raise ValueError(
                     f"Both `private_key` and `private_key_path` are none. "
                     f"At least one should be set when using {v} authentication"
                 )
         elif v == "OAUTH_AUTHENTICATOR":
-            cls._check_oauth_config(values.get("oauth_config"))
+            cls._check_oauth_config(info.data.get("oauth_config"))
         logger.info(f"using authenticator type '{v}'")
         return v
 
-    @pydantic.validator("token", always=True)
-    def validate_token_oauth_config(cls, v, values):
-        auth_type = values.get("authentication_type")
+    @field_validator("token", mode="before")
+    @classmethod
+    def validate_token_oauth_config(cls, v: Any, info: pydantic.ValidationInfo) -> Any:
+        auth_type = info.data.get("authentication_type")
         if auth_type == "OAUTH_AUTHENTICATOR_TOKEN":
             if not v:
                 raise ValueError("Token required for OAUTH_AUTHENTICATOR_TOKEN.")
@@ -176,6 +180,24 @@ class SnowflakeConnectionConfig(ConfigModel):
                 "Token can only be provided when using OAUTH_AUTHENTICATOR_TOKEN"
             )
         return v
+
+    @model_validator(mode="after")
+    def validate_authentication_config(self):
+        """Validate authentication configuration consistency."""
+        # Check token requirement for OAUTH_AUTHENTICATOR_TOKEN
+        if self.authentication_type == "OAUTH_AUTHENTICATOR_TOKEN":
+            if not self.token:
+                raise ValueError("Token required for OAUTH_AUTHENTICATOR_TOKEN.")
+
+        # Check private key authentication consistency
+        if self.private_key is not None or self.private_key_path is not None:
+            if self.authentication_type != "KEY_PAIR_AUTHENTICATOR":
+                raise ValueError(
+                    f"Either `private_key` and `private_key_path` is set but `authentication_type` is {self.authentication_type}. "
+                    f"Should be set to 'KEY_PAIR_AUTHENTICATOR' when using key pair authentication"
+                )
+
+        return self
 
     @staticmethod
     def _check_oauth_config(oauth_config: Optional[OAuthConfiguration]) -> None:

@@ -40,7 +40,7 @@ class DuckDBLiteConfigWrapper(DuckDBLiteConfig):
 
 class LiteCliConfig(DatahubConfig):
     lite: LiteLocalConfig = LiteLocalConfig(
-        type="duckdb", config=DuckDBLiteConfigWrapper().dict()
+        type="duckdb", config=DuckDBLiteConfigWrapper().model_dump()
     )
 
 
@@ -55,7 +55,9 @@ def _get_datahub_lite(read_only: bool = False) -> DataHubLiteLocal:
     if lite_config.type == "duckdb":
         lite_config.config["read_only"] = read_only
 
-    duckdb_lite = get_datahub_lite(config_dict=lite_config.dict(), read_only=read_only)
+    duckdb_lite = get_datahub_lite(
+        config_dict=lite_config.model_dump(), read_only=read_only
+    )
     return duckdb_lite
 
 
@@ -308,7 +310,7 @@ def search(
         ):
             result_str = searchable.id
             if details:
-                result_str = json.dumps(searchable.dict())
+                result_str = json.dumps(searchable.model_dump())
             # suppress id if we have already seen it in the non-detailed response
             if details or searchable.id not in result_ids:
                 click.secho(result_str)
@@ -321,7 +323,7 @@ def search(
 def write_lite_config(lite_config: LiteLocalConfig) -> None:
     cli_config = get_raw_client_config()
     assert isinstance(cli_config, dict)
-    cli_config["lite"] = lite_config.dict()
+    cli_config["lite"] = lite_config.model_dump()
     persist_raw_datahub_config(cli_config)
 
 
@@ -332,7 +334,7 @@ def write_lite_config(lite_config: LiteLocalConfig) -> None:
 @telemetry.with_telemetry()
 def init(ctx: click.Context, type: Optional[str], file: Optional[str]) -> None:
     lite_config = get_lite_config()
-    new_lite_config_dict = lite_config.dict()
+    new_lite_config_dict = lite_config.model_dump()
     # Update the type and config sections only
     new_lite_config_dict["type"] = type
     if file:

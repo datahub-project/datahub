@@ -14,7 +14,7 @@ from typing import (
     Type,
 )
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from datahub.configuration.datetimes import parse_absolute_time
 from datahub.ingestion.api.closeable import Closeable
@@ -70,7 +70,7 @@ def pydantic_parse_json(field: str) -> "V1Validator":
             return json.loads(v)
         return v
 
-    return validator(field, pre=True, allow_reuse=True)(_parse_from_json)
+    return field_validator(field, mode="before")(_parse_from_json)
 
 
 class UpstreamColumnNode(BaseModel):

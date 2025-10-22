@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Type, TypeVar, Union
 
-import pydantic
+from pydantic import field_validator
 
 from datahub.ingestion.api.registry import import_path
 
@@ -15,4 +15,4 @@ def _pydantic_resolver(cls: Type, v: Union[str, _T]) -> _T:
 
 
 def pydantic_resolve_key(field: str) -> "V1Validator":
-    return pydantic.validator(field, pre=True, allow_reuse=True)(_pydantic_resolver)
+    return field_validator(field, mode="before")(_pydantic_resolver)

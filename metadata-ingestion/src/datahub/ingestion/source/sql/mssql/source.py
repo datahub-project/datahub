@@ -3,8 +3,8 @@ import re
 import urllib.parse
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-import pydantic
 import sqlalchemy.dialects.mssql
+from pydantic import field_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
@@ -136,11 +136,16 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         description="Represent a schema identifiers combined with quoting preferences. See [sqlalchemy quoted_name docs](https://docs.sqlalchemy.org/en/20/core/sqlelement.html#sqlalchemy.sql.expression.quoted_name).",
     )
 
-    @pydantic.validator("uri_args")
-    def passwords_match(cls, v, values, **kwargs):
-        if values["use_odbc"] and not values["sqlalchemy_uri"] and "driver" not in v:
+    @field_validator("uri_args")
+    @classmethod
+    def passwords_match(cls, v, info, **kwargs):
+        if (
+            info.data["use_odbc"]
+            and not info.data["sqlalchemy_uri"]
+            and "driver" not in v
+        ):
             raise ValueError("uri_args must contain a 'driver' option")
-        elif not values["use_odbc"] and v:
+        elif not info.data["use_odbc"] and v:
             raise ValueError("uri_args is not supported when ODBC is disabled")
         return v
 

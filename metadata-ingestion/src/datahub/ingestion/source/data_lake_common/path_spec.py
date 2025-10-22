@@ -3,11 +3,11 @@ import logging
 import os
 import re
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import parse
-import pydantic
 from cached_property import cached_property
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 from wcmatch import pathlib
 
@@ -65,7 +65,8 @@ class SortKey(ConfigModel):
         description="The date format to use when sorting. This is used to parse the date from the key. The format should follow the java [SimpleDateFormat](https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html) format.",
     )
 
-    @pydantic.validator("date_format", always=True)
+    @field_validator("date_format", mode="before")
+    @classmethod
     def convert_date_format_to_python_format(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return None
@@ -86,7 +87,7 @@ class PathSpec(ConfigModel):
         arbitrary_types_allowed = True
 
     include: str = Field(
-        description="Path to table. Name variable `{table}` is used to mark the folder with dataset. In absence of `{table}`, file level dataset will be created. Check below examples for more details."
+        description="Path to table. Name variable `{table}` is used to mark the folder with dataset. In absence of `{table}`, file level dataset will be created. Check below examples for more details.",
     )
     exclude: Optional[List[str]] = Field(
         [],
@@ -260,20 +261,14 @@ class PathSpec(ConfigModel):
     ) -> Union[None, parse.Result, parse.Match]:
         return self.compiled_folder_include.parse(path)
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def validate_no_double_stars(cls, values: Dict) -> Dict:
-        if "include" not in values:
-            return values
-
-        if (
-            values.get("include")
-            and "**" in values["include"]
-            and not values.get("allow_double_stars")
-        ):
+    @model_validator(mode="after")
+    def validate_no_double_stars(self):
+        if "**" in self.include and not self.allow_double_stars:
             raise ValueError("path_spec.include cannot contain '**'")
-        return values
+        return self
 
-    @pydantic.validator("file_types", always=True)
+    @field_validator("file_types", mode="before")
+    @classmethod
     def validate_file_types(cls, v: Optional[List[str]]) -> List[str]:
         if v is None:
             return SUPPORTED_FILE_TYPES
@@ -285,7 +280,8 @@ class PathSpec(ConfigModel):
                     )
             return v
 
-    @pydantic.validator("default_extension")
+    @field_validator("default_extension")
+    @classmethod
     def validate_default_extension(cls, v):
         if v is not None and v not in SUPPORTED_FILE_TYPES:
             raise ValueError(
@@ -293,44 +289,44 @@ class PathSpec(ConfigModel):
             )
         return v
 
-    @pydantic.validator("sample_files", always=True)
-    def turn_off_sampling_for_non_s3(cls, v, values):
-        is_s3 = is_s3_uri(values.get("include") or "")
-        is_gcs = is_gcs_uri(values.get("include") or "")
-        is_abs = is_abs_uri(values.get("include") or "")
+    @field_validator("sample_files", mode="before")
+    @classmethod
+    def turn_off_sampling_for_non_s3(cls, v, info):
+        is_s3 = is_s3_uri(info.data.get("include") or "")
+        is_gcs = is_gcs_uri(info.data.get("include") or "")
+        is_abs = is_abs_uri(info.data.get("include") or "")
         if not is_s3 and not is_gcs and not is_abs:
             # Sampling only makes sense on s3 and gcs currently
             v = False
         return v
 
-    @pydantic.validator("exclude", each_item=True)
-    def no_named_fields_in_exclude(cls, v: str) -> str:
-        if len(parse.compile(v).named_fields) != 0:
-            raise ValueError(
-                f"path_spec.exclude {v} should not contain any named variables"
-            )
-        return v
-
-    @pydantic.validator("table_name", always=True)
-    def table_name_in_include(cls, v, values):
-        if "include" not in values:
-            return v
-
-        parsable_include = PathSpec.get_parsable_include(values["include"])
-        compiled_include = parse.compile(parsable_include)
-
+    @field_validator("exclude")
+    @classmethod
+    def no_named_fields_in_exclude(cls, v: Optional[List[str]]) -> Optional[List[str]]:
         if v is None:
-            if "{table}" in values["include"]:
-                v = "{table}"
-        else:
-            if not all(
-                x in compiled_include.named_fields
-                for x in parse.compile(v).named_fields
-            ):
+            return v
+        for item in v:
+            if len(parse.compile(item).named_fields) != 0:
                 raise ValueError(
-                    f"Not all named variables used in path_spec.table_name {v} are specified in path_spec.include {values['include']}"
+                    f"path_spec.exclude {item} should not contain any named variables"
                 )
         return v
+
+    @model_validator(mode="after")
+    def table_name_in_include(self):
+        if self.table_name is None and "{table}" in self.include:
+            self.table_name = "{table}"
+        elif self.table_name is not None:
+            parsable_include = PathSpec.get_parsable_include(self.include)
+            compiled_include = parse.compile(parsable_include)
+            if not all(
+                x in compiled_include.named_fields
+                for x in parse.compile(self.table_name).named_fields
+            ):
+                raise ValueError(
+                    f"Not all named variables used in path_spec.table_name {self.table_name} are specified in path_spec.include {self.include}"
+                )
+        return self
 
     @cached_property
     def is_s3(self):
@@ -479,44 +475,35 @@ class PathSpec(ConfigModel):
         logger.debug(f"Setting _glob_include: {glob_include}")
         return glob_include
 
-    @pydantic.root_validator(skip_on_failure=True)
-    @staticmethod
-    def validate_path_spec(values: Dict) -> Dict[str, Any]:
-        # validate that main fields are populated
-        required_fields = ["include", "file_types", "default_extension"]
-        for f in required_fields:
-            if f not in values:
-                logger.debug(
-                    f"Failed to validate because {f} wasn't populated correctly"
-                )
-                return values
-
-        if values["include"] and values["autodetect_partitions"]:
-            include = values["include"]
+    @model_validator(mode="after")
+    def validate_path_spec(self):
+        # First handle autodetect_partitions logic regardless of field validation
+        if self.autodetect_partitions:
+            include = self.include
             if include.endswith("/"):
                 include = include[:-1]
 
             if include.endswith("{table}"):
-                values["include"] = include + "/**"
+                self.include = include + "/**"
 
-        include_ext = os.path.splitext(values["include"])[1].strip(".")
+        include_ext = os.path.splitext(self.include)[1].strip(".")
         if not include_ext:
             include_ext = (
                 "*"  # if no extension is provided, we assume all files are allowed
             )
 
         if (
-            include_ext not in values["file_types"]
+            include_ext not in self.file_types
             and include_ext not in ["*", ""]
-            and not values["default_extension"]
+            and not self.default_extension
             and include_ext not in SUPPORTED_COMPRESSIONS
         ):
             raise ValueError(
                 f"file type specified ({include_ext}) in path_spec.include is not in specified file "
-                f'types. Please select one from {values.get("file_types")} or specify ".*" to allow all types'
+                f'types. Please select one from {self.file_types} or specify ".*" to allow all types'
             )
 
-        return values
+        return self
 
     def _extract_table_name(self, named_vars: dict) -> str:
         if self.table_name is None:

@@ -234,7 +234,8 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         description="A mapping of destination id to its platform/instance/env details.",
     )
 
-    @pydantic.root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def compat_sources_to_database(cls, values: Dict) -> Dict:
         if "sources_to_database" in values:
             warnings.warn(

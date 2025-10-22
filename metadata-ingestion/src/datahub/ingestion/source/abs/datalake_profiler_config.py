@@ -1,6 +1,7 @@
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import pydantic
+from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
@@ -72,21 +73,18 @@ class DataLakeProfilerConfig(ConfigModel):
         description="Whether to profile for the sample values for all columns.",
     )
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def ensure_field_level_settings_are_normalized(
-        cls: "DataLakeProfilerConfig", values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        max_num_fields_to_profile_key = "max_number_of_fields_to_profile"
-        max_num_fields_to_profile = values.get(max_num_fields_to_profile_key)
+    @model_validator(mode="after")
+    def ensure_field_level_settings_are_normalized(self):
+        max_num_fields_to_profile = self.max_number_of_fields_to_profile
 
         # Disable all field-level metrics.
-        if values.get("profile_table_level_only"):
-            for field_level_metric in cls.__fields__:
-                if field_level_metric.startswith("include_field_"):
-                    values.setdefault(field_level_metric, False)
+        if self.profile_table_level_only:
+            for field_name in self.__fields__:
+                if field_name.startswith("include_field_"):
+                    setattr(self, field_name, False)
 
             assert max_num_fields_to_profile is None, (
-                f"{max_num_fields_to_profile_key} should be set to None"
+                "max_number_of_fields_to_profile should be set to None"
             )
 
-        return values
+        return self

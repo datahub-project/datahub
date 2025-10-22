@@ -2,6 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional, Union
 
 import pydantic
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
@@ -105,9 +106,10 @@ class DataLakeSourceConfig(
             self.profiling.operation_config
         )
 
-    @pydantic.validator("path_specs", always=True)
+    @field_validator("path_specs", mode="before")
+    @classmethod
     def check_path_specs_and_infer_platform(
-        cls, path_specs: List[PathSpec], values: Dict
+        cls, path_specs: List[PathSpec], info: pydantic.ValidationInfo
     ) -> List[PathSpec]:
         if len(path_specs) == 0:
             raise ValueError("path_specs must not be empty")
@@ -124,38 +126,37 @@ class DataLakeSourceConfig(
 
         # Ensure abs configs aren't used for file sources.
         if guessed_platform != "abs" and (
-            values.get("use_abs_container_properties")
-            or values.get("use_abs_blob_tags")
-            or values.get("use_abs_blob_properties")
+            info.data.get("use_abs_container_properties")
+            or info.data.get("use_abs_blob_tags")
+            or info.data.get("use_abs_blob_properties")
         ):
             raise ValueError(
                 "Cannot grab abs blob/container tags when platform is not abs. Remove the flag or use abs."
             )
 
         # Infer platform if not specified.
-        if values.get("platform") and values["platform"] != guessed_platform:
+        if info.data.get("platform") and info.data["platform"] != guessed_platform:
             raise ValueError(
-                f"All path_specs belong to {guessed_platform} platform, but platform is set to {values['platform']}"
+                f"All path_specs belong to {guessed_platform} platform, but platform is set to {info.data['platform']}"
             )
         else:
             logger.debug(f'Setting config "platform": {guessed_platform}')
-            values["platform"] = guessed_platform
+            info.data["platform"] = guessed_platform
 
         return path_specs
 
-    @pydantic.validator("platform", always=True)
-    def platform_not_empty(cls, platform: Any, values: dict) -> str:
-        inferred_platform = values.get("platform")  # we may have inferred it above
+    @field_validator("platform", mode="before")
+    @classmethod
+    def platform_not_empty(cls, platform: Any, info: pydantic.ValidationInfo) -> str:
+        inferred_platform = info.data.get("platform")  # we may have inferred it above
         platform = platform or inferred_platform
         if not platform:
             raise ValueError("platform must not be empty")
         return platform
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def ensure_profiling_pattern_is_passed_to_profiling(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        profiling: Optional[DataLakeProfilerConfig] = values.get("profiling")
+    @model_validator(mode="after")
+    def ensure_profiling_pattern_is_passed_to_profiling(self):
+        profiling = self.profiling
         if profiling is not None and profiling.enabled:
-            profiling._allow_deny_patterns = values["profile_patterns"]
-        return values
+            profiling._allow_deny_patterns = self.profile_patterns
+        return self

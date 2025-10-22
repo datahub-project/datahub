@@ -10,8 +10,8 @@ from typing import Any, Dict, Iterable, List, NoReturn, Optional, Tuple, Union, 
 from unittest.mock import patch
 
 import oracledb
-import pydantic
 import sqlalchemy.engine
+from pydantic import field_validator
 from pydantic.fields import Field
 from sqlalchemy import event, sql
 from sqlalchemy.dialects.oracle.base import ischema_names
@@ -101,25 +101,28 @@ class OracleConfig(BasicSQLAlchemyConfig):
         "On Linux, this value is ignored, as ldconfig or LD_LIBRARY_PATH will define the location.",
     )
 
-    @pydantic.validator("service_name")
-    def check_service_name(cls, v, values):
-        if values.get("database") and v:
+    @field_validator("service_name")
+    @classmethod
+    def check_service_name(cls, v, info):
+        if info.data.get("database") and v:
             raise ValueError(
                 "specify one of 'database' and 'service_name', but not both"
             )
         return v
 
-    @pydantic.validator("data_dictionary_mode")
+    @field_validator("data_dictionary_mode")
+    @classmethod
     def check_data_dictionary_mode(cls, value):
         if value not in ("ALL", "DBA"):
             raise ValueError("Specify one of data dictionary views mode: 'ALL', 'DBA'.")
         return value
 
-    @pydantic.validator("thick_mode_lib_dir", always=True)
-    def check_thick_mode_lib_dir(cls, v, values):
+    @field_validator("thick_mode_lib_dir", mode="before")
+    @classmethod
+    def check_thick_mode_lib_dir(cls, v, info):
         if (
             v is None
-            and values.get("enable_thick_mode")
+            and info.data.get("enable_thick_mode")
             and (platform.system() == "Darwin" or platform.system() == "Windows")
         ):
             raise ValueError(

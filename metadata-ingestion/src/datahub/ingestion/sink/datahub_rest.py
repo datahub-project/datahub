@@ -9,6 +9,7 @@ from enum import auto
 from typing import List, Optional, Tuple, Union
 
 import pydantic
+from pydantic import field_validator
 
 from datahub.configuration.common import (
     ConfigEnum,
@@ -80,7 +81,8 @@ class DatahubRestSinkConfig(DatahubClientConfig):
     # Only applies in async batch mode.
     max_per_batch: pydantic.PositiveInt = 100
 
-    @pydantic.validator("max_per_batch", always=True)
+    @field_validator("max_per_batch", mode="before")
+    @classmethod
     def validate_max_per_batch(cls, v):
         if v > BATCH_INGEST_MAX_PAYLOAD_LENGTH:
             raise ValueError(

@@ -53,8 +53,11 @@ from datahub.ingestion.source.data_lake_common.data_lake_utils import (
 from datahub.ingestion.source.data_lake_common.object_store import (
     create_object_store_adapter,
 )
-from datahub.ingestion.source.data_lake_common.path_spec import FolderTraversalMethod
-from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
+from datahub.ingestion.source.data_lake_common.path_spec import (
+    FolderTraversalMethod,
+    PathSpec,
+)
+from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
 from datahub.ingestion.source.schema_inference.base import SchemaInferenceBase
@@ -261,7 +264,7 @@ class S3Source(StatefulIngestionSourceBase):
             )
 
         config_report = {
-            config_option: config.dict().get(config_option)
+            config_option: config.model_dump().get(config_option)
             for config_option in config_options_to_report
         }
         config_report = {
@@ -278,7 +281,7 @@ class S3Source(StatefulIngestionSourceBase):
             telemetry.telemetry_instance.ping(
                 "data_lake_profiling_config",
                 {
-                    config_flag: config.profiling.dict().get(config_flag)
+                    config_flag: config.profiling.model_dump().get(config_flag)
                     for config_flag in profiling_flags_to_report
                 },
             )

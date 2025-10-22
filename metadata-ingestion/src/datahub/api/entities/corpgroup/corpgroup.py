@@ -4,8 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Callable, Iterable, List, Optional, Union
 
-import pydantic
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.corpuser.corpuser import CorpUser, CorpUserGenerationConfig
@@ -70,9 +69,15 @@ class CorpGroup(BaseModel):
 
     _rename_admins_to_owners = pydantic_renamed_field("admins", "owners")
 
-    @pydantic.validator("owners", "members", each_item=True)
+    @field_validator("owners", "members")
+    @classmethod
     def make_urn_if_needed(cls, v):
-        if isinstance(v, str):
+        if isinstance(v, list):
+            return [
+                builder.make_user_urn(item) if isinstance(item, str) else item
+                for item in v
+            ]
+        elif isinstance(v, str):
             return builder.make_user_urn(v)
         return v
 

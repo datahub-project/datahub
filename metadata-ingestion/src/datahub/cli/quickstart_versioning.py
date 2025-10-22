@@ -177,7 +177,7 @@ def save_quickstart_config(
     path = os.path.expanduser(path)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
-        yaml.dump(config.dict(), f)
+        yaml.dump(config.model_dump(), f)
     logger.info(f"Saved quickstart config to {path}.")
 
 

@@ -16,6 +16,7 @@ from typing import (
 )
 
 import pydantic
+from pydantic import field_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.pydantic_migration_helpers import (
@@ -102,7 +103,8 @@ class _EntitySubtypeFilter(_BaseFilter):
         description="The entity subtype to filter on. Can be 'Table', 'View', 'Source', etc. depending on the native platform's concepts.",
     )
 
-    @pydantic.validator("entity_subtype", pre=True)
+    @field_validator("entity_subtype", mode="before")
+    @classmethod
     def validate_entity_subtype(cls, v: str) -> List[str]:
         return [v] if not isinstance(v, list) else v
 
@@ -141,10 +143,13 @@ class _PlatformFilter(_BaseFilter):
     platform: List[str]
     # TODO: Add validator to convert string -> list of strings
 
-    @pydantic.validator("platform", each_item=True)
-    def validate_platform(cls, v: str) -> str:
+    @field_validator("platform")
+    @classmethod
+    def validate_platform(cls, v):
         # Subtle - we use the constructor instead of the from_string method
         # because coercion is acceptable here.
+        if isinstance(v, list):
+            return [str(DataPlatformUrn(item)) for item in v]
         return str(DataPlatformUrn(v))
 
     def _build_rule(self) -> SearchFilterRule:
@@ -161,8 +166,11 @@ class _PlatformFilter(_BaseFilter):
 class _DomainFilter(_BaseFilter):
     domain: List[str]
 
-    @pydantic.validator("domain", each_item=True)
-    def validate_domain(cls, v: str) -> str:
+    @field_validator("domain")
+    @classmethod
+    def validate_domain(cls, v):
+        if isinstance(v, list):
+            return [str(DomainUrn.from_string(item)) for item in v]
         return str(DomainUrn.from_string(v))
 
     def _build_rule(self) -> SearchFilterRule:
@@ -183,8 +191,11 @@ class _ContainerFilter(_BaseFilter):
         description="If true, only entities that are direct descendants of the container will be returned.",
     )
 
-    @pydantic.validator("container", each_item=True)
-    def validate_container(cls, v: str) -> str:
+    @field_validator("container")
+    @classmethod
+    def validate_container(cls, v):
+        if isinstance(v, list):
+            return [str(ContainerUrn.from_string(item)) for item in v]
         return str(ContainerUrn.from_string(v))
 
     @classmethod
@@ -249,17 +260,25 @@ class _OwnerFilter(_BaseFilter):
         description="The owner to filter on. Should be user or group URNs.",
     )
 
-    @pydantic.validator("owner", each_item=True)
-    def validate_owner(cls, v: str) -> str:
-        if not v.startswith("urn:li:"):
-            raise ValueError(f"Owner must be a valid User or Group URN, got: {v}")
-        _type = guess_entity_type(v)
-        if _type == CorpUserUrn.ENTITY_TYPE:
-            return str(CorpUserUrn.from_string(v))
-        elif _type == CorpGroupUrn.ENTITY_TYPE:
-            return str(CorpGroupUrn.from_string(v))
-        else:
-            raise ValueError(f"Owner must be a valid User or Group URN, got: {v}")
+    @field_validator("owner")
+    @classmethod
+    def validate_owner(cls, v):
+        validated = []
+        for owner in v:
+            if not owner.startswith("urn:li:"):
+                raise ValueError(
+                    f"Owner must be a valid User or Group URN, got: {owner}"
+                )
+            _type = guess_entity_type(owner)
+            if _type == CorpUserUrn.ENTITY_TYPE:
+                validated.append(str(CorpUserUrn.from_string(owner)))
+            elif _type == CorpGroupUrn.ENTITY_TYPE:
+                validated.append(str(CorpGroupUrn.from_string(owner)))
+            else:
+                raise ValueError(
+                    f"Owner must be a valid User or Group URN, got: {owner}"
+                )
+        return validated
 
     def _build_rule(self) -> SearchFilterRule:
         return SearchFilterRule(
@@ -279,17 +298,21 @@ class _GlossaryTermFilter(_BaseFilter):
         description="The glossary term to filter on. Should be glossary term URNs.",
     )
 
-    @pydantic.validator("glossary_term", each_item=True)
-    def validate_glossary_term(cls, v: str) -> str:
-        if not v.startswith("urn:li:"):
-            raise ValueError(f"Glossary term must be a valid URN, got: {v}")
-        # Validate that it's a glossary term URN
-        _type = guess_entity_type(v)
-        if _type != "glossaryTerm":
-            raise ValueError(
-                f"Glossary term must be a valid glossary term URN, got: {v}"
-            )
-        return v
+    @field_validator("glossary_term")
+    @classmethod
+    def validate_glossary_term(cls, v):
+        validated = []
+        for term in v:
+            if not term.startswith("urn:li:"):
+                raise ValueError(f"Glossary term must be a valid URN, got: {term}")
+            # Validate that it's a glossary term URN
+            _type = guess_entity_type(term)
+            if _type != "glossaryTerm":
+                raise ValueError(
+                    f"Glossary term must be a valid glossary term URN, got: {term}"
+                )
+            validated.append(term)
+        return validated
 
     def _build_rule(self) -> SearchFilterRule:
         return SearchFilterRule(
@@ -309,15 +332,19 @@ class _TagFilter(_BaseFilter):
         description="The tag to filter on. Should be tag URNs.",
     )
 
-    @pydantic.validator("tag", each_item=True)
-    def validate_tag(cls, v: str) -> str:
-        if not v.startswith("urn:li:"):
-            raise ValueError(f"Tag must be a valid URN, got: {v}")
-        # Validate that it's a tag URN
-        _type = guess_entity_type(v)
-        if _type != "tag":
-            raise ValueError(f"Tag must be a valid tag URN, got: {v}")
-        return v
+    @field_validator("tag")
+    @classmethod
+    def validate_tag(cls, v):
+        validated = []
+        for tag in v:
+            if not tag.startswith("urn:li:"):
+                raise ValueError(f"Tag must be a valid URN, got: {tag}")
+            # Validate that it's a tag URN
+            _type = guess_entity_type(tag)
+            if _type != "tag":
+                raise ValueError(f"Tag must be a valid tag URN, got: {tag}")
+            validated.append(tag)
+        return validated
 
     def _build_rule(self) -> SearchFilterRule:
         return SearchFilterRule(
@@ -426,7 +453,8 @@ class _Not(_BaseFilter):
 
     not_: "Filter" = pydantic.Field(alias="not")
 
-    @pydantic.validator("not_", pre=False)
+    @field_validator("not_")
+    @classmethod
     def validate_not(cls, v: "Filter") -> "Filter":
         inner_filter = v.compile()
         if len(inner_filter) != 1:

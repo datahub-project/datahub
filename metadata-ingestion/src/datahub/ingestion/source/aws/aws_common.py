@@ -246,7 +246,7 @@ def assume_role(
         **dict(
             RoleSessionName="DatahubIngestionSource",
         ),
-        **{k: v for k, v in role.dict().items() if v is not None},
+        **{k: v for k, v in role.model_dump().items() if v is not None},
     }
 
     assumed_role_object = sts_client.assume_role(

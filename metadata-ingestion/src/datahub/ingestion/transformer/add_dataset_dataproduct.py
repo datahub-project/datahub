@@ -1,7 +1,7 @@
 import logging
 from typing import Callable, Dict, List, Optional, Union
 
-import pydantic
+from pydantic import model_validator
 
 from datahub.configuration.common import ConfigModel, KeyValuePattern
 from datahub.configuration.import_resolver import pydantic_resolve_key
@@ -124,7 +124,8 @@ class PatternDatasetDataProductConfig(ConfigModel):
     dataset_to_data_product_urns_pattern: KeyValuePattern = KeyValuePattern.all()
     is_container: bool = False
 
-    @pydantic.root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def validate_pattern_value(cls, values: Dict) -> Dict:
         rules = values["dataset_to_data_product_urns_pattern"]["rules"]
         for key, value in rules.items():

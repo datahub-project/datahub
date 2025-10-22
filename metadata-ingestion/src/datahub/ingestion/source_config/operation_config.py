@@ -3,7 +3,7 @@ import logging
 from typing import Any, Dict, Optional
 
 import cachetools
-import pydantic
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
@@ -26,7 +26,8 @@ class OperationConfig(ConfigModel):
         description="Number between 1 to 31 for date of month (both inclusive). If not specified, defaults to Nothing and this field does not take affect.",
     )
 
-    @pydantic.root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def lower_freq_configs_are_set(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         lower_freq_profile_enabled = values.get("lower_freq_profile_enabled")
         profile_day_of_week = values.get("profile_day_of_week")
@@ -41,7 +42,8 @@ class OperationConfig(ConfigModel):
             )
         return values
 
-    @pydantic.validator("profile_day_of_week")
+    @field_validator("profile_day_of_week")
+    @classmethod
     def validate_profile_day_of_week(cls, v: Optional[int]) -> Optional[int]:
         profile_day_of_week = v
         if profile_day_of_week is None:
@@ -52,7 +54,8 @@ class OperationConfig(ConfigModel):
             )
         return profile_day_of_week
 
-    @pydantic.validator("profile_date_of_month")
+    @field_validator("profile_date_of_month")
+    @classmethod
     def validate_profile_date_of_month(cls, v: Optional[int]) -> Optional[int]:
         profile_date_of_month = v
         if profile_date_of_month is None:

@@ -10,6 +10,7 @@ import clickhouse_sqlalchemy.types as custom_types
 import pydantic
 from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
+from pydantic import model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import reflection
@@ -175,7 +176,8 @@ class ClickHouseConfig(
         return str(url)
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
-    @pydantic.root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
         secure = values.get("secure")
         protocol = values.get("protocol")

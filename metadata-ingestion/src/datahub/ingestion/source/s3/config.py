@@ -1,7 +1,8 @@
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import pydantic
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
@@ -12,7 +13,6 @@ from datahub.configuration.validate_field_deprecation import pydantic_field_depr
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
-from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -117,69 +117,91 @@ class DataLakeSourceConfig(
             self.profiling.operation_config
         )
 
-    @pydantic.validator("path_specs", always=True)
-    def check_path_specs_and_infer_platform(
-        cls, path_specs: List[PathSpec], values: Dict
-    ) -> List[PathSpec]:
+    @field_validator("path_specs", mode="before")
+    @classmethod
+    def check_path_specs(cls, path_specs: Any, info: pydantic.ValidationInfo) -> Any:
         if len(path_specs) == 0:
             raise ValueError("path_specs must not be empty")
 
-        # Check that all path specs have the same platform.
-        guessed_platforms = {
-            "s3" if path_spec.is_s3 else "file" for path_spec in path_specs
-        }
-        if len(guessed_platforms) > 1:
-            raise ValueError(
-                f"Cannot have multiple platforms in path_specs: {guessed_platforms}"
-            )
-        guessed_platform = guessed_platforms.pop()
-
-        # Ensure s3 configs aren't used for file sources.
-        if guessed_platform != "s3" and (
-            values.get("use_s3_object_tags") or values.get("use_s3_bucket_tags")
-        ):
-            raise ValueError(
-                "Cannot grab s3 object/bucket tags when platform is not s3. Remove the flag or use s3."
-            )
-
-        # Infer platform if not specified.
-        if values.get("platform") and values["platform"] != guessed_platform:
-            raise ValueError(
-                f"All path_specs belong to {guessed_platform} platform, but platform is set to {values['platform']}"
-            )
-        else:
-            logger.debug(f'Setting config "platform": {guessed_platform}')
-            values["platform"] = guessed_platform
+        # Basic validation - path specs consistency and S3 config validation is now handled in model_validator
 
         return path_specs
 
-    @pydantic.validator("platform", always=True)
-    def platform_valid(cls, platform: Any, values: dict) -> str:
-        inferred_platform = values.get("platform")  # we may have inferred it above
-        platform = platform or inferred_platform
-        if not platform:
-            raise ValueError("platform must not be empty")
-
-        if platform != "s3" and values.get("use_s3_bucket_tags"):
-            raise ValueError(
-                "Cannot grab s3 bucket tags when platform is not s3. Remove the flag or ingest from s3."
-            )
-        if platform != "s3" and values.get("use_s3_object_tags"):
-            raise ValueError(
-                "Cannot grab s3 object tags when platform is not s3. Remove the flag or ingest from s3."
-            )
-        if platform != "s3" and values.get("use_s3_content_type"):
-            raise ValueError(
-                "Cannot grab s3 object content type when platform is not s3. Remove the flag or ingest from s3."
-            )
-
-        return platform
-
-    @pydantic.root_validator(skip_on_failure=True)
-    def ensure_profiling_pattern_is_passed_to_profiling(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        profiling: Optional[DataLakeProfilerConfig] = values.get("profiling")
+    @model_validator(mode="after")
+    def ensure_profiling_pattern_is_passed_to_profiling(self):
+        profiling = self.profiling
         if profiling is not None and profiling.enabled:
-            profiling._allow_deny_patterns = values["profile_patterns"]
-        return values
+            profiling._allow_deny_patterns = self.profile_patterns
+        return self
+
+    @model_validator(mode="after")
+    def validate_platform_and_config_consistency(self):
+        """Infer platform from path_specs and validate config consistency."""
+        # Track whether platform was explicitly provided
+        platform_was_explicit = bool(self.platform)
+
+        # Infer platform from path_specs if not explicitly set
+        if not self.platform and self.path_specs:
+            guessed_platforms = set()
+            for path_spec in self.path_specs:
+                if (
+                    hasattr(path_spec, "include")
+                    and path_spec.include
+                    and path_spec.include.startswith("s3://")
+                ):
+                    guessed_platforms.add("s3")
+                else:
+                    guessed_platforms.add("file")
+
+            # Ensure all path specs belong to the same platform
+            if len(guessed_platforms) > 1:
+                raise ValueError(
+                    f"Cannot have multiple platforms in path_specs: {guessed_platforms}"
+                )
+
+            if guessed_platforms:
+                guessed_platform = guessed_platforms.pop()
+                logger.debug(f"Inferred platform: {guessed_platform}")
+                self.platform = guessed_platform
+            else:
+                self.platform = "file"
+        elif not self.platform:
+            self.platform = "file"
+
+        # Validate platform consistency only when platform was inferred (not explicitly set)
+        # This allows sources like GCS to set platform="gcs" with s3:// URIs for correct container subtypes
+        if not platform_was_explicit and self.platform and self.path_specs:
+            expected_platforms = set()
+            for path_spec in self.path_specs:
+                if (
+                    hasattr(path_spec, "include")
+                    and path_spec.include
+                    and path_spec.include.startswith("s3://")
+                ):
+                    expected_platforms.add("s3")
+                else:
+                    expected_platforms.add("file")
+
+            if len(expected_platforms) == 1:
+                expected_platform = expected_platforms.pop()
+                if self.platform != expected_platform:
+                    raise ValueError(
+                        f"All path_specs belong to {expected_platform} platform, but platform was inferred as {self.platform}"
+                    )
+
+        # Validate S3-specific configurations
+        if self.platform != "s3":
+            if self.use_s3_bucket_tags:
+                raise ValueError(
+                    "Cannot grab s3 bucket tags when platform is not s3. Remove the flag or ingest from s3."
+                )
+            if self.use_s3_object_tags:
+                raise ValueError(
+                    "Cannot grab s3 object tags when platform is not s3. Remove the flag or ingest from s3."
+                )
+            if self.use_s3_content_type:
+                raise ValueError(
+                    "Cannot grab s3 object content type when platform is not s3. Remove the flag or ingest from s3."
+                )
+
+        return self
