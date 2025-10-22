@@ -11,7 +11,7 @@ from datahub.emitter.mcp_builder import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau_common import (
-    create_vc_schema_field,
+    FIELD_TYPE_MAPPING,
     virtual_connection_detailed_graphql_query,
     virtual_connection_graphql_query,
 )
@@ -22,7 +22,10 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    NullTypeClass,
     OtherSchemaClass,
+    SchemaFieldClass as SchemaField,
+    SchemaFieldDataTypeClass as SchemaFieldDataType,
     SchemaMetadataClass,
     SubTypesClass,
     UpstreamClass,
@@ -232,15 +235,15 @@ class VirtualConnectionProcessor:
                     )
                     continue
 
-                column_type = column.get(c.REMOTE_TYPE, c.UNKNOWN)
-                description = column.get(c.DESCRIPTION)
+                # Create schema field using standard approach (same as database tables)
+                nativeDataType = column.get(c.REMOTE_TYPE, c.UNKNOWN)
+                TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
 
-                # Create schema field for the column
-                schema_field = create_vc_schema_field(
-                    column_name=column_name,
-                    column_type=column_type,
-                    description=description,
-                    ingest_tags=self.config.ingest_tags,
+                schema_field = SchemaField(
+                    fieldPath=column_name,
+                    type=SchemaFieldDataType(type=TypeClass()),
+                    description=column.get(c.DESCRIPTION),
+                    nativeDataType=nativeDataType,
                 )
                 if schema_field:
                     fields.append(schema_field)

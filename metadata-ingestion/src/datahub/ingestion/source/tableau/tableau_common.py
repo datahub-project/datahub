@@ -1087,30 +1087,6 @@ def optimize_query_filter(query_filter: dict) -> dict:
     return optimized_query
 
 
-def create_vc_schema_field(
-    column_name: str,
-    column_type: str,
-    description: Optional[str] = None,
-    ingest_tags: bool = False,
-) -> SchemaField:
-    """Create a SchemaField for Virtual Connection using standard Tableau approach."""
-    # Use the same logic as tableau_field_to_schema_field
-    nativeDataType = column_type
-    if nativeDataType is None:
-        nativeDataType = "UNKNOWN"
-    TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
-
-    schema_field = SchemaField(
-        fieldPath=column_name,
-        type=SchemaFieldDataType(type=TypeClass()),
-        description=make_description_from_params(description or "", None),
-        nativeDataType=nativeDataType,
-        globalTags=(get_tags_from_params([nativeDataType]) if ingest_tags else None),
-    )
-
-    return schema_field
-
-
 def clean_table_name(name: str) -> str:
     """Clean table name by removing brackets, quotes, and other special characters"""
     if not name:
