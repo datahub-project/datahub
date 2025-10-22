@@ -6,7 +6,7 @@ from typing import Dict
 import boto3
 import pytest
 import requests
-from freezegun import freeze_time
+from time_machine import travel
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -469,7 +469,7 @@ def populate_minio(pytestconfig, s3_bkt):
     yield
 
 
-@freeze_time(FROZEN_TIME)
+@travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_dremio_ingest(
     test_resources_dir,
@@ -492,7 +492,7 @@ def test_dremio_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_dremio_platform_instance_urns(
     test_resources_dir,
@@ -576,7 +576,7 @@ def test_dremio_platform_instance_urns(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_dremio_schema_filter(
     test_resources_dir,
