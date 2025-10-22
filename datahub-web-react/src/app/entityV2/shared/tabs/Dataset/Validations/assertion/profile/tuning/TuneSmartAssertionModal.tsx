@@ -1,6 +1,7 @@
 import { Modal, Text, colors } from '@components';
-import { message } from 'antd';
+import { Modal as AntdModal, message } from 'antd';
 import moment from 'moment';
+import { Info } from 'phosphor-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -21,11 +22,12 @@ import { usePollForNewPredictions } from '@app/entityV2/shared/tabs/Dataset/Vali
 import Loading from '@app/shared/Loading';
 
 import {
+    useBulkUpdateAnomaliesMutation,
     useGetAssertionWithMonitorsQuery,
     useListMonitorMetricsQuery,
     useUpdateAssertionMonitorSettingsMutation,
 } from '@graphql/monitor.generated';
-import { Assertion, AssertionAdjustmentSettings, AssertionExclusionWindow, Monitor } from '@types';
+import { AnomalyReviewState, Assertion, AssertionAdjustmentSettings, AssertionExclusionWindow, Monitor } from '@types';
 
 const RegeneratingContainer = styled.div`
     display: flex;
@@ -38,6 +40,9 @@ const RegeneratingContainer = styled.div`
 const LoadingWrapper = styled.div`
     margin-right: 8px;
 `;
+
+const DEFAULT_PREDICTION_LOOKAHEAD_DAYS = 2;
+const DEFAULT_PREDICTION_LOOKAHEAD_TIME_MILLIS = DEFAULT_PREDICTION_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000;
 
 type Props = {
     onClose: () => void;
@@ -80,6 +85,33 @@ export const TuneSmartAssertionModal = ({ onClose, monitor: originalMonitor, ass
         return extractPredictionsFromEmbeddedAssertions(embeddedAssertions);
     }, [embeddedAssertions]);
 
+    // -------- Date range picker state -------- //
+    const nowRef = useRef(Date.now());
+    const originalRangeRef = useRef({
+        start: nowRef.current - monitorTrainingLookbackWindowDays * 24 * 60 * 60 * 1000,
+        end: nowRef.current + DEFAULT_PREDICTION_LOOKAHEAD_TIME_MILLIS,
+    });
+    const [range, setRange] = useState<{ start: number; end: number }>(originalRangeRef.current);
+
+    // -------- Metrics data -------- //
+    const {
+        data,
+        loading,
+        refetch: refetchListMonitorMetrics,
+    } = useListMonitorMetricsQuery({
+        variables: {
+            input: {
+                monitorUrn: monitor.urn,
+                startTimeMillis: range.start,
+                endTimeMillis: range.end,
+            },
+        },
+    });
+    const metrics = useMemo(() => transformData(data), [data]);
+
+    // Cache the latest metric timestamp
+    const latestMetricTimestampRef = useRef(nowRef.current);
+
     // -------- Update adjustment settings -------- //
     const [updateAssertionMonitorSettings] = useUpdateAssertionMonitorSettingsMutation();
 
@@ -105,30 +137,55 @@ export const TuneSmartAssertionModal = ({ onClose, monitor: originalMonitor, ass
         [monitor.urn, updateAssertionMonitorSettings, refetchMonitor, startPolling],
     );
 
-    const addNamedExclusionWindowModalRef = useRef<AddNamedExclusionWindowModalRef>(null);
+    const [bulkUpdateAnomalies] = useBulkUpdateAnomaliesMutation();
 
-    // -------- Date range picker state -------- //
-    const nowRef = useRef(Date.now());
-    const originalRangeRef = useRef({
-        start: nowRef.current - monitorTrainingLookbackWindowDays * 24 * 60 * 60 * 1000,
-        end: nowRef.current,
-    });
-    const [range, setRange] = useState<{ start: number; end: number }>(originalRangeRef.current);
-
-    // -------- Metrics data -------- //
-    const { data, loading } = useListMonitorMetricsQuery({
-        variables: {
-            input: {
-                monitorUrn: monitor.urn,
-                startTimeMillis: range.start,
-                endTimeMillis: range.end,
-            },
+    const executeBulkUnmarkAnomalies = useCallback(
+        async (startTimeMillis: number, endTimeMillis: number) => {
+            try {
+                setIsUpdating(true);
+                const result = await bulkUpdateAnomalies({
+                    variables: {
+                        input: {
+                            monitorUrn: monitor.urn,
+                            assertionUrn: assertion.urn,
+                            startTimeMillis,
+                            endTimeMillis,
+                            state: AnomalyReviewState.Rejected,
+                        },
+                    },
+                });
+                const count = result.data?.bulkUpdateAnomalies?.length;
+                message.success(`${count} anomalies bulk updated successfully.`);
+                // Start polling for new predictions after successful bulk update
+                startPolling();
+                setTimeout(() => refetchListMonitorMetrics(), 3000);
+                await refetchMonitor();
+            } catch (error) {
+                console.error('Error bulk updating anomalies:', error);
+                message.error('Failed to bulk update anomalies. Please try again later.');
+            } finally {
+                setIsUpdating(false);
+            }
         },
-    });
-    const metrics = useMemo(() => transformData(data), [data]);
+        [monitor.urn, assertion.urn, bulkUpdateAnomalies, startPolling, refetchMonitor, refetchListMonitorMetrics],
+    );
 
-    // Cache the latest metric timestamp
-    const latestMetricTimestampRef = useRef(nowRef.current);
+    const onBulkUnmarkAnomalies = useCallback(
+        (startTimeMillis: number, endTimeMillis: number) => {
+            AntdModal.confirm({
+                title: 'Confirm Bulk Unmark Anomalies',
+                content:
+                    'This action will mark all data points in the selected time range as not anomalies. You can always add an exclusion window later.',
+                okText: 'Yes, Unmark',
+                cancelText: 'Cancel',
+                icon: <Info size={24} color={colors.gray[900]} />,
+                onOk: () => executeBulkUnmarkAnomalies(startTimeMillis, endTimeMillis),
+            });
+        },
+        [executeBulkUnmarkAnomalies],
+    );
+
+    const addNamedExclusionWindowModalRef = useRef<AddNamedExclusionWindowModalRef>(null);
 
     // -------- Date range event handlers -------- //
     // For the very first time data loads, update the range to fit the timespan of the data
@@ -145,7 +202,7 @@ export const TuneSmartAssertionModal = ({ onClose, monitor: originalMonitor, ass
             );
             originalRangeRef.current = {
                 start: sortedMetrics[0].assertionMetric.timestampMillis,
-                end: nowRef.current,
+                end: nowRef.current + DEFAULT_PREDICTION_LOOKAHEAD_TIME_MILLIS,
             };
             latestMetricTimestampRef.current =
                 sortedMetrics[sortedMetrics.length - 1].assertionMetric.timestampMillis || nowRef.current;
@@ -217,6 +274,7 @@ export const TuneSmartAssertionModal = ({ onClose, monitor: originalMonitor, ass
                         endTimeMillis,
                     })
                 }
+                onBulkUnmarkAnomalies={onBulkUnmarkAnomalies}
                 dateRange={currentDateRange}
                 currentTime={nowRef.current}
                 latestMetricTimestamp={latestMetricTimestampRef.current}

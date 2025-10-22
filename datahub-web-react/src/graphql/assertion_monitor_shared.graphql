@@ -283,6 +283,7 @@ fragment monitorAnomalyEventDetails on MonitorAnomalyEvent {
     source {
         type
         sourceUrn
+        sourceEventTimestampMillis
         properties {
             assertionMetric {
                 timestampMillis

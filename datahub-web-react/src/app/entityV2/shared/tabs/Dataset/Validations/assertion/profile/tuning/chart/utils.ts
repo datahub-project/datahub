@@ -24,14 +24,32 @@ export type VisibleExclusionWindow = {
 };
 
 /**
- * Filter predictions to only include future ones
+ * Filter predictions to only include future ones, optionally within a date range
  */
-export const getFuturePredictions = (predictions: AssertionPrediction[]): AssertionPrediction[] => {
+export const getFuturePredictions = (
+    predictions: AssertionPrediction[],
+    dateRange?: [moment.Moment | null, moment.Moment | null],
+): AssertionPrediction[] => {
     const now = Date.now();
     return predictions
         .filter((prediction) => {
             if (!prediction.timeWindow?.startTimeMillis) return false;
-            return prediction.timeWindow.startTimeMillis > now;
+
+            // Must be in the future
+            if (prediction.timeWindow.startTimeMillis <= now) return false;
+
+            // If date range is specified, filter to only include predictions within that range
+            if (dateRange && dateRange[0] && dateRange[1]) {
+                const rangeStart = dateRange[0].valueOf();
+                const rangeEnd = dateRange[1].valueOf();
+                const predictionStart = prediction.timeWindow.startTimeMillis;
+                const predictionEnd = prediction.timeWindow.endTimeMillis || predictionStart;
+
+                // Include if prediction overlaps with the date range
+                return predictionStart <= rangeEnd && predictionEnd >= rangeStart;
+            }
+
+            return true;
         })
         .sort((a, b) => {
             const aStart = a.timeWindow?.startTimeMillis || 0;

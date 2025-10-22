@@ -23,6 +23,7 @@ import com.linkedin.datahub.graphql.generated.ListMonitorMetricsResult;
 import com.linkedin.datahub.graphql.generated.MonitorMetric;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metric.DataHubMetricCubeEvent;
 import com.linkedin.mxe.SystemMetadata;
@@ -108,7 +109,8 @@ public class MonitorMetricsResolverTest {
                 isNull(),
                 isNull(),
                 isNull(),
-                any()))
+                any(),
+                any(SortCriterion.class)))
         .thenReturn(ImmutableList.of(mockAnomalyAspect));
 
     // Create resolver
@@ -186,7 +188,8 @@ public class MonitorMetricsResolverTest {
                 isNull(),
                 isNull(),
                 isNull(),
-                any()))
+                any(),
+                any(SortCriterion.class)))
         .thenReturn(ImmutableList.of());
 
     // Create resolver
@@ -250,7 +253,7 @@ public class MonitorMetricsResolverTest {
     Long endTime = 2000L;
 
     // Test with both start and end time
-    var filter = MonitorMetricsResolver.buildAnomalyFeedbackEventsFilter(startTime, endTime);
+    var filter = MonitorAnomalyEventUtils.buildAnomalyFeedbackEventsFilter(startTime, endTime);
     assertNotNull(filter);
     assertNotNull(filter.getOr());
     assertEquals(filter.getOr().size(), 1);
@@ -266,7 +269,7 @@ public class MonitorMetricsResolverTest {
     assertEquals(criterion.getValues().get(1), endTime.toString());
 
     // Test with null values
-    var filterWithNulls = MonitorMetricsResolver.buildAnomalyFeedbackEventsFilter(null, null);
+    var filterWithNulls = MonitorAnomalyEventUtils.buildAnomalyFeedbackEventsFilter(null, null);
     assertNotNull(filterWithNulls);
     var criterionWithNulls = filterWithNulls.getOr().get(0).getAnd().get(0);
     assertEquals(criterionWithNulls.getValues().get(0), "0");

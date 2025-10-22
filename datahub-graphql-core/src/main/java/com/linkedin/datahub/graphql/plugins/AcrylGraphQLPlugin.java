@@ -70,6 +70,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.logging.CloudLoggingConfigs
 import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.integration.GetLinkPreviewResolver;
 import com.linkedin.datahub.graphql.resolvers.load.*;
+import com.linkedin.datahub.graphql.resolvers.monitor.BulkUpdateAnomaliesResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.CreateAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.DeleteMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.MonitorMetricsResolver;
@@ -452,6 +453,9 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     "reportAnomalyFeedback",
                     new ReportAnomalyFeedbackResolver(
                         assertionService, monitorService, entityClient))
+                .dataFetcher(
+                    "bulkUpdateAnomalies",
+                    new BulkUpdateAnomaliesResolver(assertionService, monitorService, entityClient))
                 .dataFetcher(
                     "upsertDatasetFreshnessAssertionMonitor",
                     new UpsertDatasetFreshnessAssertionMonitorResolver(

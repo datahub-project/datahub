@@ -477,6 +477,7 @@ public class AssertionService extends BaseService {
     Objects.requireNonNull(timestampMillis, "timestampMillis must not be null");
     try {
       final List<EnvelopedAspect> aspects =
+          // default sort is by timestampMillis descending
           this.entityClient.getTimeseriesAspectValues(
               opContext,
               assertionUrn.toString(),
@@ -486,14 +487,55 @@ public class AssertionService extends BaseService {
               timestampMillis,
               1,
               null);
-      if (aspects != null && !aspects.isEmpty()) {
-        final EnvelopedAspect envelopedAspect = aspects.get(0);
-        return GenericRecordUtils.deserializeAspect(
-            envelopedAspect.getAspect().getValue(),
-            envelopedAspect.getAspect().getContentType(),
-            AssertionRunEvent.class);
+      if (aspects == null || aspects.isEmpty()) {
+        return null;
       }
-      return null;
+      final EnvelopedAspect envelopedAspect = aspects.get(0);
+      return GenericRecordUtils.deserializeAspect(
+          envelopedAspect.getAspect().getValue(),
+          envelopedAspect.getAspect().getContentType(),
+          AssertionRunEvent.class);
+    } catch (RemoteInvocationException e) {
+      throw new RuntimeException("Failed to retrieve Assertion Run Events from GMS", e);
+    }
+  }
+
+  /**
+   * Returns a list of {@link com.linkedin.assertion.AssertionRunEvent} for the specified assertion
+   * URN, within the given time range.
+   */
+  @Nonnull
+  public List<AssertionRunEvent> getAssertionRunEvents(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final long startTimeMillis,
+      @Nonnull final long endTimeMillis) {
+    Objects.requireNonNull(opContext, "opContext must not be null");
+    Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    Objects.requireNonNull(startTimeMillis, "startTimeMillis must not be null");
+    Objects.requireNonNull(endTimeMillis, "endTimeMillis must not be null");
+    try {
+      final List<EnvelopedAspect> aspects =
+          this.entityClient.getTimeseriesAspectValues(
+              opContext,
+              assertionUrn.toString(),
+              Constants.ASSERTION_ENTITY_NAME,
+              Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
+              startTimeMillis,
+              endTimeMillis,
+              10000, // Max number of run events to fetch
+              null);
+      if (aspects != null && !aspects.isEmpty()) {
+        return aspects.stream()
+            .map(
+                envelopedAspect ->
+                    GenericRecordUtils.deserializeAspect(
+                        envelopedAspect.getAspect().getValue(),
+                        envelopedAspect.getAspect().getContentType(),
+                        AssertionRunEvent.class))
+            .collect(Collectors.toList());
+      }
+      return Collections.emptyList();
     } catch (RemoteInvocationException e) {
       throw new RuntimeException("Failed to retrieve Assertion Run Events from GMS", e);
     }

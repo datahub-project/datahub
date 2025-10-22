@@ -29,7 +29,9 @@ export const RunAction = ({ assertion, monitor, canEdit, refetch, isExpandedView
     const [showResult, setShowResult] = useState(false);
     const { config } = useAppConfig();
     const isRunAssertionsEnabled = config?.featureFlags?.runAssertionsEnabled;
-    const isNonNative = assertion.info?.source?.type !== AssertionSourceType.Native;
+    const isNonNative =
+        assertion.info?.source?.type !== AssertionSourceType.Native &&
+        assertion.info?.source?.type !== AssertionSourceType.Inferred;
 
     if (!isRunAssertionsEnabled || !monitor || isNonNative) {
         // 4 cases to hide the run assertion button entirely:

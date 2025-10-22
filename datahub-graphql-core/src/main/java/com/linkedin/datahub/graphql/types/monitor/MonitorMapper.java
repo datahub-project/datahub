@@ -498,7 +498,7 @@ public class MonitorMapper {
     }
 
     if (gmsAnomalySource.hasProperties()) {
-      mapAnomalySourceProperties(gmsAnomalySource.getProperties());
+      anomalySource.setProperties(mapAnomalySourceProperties(gmsAnomalySource.getProperties()));
     }
     return anomalySource;
   }

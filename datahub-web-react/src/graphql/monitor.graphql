@@ -78,6 +78,12 @@ mutation reportAnomalyFeedback($input: ReportAnomalyFeedbackInput!) {
     }
 }
 
+mutation bulkUpdateAnomalies($input: BulkUpdateAnomaliesInput!) {
+    bulkUpdateAnomalies(input: $input) {
+        ...monitorAnomalyEventDetails
+    }
+}
+
 fragment assertionDetailsWithMonitors on Assertion {
     ...assertionDetailsWithRunEvents
     monitor: relationships(input: { types: ["Evaluates"], direction: INCOMING, start: 0, count: 1 }) {
