@@ -46,13 +46,15 @@ export function useIsProductAnnouncementVisible(update: ProductUpdate): ProductA
         fetchPolicy: 'cache-first',
     });
 
-    if (loading || error) {
+    // If query is loading or has an error or userUrn is not loaded yet, don't show the announcement (wait for user context to load)
+    if (!userUrn || loading || error) {
         return {
             visible: false,
             refetch,
         };
     }
 
+    // Show announcement if the step state doesn't exist (user hasn't dismissed it)
     const visible =
         (data?.batchGetStepStates?.results &&
             !data?.batchGetStepStates?.results?.some((result) => result?.id === productUpdateStepId)) ||
