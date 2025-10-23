@@ -8,7 +8,7 @@ import logging
 import secrets
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import quote
 
 import aiohttp
@@ -22,6 +22,132 @@ from .db.models import DeploymentType
 from .security import SecurityManager
 
 logger = logging.getLogger(__name__)
+
+
+class ProductUpdatesService:
+    """Service to download and cache product updates from multiple sources."""
+
+    def __init__(self, cache_ttl: int = 600):  # 10 minutes default
+        """Initialize the product updates service."""
+        self._cache_ttl = cache_ttl
+        self._cache: dict[str, dict[str, Any]] = {}  # Store multiple cached datasets
+        self._last_fetch: dict[
+            str, datetime
+        ] = {}  # Track last fetch time for each source
+
+        # Define update sources
+        self._sources = {
+            "oss": {
+                "url": "https://raw.githubusercontent.com/datahub-project/datahub/master/metadata-service/configuration/src/main/resources/product-update.json",
+                "fallback": {
+                    "enabled": True,
+                    "id": "v1.2.1",
+                    "title": "What's New In DataHub",
+                    "description": "Explore version v1.2.1",
+                    "image": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/sample-product-update-image.png",
+                    "ctaText": "Read updates",
+                    "ctaLink": "https://docs.datahub.com/docs/releases#v1-2-1",
+                },
+            },
+            "saas": {
+                "url": "https://raw.githubusercontent.com/datahub-project/datahub/master/metadata-service/configuration/src/main/resources/product-update-saas.json",
+                "fallback": {
+                    "enabled": True,
+                    "id": "v1.2.1",
+                    "title": "What's New In DataHub",
+                    "description": "Explore version v1.2.1",
+                    "image": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/sample-product-update-image.png",
+                    "ctaText": "Read updates",
+                    "ctaLink": "https://docs.datahub.com/docs/releases#v1-2-1",
+                },
+            },
+        }
+        logger.info(f"Product updates service initialized with cache TTL: {cache_ttl}s")
+
+    async def get_product_updates(self, source: str) -> dict[str, Any]:
+        """Get product updates for a specific source with caching."""
+        if source not in self._sources:
+            raise ValueError(
+                f"Unknown source: {source}. Available sources: {list(self._sources.keys())}"
+            )
+
+        now = datetime.now(timezone.utc)
+
+        # Return cached data if still fresh
+        if (
+            source in self._cache
+            and source in self._last_fetch
+            and (now - self._last_fetch[source]).total_seconds() < self._cache_ttl
+        ):
+            logger.debug(f"Returning cached {source} product updates")
+            return self._cache[source]
+
+        # Download fresh data
+        logger.info(f"Downloading fresh {source} product updates from GitHub")
+        return await self._download_updates(source)
+
+    async def _download_updates(self, source: str) -> dict[str, Any]:
+        """Download product updates from GitHub for a specific source."""
+        source_config = self._sources[source]
+
+        try:
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=15)
+            ) as session:
+                async with session.get(str(source_config["url"])) as response:
+                    if response.status == 200:
+                        try:
+                            # Get text content first, then parse as JSON
+                            text_content = await response.text()
+                            data = json.loads(text_content)
+                            # Ensure data is a dict
+                            if isinstance(data, dict):
+                                self._cache[source] = data
+                                self._last_fetch[source] = datetime.now(timezone.utc)
+                                logger.info(
+                                    f"{source.upper()} product updates downloaded successfully"
+                                )
+                                return data
+                            else:
+                                logger.warning(
+                                    f"Invalid JSON format from {source} updates"
+                                )
+                                return self._get_fallback_data(source)
+                        except json.JSONDecodeError as json_error:
+                            logger.warning(
+                                f"Invalid JSON from {source} updates: {json_error}"
+                            )
+                            logger.debug(
+                                f"Response content (first 200 chars): {text_content[:200]}"
+                            )
+                            return self._get_fallback_data(source)
+                        except Exception as parse_error:
+                            logger.warning(
+                                f"Failed to parse {source} updates: {parse_error}"
+                            )
+                            return self._get_fallback_data(source)
+                    else:
+                        logger.warning(
+                            f"Failed to download {source} updates: HTTP {response.status}"
+                        )
+                        return self._get_fallback_data(source)
+        except asyncio.TimeoutError:
+            logger.error(f"⏱️ Timeout downloading {source} product updates")
+            return self._get_fallback_data(source)
+        except Exception as e:
+            logger.error(f"Error downloading {source} product updates: {e}")
+            return self._get_fallback_data(source)
+
+    def _get_fallback_data(self, source: str) -> dict[str, Any]:
+        """Return fallback data when download fails."""
+        logger.warning(f"Using fallback {source} product updates data")
+        fallback = self._sources[source]["fallback"]
+        # Ensure fallback is a dict
+        if isinstance(fallback, dict):
+            return fallback
+        else:
+            # This should never happen, but provide a safe fallback
+            return {"error": "Invalid fallback data", "source": source}
 
 
 class DataHubMultiTenantRouter:
@@ -65,6 +191,11 @@ class DataHubMultiTenantRouter:
         self.security_manager = SecurityManager(
             oauth_secret=oauth_secret, enable_rate_limiting=True
         )
+
+        # Initialize product updates service
+        self.product_updates_service = ProductUpdatesService(
+            cache_ttl=600
+        )  # 10 minutes
 
         # Register integration validators if credentials provided
         if webhook_auth_enabled:
@@ -138,6 +269,32 @@ class DataHubMultiTenantRouter:
                 },
             }
 
+        @self.app.get("/update-oss/")
+        async def get_oss_updates():
+            """Serve OSS product updates from GitHub with caching."""
+            try:
+                updates = await self.product_updates_service.get_product_updates("oss")
+                return JSONResponse(content=updates)
+            except Exception as e:
+                logger.error(f"Error serving OSS product updates: {e}")
+                return JSONResponse(
+                    status_code=500,
+                    content={"error": "Failed to load OSS product updates"},
+                )
+
+        @self.app.get("/update-saas/")
+        async def get_saas_updates():
+            """Serve SaaS product updates from GitHub with caching."""
+            try:
+                updates = await self.product_updates_service.get_product_updates("saas")
+                return JSONResponse(content=updates)
+            except Exception as e:
+                logger.error(f"Error serving SaaS product updates: {e}")
+                return JSONResponse(
+                    status_code=500,
+                    content={"error": "Failed to load SaaS product updates"},
+                )
+
         @self.app.get("/")
         async def root():
             """Root endpoint with server information."""
@@ -156,6 +313,8 @@ class DataHubMultiTenantRouter:
                 },
                 "endpoints": {
                     "health": "/health",
+                    "oss_updates": "/update-oss/",
+                    "saas_updates": "/update-saas/",
                     "webhook": "/public/teams/webhook",
                     "bot_framework": "/api/messages",
                     "events": "/events",
