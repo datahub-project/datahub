@@ -351,6 +351,13 @@ class Model:
 
 
 @dataclass
+class ModelVersionSignature:
+    inputs: Optional[Dict[str, str]]
+    outputs: Optional[Dict[str, str]]
+    parameters: Optional[Dict[str, str]]
+
+
+@dataclass
 class ModelVersion:
     id: str
     name: str
@@ -361,3 +368,13 @@ class ModelVersion:
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
     created_by: Optional[str]
+    run_id: Optional[str]
+    signature: Optional[ModelVersionSignature]
+
+
+@dataclass
+class TrainingRun:
+    id: str
+    name: str
+    params: Optional[Dict[str, str]]
+    metrics: Optional[Dict[str, str]]
