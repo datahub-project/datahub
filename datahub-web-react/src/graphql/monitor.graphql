@@ -242,9 +242,9 @@ fragment assertionSearchResults on SearchResults {
 
 query searchAssertions(
     $input: SearchAcrossEntitiesInput!
-    $runEventsStart: Long!
-    $runEventsEnd: Long!
-    $runEventsLimit: Int!
+    $runEventsStart: Long
+    $runEventsEnd: Long
+    $runEventsLimit: Int
 ) {
     searchAcrossEntities(input: $input) {
         ...assertionSearchResults

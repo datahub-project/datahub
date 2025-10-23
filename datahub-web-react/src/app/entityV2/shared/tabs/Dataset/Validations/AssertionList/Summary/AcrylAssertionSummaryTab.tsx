@@ -11,8 +11,6 @@ import {
     getAssertionGroupTypeIcon,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { useGetValidationsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/useGetValidationsTab';
-import { TIME_RANGE_OPTIONS } from '@app/observe/dataset/assertion/AssertionsByAssertionSummary.utils';
-import { RUN_EVENTS_PREVIEW_LIMIT } from '@app/observe/dataset/assertion/constants';
 import { ASSERTION_TYPE_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { Button } from '@src/alchemy-components';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
@@ -54,7 +52,6 @@ const EmptyContainer = styled.div`
     align-items: center;
 `;
 
-const runEventTimeRange = TIME_RANGE_OPTIONS[1]; // Last 7 days
 const getBaseFilter: (urns: string[]) => FacetFilterInput = (urns: string[]) => ({
     field: LEGACY_ENTITY_FILTER_NAME,
     values: urns,
@@ -72,9 +69,6 @@ const getDefaultQueryVariables = (filters: FacetFilterInput[]) => ({
             },
         ],
     },
-    runEventsStart: runEventTimeRange.start,
-    runEventsEnd: runEventTimeRange.end,
-    runEventsLimit: RUN_EVENTS_PREVIEW_LIMIT,
 });
 
 const AcrylAssertionTypeSummary = ({
@@ -105,18 +99,25 @@ const AcrylAssertionTypeSummary = ({
     if (!statusFacet) {
         throw new Error("Facet 'lastResultType' was not returned");
     }
+    const passingCount =
+        statusFacet.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Success)?.count || 0;
+    const failingCount =
+        statusFacet.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Failure)?.count || 0;
+    const erroringCount =
+        statusFacet.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Error)?.count || 0;
+    const initializingCount =
+        statusFacet.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Init)?.count || 0;
+    const totalCount = data?.searchAcrossEntities?.total ?? 0;
+    const totalAssertionsCount = data?.searchAcrossEntities?.total ?? 0;
 
     const summary: AssertionStatusSummary = {
-        passing:
-            statusFacet.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Success)?.count ||
-            0,
-        failing:
-            statusFacet.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Failure)?.count ||
-            0,
-        erroring:
-            statusFacet.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Error)?.count || 0,
-        total: data?.searchAcrossEntities?.total ?? 0,
-        totalAssertions: data?.searchAcrossEntities?.total ?? 0,
+        passing: passingCount,
+        failing: failingCount,
+        erroring: erroringCount,
+        initializing: initializingCount,
+        notRunning: totalCount - passingCount - failingCount - erroringCount - initializingCount,
+        total: totalCount,
+        totalAssertions: totalAssertionsCount,
     };
     const assertionGroup: AssertionGroup = {
         name: getAssertionGroupName(assertionType),

@@ -178,10 +178,12 @@ export const tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery = (
  * @param assertions The assertions to extract the summary for
  */
 export const getAssertionsSummary = (assertions: AssertionWithMonitorDetails[]): AssertionStatusSummary => {
-    const summary = {
+    const summary: AssertionStatusSummary = {
         passing: 0,
         failing: 0,
         erroring: 0,
+        initializing: 0,
+        notRunning: 0,
         total: 0,
         totalAssertions: assertions.length,
     };

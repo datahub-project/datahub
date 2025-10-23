@@ -669,6 +669,8 @@ describe('acrylUtils', () => {
                 failing: 0,
                 erroring: 0,
                 total: 0,
+                initializing: 0,
+                notRunning: 0,
                 totalAssertions: 0,
             };
             expect(getAssertionGroupSummaryMessage(summary)).toBe('No assertions have run');
@@ -680,6 +682,8 @@ describe('acrylUtils', () => {
                 failing: 0,
                 erroring: 0,
                 total: 3,
+                initializing: 0,
+                notRunning: 0,
                 totalAssertions: 3,
             };
             expect(getAssertionGroupSummaryMessage(summary)).toBe('All assertions are passing');
@@ -691,6 +695,8 @@ describe('acrylUtils', () => {
                 failing: 0,
                 erroring: 1,
                 total: 3,
+                initializing: 0,
+                notRunning: 0,
                 totalAssertions: 3,
             };
             expect(getAssertionGroupSummaryMessage(summary)).toBe(
@@ -704,6 +710,8 @@ describe('acrylUtils', () => {
                 failing: 3,
                 erroring: 0,
                 total: 3,
+                initializing: 0,
+                notRunning: 0,
                 totalAssertions: 3,
             };
             expect(getAssertionGroupSummaryMessage(summary)).toBe('All assertions are failing');
@@ -715,6 +723,8 @@ describe('acrylUtils', () => {
                 failing: 1,
                 erroring: 0,
                 total: 3,
+                initializing: 0,
+                notRunning: 0,
                 totalAssertions: 3,
             };
             expect(getAssertionGroupSummaryMessage(summary)).toBe('Some assertions are failing');
