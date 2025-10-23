@@ -429,6 +429,60 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
             except Exception as e:
                 logger.debug(f"Unable to fetch composable index templates: {e}")
 
+    def _get_template_metadata(
+        self, template_name: str, is_composable: bool
+    ) -> Dict[str, Any]:
+        """Fetch template metadata from Elasticsearch/OpenSearch."""
+        if is_composable:
+            # For composable templates (ES 7.8+ / OpenSearch)
+            raw_response = self.client.indices.get_index_template(name=template_name)
+            template_data = raw_response.get("index_templates", [{}])[0]
+            return template_data.get("index_template", {})
+        else:
+            # For legacy templates
+            raw_response = self.client.indices.get_template(name=template_name)
+            return raw_response[template_name]
+
+    def _extract_template_custom_properties(
+        self, raw_metadata: Dict[str, Any], is_composable: bool
+    ) -> Dict[str, str]:
+        """Extract custom properties from template metadata."""
+        custom_properties: Dict[str, str] = {}
+        
+        # Extract aliases
+        if is_composable:
+            aliases_dict = raw_metadata.get("template", {}).get("aliases", {})
+        else:
+            aliases_dict = raw_metadata.get("aliases", {})
+        index_aliases: List[str] = list(aliases_dict.keys()) if aliases_dict else []
+        if index_aliases:
+            custom_properties["aliases"] = ",".join(index_aliases)
+        
+        # Extract index_patterns
+        index_patterns: List[str] = raw_metadata.get("index_patterns", [])
+        if index_patterns:
+            custom_properties["index_patterns"] = ",".join(index_patterns)
+        
+        # Extract settings
+        if is_composable:
+            index_settings: Dict[str, Any] = (
+                raw_metadata.get("template", {})
+                .get("settings", {})
+                .get("index", {})
+            )
+        else:
+            index_settings: Dict[str, Any] = raw_metadata.get("settings", {}).get(
+                "index", {}
+            )
+        num_shards: str = index_settings.get("number_of_shards", "")
+        if num_shards:
+            custom_properties["num_shards"] = num_shards
+        num_replicas: str = index_settings.get("number_of_replicas", "")
+        if num_replicas:
+            custom_properties["num_replicas"] = num_replicas
+        
+        return custom_properties
+
     def _get_data_stream_index_count_mcps(
         self,
     ) -> Iterable[MetadataChangeProposalWrapper]:
@@ -469,16 +523,9 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
                     # This is a duplicate, skip processing it further.
                     return
         else:
-            if is_composable_template:
-                # For composable templates (ES 7.8+ / OpenSearch)
-                raw_index = self.client.indices.get_index_template(name=index)
-                # Composable templates have a different structure
-                template_data = raw_index.get("index_templates", [{}])[0]
-                raw_index_metadata = template_data.get("index_template", {})
-            else:
-                # For legacy templates
-                raw_index = self.client.indices.get_template(name=index)
-                raw_index_metadata = raw_index[index]
+            raw_index_metadata = self._get_template_metadata(
+                index, is_composable_template
+            )
         collapsed_index_name = collapse_name(
             name=index, collapse_urns=self.source_config.collapse_urns
         )
@@ -547,39 +594,30 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
             ),
         )
 
-        # 4. Construct and emit properties if needed. Will attempt to get the following properties
-        custom_properties: Dict[str, str] = {}
-        # 4.1 aliases
-        if is_composable_template:
-            aliases_dict = raw_index_metadata.get("template", {}).get("aliases", {})
-        else:
-            aliases_dict = raw_index_metadata.get("aliases", {})
-        index_aliases: List[str] = list(aliases_dict.keys()) if aliases_dict else []
-        if index_aliases:
-            custom_properties["aliases"] = ",".join(index_aliases)
-        # 4.2 index_patterns
-        index_patterns: List[str] = raw_index_metadata.get("index_patterns", [])
-        if index_patterns:
-            custom_properties["index_patterns"] = ",".join(index_patterns)
-
-        # 4.3 number_of_shards
-        if is_composable_template:
-            index_settings: Dict[str, Any] = (
-                raw_index_metadata.get("template", {})
-                .get("settings", {})
-                .get("index", {})
-            )
-        else:
+        # 4. Construct and emit properties
+        if is_index:
+            custom_properties: Dict[str, str] = {}
+            # Extract properties for indices
+            index_aliases: List[str] = list(raw_index_metadata.get("aliases", {}).keys())
+            if index_aliases:
+                custom_properties["aliases"] = ",".join(index_aliases)
+            index_patterns: List[str] = raw_index_metadata.get("index_patterns", [])
+            if index_patterns:
+                custom_properties["index_patterns"] = ",".join(index_patterns)
             index_settings: Dict[str, Any] = raw_index_metadata.get("settings", {}).get(
                 "index", {}
             )
-        num_shards: str = index_settings.get("number_of_shards", "")
-        if num_shards:
-            custom_properties["num_shards"] = num_shards
-        # 4.4 number_of_replicas
-        num_replicas: str = index_settings.get("number_of_replicas", "")
-        if num_replicas:
-            custom_properties["num_replicas"] = num_replicas
+            num_shards: str = index_settings.get("number_of_shards", "")
+            if num_shards:
+                custom_properties["num_shards"] = num_shards
+            num_replicas: str = index_settings.get("number_of_replicas", "")
+            if num_replicas:
+                custom_properties["num_replicas"] = num_replicas
+        else:
+            # Extract properties for templates
+            custom_properties = self._extract_template_custom_properties(
+                raw_index_metadata, is_composable_template
+            )
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
