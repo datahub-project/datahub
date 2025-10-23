@@ -18,14 +18,14 @@ class IngestionSourceConfig(PermissiveBaseModel):
 
     version: Optional[str] = None
 
-    debug_mode: Optional[str] = Field(alias="debugMode", default=None)
+    debug_mode: Optional[bool] = Field(alias="debugMode", default=False)
 
     extra_args: Dict[str, Any] = {}
 
     @field_validator("debug_mode", mode="before")
     @classmethod
-    def validate_debug_mode(cls, debug_mode: Optional[str]) -> str:
-        return debug_mode or "False"
+    def validate_debug_mode(cls, debug_mode: Optional[bool]) -> bool:
+        return debug_mode or False
 
     @model_validator(mode="before")
     @classmethod
