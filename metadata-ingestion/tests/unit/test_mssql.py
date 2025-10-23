@@ -21,6 +21,7 @@ def mssql_source():
         source = SQLServerSource(config, MagicMock())
         source.discovered_datasets = {"test_db.dbo.regular_table"}
         source.report = MagicMock()
+        source.ctx = MagicMock()
         return source
 
 
@@ -327,11 +328,15 @@ def test_stored_procedure_vs_direct_query_compatibility(mssql_source):
     with patch.object(mock_conn, "execute") as mock_execute:
         # Mock sp_help_job response
         mock_job_result = MagicMock()
-        mock_job_result.__iter__.return_value = [mock_job_data]
+        mock_job_mappings = MagicMock()
+        mock_job_mappings.__iter__.return_value = [mock_job_data]
+        mock_job_result.mappings.return_value = mock_job_mappings
 
         # Mock sp_help_jobstep response
         mock_step_result = MagicMock()
-        mock_step_result.__iter__.return_value = [mock_job_data]
+        mock_step_mappings = MagicMock()
+        mock_step_mappings.__iter__.return_value = [mock_job_data]
+        mock_step_result.mappings.return_value = mock_step_mappings
 
         mock_execute.side_effect = [mock_job_result, mock_step_result]
 

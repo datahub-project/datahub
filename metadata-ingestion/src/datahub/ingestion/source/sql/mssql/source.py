@@ -479,29 +479,15 @@ class SQLServerSource(SQLAlchemySource):
         # SQLAlchemy 1.4+ returns LegacyRow objects that don't support dictionary-style .get() method
         # Use .mappings() to get MappingResult with dictionary-like rows that support .get()
         for row in jobs_result.mappings():
-            try:
-                job_id = str(row["job_id"])
-                jobs_data[job_id] = {
-                    "job_id": job_id,
-                    "name": row["name"],
-                    "description": row.get("description", ""),
-                    "date_created": row.get("date_created"),
-                    "date_modified": row.get("date_modified"),
-                    "enabled": row.get("enabled", 1),
-                }
-            except Exception:
-                logger.error(f"Row type: {type(row)}")
-                logger.error(f"Row content: {row}")
-                if hasattr(row, "keys"):
-                    logger.error(f"Available keys: {list(row.keys())}")
-                elif hasattr(row, "_fields"):
-                    logger.error(f"Named tuple fields: {row._fields}")
-                elif hasattr(row, "__len__"):
-                    logger.error(f"Row length: {len(row)}")
-                logger.error(f"Jobs result type: {type(jobs_result)}")
-                if hasattr(jobs_result, "keys"):
-                    logger.error(f"Result keys: {list(jobs_result.keys())}")
-                raise
+            job_id = str(row["job_id"])
+            jobs_data[job_id] = {
+                "job_id": job_id,
+                "name": row["name"],
+                "description": row.get("description", ""),
+                "date_created": row.get("date_created"),
+                "date_modified": row.get("date_modified"),
+                "enabled": row.get("enabled", 1),
+            }
 
         # Now get job steps for each job, filtering by database
         for job_id, job_info in jobs_data.items():
@@ -536,12 +522,6 @@ class SQLServerSource(SQLAlchemySource):
                     jobs[job_info["name"]] = job_steps
 
             except Exception as step_error:
-                logger.error("sp_help_jobstep error details:")
-                logger.error(f"Job ID: {job_id}, Job name: {job_info['name']}")
-                logger.error(f"Error: {step_error}")
-                logger.error(f"Error type: {type(step_error)}")
-                if hasattr(step_error, "args"):
-                    logger.error(f"Error args: {step_error.args}")
                 logger.warning(
                     f"Failed to get steps for job {job_info['name']}: {step_error}"
                 )
