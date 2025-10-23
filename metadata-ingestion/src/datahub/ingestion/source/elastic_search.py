@@ -413,7 +413,7 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
                 if self.source_config.index_template_pattern.allowed(template):
                     for mcp in self._extract_mcps(template, is_index=False):
                         yield mcp.as_workunit()
-            
+
             # Fetch composable index templates (ES 7.8+ / OpenSearch)
             try:
                 composable_templates = self.client.indices.get_index_template()
@@ -448,7 +448,7 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
     ) -> Dict[str, str]:
         """Extract custom properties from template metadata."""
         custom_properties: Dict[str, str] = {}
-        
+
         # Extract aliases
         if is_composable:
             aliases_dict = raw_metadata.get("template", {}).get("aliases", {})
@@ -457,18 +457,16 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
         index_aliases: List[str] = list(aliases_dict.keys()) if aliases_dict else []
         if index_aliases:
             custom_properties["aliases"] = ",".join(index_aliases)
-        
+
         # Extract index_patterns
         index_patterns: List[str] = raw_metadata.get("index_patterns", [])
         if index_patterns:
             custom_properties["index_patterns"] = ",".join(index_patterns)
-        
+
         # Extract settings
         if is_composable:
             index_settings: Dict[str, Any] = (
-                raw_metadata.get("template", {})
-                .get("settings", {})
-                .get("index", {})
+                raw_metadata.get("template", {}).get("settings", {}).get("index", {})
             )
         else:
             index_settings: Dict[str, Any] = raw_metadata.get("settings", {}).get(
@@ -480,7 +478,7 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
         num_replicas: str = index_settings.get("number_of_replicas", "")
         if num_replicas:
             custom_properties["num_replicas"] = num_replicas
-        
+
         return custom_properties
 
     def _get_data_stream_index_count_mcps(
@@ -598,7 +596,9 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
         if is_index:
             custom_properties: Dict[str, str] = {}
             # Extract properties for indices
-            index_aliases: List[str] = list(raw_index_metadata.get("aliases", {}).keys())
+            index_aliases: List[str] = list(
+                raw_index_metadata.get("aliases", {}).keys()
+            )
             if index_aliases:
                 custom_properties["aliases"] = ",".join(index_aliases)
             index_patterns: List[str] = raw_index_metadata.get("index_patterns", [])

@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Tuple
 
 import pydantic
 import pytest
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 from datahub.ingestion.source.elastic_search import (
     CollapseUrns,
@@ -12,7 +13,6 @@ from datahub.ingestion.source.elastic_search import (
     ElasticToSchemaFieldConverter,
     collapse_urn,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 logger = logging.getLogger(__name__)
 
@@ -2526,7 +2526,10 @@ def test_composable_template_structure() -> None:
                     "index_patterns": ["test-*"],
                     "template": {
                         "settings": {
-                            "index": {"number_of_shards": "3", "number_of_replicas": "2"}
+                            "index": {
+                                "number_of_shards": "3",
+                                "number_of_replicas": "2",
+                            }
                         },
                         "mappings": {
                             "properties": {
@@ -2544,15 +2547,15 @@ def test_composable_template_structure() -> None:
     # Verify the structure is as expected for composable templates
     template_data = composable_template_response.get("index_templates", [{}])[0]
     raw_index_metadata = template_data.get("index_template", {})
-    
+
     # Check that mappings are under template.mappings
     assert "template" in raw_index_metadata
     assert "mappings" in raw_index_metadata["template"]
     assert "properties" in raw_index_metadata["template"]["mappings"]
-    
+
     # Check that settings are under template.settings
     assert "settings" in raw_index_metadata["template"]
     assert "index" in raw_index_metadata["template"]["settings"]
-    
+
     # Check that aliases are under template.aliases
     assert "aliases" in raw_index_metadata["template"]
