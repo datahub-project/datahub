@@ -5,47 +5,114 @@ import { FieldType, RecipeField, setFieldValueOnRecipe } from '@app/ingestV2/sou
 
 export const LOOKML = 'lookml';
 
-export const LOOKML_GITHUB_INFO_REPO: RecipeField = {
-    name: 'github_info.repo',
-    label: 'GitHub Repo',
-    tooltip: 'The name of the GitHub repository where your LookML is defined.',
+export const LOOKML_GIT_INFO_REPO: RecipeField = {
+    name: 'git_info.repo',
+    label: 'Git Repository',
+    tooltip: (
+        <>
+            <p>
+                Name of your GitHub repository or the URL of your Git repository. Supports GitHub, GitLab, and other Git platforms. Examples:
+                <ul>
+                    <li>GitHub: datahub-project/datahub or https://github.com/datahub-project/datahub</li>
+                    <li>GitLab: https://gitlab.com/gitlab-org/gitlab</li>
+                    <li>Other platforms: https://your-git-server.com/org/repo (Repository SSH Locator is required)</li>
+                </ul>
+            </p>
+        </>
+    ),
     type: FieldType.TEXT,
-    fieldPath: 'source.config.github_info.repo',
-    placeholder: 'datahub-project/datahub',
-    rules: [{ required: true, message: 'Github Repo is required' }],
+    fieldPath: 'source.config.git_info.repo',
+    placeholder: 'datahub-project/datahub or https://github.com/datahub-project/datahub',
+    rules: [{ required: true, message: 'Git Repository is required' }],
     required: true,
 };
 
-const deployKeyFieldPath = 'source.config.github_info.deploy_key';
-export const DEPLOY_KEY: RecipeField = {
-    name: 'github_info.deploy_key',
-    label: 'GitHub Deploy Key',
+const deployKeyFieldPath = 'source.config.git_info.deploy_key';
+export const LOOKML_GIT_INFO_DEPLOY_KEY: RecipeField = {
+    name: 'git_info.deploy_key',
+    label: 'Git Deploy Key',
     tooltip: (
         <>
-            An SSH private key that has been provisioned for read access on the GitHub repository where the LookML is
+            An SSH private key that has been provisioned for read access on the Git repository where the LookML is
             defined.
             <div style={{ marginTop: 8 }}>
-                Learn how to generate an SSH for your GitHub repository{' '}
-                <a
-                    href="https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    here
-                </a>
-                .
+                Learn how to generate SSH keys for your Git platform:
+                <ul style={{ marginTop: 4, marginBottom: 0 }}>
+                    <li>
+                        <a
+                            href="https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            GitHub
+                        </a>
+                    </li>
+                    <li>
+                        <a
+                            href="https://docs.gitlab.com/ee/user/ssh.html"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            GitLab
+                        </a>
+                    </li>
+                    <li>Other Git platforms: Check your platform's documentation for SSH key setup</li>
+                </ul>
             </div>
         </>
     ),
-    type: FieldType.TEXTAREA,
-    fieldPath: 'source.config.github_info.deploy_key',
+    type: FieldType.SECRET,
+    fieldPath: 'source.config.git_info.deploy_key',
     placeholder: '-----BEGIN OPENSSH PRIVATE KEY-----\n...',
-    rules: [{ required: true, message: 'Github Deploy Key is required' }],
+    rules: [{ required: true, message: 'Git Deploy Key is required' }],
     setValueOnRecipeOverride: (recipe: any, value: string) => {
         const valueWithNewLine = `${value}\n`;
         return setFieldValueOnRecipe(recipe, valueWithNewLine, deployKeyFieldPath);
     },
     required: true,
+};
+
+export const LOOKML_GIT_INFO_REPO_SSH_LOCATOR: RecipeField = {
+    name: 'git_info.repo_ssh_locator',
+    label: 'Repository SSH Locator',
+    tooltip: (
+        <>
+            The SSH URL to clone the repository. Required for Git platforms other than GitHub and GitLab.
+            <div style={{ marginTop: 8 }}>
+                <strong>Examples:</strong>
+                <ul style={{ marginTop: 4, marginBottom: 0 }}>
+                    <li>GitHub: git@github.com:datahub-project/datahub.git</li>
+                    <li>GitLab: git@gitlab.com:gitlab-org/gitlab.git</li>
+                    <li>Other platforms: git@your-git-server.com:org/repo.git</li>
+                </ul>
+            </div>
+        </>
+    ),
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.git_info.repo_ssh_locator',
+    placeholder: 'git@your-git-server.com:org/repo.git',
+    rules: [
+        ({ getFieldValue }) => ({
+            validator(_, value) {
+                const repo = getFieldValue('git_info.repo');
+                if (!repo) return Promise.resolve();
+                
+                // Check if it's GitHub or GitLab (these are auto-inferred)
+                const isGitHub = repo.toLowerCase().includes('github.com') || 
+                                (!repo.includes('://') && repo.split('/').length === 2) ||
+                                repo.startsWith('git@github.com:');
+                const isGitLab = repo.toLowerCase().includes('gitlab.com') || 
+                                repo.startsWith('git@gitlab.com:');
+                
+                if (!isGitHub && !isGitLab && !value) {
+                    return Promise.reject(
+                        new Error('Repository SSH Locator is required for Git platforms other than GitHub and GitLab')
+                    );
+                }
+                return Promise.resolve();
+            },
+        }),
+    ],
 };
 
 function validateApiSection(getFieldValue, fieldName) {

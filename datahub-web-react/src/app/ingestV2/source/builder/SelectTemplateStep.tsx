@@ -1,6 +1,6 @@
 import { FormOutlined, SearchOutlined } from '@ant-design/icons';
 import { Input } from 'antd';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
@@ -54,6 +54,17 @@ const PlatformListContainer = styled.div`
     padding-right: 12px;
 `;
 
+const NoResultsMessage = styled.div`
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+    color: #666;
+    font-size: 16px;
+    text-align: center;
+`;
+
 interface SourceOptionProps {
     source: SourceConfig;
     onClick: () => void;
@@ -86,11 +97,17 @@ export const SelectTemplateStep = ({
     state,
     updateState,
     goTo,
-    cancel,
     ingestionSources,
     setSelectedSourceType,
 }: StepProps) => {
     const [searchFilter, setSearchFilter] = useState('');
+
+    // Callback ref that focuses immediately when the element is attached
+    const searchInputCallbackRef = (node: any) => {
+        if (node) {
+            node.focus();
+        }
+    };
 
     const onSelectTemplate = (type: string) => {
         const newState: SourceBuilderState = {
@@ -126,6 +143,7 @@ export const SelectTemplateStep = ({
             <Section>
                 <SearchBarContainer>
                     <StyledSearchBar
+                        ref={searchInputCallbackRef}
                         placeholder="Search data sources..."
                         value={searchFilter}
                         onChange={(e) => setSearchFilter(e.target.value)}
@@ -134,14 +152,17 @@ export const SelectTemplateStep = ({
                     />
                 </SearchBarContainer>
                 <PlatformListContainer data-testid="data-source-options">
-                    {filteredSources.map((source) => (
-                        <SourceOption key={source.urn} source={source} onClick={() => onSelectTemplate(source.name)} />
-                    ))}
+                    {filteredSources.length > 0 ? (
+                        filteredSources.map((source) => (
+                            <SourceOption key={source.urn} source={source} onClick={() => onSelectTemplate(source.name)} />
+                        ))
+                    ) : (
+                        <NoResultsMessage>
+                            Data Source with name "{searchFilter}" not found.
+                        </NoResultsMessage>
+                    )}
                 </PlatformListContainer>
             </Section>
-            <Button variant="text" color="gray" onClick={cancel}>
-                Cancel
-            </Button>
         </Container>
     );
 };

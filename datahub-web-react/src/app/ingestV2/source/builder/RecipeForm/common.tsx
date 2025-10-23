@@ -411,22 +411,23 @@ export const INCLUDE_VIEWS: RecipeField = {
     rules: null,
 };
 
-export const GITHUB_INFO_REPO: RecipeField = {
-    name: 'github_info.repo',
-    label: 'GitHub Repo',
+export const GIT_INFO_REPO: RecipeField = {
+    name: 'git_info.repo',
+    label: 'Git Repository',
     tooltip: (
         <div>
             <p>
-                Name of your github repo. e.g. repo for{' '}
-                <a href="https://github.com/datahub-project/datahub" target="_blank" rel="noreferrer">
-                    https://github.com/datahub-project/datahub
-                </a>{' '}
-                is datahub-project/datahub.
+                URL or name of your Git repository. Supports GitHub, GitLab, and other Git platforms. Examples:
             </p>
+            <ul>
+                <li>GitHub: datahub-project/datahub or https://github.com/datahub-project/datahub</li>
+                <li>GitLab: https://gitlab.com/gitlab-org/gitlab</li>
+                <li>Other platforms: https://your-git-server.com/org/repo</li>
+            </ul>
         </div>
     ),
     type: FieldType.TEXT,
-    fieldPath: 'source.config.github_info.repo',
+    fieldPath: 'source.config.git_info.repo',
     rules: null,
 };
 
