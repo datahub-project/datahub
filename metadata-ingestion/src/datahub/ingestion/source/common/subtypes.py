@@ -117,6 +117,9 @@ class BIAssetSubTypes(StrEnum):
     HEX_PROJECT = "Project"
     HEX_COMPONENT = "Component"
 
+    # Streamlit
+    STREAMLIT = "Streamlit"
+
 
 class MLAssetSubTypes(StrEnum):
     MLFLOW_TRAINING_RUN = "ML Training Run"
