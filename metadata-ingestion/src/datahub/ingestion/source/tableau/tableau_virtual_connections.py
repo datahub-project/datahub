@@ -98,6 +98,72 @@ class VirtualConnectionProcessor:
 
         return False
 
+    def _extract_vc_references_from_field(
+        self,
+        field: dict,
+        field_name: str,
+        datasource_type: DatasourceType,
+        datasource_name: str,
+    ) -> List[Dict[str, Any]]:
+        """Extract VC references from a single field's upstream columns."""
+        vc_references = []
+
+        upstream_columns = field.get(c.UPSTREAM_COLUMNS, [])
+        for upstream_col in upstream_columns:
+            table = upstream_col.get(c.TABLE, {})
+            table_type = table.get(c.TYPE_NAME)
+
+            if table_type == c.VIRTUAL_CONNECTION_TABLE:
+                vc_table_id = table.get(c.ID)
+                vc_table_name = table.get(c.NAME)
+                column_name = upstream_col.get(c.NAME)
+
+                # Get VC info if available
+                vc_info = table.get("virtualConnection", {})
+                vc_id = vc_info.get(c.ID) if vc_info else None
+
+                # Validate that this is a proper column mapping, not a table-level reference
+                if not column_name or column_name == vc_table_name:
+                    logger.debug(
+                        f"Skipping invalid VC reference: field={field_name}, column={column_name}, table={vc_table_name}"
+                    )
+                    continue
+
+                logger.debug(
+                    f"Found VC reference in {datasource_type} datasource '{datasource_name}': "
+                    f"field={field_name}, vc_table={vc_table_name}, column={column_name}, "
+                    f"vc_table_id={vc_table_id}, vc_id={vc_id}"
+                )
+
+                # Store both the VC table name and the raw table name from Tableau
+                # This helps with matching issues like "TABLE_NAME (SCHEMA.TABLE_NAME)"
+                raw_table_name = table.get(
+                    c.NAME
+                )  # This is the exact name from Tableau
+
+                vc_references.append(
+                    {
+                        "field_name": field_name,
+                        "vc_table_id": vc_table_id,
+                        "vc_table_name": vc_table_name,
+                        "raw_table_name": raw_table_name,  # Store the raw name for better matching
+                        "column_name": column_name,
+                        "vc_id": vc_id,
+                    }
+                )
+
+                # Also store the raw table name for matching purposes
+                if raw_table_name and raw_table_name != vc_table_name:
+                    logger.debug(
+                        f"  Raw table name differs from VC table name: '{raw_table_name}' vs '{vc_table_name}'"
+                    )
+
+                # Collect VC table IDs for lookup
+                if vc_table_id and vc_table_id not in self.vc_table_ids_for_lookup:
+                    self.vc_table_ids_for_lookup.append(vc_table_id)
+
+        return vc_references
+
     def process_datasource_for_vc_refs(
         self, datasource: dict, datasource_type: DatasourceType
     ) -> None:
@@ -129,59 +195,11 @@ class VirtualConnectionProcessor:
                 )
                 continue
 
-            upstream_columns = field.get(c.UPSTREAM_COLUMNS, [])
-            for upstream_col in upstream_columns:
-                table = upstream_col.get(c.TABLE, {})
-                table_type = table.get(c.TYPE_NAME)
-
-                if table_type == c.VIRTUAL_CONNECTION_TABLE:
-                    vc_table_id = table.get(c.ID)
-                    vc_table_name = table.get(c.NAME)
-                    column_name = upstream_col.get(c.NAME)
-
-                    # Get VC info if available
-                    vc_info = table.get("virtualConnection", {})
-                    vc_id = vc_info.get(c.ID) if vc_info else None
-
-                    # Validate that this is a proper column mapping, not a table-level reference
-                    if not column_name or column_name == vc_table_name:
-                        logger.debug(
-                            f"Skipping invalid VC reference: field={field_name}, column={column_name}, table={vc_table_name}"
-                        )
-                        continue
-
-                    logger.debug(
-                        f"Found VC reference in {datasource_type} datasource '{datasource_name}': "
-                        f"field={field_name}, vc_table={vc_table_name}, column={column_name}, "
-                        f"vc_table_id={vc_table_id}, vc_id={vc_id}"
-                    )
-
-                    # Store both the VC table name and the raw table name from Tableau
-                    # This helps with matching issues like "MARKET_SCAN (DW_COMPLIANCE.MARKET_SCAN)"
-                    raw_table_name = table.get(
-                        c.NAME
-                    )  # This is the exact name from Tableau
-
-                    vc_references.append(
-                        {
-                            "field_name": field_name,
-                            "vc_table_id": vc_table_id,
-                            "vc_table_name": vc_table_name,
-                            "raw_table_name": raw_table_name,  # Store the raw name for better matching
-                            "column_name": column_name,
-                            "vc_id": vc_id,
-                        }
-                    )
-
-                    # Also store the raw table name for matching purposes
-                    if raw_table_name and raw_table_name != vc_table_name:
-                        logger.debug(
-                            f"  Raw table name differs from VC table name: '{raw_table_name}' vs '{vc_table_name}'"
-                        )
-
-                    # Collect VC table IDs for lookup
-                    if vc_table_id and vc_table_id not in self.vc_table_ids_for_lookup:
-                        self.vc_table_ids_for_lookup.append(vc_table_id)
+            # Process upstream columns for VC references
+            vc_refs_from_field = self._extract_vc_references_from_field(
+                field, field_name, datasource_type, datasource_name
+            )
+            vc_references.extend(vc_refs_from_field)
 
         # Store relationships
         if vc_references:
@@ -198,12 +216,12 @@ class VirtualConnectionProcessor:
     def lookup_vc_ids_from_table_ids(self) -> None:
         """Step 2: Lookup VC IDs from VC table IDs and store mappings"""
         if not self.vc_table_ids_for_lookup:
-            logger.info(
+            logger.debug(
                 "No VC table IDs to lookup - no Virtual Connection references found"
             )
             return
 
-        logger.info(
+        logger.debug(
             f"Looking up {len(self.vc_table_ids_for_lookup)} VC table IDs: {self.vc_table_ids_for_lookup}"
         )
 
@@ -629,33 +647,6 @@ class VirtualConnectionProcessor:
         return LineageResult(
             upstream_tables=upstream_tables, fine_grained_lineages=fine_grained_lineages
         )
-
-    def emit_datasource_vc_lineages(self) -> Iterable[MetadataWorkUnit]:
-        """Emit datasource → VC lineage relationships"""
-        if not self.datasource_vc_relationships or not self.vc_table_id_to_vc_id:
-            logger.debug("No datasource VC relationships to emit")
-            return
-
-        for datasource_id in self.datasource_vc_relationships:
-            datasource_urn = builder.make_dataset_urn_with_platform_instance(
-                platform=self.platform,
-                name=datasource_id,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-            )
-
-            # Get both table and column lineage
-            lineage_result = self.create_datasource_vc_lineage(datasource_urn)
-
-            if lineage_result.upstream_tables or lineage_result.fine_grained_lineages:
-                upstream_lineage = UpstreamLineageClass(
-                    upstreams=lineage_result.upstream_tables,
-                    fineGrainedLineages=lineage_result.fine_grained_lineages or None,
-                )
-                yield self.tableau_source.get_metadata_change_proposal(
-                    datasource_urn,
-                    upstream_lineage,
-                )
 
     def _get_vc_project_luid(self, vc: dict) -> Optional[str]:
         """Get project LUID for a Virtual Connection"""

@@ -594,40 +594,6 @@ class TestVirtualConnectionProcessor:
         assert isinstance(container_workunits, List)
         assert len(container_workunits) > 0
 
-    def test_emit_datasource_vc_lineages_empty(self):
-        """Test emitting datasource VC lineages with no relationships."""
-        # No relationships stored
-        lineage_workunits = list(self.vc_processor.emit_datasource_vc_lineages())
-        assert lineage_workunits == []
-
-    def test_emit_datasource_vc_lineages_with_relationships(self):
-        """Test emitting datasource VC lineages with relationships."""
-        # Add some test relationships and VC mappings
-        self.vc_processor.datasource_vc_relationships = {
-            "ds-123": [
-                {
-                    "vc_id": "vc-456",
-                    "vc_table_id": "vc-table-1",
-                    "datasource_type": "published",
-                }
-            ]
-        }
-        self.vc_processor.vc_table_id_to_vc_id = {"vc-table-1": "vc-456"}
-
-        # Mock the create_datasource_vc_lineage method
-        with mock.patch.object(
-            self.vc_processor,
-            "create_datasource_vc_lineage",
-            return_value=LineageResult(upstream_tables=[], fine_grained_lineages=[]),
-        ) as mock_create_lineage:
-            lineage_workunits = list(self.vc_processor.emit_datasource_vc_lineages())
-
-            # Should have called create_datasource_vc_lineage
-            mock_create_lineage.assert_called_once()
-
-            # Should return work units (may be empty if no lineage)
-            assert isinstance(lineage_workunits, List)
-
     def test_create_table_upstream_lineage_empty_datasources(self):
         """Test creating table upstream lineage with empty table info."""
         table_info = {c.ID: "vc-table-1", c.NAME: "test_table", c.COLUMNS: []}
@@ -800,7 +766,7 @@ class TestVirtualConnectionProcessor:
         vc_tables = [
             {
                 c.ID: "vc-table-1",
-                c.NAME: "dw.sf.dw_compliance_test",  # Nested name
+                c.NAME: "analytics.db.sales_test",  # Nested name
                 c.COLUMNS: [{c.ID: "col-1", c.NAME: "id", c.REMOTE_TYPE: "INTEGER"}],
             }
         ]
@@ -810,11 +776,9 @@ class TestVirtualConnectionProcessor:
         )
 
         # Should handle nested names properly (keyed by table NAME)
-        assert "dw.sf.dw_compliance_test" in schema_metadata_dict
-        schema_metadata = schema_metadata_dict["dw.sf.dw_compliance_test"]
-        assert (
-            schema_metadata.schemaName == "VirtualConnection_dw.sf.dw_compliance_test"
-        )
+        assert "analytics.db.sales_test" in schema_metadata_dict
+        schema_metadata = schema_metadata_dict["analytics.db.sales_test"]
+        assert schema_metadata.schemaName == "VirtualConnection_analytics.db.sales_test"
 
         # Should create field structure
         fields = schema_metadata.fields
@@ -929,10 +893,10 @@ class TestVirtualConnectionProcessor:
         """Test _is_table_name_field method for detecting table names vs column fields."""
         # Test table name patterns that should be filtered out
         assert self.vc_processor._is_table_name_field(
-            "MARKET_SCAN (DW_COMPLIANCE.MARKET_SCAN)", "table"
+            "ORDERS_TABLE (SALES_SCHEMA.ORDERS_TABLE)", "table"
         )
         assert self.vc_processor._is_table_name_field(
-            "QUARTERLY_REPORT (DW_COMPLIANCE.QUARTERLY_REPORT)", "table"
+            "CUSTOMER_DATA (ANALYTICS_SCHEMA.CUSTOMER_DATA)", "table"
         )
         assert self.vc_processor._is_table_name_field(
             "TABLE_NAME (SCHEMA.TABLE_NAME)", "table"
@@ -940,18 +904,20 @@ class TestVirtualConnectionProcessor:
 
         # Test with additional parentheses
         assert self.vc_processor._is_table_name_field(
-            "INTERVENTION_20250221 (DW_COMPLIANCE.INTERVENTION_20250221) (1)", "table"
+            "PRODUCT_SALES_2024 (ANALYTICS_SCHEMA.PRODUCT_SALES_2024) (1)", "table"
         )
 
         # Test uppercase schema-like patterns
-        assert self.vc_processor._is_table_name_field("DW_COMPLIANCE.MARKET_SCAN", "")
+        assert self.vc_processor._is_table_name_field(
+            "ANALYTICS_SCHEMA.ORDERS_TABLE", ""
+        )
         assert self.vc_processor._is_table_name_field("SCHEMA_NAME.TABLE_NAME", "")
 
         # Test normal column names that should NOT be filtered
         assert not self.vc_processor._is_table_name_field("customer_name", "column")
-        assert not self.vc_processor._is_table_name_field("Fee U24", "column")
-        assert not self.vc_processor._is_table_name_field("3a BSR", "column")
-        assert not self.vc_processor._is_table_name_field("Rake U24", "column")
+        assert not self.vc_processor._is_table_name_field("order_amount", "column")
+        assert not self.vc_processor._is_table_name_field("product_id", "column")
+        assert not self.vc_processor._is_table_name_field("sales_total", "column")
         assert not self.vc_processor._is_table_name_field("normal_field", "field")
 
         # Test edge cases
@@ -966,14 +932,14 @@ class TestVirtualConnectionProcessor:
             c.FIELDS: [
                 # This should be filtered out as it's a table name
                 {
-                    c.NAME: "MARKET_SCAN (DW_COMPLIANCE.MARKET_SCAN)",
+                    c.NAME: "ORDERS_TABLE (SALES_SCHEMA.ORDERS_TABLE)",
                     c.TYPE_NAME: "table",
                     c.UPSTREAM_COLUMNS: [
                         {
-                            c.NAME: "MARKET_SCAN (DW_COMPLIANCE.MARKET_SCAN)",
+                            c.NAME: "ORDERS_TABLE (SALES_SCHEMA.ORDERS_TABLE)",
                             c.TABLE: {
                                 c.ID: "vc-table-1",
-                                c.NAME: "MARKET_SCAN (DW_COMPLIANCE.MARKET_SCAN)",
+                                c.NAME: "ORDERS_TABLE (SALES_SCHEMA.ORDERS_TABLE)",
                                 c.TYPE_NAME: c.VIRTUAL_CONNECTION_TABLE,
                                 "virtualConnection": {c.ID: "vc-123"},
                             },
@@ -982,14 +948,14 @@ class TestVirtualConnectionProcessor:
                 },
                 # This should be processed as it's a real column
                 {
-                    c.NAME: "Fee U24",
+                    c.NAME: "order_amount",
                     c.TYPE_NAME: "column",
                     c.UPSTREAM_COLUMNS: [
                         {
-                            c.NAME: "Fee U24",
+                            c.NAME: "order_amount",
                             c.TABLE: {
                                 c.ID: "vc-table-1",
-                                c.NAME: "MARKET_SCAN (DW_COMPLIANCE.MARKET_SCAN)",
+                                c.NAME: "ORDERS_TABLE (SALES_SCHEMA.ORDERS_TABLE)",
                                 c.TYPE_NAME: c.VIRTUAL_CONNECTION_TABLE,
                                 "virtualConnection": {c.ID: "vc-123"},
                             },
@@ -1006,7 +972,7 @@ class TestVirtualConnectionProcessor:
         # Should only have one VC reference (the real column, not the table name)
         if "ds-123" in self.vc_processor.datasource_vc_relationships:
             relationships = self.vc_processor.datasource_vc_relationships["ds-123"]
-            # Should only have the "Fee U24" field, not the table name field
+            # Should only have the "order_amount" field, not the table name field
             field_names = [rel.get("field_name") for rel in relationships]
-            assert "Fee U24" in field_names
-            assert "MARKET_SCAN (DW_COMPLIANCE.MARKET_SCAN)" not in field_names
+            assert "order_amount" in field_names
+            assert "ORDERS_TABLE (SALES_SCHEMA.ORDERS_TABLE)" not in field_names

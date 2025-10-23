@@ -4056,7 +4056,7 @@ class TableauSiteSource:
             f"Database lookup has {len(self.db_tables_lookup)} entries"
         )
 
-        # Extract potential table names from formats like "MARKET_SCAN (DW_COMPLIANCE.MARKET_SCAN)"
+        # Extract potential table names from formats like "TABLE_NAME (SCHEMA.TABLE_NAME)"
         potential_names = [vc_table_name, clean_vc_name]
 
         # Check if the name contains parentheses - extract both parts
@@ -4400,7 +4400,7 @@ class TableauSiteSource:
             # STEP 3: Now process Virtual Connections emission
             if self.config.ingest_virtual_connections:
                 with PerfTimer() as timer:
-                    logger.info("Step 3: Emitting Virtual Connections")
+                    logger.debug("Step 3: Emitting Virtual Connections")
 
                     # Update report statistics
                     self.report.num_vc_table_references_found = len(
