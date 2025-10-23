@@ -1781,6 +1781,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return aspectDao.countAspect(aspectName, urnLike);
   }
 
+  @Override
+  public Integer countAspect(@Nonnull RestoreIndicesArgs args, @Nonnull Consumer<String> logger) {
+    logger.accept(String.format("Args are %s", args));
+    return aspectDao.countAspect(args);
+  }
+
   @Nonnull
   @Override
   public List<RestoreIndicesResult> restoreIndices(
