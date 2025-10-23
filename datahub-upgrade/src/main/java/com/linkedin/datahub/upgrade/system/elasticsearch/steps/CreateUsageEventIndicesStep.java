@@ -7,6 +7,7 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.system.elasticsearch.util.UsageEventIndexUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.utils.EnvironmentUtils;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
@@ -29,19 +30,25 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
   }
 
   @Override
+  public boolean skip(UpgradeContext context) {
+    boolean analyticsEnabled =
+        configurationProvider.getPlatformAnalytics().isEnabled()
+            && EnvironmentUtils.getBoolean("ENABLE_SYSTEM_UPDATE_DUE", false);
+    if (!analyticsEnabled) {
+      log.info("DataHub analytics is disabled, skipping usage event index setup");
+    }
+    return !analyticsEnabled;
+  }
+
+  @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
-        boolean analyticsEnabled = configurationProvider.getPlatformAnalytics().isEnabled();
+
         String indexPrefix = configurationProvider.getElasticSearch().getIndex().getPrefix();
         // Handle null prefix by converting to empty string
         if (indexPrefix == null) {
           indexPrefix = "";
-        }
-
-        if (!analyticsEnabled) {
-          log.info("DataHub analytics is disabled, skipping usage event index setup");
-          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
         }
 
         boolean useOpenSearch = esComponents.getSearchClient().getEngineType().isOpenSearch();

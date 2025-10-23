@@ -1,5 +1,8 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -24,6 +27,8 @@ import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.CreateIndexResponse;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.testng.Assert;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -66,6 +71,16 @@ public class CreateUsageEventIndicesStepTest {
     setupMockClientResponses();
 
     step = new CreateUsageEventIndicesStep(esComponents, configurationProvider);
+  }
+
+  @BeforeClass
+  public void setup() {
+    System.setProperty("ENABLE_SYSTEM_UPDATE_DUE", "true");
+  }
+
+  @AfterClass
+  public void cleanup() {
+    System.clearProperty("ENABLE_SYSTEM_UPDATE_DUE");
   }
 
   private void setupMockClientResponses() throws IOException {
@@ -128,18 +143,10 @@ public class CreateUsageEventIndicesStepTest {
   public void testExecutable_AnalyticsDisabled() throws Exception {
     // Arrange
     Mockito.when(platformAnalytics.isEnabled()).thenReturn(false);
+    assertTrue(step.skip(Mockito.mock(UpgradeContext.class)));
 
-    // Act
-    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
-    UpgradeStepResult result = executable.apply(upgradeContext);
-
-    // Assert
-    Assert.assertNotNull(result);
-    Assert.assertEquals(result.stepId(), "CreateUsageEventIndicesStep");
-    Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-
-    // Verify that no Elasticsearch operations were called
-    Mockito.verify(searchClient, Mockito.never()).getEngineType();
+    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
+    assertFalse(step.skip(Mockito.mock(UpgradeContext.class)));
   }
 
   @Test
@@ -209,21 +216,6 @@ public class CreateUsageEventIndicesStepTest {
     Mockito.when(searchEngineType.isOpenSearch()).thenReturn(true);
     Mockito.when(indexBuilder.getNumShards())
         .thenThrow(new RuntimeException("OpenSearch setup failed"));
-
-    // Act
-    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
-    UpgradeStepResult result = executable.apply(upgradeContext);
-
-    // Assert
-    Assert.assertNotNull(result);
-    Assert.assertEquals(result.stepId(), "CreateUsageEventIndicesStep");
-    Assert.assertEquals(result.result(), DataHubUpgradeState.FAILED);
-  }
-
-  @Test
-  public void testExecutable_ConfigurationProviderException() throws Exception {
-    // Arrange
-    Mockito.when(platformAnalytics.isEnabled()).thenThrow(new RuntimeException("Config error"));
 
     // Act
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
