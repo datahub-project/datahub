@@ -159,7 +159,7 @@ def get_docs_ai_config() -> DocumentationAIConfig:
     query_desc_model = _get_model_value(
         get_litellm_model_env_variable(
             "QUERY_DESCRIPTION_GENERATION_MODEL",
-            LiteLLMModel.CLAUDE_35_SONNET,
+            LiteLLMModel.CLAUDE_37_SONNET,
             "QUERY_DESCRIPTION_GENERATION_BEDROCK_MODEL",
         )
     )

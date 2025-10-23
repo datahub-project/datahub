@@ -107,7 +107,7 @@ def test_no_env_vars_set() -> None:
         )
         assert (
             model_config.documentation_ai.query_description_model
-            == "bedrock/us.anthropic.claude-3-5-sonnet-20240620-v1:0"
+            == "bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0"
         )
         assert (
             model_config.chat_assistant_ai.model
@@ -138,7 +138,7 @@ def test_only_region_prefix_set_to_eu() -> None:
         )
         assert (
             eu_model_config.documentation_ai.query_description_model
-            == "bedrock/eu.anthropic.claude-3-5-sonnet-20240620-v1:0"
+            == "bedrock/eu.anthropic.claude-3-7-sonnet-20250219-v1:0"
         )
         assert (
             eu_model_config.chat_assistant_ai.model
@@ -173,7 +173,7 @@ def test_all_env_vars_set_legacy() -> None:
         )
         assert (
             legacy_model_config.documentation_ai.query_description_model
-            == "bedrock/apac.anthropic.claude-3-5-sonnet-20240620-v1:0"
+            == "bedrock/apac.anthropic.claude-3-7-sonnet-20250219-v1:0"
         )
         assert (
             legacy_model_config.term_suggestion_ai.model
