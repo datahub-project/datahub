@@ -1,6 +1,7 @@
 package com.linkedin.metadata.graph.elastic;
 
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -252,6 +253,52 @@ public class ElasticSearchGraphServiceTest {
     assertEquals(result.getCount(), 0);
     assertEquals(result.getTotal(), 0);
     assertTrue(result.getEntities().isEmpty());
+  }
+
+  @Test
+  public void testScrollRelatedEntitiesWithZeroCount() {
+    // Test the edge case where count=0 is passed, which should not cause
+    // ArrayIndexOutOfBoundsException when accessing searchHits[searchHits.length - 1]
+    OperationContext mockOpContext = TestOperationContexts.systemContextNoValidate();
+    GraphFilters mockGraphFilters = GraphFilters.ALL;
+    List<SortCriterion> mockSortCriteria = Collections.emptyList();
+
+    String scrollId = "test-scroll-id";
+    String keepAlive = "1m";
+    int count = 0; // This is the edge case we're testing
+
+    // Create mock search response with empty hits
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+
+    // Create empty search hits array (simulating no results)
+    SearchHit[] hits = new SearchHit[0];
+    when(mockHits.getHits()).thenReturn(hits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(0L, TotalHits.Relation.EQUAL_TO));
+
+    when(mockReadDAO.getSearchResponse(any(), any(), any(), any(), any(), anyInt()))
+        .thenReturn(mockResponse);
+    when(mockReadDAO.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
+
+    // This should not throw ArrayIndexOutOfBoundsException
+    RelatedEntitiesScrollResult result =
+        test.scrollRelatedEntities(
+            mockOpContext,
+            mockGraphFilters,
+            mockSortCriteria,
+            scrollId,
+            keepAlive,
+            count,
+            null,
+            null);
+
+    // Verify the result
+    assertNotNull(result);
+    assertEquals(result.getNumResults(), 0);
+    assertEquals(result.getPageSize(), 0);
+    assertTrue(result.getEntities().isEmpty());
+    assertNull(result.getScrollId()); // No scroll ID since no results
   }
 
   @Test
