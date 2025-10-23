@@ -15,6 +15,7 @@ import elasticsearchLogo from '@images/elasticsearchlogo.png';
 import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
 import glueLogo from '@images/gluelogo.png';
+import googleSheetsLogo from '@images/google-sheets-logo.png';
 import grafanaLogo from '@images/grafana.png';
 import hiveLogo from '@images/hivelogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
@@ -43,7 +44,6 @@ import tableauLogo from '@images/tableaulogo.png';
 import trinoLogo from '@images/trinologo.png';
 import vertexAI from '@images/vertexai.png';
 import verticaLogo from '@images/verticalogo.png';
-import googleSheetsLogo from '@images/google-sheets-logo.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
