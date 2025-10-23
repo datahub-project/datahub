@@ -2516,8 +2516,6 @@ def test_collapse_urns() -> None:
 
 def test_composable_template_structure() -> None:
     """Test that composable template structure is correctly handled"""
-    from datahub.ingestion.source.elastic_search import ElasticsearchSource
-
     # Test that the _extract_mcps method correctly handles composable template structure
     # This ensures that mappings, settings, and aliases are extracted from the right location
     composable_template_response = {
