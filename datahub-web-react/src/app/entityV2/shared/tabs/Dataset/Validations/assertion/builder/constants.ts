@@ -1,14 +1,11 @@
 import {
     AssertionEvaluationParametersType,
-    AssertionStdOperator,
-    AssertionStdParameterType,
     AssertionType,
     DateInterval,
     EntityType,
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
     SchemaFieldDataType,
-    SqlAssertionType,
     VolumeAssertionType,
 } from '@types';
 
@@ -75,24 +72,10 @@ export const DEFAULT_DATASET_VOLUME_ASSERTION_STATE = {
 };
 
 // Default assertion definition used when the selected type is SQL.
-export const DEFAULT_DATASET_SQL_ASSERTION_STATE = {
+export const DEFAULT_DATASET_SQL_ASSERTION_STATE: {
+    statement: string;
+} = {
     statement: '',
-    type: SqlAssertionType.Metric,
-    operator: AssertionStdOperator.NotEqualTo,
-    parameters: {
-        value: {
-            type: AssertionStdParameterType.Number,
-            value: '100',
-        },
-        minValue: {
-            type: AssertionStdParameterType.Number,
-            value: '100',
-        },
-        maxValue: {
-            type: AssertionStdParameterType.Number,
-            value: '500',
-        },
-    },
 };
 
 export const DEFAULT_DATASET_SQL_ASSERTION_PARAMETERS_STATE = {

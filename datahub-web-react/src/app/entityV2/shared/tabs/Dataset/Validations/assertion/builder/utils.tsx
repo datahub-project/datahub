@@ -581,31 +581,59 @@ export const builderStateToUpsertVolumeAssertionMonitorVariables = (builderState
     });
 };
 
+const isSqlAssertionAiInferred = (builderState: AssertionMonitorBuilderState): boolean => {
+    const hasParameters =
+        builderState.assertion?.sqlAssertion?.parameters &&
+        Object.keys(builderState.assertion?.sqlAssertion?.parameters).length > 0;
+    return !hasParameters && builderState.assertion?.sqlAssertion?.operator === AssertionStdOperator.Between;
+};
+
+const getSqlAssertionParameters = (builderState: AssertionMonitorBuilderState, inferWithAI: boolean) => {
+    if (inferWithAI) {
+        return {
+            minValue: {
+                type: AssertionStdParameterType.Number,
+                value: '0',
+            },
+            maxValue: {
+                type: AssertionStdParameterType.Number,
+                value: '0',
+            },
+        };
+    }
+
+    if (builderState.assertion?.sqlAssertion?.operator === AssertionStdOperator.Between) {
+        return {
+            minValue: {
+                type: builderState.assertion?.sqlAssertion?.parameters?.minValue?.type,
+                value: builderState.assertion?.sqlAssertion?.parameters?.minValue?.value,
+            },
+            maxValue: {
+                type: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.type,
+                value: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.value,
+            },
+        };
+    }
+
+    return {
+        value: {
+            type: builderState?.assertion?.sqlAssertion?.parameters?.value?.type,
+            value: builderState?.assertion?.sqlAssertion?.parameters?.value?.value,
+        },
+    };
+};
+
 export const builderStateToSharedSqlAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    const inferWithAI = isSqlAssertionAiInferred(builderState);
+    const parameters = getSqlAssertionParameters(builderState, inferWithAI);
+
     return removeNestedTypeNames({
         type: builderState.assertion?.sqlAssertion?.type as SqlAssertionType,
         description: builderState.assertion?.description,
         statement: builderState.assertion?.sqlAssertion?.statement,
         changeType: builderState.assertion?.sqlAssertion?.changeType as AssertionValueChangeType,
         operator: builderState.assertion?.sqlAssertion?.operator as AssertionStdOperator,
-        parameters:
-            builderState.assertion?.sqlAssertion?.operator === AssertionStdOperator.Between
-                ? {
-                      minValue: {
-                          type: builderState.assertion?.sqlAssertion?.parameters?.minValue?.type,
-                          value: builderState.assertion?.sqlAssertion?.parameters?.minValue?.value,
-                      },
-                      maxValue: {
-                          type: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.type,
-                          value: builderState?.assertion?.sqlAssertion?.parameters?.maxValue?.value,
-                      },
-                  }
-                : {
-                      value: {
-                          type: builderState?.assertion?.sqlAssertion?.parameters?.value?.type,
-                          value: builderState?.assertion?.sqlAssertion?.parameters?.value?.value,
-                      },
-                  },
+        parameters,
         actions: builderState.assertion?.actions
             ? {
                   onSuccess: builderState.assertion?.actions?.onSuccess || [],
@@ -616,13 +644,16 @@ export const builderStateToSharedSqlAssertionVariables = (builderState: Assertio
 };
 
 export const builderStateToUpsertSqlAssertionMonitorVariables = (builderState: AssertionMonitorBuilderState) => {
+    const inferWithAI = isSqlAssertionAiInferred(builderState);
+
     return removeNestedTypeNames({
         assertionUrn: builderState?.assertion?.urn,
         input: {
             ...builderStateToSharedSqlAssertionVariables(builderState),
-            // Monitor parameters
             evaluationSchedule: builderState.schedule,
             mode: MonitorMode.Active,
+            inferWithAI,
+            inferenceSettings: builderState.inferenceSettings,
             entityUrn: builderState.entityUrn,
         },
     });

@@ -13,9 +13,12 @@ const StyledSelect = styled(Select)`
 `;
 
 const StyledFormItem = styled(Form.Item)`
-    display: inline-block;
+    flex: 1;
     margin: 0;
-    width: 180px;
+`;
+
+const StyledNumberInput = styled(InputNumber)`
+    width: 100%;
 `;
 
 type Props = {
@@ -42,7 +45,7 @@ export const SqlParametersBuilder = ({ value, onChange, disabled }: Props) => {
         });
     };
 
-    const updateValue = (newValue: string | null) => {
+    const updateValue = (newValue: string | number | null) => {
         onChange({
             ...value,
             assertion: {
@@ -79,10 +82,8 @@ export const SqlParametersBuilder = ({ value, onChange, disabled }: Props) => {
             initialValue={selectedValue}
             name="sqlParameters.value"
             rules={[{ required: true, message: 'Required' }]}
-            // Override width if 'isPercentage' as we introduce an `addonAfter` in that case
-            style={isPercentage ? { width: 220 } : undefined}
         >
-            <InputNumber
+            <StyledNumberInput
                 value={selectedValue}
                 onChange={updateValue}
                 disabled={disabled}

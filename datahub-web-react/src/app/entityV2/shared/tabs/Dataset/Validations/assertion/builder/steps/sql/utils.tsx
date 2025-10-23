@@ -10,6 +10,7 @@ export type SqlOperationOption = {
 };
 
 export enum SqlOperationOptionEnum {
+    AI_INFERRED = 'AI_INFERRED',
     IS_EQUAL_TO = 'IS_EQUAL_TO',
     IS_NOT_EQUAL_TO = 'IS_NOT_EQUAL_TO',
     IS_GREATER_THAN = 'IS_GREATER_THAN',
@@ -21,6 +22,11 @@ export enum SqlOperationOptionEnum {
 }
 
 export const SQL_OPERATION_OPTIONS: Record<SqlOperationOptionEnum, SqlOperationOption> = {
+    [SqlOperationOptionEnum.AI_INFERRED]: {
+        label: 'Detect with AI',
+        type: SqlAssertionType.Metric,
+        operator: AssertionStdOperator.Between,
+    },
     [SqlOperationOptionEnum.IS_EQUAL_TO]: {
         label: 'Is equal to',
         type: SqlAssertionType.Metric,
@@ -74,11 +80,12 @@ export const getSqlOperationOptions = () => {
     }));
 };
 
-export const getOperationOption = (type: SqlAssertionType, operator: AssertionStdOperator) => {
+export const getOperationOption = (type?: SqlAssertionType | null, operator?: AssertionStdOperator | null) => {
+    if (!type || !operator) return undefined;
     const currentOption = Object.entries(SQL_OPERATION_OPTIONS).find(
         ([_, option]) => option.type === type && option.operator === operator,
     );
-    return currentOption ? (currentOption[0] as SqlOperationOptionEnum) : SqlOperationOptionEnum.IS_EQUAL_TO;
+    return currentOption ? (currentOption[0] as SqlOperationOptionEnum) : undefined;
 };
 
 export const SQL_CHANGE_TYPE_OPTIONS = [
