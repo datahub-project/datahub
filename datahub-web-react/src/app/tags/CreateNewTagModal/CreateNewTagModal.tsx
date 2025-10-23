@@ -103,7 +103,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
             setSelectedOwnerUrns([]);
         } catch (e: any) {
             message.destroy();
-            message.error('Failed to create tag. An unexpected error occurred');
+            message.error(e.message);
         } finally {
             setIsLoading(false);
         }
