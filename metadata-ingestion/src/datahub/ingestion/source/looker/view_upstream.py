@@ -622,17 +622,15 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                         if dim_field.name and self._is_field_from_current_view(
                             dim_field, current_view_name
                         ):
-                            # Skipping adding dimension group fields if already added
-                            if (
-                                dim_field.dimension_group
-                                and dim_field.dimension_group
-                                in dimension_group_fields_mapping
-                            ):
-                                continue
-                            else:
-                                assert (
-                                    dim_field.dimension_group is not None
-                                )  # HAPPY linter
+                            # Handle dimension group fields - only add one field per dimension group
+                            if dim_field.dimension_group:
+                                # Skip if this dimension group already has a field
+                                if (
+                                    dim_field.dimension_group
+                                    in dimension_group_fields_mapping
+                                ):
+                                    continue
+                                # Add this field as the representative for this dimension group
                                 dimension_group_fields_mapping[
                                     dim_field.dimension_group
                                 ] = dim_field.name
