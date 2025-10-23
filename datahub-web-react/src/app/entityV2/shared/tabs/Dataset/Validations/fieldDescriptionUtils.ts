@@ -4,6 +4,7 @@ import { parseMaybeStringAsFloatOrDefault } from '@app/shared/numberUtil';
 
 import {
     AssertionStdOperator,
+    AssertionStdParameterType,
     AssertionStdParameters,
     FieldAssertionInfo,
     FieldAssertionType,
@@ -87,8 +88,19 @@ const getFieldTransformType = (transform: FieldTransformType) => {
     }
 };
 
+const TRUNCATE_SQL_AT = 50;
+
+const truncate = (text: unknown, at: number): string => {
+    const str = typeof text === 'string' ? text : String(text ?? '');
+    return str.length > at ? `${str.slice(0, at)}...` : str;
+};
+
 const getAssertionStdParameters = (parameters: AssertionStdParameters) => {
     if (parameters.value) {
+        // If this is a SQL-typed parameter, truncate long expressions for display readability
+        if (parameters.value.type === AssertionStdParameterType.Sql) {
+            return truncate(parameters.value.value as string, TRUNCATE_SQL_AT);
+        }
         return formatNumberWithoutAbbreviation(
             parseMaybeStringAsFloatOrDefault(parameters.value.value, parameters.value.value),
         );

@@ -96,17 +96,14 @@ const AcrylAssertionTypeSummary = ({
     }
 
     const statusFacet = data?.searchAcrossEntities?.facets?.find((facet) => facet.field === 'lastResultType');
-    if (!statusFacet) {
-        throw new Error("Facet 'lastResultType' was not returned");
-    }
     const passingCount =
-        statusFacet.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Success)?.count || 0;
+        statusFacet?.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Success)?.count || 0;
     const failingCount =
-        statusFacet.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Failure)?.count || 0;
+        statusFacet?.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Failure)?.count || 0;
     const erroringCount =
-        statusFacet.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Error)?.count || 0;
+        statusFacet?.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Error)?.count || 0;
     const initializingCount =
-        statusFacet.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Init)?.count || 0;
+        statusFacet?.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Init)?.count || 0;
     const totalCount = data?.searchAcrossEntities?.total ?? 0;
     const totalAssertionsCount = data?.searchAcrossEntities?.total ?? 0;
 

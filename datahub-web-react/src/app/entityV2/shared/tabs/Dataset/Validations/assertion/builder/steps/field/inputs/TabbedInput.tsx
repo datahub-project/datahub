@@ -98,6 +98,7 @@ const TabsWrapper = styled.div`
     padding: 2px;
     background: ${colors.gray[1500]};
     border-radius: 6px;
+    margin-bottom: 8px;
 `;
 
 type EditModeInputProps = {
@@ -166,7 +167,14 @@ type Props = {
     isSetOperation?: boolean; // Whether this is for a set operation (In/NotIn) or single value
 };
 
-export const TabbedInput = ({ value, onChange, inputType, disabled, isEditMode, isSetOperation = false }: Props) => {
+export const TabbedInput = ({
+    value,
+    onChange,
+    inputType,
+    disabled,
+    isEditMode: _isEditMode,
+    isSetOperation = false,
+}: Props) => {
     const form = Form.useFormInstance();
     const fieldAssertionType = value?.assertion?.fieldAssertion?.type;
     const fieldAssertionKey = fieldAssertionType ? getFieldAssertionTypeKey(fieldAssertionType) : null;
@@ -194,6 +202,9 @@ export const TabbedInput = ({ value, onChange, inputType, disabled, isEditMode, 
             setActiveTab('values');
         }
     }, [fieldValueType, fieldValue]);
+
+    // Make inputs read-only when disabled, but allow editing in settings mode for field values
+    const isReadOnly = Boolean(disabled);
 
     // Update form field value when the assertion value changes
     useEffect(() => {
@@ -247,7 +258,7 @@ export const TabbedInput = ({ value, onChange, inputType, disabled, isEditMode, 
     };
 
     const handleTabChange = (key: string) => {
-        if (!value || !fieldAssertionType) return;
+        if (!value || !fieldAssertionType || isReadOnly) return;
 
         const newTab = key as 'values' | 'sql';
         setActiveTab(newTab);
@@ -307,11 +318,8 @@ export const TabbedInput = ({ value, onChange, inputType, disabled, isEditMode, 
     // Determine if this should show SQL input based on current assertion type
     const isSqlAssertion = fieldValueType === AssertionStdParameterType.Sql;
 
-    // Make inputs read-only when disabled, but allow editing in settings mode for field values
-    const isReadOnly = Boolean(disabled);
-
-    // Show tabs only when not in edit mode (i.e., when creating new assertions)
-    const showTabs = !isEditMode;
+    // Show tabs in both create and edit flows
+    const showTabs = true;
 
     return (
         <Form.Item name="fieldValue" rules={[{ required: true, message: 'Required' }]}>
@@ -322,6 +330,7 @@ export const TabbedInput = ({ value, onChange, inputType, disabled, isEditMode, 
                             $active={activeTab === 'values'}
                             onClick={() => handleTabChange('values')}
                             variant="text"
+                            isDisabled={isReadOnly}
                         >
                             Values
                         </StyledButton>
@@ -329,6 +338,7 @@ export const TabbedInput = ({ value, onChange, inputType, disabled, isEditMode, 
                             $active={activeTab === 'sql'}
                             onClick={() => handleTabChange('sql')}
                             variant="text"
+                            isDisabled={isReadOnly}
                         >
                             SQL
                         </StyledButton>
