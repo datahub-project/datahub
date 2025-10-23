@@ -178,7 +178,7 @@ interface PopularityColumnProps {
 
 export const PopularityColumn = ({ query }: PopularityColumnProps) => {
     const { runsPercentileLast30days } = query;
-    if (!runsPercentileLast30days) return null;
+    if (!runsPercentileLast30days) return <div>-</div>;
     const tier = getQueryPopularityTier(runsPercentileLast30days);
     const status = getBarsStatusFromPopularityTier(tier);
     return (
@@ -194,13 +194,9 @@ export const PopularityColumn = ({ query }: PopularityColumnProps) => {
     );
 };
 
-const ColumnsWrapper = styled.div`
-    text-align: right;
-`;
-
 /*
  * Columns Column
  */
 export const ColumnsColumn = ({ query }: PopularityColumnProps) => {
-    return <ColumnsWrapper>{query.columns?.length ?? 0}</ColumnsWrapper>;
+    return <div>{query.columns?.length ?? 0}</div>;
 };

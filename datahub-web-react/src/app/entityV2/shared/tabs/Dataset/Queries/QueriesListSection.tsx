@@ -153,7 +153,7 @@ export default function QueriesListSection({
         createdByColumn,
         createdDateColumn,
         powersColumn,
-        usedByColumn,
+        topUsersColumn,
         popularityColumn,
         columnsColumn,
         lastRunColumn,
@@ -181,7 +181,7 @@ export default function QueriesListSection({
         editColumn,
     ];
 
-    const popularQueriesColumns = [queryTextColumn(), usedByColumn, lastRunColumn, columnsColumn, popularityColumn];
+    const popularQueriesColumns = [queryTextColumn(), topUsersColumn, lastRunColumn, columnsColumn, popularityColumn];
 
     const downstreamQueriesColumns = [queryTextColumn(550), powersColumn, lastRunColumn];
 

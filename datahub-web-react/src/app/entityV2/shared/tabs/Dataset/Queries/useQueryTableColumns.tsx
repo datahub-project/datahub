@@ -156,8 +156,8 @@ export default function useQueryTableColumns({
         },
     };
 
-    const usedByColumn = {
-        title: 'Used By',
+    const topUsersColumn = {
+        title: 'Top Users',
         dataIndex: 'usedBy',
         key: 'usedBy',
         className: 'usedBy',
@@ -205,7 +205,7 @@ export default function useQueryTableColumns({
         className: 'lastRun',
         sorter: shouldRelyOnBackendSorting ? true : (queryA, queryB) => queryA.lastRun - queryB.lastRun,
         render: (lastRun: string) => {
-            if (!lastRun) return null;
+            if (!lastRun) return '-';
             return (
                 <div>
                     <Tooltip title={moment(lastRun).format('MM/DD/YYYY')}>
@@ -237,7 +237,7 @@ export default function useQueryTableColumns({
         createdByColumn,
         createdDateColumn,
         powersColumn,
-        usedByColumn,
+        topUsersColumn,
         popularityColumn,
         columnsColumn,
         lastRunColumn,
