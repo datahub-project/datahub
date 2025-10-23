@@ -1,5 +1,4 @@
 import logging
-from functools import lru_cache
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -55,7 +54,6 @@ class FivetranAPIClient:
         )
         return requests_session
 
-    @lru_cache(maxsize=None)
     def get_connection_details_by_id(
         self, connection_id: str
     ) -> FivetranConnectionDetails:

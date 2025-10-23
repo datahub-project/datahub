@@ -175,6 +175,7 @@ class MetadataExtractionPerfReport(Report):
 @dataclasses.dataclass
 class FivetranSourceReport(StaleEntityRemovalSourceReport):
     connectors_scanned: int = 0
+    fivetran_rest_api_call_count: int = 0
     filtered_connectors: LossyList[str] = dataclasses.field(default_factory=LossyList)
     metadata_extraction_perf: MetadataExtractionPerfReport = dataclasses.field(
         default_factory=MetadataExtractionPerfReport
@@ -185,6 +186,9 @@ class FivetranSourceReport(StaleEntityRemovalSourceReport):
 
     def report_connectors_dropped(self, connector: str) -> None:
         self.filtered_connectors.append(connector)
+
+    def report_fivetran_rest_api_call_count(self) -> None:
+        self.fivetran_rest_api_call_count += 1
 
 
 class PlatformDetail(ConfigModel):

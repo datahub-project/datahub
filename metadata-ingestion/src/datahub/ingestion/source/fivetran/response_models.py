@@ -1,7 +1,7 @@
 import datetime
 from typing import Dict, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class FivetranConnectionWarnings(BaseModel):
@@ -22,25 +22,8 @@ class FivetranConnectionStatus(BaseModel):
 class FivetranConnectionConfig(BaseModel):
     # Note: Connection Config is different for different connectors
     auth_type: str  # Auth Type
-    sheet_id: str  # Sheet ID - Link to the Google Sheet
+    sheet_id: str  # Sheet ID - URL to the Google Sheet
     named_range: str  # Named Range
-
-    # Create a another propery extracting the sheet_id from the sheet_id url
-    # "https://docs.google.com/spreadsheets/d/1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo/edit?gid=0#gid=0",
-    sheet_id_from_url: str = Field(default="")  # Add implemetation for this
-
-    def __init__(self, **data):
-        super().__init__(**data)
-        from urllib.parse import urlparse
-
-        try:
-            parsed = urlparse(self.sheet_id)
-            # Example: https://docs.google.com/spreadsheets/d/<spreadsheetId>/edit
-            parts = parsed.path.split("/")
-            self.sheet_id_from_url = parts[3] if len(parts) > 2 else ""
-        except Exception:
-            # Fallback: empty string (default above)
-            pass
 
 
 class FivetranConnectionSourceSyncDetails(BaseModel):
