@@ -1836,7 +1836,7 @@ class TableauSiteSource:
                 upstream_tables.extend(upstreams)
                 table_id_to_urn.update(id_to_urn)
 
-            # Always process CustomSQL tables (they can coexist with VC tables)
+            # This adds an edge to upstream CustomSQLTables using `fields`.`upstreamColumns`.`table`
             csql_upstreams, csql_id_to_urn = self.get_upstream_csql_tables(
                 datasource.get(c.FIELDS) or [],
             )
