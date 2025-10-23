@@ -118,7 +118,7 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 
 
 @platform_name("Iceberg")
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @config_class(IcebergSourceConfig)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
