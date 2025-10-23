@@ -9,6 +9,7 @@ from sqlalchemy import create_engine
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.source.fivetran.config import (
+    DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES,
     Constant,
     FivetranLogConfig,
     FivetranSourceReport,
@@ -112,7 +113,11 @@ class FivetranLogAPI:
         """
         Returns dict of column lineage metadata with key as (<SOURCE_TABLE_ID>, <DESTINATION_TABLE_ID>)
         """
-        all_column_lineage = defaultdict(list)
+        all_column_lineage: Dict[Tuple[str, str], List] = defaultdict(list)
+
+        if not connector_ids:
+            return dict(all_column_lineage)
+
         column_lineage_result = self._query(
             self.fivetran_log_query.get_column_lineage_query(
                 connector_ids=connector_ids
@@ -130,7 +135,11 @@ class FivetranLogAPI:
         """
         Returns dict of table lineage metadata with key as 'CONNECTOR_ID'
         """
-        connectors_table_lineage_metadata = defaultdict(list)
+        connectors_table_lineage_metadata: Dict[str, List] = defaultdict(list)
+
+        if not connector_ids:
+            return dict(connectors_table_lineage_metadata)
+
         table_lineage_result = self._query(
             self.fivetran_log_query.get_table_lineage_query(connector_ids=connector_ids)
         )
@@ -246,9 +255,18 @@ class FivetranLogAPI:
         return self._get_users().get(user_id)
 
     def _fill_connectors_lineage(self, connectors: List[Connector]) -> None:
-        connector_ids = [connector.connector_id for connector in connectors]
-        table_lineage_metadata = self._get_table_lineage_metadata(connector_ids)
-        column_lineage_metadata = self._get_column_lineage_metadata(connector_ids)
+        # Create 2 filtered connector_ids lists - one for table lineage and one for column lineage
+        tll_connector_ids: List[str] = []
+        cll_connector_ids: List[str] = []
+        for connector in connectors:
+            tll_connector_ids.append(connector.connector_id)
+            if connector.connector_type not in DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES:
+                cll_connector_ids.append(connector.connector_id)
+        table_lineage_metadata = self._get_table_lineage_metadata(tll_connector_ids)
+        # Note: (As of Oct 2025) Fivetran Platform Connector has stale lineage metadata for Google Sheets column data (deleted/renamed).
+        # Ref: https://fivetran.com/docs/connectors/files/google-sheets#deletingdata
+        # TODO: Remove Google Sheets connector type from DISABLE_LINEAGE_FOR_CONNECTOR_TYPES
+        column_lineage_metadata = self._get_column_lineage_metadata(cll_connector_ids)
         for connector in connectors:
             connector.lineage = self._extract_connector_lineage(
                 table_lineage_result=table_lineage_metadata.get(connector.connector_id),

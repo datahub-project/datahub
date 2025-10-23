@@ -77,6 +77,8 @@ KNOWN_DATA_PLATFORM_MAPPING = {
     "snowflake": "snowflake",
 }
 
+DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES = [Constant.GOOGLE_SHEETS_CONNECTOR_TYPE]
+
 
 class SnowflakeDestinationConfig(SnowflakeConnectionConfig):
     database: str = Field(description="The fivetran connector log database.")
