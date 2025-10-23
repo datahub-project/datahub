@@ -54,7 +54,7 @@ record DataHubFileInfo {
    */
   @Relationship = {
     "name": "ReferencedBy",
-    "entityTypes": [ "dataset", "chart", "container", "dashboard", "dataFlow", "dataJob", "glossaryTerm", "glossaryNode", "mlModel", "mlFeature", "notebook", "mlFeatureTable", "mlPrimaryKey", "mlModelGroup", "domain", "dataProduct" ]
+    "entityTypes": [ "dataset", "chart", "container", "dashboard", "dataFlow", "dataJob", "glossaryTerm", "glossaryNode", "mlModel", "mlFeature", "notebook", "mlFeatureTable", "mlPrimaryKey", "mlModelGroup", "domain", "dataProduct", "businessAttribute" ]
   }
   @Searchable = {
     "fieldType": "URN"
