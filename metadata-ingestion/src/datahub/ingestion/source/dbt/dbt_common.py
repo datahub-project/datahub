@@ -897,24 +897,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         extra_custom_props: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        logger.debug(f"Creating test entity MCPs for {len(test_nodes)} test nodes")
         for node in sorted(test_nodes, key=lambda n: n.dbt_name):
-            logger.debug(f"Processing test node: {node.dbt_name}")
             upstreams = get_upstreams_for_test(
                 test_node=node,
                 all_nodes_map=all_nodes_map,
                 platform_instance=self.config.platform_instance,
                 environment=self.config.env,
             )
-            logger.debug(
-                f"Found {len(upstreams)} upstreams for test {node.dbt_name}: {list(upstreams.keys())}"
-            )
 
             # In case a dbt test depends on multiple tables, we create separate assertions for each.
             for upstream_node_name, upstream_urn in upstreams.items():
-                logger.debug(
-                    f"Creating assertion for test {node.dbt_name} on upstream {upstream_node_name}"
-                )
                 guid_upstream_part = {}
                 if len(upstreams) > 1:
                     # If we depend on multiple upstreams, we need to generate a unique guid for each assertion.
@@ -954,9 +946,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 }
 
                 if self.config.entities_enabled.can_emit_test_definitions:
-                    logger.debug(
-                        f"Emitting test definition for {node.dbt_name} with assertion_urn={assertion_urn}"
-                    )
                     yield MetadataChangeProposalWrapper(
                         entityUrn=assertion_urn,
                         aspect=self._make_data_platform_instance_aspect(),
@@ -968,19 +957,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         assertion_urn,
                         upstream_urn,
                     )
-                else:
-                    logger.debug(
-                        f"Skipping test definition emission for {node.dbt_name} (disabled)"
-                    )
 
                 for test_result in node.test_results:
-                    logger.debug(
-                        f"Processing test result for {node.dbt_name}: {test_result.invocation_id}, status={test_result.status}"
-                    )
                     if self.config.entities_enabled.can_emit_test_results:
-                        logger.debug(
-                            f"Emitting test result for {node.dbt_name} ({test_result.invocation_id})"
-                        )
                         yield make_assertion_result_from_test(
                             node,
                             test_result,
@@ -1046,9 +1025,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         test_nodes = [test_node for test_node in nodes if test_node.node_type == "test"]
 
         logger.info(f"Creating dbt metadata for {len(nodes)} nodes")
-        logger.debug(
-            f"Found {len(test_nodes)} test nodes and {len(non_test_nodes)} non-test nodes"
-        )
         yield from self.create_dbt_platform_mces(
             non_test_nodes,
             additional_custom_props_filtered,
@@ -1058,15 +1034,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         logger.info(f"Updating {self.config.target_platform} metadata")
         yield from self.create_target_platform_mces(non_test_nodes)
 
-        if test_nodes:
-            logger.debug(f"Creating test entity MCPs for {len(test_nodes)} test nodes")
-            yield from self.create_test_entity_mcps(
-                test_nodes,
-                additional_custom_props_filtered,
-                all_nodes_map,
-            )
-        else:
-            logger.debug("No test nodes found, skipping test entity MCP creation")
+        yield from self.create_test_entity_mcps(
+            test_nodes,
+            additional_custom_props_filtered,
+            all_nodes_map,
+        )
 
     def _is_allowed_node(self, node: DBTNode) -> bool:
         """
@@ -1111,22 +1083,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
     def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
         nodes: List[DBTNode] = []
-        test_nodes_filtered = 0
         for node in all_nodes:
             key = node.dbt_name
 
             if not self._is_allowed_node(node):
                 self.report.nodes_filtered.append(key)
-                if node.node_type == "test":
-                    test_nodes_filtered += 1
-                    logger.debug(f"Filtered out test node: {key}")
                 continue
 
             nodes.append(node)
 
-        logger.debug(
-            f"Filtered {test_nodes_filtered} test nodes out of {len(all_nodes)} total nodes"
-        )
         return nodes
 
     def _drop_duplicate_sources(self, original_nodes: List[DBTNode]) -> List[DBTNode]:
