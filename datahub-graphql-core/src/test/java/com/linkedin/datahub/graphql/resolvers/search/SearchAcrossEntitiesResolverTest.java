@@ -228,7 +228,6 @@ public class SearchAcrossEntitiesResolverTest {
                                     buildCriterion("baseField", Condition.EQUAL, "baseTest"))))));
 
     ViewService mockService = Mockito.mock(ViewService.class);
-    FormService mockFormService = Mockito.mock(FormService.class);
     EntityClient mockClient =
         initMockEntityClient(
             ImmutableList.of(Constants.DATASET_ENTITY_NAME),
@@ -244,7 +243,7 @@ public class SearchAcrossEntitiesResolverTest {
                 .setMetadata(new SearchResultMetadata()));
 
     final SearchAcrossEntitiesResolver resolver =
-        new SearchAcrossEntitiesResolver(mockClient, mockService, mockFormService);
+        new SearchAcrossEntitiesResolver(mockClient, mockService);
 
     final SearchAcrossEntitiesInput testInput =
         new SearchAcrossEntitiesInput(
@@ -262,9 +261,6 @@ public class SearchAcrossEntitiesResolverTest {
                             ImmutableList.of("baseTest", "baseTest"),
                             false,
                             FilterOperator.EQUAL)))),
-            null,
-            null,
-            null,
             null,
             null,
             null);
