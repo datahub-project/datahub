@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
-import pydantic
+from pydantic import field_validator, model_validator
 from ruamel.yaml import YAML
 from typing_extensions import assert_never
 
@@ -71,7 +71,8 @@ class Ownership(ConfigModel):
     id: str
     type: str
 
-    @pydantic.validator("type")
+    @field_validator("type")
+    @classmethod
     def ownership_type_must_be_mappable_or_custom(cls, v: str) -> str:
         _, _ = builder.validate_ownership_type(v)
         return v
@@ -116,30 +117,49 @@ class DataProduct(ConfigModel):
     output_ports: Optional[List[str]] = None
     _original_yaml_dict: Optional[dict] = None
 
-    @pydantic.validator("assets", each_item=True)
-    def assets_must_be_urns(cls, v: str) -> str:
-        try:
-            Urn.from_string(v)
-        except Exception as e:
-            raise ValueError(f"asset {v} is not an urn: {e}") from e
+    @field_validator("assets")
+    @classmethod
+    def assets_must_be_urns(cls, v):
+        if isinstance(v, list):
+            for item in v:
+                try:
+                    Urn.from_string(item)
+                except Exception as e:
+                    raise ValueError(f"asset {item} is not an urn: {e}") from e
+            return v
+        else:
+            try:
+                Urn.from_string(v)
+            except Exception as e:
+                raise ValueError(f"asset {v} is not an urn: {e}") from e
+            return v
 
+    @field_validator("output_ports")
+    @classmethod
+    def output_ports_must_be_urns(cls, v):
+        if v is not None:
+            if isinstance(v, list):
+                for item in v:
+                    try:
+                        Urn.create_from_string(item)
+                    except Exception as e:
+                        raise ValueError(
+                            f"Output port {item} is not an urn: {e}"
+                        ) from e
+            else:
+                try:
+                    Urn.create_from_string(v)
+                except Exception as e:
+                    raise ValueError(f"Output port {v} is not an urn: {e}") from e
         return v
 
-    @pydantic.validator("output_ports", each_item=True)
-    def output_ports_must_be_urns(cls, v: str) -> str:
-        try:
-            Urn.create_from_string(v)
-        except Exception as e:
-            raise ValueError(f"Output port {v} is not an urn: {e}") from e
-
-        return v
-
-    @pydantic.validator("output_ports", each_item=True)
-    def output_ports_must_be_from_asset_list(cls, v: str, values: dict) -> str:
-        assets = values.get("assets", [])
-        if v not in assets:
-            raise ValueError(f"Output port {v} is not in asset list")
-        return v
+    @model_validator(mode="after")
+    def output_ports_must_be_from_asset_list(self):
+        if self.output_ports and self.assets:
+            for port in self.output_ports:
+                if port not in self.assets:
+                    raise ValueError(f"Output port {port} is not in asset list")
+        return self
 
     @property
     def urn(self) -> str:
@@ -454,7 +474,7 @@ class DataProduct(ConfigModel):
                     patches_add.append(new_owner)
                 else:
                     patches_add.append(
-                        Ownership(id=new_owner, type=new_owner_type).dict()
+                        Ownership(id=new_owner, type=new_owner_type).model_dump()
                     )
 
         mutation_needed = bool(patches_replace or patches_drop or patches_add)
@@ -485,8 +505,8 @@ class DataProduct(ConfigModel):
             raise Exception("Original Data Product was not loaded from yaml")
 
         orig_dictionary = original_dataproduct._original_yaml_dict
-        original_dataproduct_dict = original_dataproduct.dict()
-        this_dataproduct_dict = self.dict()
+        original_dataproduct_dict = original_dataproduct.model_dump()
+        this_dataproduct_dict = self.model_dump()
         for simple_field in ["display_name", "description", "external_url"]:
             if original_dataproduct_dict.get(simple_field) != this_dataproduct_dict.get(
                 simple_field
@@ -566,7 +586,7 @@ class DataProduct(ConfigModel):
             yaml = YAML(typ="rt")  # default, if not specfied, is 'rt' (round-trip)
             yaml.indent(mapping=2, sequence=4, offset=2)
             yaml.default_flow_style = False
-            yaml.dump(self.dict(), fp)
+            yaml.dump(self.model_dump(), fp)
 
     @staticmethod
     def get_patch_builder(

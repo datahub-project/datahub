@@ -12,8 +12,7 @@
 # https://learn.microsoft.com/en-us/azure/databricks/database-objects/tags#constraint
 from typing import Any, Dict, Optional, Set
 
-# Import validator for Pydantic v1 (always needed since we removed conditional logic)
-from pydantic import validator
+from pydantic import field_validator
 from typing_extensions import ClassVar
 
 from datahub.api.entities.external.external_tag import ExternalTag
@@ -62,11 +61,10 @@ class UnityCatalogTag(ExternalTag):
     key: UnityCatalogTagKeyText
     value: Optional[UnityCatalogTagValueText] = None
 
-    # Pydantic v1 validators
-    @validator("key", pre=True)
+    @field_validator("key", mode="before")
     @classmethod
     def _validate_key(cls, v: Any) -> UnityCatalogTagKeyText:
-        """Validate and convert key field for Pydantic v1."""
+        """Validate and convert key field."""
         if isinstance(v, UnityCatalogTagKeyText):
             return v
 
@@ -76,10 +74,10 @@ class UnityCatalogTag(ExternalTag):
 
         return UnityCatalogTagKeyText(raw_text=v)
 
-    @validator("value", pre=True)
+    @field_validator("value", mode="before")
     @classmethod
     def _validate_value(cls, v: Any) -> Optional[UnityCatalogTagValueText]:
-        """Validate and convert value field for Pydantic v1."""
+        """Validate and convert value field."""
         if v is None:
             return None
 

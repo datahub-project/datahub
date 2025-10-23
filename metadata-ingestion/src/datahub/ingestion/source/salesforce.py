@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Any, Dict, Iterable, List, Literal, Optional, TypedDict
 
 import requests
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 from simple_salesforce import Salesforce
 from simple_salesforce.exceptions import SalesforceAuthenticationFailed
 
@@ -172,7 +172,8 @@ class SalesforceConfig(
             self.profiling.operation_config
         )
 
-    @validator("instance_url")
+    @field_validator("instance_url")
+    @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 

@@ -1,6 +1,5 @@
-from typing import Any, Dict
-
 import pydantic
+from pydantic import field_validator
 
 from datahub.configuration.common import ConfigModel
 
@@ -21,7 +20,8 @@ class CSVEnricherConfig(ConfigModel):
         description="Delimiter to use when parsing array fields (tags, terms and owners)",
     )
 
-    @pydantic.validator("write_semantics")
+    @field_validator("write_semantics")
+    @classmethod
     def validate_write_semantics(cls, write_semantics: str) -> str:
         if write_semantics.lower() not in {"patch", "override"}:
             raise ValueError(
@@ -31,9 +31,10 @@ class CSVEnricherConfig(ConfigModel):
             )
         return write_semantics
 
-    @pydantic.validator("array_delimiter")
-    def validator_diff(cls, array_delimiter: str, values: Dict[str, Any]) -> str:
-        if array_delimiter == values["delimiter"]:
+    @field_validator("array_delimiter")
+    @classmethod
+    def validator_diff(cls, array_delimiter: str, info: pydantic.ValidationInfo) -> str:
+        if array_delimiter == info.data["delimiter"]:
             raise ValueError(
                 "array_delimiter and delimiter are the same. Please choose different delimiters."
             )

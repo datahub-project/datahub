@@ -19,7 +19,7 @@ def test_panel_basic():
         "transformations": [],
     }
 
-    panel = Panel.parse_obj(panel_data)
+    panel = Panel.model_validate(panel_data)
     assert panel.id == "1"
     assert panel.title == "Test Panel"
     assert panel.description == "Test Description"
@@ -34,7 +34,7 @@ def test_panel_with_datasource():
         "datasource": {"type": "postgres", "uid": "abc123"},
     }
 
-    panel = Panel.parse_obj(panel_data)
+    panel = Panel.model_validate(panel_data)
     assert panel.datasource_ref is not None
     assert panel.datasource_ref.type == "postgres"
     assert panel.datasource_ref.uid == "abc123"
@@ -55,7 +55,7 @@ def test_dashboard_basic():
         }
     }
 
-    dashboard = Dashboard.parse_obj(dashboard_data)
+    dashboard = Dashboard.model_validate(dashboard_data)
     assert dashboard.uid == "dash1"
     assert dashboard.title == "Test Dashboard"
     assert dashboard.version == "1"
@@ -82,7 +82,7 @@ def test_dashboard_nested_panels():
         }
     }
 
-    dashboard = Dashboard.parse_obj(dashboard_data)
+    dashboard = Dashboard.model_validate(dashboard_data)
     assert len(dashboard.panels) == 2
     assert dashboard.panels[0].title == "Nested Panel"
     assert dashboard.panels[1].title == "Top Level Panel"
@@ -91,7 +91,7 @@ def test_dashboard_nested_panels():
 def test_folder():
     folder_data = {"id": "1", "title": "Test Folder", "description": "Test Description"}
 
-    folder = Folder.parse_obj(folder_data)
+    folder = Folder.model_validate(folder_data)
     assert folder.id == "1"
     assert folder.title == "Test Folder"
     assert folder.description == "Test Description"

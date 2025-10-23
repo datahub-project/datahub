@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Iterable, List, Optional
 
-import pydantic
+from pydantic import model_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -65,16 +65,16 @@ class CorpUser(ConfigModel):
     picture_link: Optional[str] = None
     phone: Optional[str] = None
 
-    @pydantic.validator("full_name", always=True)
-    def full_name_can_be_built_from_first_name_last_name(v, values):
-        if not v:
-            if "first_name" in values or "last_name" in values:
-                first_name = values.get("first_name") or ""
-                last_name = values.get("last_name") or ""
-                full_name = f"{first_name} {last_name}" if last_name else first_name
-                return full_name
-        else:
-            return v
+    @model_validator(mode="after")
+    def full_name_can_be_built_from_first_name_last_name(self):
+        if not self.full_name:
+            if self.first_name or self.last_name:
+                first_name = self.first_name or ""
+                last_name = self.last_name or ""
+                self.full_name = (
+                    f"{first_name} {last_name}" if last_name else first_name
+                )
+        return self
 
     @property
     def urn(self):

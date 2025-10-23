@@ -6,6 +6,7 @@ from confluent_kafka import SerializingProducer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
 from confluent_kafka.serialization import SerializationContext, StringSerializer
+from pydantic import field_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
@@ -49,7 +50,8 @@ class KafkaEmitterConfig(ConfigModel):
         },
     )
 
-    @pydantic.validator("topic_routes")
+    @field_validator("topic_routes")
+    @classmethod
     def validate_topic_routes(cls, v: Dict[str, str]) -> Dict[str, str]:
         assert MCE_KEY in v, f"topic_routes must contain a route for {MCE_KEY}"
         assert MCP_KEY in v, f"topic_routes must contain a route for {MCP_KEY}"

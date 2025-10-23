@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
-from pydantic import Field, SecretStr, root_validator
+from pydantic import Field, SecretStr, model_validator
 from typing_extensions import assert_never
 
 from datahub.configuration.common import AllowDenyPattern
@@ -120,7 +120,8 @@ class HexSourceConfig(
         description="Number of items to fetch per DataHub API call.",
     )
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def validate_lineage_times(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         # In-place update of the input dict would cause state contamination. This was discovered through test failures
         # in test_hex.py where the same dict is reused.
@@ -238,7 +239,7 @@ class HexSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "HexSource":
-        config = HexSourceConfig.parse_obj(config_dict)
+        config = HexSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

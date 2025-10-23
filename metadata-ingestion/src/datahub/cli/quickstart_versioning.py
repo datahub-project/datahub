@@ -80,7 +80,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             path = os.path.expanduser(LOCAL_QUICKSTART_MAPPING_FILE)
             with open(path) as f:
                 config_raw = yaml.safe_load(f)
-            return cls.parse_obj(config_raw)
+            return cls.model_validate(config_raw)
 
         config_raw = None
         try:
@@ -110,7 +110,7 @@ class QuickstartVersionMappingConfig(BaseModel):
                 }
             )
 
-        config = cls.parse_obj(config_raw)
+        config = cls.model_validate(config_raw)
 
         # If stable is not defined in the config, we need to fetch the latest version from github.
         if config.quickstart_version_map.get("stable") is None:
@@ -177,7 +177,7 @@ def save_quickstart_config(
     path = os.path.expanduser(path)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
-        yaml.dump(config.dict(), f)
+        yaml.dump(config.model_dump(), f)
     logger.info(f"Saved quickstart config to {path}.")
 
 

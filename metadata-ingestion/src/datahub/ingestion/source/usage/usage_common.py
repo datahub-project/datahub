@@ -15,6 +15,7 @@ from typing import (
 )
 
 import pydantic
+from pydantic import ValidationInfo, field_validator
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
@@ -226,10 +227,11 @@ class BaseUsageConfig(BaseTimeWindowConfig):
         default=True, description="Whether to ingest the top_n_queries."
     )
 
-    @pydantic.validator("top_n_queries")
-    def ensure_top_n_queries_is_not_too_big(cls, v: int, values: dict) -> int:
+    @field_validator("top_n_queries")
+    @classmethod
+    def ensure_top_n_queries_is_not_too_big(cls, v: int, info: ValidationInfo) -> int:
         minimum_query_size = 20
-
+        values = info.data
         max_queries = int(values["queries_character_limit"] / minimum_query_size)
         if v > max_queries:
             raise ValueError(

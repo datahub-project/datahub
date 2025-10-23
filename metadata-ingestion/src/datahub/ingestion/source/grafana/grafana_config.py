@@ -1,6 +1,6 @@
 from typing import Dict, Optional
 
-from pydantic import Field, SecretStr, validator
+from pydantic import Field, SecretStr, field_validator
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.source_common import (
@@ -99,6 +99,7 @@ class GrafanaSourceConfig(
         description="Map of Grafana datasource types/UIDs to platform connection configs for lineage extraction",
     )
 
-    @validator("url", allow_reuse=True)
-    def remove_trailing_slash(cls, v):
+    @field_validator("url")
+    @classmethod
+    def remove_trailing_slash(cls, v: str) -> str:
         return config_clean.remove_trailing_slashes(v)

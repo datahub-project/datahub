@@ -1,10 +1,9 @@
 import enum
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
+from typing import Any, List
 
 import humanfriendly
-import pydantic
-from pydantic.fields import Field
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.datetimes import parse_absolute_time, parse_relative_timespan
@@ -52,45 +51,46 @@ class BaseTimeWindowConfig(ConfigModel):
         description="Earliest date of lineage/usage to consider. Default: Last full day in UTC (or hour, depending on `bucket_duration`). You can also specify relative time with respect to end_time such as '-7 days' Or '-7d'.",
     )  # type: ignore
 
-    @pydantic.validator("start_time", pre=True, always=True)
-    def default_start_time(
-        cls, v: Any, values: Dict[str, Any], **kwargs: Any
-    ) -> datetime:
-        if v is None:
-            return get_time_bucket(
-                values["end_time"]
-                - get_bucket_duration_delta(values["bucket_duration"]),
-                values["bucket_duration"],
-            )
-        elif isinstance(v, str):
+    @field_validator("start_time", mode="before")
+    @classmethod
+    def parse_start_time(cls, v: Any, info: ValidationInfo) -> Any:
+        if isinstance(v, str):
             # This is where start_time str is resolved to datetime
             try:
                 delta = parse_relative_timespan(v)
                 assert delta < timedelta(0), (
                     "Relative start time should start with minus sign (-) e.g. '-2 days'."
                 )
-                assert abs(delta) >= get_bucket_duration_delta(
-                    values["bucket_duration"]
-                ), (
+                bucket_duration = info.data.get("bucket_duration", BucketDuration.DAY)
+                assert abs(delta) >= get_bucket_duration_delta(bucket_duration), (
                     "Relative start time should be in terms of configured bucket duration. e.g '-2 days' or '-2 hours'."
                 )
 
-                # The end_time's default value is not yet populated, in which case
-                # we can just manually generate it here.
-                if "end_time" not in values:
-                    values["end_time"] = datetime.now(tz=timezone.utc)
+                # We need end_time, but it might not be set yet
+                # In that case, we'll use the default
+                end_time = info.data.get("end_time")
+                if end_time is None:
+                    end_time = datetime.now(tz=timezone.utc)
 
-                return get_time_bucket(
-                    values["end_time"] + delta, values["bucket_duration"]
-                )
+                return get_time_bucket(end_time + delta, bucket_duration)
             except humanfriendly.InvalidTimespan:
                 # We do not floor start_time to the bucket start time if absolute start time is specified.
                 # If user has specified absolute start time in recipe, it's most likely that he means it.
                 return parse_absolute_time(v)
-
         return v
 
-    @pydantic.validator("start_time", "end_time")
+    @model_validator(mode="after")
+    def default_start_time(self) -> "BaseTimeWindowConfig":
+        # Only calculate start_time if it was None (not provided by user)
+        if self.start_time is None:
+            self.start_time = get_time_bucket(
+                self.end_time - get_bucket_duration_delta(self.bucket_duration),
+                self.bucket_duration,
+            )
+        return self
+
+    @field_validator("start_time", "end_time")
+    @classmethod
     def ensure_timestamps_in_utc(cls, v: datetime) -> datetime:
         if v.tzinfo is None:
             raise ValueError(

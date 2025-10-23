@@ -91,7 +91,7 @@ class SnowflakeAssertionsHandler:
         self, result_row: dict, discovered_datasets: List[str]
     ) -> Optional[MetadataChangeProposalWrapper]:
         try:
-            result = DataQualityMonitoringResult.parse_obj(result_row)
+            result = DataQualityMonitoringResult.model_validate(result_row)
             assertion_guid = result.METRIC_NAME.split("__")[-1].lower()
             status = bool(result.VALUE)  # 1 if PASS, 0 if FAIL
             assertee = self.identifiers.get_dataset_identifier(

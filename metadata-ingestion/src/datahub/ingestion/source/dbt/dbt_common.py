@@ -1,6 +1,7 @@
 import logging
 import re
 from abc import abstractmethod
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import auto
@@ -8,7 +9,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import more_itertools
 import pydantic
-from pydantic import root_validator, validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -194,22 +195,26 @@ class DBTEntitiesEnabled(ConfigModel):
         "Only supported with dbt core.",
     )
 
-    @root_validator(skip_on_failure=True)
-    def process_only_directive(cls, values):
+    @model_validator(mode="after")
+    def process_only_directive(self) -> "DBTEntitiesEnabled":
         # Checks that at most one is set to ONLY, and then sets the others to NO.
-
-        only_values = [k for k in values if values.get(k) == EmitDirective.ONLY]
+        only_values = [
+            k for k, v in self.model_dump().items() if v == EmitDirective.ONLY
+        ]
         if len(only_values) > 1:
             raise ValueError(
                 f"Cannot have more than 1 type of entity emission set to ONLY. Found {only_values}"
             )
 
         if len(only_values) == 1:
-            for k in values:
-                values[k] = EmitDirective.NO
-            values[only_values[0]] = EmitDirective.YES
+            # Set all fields to NO first
+            for field_name in self.model_dump():
+                setattr(self, field_name, EmitDirective.NO)
 
-        return values
+            # Set the ONLY one to YES
+            setattr(self, only_values[0], EmitDirective.YES)
+
+        return self
 
     def _node_type_allow_map(self):
         # Node type comes from dbt's node types.
@@ -412,7 +417,8 @@ class DBTCommonConfig(
         "This ensures that lineage is generated reliably, but will lose any documentation associated only with the source.",
     )
 
-    @validator("target_platform")
+    @field_validator("target_platform")
+    @classmethod
     def validate_target_platform_value(cls, target_platform: str) -> str:
         if target_platform.lower() == DBT_PLATFORM:
             raise ValueError(
@@ -421,15 +427,21 @@ class DBTCommonConfig(
             )
         return target_platform
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def set_convert_column_urns_to_lowercase_default_for_snowflake(
         cls, values: dict
     ) -> dict:
+        # In-place update of the input dict would cause state contamination.
+        # So a deepcopy is performed first.
+        values = deepcopy(values)
+
         if values.get("target_platform", "").lower() == "snowflake":
             values.setdefault("convert_column_urns_to_lowercase", True)
         return values
 
-    @validator("write_semantics")
+    @field_validator("write_semantics")
+    @classmethod
     def validate_write_semantics(cls, write_semantics: str) -> str:
         if write_semantics.lower() not in {"patch", "override"}:
             raise ValueError(
@@ -439,10 +451,9 @@ class DBTCommonConfig(
             )
         return write_semantics
 
-    @validator("meta_mapping")
-    def meta_mapping_validator(
-        cls, meta_mapping: Dict[str, Any], values: Dict, **kwargs: Any
-    ) -> Dict[str, Any]:
+    @field_validator("meta_mapping")
+    @classmethod
+    def meta_mapping_validator(cls, meta_mapping: Dict[str, Any]) -> Dict[str, Any]:
         for k, v in meta_mapping.items():
             if "match" not in v:
                 raise ValueError(
@@ -458,44 +469,35 @@ class DBTCommonConfig(
                     mce_builder.validate_ownership_type(owner_category)
         return meta_mapping
 
-    @validator("include_column_lineage")
-    def validate_include_column_lineage(
-        cls, include_column_lineage: bool, values: Dict
-    ) -> bool:
-        if include_column_lineage and not values.get("infer_dbt_schemas"):
+    @model_validator(mode="after")
+    def validate_include_column_lineage(self) -> "DBTCommonConfig":
+        if self.include_column_lineage and not self.infer_dbt_schemas:
             raise ValueError(
                 "`infer_dbt_schemas` must be enabled to use `include_column_lineage`"
             )
 
-        return include_column_lineage
+        return self
 
-    @validator("skip_sources_in_lineage", always=True)
-    def validate_skip_sources_in_lineage(
-        cls, skip_sources_in_lineage: bool, values: Dict
-    ) -> bool:
-        entities_enabled: Optional[DBTEntitiesEnabled] = values.get("entities_enabled")
-        prefer_sql_parser_lineage: Optional[bool] = values.get(
-            "prefer_sql_parser_lineage"
-        )
-
-        if prefer_sql_parser_lineage and not skip_sources_in_lineage:
+    @model_validator(mode="after")
+    def validate_skip_sources_in_lineage(self) -> "DBTCommonConfig":
+        if self.prefer_sql_parser_lineage and not self.skip_sources_in_lineage:
             raise ValueError(
                 "`prefer_sql_parser_lineage` requires that `skip_sources_in_lineage` is enabled."
             )
 
         if (
-            skip_sources_in_lineage
-            and entities_enabled
-            and entities_enabled.sources == EmitDirective.YES
+            self.skip_sources_in_lineage
+            and self.entities_enabled
+            and self.entities_enabled.sources == EmitDirective.YES
             # When `prefer_sql_parser_lineage` is enabled, it's ok to have `skip_sources_in_lineage` enabled
             # without also disabling sources.
-            and not prefer_sql_parser_lineage
+            and not self.prefer_sql_parser_lineage
         ):
             raise ValueError(
                 "When `skip_sources_in_lineage` is enabled, `entities_enabled.sources` must be set to NO."
             )
 
-        return skip_sources_in_lineage
+        return self
 
 
 @dataclass

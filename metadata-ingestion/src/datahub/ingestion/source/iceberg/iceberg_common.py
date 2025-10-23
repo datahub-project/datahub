@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
 from humanfriendly import format_timespan
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 from pyiceberg.catalog import Catalog, load_catalog
 from pyiceberg.catalog.rest import RestCatalog
 from requests.adapters import HTTPAdapter
@@ -108,7 +108,8 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         default=1, description="How many threads will be processing tables"
     )
 
-    @validator("catalog", pre=True, always=True)
+    @field_validator("catalog", mode="before")
+    @classmethod
     def handle_deprecated_catalog_format(cls, value):
         # Once support for deprecated format is dropped, we can remove this validator.
         if (
@@ -131,7 +132,8 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         # In case the input is already the new format or is invalid
         return value
 
-    @validator("catalog")
+    @field_validator("catalog")
+    @classmethod
     def validate_catalog_size(cls, value):
         if len(value) != 1:
             raise ValueError("The catalog must contain exactly one entry.")

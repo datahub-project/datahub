@@ -1,11 +1,11 @@
 import dataclasses
 import os
 import re
-from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
 import pydantic
 from looker_sdk.sdk.api40.models import DBConnection
-from pydantic import Field, model_validator, validator
+from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import (
@@ -198,17 +198,20 @@ class LookerConnectionDefinition(ConfigModel):
         "the top level Looker configuration",
     )
 
-    @validator("platform_env")
+    @field_validator("platform_env")
+    @classmethod
     def platform_env_must_be_one_of(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
             return EnvConfigMixin.env_must_be_one_of(v)
         return v
 
-    @validator("platform", "default_db", "default_schema")
-    def lower_everything(cls, v):
+    @field_validator("platform", "default_db", "default_schema")
+    @classmethod
+    def lower_everything(cls, v: Optional[str]) -> Optional[str]:
         """We lower case all strings passed in to avoid casing issues later"""
         if v is not None:
             return v.lower()
+        return v
 
     @classmethod
     def from_looker_connection(
@@ -326,22 +329,20 @@ class LookerDashboardSourceConfig(
         "Dashboards will only be ingested if they're allowed by both this config and dashboard_pattern.",
     )
 
-    @validator("external_base_url", pre=True, always=True)
+    @model_validator(mode="before")
+    @classmethod
     def external_url_defaults_to_api_config_base_url(
-        cls, v: Optional[str], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
-    ) -> Optional[str]:
-        return v or values.get("base_url")
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        if "external_base_url" not in values or values["external_base_url"] is None:
+            values["external_base_url"] = values.get("base_url")
+        return values
 
-    @validator("extract_independent_looks", always=True)
-    def stateful_ingestion_should_be_enabled(
-        cls, v: Optional[bool], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
-    ) -> Optional[bool]:
-        stateful_ingestion: StatefulStaleMetadataRemovalConfig = cast(
-            StatefulStaleMetadataRemovalConfig, values.get("stateful_ingestion")
-        )
-        if v is True and (
-            stateful_ingestion is None or stateful_ingestion.enabled is False
+    @model_validator(mode="after")
+    def stateful_ingestion_should_be_enabled(self):
+        if self.extract_independent_looks is True and (
+            self.stateful_ingestion is None or self.stateful_ingestion.enabled is False
         ):
             raise ValueError("stateful_ingestion.enabled should be set to true")
 
-        return v
+        return self
