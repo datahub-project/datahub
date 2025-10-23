@@ -27,6 +27,12 @@ extend type Query {
   Global settings related to the home page for an instance
   """
   globalHomePageSettings: GlobalHomePageSettings
+
+  """
+  Fetch the latest product update information from configured JSON source.
+  Returns null if the JSON source is unavailable or feature is disabled.
+  """
+  latestProductUpdate(refreshCache: Boolean = false): ProductUpdate
 }
 
 extend type Mutation {
@@ -228,6 +234,16 @@ type SearchCardConfig {
 }
 
 """
+Configurations related the Search Flags
+"""
+type SearchFlagsConfig {
+  """
+  Default value for skipHighlighting search flag. Currently used in Search Page and Search Bar
+  """
+  defaultSkipHighlighting: Boolean!
+}
+
+"""
 Variants of APIs used in the Search bar to get data
 """
 enum PersonalSidebarSection {
@@ -332,6 +348,11 @@ type AppConfig {
   Configurations related to the Search card
   """
   searchCardConfig: SearchCardConfig!
+
+  """
+  Configurations related the Search Flags
+  """
+  searchFlagsConfig: SearchFlagsConfig!
 
   """
   Feature flags telling the UI whether a feature is enabled or not
@@ -893,4 +914,45 @@ type GlobalHomePageSettings {
   The default page template for the home page for this instance
   """
   defaultTemplate: DataHubPageTemplate
+}
+
+"""
+Product update information fetched from remote JSON source
+"""
+type ProductUpdate {
+  """
+  Whether this update is enabled and should be shown
+  """
+  enabled: Boolean!
+
+  """
+  Unique identifier for this update (e.g., "v1.2.1")
+  Version changes trigger re-display for users who dismissed previous versions
+  """
+  id: String!
+
+  """
+  Title of the update notification
+  """
+  title: String!
+
+  """
+  Optional URL to an image to display with the update
+  """
+  image: String
+
+  """
+  Optional description text for the update
+  """
+  description: String
+
+  """
+  Call-to-action button text (e.g., "Read updates")
+  """
+  ctaText: String!
+
+  """
+  Call-to-action link URL, with telemetry client ID appended
+  """
+  ctaLink: String!
 }

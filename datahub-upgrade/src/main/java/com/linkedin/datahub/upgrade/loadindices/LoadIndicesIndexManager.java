@@ -159,8 +159,8 @@ public class LoadIndicesIndexManager {
 
         log.debug("Optimized settings for index: {}", config.name());
       } catch (IOException e) {
-        log.error("Failed to optimize settings for index: {}", config.name(), e);
-        throw e;
+        throw new RuntimeException(
+            "Failed to optimize settings for index: " + config.name() + ": " + e.getMessage(), e);
       }
     }
 
@@ -199,8 +199,8 @@ public class LoadIndicesIndexManager {
             targetRefreshInterval,
             targetReplicaCount);
       } catch (IOException e) {
-        log.error("Failed to restore settings for index: {}", config.name(), e);
-        throw e;
+        throw new RuntimeException(
+            "Failed to restore settings for index: " + config.name() + ": " + e.getMessage(), e);
       }
     }
 
