@@ -27,6 +27,7 @@ export * from './components/Loader';
 export * from './components/MatchText';
 export * from './components/Menu';
 export * from './components/Modal';
+export * from './components/Notification';
 export * from './components/OverflowText';
 export * from './components/PageTitle';
 export * from './components/Pagination';

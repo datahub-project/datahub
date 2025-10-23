@@ -28,10 +28,22 @@ import {
     isFileUrl,
     validateFile,
 } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
+import { FileUploadFailureType, FileUploadSource } from '@components/components/Editor/types';
+import { notification } from '@components/components/Notification/notification';
 
 interface FileDragDropOptions {
     onFileUpload?: (file: File) => Promise<string>;
     supportedTypes?: string[];
+    onFileUploadAttempt?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
+    onFileUploadFailed?: (
+        fileType: string,
+        fileSize: number,
+        source: FileUploadSource,
+        failureType: FileUploadFailureType,
+        comment?: string,
+    ) => void;
+    onFileUploadSucceeded?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
+    onFileDownloadView?: (fileType: string, fileSize: number) => void;
 }
 
 /**
@@ -106,9 +118,21 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
         // Process each file
         const fileArray = Array.from(files);
         const processPromises = fileArray.map(async (file) => {
+            this.options.onFileUploadAttempt?.(file.type, file.size, 'drag-and-drop');
+
             const validation = validateFile(file, { allowedTypes: supportedTypes });
             if (!validation.isValid) {
                 console.error(validation.error);
+                this.options.onFileUploadFailed?.(
+                    file.type,
+                    file.size,
+                    'drag-and-drop',
+                    validation.failureType || FileUploadFailureType.UNKNOWN,
+                );
+                notification.error({
+                    message: 'Upload Failed',
+                    description: validation.displayError || validation.error,
+                });
                 return; // Skip invalid files
             }
 
@@ -138,16 +162,40 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                 try {
                     const finalUrl = await this.options.onFileUpload(file);
                     this.updateNodeWithUrl(view, placeholderAttrs.id, finalUrl);
+                    this.options.onFileUploadSucceeded?.(file.type, file.size, 'drag-and-drop');
                 } catch (uploadError) {
-                    // Upload failed silently - placeholder node remains
+                    console.error(uploadError);
+                    this.options.onFileUploadFailed?.(
+                        file.type,
+                        file.size,
+                        'drag-and-drop',
+                        FileUploadFailureType.UNKNOWN,
+                        `${uploadError}`,
+                    );
+                    this.removeNode(view, placeholderAttrs.id);
+                    notification.error({
+                        message: 'Upload Failed',
+                        description: 'Something went wrong',
+                    });
                 }
             }
         } catch (error) {
-            // Error processing file - skip silently
+            console.error(error);
+            this.options.onFileUploadFailed?.(
+                file.type,
+                file.size,
+                'drag-and-drop',
+                FileUploadFailureType.UNKNOWN,
+                `${error}`,
+            );
+            notification.error({
+                message: 'Upload Failed',
+                description: 'Something went wrong',
+            });
         }
     }
 
-    private updateNodeWithUrl(view: EditorView, nodeId: string, url: string): void {
+    public updateNodeWithUrl(view: EditorView, nodeId: string, url: string): void {
         const { nodePos, nodeToUpdate } = this.findNodeById(view.state, nodeId);
 
         if (!nodePos || !nodeToUpdate) return;
@@ -159,6 +207,14 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
         } else {
             this.updateFileNodeUrl(view, nodePos, nodeToUpdate, url);
         }
+    }
+
+    public removeNode(view: EditorView, nodeId: string) {
+        const { nodePos, nodeToUpdate } = this.findNodeById(view.state, nodeId);
+        if (!nodePos || !nodeToUpdate) return;
+
+        const updatedTransaction = view.state.tr.delete(nodePos, nodePos + nodeToUpdate.nodeSize);
+        view.dispatch(updatedTransaction);
     }
 
     private findNodeById(state: any, nodeId: string): { nodePos: number | null; nodeToUpdate: any } {
@@ -289,7 +345,12 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
     /**
      * Renders a React Component in place of the dom node spec
      */
-    ReactComponent: ComponentType<NodeViewComponentProps> = (props) => <FileNodeView {...props} />;
+    ReactComponent: ComponentType<NodeViewComponentProps> = (props) => (
+        <FileNodeView
+            {...props}
+            onFileDownloadView={(fileType, fileSize) => this.options.onFileDownloadView?.(fileType, fileSize)}
+        />
+    );
 
     createCommands() {
         return {
@@ -312,6 +373,10 @@ const decoratedExt = extension<FileDragDropOptions>({
     defaultOptions: {
         onFileUpload: async (_file: File) => '',
         supportedTypes: SUPPORTED_FILE_TYPES,
+        onFileUploadAttempt: () => {},
+        onFileUploadFailed: () => {},
+        onFileUploadSucceeded: () => {},
+        onFileDownloadView: () => {},
     },
 })(FileDragDropExtension);
 
