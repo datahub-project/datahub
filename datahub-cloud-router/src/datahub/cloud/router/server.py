@@ -269,7 +269,7 @@ class DataHubMultiTenantRouter:
                 },
             }
 
-        @self.app.get("/update-oss/")
+        @self.app.get("/updates/datahub-core/")
         async def get_oss_updates():
             """Serve OSS product updates from GitHub with caching."""
             try:
@@ -282,7 +282,7 @@ class DataHubMultiTenantRouter:
                     content={"error": "Failed to load OSS product updates"},
                 )
 
-        @self.app.get("/update-saas/")
+        @self.app.get("/updates/datahub-cloud/")
         async def get_saas_updates():
             """Serve SaaS product updates from GitHub with caching."""
             try:
@@ -313,8 +313,8 @@ class DataHubMultiTenantRouter:
                 },
                 "endpoints": {
                     "health": "/health",
-                    "oss_updates": "/update-oss/",
-                    "saas_updates": "/update-saas/",
+                    "oss_updates": "/updates/datahub-core/",
+                    "saas_updates": "/updates/datahub-cloud/",
                     "webhook": "/public/teams/webhook",
                     "bot_framework": "/api/messages",
                     "events": "/events",
