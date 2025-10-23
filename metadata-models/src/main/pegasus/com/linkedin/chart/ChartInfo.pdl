@@ -36,6 +36,12 @@ record ChartInfo includes CustomProperties, ExternalReference {
   /**
    * Captures information about who created/last modified/deleted this chart and when
    */
+  @Searchable = {
+    "/lastModified/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME"
+    }
+  }
   lastModified: ChangeAuditStamps
 
   /**
