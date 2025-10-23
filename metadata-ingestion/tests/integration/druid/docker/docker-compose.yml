@@ -31,7 +31,7 @@ volumes:
 services:
   postgres:
     container_name: postgres
-    image: postgres:latest
+    image: postgres:15
     ports:
       - "5432:5432"
     volumes:
@@ -40,6 +40,13 @@ services:
       - POSTGRES_PASSWORD=FoolishPassword
       - POSTGRES_USER=druid
       - POSTGRES_DB=druid
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U druid"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: on-failure:3
 
   # Need 3.5 or later for container nodes
   zookeeper:
@@ -49,6 +56,13 @@ services:
       - "2181:2181"
     environment:
       - ZOO_MY_ID=1
+    healthcheck:
+      test: ["CMD", "zkServer.sh", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: on-failure:3
 
   coordinator:
     image: apache/druid:32.0.0
@@ -57,14 +71,17 @@ services:
       - druid_shared:/opt/shared
       - coordinator_var:/opt/druid/var
     depends_on:
-      - zookeeper
-      - postgres
+      zookeeper:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
     ports:
       - "8081:8081"
     command:
       - coordinator
     env_file:
       - environment
+    restart: on-failure:3
 
   broker:
     image: apache/druid:32.0.0
@@ -72,15 +89,19 @@ services:
     volumes:
       - broker_var:/opt/druid/var
     depends_on:
-      - zookeeper
-      - postgres
-      - coordinator
+      zookeeper:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      coordinator:
+        condition: service_started
     ports:
       - "8082:8082"
     command:
       - broker
     env_file:
       - environment
+    restart: on-failure:3
 
   historical:
     image: apache/druid:32.0.0
@@ -89,15 +110,19 @@ services:
       - druid_shared:/opt/shared
       - historical_var:/opt/druid/var
     depends_on:
-      - zookeeper
-      - postgres
-      - coordinator
+      zookeeper:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      coordinator:
+        condition: service_started
     ports:
       - "8083:8083"
     command:
       - historical
     env_file:
       - environment
+    restart: on-failure:3
 
   middlemanager:
     image: apache/druid:32.0.0
@@ -106,9 +131,12 @@ services:
       - druid_shared:/opt/shared
       - middle_var:/opt/druid/var
     depends_on:
-      - zookeeper
-      - postgres
-      - coordinator
+      zookeeper:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      coordinator:
+        condition: service_started
     ports:
       - "8091:8091"
       - "8100-8105:8100-8105"
@@ -116,6 +144,7 @@ services:
       - middleManager
     env_file:
       - environment
+    restart: on-failure:3
 
   router:
     image: apache/druid:32.0.0
@@ -123,12 +152,16 @@ services:
     volumes:
       - router_var:/opt/druid/var
     depends_on:
-      - zookeeper
-      - postgres
-      - coordinator
+      zookeeper:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      coordinator:
+        condition: service_started
     ports:
       - "8888:8888"
     command:
       - router
     env_file:
       - environment
+    restart: on-failure:3
