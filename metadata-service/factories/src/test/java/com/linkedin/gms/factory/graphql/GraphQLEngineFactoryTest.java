@@ -321,6 +321,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @Qualifier("pageModuleService")
   private PageModuleService pageModuleService;
 
+  @MockitoBean
+  @Qualifier("dataHubFileService")
+  private DataHubFileService dataHubFileService;
+
   @Value("${platformAnalytics.enabled}")
   private Boolean isAnalyticsEnabled;
 
@@ -437,6 +441,9 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     setField(factoryWithAnalytics, "assertionService", assertionService);
     setField(factoryWithAnalytics, "metadataTestClient", metadataTestClient);
     setField(factoryWithAnalytics, "actionRequestService", actionRequestService);
+    setField(factoryWithAnalytics, "pageTemplateService", pageTemplateService);
+    setField(factoryWithAnalytics, "pageModuleService", pageModuleService);
+    setField(factoryWithAnalytics, "dataHubFileService", dataHubFileService);
     setField(factoryWithAnalytics, "s3Util", s3Util);
     setField(factoryWithAnalytics, "isAnalyticsEnabled", true);
     setField(factoryWithAnalytics, "defaultLineageLastDaysFilter", 30);
@@ -499,6 +506,9 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     assertNotNull(assertionService);
     assertNotNull(metadataTestClient);
     assertNotNull(actionRequestService);
+    assertNotNull(pageTemplateService);
+    assertNotNull(pageModuleService);
+    assertNotNull(dataHubFileService);
     assertNotNull(entityClient);
     assertNotNull(systemEntityClient);
     assertNotNull(s3Util);

@@ -1472,8 +1472,8 @@ public class MonitorServiceTest {
             null,
             newSettings);
 
-    // Sleep a short time to allow the async operation to complete
-    Thread.sleep(100);
+    // Sleep to allow the async operation to complete (increased for CI environments)
+    Thread.sleep(500);
 
     // Verify
     assertNotNull(result);

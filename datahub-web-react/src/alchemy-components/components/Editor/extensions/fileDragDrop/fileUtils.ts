@@ -104,6 +104,28 @@ export const createFileNodeAttributes = (file: File): FileNodeAttributes => {
 const MAX_FILE_SIZE_IN_BYTES = 2 * 1000 * 1000 * 1000; // 2GB
 
 /**
+ * Get file extension from file name
+ * @param fileName - name of the file
+ * @returns file extension if found, undefined string otherwise
+ */
+export const getExtensionFromFileName = (fileName: string): string | undefined => {
+    if (typeof fileName !== 'string') {
+        return undefined;
+    }
+
+    // Get the part after the last dot, but only if it's not at the start or end
+    const lastDotIndex = fileName.lastIndexOf('.');
+
+    // No dot found, or dot is at the beginning (hidden file like .gitignore)
+    // or dot is at the very end (filename like "file.")
+    if (lastDotIndex === -1 || lastDotIndex === 0 || lastDotIndex === fileName.length - 1) {
+        return undefined;
+    }
+
+    return fileName.slice(lastDotIndex + 1).toLowerCase();
+};
+
+/**
  * Validate file before processing
  */
 export const validateFile = (
@@ -112,7 +134,7 @@ export const validateFile = (
         maxSize?: number; // in bytes
         allowedTypes?: string[];
     },
-): { isValid: boolean; error?: string } => {
+): { isValid: boolean; error?: string; displayError?: string } => {
     const { maxSize = MAX_FILE_SIZE_IN_BYTES, allowedTypes = SUPPORTED_FILE_TYPES } = options || {};
 
     // Check file size
@@ -120,14 +142,17 @@ export const validateFile = (
         return {
             isValid: false,
             error: `File size (${(file.size / 1000 / 1000).toFixed(2)}MB) exceeds maximum allowed size (${(maxSize / 1000 / 1000).toFixed(2)}MB)`,
+            displayError: `Your file size (${(file.size / 1000 / 1000 / 1000).toFixed(2)}GB) exceeded the max ${parseFloat((maxSize / 1000 / 1000 / 1000).toFixed(2))}GB`,
         };
     }
 
     // Check file type
     if (!isFileTypeSupported(file.type, allowedTypes)) {
+        const extension = getExtensionFromFileName(file.name);
         return {
             isValid: false,
             error: `File type "${file.type}" is not allowed. Supported types: ${allowedTypes.join(', ')}`,
+            displayError: `File type not supported${extension ? `: ${extension.toLocaleUpperCase()}` : ''}`,
         };
     }
 
@@ -169,7 +194,7 @@ export const isFileUrl = (url: string): boolean => {
  * @returns MIME type if detectable, empty string otherwise
  */
 export const getFileTypeFromUrl = (url: string): string => {
-    const extension = url.split('.').pop()?.toLowerCase();
+    const extension = getExtensionFromFileName(url);
     if (!extension) return '';
 
     return EXTENSION_TO_FILE_TYPE[extension] || '';

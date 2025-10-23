@@ -51,6 +51,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final ClassificationConfiguration _classificationConfiguration;
   // private final ClassificationAutomations _automations;
   private final Integer _defaultLineageLastDaysFilter;
+  private final boolean _isS3Enabled;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
@@ -72,7 +73,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final ChromeExtensionConfiguration chromeExtensionConfiguration,
       final SettingsService settingsService,
       final ClassificationConfiguration classificationConfiguration,
-      final Integer defaultLineageLastDaysFilter) {
+      final Integer defaultLineageLastDaysFilter,
+      final boolean isS3Enabled) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
@@ -93,6 +95,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _settingsService = settingsService;
     _classificationConfiguration = classificationConfiguration;
     _defaultLineageLastDaysFilter = defaultLineageLastDaysFilter;
+    _isS3Enabled = isS3Enabled;
   }
 
   @Override
@@ -352,7 +355,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
             .setInviteUsersEnabled(_featureFlags.isInviteUsersEnabled())
             .setSupportTicketsEnabled(_featureFlags.isSupportTicketsEnabled())
-            .setDocumentationFileUploadV1(_featureFlags.isDocumentationFileUploadV1())
+            .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
@@ -472,5 +475,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     } else {
       return null;
     }
+  }
+
+  private boolean isDocumentationFileUploadV1Enabled() {
+    boolean isEnabledInConfig = _featureFlags.isDocumentationFileUploadV1();
+    return isEnabledInConfig && _isS3Enabled;
   }
 }
