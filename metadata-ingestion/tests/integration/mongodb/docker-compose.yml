@@ -1,7 +1,7 @@
 version: "2"
 services:
   testmongodb:
-    image: mongo
+    image: mongo:6.0.7
     container_name: "testmongodb"
     environment:
       MONGO_INITDB_ROOT_USERNAME: mongoadmin
@@ -12,3 +12,10 @@ services:
     volumes:
       - ./setup/mongo_init.js:/docker-entrypoint-initdb.d/mongo_init.js:ro
       - ./setup:/setup
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand({ ping: 1 })", "--quiet"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: on-failure:3
