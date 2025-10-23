@@ -12,6 +12,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau_common import (
     FIELD_TYPE_MAPPING,
+    DatasourceType,
     LineageResult,
     virtual_connection_detailed_graphql_query,
     virtual_connection_graphql_query,
@@ -98,7 +99,7 @@ class VirtualConnectionProcessor:
         return False
 
     def process_datasource_for_vc_refs(
-        self, datasource: dict, datasource_type: str
+        self, datasource: dict, datasource_type: DatasourceType
     ) -> None:
         """Process a single datasource for VC references - called during datasource emission"""
         datasource_id = datasource.get(c.ID)
@@ -243,7 +244,7 @@ class VirtualConnectionProcessor:
                                 col_type
                             )
 
-        logger.info(
+        logger.debug(
             f"VC Lookup Results: Found {len(self.vc_table_id_to_vc_id)} VC table mappings, "
             f"will process {len(self.virtual_connection_ids_being_used)} VCs"
         )
@@ -256,8 +257,8 @@ class VirtualConnectionProcessor:
             )
 
         if not self.vc_table_id_to_vc_id:
-            logger.warning(
-                "No VC table mappings found! This may indicate a problem with VC table lookup."
+            logger.debug(
+                "No VC table mappings found - no Virtual Connection tables are being used by datasources."
             )
 
     def emit_virtual_connections(self):

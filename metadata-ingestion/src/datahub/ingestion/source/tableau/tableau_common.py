@@ -39,8 +39,16 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
 from datahub.utilities.ordered_set import OrderedSet
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
+
+
+class DatasourceType(StrEnum):
+    """Enum for Tableau datasource types used in Virtual Connection processing."""
+
+    EMBEDDED = "embedded"
+    PUBLISHED = "published"
 
 
 class LineageResult(BaseModel):

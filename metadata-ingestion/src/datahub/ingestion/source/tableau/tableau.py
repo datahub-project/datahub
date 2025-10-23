@@ -95,6 +95,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau_common import (
     FIELD_TYPE_MAPPING,
+    DatasourceType,
     LineageResult,
     MetadataQueryException,
     TableauLineageOverrides,
@@ -1796,14 +1797,13 @@ class TableauSiteSource:
 
         # Check if this datasource uses Virtual Connection tables first
         datasource_id = datasource.get(c.ID)
-        if datasource_id:
+        vc_upstreams, vc_id_to_urn = [], {}
+        if datasource_id and self.config.ingest_virtual_connections:
             vc_result = self.get_upstream_vc_tables(datasource_id)
             vc_upstreams, vc_id_to_urn = (
                 vc_result.upstream_tables,
                 vc_result.table_id_to_urn,
             )
-        else:
-            vc_upstreams, vc_id_to_urn = [], {}
 
         # When tableau workbook connects to published datasource, it creates an embedded
         # datasource inside workbook that connects to published datasource. Both embedded
@@ -2043,7 +2043,7 @@ class TableauSiteSource:
                 page_size=self.config.effective_published_datasource_page_size,
             ):
                 self.vc_processor.process_datasource_for_vc_refs(
-                    datasource, "published"
+                    datasource, DatasourceType.PUBLISHED
                 )
 
         # Collect from embedded datasources
@@ -2059,7 +2059,9 @@ class TableauSiteSource:
                 query_filter=datasource_filter,
                 page_size=self.config.effective_embedded_datasource_page_size,
             ):
-                self.vc_processor.process_datasource_for_vc_refs(datasource, "embedded")
+                self.vc_processor.process_datasource_for_vc_refs(
+                    datasource, DatasourceType.EMBEDDED
+                )
 
     def get_upstream_tables(
         self,
@@ -2898,6 +2900,23 @@ class TableauSiteSource:
         workbook: Optional[dict] = None,
         is_embedded_ds: bool = False,
     ) -> Iterable[MetadataWorkUnit]:
+        # Collect VC references during normal datasource processing (if VC processing is enabled)
+        if self.config.ingest_virtual_connections:
+            try:
+                datasource_type = (
+                    DatasourceType.EMBEDDED
+                    if is_embedded_ds
+                    else DatasourceType.PUBLISHED
+                )
+                self.vc_processor.process_datasource_for_vc_refs(
+                    datasource, datasource_type
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Error collecting VC references from datasource {datasource.get('id', 'unknown')}: {e}"
+                )
+                # Continue processing normally even if VC collection fails
+
         datasource_info = workbook
         if not is_embedded_ds:
             datasource_info = datasource
@@ -2983,26 +3002,32 @@ class TableauSiteSource:
             upstream_tables = lineage_result.upstream_tables
             fine_grained_lineages = lineage_result.fine_grained_lineages
 
-            # Add VC lineage to existing lineage
-            logger.debug(f"Creating VC lineage for datasource: {datasource_urn}")
-            vc_lineage_result = self.vc_processor.create_datasource_vc_lineage(
-                datasource_urn
-            )
-            vc_upstream_tables = vc_lineage_result.upstream_tables
-            vc_fine_grained_lineages = vc_lineage_result.fine_grained_lineages
-            logger.debug(
-                f"VC lineage created: {len(vc_upstream_tables)} upstream tables, "
-                f"{len(vc_fine_grained_lineages)} fine-grained lineages"
-            )
+            # Add VC lineage to existing lineage (only if VC processing is enabled)
+            if self.config.ingest_virtual_connections:
+                logger.debug(f"Creating VC lineage for datasource: {datasource_urn}")
+                vc_lineage_result = self.vc_processor.create_datasource_vc_lineage(
+                    datasource_urn
+                )
+                vc_upstream_tables = vc_lineage_result.upstream_tables
+                vc_fine_grained_lineages = vc_lineage_result.fine_grained_lineages
+                logger.debug(
+                    f"VC lineage created: {len(vc_upstream_tables)} upstream tables, "
+                    f"{len(vc_fine_grained_lineages)} fine-grained lineages"
+                )
 
-            # Combine with existing upstream tables
-            upstream_tables.extend(vc_upstream_tables)
+                # Combine with existing upstream tables
+                upstream_tables.extend(vc_upstream_tables)
 
-            # Combine all fine-grained lineages
-            all_fine_grained_lineages = fine_grained_lineages + vc_fine_grained_lineages
+                # Combine all fine-grained lineages
+                all_fine_grained_lineages = (
+                    fine_grained_lineages + vc_fine_grained_lineages
+                )
 
-            # Update report statistics
-            self.report.num_vc_lineages_created += len(vc_fine_grained_lineages)
+                # Update report statistics
+                self.report.num_vc_lineages_created += len(vc_fine_grained_lineages)
+            else:
+                # No VC processing, use only regular fine-grained lineages
+                all_fine_grained_lineages = fine_grained_lineages
 
             if upstream_tables or all_fine_grained_lineages:
                 upstream_lineage = UpstreamLineage(
@@ -4009,12 +4034,24 @@ class TableauSiteSource:
         """Find matching database table using multiple strategies"""
         if not hasattr(self, "db_tables_lookup"):
             # Initialize database tables lookup if not already done
-            self._build_database_tables_lookup()
+            try:
+                self._build_database_tables_lookup()
+            except Exception as e:
+                logger.debug(f"Database tables lookup not available: {e}")
+                # Return None - VC processing will continue without database matching
+                return None
+
+        # If lookup is empty or not available, return None early
+        if not hasattr(self, "db_tables_lookup") or not self.db_tables_lookup:
+            logger.debug(
+                f"No database tables available for matching VC table: '{vc_table_name}'"
+            )
+            return None
 
         clean_vc_name = clean_table_name(vc_table_name)
         clean_vc_name.lower()
 
-        logger.info(
+        logger.debug(
             f"Looking for database table match for VC table: '{vc_table_name}' (cleaned: '{clean_vc_name}') - "
             f"Database lookup has {len(self.db_tables_lookup)} entries"
         )
@@ -4065,7 +4102,7 @@ class TableauSiteSource:
                     )
                     return matched_table
 
-        logger.warning(
+        logger.debug(
             f"No match found for VC table '{vc_table_name}' in {len(self.db_tables_lookup)} database tables"
         )
 
@@ -4288,10 +4325,8 @@ class TableauSiteSource:
                     timer.elapsed_seconds(digits=2)
                 )
 
-            # Build database tables lookup early (if VCs will be processed)
-            if self.config.ingest_virtual_connections:
-                logger.debug("Building database tables lookup for VC processing")
-                self._build_database_tables_lookup()
+            # Database tables lookup is now handled conditionally during VC processing
+            # (only when there are actual VC references that need database table matching)
 
             if self.config.add_site_container:
                 yield from self.emit_site_container()
@@ -4317,17 +4352,7 @@ class TableauSiteSource:
                         timer.elapsed_seconds(digits=2)
                     )
 
-            # STEP 1: Collect VC references from datasources (without emitting yet)
-            if self.config.ingest_virtual_connections:
-                logger.info("=== VIRTUAL CONNECTIONS PROCESSING START ===")
-                logger.info("Step 1: Collecting VC references from datasources")
-                self._collect_vc_references_from_datasources()
-
-                # Build VC mappings now that we have all references
-                logger.info("Step 2: Building VC mappings from collected references")
-                self.vc_processor.lookup_vc_ids_from_table_ids()
-
-            # STEP 2: Now emit datasources (VC lineage will work because mappings exist)
+            # STEP 1: Emit datasources first (VC references get collected during this step)
             if self.embedded_datasource_ids_being_used:
                 with PerfTimer() as timer:
                     yield from self.emit_embedded_datasources()
@@ -4341,6 +4366,36 @@ class TableauSiteSource:
                     self.report.emit_published_datasources_timer[
                         self.site_content_url
                     ] = timer.elapsed_seconds(digits=2)
+
+            # STEP 2: Build VC mappings now that all VC references have been collected
+            if self.config.ingest_virtual_connections:
+                try:
+                    logger.debug("=== VIRTUAL CONNECTIONS PROCESSING START ===")
+                    if self.vc_processor.vc_table_ids_for_lookup:
+                        logger.debug(
+                            "Step 2: Building VC mappings from collected references"
+                        )
+
+                        # Build database tables lookup only when we have VC references
+                        # This enables VC-to-database lineage
+                        try:
+                            logger.debug(
+                                "Building database tables lookup for VC processing"
+                            )
+                            self._build_database_tables_lookup()
+                            logger.debug(
+                                f"Database tables lookup built successfully with {len(getattr(self, 'db_tables_lookup', {}))} entries"
+                            )
+                        except Exception as e:
+                            logger.debug(f"Database tables lookup not available: {e}")
+                            # VC processing will continue without database table matching capabilities
+
+                        self.vc_processor.lookup_vc_ids_from_table_ids()
+                    else:
+                        logger.debug("No VC references found, skipping VC processing")
+                except Exception as e:
+                    logger.warning(f"Error building VC mappings: {e}")
+                    # Continue processing normally even if VC mapping fails
 
             # STEP 3: Now process Virtual Connections emission
             if self.config.ingest_virtual_connections:

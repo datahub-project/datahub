@@ -12,7 +12,10 @@ from datahub.ingestion.source.tableau.tableau import (
     TableauSiteSource,
     TableauSourceReport,
 )
-from datahub.ingestion.source.tableau.tableau_common import LineageResult
+from datahub.ingestion.source.tableau.tableau_common import (
+    DatasourceType,
+    LineageResult,
+)
 from datahub.ingestion.source.tableau.tableau_virtual_connections import (
     VCFolderKey,
     VirtualConnectionProcessor,
@@ -111,7 +114,9 @@ class TestVirtualConnectionProcessor:
             ],
         }
 
-        self.vc_processor.process_datasource_for_vc_refs(datasource, "published")
+        self.vc_processor.process_datasource_for_vc_refs(
+            datasource, DatasourceType.PUBLISHED
+        )
 
         # Check that VC references were captured
         assert "ds-123" in self.vc_processor.datasource_vc_relationships
@@ -147,7 +152,9 @@ class TestVirtualConnectionProcessor:
         }
 
         initial_vc_count = len(self.vc_processor.vc_table_ids_for_lookup)
-        self.vc_processor.process_datasource_for_vc_refs(datasource, "embedded")
+        self.vc_processor.process_datasource_for_vc_refs(
+            datasource, DatasourceType.EMBEDDED
+        )
 
         # Should not add any VC references
         assert len(self.vc_processor.vc_table_ids_for_lookup) == initial_vc_count
@@ -166,12 +173,14 @@ class TestVirtualConnectionProcessor:
 
         # Should handle gracefully without crashing
         self.vc_processor.process_datasource_for_vc_refs(
-            malformed_datasource1, "published"
+            malformed_datasource1, DatasourceType.PUBLISHED
         )
         self.vc_processor.process_datasource_for_vc_refs(
-            malformed_datasource2, "embedded"
+            malformed_datasource2, DatasourceType.EMBEDDED
         )
-        self.vc_processor.process_datasource_for_vc_refs(empty_datasource, "published")
+        self.vc_processor.process_datasource_for_vc_refs(
+            empty_datasource, DatasourceType.PUBLISHED
+        )
 
         # Should not have added any problematic entries
         assert len(self.vc_processor.vc_table_ids_for_lookup) == 0
@@ -865,7 +874,9 @@ class TestVirtualConnectionProcessor:
             ],
         }
 
-        self.vc_processor.process_datasource_for_vc_refs(datasource, "published")
+        self.vc_processor.process_datasource_for_vc_refs(
+            datasource, DatasourceType.PUBLISHED
+        )
 
         # Should not create relationships for empty field names
         assert "ds-123" not in self.vc_processor.datasource_vc_relationships
@@ -988,7 +999,9 @@ class TestVirtualConnectionProcessor:
             ],
         }
 
-        self.vc_processor.process_datasource_for_vc_refs(datasource, "embedded")
+        self.vc_processor.process_datasource_for_vc_refs(
+            datasource, DatasourceType.EMBEDDED
+        )
 
         # Should only have one VC reference (the real column, not the table name)
         if "ds-123" in self.vc_processor.datasource_vc_relationships:
