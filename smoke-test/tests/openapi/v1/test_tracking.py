@@ -43,9 +43,7 @@ def test_tracking_api_mixpanel(auth_session, graph_client):
 
     # Check if Mixpanel is enabled in server configuration
     graph_client.test_connection()  # Hack: Needed to ensure that the server config is loaded
-    if not graph_client.server_config.get("telemetry", {}).get(
-        "enabledMixpanel", False
-    ):
+    if not graph_client.get_config().get("telemetry", {}).get("enabledMixpanel", False):
         pytest.skip("Mixpanel is disabled in server configuration, skipping test")
 
     # Test configuration

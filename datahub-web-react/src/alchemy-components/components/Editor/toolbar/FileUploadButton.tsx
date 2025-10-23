@@ -1,4 +1,4 @@
-import { Button, Dropdown, Text, Tooltip, colors } from '@components';
+import { Button, Dropdown, Text, Tooltip, colors, notification } from '@components';
 import { useRemirrorContext } from '@remirror/react';
 import { FileArrowUp } from 'phosphor-react';
 import React, { useRef, useState } from 'react';
@@ -11,6 +11,7 @@ import {
     validateFile,
 } from '@components/components/Editor/extensions/fileDragDrop';
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
+import { FileUploadFailureType } from '@components/components/Editor/types';
 
 const DropdownContainer = styled.div`
     box-shadow: 0 4px 12px 0 rgba(9, 1, 61, 0.12);
@@ -58,16 +59,27 @@ export const FileUploadButton = () => {
         if (files.length === 0) return;
 
         const supportedTypes = SUPPORTED_FILE_TYPES;
-        const { onFileUpload } = fileExtension.options;
+        const { onFileUpload, onFileUploadAttempt, onFileUploadFailed, onFileUploadSucceeded } = fileExtension.options;
 
         try {
             // Process files concurrently
             await Promise.all(
                 files.map(async (file) => {
+                    onFileUploadAttempt?.(file.type, file.size, 'button');
+
                     const validation = validateFile(file, { allowedTypes: supportedTypes });
                     if (!validation.isValid) {
-                        // TODO: Handle validation errors
-                        return;
+                        console.error(validation.error);
+                        onFileUploadFailed?.(
+                            file.type,
+                            file.size,
+                            'button',
+                            validation.failureType || FileUploadFailureType.UNKNOWN,
+                        );
+                        notification.error({
+                            message: 'Upload Failed',
+                            description: validation.displayError || validation.error,
+                        });
                     }
 
                     // Create placeholder node
@@ -79,14 +91,32 @@ export const FileUploadButton = () => {
                         try {
                             const finalUrl = await onFileUpload(file);
                             fileExtension.updateNodeWithUrl(remirrorContext.view, attrs.id, finalUrl);
+                            onFileUploadSucceeded?.(file.type, file.size, 'button');
                         } catch (uploadError) {
-                            // TODO: Handle upload errors
+                            console.error(uploadError);
+                            onFileUploadFailed?.(
+                                file.type,
+                                file.size,
+                                'button',
+                                FileUploadFailureType.UNKNOWN,
+                                `${uploadError}`,
+                            );
+                            fileExtension.removeNode(remirrorContext.view, attrs.id);
+                            notification.error({
+                                message: 'Upload Failed',
+                                description: 'Something went wrong',
+                            });
                         }
                     }
                 }),
             );
         } catch (error) {
-            // Error processing file - skip silently
+            console.error(error);
+            onFileUploadFailed?.(files[0].type, files[0].size, 'button', FileUploadFailureType.UNKNOWN, `${error}`);
+            notification.error({
+                message: 'Upload Failed',
+                description: 'Something went wrong',
+            });
         } finally {
             input.value = '';
             setShowDropdown(false);
@@ -104,6 +134,9 @@ export const FileUploadButton = () => {
             </StyledText>
         </DropdownContainer>
     );
+
+    // Hide the button when uploading of files is disabled
+    if (!fileExtension.options.onFileUpload) return null;
 
     return (
         <Dropdown open={showDropdown} onOpenChange={(open) => setShowDropdown(open)} dropdownRender={dropdownContent}>

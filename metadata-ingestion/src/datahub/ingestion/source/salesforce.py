@@ -527,7 +527,7 @@ class SalesforceApi:
 
 @platform_name("Salesforce")
 @config_class(SalesforceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(
     capability_name=SourceCapability.PLATFORM_INSTANCE,
     description="Can be equivalent to Salesforce organization",

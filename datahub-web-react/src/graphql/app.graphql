@@ -161,6 +161,14 @@ query getPresignedUploadUrl($input: GetPresignedUploadUrlInput!) {
     }
 }
 
+mutation createDataHubFile($input: CreateDataHubFileInput!) {
+    createDataHubFile(input: $input) {
+        file {
+            urn
+        }
+    }
+}
+
 mutation updateGlobalViewsSettings($input: UpdateGlobalViewsSettingsInput!) {
     updateGlobalViewsSettings(input: $input)
 }
