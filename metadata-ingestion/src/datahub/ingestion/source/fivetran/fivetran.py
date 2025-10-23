@@ -149,10 +149,7 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
             input_dataset_urn: Optional[DatasetUrn] = None
             # Special Handling for Google Sheets Connectors
-            if (
-                connector.connector_type == Constant.GOOGLE_SHEETS_CONNECTOR_TYPE
-                and self.api_client
-            ):
+            if connector.connector_type == Constant.GOOGLE_SHEETS_CONNECTOR_TYPE:
                 # Get Google Sheet dataset details from Fivetran API
                 # This is cached in the api_client
                 gsheets_conn_details: Optional[FivetranConnectionDetails] = (
@@ -166,6 +163,12 @@ class FivetranSource(StatefulIngestionSourceBase):
                             gsheets_conn_details
                         ),
                         env=source_details.env,
+                    )
+                else:
+                    self.report.warning(
+                        title="Failed to extract lineage for Google Sheets Connector",
+                        message="Unable to extract lineage for Google Sheets Connector, as the connector details are not available from Fivetran API.",
+                        context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
                     )
             else:
                 input_dataset_urn = DatasetUrn.create_from_ids(
@@ -305,6 +308,11 @@ class FivetranSource(StatefulIngestionSourceBase):
         self, connection_id: str
     ) -> Optional[FivetranConnectionDetails]:
         if self.api_client is None:
+            self.report.warning(
+                title="Fivetran API client is not initialized",
+                message="Google Sheets Connector details cannot be extracted, as Fivetran API client is not initialized.",
+                context=f"connector_id: {connection_id}",
+            )
             return None
 
         if connection_id in self._connection_details_cache:
@@ -319,8 +327,10 @@ class FivetranSource(StatefulIngestionSourceBase):
 
             return conn_details
         except Exception as e:
-            logger.warning(
-                f"Failed to get connection details for connector: {connection_id}, {e}"
+            self.report.warning(
+                title="Failed to get connection details for Google Sheets Connector",
+                message=f"Exception occurred while getting connection details from Fivetran API. {e}",
+                context=f"connector_id: {connection_id}",
             )
             return None
 
@@ -399,10 +409,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         Datahub supports Google Sheets source natively.
         -------------------------------------------------------
         """
-        if (
-            connector.connector_type == Constant.GOOGLE_SHEETS_CONNECTOR_TYPE
-            and self.api_client
-        ):
+        if connector.connector_type == Constant.GOOGLE_SHEETS_CONNECTOR_TYPE:
             # Get Google Sheet dataset details from Fivetran API
             gsheets_conn_details: Optional[FivetranConnectionDetails] = (
                 self._get_connection_details_by_id(connector.connector_id)

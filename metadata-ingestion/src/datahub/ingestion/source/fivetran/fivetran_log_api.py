@@ -263,9 +263,6 @@ class FivetranLogAPI:
             if connector.connector_type not in DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES:
                 cll_connector_ids.append(connector.connector_id)
         table_lineage_metadata = self._get_table_lineage_metadata(tll_connector_ids)
-        # Note: (As of Oct 2025) Fivetran Platform Connector has stale lineage metadata for Google Sheets column data (deleted/renamed).
-        # Ref: https://fivetran.com/docs/connectors/files/google-sheets#deletingdata
-        # TODO: Remove Google Sheets connector type from DISABLE_LINEAGE_FOR_CONNECTOR_TYPES
         column_lineage_metadata = self._get_column_lineage_metadata(cll_connector_ids)
         for connector in connectors:
             connector.lineage = self._extract_connector_lineage(

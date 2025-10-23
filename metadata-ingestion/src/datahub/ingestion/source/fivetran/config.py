@@ -71,12 +71,17 @@ class Constant:
     GOOGLE_SHEETS_CONNECTOR_TYPE = "google_sheets"
 
 
+# Key: Connector Type, Value: Platform ID/Name
 KNOWN_DATA_PLATFORM_MAPPING = {
     "google_cloud_postgresql": "postgres",
     "postgres": "postgres",
     "snowflake": "snowflake",
+    Constant.GOOGLE_SHEETS_CONNECTOR_TYPE: Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
 }
 
+# Note: (As of Oct 2025) Fivetran Platform Connector has stale lineage metadata for Google Sheets column data (deleted/renamed).
+# Ref: https://fivetran.com/docs/connectors/files/google-sheets#deletingdata
+# TODO: Remove Google Sheets connector type from DISABLE_LINEAGE_FOR_CONNECTOR_TYPES
 DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES = [Constant.GOOGLE_SHEETS_CONNECTOR_TYPE]
 
 
@@ -252,6 +257,11 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         description="A mapping of destination id to its platform/instance/env details.",
     )
 
+    """
+    Use Fivetran REST API to get :
+    - Google Sheets Connector details and emit related entities
+    Fivetran Platform Connector syncs limited information about the Google Sheets Connector.
+    """
     api_config: Optional[FivetranAPIConfig] = Field(
         default=None,
         description="Fivetran REST API configuration, used to provide wider support for connections.",
