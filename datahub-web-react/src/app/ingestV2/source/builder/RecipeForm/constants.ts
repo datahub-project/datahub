@@ -101,13 +101,13 @@ import {
 } from '@app/ingestV2/source/builder/RecipeForm/looker';
 import {
     CONNECTION_TO_PLATFORM_MAP,
-    LOOKML_GIT_INFO_DEPLOY_KEY,
-    LOOKML_GIT_INFO_REPO_SSH_LOCATOR,
     LOOKML,
     LOOKML_BASE_URL,
     LOOKML_CLIENT_ID,
     LOOKML_CLIENT_SECRET,
+    LOOKML_GIT_INFO_DEPLOY_KEY,
     LOOKML_GIT_INFO_REPO,
+    LOOKML_GIT_INFO_REPO_SSH_LOCATOR,
     PARSE_TABLE_NAMES_FROM_SQL,
     PROJECT_NAME,
 } from '@app/ingestV2/source/builder/RecipeForm/lookml';

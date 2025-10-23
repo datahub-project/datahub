@@ -1,6 +1,6 @@
 import { FormOutlined, SearchOutlined } from '@ant-design/icons';
 import { Input } from 'antd';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
@@ -9,7 +9,6 @@ import { CUSTOM } from '@app/ingestV2/source/builder/constants';
 import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
 import { SourceBuilderState, SourceConfig, StepProps } from '@app/ingestV2/source/builder/types';
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
-import { Button } from '@src/alchemy-components';
 
 const Container = styled.div`
     max-height: 82vh;
@@ -154,12 +153,14 @@ export const SelectTemplateStep = ({
                 <PlatformListContainer data-testid="data-source-options">
                     {filteredSources.length > 0 ? (
                         filteredSources.map((source) => (
-                            <SourceOption key={source.urn} source={source} onClick={() => onSelectTemplate(source.name)} />
+                            <SourceOption
+                                key={source.urn}
+                                source={source}
+                                onClick={() => onSelectTemplate(source.name)}
+                            />
                         ))
                     ) : (
-                        <NoResultsMessage>
-                            Data Source with name "{searchFilter}" not found.
-                        </NoResultsMessage>
+                        <NoResultsMessage>Data Source with name &quot;{searchFilter}&quot; not found.</NoResultsMessage>
                     )}
                 </PlatformListContainer>
             </Section>

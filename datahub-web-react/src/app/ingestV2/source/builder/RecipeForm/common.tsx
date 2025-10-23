@@ -416,9 +416,7 @@ export const GIT_INFO_REPO: RecipeField = {
     label: 'Git Repository',
     tooltip: (
         <div>
-            <p>
-                URL or name of your Git repository. Supports GitHub, GitLab, and other Git platforms. Examples:
-            </p>
+            <p>URL or name of your Git repository. Supports GitHub, GitLab, and other Git platforms. Examples:</p>
             <ul>
                 <li>GitHub: datahub-project/datahub or https://github.com/datahub-project/datahub</li>
                 <li>GitLab: https://gitlab.com/gitlab-org/gitlab</li>

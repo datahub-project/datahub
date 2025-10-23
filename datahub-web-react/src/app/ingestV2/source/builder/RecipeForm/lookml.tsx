@@ -11,7 +11,8 @@ export const LOOKML_GIT_INFO_REPO: RecipeField = {
     tooltip: (
         <>
             <p>
-                Name of your GitHub repository or the URL of your Git repository. Supports GitHub, GitLab, and other Git platforms. Examples:
+                Name of your GitHub repository or the URL of your Git repository. Supports GitHub, GitLab, and other Git
+                platforms. Examples:
                 <ul>
                     <li>GitHub: datahub-project/datahub or https://github.com/datahub-project/datahub</li>
                     <li>GitLab: https://gitlab.com/gitlab-org/gitlab</li>
@@ -48,15 +49,11 @@ export const LOOKML_GIT_INFO_DEPLOY_KEY: RecipeField = {
                         </a>
                     </li>
                     <li>
-                        <a
-                            href="https://docs.gitlab.com/ee/user/ssh.html"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
+                        <a href="https://docs.gitlab.com/ee/user/ssh.html" target="_blank" rel="noopener noreferrer">
                             GitLab
                         </a>
                     </li>
-                    <li>Other Git platforms: Check your platform's documentation for SSH key setup</li>
+                    <li>Other Git platforms: Check your platform&apos;s documentation for SSH key setup</li>
                 </ul>
             </div>
         </>
@@ -96,17 +93,17 @@ export const LOOKML_GIT_INFO_REPO_SSH_LOCATOR: RecipeField = {
             validator(_, value) {
                 const repo = getFieldValue('git_info.repo');
                 if (!repo) return Promise.resolve();
-                
+
                 // Check if it's GitHub or GitLab (these are auto-inferred)
-                const isGitHub = repo.toLowerCase().includes('github.com') || 
-                                (!repo.includes('://') && repo.split('/').length === 2) ||
-                                repo.startsWith('git@github.com:');
-                const isGitLab = repo.toLowerCase().includes('gitlab.com') || 
-                                repo.startsWith('git@gitlab.com:');
-                
+                const isGitHub =
+                    repo.toLowerCase().includes('github.com') ||
+                    (!repo.includes('://') && repo.split('/').length === 2) ||
+                    repo.startsWith('git@github.com:');
+                const isGitLab = repo.toLowerCase().includes('gitlab.com') || repo.startsWith('git@gitlab.com:');
+
                 if (!isGitHub && !isGitLab && !value) {
                     return Promise.reject(
-                        new Error('Repository SSH Locator is required for Git platforms other than GitHub and GitLab')
+                        new Error('Repository SSH Locator is required for Git platforms other than GitHub and GitLab'),
                     );
                 }
                 return Promise.resolve();

@@ -1,20 +1,22 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { Form } from 'antd';
+import React from 'react';
 
-import { GIT_INFO_REPO } from '@app/ingestV2/source/builder/RecipeForm/common';
-import { FieldType } from '@app/ingestV2/source/builder/RecipeForm/common';
+import { FieldType, GIT_INFO_REPO } from '@app/ingestV2/source/builder/RecipeForm/common';
 
 // Mock FormField component for testing
-const MockFormField = ({ field, removeMargin }) => {
+const MockFormField = ({ field, removeMargin: _removeMargin }: { field: any; removeMargin: boolean }) => {
     const { name, label, tooltip, type, placeholder, rules, required } = field;
-    
+
     return (
         <div data-testid={`form-field-${name}`}>
-            <label>{label}</label>
-            {tooltip && <div data-testid={`tooltip-${name}`}>{typeof tooltip === 'string' ? tooltip : 'React tooltip'}</div>}
-            <input 
-                type={type === FieldType.SECRET ? 'password' : 'text'} 
+            <label htmlFor={`input-${name}`}>{label}</label>
+            {tooltip && (
+                <div data-testid={`tooltip-${name}`}>{typeof tooltip === 'string' ? tooltip : 'React tooltip'}</div>
+            )}
+            <input
+                id={`input-${name}`}
+                type={type === FieldType.SECRET ? 'password' : 'text'}
                 placeholder={placeholder}
                 data-required={required}
                 data-rules={rules ? rules.length : 0}
@@ -40,10 +42,10 @@ describe('Common Git Info Fields', () => {
         it('should render tooltip with multi-platform examples', () => {
             render(
                 <Form>
-                    <MockFormField field={GIT_INFO_REPO} removeMargin={false} />
-                </Form>
+                    <MockFormField field={GIT_INFO_REPO} removeMargin={false} />,
+                </Form>,
             );
-            
+
             const tooltip = screen.getByTestId('tooltip-git_info.repo');
             expect(tooltip.textContent).toContain('React tooltip');
         });
@@ -57,9 +59,9 @@ describe('Common Git Info Fields', () => {
 
         it('should support multiple Git platforms in tooltip', () => {
             // Test that the tooltip contains information about multiple platforms
-            const tooltip = GIT_INFO_REPO.tooltip;
+            const { tooltip } = GIT_INFO_REPO;
             expect(tooltip).toBeDefined();
-            
+
             // Since tooltip is a React component, we test its structure
             expect(React.isValidElement(tooltip)).toBe(true);
         });

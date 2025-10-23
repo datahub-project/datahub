@@ -1,30 +1,27 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { Form } from 'antd';
+import React from 'react';
 
-import {
-    LOOKML_GIT_INFO_REPO,
-    LOOKML_GIT_INFO_DEPLOY_KEY,
-    LOOKML_GIT_INFO_REPO_SSH_LOCATOR,
-    LOOKML_BASE_URL,
-    LOOKML_CLIENT_ID,
-    LOOKML_CLIENT_SECRET,
-    PROJECT_NAME,
-    PARSE_TABLE_NAMES_FROM_SQL,
-    CONNECTION_TO_PLATFORM_MAP,
-} from '@app/ingestV2/source/builder/RecipeForm/lookml';
 import { FieldType } from '@app/ingestV2/source/builder/RecipeForm/common';
+import {
+    LOOKML_GIT_INFO_DEPLOY_KEY,
+    LOOKML_GIT_INFO_REPO,
+    LOOKML_GIT_INFO_REPO_SSH_LOCATOR,
+} from '@app/ingestV2/source/builder/RecipeForm/lookml';
 
 // Mock FormField component for testing
-const MockFormField = ({ field, removeMargin }) => {
+const MockFormField = ({ field, removeMargin: _removeMargin }: { field: any; removeMargin: boolean }) => {
     const { name, label, tooltip, type, placeholder, rules, required } = field;
-    
+
     return (
         <div data-testid={`form-field-${name}`}>
-            <label>{label}</label>
-            {tooltip && <div data-testid={`tooltip-${name}`}>{typeof tooltip === 'string' ? tooltip : 'React tooltip'}</div>}
-            <input 
-                type={type === FieldType.SECRET ? 'password' : 'text'} 
+            <label htmlFor={`input-${name}`}>{label}</label>
+            {tooltip && (
+                <div data-testid={`tooltip-${name}`}>{typeof tooltip === 'string' ? tooltip : 'React tooltip'}</div>
+            )}
+            <input
+                id={`input-${name}`}
+                type={type === FieldType.SECRET ? 'password' : 'text'}
                 placeholder={placeholder}
                 data-required={required}
                 data-rules={rules ? rules.length : 0}
@@ -41,7 +38,9 @@ describe('LookML Git Info Fields', () => {
             expect(LOOKML_GIT_INFO_REPO.type).toBe(FieldType.TEXT);
             expect(LOOKML_GIT_INFO_REPO.fieldPath).toBe('source.config.git_info.repo');
             expect(LOOKML_GIT_INFO_REPO.required).toBe(true);
-            expect(LOOKML_GIT_INFO_REPO.placeholder).toBe('datahub-project/datahub or https://github.com/datahub-project/datahub');
+            expect(LOOKML_GIT_INFO_REPO.placeholder).toBe(
+                'datahub-project/datahub or https://github.com/datahub-project/datahub',
+            );
         });
 
         it('should have validation rules', () => {
@@ -54,9 +53,9 @@ describe('LookML Git Info Fields', () => {
             render(
                 <Form>
                     <MockFormField field={LOOKML_GIT_INFO_REPO} removeMargin={false} />
-                </Form>
+                </Form>,
             );
-            
+
             const tooltip = screen.getByTestId('tooltip-git_info.repo');
             expect(tooltip.textContent).toContain('React tooltip');
         });
@@ -80,7 +79,7 @@ describe('LookML Git Info Fields', () => {
 
         it('should have setValueOnRecipeOverride function', () => {
             expect(typeof LOOKML_GIT_INFO_DEPLOY_KEY.setValueOnRecipeOverride).toBe('function');
-            
+
             const recipe = { source: { config: {} } };
             const result = LOOKML_GIT_INFO_DEPLOY_KEY.setValueOnRecipeOverride!(recipe, 'test-key');
             expect(result.source.config.git_info.deploy_key).toBe('test-key\n');
@@ -90,9 +89,9 @@ describe('LookML Git Info Fields', () => {
             render(
                 <Form>
                     <MockFormField field={LOOKML_GIT_INFO_DEPLOY_KEY} removeMargin={false} />
-                </Form>
+                </Form>,
             );
-            
+
             const tooltip = screen.getByTestId('tooltip-git_info.deploy_key');
             expect(tooltip.textContent).toContain('React tooltip');
         });
@@ -117,7 +116,7 @@ describe('LookML Git Info Fields', () => {
                 getFieldValue: (fieldName) => {
                     if (fieldName === 'git_info.repo') return 'datahub-project/datahub';
                     return undefined;
-                }
+                },
             });
 
             const result = await validator.validator({}, '');
@@ -129,7 +128,7 @@ describe('LookML Git Info Fields', () => {
                 getFieldValue: (fieldName) => {
                     if (fieldName === 'git_info.repo') return 'https://gitlab.com/gitlab-org/gitlab';
                     return undefined;
-                }
+                },
             });
 
             const result = await validator.validator({}, '');
@@ -141,14 +140,16 @@ describe('LookML Git Info Fields', () => {
                 getFieldValue: (fieldName) => {
                     if (fieldName === 'git_info.repo') return 'https://custom-git.com/org/repo';
                     return undefined;
-                }
+                },
             });
 
             try {
                 await validator.validator({}, '');
                 expect(true).toBe(false); // Should not reach here
             } catch (error: any) {
-                expect(error.message).toBe('Repository SSH Locator is required for Git platforms other than GitHub and GitLab');
+                expect(error.message).toBe(
+                    'Repository SSH Locator is required for Git platforms other than GitHub and GitLab',
+                );
             }
         });
 
@@ -157,7 +158,7 @@ describe('LookML Git Info Fields', () => {
                 getFieldValue: (fieldName) => {
                     if (fieldName === 'git_info.repo') return undefined;
                     return undefined;
-                }
+                },
             });
 
             const result = await validator.validator({}, '');
@@ -168,9 +169,9 @@ describe('LookML Git Info Fields', () => {
             render(
                 <Form>
                     <MockFormField field={LOOKML_GIT_INFO_REPO_SSH_LOCATOR} removeMargin={false} />
-                </Form>
+                </Form>,
             );
-            
+
             const tooltip = screen.getByTestId('tooltip-git_info.repo_ssh_locator');
             expect(tooltip.textContent).toContain('React tooltip');
         });
@@ -201,7 +202,7 @@ describe('LookML Git Info Fields', () => {
             expect(LOOKML_GIT_INFO_REPO.name).not.toContain('github_info');
             expect(LOOKML_GIT_INFO_DEPLOY_KEY.name).not.toContain('github_info');
             expect(LOOKML_GIT_INFO_REPO_SSH_LOCATOR.name).not.toContain('github_info');
-            
+
             expect(LOOKML_GIT_INFO_REPO.name).toContain('git_info');
             expect(LOOKML_GIT_INFO_DEPLOY_KEY.name).toContain('git_info');
             expect(LOOKML_GIT_INFO_REPO_SSH_LOCATOR.name).toContain('git_info');
@@ -219,15 +220,15 @@ describe('LookML Git Info Fields', () => {
             const githubRepos = [
                 'datahub-project/datahub',
                 'https://github.com/datahub-project/datahub',
-                'github.com/datahub-project/datahub'
+                'github.com/datahub-project/datahub',
             ];
 
-            githubRepos.forEach(repo => {
+            githubRepos.forEach((repo) => {
                 const validator = LOOKML_GIT_INFO_REPO_SSH_LOCATOR.rules![0]({
                     getFieldValue: (fieldName) => {
                         if (fieldName === 'git_info.repo') return repo;
                         return undefined;
-                    }
+                    },
                 });
 
                 expect(async () => {
@@ -237,17 +238,14 @@ describe('LookML Git Info Fields', () => {
         });
 
         it('should support GitLab repositories', () => {
-            const gitlabRepos = [
-                'https://gitlab.com/gitlab-org/gitlab',
-                'gitlab.com/gitlab-org/gitlab'
-            ];
+            const gitlabRepos = ['https://gitlab.com/gitlab-org/gitlab', 'gitlab.com/gitlab-org/gitlab'];
 
-            gitlabRepos.forEach(repo => {
+            gitlabRepos.forEach((repo) => {
                 const validator = LOOKML_GIT_INFO_REPO_SSH_LOCATOR.rules![0]({
                     getFieldValue: (fieldName) => {
                         if (fieldName === 'git_info.repo') return repo;
                         return undefined;
-                    }
+                    },
                 });
 
                 expect(async () => {
@@ -260,19 +258,23 @@ describe('LookML Git Info Fields', () => {
             const otherPlatformRepos = [
                 'https://bitbucket.org/org/repo',
                 'https://custom-git.com/org/repo',
-                'https://git.company.com/org/repo'
+                'https://git.company.com/org/repo',
             ];
 
-            for (const repo of otherPlatformRepos) {
-                const validator = LOOKML_GIT_INFO_REPO_SSH_LOCATOR.rules![0]({
-                    getFieldValue: (fieldName) => {
-                        if (fieldName === 'git_info.repo') return repo;
-                        return undefined;
-                    }
-                });
+            await Promise.all(
+                otherPlatformRepos.map(async (repo) => {
+                    const validator = LOOKML_GIT_INFO_REPO_SSH_LOCATOR.rules![0]({
+                        getFieldValue: (fieldName) => {
+                            if (fieldName === 'git_info.repo') return repo;
+                            return undefined;
+                        },
+                    });
 
-                await expect(validator.validator({}, '')).rejects.toThrow('Repository SSH Locator is required for Git platforms other than GitHub and GitLab');
-            }
+                    await expect(validator.validator({}, '')).rejects.toThrow(
+                        'Repository SSH Locator is required for Git platforms other than GitHub and GitLab',
+                    );
+                }),
+            );
         });
     });
 });

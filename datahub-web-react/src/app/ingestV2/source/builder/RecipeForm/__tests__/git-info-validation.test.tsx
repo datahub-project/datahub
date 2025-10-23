@@ -1,16 +1,16 @@
 import { LOOKML_GIT_INFO_REPO_SSH_LOCATOR } from '@app/ingestV2/source/builder/RecipeForm/lookml';
 
 describe('Git Info Validation Logic', () => {
-    describe('REPO_SSH_LOCATOR Validation', () => {
-        const createValidator = (repoValue) => {
-            return LOOKML_GIT_INFO_REPO_SSH_LOCATOR.rules![0]({
-                getFieldValue: (fieldName) => {
-                    if (fieldName === 'git_info.repo') return repoValue;
-                    return undefined;
-                }
-            });
-        };
+    const createValidator = (repoValue: string | undefined | null) => {
+        return LOOKML_GIT_INFO_REPO_SSH_LOCATOR.rules![0]({
+            getFieldValue: (fieldName) => {
+                if (fieldName === 'git_info.repo') return repoValue;
+                return undefined;
+            },
+        });
+    };
 
+    describe('REPO_SSH_LOCATOR Validation', () => {
         describe('GitHub Repository Detection', () => {
             it('should not require SSH locator for GitHub short format', async () => {
                 const validator = createValidator('datahub-project/datahub');
@@ -54,21 +54,21 @@ describe('Git Info Validation Logic', () => {
             it('should require SSH locator for Bitbucket', async () => {
                 const validator = createValidator('https://bitbucket.org/org/repo');
                 await expect(validator.validator({}, '')).rejects.toThrow(
-                    'Repository SSH Locator is required for Git platforms other than GitHub and GitLab'
+                    'Repository SSH Locator is required for Git platforms other than GitHub and GitLab',
                 );
             });
 
             it('should require SSH locator for custom Git server', async () => {
                 const validator = createValidator('https://custom-git.com/org/repo');
                 await expect(validator.validator({}, '')).rejects.toThrow(
-                    'Repository SSH Locator is required for Git platforms other than GitHub and GitLab'
+                    'Repository SSH Locator is required for Git platforms other than GitHub and GitLab',
                 );
             });
 
             it('should require SSH locator for SSH URL format', async () => {
                 const validator = createValidator('git@custom-server.com:org/repo');
                 await expect(validator.validator({}, '')).rejects.toThrow(
-                    'Repository SSH Locator is required for Git platforms other than GitHub and GitLab'
+                    'Repository SSH Locator is required for Git platforms other than GitHub and GitLab',
                 );
             });
 
@@ -119,7 +119,7 @@ describe('Git Info Validation Logic', () => {
             it('should require SSH locator for non-GitHub/GitLab URLs with similar patterns', async () => {
                 const validator = createValidator('https://github-enterprise.company.com/org/repo');
                 await expect(validator.validator({}, '')).rejects.toThrow(
-                    'Repository SSH Locator is required for Git platforms other than GitHub and GitLab'
+                    'Repository SSH Locator is required for Git platforms other than GitHub and GitLab',
                 );
             });
         });
@@ -130,19 +130,11 @@ describe('Git Info Validation Logic', () => {
             const validator = createValidator('https://custom-git.com/org/repo');
             try {
                 await validator.validator({}, '');
-            } catch (error) {
-                expect(error.message).toBe('Repository SSH Locator is required for Git platforms other than GitHub and GitLab');
+            } catch (error: any) {
+                expect(error.message).toBe(
+                    'Repository SSH Locator is required for Git platforms other than GitHub and GitLab',
+                );
             }
         });
     });
-
-    // Helper function for creating validators
-    function createValidator(repoValue) {
-        return LOOKML_GIT_INFO_REPO_SSH_LOCATOR.rules![0]({
-            getFieldValue: (fieldName) => {
-                if (fieldName === 'git_info.repo') return repoValue;
-                return undefined;
-            }
-        });
-    }
 });
