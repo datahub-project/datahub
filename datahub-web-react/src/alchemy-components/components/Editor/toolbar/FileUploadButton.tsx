@@ -80,6 +80,7 @@ export const FileUploadButton = () => {
                             message: 'Upload Failed',
                             description: validation.displayError || validation.error,
                         });
+                        return; // Skip invalid files
                     }
 
                     // Create placeholder node
