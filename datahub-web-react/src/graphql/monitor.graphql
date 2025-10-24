@@ -122,21 +122,19 @@ fragment assertionDetailsForSearch on Assertion {
             }
         }
     }
-    dataset: relationships(input: { types: ["Asserts"], direction: OUTGOING, start: 0, count: 1 }) {
-        relationships {
-            entity {
-                urn
-                type
-                ... on SchemaFieldEntity {
-                    parent {
-                        ... on Dataset {
-                            ...assertionDatasetFields
-                        }
-                    }
-                }
-                ... on Dataset {
-                    ...assertionDatasetFields
-                }
+    dataset {
+        urn
+        type
+        ... on Dataset {
+            name
+            platform {
+                ...platformFields
+            }
+            properties {
+                name
+                description
+                qualifiedName
+                externalUrl
             }
         }
     }

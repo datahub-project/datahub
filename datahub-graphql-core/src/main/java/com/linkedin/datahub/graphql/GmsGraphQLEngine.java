@@ -3237,6 +3237,16 @@ public class GmsGraphQLEngine {
                               : null;
                         }))
                 .dataFetcher(
+                    "dataset",
+                    new LoadableTypeResolver<>(
+                        datasetType,
+                        (env) -> {
+                          final Assertion assertion = env.getSource();
+                          return assertion.getDataset() != null
+                              ? assertion.getDataset().getUrn()
+                              : null;
+                        }))
+                .dataFetcher(
                     "runEvents", new AssertionRunEventResolver(entityClient, assertionService))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));

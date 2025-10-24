@@ -36,6 +36,7 @@ import com.linkedin.datahub.graphql.generated.AssertionType;
 import com.linkedin.datahub.graphql.generated.AuditStamp;
 import com.linkedin.datahub.graphql.generated.CustomAssertionInfo;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
+import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetAssertionInfo;
 import com.linkedin.datahub.graphql.generated.DatasetAssertionScope;
 import com.linkedin.datahub.graphql.generated.DateInterval;
@@ -60,6 +61,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.hooks.AssertionInfoMutator;
 import com.linkedin.metadata.search.features.LineageFeatures;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.timeseries.DayOfWeekArray;
@@ -68,10 +70,13 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class AssertionMapper {
 
   public static Assertion map(@Nullable QueryContext context, final EntityResponse entityResponse) {
@@ -85,8 +90,22 @@ public class AssertionMapper {
     final EnvelopedAspect envelopedAssertionInfo =
         aspects.get(Constants.ASSERTION_INFO_ASPECT_NAME);
     if (envelopedAssertionInfo != null) {
-      result.setInfo(
-          mapAssertionInfo(context, new AssertionInfo(envelopedAssertionInfo.getValue().data())));
+      final AssertionInfo assertionInfo =
+          new AssertionInfo(envelopedAssertionInfo.getValue().data());
+      result.setInfo(mapAssertionInfo(context, assertionInfo));
+
+      try {
+        // Don't want to break entire graphql call if we have data corruption
+        final @Nonnull Urn datasetUrn =
+            Optional.ofNullable(assertionInfo.getEntity())
+                .orElse(AssertionInfoMutator.getEntityFromAssertionInfo(assertionInfo));
+        final Dataset dataset = new Dataset();
+        dataset.setUrn(datasetUrn.toString());
+        dataset.setType(EntityType.DATASET);
+        result.setDataset(dataset);
+      } catch (RuntimeException e) {
+        log.warn("Failed to map assertion {}: {}", entityUrn, e.getMessage());
+      }
     }
 
     final EnvelopedAspect envelopedAssertionActions =

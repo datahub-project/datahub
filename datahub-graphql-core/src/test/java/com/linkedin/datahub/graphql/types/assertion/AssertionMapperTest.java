@@ -16,6 +16,7 @@ import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.CustomAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
+import com.linkedin.assertion.FieldAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionSchedule;
 import com.linkedin.assertion.FreshnessAssertionScheduleType;
@@ -23,11 +24,14 @@ import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.assertion.FreshnessCronSchedule;
 import com.linkedin.assertion.SchemaAssertionCompatibility;
 import com.linkedin.assertion.SchemaAssertionInfo;
+import com.linkedin.assertion.SqlAssertionInfo;
+import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.url.Url;
+import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
@@ -96,6 +100,17 @@ public class AssertionMapperTest {
   }
 
   @Test
+  public void testMapAssertionNoEntity() {
+    AssertionInfo inputInfoWithNullEntity = new AssertionInfo().setType(AssertionType.FRESHNESS);
+    EntityResponse response = createAssertionInfoEntityResponse(inputInfoWithNullEntity);
+    try {
+      AssertionMapper.map(null, response);
+    } catch (Exception e) {
+      Assert.fail("Mapping failed with null entity in FreshnessAssertionInfo");
+    }
+  }
+
+  @Test
   public void testMapFreshnessAssertion() {
     // Case 1: Without nullable fields
     AssertionInfo inputInfo = createFreshnessAssertionInfoWithoutNullableFields();
@@ -143,31 +158,46 @@ public class AssertionMapperTest {
 
     if (input.hasDatasetAssertion()) {
       verifyDatasetAssertion(input.getDatasetAssertion(), output.getInfo().getDatasetAssertion());
+      Assert.assertEquals(
+          output.getDataset().getUrn(), input.getDatasetAssertion().getDataset().toString());
     }
-
-    if (input.hasExternalUrl()) {
-      Assert.assertEquals(input.getExternalUrl().toString(), output.getInfo().getExternalUrl());
-    }
-
     if (input.hasFreshnessAssertion()) {
       verifyFreshnessAssertion(
           input.getFreshnessAssertion(), output.getInfo().getFreshnessAssertion());
+      Assert.assertEquals(
+          output.getDataset().getUrn(), input.getFreshnessAssertion().getEntity().toString());
     }
-
     if (input.hasSchemaAssertion()) {
       verifySchemaAssertion(input.getSchemaAssertion(), output.getInfo().getSchemaAssertion());
+      Assert.assertEquals(
+          output.getDataset().getUrn(), input.getSchemaAssertion().getEntity().toString());
     }
-
+    if (input.hasVolumeAssertion()) {
+      verifyVolumeAssertion(input.getVolumeAssertion(), output.getInfo().getVolumeAssertion());
+      Assert.assertEquals(
+          output.getDataset().getUrn(), input.getCustomAssertion().getEntity().toString());
+    }
+    if (input.hasSqlAssertion()) {
+      verifySqlAssertion(input.getSqlAssertion(), output.getInfo().getSqlAssertion());
+      Assert.assertEquals(
+          output.getDataset().getUrn(), input.getSqlAssertion().getEntity().toString());
+    }
+    if (input.hasFieldAssertion()) {
+      verifyFieldAssertion(input.getFieldAssertion(), output.getInfo().getFieldAssertion());
+      Assert.assertEquals(
+          output.getDataset().getUrn(), input.getFieldAssertion().getEntity().toString());
+    }
     if (input.hasCustomAssertion()) {
       verifyCustomAssertion(input.getCustomAssertion(), output.getInfo().getCustomAssertion());
+      Assert.assertEquals(
+          output.getDataset().getUrn(), input.getCustomAssertion().getEntity().toString());
     }
 
     if (input.hasSource()) {
       verifySource(input.getSource(), output.getInfo().getSource());
     }
-
-    if (input.hasCustomAssertion()) {
-      verifyCustomAssertion(input.getCustomAssertion(), output.getInfo().getCustomAssertion());
+    if (input.hasExternalUrl()) {
+      Assert.assertEquals(input.getExternalUrl().toString(), output.getInfo().getExternalUrl());
     }
   }
 
@@ -214,6 +244,28 @@ public class AssertionMapperTest {
     Assert.assertEquals(output.getCompatibility().toString(), input.getCompatibility().toString());
     Assert.assertEquals(
         output.getSchema().getFields().size(), input.getSchema().getFields().size());
+  }
+
+  private void verifyVolumeAssertion(
+      VolumeAssertionInfo input,
+      com.linkedin.datahub.graphql.generated.VolumeAssertionInfo output) {
+    // TODO: Complete
+    Assert.assertEquals(output.getEntityUrn(), input.getEntity().toString());
+    Assert.assertEquals(output.getType().toString(), input.getType().toString());
+  }
+
+  private void verifySqlAssertion(
+      SqlAssertionInfo input, com.linkedin.datahub.graphql.generated.SqlAssertionInfo output) {
+    // TODO: Complete
+    Assert.assertEquals(output.getEntityUrn(), input.getEntity().toString());
+    Assert.assertEquals(output.getType().toString(), input.getType().toString());
+  }
+
+  private void verifyFieldAssertion(
+      FieldAssertionInfo input, com.linkedin.datahub.graphql.generated.FieldAssertionInfo output) {
+    // TODO: Complete
+    Assert.assertEquals(output.getEntityUrn(), input.getEntity().toString());
+    Assert.assertEquals(output.getType().toString(), input.getType().toString());
   }
 
   private void verifyCustomAssertion(
@@ -345,7 +397,11 @@ public class AssertionMapperTest {
         new SchemaMetadata()
             .setCluster("Test")
             .setHash("Test")
-            .setPlatformSchema(SchemaMetadata.PlatformSchema.create(new MySqlDDL()))
+            .setSchemaName("Test")
+            .setPlatform(new DataPlatformUrn("mysql"))
+            .setPlatformSchema(
+                SchemaMetadata.PlatformSchema.create(new MySqlDDL().setTableSchema("")))
+            .setVersion(0)
             .setFields(
                 new SchemaFieldArray(
                     ImmutableList.of(
@@ -356,6 +412,7 @@ public class AssertionMapperTest {
                             .setNullable(false)
                             .setNativeDataType("string")
                             .setFieldPath("test")))));
+    info.setSchemaAssertion(schemaAssertionInfo);
     return info;
   }
 
