@@ -11,6 +11,7 @@ import SourceDescription from '@app/entityV2/shared/tabs/Documentation/component
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
 import { UploadDownloadScenario } from '@types';
@@ -34,6 +35,11 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     const mutationUrn = useMutationUrn();
     const { entityType, entityData, loading } = useEntityData();
     const refetch = useRefetch();
+
+    const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
+        scenario: UploadDownloadScenario.AssetDocumentation,
+        assetUrn: mutationUrn,
+    });
 
     const { uploadFile } = useFileUpload({
         scenario: UploadDownloadScenario.AssetDocumentation,
@@ -209,6 +215,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                         onChange={handleEditorChange}
                         placeholder="Describe this asset to make it more discoverable. Tag @user or reference @asset to make your docs come to life!"
                         uploadFile={uploadFile}
+                        {...uploadFileAnalyticsCallbacks}
                         hideBorder
                     />
                 </EditorContainer>

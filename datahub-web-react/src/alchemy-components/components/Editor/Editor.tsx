@@ -53,6 +53,10 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         onKeyDown,
         hideBorder,
         uploadFile,
+        onFileUploadAttempt,
+        onFileUploadFailed,
+        onFileUploadSucceeded,
+        onFileDownloadView,
     } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
@@ -67,7 +71,13 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new HeadingExtension({}),
             new HistoryExtension({}),
             new HorizontalRuleExtension({}),
-            new FileDragDropExtension({ onFileUpload: uploadFile }),
+            new FileDragDropExtension({
+                onFileUpload: uploadFile,
+                onFileUploadAttempt,
+                onFileUploadFailed,
+                onFileUploadSucceeded,
+                onFileDownloadView,
+            }),
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),

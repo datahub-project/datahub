@@ -13,6 +13,7 @@ from tests.setup.lineage.ingest_time_lineage import (
     get_time_lineage_urns,
     ingest_time_lineage,
 )
+from tests.utilities import env_vars
 from tests.utils import (
     create_datahub_step_state_aspects,
     delete_urns,
@@ -234,15 +235,15 @@ def _get_cypress_tests_batch():
         else:
             tests_with_weights.append(test)
 
-    test_batches = bin_pack_tasks(tests_with_weights, int(os.getenv("BATCH_COUNT", 1)))
-    return test_batches[int(os.getenv("BATCH_NUMBER", 0))]
+    test_batches = bin_pack_tasks(tests_with_weights, env_vars.get_batch_count())
+    return test_batches[env_vars.get_batch_number()]
 
 
 def test_run_cypress(auth_session):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
-    record_key = os.getenv("CYPRESS_RECORD_KEY")
+    record_key = env_vars.get_cypress_record_key()
     tag_arg = ""
-    test_strategy = os.getenv("TEST_STRATEGY", None)
+    test_strategy = env_vars.get_test_strategy()
     if record_key:
         record_arg = " --record "
         batch_number = os.getenv("BATCH_NUMBER")

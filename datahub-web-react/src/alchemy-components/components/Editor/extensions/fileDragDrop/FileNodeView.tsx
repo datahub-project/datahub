@@ -37,9 +37,10 @@ interface FileNodeViewProps extends NodeViewComponentProps {
     node: {
         attrs: FileNodeAttributes;
     };
+    onFileDownloadView?: (fileType: string, fileSize: number) => void;
 }
 
-export const FileNodeView: React.FC<FileNodeViewProps> = ({ node }) => {
+export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownloadView }) => {
     const { url, name, type, size, id } = node.attrs;
 
     // Create props with data attributes for markdown conversion
@@ -70,6 +71,8 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node }) => {
             <FileDetails
                 onClick={(e) => {
                     e.stopPropagation();
+                    // Track file download/view event
+                    onFileDownloadView?.(type, size);
                     handleFileDownload(url, name);
                 }}
             >

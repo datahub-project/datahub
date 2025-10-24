@@ -223,6 +223,9 @@ fragment autoCompleteFields on Entity {
         parentDomains {
             ...parentDomainsFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
     }
     ... on DataProduct {
         properties {

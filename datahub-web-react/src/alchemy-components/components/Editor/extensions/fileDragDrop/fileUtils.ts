@@ -1,6 +1,7 @@
 /**
  * Utility functions for file handling in the editor
  */
+import { FileUploadFailureType } from '@components/components/Editor/types';
 
 export const FILE_ATTRS = {
     url: 'data-file-url',
@@ -134,7 +135,7 @@ export const validateFile = (
         maxSize?: number; // in bytes
         allowedTypes?: string[];
     },
-): { isValid: boolean; error?: string; displayError?: string } => {
+): { isValid: boolean; error?: string; displayError?: string; failureType?: FileUploadFailureType } => {
     const { maxSize = MAX_FILE_SIZE_IN_BYTES, allowedTypes = SUPPORTED_FILE_TYPES } = options || {};
 
     // Check file size
@@ -143,6 +144,7 @@ export const validateFile = (
             isValid: false,
             error: `File size (${(file.size / 1000 / 1000).toFixed(2)}MB) exceeds maximum allowed size (${(maxSize / 1000 / 1000).toFixed(2)}MB)`,
             displayError: `Your file size (${(file.size / 1000 / 1000 / 1000).toFixed(2)}GB) exceeded the max ${parseFloat((maxSize / 1000 / 1000 / 1000).toFixed(2))}GB`,
+            failureType: FileUploadFailureType.FILE_SIZE,
         };
     }
 
@@ -153,6 +155,7 @@ export const validateFile = (
             isValid: false,
             error: `File type "${file.type}" is not allowed. Supported types: ${allowedTypes.join(', ')}`,
             displayError: `File type not supported${extension ? `: ${extension.toLocaleUpperCase()}` : ''}`,
+            failureType: FileUploadFailureType.FILE_TYPE,
         };
     }
 

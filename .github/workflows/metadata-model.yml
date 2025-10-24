@@ -5,6 +5,8 @@ on:
       - master
     paths:
       - "metadata-models/**"
+      - "metadata-ingestion/scripts/modeldocgen.py"
+      - "metadata-ingestion/scripts/modeldocupload.sh"
   release:
     types: [published]
 

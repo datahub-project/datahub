@@ -85,9 +85,10 @@ describe('fileUtils', () => {
 
             expect(result.isValid).toBe(true);
             expect(result.error).toBeUndefined();
+            expect(result.failureType).toBeUndefined();
         });
 
-        it('should reject files that exceed max size', () => {
+        it('should reject files that exceed max size and return FILE_SIZE failure type', () => {
             const mockFile = new File(['content'], 'test.pdf', { type: 'application/pdf' });
             Object.defineProperty(mockFile, 'size', { value: 3000000000 }); // 3GB
 
@@ -95,9 +96,10 @@ describe('fileUtils', () => {
 
             expect(result.isValid).toBe(false);
             expect(result.error).toContain('exceeds maximum allowed size');
+            expect(result.failureType).toBe('file_size');
         });
 
-        it('should reject files with unsupported types', () => {
+        it('should reject files with unsupported types and return FILE_TYPE failure type', () => {
             const mockFile = new File(['content'], 'test.exe', { type: 'application/x-executable' });
             Object.defineProperty(mockFile, 'size', { value: 1024 });
 
@@ -105,9 +107,10 @@ describe('fileUtils', () => {
 
             expect(result.isValid).toBe(false);
             expect(result.error).toContain('not allowed');
+            expect(result.failureType).toBe('file_type');
         });
 
-        it('should respect custom max size', () => {
+        it('should respect custom max size and return FILE_SIZE failure type', () => {
             const mockFile = new File(['content'], 'test.pdf', { type: 'application/pdf' });
             Object.defineProperty(mockFile, 'size', { value: 2048 });
 
@@ -115,9 +118,10 @@ describe('fileUtils', () => {
 
             expect(result.isValid).toBe(false);
             expect(result.error).toContain('exceeds maximum allowed size');
+            expect(result.failureType).toBe('file_size');
         });
 
-        it('should respect custom allowed types', () => {
+        it('should respect custom allowed types and return FILE_TYPE failure type', () => {
             const mockFile = new File(['content'], 'test.pdf', { type: 'application/pdf' });
             Object.defineProperty(mockFile, 'size', { value: 1024 });
 
@@ -125,6 +129,7 @@ describe('fileUtils', () => {
 
             expect(result.isValid).toBe(false);
             expect(result.error).toContain('not allowed');
+            expect(result.failureType).toBe('file_type');
         });
 
         it('should validate when custom options allow file', () => {
@@ -137,6 +142,7 @@ describe('fileUtils', () => {
             });
 
             expect(result.isValid).toBe(true);
+            expect(result.failureType).toBeUndefined();
         });
     });
 

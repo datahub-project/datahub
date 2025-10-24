@@ -15,9 +15,10 @@ export type Props = {
 };
 
 export default function TopUsersFacepile({ users, max, checkExistence = true }: Props) {
+    const entityRegistry = useEntityRegistry();
     const displayedUsers = users.filter((user) => userExists(user));
     const usersList = checkExistence ? displayedUsers : users;
-    const entityRegistry = useEntityRegistry();
+    if (!usersList?.length) return <div>-</div>;
     return (
         <Avatar.Group maxCount={max}>
             {usersList?.map((user) => {

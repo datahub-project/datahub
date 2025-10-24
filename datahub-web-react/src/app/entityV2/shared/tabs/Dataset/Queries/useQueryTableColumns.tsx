@@ -145,8 +145,8 @@ export default function useQueryTableColumns({
         },
     };
 
-    const usedByColumn = {
-        title: 'Used By',
+    const topUsersColumn = {
+        title: 'Top Users',
         dataIndex: 'usedBy',
         key: 'usedBy',
         className: 'usedBy',
@@ -195,7 +195,7 @@ export default function useQueryTableColumns({
         createdByColumn,
         createdDateColumn,
         powersColumn,
-        usedByColumn,
+        topUsersColumn,
         columnsColumn,
         editColumn,
     };

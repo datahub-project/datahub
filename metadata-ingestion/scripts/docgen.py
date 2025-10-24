@@ -587,7 +587,7 @@ For data tools with limited native lineage tracking, [**DataHub's SQL Parser**](
 
 Types of lineage connections supported in DataHub and the example codes are as follows.
 
-* [Dataset to Dataset](../../../metadata-ingestion/examples/library/add_lineage_dataset_to_dataset.py)
+* [Dataset to Dataset](../../../metadata-ingestion/examples/library/lineage_dataset_add.py)
 * [DataJob to DataFlow](../../../metadata-ingestion/examples/library/lineage_job_dataflow.py)
 * [DataJob to Dataset](../../../metadata-ingestion/examples/library/lineage_dataset_job_dataset.py)
 * [Chart to Dashboard](../../../metadata-ingestion/examples/library/lineage_chart_dashboard.py)

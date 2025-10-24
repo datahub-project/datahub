@@ -224,6 +224,7 @@ public class SendMAEStep implements UpgradeStep {
               context.report().addLine("End of data.");
               break;
             } else {
+              log.error("Failure processing restore indices batch.", e);
               return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
             }
           }

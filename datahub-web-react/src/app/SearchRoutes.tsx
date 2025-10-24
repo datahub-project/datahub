@@ -61,6 +61,7 @@ export const SearchRoutes = (): JSX.Element => {
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
 
     const showIngestV2 = config.featureFlags.showIngestionPageRedesign;
+    const showAnalytics = (config?.analyticsConfig?.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
 
     return (
         <FinalSearchablePage>
@@ -85,7 +86,10 @@ export const SearchRoutes = (): JSX.Element => {
                 <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                 {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
                 <Route path={PageRoutes.MANAGE_APPLICATIONS} render={() => <ManageApplications />} />
-                <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
+                <Route
+                    path={PageRoutes.ANALYTICS}
+                    render={() => (showAnalytics ? <AnalyticsPage /> : <NoPageFound />)}
+                />
                 <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/permissions/policies" />} />
                 <Route
                     path={PageRoutes.SETTINGS_POLICIES}

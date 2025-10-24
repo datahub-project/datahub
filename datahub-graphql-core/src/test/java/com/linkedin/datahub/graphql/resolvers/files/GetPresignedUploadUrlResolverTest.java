@@ -138,10 +138,10 @@ public class GetPresignedUploadUrlResolverTest {
     assertNotNull(result.getFileId());
 
     String capturedS3Key = s3KeyCaptor.getValue();
-    assertTrue(capturedS3Key.startsWith(TEST_BUCKET_NAME + "/" + TEST_ASSET_PATH_PREFIX + "/"));
+    assertTrue(capturedS3Key.startsWith(TEST_ASSET_PATH_PREFIX + "/"));
 
     // Extract fileId from s3Key
-    String expectedFileIdPrefix = TEST_BUCKET_NAME + "/" + TEST_ASSET_PATH_PREFIX + "/";
+    String expectedFileIdPrefix = TEST_ASSET_PATH_PREFIX + "/";
     String extractedFileId = capturedS3Key.substring(expectedFileIdPrefix.length());
 
     assertEquals(result.getFileId(), extractedFileId);
@@ -181,7 +181,7 @@ public class GetPresignedUploadUrlResolverTest {
     future.get(); // Execute the resolver to capture the argument
 
     String capturedS3Key = s3KeyCaptor.getValue();
-    assertTrue(capturedS3Key.startsWith(TEST_BUCKET_NAME + "/" + TEST_ASSET_PATH_PREFIX + "/"));
+    assertTrue(capturedS3Key.startsWith(TEST_ASSET_PATH_PREFIX + "/"));
     assertTrue(capturedS3Key.contains(testFileName));
   }
 
@@ -596,10 +596,10 @@ public class GetPresignedUploadUrlResolverTest {
     assertNotNull(result.getFileId());
 
     String capturedS3Key = s3KeyCaptor.getValue();
-    assertTrue(capturedS3Key.startsWith(TEST_BUCKET_NAME + "/" + TEST_ASSET_PATH_PREFIX + "/"));
+    assertTrue(capturedS3Key.startsWith(TEST_ASSET_PATH_PREFIX + "/"));
 
     // Extract fileId from s3Key
-    String expectedFileIdPrefix = TEST_BUCKET_NAME + "/" + TEST_ASSET_PATH_PREFIX + "/";
+    String expectedFileIdPrefix = TEST_ASSET_PATH_PREFIX + "/";
     String extractedFileId = capturedS3Key.substring(expectedFileIdPrefix.length());
 
     assertEquals(result.getFileId(), extractedFileId);
@@ -686,10 +686,10 @@ public class GetPresignedUploadUrlResolverTest {
     assertNotNull(result.getFileId());
 
     String capturedS3Key = s3KeyCaptor.getValue();
-    assertTrue(capturedS3Key.startsWith(TEST_BUCKET_NAME + "/" + TEST_ASSET_PATH_PREFIX + "/"));
+    assertTrue(capturedS3Key.startsWith(TEST_ASSET_PATH_PREFIX + "/"));
 
     // Extract fileId from s3Key
-    String expectedFileIdPrefix = TEST_BUCKET_NAME + "/" + TEST_ASSET_PATH_PREFIX + "/";
+    String expectedFileIdPrefix = TEST_ASSET_PATH_PREFIX + "/";
     String extractedFileId = capturedS3Key.substring(expectedFileIdPrefix.length());
 
     assertEquals(result.getFileId(), extractedFileId);
@@ -759,10 +759,10 @@ public class GetPresignedUploadUrlResolverTest {
     assertNotNull(result.getFileId());
 
     String capturedS3Key = s3KeyCaptor.getValue();
-    assertTrue(capturedS3Key.startsWith(TEST_BUCKET_NAME + "/" + TEST_ASSET_PATH_PREFIX + "/"));
+    assertTrue(capturedS3Key.startsWith(TEST_ASSET_PATH_PREFIX + "/"));
 
     // Extract fileId from s3Key
-    String expectedFileIdPrefix = TEST_BUCKET_NAME + "/" + TEST_ASSET_PATH_PREFIX + "/";
+    String expectedFileIdPrefix = TEST_ASSET_PATH_PREFIX + "/";
     String extractedFileId = capturedS3Key.substring(expectedFileIdPrefix.length());
 
     assertEquals(result.getFileId(), extractedFileId);
