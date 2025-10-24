@@ -469,9 +469,7 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
                 raw_metadata.get("template", {}).get("settings", {}).get("index", {})
             )
         else:
-            index_settings: Dict[str, Any] = raw_metadata.get("settings", {}).get(
-                "index", {}
-            )
+            index_settings = raw_metadata.get("settings", {}).get("index", {})
         num_shards: str = index_settings.get("number_of_shards", "")
         if num_shards:
             custom_properties["num_shards"] = num_shards

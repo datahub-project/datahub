@@ -1,11 +1,10 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, cast
 
 import pydantic
 import pytest
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 from datahub.ingestion.source.elastic_search import (
     CollapseUrns,
@@ -13,6 +12,7 @@ from datahub.ingestion.source.elastic_search import (
     ElasticToSchemaFieldConverter,
     collapse_urn,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 logger = logging.getLogger(__name__)
 
@@ -2545,8 +2545,9 @@ def test_composable_template_structure() -> None:
     }
 
     # Verify the structure is as expected for composable templates
-    template_data = composable_template_response.get("index_templates", [{}])[0]
-    raw_index_metadata = template_data.get("index_template", {})
+    index_templates = composable_template_response.get("index_templates", [{}])
+    template_data = index_templates[0]
+    raw_index_metadata = cast(Dict[str, Any], template_data.get("index_template", {}))
 
     # Check that mappings are under template.mappings
     assert "template" in raw_index_metadata
