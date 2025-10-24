@@ -121,7 +121,7 @@ class OpenApiConfig(ConfigModel):
     )
     use_schema_extraction: bool = Field(
         default=True,
-        description="Whether to use json_schema_util.py to extract fields from response schemas.",
+        description="Whether to extract schema from response schemas.",
     )
     disable_api_calls: bool = Field(
         default=False,
@@ -429,8 +429,6 @@ class APISource(Source, ABC):
         self, dataset_name: str, schema: Dict
     ) -> Optional[SchemaMetadataClass]:
         """
-        Create schema metadata using json_schema_util.py.
-
         This method converts a JSON schema into DataHub's SchemaMetadataClass format.
         It uses the json_schema_util module to handle the conversion and field extraction.
 
