@@ -21,7 +21,11 @@ from datahub.ingestion.api.source_helpers import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    ChangeAuditStampsClass,
+    ChartInfoClass,
     DatasetPropertiesClass,
+    EdgeClass,
     OperationTypeClass,
     TimeStampClass,
 )
@@ -418,3 +422,67 @@ def test_auto_patch_last_modified_last_modified_patch_not_exist():
     ]
 
     assert list(auto_patch_last_modified(work_units)) == expected
+
+
+def test_auto_lowercase_urns_chart_info():
+    """Test auto_lowercase_urns behavior with chart inputs vs inputEdges.
+
+    This test demonstrates the difference between:
+    1. chartInfo.inputs (deprecated) - URNs are NOT lowercased because the field lacks proper URN schema marking
+    2. chartInfo.inputEdges - URNs ARE lowercased because Edge.destinationUrn is properly marked as a URN field
+    """
+    chart_urn = "urn:li:chart:(dashboard_platform,123)"
+    dataset_urn_uppercase = "urn:li:dataset:(urn:li:dataPlatform:snowflake,PROD_DB.SCHEMA_NAME.TABLE_NAME,PROD)"
+    dataset_urn_lowercase = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod_db.schema_name.table_name,PROD)"
+
+    # Create a chart with uppercase dataset URNs in both inputs and inputEdges
+    chart_info = ChartInfoClass(
+        title="Sample Chart",
+        description="Test chart with dataset inputs",
+        inputs=[dataset_urn_uppercase],  # Deprecated field - won't be lowercased
+        inputEdges=[
+            EdgeClass(
+                destinationUrn=dataset_urn_uppercase,  # Should be lowercased
+                created=AuditStampClass(
+                    time=1234567890000, actor="urn:li:corpuser:test"
+                ),
+            )
+        ],
+        customProperties={"chartType": "bar", "metrics": "count"},
+        type="CHART",
+        lastModified=ChangeAuditStampsClass(
+            created=AuditStampClass(time=1234567890000, actor="urn:li:corpuser:test"),
+            lastModified=AuditStampClass(
+                time=1234567890000, actor="urn:li:corpuser:test"
+            ),
+        ),
+    )
+
+    mcw = MetadataChangeProposalWrapper(
+        entityUrn=chart_urn,
+        aspect=chart_info,
+    )
+
+    wu = list(auto_workunit([mcw]))
+
+    # Apply auto_lowercase_urns transformation
+    result = list(auto_lowercase_urns(wu))
+
+    # Verify the behavior difference between inputs and inputEdges
+    assert len(result) == 1
+    chart_aspect = result[0].get_aspect_of_type(ChartInfoClass)
+    assert chart_aspect is not None
+
+    # Test deprecated inputs field - URNs should NOT be lowercased (current limitation)
+    assert chart_aspect.inputs is not None
+    assert len(chart_aspect.inputs) == 1
+    assert chart_aspect.inputs[0] == dataset_urn_uppercase, (
+        "inputs field URNs are not lowercased (expected limitation)"
+    )
+
+    # Test inputEdges field - URNs should be lowercased (working correctly)
+    assert chart_aspect.inputEdges is not None
+    assert len(chart_aspect.inputEdges) == 1
+    assert chart_aspect.inputEdges[0].destinationUrn == dataset_urn_lowercase, (
+        "inputEdges destinationUrn should be lowercased"
+    )
