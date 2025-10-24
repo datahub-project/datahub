@@ -178,6 +178,17 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                         description: 'Something went wrong',
                     });
                 }
+            } else {
+                this.options.onFileUploadFailed?.(
+                    file.type,
+                    file.size,
+                    'drag-and-drop',
+                    FileUploadFailureType.UPLOADING_NOT_SUPPORTED,
+                );
+                this.removeNode(view, placeholderAttrs.id);
+                notification.error({
+                    message: 'Uploading files in this context is not currently supported',
+                });
             }
         } catch (error) {
             console.error(error);
