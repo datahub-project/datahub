@@ -21,6 +21,7 @@ from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.utilities.urns.urn import Urn
+from tests.utilities import env_vars
 from tests.utils import (
     delete_urns_from_file,
     get_gms_url,
@@ -33,7 +34,7 @@ pytest.skip(allow_module_level=True)
 
 logger = logging.getLogger(__name__)
 
-DELETE_AFTER_TEST = os.getenv("DELETE_AFTER_TEST", "false").lower() == "true"
+DELETE_AFTER_TEST = env_vars.get_delete_after_test()
 
 
 class FileEmitter:
