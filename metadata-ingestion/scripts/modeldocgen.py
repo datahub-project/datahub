@@ -39,9 +39,14 @@ from datahub.metadata.schema_classes import (
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StringTypeClass,
+    StructuredPropertiesClass,
+    StructuredPropertyDefinitionClass,
+    StructuredPropertySettingsClass,
+    StructuredPropertyValueAssignmentClass,
     SubTypesClass,
     TagAssociationClass,
 )
+from datahub.metadata.urns import StructuredPropertyUrn, Urn
 
 logger = logging.getLogger(__name__)
 
@@ -888,6 +893,54 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
         raise Exception(f"Failed to find information for entity: {entity_name}")
 
 
+def create_search_field_name_property() -> List[MetadataChangeProposalWrapper]:
+    """
+    Create the structured property for documenting search field names.
+
+    This property is used to capture the actual field name used in the search index
+    when it differs from the field name in the schema (e.g., 'instance' field is
+    indexed as 'platformInstance').
+
+    Returns:
+        List of MCPs for the property definition and settings
+    """
+    property_id = "com.datahub.metadata.searchFieldName"
+    property_urn = str(
+        StructuredPropertyUrn.from_string(f"urn:li:structuredProperty:{property_id}")
+    )
+
+    # Create property definition
+    definition_mcp = MetadataChangeProposalWrapper(
+        entityUrn=property_urn,
+        aspect=StructuredPropertyDefinitionClass(
+            qualifiedName=property_id,
+            displayName="Search Field Name",
+            valueType=Urn.make_data_type_urn("string"),
+            description=(
+                "The field name used in the search index when it differs from the schema field name. "
+                "Use this field name when constructing search queries for this field."
+            ),
+            entityTypes=[Urn.make_entity_type_urn("schemaField")],
+            cardinality="SINGLE",
+            immutable=False,
+        ),
+    )
+
+    # Create property settings for display
+    settings_mcp = MetadataChangeProposalWrapper(
+        entityUrn=property_urn,
+        aspect=StructuredPropertySettingsClass(
+            isHidden=False,
+            showInSearchFilters=False,
+            showInAssetSummary=True,
+            showAsAssetBadge=False,
+            showInColumnsTable=True,  # Show as a column in schema tables
+        ),
+    )
+
+    return [definition_mcp, settings_mcp]
+
+
 def generate_stitched_record(
     relnships_graph: RelationshipGraph,
 ) -> Iterable[MetadataChangeProposalWrapper]:
@@ -896,6 +949,11 @@ def generate_stitched_record(
         final_path = re.sub(r"(\[type=[a-zA-Z]+\]\.)", "", final_path)
         final_path = re.sub(r"^\[version=2.0\]\.", "", final_path)
         return final_path
+
+    # Track schema fields that need structured properties
+    schema_field_properties: Dict[
+        str, str
+    ] = {}  # schema_field_urn -> search_field_name
 
     for entity_name, entity_def in entity_registry.items():
         entity_display_name = entity_def.display_name
@@ -981,6 +1039,28 @@ def generate_stitched_record(
                         f_field.globalTags.tags.append(
                             TagAssociationClass(tag="urn:li:tag:Searchable")
                         )
+
+                        # Check if search field name differs from actual field name
+                        searchable_config = json_dict["Searchable"]
+                        if (
+                            isinstance(searchable_config, dict)
+                            and "fieldName" in searchable_config
+                        ):
+                            search_field_name = searchable_config["fieldName"]
+                            # Extract the actual field name from the field path
+                            # Field path format: "[version=2.0].[type=...].<fieldName>"
+                            actual_field_name = strip_types(f_field.fieldPath).split(
+                                "."
+                            )[-1]
+
+                            if search_field_name != actual_field_name:
+                                # Track this for later - we'll emit a separate MCP for the schema field entity
+                                schema_field_urn = make_schema_field_urn(
+                                    source_dataset_urn, f_field.fieldPath
+                                )
+                                schema_field_properties[schema_field_urn] = (
+                                    search_field_name
+                                )
                     if "Relationship" in json_dict:
                         relationship_info = json_dict["Relationship"]
                         # detect if we have relationship specified at leaf level or thru path specs
@@ -1063,6 +1143,21 @@ def generate_stitched_record(
                     SubTypesClass(typeNames=["entity"]),
                 ],
             )
+
+    # Emit structured properties for schema fields
+    property_urn = "urn:li:structuredProperty:com.datahub.metadata.searchFieldName"
+    for schema_field_urn, search_field_name in schema_field_properties.items():
+        yield MetadataChangeProposalWrapper(
+            entityUrn=schema_field_urn,
+            aspect=StructuredPropertiesClass(
+                properties=[
+                    StructuredPropertyValueAssignmentClass(
+                        propertyUrn=property_urn,
+                        values=[search_field_name],
+                    )
+                ]
+            ),
+        )
 
 
 @dataclass
@@ -1256,8 +1351,15 @@ def generate(  # noqa: C901
             logger.error(f"Failed to generate lineage JSON: {e}")
             raise
 
+    # Create structured property for search field names first
+    logger.info("Creating structured property for search field names")
+    structured_property_mcps = create_search_field_name_property()
+
     relationship_graph = RelationshipGraph()
-    mcps = list(generate_stitched_record(relationship_graph))
+    entity_mcps = list(generate_stitched_record(relationship_graph))
+
+    # Combine MCPs with structured property first
+    mcps = structured_property_mcps + entity_mcps
 
     shutil.rmtree(f"{generated_docs_dir}/entities", ignore_errors=True)
     entity_names = [(x, entity_registry[x]) for x in generated_documentation]
