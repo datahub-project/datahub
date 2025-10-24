@@ -304,7 +304,7 @@ graphql-core==3.2.6
     #   graphql-relay
 graphql-relay==3.2.0
     # via graphene
-greenlet==3.0.3 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
+greenlet==3.2.4 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
     # via sqlalchemy
 grpc-google-iam-v1==0.14.2
     # via
@@ -383,6 +383,8 @@ jmespath==1.0.1
     #   botocore
 joblib==1.5.2
     # via scikit-learn
+json-repair==0.52.3
+    # via acryl-datahub-integrations
 jsonpatch==1.33
     # via reactpy
 jsonpickle==1.4.2
@@ -636,7 +638,7 @@ pytz==2024.1
     #   croniter
     #   pandas
     #   snowflake-connector-python
-pywin32==308 ; sys_platform == 'win32'
+pywin32==311 ; sys_platform == 'win32'
     # via docker
 pyyaml==6.0.1
     # via

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datahub_integrations.mcp.mcp_server import get_dataset_queries
+from datahub_integrations.mcp.mcp_server import async_background, get_dataset_queries
 
 pytestmark = pytest.mark.anyio
 
@@ -71,7 +71,7 @@ class TestGetDatasetQueriesParameters:
         mock_get_client.return_value = mock_client
         mock_execute_graphql.return_value = mock_gql_response
 
-        await get_dataset_queries(
+        await async_background(get_dataset_queries)(
             urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.orders,PROD)",
             source="MANUAL",
             count=10,
@@ -92,7 +92,7 @@ class TestGetDatasetQueriesParameters:
         mock_get_client.return_value = mock_client
         mock_execute_graphql.return_value = mock_gql_response
 
-        await get_dataset_queries(
+        await async_background(get_dataset_queries)(
             urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.orders,PROD)",
             source="SYSTEM",
             count=10,
@@ -112,7 +112,7 @@ class TestGetDatasetQueriesParameters:
         mock_get_client.return_value = mock_client
         mock_execute_graphql.return_value = mock_gql_response
 
-        await get_dataset_queries(
+        await async_background(get_dataset_queries)(
             urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.orders,PROD)",
             count=10,
         )
@@ -131,7 +131,7 @@ class TestGetDatasetQueriesParameters:
         mock_get_client.return_value = mock_client
         mock_execute_graphql.return_value = mock_gql_response
 
-        await get_dataset_queries(
+        await async_background(get_dataset_queries)(
             urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.orders,PROD)",
             column="customer_id",
             source="MANUAL",
@@ -153,7 +153,7 @@ class TestGetDatasetQueriesParameters:
         mock_get_client.return_value = mock_client
         mock_execute_graphql.return_value = mock_gql_response
 
-        result = await get_dataset_queries(
+        result = await async_background(get_dataset_queries)(
             urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.orders,PROD)",
         )
 

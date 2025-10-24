@@ -26,6 +26,94 @@ from datahub_integrations.chat.reducers.sliding_window_reducer import (
 from datahub_integrations.gen_ai.model_config import model_config
 
 
+class TestTokenCountEstimator:
+    """Tests for TokenCountEstimator.estimate_dict_tokens method."""
+
+    def test_estimate_dict_tokens_primitives(self):
+        """Test token estimation for primitive types."""
+        assert TokenCountEstimator.estimate_dict_tokens(None) > 0
+        assert TokenCountEstimator.estimate_dict_tokens(True) > 0
+        assert TokenCountEstimator.estimate_dict_tokens(False) > 0
+        assert TokenCountEstimator.estimate_dict_tokens(42) > 0
+        assert TokenCountEstimator.estimate_dict_tokens(3.14) > 0
+        assert TokenCountEstimator.estimate_dict_tokens("hello") > 0
+
+    def test_estimate_dict_tokens_string_length(self):
+        """Test that longer strings estimate higher."""
+        short = TokenCountEstimator.estimate_dict_tokens("hi")
+        long = TokenCountEstimator.estimate_dict_tokens("a" * 1000)
+        assert long > short
+        assert long > 200  # 1000 chars should be ~250 tokens
+
+    def test_estimate_dict_tokens_simple_dict(self):
+        """Test token estimation for simple dict."""
+        simple_dict = {
+            "name": "test_table",
+            "description": "A test table for unit testing",
+            "count": 100,
+        }
+        tokens = TokenCountEstimator.estimate_dict_tokens(simple_dict)
+        assert tokens > 10  # Should have some tokens
+        assert tokens < 100  # But not too many for simple dict
+
+    def test_estimate_dict_tokens_nested_dict(self):
+        """Test token estimation for nested structures."""
+        nested = {
+            "entity": {
+                "urn": "urn:li:dataset:test",
+                "properties": {
+                    "name": "test_table",
+                    "description": "A test description",
+                },
+                "fields": [
+                    {"fieldPath": "id", "type": "INTEGER"},
+                    {"fieldPath": "name", "type": "STRING"},
+                ],
+            }
+        }
+        tokens = TokenCountEstimator.estimate_dict_tokens(nested)
+        assert tokens > 20  # Nested structure should have reasonable token count
+
+    def test_estimate_dict_tokens_list(self):
+        """Test token estimation for lists."""
+        simple_list = ["item1", "item2", "item3"]
+        tokens = TokenCountEstimator.estimate_dict_tokens(simple_list)
+        assert tokens >= 5  # Small list should have at least a few tokens
+
+        list_of_dicts = [
+            {"name": "table1", "count": 10},
+            {"name": "table2", "count": 20},
+        ]
+        tokens_with_dicts = TokenCountEstimator.estimate_dict_tokens(list_of_dicts)
+        assert tokens_with_dicts > tokens  # More complex structure
+
+    def test_estimate_dict_tokens_deep_structure(self):
+        """Test that very deep structures don't cause stack overflow."""
+        # Create deeply nested structure (but within limit)
+        deep = {"level": 0}
+        current = deep
+        for i in range(50):  # 50 levels deep
+            current["nested"] = {"level": i + 1}
+            current = current["nested"]
+
+        # Should not raise, should return reasonable estimate
+        tokens = TokenCountEstimator.estimate_dict_tokens(deep)
+        assert tokens > 0
+
+    def test_estimate_dict_tokens_max_depth_protection(self):
+        """Test that MAX_DEPTH protection works."""
+        # Create structure deeper than MAX_DEPTH (100)
+        deep = {"level": 0}
+        current = deep
+        for i in range(105):  # Exceed MAX_DEPTH
+            current["nested"] = {"level": i + 1}
+            current = current["nested"]
+
+        # Should not raise, should return estimate (stops at depth 100)
+        tokens = TokenCountEstimator.estimate_dict_tokens(deep)
+        assert tokens > 0  # Still returns something
+
+
 class TestConversationSummarizer:
     @pytest.fixture
     def token_estimator(self) -> Mock:

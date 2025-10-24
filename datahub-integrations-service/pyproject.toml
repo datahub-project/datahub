@@ -48,6 +48,7 @@ dependencies = [
 	"pyOpenSSL==24.1.0",
 	"litellm>=1.0.0",
 	"beautifulsoup4>=4.13.5",
+	"json-repair",  # For parsing Bedrock's malformed JSON in structured output
 	# Email notifications.
 	"sendgrid",
 	# Reporting.

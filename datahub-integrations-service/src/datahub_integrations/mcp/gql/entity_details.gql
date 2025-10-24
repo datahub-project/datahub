@@ -130,10 +130,10 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     description
     __typename
   }
-  #[CLOUD] documentation {
-  #[CLOUD]  ...documentationFields
-  #[CLOUD]  __typename
-  #[CLOUD] }
+  documentation {                                                #[CLOUD]
+   ...documentationFields                                        #[CLOUD]
+   __typename                                                    #[CLOUD]
+  }                                                              #[CLOUD]
   ownership {
     ...ownershipFields
     __typename
@@ -206,7 +206,7 @@ fragment glossaryTerms on GlossaryTerms {
       urn
       __typename
     }
-    #[CLOUD] context
+    context                                                        #[CLOUD]
     __typename
   }
   __typename
@@ -543,33 +543,33 @@ fragment entityPreview on Entity {
     health {
       ...entityHealth
     }
-    #[CLOUD] statsSummary {
-    #[CLOUD]   queryCountLast30Days
-    #[CLOUD]   queryCountPercentileLast30Days
-    #[CLOUD]   queryCountRankLast30Days
-    #[CLOUD]   uniqueUserCountLast30Days
-    #[CLOUD]   uniqueUserPercentileLast30Days
-    #[CLOUD]   uniqueUserRankLast30Days
-    #[CLOUD]   updateCountLast30Days
-    #[CLOUD]   updateCountPercentileLast30Days
-    #[CLOUD]   rowCount
-    #[CLOUD]   rowCountPercentile
-    #[CLOUD]   sizeInBytes
-    #[CLOUD]   sizeInBytesPercentile
-    #[CLOUD]   topUsersLast30Days {
-    #[CLOUD]     urn
-    #[CLOUD]     properties {
-    #[CLOUD]       active
-    #[CLOUD]       displayName
-    #[CLOUD]       email
-    #[CLOUD]       title
-    #[CLOUD]     }
-    #[CLOUD]     editableProperties {
-    #[CLOUD]       displayName
-    #[CLOUD]       title
-    #[CLOUD]     }
-    #[CLOUD]   }
-    #[CLOUD] }
+    statsSummary {                                               #[CLOUD]
+      queryCountLast30Days                                       #[CLOUD]
+      queryCountPercentileLast30Days                             #[CLOUD]
+      queryCountRankLast30Days                                   #[CLOUD]
+      uniqueUserCountLast30Days                                  #[CLOUD]
+      uniqueUserPercentileLast30Days                             #[CLOUD]
+      uniqueUserRankLast30Days                                   #[CLOUD]
+      updateCountLast30Days                                      #[CLOUD]
+      updateCountPercentileLast30Days                            #[CLOUD]
+      rowCount                                                   #[CLOUD]
+      rowCountPercentile                                         #[CLOUD]
+      sizeInBytes                                                #[CLOUD]
+      sizeInBytesPercentile                                      #[CLOUD]
+      topUsersLast30Days {                                       #[CLOUD]
+        urn                                                      #[CLOUD]
+        properties {                                             #[CLOUD]
+          active                                                 #[CLOUD]
+          displayName                                            #[CLOUD]
+          email                                                  #[CLOUD]
+          title                                                  #[CLOUD]
+        }                                                        #[CLOUD]
+        editableProperties {                                     #[CLOUD]
+          displayName                                            #[CLOUD]
+          title                                                  #[CLOUD]
+        }                                                        #[CLOUD]
+      }                                                          #[CLOUD]
+    }                                                            #[CLOUD]
   }
   ... on CorpUser {
     properties {
@@ -1178,15 +1178,15 @@ fragment entityPreview on Entity {
       time
       actor
     }
-    incidentStatus {
-      state
-      stage
-      message
-      lastUpdated {
-        time
-        actor
-      }
-    }
+    incidentStatus {                                             #[CLOUD] #[NEWER_GMS]
+      state                                                      #[CLOUD] #[NEWER_GMS]
+      stage                                                      #[CLOUD] #[NEWER_GMS]
+      message                                                    #[CLOUD] #[NEWER_GMS]
+      lastUpdated {                                              #[CLOUD] #[NEWER_GMS]
+        time                                                     #[CLOUD] #[NEWER_GMS]
+        actor                                                    #[CLOUD] #[NEWER_GMS]
+      }                                                          #[CLOUD] #[NEWER_GMS]
+    }                                                            #[CLOUD] #[NEWER_GMS]
     assignees {
       ... on CorpUser {
         urn

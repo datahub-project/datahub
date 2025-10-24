@@ -30,6 +30,10 @@ class BedrockModel(enum.Enum):
     CLAUDE_4_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-sonnet-4-20250514-v1:0"
     CLAUDE_45_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
+    def __str__(self) -> str:
+        """Return the model ID string when converted to string."""
+        return self.value
+
 
 def get_bedrock_model_env_variable(
     env_var: str, default_model: BedrockModel, alternate_env_var: Optional[str] = None
@@ -62,6 +66,10 @@ class LiteLLMModel(enum.Enum):
     CLAUDE_4_SONNET = f"bedrock/{BedrockModel.CLAUDE_4_SONNET.value}"
     CLAUDE_45_SONNET = f"bedrock/{BedrockModel.CLAUDE_45_SONNET.value}"
 
+    def __str__(self) -> str:
+        """Return the model ID string when converted to string."""
+        return self.value
+
 
 def get_litellm_model_env_variable(
     env_var: str, default_model: LiteLLMModel, alternate_env_var: Optional[str] = None
@@ -80,9 +88,8 @@ def get_litellm_model_env_variable(
 
 
 def _get_model_value(model: LiteLLMModel | BedrockModel | str) -> str:
-    if isinstance(model, LiteLLMModel | BedrockModel):
-        return model.value
-    return model
+    """Convert a model to its string representation."""
+    return str(model)
 
 
 class DocumentationAIConfig(BaseModel):

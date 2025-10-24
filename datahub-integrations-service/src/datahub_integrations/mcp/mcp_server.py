@@ -41,12 +41,19 @@ QUERY_LENGTH_HARD_LIMIT = 5000
 
 
 def sanitize_html_content(text: str) -> str:
-    """Remove HTML tags and decode HTML entities from text."""
+    """
+    Remove HTML tags and decode HTML entities from text.
+
+    Uses a bounded regex pattern to prevent ReDoS (Regular Expression Denial of Service)
+    attacks. The pattern limits matching to tags with at most 100 characters between < and >,
+    which prevents backtracking on malicious input like "<" followed by millions of characters
+    without a closing ">".
+    """
     if not text:
         return text
 
-    # Remove HTML tags (including img tags)
-    text = re.sub(r"<[^>]+>", "", text)
+    # Use bounded regex to prevent ReDoS (max 100 chars between < and >)
+    text = re.sub(r"<[^<>]{0,100}>", "", text)
 
     # Decode HTML entities
     text = html.unescape(text)
@@ -159,17 +166,110 @@ def with_datahub_client(client: DataHubClient) -> Iterator[None]:
         _mcp_dh_client.reset(token)
 
 
+def _enable_newer_gms_fields(query: str) -> str:
+    """
+    Enable newer GMS fields by removing the #[NEWER_GMS] marker suffix.
+
+    Converts:
+        someField  #[NEWER_GMS]
+    To:
+        someField
+    """
+    lines = query.split("\n")
+    cleaned_lines = [
+        line.replace(" #[NEWER_GMS]", "").replace("\t#[NEWER_GMS]", "")
+        for line in lines
+    ]
+    return "\n".join(cleaned_lines)
+
+
+def _disable_newer_gms_fields(query: str) -> str:
+    """
+    Disable newer GMS fields by commenting out lines with #[NEWER_GMS] marker.
+
+    Converts:
+        someField  #[NEWER_GMS]
+    To:
+        # someField  #[NEWER_GMS]
+    """
+    lines = query.split("\n")
+    processed_lines = []
+    for line in lines:
+        if "#[NEWER_GMS]" in line:
+            # Comment out the line by prefixing with #
+            processed_lines.append("# " + line)
+        else:
+            processed_lines.append(line)
+    return "\n".join(processed_lines)
+
+
 def _enable_cloud_fields(query: str) -> str:
-    return query.replace("#[CLOUD]", "")
+    """
+    Enable cloud fields by removing the #[CLOUD] marker suffix.
+
+    Converts:
+        someField  #[CLOUD]
+    To:
+        someField
+    """
+    lines = query.split("\n")
+    cleaned_lines = [
+        line.replace(" #[CLOUD]", "").replace("\t#[CLOUD]", "") for line in lines
+    ]
+    return "\n".join(cleaned_lines)
+
+
+def _disable_cloud_fields(query: str) -> str:
+    """
+    Disable cloud fields by commenting out lines with #[CLOUD] marker.
+
+    Converts:
+        someField  #[CLOUD]
+    To:
+        # someField  #[CLOUD]
+    """
+    lines = query.split("\n")
+    processed_lines = []
+    for line in lines:
+        if "#[CLOUD]" in line:
+            # Comment out the line by prefixing with #
+            processed_lines.append("# " + line)
+        else:
+            processed_lines.append(line)
+    return "\n".join(processed_lines)
+
+
+# Cache to track whether newer GMS fields are supported for each graph instance
+# Key: id(graph), Value: bool indicating if newer GMS fields are supported
+_newer_gms_fields_support_cache: dict[int, bool] = {}
 
 
 def _is_datahub_cloud(graph: DataHubGraph) -> bool:
+    """Check if the graph instance is DataHub Cloud.
+
+    Cloud instances typically have newer GMS versions with additional fields.
+    This heuristic uses the presence of frontend_base_url to detect Cloud instances.
+    """
+    # Allow disabling newer GMS field detection via environment variable
+    # This is useful when the GMS version doesn't support all newer fields
+    if get_boolean_env_variable("DISABLE_NEWER_GMS_FIELD_DETECTION", default=False):
+        logger.debug(
+            "Newer GMS field detection disabled via DISABLE_NEWER_GMS_FIELD_DETECTION"
+        )
+        return False
+
     try:
         # Only DataHub Cloud has a frontend base url.
+        # Cloud instances typically run newer GMS versions with additional fields.
         _ = graph.frontend_base_url
     except ValueError:
         return False
     return True
+
+
+def _is_field_validation_error(error_msg: str) -> bool:
+    """Check if the error is a GraphQL field validation error."""
+    return "FieldUndefined" in error_msg or "ValidationError" in error_msg
 
 
 def _execute_graphql(
@@ -179,11 +279,37 @@ def _execute_graphql(
     operation_name: Optional[str] = None,
     variables: Optional[Dict[str, Any]] = None,
 ) -> Any:
-    try:
-        # Enable cloud fields if needed
-        if _is_datahub_cloud(graph):
-            query = _enable_cloud_fields(query)
+    graph_id = id(graph)
+    original_query = query  # Keep original for fallback
 
+    # Detect if this is a DataHub Cloud instance
+    is_cloud = _is_datahub_cloud(graph)
+
+    # Process CLOUD tags
+    if is_cloud:
+        query = _enable_cloud_fields(query)
+    else:
+        query = _disable_cloud_fields(query)
+
+    # Process NEWER_GMS tags
+    # Check if we've already determined newer GMS fields support for this graph
+    if graph_id in _newer_gms_fields_support_cache:
+        supports_newer_fields = _newer_gms_fields_support_cache[graph_id]
+        if supports_newer_fields:
+            query = _enable_newer_gms_fields(query)
+        else:
+            query = _disable_newer_gms_fields(query)
+    else:
+        # First attempt: try with newer GMS fields if it's detected as cloud
+        # (Cloud instances typically run newer GMS versions)
+        if is_cloud:
+            query = _enable_newer_gms_fields(query)
+        else:
+            query = _disable_newer_gms_fields(query)
+        # Cache the initial detection result
+        _newer_gms_fields_support_cache[graph_id] = is_cloud
+
+    try:
         # Execute the GraphQL query
         result = graph.execute_graphql(
             query=query, variables=variables, operation_name=operation_name
@@ -191,10 +317,52 @@ def _execute_graphql(
         return result
 
     except Exception as e:
+        error_msg = str(e)
+
+        # Check if this is a field validation error and we haven't tried fallback yet
+        if _is_field_validation_error(
+            error_msg
+        ) and _newer_gms_fields_support_cache.get(graph_id, False):
+            logger.warning(
+                f"GraphQL schema validation error detected. "
+                f"Retrying without newer GMS fields as fallback. "
+                f"Error: {error_msg}"
+            )
+
+            # Update cache to indicate newer GMS fields are NOT supported
+            _newer_gms_fields_support_cache[graph_id] = False
+
+            # Retry with newer GMS fields disabled - process both tags again
+            try:
+                fallback_query = original_query
+                # Reprocess CLOUD tags
+                if is_cloud:
+                    fallback_query = _enable_cloud_fields(fallback_query)
+                else:
+                    fallback_query = _disable_cloud_fields(fallback_query)
+                # Disable newer GMS fields for fallback
+                fallback_query = _disable_newer_gms_fields(fallback_query)
+
+                result = graph.execute_graphql(
+                    query=fallback_query,
+                    variables=variables,
+                    operation_name=operation_name,
+                )
+                logger.info(
+                    f"Fallback query succeeded without newer GMS fields for operation: {operation_name}"
+                )
+                return result
+            except Exception as fallback_error:
+                logger.exception(
+                    f"Fallback query also failed for {operation_name or 'query'}: {fallback_error}"
+                )
+                raise fallback_error
+
         # Keep essential error logging for troubleshooting with full stack trace
         logger.exception(
             f"GraphQL {operation_name or 'query'} failed: {e}\n"
-            f"Query: {query}\n"
+            f"Cloud instance: {is_cloud}\n"
+            f"Newer GMS fields enabled: {_newer_gms_fields_support_cache.get(graph_id, 'unknown')}\n"
             f"Variables: {variables}"
         )
         raise
@@ -231,6 +399,7 @@ search_gql = (pathlib.Path(__file__).parent / "gql/search.gql").read_text()
 semantic_search_gql = (
     pathlib.Path(__file__).parent / "gql/semantic_search.gql"
 ).read_text()
+smart_search_gql = (pathlib.Path(__file__).parent / "gql/smart_search.gql").read_text()
 entity_details_fragment_gql = (
     pathlib.Path(__file__).parent / "gql/entity_details.gql"
 ).read_text()
@@ -296,6 +465,22 @@ def fetch_global_default_view(graph: DataHubGraph) -> Optional[str]:
 
 
 def clean_gql_response(response: Any) -> Any:
+    """
+    Clean GraphQL response by removing metadata and empty values.
+
+    Recursively removes:
+    - __typename fields (GraphQL metadata not useful for consumers)
+    - None values
+    - Empty arrays []
+    - Empty dicts {} (after cleaning)
+    - Base64-encoded images from description fields (can be huge - 2MB!)
+
+    Args:
+        response: Raw GraphQL response (dict, list, or primitive)
+
+    Returns:
+        Cleaned response with same structure but without noise
+    """
     if isinstance(response, dict):
         banned_keys = {
             "__typename",
@@ -306,6 +491,23 @@ def clean_gql_response(response: Any) -> Any:
             if k in banned_keys or v is None or v == []:
                 continue
             cleaned_v = clean_gql_response(v)
+            # Strip base64 images from description fields
+            if (
+                k == "description"
+                and isinstance(cleaned_v, str)
+                and "base64" in cleaned_v
+            ):
+                import re
+
+                cleaned_v = re.sub(
+                    r"data:image/[^;]+;base64,[A-Za-z0-9+/=]+",
+                    "[image removed]",
+                    cleaned_v,
+                )
+                cleaned_v = re.sub(
+                    r"!\[[^\]]*\]\(data:image/[^)]+\)", "[image removed]", cleaned_v
+                )
+
             if cleaned_v is not None and cleaned_v != {}:
                 cleaned_response[k] = cleaned_v
 
@@ -326,13 +528,35 @@ def clean_get_entities_response(raw_response: dict) -> dict:
             if not schema_value or schema_value == "":
                 del schema_metadata["platformSchema"]
 
-        # Remove default field attributes (false values) to keep only meaningful data
+        # Clean schemaMetadata.fields to keep important fields while reducing size
+        # Keep: fieldPath (required), type, description (truncated), and truthy isPartOfKey/recursive
         if fields := schema_metadata.get("fields"):
-            for field in fields:
-                if field.get("recursive") is False:
-                    field.pop("recursive", None)
-                if field.get("isPartOfKey") is False:
-                    field.pop("isPartOfKey", None)
+            cleaned_fields = []
+            for f in fields:
+                if not f.get("fieldPath"):  # Skip fields without fieldPath
+                    continue
+
+                field_dict = {"fieldPath": f.get("fieldPath")}
+
+                # Add type if present
+                if field_type := f.get("type"):
+                    field_dict["type"] = field_type
+
+                # Add description if present (truncated)
+                if description := f.get("description"):
+                    field_dict["description"] = description[:120]
+
+                # Add isPartOfKey only if truthy
+                if f.get("isPartOfKey"):
+                    field_dict["isPartOfKey"] = True
+
+                # Add recursive only if truthy
+                if f.get("recursive"):
+                    field_dict["recursive"] = True
+
+                cleaned_fields.append(field_dict)
+
+            schema_metadata["fields"] = cleaned_fields
 
     # Truncate long view definition to prevent context window issues
     if response and (view_properties := response.get("viewProperties")):
@@ -342,11 +566,17 @@ def clean_get_entities_response(raw_response: dict) -> dict:
     return response
 
 
-@mcp.tool(
-    description="Get detailed information about one or more entities by their DataHub URNs. Accepts either a single URN or an array of URNs. When examining search results, pass an array with the top 3-5 result URNs to find the best match. Supports all entity types including datasets, assertions, incidents, dashboards, charts, users, groups, and more. The response fields vary based on the entity type."
-)
-@async_background
 def get_entities(urns: List[str] | str) -> List[dict] | dict:
+    """Get detailed information about one or more entities by their DataHub URNs.
+
+    IMPORTANT: Pass an array of URNs to retrieve multiple entities in a single call - this is much
+    more efficient than calling this tool multiple times. When examining search results, always pass
+    an array with the top 3-10 result URNs to compare and find the best match.
+
+    Accepts an array of URNs or a single URN. Supports all entity types including datasets,
+    assertions, incidents, dashboards, charts, users, groups, and more. The response fields vary
+    based on the entity type.
+    """
     client = get_datahub_client()
 
     # Handle single URN for backward compatibility
@@ -434,9 +664,9 @@ def _search_implementation(
     query: str,
     filters: Optional[Filter | str],
     num_results: int,
-    search_strategy: Optional[Literal["semantic", "keyword"]] = None,
+    search_strategy: Optional[Literal["semantic", "keyword", "ersatz_semantic"]] = None,
 ) -> dict:
-    """Core search implementation that can use either semantic or keyword search."""
+    """Core search implementation that can use semantic, keyword, or ersatz_semantic search."""
     client = get_datahub_client()
 
     # As of 2025-07-25: Our Filter type is a tagged/discriminated union.
@@ -479,12 +709,18 @@ def _search_implementation(
     }
 
     # Choose GraphQL query and operation based on strategy
-    use_semantic = search_strategy == "semantic"
-    if use_semantic:
+    if search_strategy == "semantic":
         gql_query = semantic_search_gql
         operation_name = "semanticSearch"
         response_key = "semanticSearchAcrossEntities"
+    elif search_strategy == "ersatz_semantic":
+        # Smart search: keyword search with rich entity details for reranking
+        gql_query = smart_search_gql
+        operation_name = "smartSearch"
+        response_key = "scrollAcrossEntities"
+        variables["scrollId"] = None
     else:
+        # Default: keyword search
         gql_query = search_gql
         operation_name = "search"
         response_key = "scrollAcrossEntities"
@@ -696,7 +932,6 @@ def search(
     return _search_implementation(query, filters, num_results, "keyword")
 
 
-@async_background
 def get_dataset_queries(
     urn: str,
     column: Optional[str] = None,
@@ -933,39 +1168,6 @@ class AssetLineageAPI:
         return result
 
 
-@mcp.tool(
-    description="""\
-Use this tool to get upstream or downstream lineage for any entity, including datasets, schemaFields, dashboards, charts, etc. \
-Set upstream to True for upstream lineage, False for downstream lineage.
-Set `column: null` to get lineage for entire dataset or for entity type other than dataset.
-Setting max_hops to 3 is equivalent to unlimited hops.
-Usage and format of filters is same as that in search tool.
-
-QUERY PARAMETER - Search within lineage results:
-You can filter lineage results using the `query` parameter with same /q syntax as search tool:
-- /q workspace.growthgestaofin → find tables in specific schema
-- /q customer+transactions → find entities with both terms
-- /q looker OR tableau → find dashboards on either platform
-- /q * → get all lineage results (default)
-
-Examples:
-- Find specific table in 643 downstreams: query="workspace.growthgestaofin.qs_retention"
-- Find Looker dashboards in lineage: query="/q tag:looker"
-- Get all results: query="*" or omit parameter
-
-COUNT PARAMETER - Control result size:
-- Default: 30 results
-- For aggregation: count=30 is sufficient (facets computed on ALL items server-side)
-- For finding specific item: Increase count or use query to filter
-- Example: count=100 for larger result sets
-
-WHEN TO USE QUERY vs COUNT:
-- User asks "is X affected?" → Use query to filter for X specifically
-- Large lineage (>30 items) → Keep count=30, use facets for aggregation
-- Need complete list → Increase count only if total ≤100
-"""
-)
-@async_background
 def get_lineage(
     urn: str,
     column: Optional[str],
@@ -975,6 +1177,36 @@ def get_lineage(
     max_hops: int = 1,
     max_results: int = 30,
 ) -> dict:
+    """Get upstream or downstream lineage for any entity, including datasets, schemaFields, dashboards, charts, etc.
+
+    Set upstream to True for upstream lineage, False for downstream lineage.
+    Set `column: null` to get lineage for entire dataset or for entity type other than dataset.
+    Setting max_hops to 3 is equivalent to unlimited hops.
+    Usage and format of filters is same as that in search tool.
+
+    QUERY PARAMETER - Search within lineage results:
+    You can filter lineage results using the `query` parameter with same /q syntax as search tool:
+    - /q workspace.growthgestaofin → find tables in specific schema
+    - /q customer+transactions → find entities with both terms
+    - /q looker OR tableau → find dashboards on either platform
+    - /q * → get all lineage results (default)
+
+    Examples:
+    - Find specific table in 643 downstreams: query="workspace.growthgestaofin.qs_retention"
+    - Find Looker dashboards in lineage: query="/q tag:looker"
+    - Get all results: query="*" or omit parameter
+
+    COUNT PARAMETER - Control result size:
+    - Default: 30 results
+    - For aggregation: count=30 is sufficient (facets computed on ALL items server-side)
+    - For finding specific item: Increase count or use query to filter
+    - Example: count=100 for larger result sets
+
+    WHEN TO USE QUERY vs COUNT:
+    - User asks "is X affected?" → Use query to filter for X specifically
+    - Large lineage (>30 items) → Keep count=30, use facets for aggregation
+    - Need complete list → Increase count only if total ≤100
+    """
     client = get_datahub_client()
     # NOTE: See comment in search tool for why we parse filters as strings.
     if isinstance(filters, str):
@@ -1019,7 +1251,17 @@ def register_search_tools(mcp_instance: FastMCP) -> None:
 # Register search tools on the global MCP instance
 register_search_tools(mcp)
 
+# Register get_lineage tool
+mcp.tool(name="get_lineage", description=get_lineage.__doc__)(
+    async_background(get_lineage)
+)
+
 # Register get_dataset_queries tool
 mcp.tool(name="get_dataset_queries", description=get_dataset_queries.__doc__)(
-    get_dataset_queries
+    async_background(get_dataset_queries)
+)
+
+# Register get_entities tool
+mcp.tool(name="get_entities", description=get_entities.__doc__)(
+    async_background(get_entities)
 )

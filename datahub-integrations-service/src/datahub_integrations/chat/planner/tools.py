@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, Any, Dict, List, Literal, Optional
 
+from json_repair import repair_json
 from loguru import logger
 from pydantic import Field
 
@@ -18,7 +19,7 @@ from datahub_integrations.chat.planner.models import Constraints, OnFail, Plan, 
 from datahub_integrations.chat.planner.recipes import get_recipe_guidance
 from datahub_integrations.gen_ai.bedrock import BedrockModel, get_bedrock_client
 from datahub_integrations.mcp.mcp_server import get_datahub_client
-from datahub_integrations.mcp.tool import ToolWrapper
+from datahub_integrations.mcp.tool import ToolWrapper, async_background
 
 if TYPE_CHECKING:
     from datahub_integrations.chat.chat_session import ChatSession
@@ -85,20 +86,78 @@ def _get_tool_descriptions(session: "ChatSession") -> Dict[str, str]:
     }
 
 
-def _call_planner_llm(prompt: str) -> str:
+def _get_plan_tool_spec() -> dict:
     """
-    Call the planner LLM to generate plan JSON.
+    Create a Bedrock tool specification for structured Plan output.
 
-    Uses low temperature for consistent structured output.
-    Includes custom instructions (if configured) and recipe guidance as separate system messages.
-    Returns the raw text response which should be parseable JSON.
+    This ensures the LLM returns a properly structured Plan object
+    instead of free-form JSON that might have format issues.
+
+    Automatically generates the JSON schema from the Plan Pydantic model,
+    ensuring it stays in sync with the model definition.
+    """
+    # Generate JSON schema from the Plan Pydantic model
+    # This avoids duplication and ensures schema matches the model
+    plan_schema = Plan.model_json_schema()
+
+    # Remove fields that the LLM shouldn't provide (they're set by the code)
+    # plan_id and version are generated/managed by create_plan/revise_plan
+    if "properties" in plan_schema:
+        plan_schema["properties"].pop("plan_id", None)
+        plan_schema["properties"].pop("version", None)
+        plan_schema["properties"].pop("metadata", None)  # Also auto-generated
+
+        # Update required fields list to remove the ones we popped
+        if "required" in plan_schema:
+            plan_schema["required"] = [
+                field
+                for field in plan_schema["required"]
+                if field not in ["plan_id", "version", "metadata"]
+            ]
+
+    return {
+        "toolSpec": {
+            "name": "create_execution_plan",
+            "description": "Creates a structured execution plan for a multi-step task",
+            "inputSchema": {"json": plan_schema},
+        }
+    }
+
+
+def _call_planner_llm(prompt: str, tools_summary: str) -> dict:
+    """
+    Call the planner LLM to generate a plan using structured output.
+
+    Uses low temperature and toolConfig with a Plan schema to enforce
+    proper structure. This function is responsible for returning a valid,
+    properly-formatted dictionary that can be used to construct a Plan object.
+
+    This function handles common LLM output issues:
+    - Repairs malformed JSON in the 'steps' field if needed
+    - Converts markdown-style assumptions strings to proper arrays
+    - Ensures all fields match the expected schema
+
+    Args:
+        prompt: The user task/prompt
+        tools_summary: Formatted string of available tools and descriptions
+
+    Returns:
+        Dictionary with plan data, ready to be used for constructing a Plan object.
+        The returned dict is guaranteed to have properly structured 'steps'
+        (as an array) and 'assumptions' (as an array of strings).
+
+    Raises:
+        ValueError: If the LLM response cannot be converted to valid plan dict.
     """
     bedrock_client = get_bedrock_client()
 
-    # Build system messages: main prompt + custom instructions (if any) + recipes
+    # Build system messages: main prompt + tools + custom instructions (if any) + recipes
     system_messages = [
         {"text": _PLANNER_SYSTEM_PROMPT},
     ]
+
+    # Add available tools (stable, good for prompt caching)
+    system_messages.append({"text": f"AVAILABLE TOOLS:\n\n{tools_summary}"})
 
     # Add custom instructions if configured
     client = get_datahub_client()
@@ -117,27 +176,85 @@ def _call_planner_llm(prompt: str) -> str:
         }  # Recipes as separate message (machine-constructible)
     )
 
+    # Use toolConfig to enforce structured output
     response = bedrock_client.converse(
         modelId=PLANNER_MODEL.value,
         system=system_messages,  # type: ignore[arg-type]
         messages=[{"role": "user", "content": [{"text": prompt}]}],
+        toolConfig={
+            "tools": [_get_plan_tool_spec()]  # type: ignore[list-item]  # Enforce Plan schema
+        },
         inferenceConfig={
             "temperature": PLANNER_TEMPERATURE,
             "maxTokens": 4096,
         },
     )
 
-    # Extract text from response
+    # Extract tool use response
     output = response["output"]
     message = output.get("message")
     if not message:
         raise ValueError("No message in planner LLM response")
 
     content = message["content"]
-    if not content or "text" not in content[0]:
-        raise ValueError("No text in planner LLM response")
+    if not content:
+        raise ValueError("No content in planner LLM response")
 
-    return content[0]["text"]
+    # Look for tool_use block (structured output)
+    tool_use_block = None
+    for block in content:
+        if "toolUse" in block:
+            tool_use_block = block["toolUse"]
+            break
+
+    if tool_use_block:
+        # Structured output - extract the input (the plan data)
+        plan_input = tool_use_block.get("input", {})
+
+        # If input is already a string (shouldn't happen), parse it
+        if isinstance(plan_input, str):
+            logger.warning("Tool input is a string, parsing it")
+            plan_input = json.loads(plan_input)
+
+        # Fix common LLM output issues before returning
+        # Handle case where Bedrock returns steps as a JSON string instead of array
+        steps_data = plan_input.get("steps", [])
+        if isinstance(steps_data, str):
+            logger.warning("Steps field is a JSON string, parsing it with json_repair")
+            repaired = repair_json(steps_data)
+            plan_input["steps"] = json.loads(repaired)
+
+        # Handle case where Bedrock returns assumptions as a markdown-style string instead of array
+        assumptions_data = plan_input.get("assumptions", [])
+        if isinstance(assumptions_data, str):
+            logger.warning(
+                "Assumptions field is a string (likely markdown bullet list), converting to list"
+            )
+            # Split by newlines and clean up markdown bullet points
+            plan_input["assumptions"] = [
+                line.strip().lstrip("-").lstrip("*").strip()
+                for line in assumptions_data.split("\n")
+                if line.strip() and not line.strip().startswith("#")
+            ]
+
+        # Return the fixed dict
+        return plan_input
+
+    # Fallback: try to extract text and parse as JSON (shouldn't happen with toolConfig)
+    if "text" in content[0]:
+        logger.warning(
+            "Planner returned text instead of structured tool_use (unexpected)"
+        )
+        text_response = content[0]["text"]
+        # Try to parse the text as JSON
+        try:
+            return json.loads(text_response)
+        except json.JSONDecodeError:
+            raise ValueError(
+                f"Could not parse text response as JSON: {text_response}"
+            ) from None
+
+    raise ValueError("No tool_use or text found in planner LLM response")
 
 
 def create_plan(
@@ -268,71 +385,26 @@ def create_plan(
     if evidence:
         evidence_str = f"\n\nEvidence (concrete details from prior findings):\n{json.dumps(evidence, indent=2)}"
 
+    # Build user prompt (tools are in system message now)
     prompt = f"""Create an execution plan for this task:
 
 Task: {task}
 {f"Context: {context}" if context else ""}{evidence_str}
-
-Available tools ({len(tool_allowlist)} total):
-{tools_summary}
 
 Requirements:
 - Maximum {max_steps} steps
 - Each step must have a "done_when" criteria
 - If evidence contains URNs or specific entity details, use them in param_hints to guide execution
 
-Return a JSON object with this structure:
-{{
-  "title": "Short plan title",
-  "goal": "Overall objective", 
-  "assumptions": ["assumption1", "assumption2"],
-  "steps": [
-    {{
-      "id": "s0",
-      "description": "What this step accomplishes",
-      "done_when": "Natural language success criteria",
-      "return_to_user_when": "When user input needed (optional)",
-      "tool": "tool_name (optional)",
-      "param_hints": {{"hint_key": "hint_value"}},
-      "on_fail": {{"action": "abort"}} (optional, use 'abort' if user input needed)
-    }}
-  ],
-  "expected_deliverable": "What should be delivered to user"
-}}"""
+Use the create_execution_plan tool to return the structured plan."""
 
-    # Call planner LLM
+    # Call planner LLM (tools_summary goes to system message)
+    # The LLM call handles fixups internally and returns a valid dict
     try:
-        response_text = _call_planner_llm(prompt)
-
-        # Parse JSON response
-        # Try to extract JSON if wrapped in markdown code blocks
-        if "```json" in response_text:
-            json_start = response_text.find("```json") + 7
-            json_end = response_text.find("```", json_start)
-            response_text = response_text[json_start:json_end].strip()
-        elif "```" in response_text:
-            json_start = response_text.find("```") + 3
-            json_end = response_text.find("```", json_start)
-            response_text = response_text[json_start:json_end].strip()
-        else:
-            # Try to find JSON object boundaries if not in code blocks
-            # Look for the first { and last }
-            first_brace = response_text.find("{")
-            last_brace = response_text.rfind("}")
-            if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
-                response_text = response_text[first_brace : last_brace + 1].strip()
-
-        try:
-            plan_data = json.loads(response_text)
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON plan. Error: {e}")
-            logger.error(f"Response text (first 500 chars): {response_text[:500]}")
-            logger.error(f"Response text (last 500 chars): {response_text[-500:]}")
-            raise ValueError(
-                f"Invalid JSON in plan response: {e}. Check that the response contains only valid JSON without trailing text."
-            ) from e
+        plan_data = _call_planner_llm(prompt, tools_summary)
 
         # Build Plan object from LLM response
+        # Note: _call_planner_llm has already fixed steps and assumptions to be proper arrays
         plan = Plan(
             plan_id=plan_id,
             version=1,
@@ -364,6 +436,10 @@ Return a JSON object with this structure:
 
     except Exception as e:
         logger.error(f"Failed to create plan: {e}")
+        if "plan_data" in locals():
+            logger.error(
+                f"Plan data that caused failure:\n{json.dumps(plan_data, indent=2)}"
+            )
         raise
 
     # Store in session cache
@@ -503,6 +579,7 @@ def revise_plan(
 
     evidence_str = json.dumps(evidence, indent=2) if evidence else "None"
 
+    # Build prompt for replanning (tools are in system message now)
     prompt = f"""Revise this execution plan due to an issue:
 
 Original Plan:
@@ -517,47 +594,24 @@ Current Step Having Issues:
 - Issue: {issue}
 - Evidence: {evidence_str}
 
-Available tools:
-{tools_summary}
-
 Please generate REVISED steps from {current_step} onward (keep completed steps as-is).
 Address the issue and adjust the approach as needed.
 
-Return JSON with:
-{{
-  "assumptions": ["updated assumptions"],
-  "steps": [
-    {{
-      "id": "{current_step}",
-      "description": "Revised approach",
-      "done_when": "Success criteria",
-      "tool": "tool_name (optional)",
-      "param_hints": {{}}
-    }}
-  ],
-  "expected_deliverable": "What should be delivered"
-}}"""
+Use the create_execution_plan tool to return the revised plan structure with:
+- Updated assumptions (if needed)
+- Revised steps from {current_step} onward
+- Expected deliverable"""
 
-    # Call planner LLM
+    # Call planner LLM (tools_summary goes to system message)
+    # The LLM call handles fixups internally and returns a valid dict
     try:
-        response_text = _call_planner_llm(prompt)
-
-        # Parse JSON response (handle markdown code blocks)
-        if "```json" in response_text:
-            json_start = response_text.find("```json") + 7
-            json_end = response_text.find("```", json_start)
-            response_text = response_text[json_start:json_end].strip()
-        elif "```" in response_text:
-            json_start = response_text.find("```") + 3
-            json_end = response_text.find("```", json_start)
-            response_text = response_text[json_start:json_end].strip()
-
-        revision_data = json.loads(response_text)
+        revision_data = _call_planner_llm(prompt, tools_summary)
 
         # Build revised plan with completed steps + new steps
         completed_step_objs = [
             step for step in original_plan.steps if step.id in completed_steps
         ]
+        # Note: _call_planner_llm has already fixed steps to be a proper array
         new_steps = [
             Step(
                 id=step_data["id"],
@@ -574,6 +628,7 @@ Return JSON with:
             for step_data in revision_data.get("steps", [])
         ]
 
+        # Note: _call_planner_llm has already fixed assumptions to be a proper array
         revised_plan = Plan(
             plan_id=plan_id,  # Same ID
             version=original_plan.version + 1,  # Increment version
@@ -854,19 +909,21 @@ def get_planning_tool_wrappers(session: "ChatSession") -> list[ToolWrapper]:
     _revise_plan_wrapper.__doc__ = revise_plan.__doc__
     _report_step_progress_wrapper.__doc__ = report_step_progress.__doc__
 
+    # Explicitly wrap sync functions with async_background to run them in thread pool
+    # This prevents blocking the event loop during expensive operations like LLM calls
     return [
         ToolWrapper.from_function(
-            fn=_create_plan_wrapper,
+            fn=async_background(_create_plan_wrapper),
             name="create_plan",
             description=create_plan.__doc__ or "Create an execution plan",
         ),
         ToolWrapper.from_function(
-            fn=_revise_plan_wrapper,
+            fn=async_background(_revise_plan_wrapper),
             name="revise_plan",
             description=revise_plan.__doc__ or "Revise an execution plan",
         ),
         ToolWrapper.from_function(
-            fn=_report_step_progress_wrapper,
+            fn=async_background(_report_step_progress_wrapper),
             name="report_step_progress",
             description=report_step_progress.__doc__ or "Report plan step progress",
         ),
