@@ -290,9 +290,6 @@ class BaseStatGenerator(ABC):
         logger.debug(
             f"Resolved {len(user_ids)} in {user_resolution_latency.total_seconds()} seconds"
         )
-        self.report.report_user_resolution_latency(
-            self.get_stats_generator_name(), user_resolution_latency
-        )
 
         for row in user_wise_rows:
             # Confirm looker object was given for stat generation
@@ -348,9 +345,7 @@ class BaseStatGenerator(ABC):
             logger.debug(
                 f"{self.get_stats_generator_name()}: Retrieved {len(rows)} rows in {(end_time - start_time).total_seconds()} seconds"
             )
-            self.report.report_query_latency(
-                f"{self.get_stats_generator_name()}:{query_name}", end_time - start_time
-            )
+
             if self.post_filter:
                 logger.debug("post filtering")
                 rows = [r for r in rows if self.get_id_from_row(r) in self.id_to_model]
