@@ -201,7 +201,7 @@ class DremioSource(StatefulIngestionSourceBase):
         return "dremio"
 
     def _build_source_map(self) -> Dict[str, DremioSourceMapEntry]:
-        dremio_sources = self.dremio_catalog.get_sources()
+        dremio_sources = list(self.dremio_catalog.get_sources())
         source_mappings_config = self.config.source_mappings or []
 
         source_map = build_dremio_source_map(dremio_sources, source_mappings_config)

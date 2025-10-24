@@ -82,7 +82,7 @@ class TestDremioAPIPagination:
         assert dremio_api.get_job_result.call_count == 1
 
     def test_fetch_results_iter_missing_rows_key(self, dremio_api):
-        """Test streaming version handling missing 'rows' key"""
+        """Test internal streaming method handling missing 'rows' key"""
         # Mock get_job_result to return response without 'rows' key
         dremio_api.get_job_result = Mock(return_value={"message": "No data available"})
 
@@ -93,7 +93,7 @@ class TestDremioAPIPagination:
         assert results == []
 
     def test_fetch_results_iter_with_error(self, dremio_api):
-        """Test streaming version handling error response"""
+        """Test internal streaming method handling error response"""
         # Mock get_job_result to return error response
         dremio_api.get_job_result = Mock(return_value={"errorMessage": "Query timeout"})
 
@@ -103,7 +103,7 @@ class TestDremioAPIPagination:
             list(result_iterator)
 
     def test_fetch_results_iter_normal_case(self, dremio_api):
-        """Test streaming version with valid data"""
+        """Test internal streaming method with valid data"""
         # Mock get_job_result to return valid data in batches
         mock_responses = [
             {"rows": [{"col1": "val1"}, {"col1": "val2"}], "rowCount": 2},
@@ -191,7 +191,7 @@ class TestDremioAPIPagination:
 
         dremio_api.cancel_query.assert_called_once_with("job-123")
 
-    def test_get_all_tables_and_columns_iter(self, dremio_api):
+    def test_get_all_tables_and_columns(self, dremio_api):
         """Test streaming version of get_all_tables_and_columns"""
         from datahub.ingestion.source.dremio.dremio_api import DremioEdition
 
@@ -222,7 +222,7 @@ class TestDremioAPIPagination:
         dremio_api.execute_query_iter = Mock(return_value=iter(mock_results))
 
         # Test streaming method
-        result_iterator = dremio_api.get_all_tables_and_columns_iter(containers)
+        result_iterator = dremio_api.get_all_tables_and_columns(containers)
         tables = list(result_iterator)
 
         assert len(tables) == 1
@@ -232,7 +232,7 @@ class TestDremioAPIPagination:
         assert len(table["COLUMNS"]) == 1
         assert table["COLUMNS"][0]["name"] == "col1"
 
-    def test_extract_all_queries_iter(self, dremio_api):
+    def test_extract_all_queries(self, dremio_api):
         """Test streaming version of extract_all_queries"""
 
         dremio_api.edition = DremioEdition.ENTERPRISE
@@ -246,7 +246,7 @@ class TestDremioAPIPagination:
         ]
         dremio_api.execute_query_iter = Mock(return_value=iter(mock_query_results))
 
-        result_iterator = dremio_api.extract_all_queries_iter()
+        result_iterator = dremio_api.extract_all_queries()
         queries = list(result_iterator)
 
         assert len(queries) == 2
@@ -255,7 +255,7 @@ class TestDremioAPIPagination:
         dremio_api.execute_query_iter.assert_called_once()
 
     def test_fetch_results_iter_incremental_yielding(self, dremio_api):
-        """Test that iterator yields results incrementally and can be partially consumed"""
+        """Test that internal iterator yields results incrementally and can be partially consumed"""
         # Verify that streaming yields results one at a time and iterator state is maintained
 
         mock_responses = [

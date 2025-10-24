@@ -7,7 +7,7 @@ from collections import defaultdict
 from enum import Enum
 from itertools import product
 from time import sleep, time
-from typing import TYPE_CHECKING, Any, Deque, Dict, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 from urllib.parse import quote
 
 import requests
@@ -634,116 +634,6 @@ class DremioAPIOperations:
         return f"AND {operator}({field}, '{pattern_str}')"
 
     def get_all_tables_and_columns(
-        self, containers: Deque["DremioContainer"]
-    ) -> List[Dict]:
-        """
-        Legacy method that collects all results in memory.
-        For large datasets, consider using get_all_tables_and_columns_iter().
-        """
-        if self.edition == DremioEdition.ENTERPRISE:
-            query_template = DremioSQLQueries.QUERY_DATASETS_EE
-        elif self.edition == DremioEdition.CLOUD:
-            query_template = DremioSQLQueries.QUERY_DATASETS_CLOUD
-        else:
-            query_template = DremioSQLQueries.QUERY_DATASETS_CE
-
-        schema_field = "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
-
-        schema_condition = self.get_pattern_condition(
-            self.allow_schema_pattern, schema_field
-        )
-        deny_schema_condition = self.get_pattern_condition(
-            self.deny_schema_pattern, schema_field, allow=False
-        )
-
-        all_tables_and_columns = []
-
-        for schema in containers:
-            formatted_query = ""
-            try:
-                formatted_query = query_template.format(
-                    schema_pattern=schema_condition,
-                    deny_schema_pattern=deny_schema_condition,
-                    container_name=schema.container_name.lower(),
-                )
-                all_tables_and_columns.extend(
-                    self.execute_query(
-                        query=formatted_query,
-                    )
-                )
-            except DremioAPIException as e:
-                self.report.warning(
-                    message="Container has no tables or views",
-                    context=f"{schema.subclass} {schema.container_name}",
-                    exc=e,
-                )
-
-        tables = []
-
-        if self.edition == DremioEdition.COMMUNITY:
-            tables = self.community_get_formatted_tables(all_tables_and_columns)
-
-        else:
-            column_dictionary: Dict[str, List[Dict]] = defaultdict(list)
-
-            for record in all_tables_and_columns:
-                if not record.get("COLUMN_NAME"):
-                    continue
-
-                table_full_path = record.get("FULL_TABLE_PATH")
-                if not table_full_path:
-                    continue
-
-                column_dictionary[table_full_path].append(
-                    {
-                        "name": record["COLUMN_NAME"],
-                        "ordinal_position": record["ORDINAL_POSITION"],
-                        "is_nullable": record["IS_NULLABLE"],
-                        "data_type": record["DATA_TYPE"],
-                        "column_size": record["COLUMN_SIZE"],
-                    }
-                )
-
-            distinct_tables_list = list(
-                {
-                    tuple(
-                        dictionary[key]
-                        for key in (
-                            "TABLE_SCHEMA",
-                            "TABLE_NAME",
-                            "FULL_TABLE_PATH",
-                            "VIEW_DEFINITION",
-                            "LOCATION_ID",
-                            "OWNER",
-                            "OWNER_TYPE",
-                            "CREATED",
-                            "FORMAT_TYPE",
-                        )
-                        if key in dictionary
-                    ): dictionary
-                    for dictionary in all_tables_and_columns
-                }.values()
-            )
-
-            for table in distinct_tables_list:
-                tables.append(
-                    {
-                        "TABLE_NAME": table.get("TABLE_NAME"),
-                        "TABLE_SCHEMA": table.get("TABLE_SCHEMA"),
-                        "COLUMNS": column_dictionary[table["FULL_TABLE_PATH"]],
-                        "VIEW_DEFINITION": table.get("VIEW_DEFINITION"),
-                        "RESOURCE_ID": table.get("RESOURCE_ID"),
-                        "LOCATION_ID": table.get("LOCATION_ID"),
-                        "OWNER": table.get("OWNER"),
-                        "OWNER_TYPE": table.get("OWNER_TYPE"),
-                        "CREATED": table.get("CREATED"),
-                        "FORMAT_TYPE": table.get("FORMAT_TYPE"),
-                    }
-                )
-
-        return tables
-
-    def get_all_tables_and_columns_iter(
         self, containers: Iterator["DremioContainer"]
     ) -> Iterator[Dict]:
         """
@@ -881,34 +771,7 @@ class DremioAPIOperations:
 
         return parents_list
 
-    def extract_all_queries(self) -> List[Dict[str, Any]]:
-        """
-        Legacy method that collects all query results in memory.
-        For large query result sets, consider using extract_all_queries_iter().
-        """
-        # Convert datetime objects to string format for SQL queries
-        start_timestamp_str = None
-        end_timestamp_str = None
-
-        if self.start_time:
-            start_timestamp_str = self.start_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-        if self.end_time:
-            end_timestamp_str = self.end_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-
-        if self.edition == DremioEdition.CLOUD:
-            jobs_query = DremioSQLQueries.get_query_all_jobs_cloud(
-                start_timestamp_millis=start_timestamp_str,
-                end_timestamp_millis=end_timestamp_str,
-            )
-        else:
-            jobs_query = DremioSQLQueries.get_query_all_jobs(
-                start_timestamp_millis=start_timestamp_str,
-                end_timestamp_millis=end_timestamp_str,
-            )
-
-        return self.execute_query(query=jobs_query)
-
-    def extract_all_queries_iter(self) -> Iterator[Dict[str, Any]]:
+    def extract_all_queries(self) -> Iterator[Dict[str, Any]]:
         """
         Memory-efficient streaming version for extracting query results.
         """
