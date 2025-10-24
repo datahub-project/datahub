@@ -209,7 +209,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
     public updateNodeWithUrl(view: EditorView, nodeId: string, url: string): void {
         const { nodePos, nodeToUpdate } = this.findNodeById(view.state, nodeId);
 
-        if (!nodePos || !nodeToUpdate) return;
+        if (nodePos === null || !nodeToUpdate) return;
 
         const { name, type } = nodeToUpdate.attrs;
 
@@ -222,7 +222,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
 
     public removeNode(view: EditorView, nodeId: string) {
         const { nodePos, nodeToUpdate } = this.findNodeById(view.state, nodeId);
-        if (!nodePos || !nodeToUpdate) return;
+        if (nodePos === null || !nodeToUpdate) return;
 
         const updatedTransaction = view.state.tr.delete(nodePos, nodePos + nodeToUpdate.nodeSize);
         view.dispatch(updatedTransaction);
