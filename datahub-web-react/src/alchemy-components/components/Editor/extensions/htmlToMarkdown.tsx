@@ -68,10 +68,24 @@ const turndownService = new TurndownService({
         replacement: (content, node: any) =>
             node?.previousElementSibling?.nodeName === 'P' ? `${br}${content}` : content,
     })
-    /* Keep HTML format if image has an explicit width attribute */
+    /* Handle images with width attributes and wrap URLs in angle brackets for all images */
     .addRule('images', {
-        filter: (node) => node.nodeName === 'IMG' && node.hasAttribute('width'),
-        replacement: (_, node: any) => `${node.outerHTML}`,
+        filter: (node) => node.nodeName === 'IMG',
+        replacement: (test, node: any) => {
+            // Keep HTML format if image has an explicit width attribute
+            if (node.hasAttribute('width')) {
+                return `${node.outerHTML}`;
+            }
+
+            // For standard images, wrap URL in angle brackets to support spaces
+            const src = node.getAttribute('src') || '';
+            const alt = node.getAttribute('alt') || '';
+
+            // Wrap URL in angle brackets to support spaces and special characters in URLs
+            const encodedUrl = `<${src}>`;
+
+            return `![${alt}](${encodedUrl})`;
+        },
     })
     /* Add improved code block support from html (snippet from Remirror). */
     .addRule('fencedCodeBlock', {

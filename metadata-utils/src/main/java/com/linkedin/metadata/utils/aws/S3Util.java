@@ -5,6 +5,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -104,6 +105,8 @@ public class S3Util {
     String endpointUrl = System.getenv("AWS_ENDPOINT_URL");
     if (endpointUrl != null && !endpointUrl.isEmpty()) {
       presignerBuilder.endpointOverride(java.net.URI.create(endpointUrl));
+      presignerBuilder.serviceConfiguration(
+          S3Configuration.builder().pathStyleAccessEnabled(true).build());
     }
 
     return presignerBuilder.build();
