@@ -71,7 +71,7 @@ def get_litellm_model_env_variable(
         model_value = os.getenv(alternate_env_var, default_model.value)
     else:
         model_value = model_value or default_model.value
-    if not model_value.startswith(("bedrock/", "gemini/")):
+    if not model_value.startswith(("bedrock/", "gemini/", "vertex_ai/")):
         logger.warning(
             f"Invalid model value for {env_var}: {model_value}, using default model: {default_model.value}"
         )
