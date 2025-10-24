@@ -74,6 +74,9 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                 props: {
                     handleDOMEvents: {
                         drop: (view: EditorView, event: DragEvent) => {
+                            if (!view.editable) {
+                                return true; // prevents editor from handling the drop
+                            }
                             const data = event.dataTransfer;
                             if (data && data.files && data.files.length > 0) {
                                 // External file drop
