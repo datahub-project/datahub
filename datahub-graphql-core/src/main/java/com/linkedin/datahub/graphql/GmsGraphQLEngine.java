@@ -166,6 +166,8 @@ import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResol
 import com.linkedin.datahub.graphql.resolvers.mutate.MoveDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.PatchEntitiesResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.PatchEntityResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
@@ -868,6 +870,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(QUERY_SCHEMA_FILE))
         .addSchema(fileBasedSchema(TEMPLATE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(MODULE_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(PATCH_SCHEMA_FILE))
         .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FILES_SCHEMA_FILE));
 
@@ -1247,6 +1250,12 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "batchRemoveOwners", new BatchRemoveOwnersResolver(entityService, entityClient))
               .dataFetcher("addLink", new AddLinkResolver(entityService, this.entityClient))
+              .dataFetcher(
+                  "patchEntity",
+                  new PatchEntityResolver(entityService, entityClient, entityRegistry))
+              .dataFetcher(
+                  "patchEntities",
+                  new PatchEntitiesResolver(entityService, entityClient, entityRegistry))
               .dataFetcher("updateLink", new UpdateLinkResolver(entityService, this.entityClient))
               .dataFetcher("upsertLink", new UpsertLinkResolver(entityService, this.entityClient))
               .dataFetcher("removeLink", new RemoveLinkResolver(entityService, entityClient))
