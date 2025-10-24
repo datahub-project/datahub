@@ -57,6 +57,11 @@ class BigQueryBaseConfig(ConfigModel):
         description="If you are creating temp tables in a dataset with a particular prefix you can use this config to set the prefix for the dataset. This is to support workflows from before bigquery's introduction of temp tables. By default we use `_` because of datasets that begin with an underscore are hidden by default https://cloud.google.com/bigquery/docs/datasets#dataset-naming.",
     )
 
+    skip_schema_errors: bool = Field(
+        default=False,
+        description="Whether to skip BigQuery dataset schema errors (e.g., 'Table does not have a schema'). When True, schema errors are logged as warnings and ingestion continues with other datasets. When False, schema errors cause ingestion to fail.",
+    )
+
     sharded_table_pattern: str = Field(
         deprecated=True,
         default=_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
