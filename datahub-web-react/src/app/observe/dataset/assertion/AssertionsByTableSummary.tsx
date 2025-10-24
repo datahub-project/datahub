@@ -318,6 +318,9 @@ export const AssertionsByTableSummary = ({ isAnomalyDetectionEnabled }: Props) =
                         ]}
                         initialValues={selectedStatus}
                         onUpdate={(values) => {
+                            if (values.length === 0) {
+                                return;
+                            }
                             setSelectedStatus(values as AssertionResultTypeOptions[]);
                             analytics.event({
                                 type: EventType.DatasetHealthFilterEvent,
