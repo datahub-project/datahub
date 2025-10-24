@@ -401,6 +401,28 @@ public class SendMAEStepTest {
   }
 
   @Test
+  public void testUrnBasedPaginationExecutableWithError() {
+    parsedArgs.put(RestoreIndices.URN_BASED_PAGINATION_ARG_NAME, Optional.of("true"));
+
+    when(mockEntityService.countAspect(any(RestoreIndicesArgs.class), any())).thenReturn(10);
+
+    // Force the service to throw an exception
+    when(mockEntityService.restoreIndices(eq(mockOpContext), any(RestoreIndicesArgs.class), any()))
+        .thenThrow(new RuntimeException("Test exception"));
+
+    // Execute
+    UpgradeStepResult result = sendMAEStep.executable().apply(mockContext);
+
+    // Verify failure
+    assertTrue(result instanceof DefaultUpgradeStepResult);
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    assertEquals(result.stepId(), sendMAEStep.id());
+
+    // verify exception reported
+    verify(mockReport, atLeastOnce()).addLine(anyString(), any(Exception.class));
+  }
+
+  @Test
   public void testReportAddedLines() {
     // Insert some test data
     insertTestRows(1, null);
