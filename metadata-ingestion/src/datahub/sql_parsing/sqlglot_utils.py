@@ -25,6 +25,8 @@ def _get_dialect_str(platform: str) -> str:
         return "hive"
     elif platform == "mssql":
         return "tsql"
+    elif platform == "hana":
+        return "tsql"  # SAP HANA uses T-SQL compatible syntax
     elif platform == "athena":
         return "trino"
     # TODO: define SalesForce SOQL dialect
