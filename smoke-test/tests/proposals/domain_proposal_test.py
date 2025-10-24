@@ -1,8 +1,13 @@
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.proposals.test_utils import execute_gql, validate_assignee_is_correct
-from tests.utils import delete_urns_from_file, ingest_file_via_rest
+from tests.proposals.test_utils import validate_assignee_is_correct
+from tests.utils import (
+    delete_urns_from_file,
+    execute_gql,
+    execute_graphql,
+    ingest_file_via_rest,
+)
 
 dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-proposal-domain,PROD)"
 domain_urn = "urn:li:domain:test-domain-to-apply"
@@ -41,10 +46,9 @@ def test_complete_entity_domain_proposal_accept(auth_session, ingest_cleanup_dat
             "description": "Proposing for accept test",
         }
     }
-    propose_resp = execute_gql(
+    propose_resp = execute_graphql(
         auth_session, query=propose_domain_mutation, variables=variables_propose
     )
-    assert "errors" not in propose_resp, f"Errors found: {propose_resp.get('errors')}"
     proposal_urn = propose_resp["data"]["proposeDomain"]
     assert proposal_urn, "Expected a proposal URN"
 
@@ -64,10 +68,9 @@ def test_complete_entity_domain_proposal_accept(auth_session, ingest_cleanup_dat
         "urns": [proposal_urn],
         "note": "Accepting the proposal via test",
     }
-    accept_resp = execute_gql(
+    accept_resp = execute_graphql(
         auth_session, query=accept_proposals_mutation, variables=variables_accept
     )
-    assert "errors" not in accept_resp, f"Errors found: {accept_resp.get('errors')}"
     assert accept_resp["data"]["acceptProposals"] is True, (
         "Expected acceptProposals to return true"
     )
@@ -97,10 +100,9 @@ def test_complete_entity_domain_proposal_accept(auth_session, ingest_cleanup_dat
             "count": 1000,
         }
     }
-    list_response = execute_gql(
+    list_response = execute_graphql(
         auth_session, query=list_requests_query, variables=variables_list
     )
-    assert "errors" not in list_response, f"Errors found: {list_response.get('errors')}"
     requests = list_response["data"]["listActionRequests"]["actionRequests"]
 
     # We should find our request with COMPLETED & ACCEPTED
@@ -125,11 +127,8 @@ def test_complete_entity_domain_proposal_accept(auth_session, ingest_cleanup_dat
         }
     """
     variables_dataset_domain = {"urn": dataset_urn}
-    dataset_domain_resp = execute_gql(
+    dataset_domain_resp = execute_graphql(
         auth_session, query=dataset_domain_query, variables=variables_dataset_domain
-    )
-    assert "errors" not in dataset_domain_resp, (
-        f"Errors found: {dataset_domain_resp.get('errors')}"
     )
 
     # Extract the domain URN from the dataset
@@ -150,11 +149,8 @@ def test_complete_entity_domain_proposal_accept(auth_session, ingest_cleanup_dat
         "entityUrn": dataset_urn,
         "domainUrn": already_applied_domain_urn,
     }
-    remove_resp = execute_gql(
+    remove_resp = execute_graphql(
         auth_session, query=unset_domain_mutation, variables=variables_unset_domain
-    )
-    assert "errors" not in remove_resp, (
-        f"Errors found resetting domain: {remove_resp.get('errors')}"
     )
     assert remove_resp["data"]["setDomain"] is True, "Expected setDomain to return True"
 
@@ -181,10 +177,9 @@ def test_complete_entity_domain_proposal_reject(auth_session, ingest_cleanup_dat
             "description": "Proposing for reject test",
         }
     }
-    propose_resp = execute_gql(
+    propose_resp = execute_graphql(
         auth_session, query=propose_domain_mutation, variables=variables_propose
     )
-    assert "errors" not in propose_resp, f"Errors found: {propose_resp.get('errors')}"
     proposal_urn = propose_resp["data"]["proposeDomain"]
     assert proposal_urn, "Expected a proposal URN"
 
@@ -198,10 +193,9 @@ def test_complete_entity_domain_proposal_reject(auth_session, ingest_cleanup_dat
         "urns": [proposal_urn],
         "note": "Rejecting the proposal via test",
     }
-    reject_resp = execute_gql(
+    reject_resp = execute_graphql(
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
-    assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
     assert reject_resp["data"]["rejectProposals"] is True, (
         "Expected rejectProposals to return true"
     )
@@ -229,10 +223,9 @@ def test_complete_entity_domain_proposal_reject(auth_session, ingest_cleanup_dat
             "count": 1000,
         }
     }
-    list_response = execute_gql(
+    list_response = execute_graphql(
         auth_session, query=list_requests_query, variables=variables_list
     )
-    assert "errors" not in list_response, f"Errors found: {list_response.get('errors')}"
     requests = list_response["data"]["listActionRequests"]["actionRequests"]
     matching = [r for r in requests if r["urn"] == proposal_urn]
     assert len(matching) == 1, f"Expected exactly one request matching {proposal_urn}"
@@ -253,11 +246,8 @@ def test_complete_entity_domain_proposal_reject(auth_session, ingest_cleanup_dat
         }
     """
     variables_dataset_domain = {"urn": dataset_urn}
-    dataset_domain_resp = execute_gql(
+    dataset_domain_resp = execute_graphql(
         auth_session, query=dataset_domain_query, variables=variables_dataset_domain
-    )
-    assert "errors" not in dataset_domain_resp, (
-        f"Errors found: {dataset_domain_resp.get('errors')}"
     )
 
     # Extract the domain URN from the dataset
@@ -290,10 +280,9 @@ def test_list_action_requests_domain_params(auth_session, ingest_cleanup_data):
             "description": "Proposing for reject test",
         }
     }
-    propose_resp = execute_gql(
+    propose_resp = execute_graphql(
         auth_session, query=propose_domain_mutation, variables=variables_propose
     )
-    assert "errors" not in propose_resp, f"Errors found: {propose_resp.get('errors')}"
     proposal_urn = propose_resp["data"]["proposeDomain"]
     assert proposal_urn, "Expected a proposal URN"
 
@@ -330,10 +319,9 @@ def test_list_action_requests_domain_params(auth_session, ingest_cleanup_data):
             "count": 1000,
         }
     }
-    list_response = execute_gql(
+    list_response = execute_graphql(
         auth_session, query=list_requests_query, variables=variables_list
     )
-    assert "errors" not in list_response, f"Errors found: {list_response.get('errors')}"
     requests = list_response["data"]["listActionRequests"]["actionRequests"]
     matching = [r for r in requests if r["urn"] == proposal_urn]
     assert len(matching) == 1, f"Expected exactly one request matching {proposal_urn}"
@@ -353,10 +341,9 @@ def test_list_action_requests_domain_params(auth_session, ingest_cleanup_data):
         "urns": [proposal_urn],
         "note": "Rejecting the proposal via test",
     }
-    reject_resp = execute_gql(
+    reject_resp = execute_graphql(
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
-    assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
     assert reject_resp["data"]["rejectProposals"] is True, (
         "Expected rejectProposals to return true"
     )
@@ -480,11 +467,8 @@ def test_propose_domain_domain_already_proposed(auth_session, ingest_cleanup_dat
     }
 
     # 1) First propose
-    first_resp = execute_gql(
+    first_resp = execute_graphql(
         auth_session=auth_session, query=propose_domain_mutation, variables=variables
-    )
-    assert "errors" not in first_resp, (
-        f"Unexpected error in first proposal: {first_resp.get('errors')}"
     )
     first_proposal_urn = first_resp["data"]["proposeDomain"]
     assert first_proposal_urn, "Expected a proposal URN for the first proposal"
@@ -513,10 +497,9 @@ def test_propose_domain_domain_already_proposed(auth_session, ingest_cleanup_dat
         "urns": [first_proposal_urn],
         "note": "Rejecting the proposal via test",
     }
-    reject_resp = execute_gql(
+    reject_resp = execute_graphql(
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
-    assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
     assert reject_resp["data"]["rejectProposals"] is True, (
         "Expected rejectProposals to return true"
     )

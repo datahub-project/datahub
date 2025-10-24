@@ -6,7 +6,7 @@ Tests the Teams notification GraphQL mutations and queries to verify the Teams i
 
 from typing import Any
 
-from tests.utils import execute_gql
+from tests.utils import execute_graphql
 
 
 def test_teams_notification_settings_crud(auth_session):
@@ -33,8 +33,7 @@ def test_teams_notification_settings_crud(auth_session):
     }
     """
 
-    response = execute_gql(auth_session, get_query)
-    assert "errors" not in response, response.get("errors")
+    response = execute_graphql(auth_session, get_query)
     # initial_settings = response["data"]["getUserNotificationSettings"]
 
     # Step 2: Update notification settings with Teams configuration
@@ -61,8 +60,7 @@ def test_teams_notification_settings_crud(auth_session):
     }
 
     variables: dict = {"input": {"notificationSettings": teams_settings}}
-    response = execute_gql(auth_session, update_mutation, variables)
-    assert "errors" not in response, f"GraphQL errors: {response.get('errors')}"
+    response = execute_graphql(auth_session, update_mutation, variables)
 
     updated_settings = response["data"]["updateUserNotificationSettings"]
 
@@ -79,8 +77,7 @@ def test_teams_notification_settings_crud(auth_session):
     assert settings_by_type["DATASET_SCHEMA_CHANGE"]["value"] == "ENABLED"
 
     # Step 3: Verify settings persist by querying again
-    response = execute_gql(auth_session, get_query)
-    assert "errors" not in response, response.get("errors")
+    response = execute_graphql(auth_session, get_query)
     persisted_settings = response["data"]["getUserNotificationSettings"]
 
     assert persisted_settings is not None
@@ -101,8 +98,7 @@ def test_teams_notification_settings_crud(auth_session):
     }
 
     variables = {"input": {"notificationSettings": multi_sink_settings}}
-    response = execute_gql(auth_session, update_mutation, variables)
-    assert "errors" not in response, response.get("errors")
+    response = execute_graphql(auth_session, update_mutation, variables)
 
     multi_settings = response["data"]["updateUserNotificationSettings"]
     assert set(multi_settings["sinkTypes"]) == {"EMAIL", "TEAMS"}
@@ -123,12 +119,10 @@ def test_teams_notification_settings_crud(auth_session):
     }
 
     variables = {"input": {"notificationSettings": reset_settings}}
-    response = execute_gql(auth_session, update_mutation, variables)
-    assert "errors" not in response, response.get("errors")
+    response = execute_graphql(auth_session, update_mutation, variables)
 
     # Verify reset worked
-    response = execute_gql(auth_session, get_query)
-    assert "errors" not in response, response.get("errors")
+    response = execute_graphql(auth_session, get_query)
     final_settings = response["data"]["getUserNotificationSettings"]
 
     # Settings should be reset or None
@@ -156,10 +150,7 @@ def test_teams_notification_settings_validation(auth_session):
     }
 
     variables: dict = {"input": {"notificationSettings": teams_settings}}
-    response = execute_gql(auth_session, update_mutation, variables)
-
-    # Should not error - teamsSettings is optional
-    assert "errors" not in response, response.get("errors")
+    execute_graphql(auth_session, update_mutation, variables)
 
     # Test with Teams settings but no sink type
     teams_settings = {
@@ -169,10 +160,7 @@ def test_teams_notification_settings_validation(auth_session):
     }
 
     variables = {"input": {"notificationSettings": teams_settings}}
-    response = execute_gql(auth_session, update_mutation, variables)
-
-    # Should not error - this is valid configuration
-    assert "errors" not in response, response.get("errors")
+    execute_graphql(auth_session, update_mutation, variables)
 
 
 def test_teams_notification_scenario_types(auth_session):
@@ -212,8 +200,7 @@ def test_teams_notification_scenario_types(auth_session):
     }
 
     variables: dict = {"input": {"notificationSettings": teams_settings}}
-    response = execute_gql(auth_session, update_mutation, variables)
-    assert "errors" not in response, f"GraphQL errors: {response.get('errors')}"
+    response = execute_graphql(auth_session, update_mutation, variables)
 
     updated_settings = response["data"]["updateUserNotificationSettings"]
 
@@ -228,4 +215,4 @@ def test_teams_notification_scenario_types(auth_session):
     reset_settings: dict = {"sinkTypes": [], "teamsSettings": {}, "settings": []}
 
     variables = {"input": {"notificationSettings": reset_settings}}
-    execute_gql(auth_session, update_mutation, variables)
+    execute_graphql(auth_session, update_mutation, variables)

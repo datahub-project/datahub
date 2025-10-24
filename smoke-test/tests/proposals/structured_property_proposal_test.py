@@ -1,8 +1,13 @@
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.proposals.test_utils import execute_gql, validate_assignee_is_correct
-from tests.utils import delete_urns_from_file, ingest_file_via_rest
+from tests.proposals.test_utils import validate_assignee_is_correct
+from tests.utils import (
+    delete_urns_from_file,
+    execute_gql,
+    execute_graphql,
+    ingest_file_via_rest,
+)
 
 dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-proposal-properties,PROD)"
 property_urn = "urn:li:structuredProperty:test-property-to-apply"
@@ -58,10 +63,9 @@ def test_complete_entity_structured_property_proposal_accept(
             "description": "Proposing for accept test",
         }
     }
-    propose_resp = execute_gql(
+    propose_resp = execute_graphql(
         auth_session, query=propose_properties_mutation, variables=variables_propose
     )
-    assert "errors" not in propose_resp, f"Errors found: {propose_resp.get('errors')}"
     proposal_urn = propose_resp["data"]["proposeStructuredProperties"]
     assert proposal_urn, "Expected a proposal URN"
 
@@ -81,10 +85,9 @@ def test_complete_entity_structured_property_proposal_accept(
         "urns": [proposal_urn],
         "note": "Accepting the proposal via test",
     }
-    accept_resp = execute_gql(
+    accept_resp = execute_graphql(
         auth_session, query=accept_proposals_mutation, variables=variables_accept
     )
-    assert "errors" not in accept_resp, f"Errors found: {accept_resp.get('errors')}"
     assert accept_resp["data"]["acceptProposals"] is True, (
         "Expected acceptProposals to return true"
     )
@@ -114,10 +117,9 @@ def test_complete_entity_structured_property_proposal_accept(
             "count": 1000,
         }
     }
-    list_response = execute_gql(
+    list_response = execute_graphql(
         auth_session, query=list_requests_query, variables=variables_list
     )
-    assert "errors" not in list_response, f"Errors found: {list_response.get('errors')}"
     requests = list_response["data"]["listActionRequests"]["actionRequests"]
 
     # We should find our request with COMPLETED & ACCEPTED
@@ -149,13 +151,10 @@ def test_complete_entity_structured_property_proposal_accept(
         }
     """
     variables_dataset_properties = {"urn": dataset_urn}
-    dataset_properties_resp = execute_gql(
+    dataset_properties_resp = execute_graphql(
         auth_session,
         query=dataset_properties_query,
         variables=variables_dataset_properties,
-    )
-    assert "errors" not in dataset_properties_resp, (
-        f"Errors found: {dataset_properties_resp.get('errors')}"
     )
 
     # Extract the list of properties from the dataset
@@ -191,23 +190,17 @@ def test_complete_entity_structured_property_proposal_accept(
     variables_remove_property = {
         "input": {"assetUrn": dataset_urn, "structuredPropertyUrns": [property_urn]}
     }
-    remove_resp = execute_gql(
+    execute_graphql(
         auth_session,
         query=remove_property_mutation,
         variables=variables_remove_property,
     )
-    assert "errors" not in remove_resp, (
-        f"Errors found removing property: {remove_resp.get('errors')}"
-    )
 
     # Optional: verify the property was removed
-    dataset_properties_resp_after_removal = execute_gql(
+    dataset_properties_resp_after_removal = execute_graphql(
         auth_session,
         query=dataset_properties_query,
         variables=variables_dataset_properties,
-    )
-    assert "errors" not in dataset_properties_resp_after_removal, (
-        f"Errors found: {dataset_properties_resp_after_removal.get('errors')}"
     )
     updated_properties = dataset_properties_resp_after_removal["data"]["dataset"][
         "structuredProperties"
@@ -249,10 +242,9 @@ def test_complete_entity_structured_property_proposal_overwrite_existing_propert
             ],
         }
     }
-    propose_resp = execute_gql(
+    propose_resp = execute_graphql(
         auth_session, query=propose_properties_mutation, variables=variables_propose
     )
-    assert "errors" not in propose_resp, f"Errors found: {propose_resp.get('errors')}"
     proposal_urn = propose_resp["data"]["proposeStructuredProperties"]
     assert proposal_urn, "Expected a proposal URN"
 
@@ -266,10 +258,9 @@ def test_complete_entity_structured_property_proposal_overwrite_existing_propert
         "urns": [proposal_urn],
         "note": "Accepting the proposal via test",
     }
-    accept_resp = execute_gql(
+    accept_resp = execute_graphql(
         auth_session, query=accept_proposals_mutation, variables=variables_accept
     )
-    assert "errors" not in accept_resp, f"Errors found: {accept_resp.get('errors')}"
     assert accept_resp["data"]["acceptProposals"] is True, (
         "Expected acceptProposals to return true"
     )
@@ -295,13 +286,10 @@ def test_complete_entity_structured_property_proposal_overwrite_existing_propert
         }
     """
     variables_dataset_properties = {"urn": dataset_urn}
-    dataset_properties_resp = execute_gql(
+    dataset_properties_resp = execute_graphql(
         auth_session,
         query=dataset_properties_query,
         variables=variables_dataset_properties,
-    )
-    assert "errors" not in dataset_properties_resp, (
-        f"Errors found: {dataset_properties_resp.get('errors')}"
     )
 
     # Extract the list of properties from the dataset
@@ -347,13 +335,10 @@ def test_complete_entity_structured_property_proposal_overwrite_existing_propert
             ],
         }
     }
-    remove_resp = execute_gql(
+    execute_graphql(
         auth_session,
         query=reset_property_mutation,
         variables=variables_reset_property,
-    )
-    assert "errors" not in remove_resp, (
-        f"Errors found resetting property: {remove_resp.get('errors')}"
     )
 
 
@@ -385,10 +370,9 @@ def test_complete_entity_structured_property_proposal_reject(
             ],
         }
     }
-    propose_resp = execute_gql(
+    propose_resp = execute_graphql(
         auth_session, query=propose_properties_mutation, variables=variables_propose
     )
-    assert "errors" not in propose_resp, f"Errors found: {propose_resp.get('errors')}"
     proposal_urn = propose_resp["data"]["proposeStructuredProperties"]
     assert proposal_urn, "Expected a proposal URN"
 
@@ -402,10 +386,9 @@ def test_complete_entity_structured_property_proposal_reject(
         "urns": [proposal_urn],
         "note": "Rejecting the proposal via test",
     }
-    reject_resp = execute_gql(
+    reject_resp = execute_graphql(
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
-    assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
     assert reject_resp["data"]["rejectProposals"] is True, (
         "Expected rejectProposals to return true"
     )
@@ -433,10 +416,9 @@ def test_complete_entity_structured_property_proposal_reject(
             "count": 1000,
         }
     }
-    list_response = execute_gql(
+    list_response = execute_graphql(
         auth_session, query=list_requests_query, variables=variables_list
     )
-    assert "errors" not in list_response, f"Errors found: {list_response.get('errors')}"
     requests = list_response["data"]["listActionRequests"]["actionRequests"]
     matching = [r for r in requests if r["urn"] == proposal_urn]
     assert len(matching) == 1, f"Expected exactly one request matching {proposal_urn}"
@@ -464,13 +446,10 @@ def test_complete_entity_structured_property_proposal_reject(
         }
     """
     variables_dataset_properties = {"urn": dataset_urn}
-    dataset_properties_resp = execute_gql(
+    dataset_properties_resp = execute_graphql(
         auth_session,
         query=dataset_properties_query,
         variables=variables_dataset_properties,
-    )
-    assert "errors" not in dataset_properties_resp, (
-        f"Errors found: {dataset_properties_resp.get('errors')}"
     )
     applied_properties = dataset_properties_resp["data"]["dataset"][
         "structuredProperties"
@@ -510,10 +489,9 @@ def test_list_action_requests_property_params(auth_session, ingest_cleanup_data)
             "description": "Proposing for accept test",
         }
     }
-    propose_resp = execute_gql(
+    propose_resp = execute_graphql(
         auth_session, query=propose_properties_mutation, variables=variables_propose
     )
-    assert "errors" not in propose_resp, f"Errors found: {propose_resp.get('errors')}"
     proposal_urn = propose_resp["data"]["proposeStructuredProperties"]
     assert proposal_urn, "Expected a proposal URN"
 
@@ -557,10 +535,9 @@ def test_list_action_requests_property_params(auth_session, ingest_cleanup_data)
             "count": 1000,
         }
     }
-    list_response = execute_gql(
+    list_response = execute_graphql(
         auth_session, query=list_requests_query, variables=variables_list
     )
-    assert "errors" not in list_response, f"Errors found: {list_response.get('errors')}"
     requests = list_response["data"]["listActionRequests"]["actionRequests"]
     matching = [r for r in requests if r["urn"] == proposal_urn]
     assert len(matching) == 1, f"Expected exactly one request matching {proposal_urn}"
@@ -590,10 +567,9 @@ def test_list_action_requests_property_params(auth_session, ingest_cleanup_data)
         "urns": [proposal_urn],
         "note": "Rejecting the proposal via test",
     }
-    reject_resp = execute_gql(
+    reject_resp = execute_graphql(
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
-    assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
     assert reject_resp["data"]["rejectProposals"] is True, (
         "Expected rejectProposals to return true"
     )
@@ -632,10 +608,9 @@ def test_complete_schema_field_property_proposal_accept(
             "subResource": field_name,
         }
     }
-    propose_resp = execute_gql(
+    propose_resp = execute_graphql(
         auth_session, query=propose_properties_mutation, variables=variables_propose
     )
-    assert "errors" not in propose_resp, f"Errors found: {propose_resp.get('errors')}"
     proposal_urn = propose_resp["data"]["proposeStructuredProperties"]
     assert proposal_urn, "Expected a proposal URN"
 
@@ -649,10 +624,9 @@ def test_complete_schema_field_property_proposal_accept(
         "urns": [proposal_urn],
         "note": "Accepting sub-resource proposal",
     }
-    accept_resp = execute_gql(
+    accept_resp = execute_graphql(
         auth_session, query=accept_proposals_mutation, variables=variables_accept
     )
-    assert "errors" not in accept_resp, f"Errors found: {accept_resp.get('errors')}"
     assert accept_resp["data"]["acceptProposals"] is True, (
         "Expected acceptProposals to return True"
     )
@@ -680,10 +654,9 @@ def test_complete_schema_field_property_proposal_accept(
             "count": 1000,
         }
     }
-    list_resp = execute_gql(
+    list_resp = execute_graphql(
         auth_session, query=list_requests_query, variables=variables_list
     )
-    assert "errors" not in list_resp, f"Errors found: {list_resp.get('errors')}"
     requests = list_resp["data"]["listActionRequests"]["actionRequests"]
     matching = [r for r in requests if r["urn"] == proposal_urn]
     assert len(matching) == 1, f"Expected exactly one proposal matching {proposal_urn}"
@@ -719,10 +692,9 @@ def test_complete_schema_field_property_proposal_accept(
       }
     }
     """
-    fields_resp = execute_gql(
+    fields_resp = execute_graphql(
         auth_session, query=dataset_fields_query, variables={"urn": dataset_urn}
     )
-    assert "errors" not in fields_resp, f"Errors found: {fields_resp.get('errors')}"
 
     # Find the field matching field_name
     fields = fields_resp["data"]["dataset"]["schemaMetadata"]["fields"]
@@ -763,21 +735,15 @@ def test_complete_schema_field_property_proposal_accept(
             "structuredPropertyUrns": [property_urn],
         }
     }
-    remove_resp = execute_gql(
+    execute_graphql(
         auth_session,
         query=remove_property_mutation,
         variables=variables_remove_property,
     )
-    assert "errors" not in remove_resp, (
-        f"Errors found removing property: {remove_resp.get('errors')}"
-    )
 
     # Optional: verify the property is gone
-    fields_resp_after_removal = execute_gql(
+    fields_resp_after_removal = execute_graphql(
         auth_session, query=dataset_fields_query, variables={"urn": dataset_urn}
-    )
-    assert "errors" not in fields_resp_after_removal, (
-        f"Errors found: {fields_resp_after_removal.get('errors')}"
     )
 
     updated_fields = fields_resp_after_removal["data"]["dataset"]["schemaMetadata"][
@@ -827,10 +793,9 @@ def test_complete_schema_field_property_proposal_reject(
             "subResource": field_name,
         }
     }
-    propose_resp = execute_gql(
+    propose_resp = execute_graphql(
         auth_session, query=propose_properties_mutation, variables=variables_propose
     )
-    assert "errors" not in propose_resp, f"Errors found: {propose_resp.get('errors')}"
     proposal_urn = propose_resp["data"]["proposeStructuredProperties"]
     assert proposal_urn, "Expected a proposal URN"
 
@@ -844,10 +809,9 @@ def test_complete_schema_field_property_proposal_reject(
         "urns": [proposal_urn],
         "note": "Rejecting sub-resource proposal",
     }
-    reject_resp = execute_gql(
+    reject_resp = execute_graphql(
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
-    assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
     assert reject_resp["data"]["rejectProposals"] is True, (
         "Expected rejectProposals to return True"
     )
@@ -875,10 +839,9 @@ def test_complete_schema_field_property_proposal_reject(
             "count": 1000,
         }
     }
-    list_resp = execute_gql(
+    list_resp = execute_graphql(
         auth_session, query=list_requests_query, variables=variables_list
     )
-    assert "errors" not in list_resp, f"Errors found: {list_resp.get('errors')}"
     requests = list_resp["data"]["listActionRequests"]["actionRequests"]
     matching = [r for r in requests if r["urn"] == proposal_urn]
     assert len(matching) == 1, f"Expected exactly one proposal matching {proposal_urn}"
@@ -914,10 +877,9 @@ def test_complete_schema_field_property_proposal_reject(
       }
     }
     """
-    fields_resp = execute_gql(
+    fields_resp = execute_graphql(
         auth_session, query=dataset_fields_query, variables={"urn": dataset_urn}
     )
-    assert "errors" not in fields_resp, f"Errors found: {fields_resp.get('errors')}"
 
     fields = fields_resp["data"]["dataset"]["schemaMetadata"]["fields"]
     field_bar = next(f for f in fields if f["fieldPath"] == field_name)
@@ -1084,13 +1046,10 @@ def test_propose_property_property_values_already_proposed(
     }
 
     # 1) First propose
-    first_resp = execute_gql(
+    first_resp = execute_graphql(
         auth_session=auth_session,
         query=propose_properties_mutation,
         variables=variables,
-    )
-    assert "errors" not in first_resp, (
-        f"Unexpected error in first proposal: {first_resp.get('errors')}"
     )
     first_proposal_urn = first_resp["data"]["proposeStructuredProperties"]
     assert first_proposal_urn, "Expected a proposal URN for the first proposal"
@@ -1121,10 +1080,9 @@ def test_propose_property_property_values_already_proposed(
         "urns": [first_proposal_urn],
         "note": "Rejecting the proposal via test",
     }
-    reject_resp = execute_gql(
+    reject_resp = execute_graphql(
         auth_session, query=reject_proposals_mutation, variables=variables_reject
     )
-    assert "errors" not in reject_resp, f"Errors found: {reject_resp.get('errors')}"
     assert reject_resp["data"]["rejectProposals"] is True, (
         "Expected rejectProposals to return true"
     )
