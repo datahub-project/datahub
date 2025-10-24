@@ -461,4 +461,27 @@ public class SendMAEStepTest {
     RestoreIndicesArgs capturedArgs = argsCaptor.getValue();
     assertTrue(capturedArgs.createDefaultAspects);
   }
+
+  @Test
+  public void testExecutableWithNullResultFromFuture() {
+    // Insert test data to trigger processing
+    insertTestRows(5, null);
+
+    // Enable URN-based pagination to hit log.error in URN-based pagination path
+    parsedArgs.put(RestoreIndices.URN_BASED_PAGINATION_ARG_NAME, Optional.of("true"));
+
+    // Mock the entity service to throw an exception (not NoSuchElementException)
+    when(mockEntityService.restoreIndices(eq(mockOpContext), any(RestoreIndicesArgs.class), any()))
+        .thenThrow(new RuntimeException("Test exception"));
+
+    // Execute
+    UpgradeStepResult result = sendMAEStep.executable().apply(mockContext);
+
+    // Verify failure when exception is thrown in URN-based pagination
+    // This tests the log.error in the URN-based pagination path
+    assertTrue(result instanceof DefaultUpgradeStepResult);
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    assertEquals(result.stepId(), sendMAEStep.id());
+    assertEquals(result.action(), UpgradeStepResult.Action.CONTINUE);
+  }
 }

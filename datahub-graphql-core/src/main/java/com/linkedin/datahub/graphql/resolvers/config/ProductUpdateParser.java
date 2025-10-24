@@ -2,6 +2,9 @@ package com.linkedin.datahub.graphql.resolvers.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.datahub.graphql.generated.ProductUpdate;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -20,13 +23,26 @@ public class ProductUpdateParser {
   }
 
   /**
-   * Parse JSON into a ProductUpdate object.
+   * Parse JSON into a ProductUpdate object without clientId decoration.
    *
    * @param jsonOpt Optional JSON node containing product update data
    * @return ProductUpdate object if parsing succeeds and update is enabled, null otherwise
    */
   @Nullable
   public static ProductUpdate parseProductUpdate(@Nonnull Optional<JsonNode> jsonOpt) {
+    return parseProductUpdate(jsonOpt, null);
+  }
+
+  /**
+   * Parse JSON into a ProductUpdate object, decorating the ctaLink with clientId if provided.
+   *
+   * @param jsonOpt Optional JSON node containing product update data
+   * @param clientId Optional client ID to append to ctaLink as a query parameter
+   * @return ProductUpdate object if parsing succeeds and update is enabled, null otherwise
+   */
+  @Nullable
+  public static ProductUpdate parseProductUpdate(
+      @Nonnull Optional<JsonNode> jsonOpt, @Nullable String clientId) {
     if (jsonOpt.isEmpty()) {
       log.debug("No product update JSON available");
       return null;
@@ -51,6 +67,11 @@ public class ProductUpdateParser {
     String ctaText = json.has("ctaText") ? json.get("ctaText").asText() : "Learn more";
     String ctaLink = json.has("ctaLink") ? json.get("ctaLink").asText() : "";
 
+    // Decorate ctaLink with clientId if provided
+    if (clientId != null && !clientId.trim().isEmpty() && !ctaLink.isEmpty()) {
+      ctaLink = decorateUrlWithClientId(ctaLink, clientId);
+    }
+
     // Build the ProductUpdate response
     ProductUpdate productUpdate = new ProductUpdate();
     productUpdate.setEnabled(enabled);
@@ -68,5 +89,27 @@ public class ProductUpdateParser {
     }
 
     return productUpdate;
+  }
+
+  /**
+   * Decorates a URL with a clientId query parameter.
+   *
+   * <p>Adds "?q={clientId}" if the URL has no query parameters, or "&q={clientId}" if it already
+   * has query parameters.
+   *
+   * @param url The URL to decorate
+   * @param clientId The client ID to append
+   * @return The decorated URL
+   */
+  @Nonnull
+  private static String decorateUrlWithClientId(@Nonnull String url, @Nonnull String clientId) {
+    try {
+      String encodedClientId = URLEncoder.encode(clientId, StandardCharsets.UTF_8.toString());
+      String separator = url.contains("?") ? "&" : "?";
+      return url + separator + "q=" + encodedClientId;
+    } catch (UnsupportedEncodingException e) {
+      log.warn("Failed to URL-encode clientId, using original URL: {}", e.getMessage());
+      return url;
+    }
   }
 }
