@@ -1,5 +1,8 @@
-from datetime import datetime
-from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, Union, cast
+# mypy: ignore-errors
+# type: ignore  # SerializedDAG and parent_dag compatibility issues
+import json
+from datetime import datetime, tzinfo
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union, cast
 
 from airflow.configuration import conf
 
@@ -12,12 +15,19 @@ from datahub.emitter.generic_emitter import Emitter
 from datahub.metadata.schema_classes import DataProcessTypeClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
+from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
+from datahub_airflow_plugin._airflow_version_specific import (
+    get_task_instance_attributes,
+)
 from datahub_airflow_plugin._config import DatahubLineageConfig, DatajobUrl
+
+assert AIRFLOW_PATCHED
 
 if TYPE_CHECKING:
     from airflow import DAG
     from airflow.models import DagRun, TaskInstance
-    from airflow.models.operator import Operator
+
+    from datahub_airflow_plugin._airflow_shims import Operator
 
 
 def _task_downstream_task_ids(operator: "Operator") -> Set[str]:
@@ -67,8 +77,9 @@ class AirflowGenerator:
 
         # subdags are always named with 'parent.child' style or Airflow won't run them
         # add connection from subdag trigger(s) if subdag task has no upstreams
+        # Note: is_subdag was removed in Airflow 3.x (subdags deprecated in Airflow 2.0)
         if (
-            dag.is_subdag
+            getattr(dag, "is_subdag", False)
             and dag.parent_dag is not None
             and len(task.upstream_task_ids) == 0
         ):
@@ -173,9 +184,31 @@ class AirflowGenerator:
             "timezone",
         ]
 
+        def _serialize_dag_property(value: Any) -> str:
+            """Serialize DAG property values to string format (JSON-compatible when possible)."""
+            if value is None:
+                return ""
+            elif isinstance(value, bool):
+                return "true" if value else "false"
+            elif isinstance(value, datetime):
+                return value.isoformat()
+            elif isinstance(value, (set, frozenset)):
+                # Convert set to JSON array string
+                return json.dumps(sorted(list(value)))
+            elif isinstance(value, tzinfo):
+                return str(value.tzname(None))
+            elif isinstance(value, (int, float)):
+                return str(value)
+            elif isinstance(value, str):
+                return value
+            else:
+                # For other types, convert to string but avoid repr() format
+                return str(value)
+
         for key in allowed_flow_keys:
             if hasattr(dag, key):
-                flow_property_bag[key] = repr(getattr(dag, key))
+                value = getattr(dag, key)
+                flow_property_bag[key] = _serialize_dag_property(value)
 
         data_flow.properties = flow_property_bag
         base_url = conf.get("webserver", "base_url")
@@ -195,7 +228,7 @@ class AirflowGenerator:
 
     @staticmethod
     def _get_description(task: "Operator") -> Optional[str]:
-        from airflow.models.baseoperator import BaseOperator
+        from datahub_airflow_plugin._airflow_shims import BaseOperator
 
         if not isinstance(task, BaseOperator):
             # TODO: Get docs for mapped operators.
@@ -458,26 +491,23 @@ class AirflowGenerator:
             clone_inlets=True,
             clone_outlets=True,
         )
-        job_property_bag: Dict[str, str] = {}
-        job_property_bag["run_id"] = str(dag_run.run_id)
-        job_property_bag["duration"] = str(ti.duration)
-        job_property_bag["start_date"] = str(ti.start_date)
-        job_property_bag["end_date"] = str(ti.end_date)
-        job_property_bag["execution_date"] = str(ti.execution_date)
-        job_property_bag["try_number"] = str(ti.try_number - 1)
-        job_property_bag["max_tries"] = str(ti.max_tries)
-        # Not compatible with Airflow 1
-        if hasattr(ti, "external_executor_id"):
-            job_property_bag["external_executor_id"] = str(ti.external_executor_id)
-        job_property_bag["state"] = str(ti.state)
-        job_property_bag["operator"] = str(ti.operator)
-        job_property_bag["priority_weight"] = str(ti.priority_weight)
-        job_property_bag["log_url"] = ti.log_url
+
+        job_property_bag = get_task_instance_attributes(ti)
+
+        # Add orchestrator and DAG/task IDs
         job_property_bag["orchestrator"] = "airflow"
-        job_property_bag["dag_id"] = str(dag.dag_id)
-        job_property_bag["task_id"] = str(ti.task_id)
+        if "dag_id" not in job_property_bag:
+            job_property_bag["dag_id"] = str(dag.dag_id)
+        if "task_id" not in job_property_bag:
+            job_property_bag["task_id"] = str(ti.task_id)
+        if "run_id" not in job_property_bag:
+            job_property_bag["run_id"] = str(dag_run.run_id)
+
         dpi.properties.update(job_property_bag)
-        dpi.url = ti.log_url
+
+        # Set URL if log_url is available
+        if "log_url" in job_property_bag:
+            dpi.url = job_property_bag["log_url"]
 
         # This property only exists in Airflow2
         if hasattr(ti, "dag_run") and hasattr(ti.dag_run, "run_type"):
@@ -566,6 +596,24 @@ class AirflowGenerator:
             clone_inlets=True,
             clone_outlets=True,
         )
+
+        job_property_bag = get_task_instance_attributes(ti)
+
+        # Add orchestrator and DAG/task IDs
+        job_property_bag["orchestrator"] = "airflow"
+        if "dag_id" not in job_property_bag:
+            job_property_bag["dag_id"] = str(dag.dag_id)
+        if "task_id" not in job_property_bag:
+            job_property_bag["task_id"] = str(ti.task_id)
+        if "run_id" not in job_property_bag:
+            job_property_bag["run_id"] = str(dag_run.run_id)
+
+        dpi.properties.update(job_property_bag)
+
+        # Set URL if log_url is available
+        if "log_url" in job_property_bag:
+            dpi.url = job_property_bag["log_url"]
+
         dpi.emit_process_end(
             emitter=emitter,
             end_timestamp_millis=end_timestamp_millis,
