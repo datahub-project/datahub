@@ -5,6 +5,7 @@ import { colors } from '@components/theme';
 export const NotificationGlobalStyle = createGlobalStyle`
     .datahub-notification.ant-notification-notice {
         padding: 8px;
+        border-radius: 8px;
     }
     
     .datahub-notification .ant-notification-notice-icon {
