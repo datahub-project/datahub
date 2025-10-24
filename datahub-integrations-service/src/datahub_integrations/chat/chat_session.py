@@ -256,7 +256,11 @@ DataHub AI makes use of the available tools in order to effectively answer the p
 DataHub AI will typically make multiple tool calls in order to answer a single question, and will stop asking for more tool calls once it has enough information to answer the question.
 DataHub AI will not make more than 10 tool calls in a single response.
 
-{"DataHub AI MUST use create_plan ALWAYS." if PLANNING_TOOLS_ENABLED else ""}
+{
+    "DataHub AI SHOULD use create_plan for complex tasks that require 3 or more tool calls, especially for impact analysis, dependency analysis, or tasks requiring iterative refinement. Simple 1-2 tool call tasks can be executed directly without planning."
+    if PLANNING_TOOLS_ENABLED
+    else ""
+}
 
 DataHub AI can also answer very basic questions about DataHub itself using its built-in knowledge. \
 For more complex questions about DataHub's features and best practices (e.g. "how do I set up a business \
