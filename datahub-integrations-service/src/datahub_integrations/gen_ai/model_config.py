@@ -20,14 +20,18 @@ class BedrockModel(enum.Enum):
     # See https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html
     # for details on per-region availability.
     CLAUDE_3_HAIKU = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-haiku-20240307-v1:0"
-    CLAUDE_35_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-5-sonnet-20240620-v1:0"
+
+    # DEPRECATED: Claude 3.5 Sonnet models are deprecated. Use CLAUDE_45_SONNET (recommended) or CLAUDE_37_SONNET instead.
+    CLAUDE_35_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-7-sonnet-20250219-v1:0"
 
     # WARNING: Claude 3.5 Haiku is only available in the US region, not EU or APAC.
     CLAUDE_35_HAIKU = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-5-haiku-20241022-v1:0"
 
-    CLAUDE_35_SONNET_V2 = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-5-sonnet-20241022-v2:0"
+    # DEPRECATED: Claude 3.5 Sonnet V2 is deprecated. Use CLAUDE_45_SONNET (recommended) or CLAUDE_37_SONNET instead.
+    CLAUDE_35_SONNET_V2 = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-7-sonnet-20250219-v1:0"
     CLAUDE_37_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-7-sonnet-20250219-v1:0"
     CLAUDE_4_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-sonnet-4-20250514-v1:0"
+    # Recommended: Claude Sonnet 4.5 is the latest and most capable model
     CLAUDE_45_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
     def __str__(self) -> str:
@@ -56,14 +60,16 @@ class LiteLLMModel(enum.Enum):
     # See https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html
     # for details on per-region availability.
     CLAUDE_3_HAIKU = f"bedrock/{BedrockModel.CLAUDE_3_HAIKU.value}"
+
+    # DEPRECATED: Claude 3.5 Sonnet models are deprecated. Use CLAUDE_45_SONNET (recommended) or CLAUDE_37_SONNET instead.
     CLAUDE_35_SONNET = f"bedrock/{BedrockModel.CLAUDE_35_SONNET.value}"
 
     # WARNING: Claude 3.5 Haiku is only available in the US region, not EU or APAC.
     CLAUDE_35_HAIKU = f"bedrock/{BedrockModel.CLAUDE_35_HAIKU.value}"
 
-    CLAUDE_35_SONNET_V2 = f"bedrock/{BedrockModel.CLAUDE_35_SONNET_V2.value}"
     CLAUDE_37_SONNET = f"bedrock/{BedrockModel.CLAUDE_37_SONNET.value}"
     CLAUDE_4_SONNET = f"bedrock/{BedrockModel.CLAUDE_4_SONNET.value}"
+    # Recommended: Claude Sonnet 4.5 is the latest and most capable model
     CLAUDE_45_SONNET = f"bedrock/{BedrockModel.CLAUDE_45_SONNET.value}"
 
     def __str__(self) -> str:
@@ -166,7 +172,7 @@ def get_docs_ai_config() -> DocumentationAIConfig:
     query_desc_model = _get_model_value(
         get_litellm_model_env_variable(
             "QUERY_DESCRIPTION_GENERATION_MODEL",
-            LiteLLMModel.CLAUDE_37_SONNET,
+            LiteLLMModel.CLAUDE_45_SONNET,
             "QUERY_DESCRIPTION_GENERATION_BEDROCK_MODEL",
         )
     )
@@ -181,7 +187,7 @@ def get_term_suggestion_config() -> TermSuggestionConfig:
     term_suggestion_model = _get_model_value(
         get_bedrock_model_env_variable(
             "TERM_SUGGESTION_MODEL",
-            BedrockModel.CLAUDE_37_SONNET,
+            BedrockModel.CLAUDE_45_SONNET,
             "TERM_SUGGESTION_GENERATION_BEDROCK_MODEL",
         )
     )
@@ -196,13 +202,13 @@ def get_chat_assistant_config() -> ChatAssistantAIConfig:
     chat_model = _get_model_value(
         get_bedrock_model_env_variable(
             "CHATBOT_MODEL",
-            BedrockModel.CLAUDE_37_SONNET,
+            BedrockModel.CLAUDE_45_SONNET,
         )
     )
     chat_summary_model = _get_model_value(
         get_bedrock_model_env_variable(
             "CHAT_SUMMARIZATION_MODEL",
-            BedrockModel.CLAUDE_37_SONNET,
+            BedrockModel.CLAUDE_45_SONNET,
         )
     )
 

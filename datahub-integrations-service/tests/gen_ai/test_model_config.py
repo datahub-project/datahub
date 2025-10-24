@@ -4,9 +4,7 @@ from unittest.mock import patch
 
 from datahub_integrations.gen_ai.model_config import (
     BedrockModel,
-    LiteLLMModel,
     get_bedrock_model_env_variable,
-    get_litellm_model_env_variable,
     model_config,
 )
 
@@ -34,33 +32,6 @@ def test_get_bedrock_model_env_variable() -> None:
                 "CHATBOT_MODEL", BedrockModel.CLAUDE_35_SONNET
             )
             == "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
-        )
-
-
-def test_get_litellm_model_env_variable() -> None:
-    with patch.dict(
-        os.environ,
-        {"CHATBOT_MODEL": "us.anthropic.claude-3-7-sonnet-20250219-v1:0"},
-        clear=True,
-    ):
-        # Use default model if model is not valid bedrock model
-        assert (
-            get_litellm_model_env_variable(
-                "CHATBOT_MODEL", LiteLLMModel.CLAUDE_35_SONNET
-            )
-            == "bedrock/us.anthropic.claude-3-5-sonnet-20240620-v1:0"
-        )
-
-    with patch.dict(
-        os.environ,
-        {"CHATBOT_MODEL": "bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0"},
-        clear=True,
-    ):
-        assert (
-            get_litellm_model_env_variable(
-                "CHATBOT_MODEL", LiteLLMModel.CLAUDE_35_SONNET
-            )
-            == "bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0"
         )
 
 
@@ -107,15 +78,15 @@ def test_no_env_vars_set() -> None:
         )
         assert (
             model_config.documentation_ai.query_description_model
-            == "bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+            == "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0"
         )
         assert (
             model_config.chat_assistant_ai.model
-            == "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+            == "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
         )
         assert (
             model_config.term_suggestion_ai.model
-            == "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+            == "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
         )
         assert not model_config.chat_assistant_ai.planning_mode_enabled
 
@@ -138,15 +109,15 @@ def test_only_region_prefix_set_to_eu() -> None:
         )
         assert (
             eu_model_config.documentation_ai.query_description_model
-            == "bedrock/eu.anthropic.claude-3-7-sonnet-20250219-v1:0"
+            == "bedrock/eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
         )
         assert (
             eu_model_config.chat_assistant_ai.model
-            == "eu.anthropic.claude-3-7-sonnet-20250219-v1:0"
+            == "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
         )
         assert (
             eu_model_config.term_suggestion_ai.model
-            == "eu.anthropic.claude-3-7-sonnet-20250219-v1:0"
+            == "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
         )
         assert not eu_model_config.chat_assistant_ai.planning_mode_enabled
 
@@ -173,7 +144,7 @@ def test_all_env_vars_set_legacy() -> None:
         )
         assert (
             legacy_model_config.documentation_ai.query_description_model
-            == "bedrock/apac.anthropic.claude-3-7-sonnet-20250219-v1:0"
+            == "bedrock/apac.anthropic.claude-sonnet-4-5-20250929-v1:0"
         )
         assert (
             legacy_model_config.term_suggestion_ai.model
