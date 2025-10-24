@@ -13,7 +13,7 @@ const cases = [
     [
         'should parse image if it does not have a width attribute',
         '<img src="/my-image.png" style="width: 100%; min-width: 50px; object-fit: contain;" alt="my image">',
-        '![my image](/my-image.png)',
+        '![my image](</my-image.png>)',
     ],
 
     [
