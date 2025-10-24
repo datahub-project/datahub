@@ -374,6 +374,12 @@ def make_domain_urn(domain: str) -> str:
     return f"urn:li:domain:{domain}"
 
 
+def make_data_product_urn(data_product_id: str) -> str:
+    if data_product_id.startswith("urn:li:dataProduct:"):
+        return data_product_id
+    return f"urn:li:dataProduct:{data_product_id}"
+
+
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:
     return f"urn:li:mlPrimaryKey:({feature_table_name},{primary_key_name})"
 

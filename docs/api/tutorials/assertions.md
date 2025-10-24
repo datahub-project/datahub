@@ -1423,7 +1423,7 @@ If you see the following response, the operation was successful:
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/delete_assertion.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/assertion_delete.py show_path_as_comment }}
 ```
 
 </TabItem>

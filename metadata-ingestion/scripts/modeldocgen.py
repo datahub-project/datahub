@@ -500,6 +500,255 @@ def make_relnship_docs(relationships: List[Relationship], direction: str) -> str
     return doc
 
 
+@dataclass
+class FieldInfo:
+    name: str
+    type_name: str
+    is_array: bool
+    is_optional: bool
+    description: str
+    annotations: List[str]
+
+
+def simplify_type_name(field_type: Any) -> Tuple[str, bool, bool]:
+    """
+    Extract simplified type name, whether it's an array, and whether it's optional.
+    Returns: (type_name, is_array, is_optional)
+    """
+    is_optional = False
+    is_array = False
+    current_type = field_type
+
+    # Handle union types (optional fields)
+    if isinstance(current_type, avro.schema.UnionSchema):
+        non_null_types = [t for t in current_type.schemas if t.type != "null"]
+        if len(non_null_types) == 1:
+            is_optional = True
+            current_type = non_null_types[0]
+        else:
+            # Multiple non-null types - just show as union
+            return "union", False, True
+
+    # Handle array types
+    if isinstance(current_type, avro.schema.ArraySchema):
+        is_array = True
+        current_type = current_type.items
+
+    # Get the actual type name
+    if isinstance(current_type, avro.schema.RecordSchema):
+        type_name = current_type.name
+    elif isinstance(current_type, avro.schema.PrimitiveSchema):
+        type_name = current_type.type
+    elif isinstance(current_type, avro.schema.MapSchema):
+        type_name = "map"
+    elif isinstance(current_type, avro.schema.EnumSchema):
+        type_name = current_type.name
+    else:
+        type_name = (
+            str(current_type.type) if hasattr(current_type, "type") else "unknown"
+        )
+
+    return type_name, is_array, is_optional
+
+
+def extract_fields_from_schema(schema: avro.schema.RecordSchema) -> List[FieldInfo]:
+    """Extract top-level fields from an Avro schema."""
+    fields = []
+
+    for avro_field in schema.fields:
+        type_name, is_array, is_optional = simplify_type_name(avro_field.type)
+
+        # Extract annotations
+        annotations = []
+
+        # Check for deprecated field
+        if hasattr(avro_field, "other_props") and avro_field.other_props:
+            if avro_field.other_props.get("deprecated"):
+                annotations.append("⚠️ Deprecated")
+
+        if hasattr(avro_field, "other_props") and avro_field.other_props:
+            if "Searchable" in avro_field.other_props:
+                searchable_config = avro_field.other_props["Searchable"]
+                # Check if there's a custom search field name
+                if (
+                    isinstance(searchable_config, dict)
+                    and "fieldName" in searchable_config
+                ):
+                    search_field_name = searchable_config["fieldName"]
+                    # Only show override if it differs from actual field name
+                    if search_field_name != avro_field.name:
+                        annotations.append(f"Searchable ({search_field_name})")
+                    else:
+                        annotations.append("Searchable")
+                else:
+                    annotations.append("Searchable")
+            if "Relationship" in avro_field.other_props:
+                relationship_info = avro_field.other_props["Relationship"]
+                # Extract relationship name if available
+                rel_name = None
+                if isinstance(relationship_info, dict):
+                    if "name" in relationship_info:
+                        rel_name = relationship_info.get("name")
+                    else:
+                        # Path-based relationship
+                        for _, v in relationship_info.items():
+                            if isinstance(v, dict) and "name" in v:
+                                rel_name = v.get("name")
+                                break
+                if rel_name:
+                    annotations.append(f"→ {rel_name}")
+
+        # Get field description
+        description = (
+            avro_field.doc if hasattr(avro_field, "doc") and avro_field.doc else ""
+        )
+
+        fields.append(
+            FieldInfo(
+                name=avro_field.name,
+                type_name=type_name,
+                is_array=is_array,
+                is_optional=is_optional,
+                description=description,
+                annotations=annotations,
+            )
+        )
+
+    return fields
+
+
+def generate_field_table(fields: List[FieldInfo], common_types: set) -> str:
+    """Generate markdown table for fields with hyperlinks to common types."""
+    table = "\n| Field | Type | Required | Description | Annotations |\n"
+    table += "|-------|------|----------|-------------|-------------|\n"
+
+    for field_info in fields:
+        # Format type with optional hyperlink
+        type_display = field_info.type_name
+        if field_info.type_name in common_types:
+            # Create anchor link (lowercase, replace spaces with hyphens)
+            anchor = field_info.type_name.lower().replace(" ", "-")
+            type_display = f"[{field_info.type_name}](#{anchor})"
+
+        if field_info.is_array:
+            type_display += "[]"
+
+        # Required/optional
+        required = "✓" if not field_info.is_optional else ""
+
+        # Annotations
+        notes = ", ".join(field_info.annotations) if field_info.annotations else ""
+
+        # Clean description (remove newlines, truncate if too long)
+        desc = field_info.description.replace("\n", " ").strip()
+        if len(desc) > 100:
+            desc = desc[:97] + "..."
+
+        table += (
+            f"| {field_info.name} | {type_display} | {required} | {desc} | {notes} |\n"
+        )
+
+    return table
+
+
+def identify_common_types(
+    entity_def: EntityDefinition,
+) -> Dict[str, avro.schema.RecordSchema]:
+    """
+    Identify types that appear in multiple aspects and should be documented separately.
+    Returns a dict of type_name -> schema for common types.
+    """
+    type_usage: Dict[str, Tuple[avro.schema.RecordSchema, int]] = {}
+
+    # Track which types appear and how often
+    for aspect_name in entity_def.aspects or []:
+        if aspect_name not in aspect_registry:
+            continue
+        aspect_def = aspect_registry[aspect_name]
+        if not aspect_def.schema:
+            continue
+
+        # Walk through fields and collect record types
+        for avro_field in aspect_def.schema.fields:
+            _collect_record_types(avro_field.type, type_usage)
+
+    # Common types are those that appear more than once OR are well-known types
+    well_known_types = {
+        "AuditStamp",
+        "Edge",
+        "ChangeAuditStamps",
+        "TimeStamp",
+        "Urn",
+        "DataPlatformInstance",
+    }
+
+    common_types = {}
+    for type_name, (schema, count) in type_usage.items():
+        if count > 1 or type_name in well_known_types:
+            common_types[type_name] = schema
+
+    return common_types
+
+
+def _collect_record_types(
+    field_type: Any, type_usage: Dict[str, Tuple[avro.schema.RecordSchema, int]]
+) -> None:
+    """Recursively collect record types from a field type."""
+    if isinstance(field_type, avro.schema.UnionSchema):
+        for union_type in field_type.schemas:
+            _collect_record_types(union_type, type_usage)
+    elif isinstance(field_type, avro.schema.ArraySchema):
+        _collect_record_types(field_type.items, type_usage)
+    elif isinstance(field_type, avro.schema.RecordSchema):
+        type_name = field_type.name
+        if type_name in type_usage:
+            schema, count = type_usage[type_name]
+            type_usage[type_name] = (schema, count + 1)
+        else:
+            type_usage[type_name] = (field_type, 1)
+
+
+def generate_common_types_section(
+    common_types: Dict[str, avro.schema.RecordSchema],
+) -> str:
+    """Generate the Common Types reference section."""
+    if not common_types:
+        return ""
+
+    section = "\n### Common Types\n\n"
+    section += "These types are used across multiple aspects in this entity.\n\n"
+
+    for type_name in sorted(common_types.keys()):
+        schema = common_types[type_name]
+        section += f"#### {type_name}\n\n"
+
+        doc = schema.get_prop("doc") if hasattr(schema, "get_prop") else None
+        if doc:
+            section += f"{doc}\n\n"
+
+        # Show fields of this common type
+        section += "**Fields:**\n\n"
+        for avro_field in schema.fields:
+            type_name_inner, is_array, is_optional = simplify_type_name(avro_field.type)
+            type_display = type_name_inner
+            if is_array:
+                type_display += "[]"
+            optional_marker = "?" if is_optional else ""
+
+            field_doc = (
+                avro_field.doc if hasattr(avro_field, "doc") and avro_field.doc else ""
+            )
+            field_doc = field_doc.replace("\n", " ").strip()
+            if len(field_doc) > 80:
+                field_doc = field_doc[:77] + "..."
+
+            section += f"- `{avro_field.name}` ({type_display}{optional_marker}): {field_doc}\n"
+
+        section += "\n"
+
+    return section
+
+
 def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
     entity_name = entity_display_name[0:1].lower() + entity_display_name[1:]
     entity_def: Optional[EntityDefinition] = entity_registry.get(entity_name)
@@ -509,8 +758,18 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
             if entity_def.doc
             else f"# {entity_def.display_name}"
         )
+
+        # Identify common types for this entity
+        common_types_map = identify_common_types(entity_def)
+        common_type_names = set(common_types_map.keys())
+
+        # Add Tabs import at the start
+        tabs_import = (
+            "\nimport Tabs from '@theme/Tabs';\nimport TabItem from '@theme/TabItem';\n"
+        )
+
         # create aspects section
-        aspects_section = "\n## Aspects\n" if entity_def.aspects else ""
+        aspects_section = "\n### Aspects\n" if entity_def.aspects else ""
 
         deprecated_aspects_section = ""
         timeseries_aspects_section = ""
@@ -527,14 +786,26 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
             timeseries_qualifier = (
                 " (Timeseries)" if aspect_definition.type == "timeseries" else ""
             )
+
+            # Generate aspect documentation with tabs
             this_aspect_doc = ""
             this_aspect_doc += (
-                f"\n### {aspect}{deprecated_message}{timeseries_qualifier}\n"
+                f"\n#### {aspect}{deprecated_message}{timeseries_qualifier}\n"
             )
-            this_aspect_doc += f"{aspect_definition.schema.get_prop('doc')}\n"
-            this_aspect_doc += "<details>\n<summary>Schema</summary>\n\n"
-            # breakpoint()
-            this_aspect_doc += f"```javascript\n{json.dumps(aspect_definition.schema.to_json(), indent=2)}\n```\n</details>\n"
+            this_aspect_doc += f"{aspect_definition.schema.get_prop('doc')}\n\n"
+
+            # Extract fields for table view
+            fields = extract_fields_from_schema(aspect_definition.schema)
+
+            # Generate tabbed interface
+            this_aspect_doc += "<Tabs>\n"
+            this_aspect_doc += '<TabItem value="fields" label="Fields" default>\n\n'
+            this_aspect_doc += generate_field_table(fields, common_type_names)
+            this_aspect_doc += "\n</TabItem>\n"
+            this_aspect_doc += '<TabItem value="raw" label="Raw Schema">\n\n'
+            this_aspect_doc += f"```javascript\n{json.dumps(aspect_definition.schema.to_json(), indent=2)}\n```\n"
+            this_aspect_doc += "\n</TabItem>\n"
+            this_aspect_doc += "</Tabs>\n\n"
 
             if deprecated_message:
                 deprecated_aspects_section += this_aspect_doc
@@ -545,24 +816,27 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
 
         aspects_section += timeseries_aspects_section + deprecated_aspects_section
 
+        # Generate common types section
+        common_types_section = generate_common_types_section(common_types_map)
+
         # create relationships section
-        relationships_section = "\n## Relationships\n"
+        relationships_section = "\n### Relationships\n"
         adjacency = graph.get_adjacency(entity_def.display_name)
         if adjacency.self_loop:
-            relationships_section += "\n### Self\nThese are the relationships to itself, stored in this entity's aspects"
+            relationships_section += "\n#### Self\nThese are the relationships to itself, stored in this entity's aspects"
         for relnship in adjacency.self_loop:
             relationships_section += (
                 f"\n- {relnship.name} ({relnship.doc[1:] if relnship.doc else ''})"
             )
 
         if adjacency.outgoing:
-            relationships_section += "\n### Outgoing\nThese are the relationships stored in this entity's aspects"
+            relationships_section += "\n#### Outgoing\nThese are the relationships stored in this entity's aspects"
             relationships_section += make_relnship_docs(
                 adjacency.outgoing, direction="outgoing"
             )
 
         if adjacency.incoming:
-            relationships_section += "\n### Incoming\nThese are the relationships stored in other entity's aspects"
+            relationships_section += "\n#### Incoming\nThese are the relationships stored in other entity's aspects"
             relationships_section += make_relnship_docs(
                 adjacency.incoming, direction="incoming"
             )
@@ -570,10 +844,44 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
         # create global metadata graph
         global_graph_url = "https://github.com/datahub-project/static-assets/raw/main/imgs/datahub-metadata-model.png"
         global_graph_section = (
-            f"\n## [Global Metadata Model]({global_graph_url})"
+            f"\n### [Global Metadata Model]({global_graph_url})"
             + f"\n![Global Graph]({global_graph_url})"
         )
-        final_doc = doc + aspects_section + relationships_section + global_graph_section
+
+        # create technical reference guide section
+        technical_reference_section = "\n## Technical Reference Guide\n\n"
+        technical_reference_section += (
+            "The sections above provide an overview of how to use this entity. "
+            "The following sections provide detailed technical information about how metadata is stored and represented in DataHub.\n\n"
+        )
+        technical_reference_section += (
+            "**Aspects** are the individual pieces of metadata that can be attached to an entity. "
+            "Each aspect contains specific information (like ownership, tags, or properties) and is stored as a separate record, "
+            "allowing for flexible and incremental metadata updates.\n\n"
+        )
+        technical_reference_section += (
+            "**Relationships** show how this entity connects to other entities in the metadata graph. "
+            "These connections are derived from the fields within each aspect and form the foundation of DataHub's knowledge graph.\n\n"
+        )
+        technical_reference_section += (
+            "### Reading the Field Tables\n\n"
+            "Each aspect's field table includes an **Annotations** column that provides additional metadata about how fields are used:\n\n"
+            "- **⚠️ Deprecated**: This field is deprecated and may be removed in a future version. Check the description for the recommended alternative\n"
+            "- **Searchable**: This field is indexed and can be searched in DataHub's search interface\n"
+            "- **Searchable (fieldname)**: When the field name in parentheses is shown, it indicates the field is indexed under a different name in the search index. For example, `dashboardTool` is indexed as `tool`\n"
+            "- **→ RelationshipName**: This field creates a relationship to another entity. The arrow indicates this field contains a reference (URN) to another entity, and the name indicates the type of relationship (e.g., `→ Contains`, `→ OwnedBy`)\n\n"
+            "Fields with complex types (like `Edge`, `AuditStamp`) link to their definitions in the [Common Types](#common-types) section below.\n"
+        )
+
+        final_doc = (
+            doc
+            + tabs_import
+            + technical_reference_section
+            + aspects_section
+            + common_types_section
+            + relationships_section
+            + global_graph_section
+        )
         generated_documentation[entity_name] = final_doc
         return final_doc
     else:
