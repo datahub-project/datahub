@@ -605,6 +605,184 @@ class TestSnowflakeQueriesExtractorOptimization:
             assert extractor.report.sql_aggregator.num_preparsed_queries == 0
 
 
+class TestSnowflakeQueryParser:
+    """Tests for the SnowflakeQueriesExtractor._parse_query method."""
+
+    def test_parse_query_with_empty_column_name_returns_observed_query(self):
+        """Test that queries with empty column names in direct_objects_accessed return ObservedQuery."""
+        from datetime import datetime, timezone
+
+        from datahub.ingestion.source.snowflake.snowflake_utils import (
+            SnowflakeIdentifierBuilder,
+        )
+        from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
+
+        mock_connection = Mock()
+        config = SnowflakeQueriesExtractorConfig(
+            window=BaseTimeWindowConfig(
+                start_time=datetime(2021, 1, 1, tzinfo=timezone.utc),
+                end_time=datetime(2021, 1, 2, tzinfo=timezone.utc),
+            ),
+        )
+        mock_report = Mock()
+        mock_filters = Mock()
+        mock_identifiers = Mock(spec=SnowflakeIdentifierBuilder)
+        mock_identifiers.platform = "snowflake"
+        mock_identifiers.identifier_config = SnowflakeIdentifierConfig()
+        mock_identifiers.gen_dataset_urn = Mock(
+            return_value="urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
+        )
+        mock_identifiers.get_dataset_identifier_from_qualified_name = Mock(
+            return_value="test_db.test_schema.test_table"
+        )
+        mock_identifiers.snowflake_identifier = Mock(side_effect=lambda x: x)
+        mock_identifiers.get_user_identifier = Mock(return_value="test_user")
+
+        extractor = SnowflakeQueriesExtractor(
+            connection=mock_connection,
+            config=config,
+            structured_report=mock_report,
+            filters=mock_filters,
+            identifiers=mock_identifiers,
+        )
+
+        # Simulate a Snowflake access history row with empty column name
+        import json
+
+        row = {
+            "QUERY_ID": "test_query_123",
+            "ROOT_QUERY_ID": None,
+            "QUERY_TEXT": "SELECT * FROM test_table WHERE id = 1",
+            "QUERY_TYPE": "SELECT",
+            "SESSION_ID": "session_123",
+            "USER_NAME": "test_user",
+            "ROLE_NAME": "test_role",
+            "QUERY_START_TIME": datetime(2021, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            "END_TIME": datetime(2021, 1, 1, 12, 0, 1, tzinfo=timezone.utc),
+            "QUERY_DURATION": 1000,
+            "ROWS_INSERTED": 0,
+            "ROWS_UPDATED": 0,
+            "ROWS_DELETED": 0,
+            "DEFAULT_DB": "test_db",
+            "DEFAULT_SCHEMA": "test_schema",
+            "QUERY_COUNT": 1,
+            "QUERY_SECONDARY_FINGERPRINT": "fingerprint_123",
+            "DIRECT_OBJECTS_ACCESSED": json.dumps(
+                [
+                    {
+                        "objectName": "test_db.test_schema.test_table",
+                        "objectDomain": "Table",
+                        "columns": [
+                            {"columnName": "id"},
+                            {"columnName": ""},  # Empty column name
+                            {"columnName": "name"},
+                        ],
+                    }
+                ]
+            ),
+            "OBJECTS_MODIFIED": json.dumps([]),
+            "OBJECT_MODIFIED_BY_DDL": None,
+        }
+
+        users: dict = {}
+
+        result = extractor._parse_audit_log_row(row, users)
+
+        # Assert that an ObservedQuery is returned when there's an empty column
+        assert isinstance(result, ObservedQuery), (
+            f"Expected ObservedQuery but got {type(result)}"
+        )
+        assert result.query == "SELECT * FROM test_table WHERE id = 1"
+        assert result.session_id == "session_123"
+        assert result.default_db == "test_db"
+        assert result.default_schema == "test_schema"
+
+    def test_parse_query_with_valid_columns_returns_preparsed_query(self):
+        """Test that queries with all valid column names return PreparsedQuery."""
+        from datetime import datetime, timezone
+
+        from datahub.ingestion.source.snowflake.snowflake_utils import (
+            SnowflakeIdentifierBuilder,
+        )
+        from datahub.sql_parsing.sql_parsing_aggregator import PreparsedQuery
+
+        mock_connection = Mock()
+        config = SnowflakeQueriesExtractorConfig(
+            window=BaseTimeWindowConfig(
+                start_time=datetime(2021, 1, 1, tzinfo=timezone.utc),
+                end_time=datetime(2021, 1, 2, tzinfo=timezone.utc),
+            ),
+        )
+        mock_report = Mock()
+        mock_filters = Mock()
+        mock_identifiers = Mock(spec=SnowflakeIdentifierBuilder)
+        mock_identifiers.platform = "snowflake"
+        mock_identifiers.identifier_config = SnowflakeIdentifierConfig()
+        mock_identifiers.gen_dataset_urn = Mock(
+            return_value="urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
+        )
+        mock_identifiers.get_dataset_identifier_from_qualified_name = Mock(
+            return_value="test_db.test_schema.test_table"
+        )
+        mock_identifiers.snowflake_identifier = Mock(side_effect=lambda x: x)
+        mock_identifiers.get_user_identifier = Mock(return_value="test_user")
+
+        extractor = SnowflakeQueriesExtractor(
+            connection=mock_connection,
+            config=config,
+            structured_report=mock_report,
+            filters=mock_filters,
+            identifiers=mock_identifiers,
+        )
+
+        # Simulate a Snowflake access history row with valid column names
+        import json
+
+        row = {
+            "QUERY_ID": "test_query_456",
+            "ROOT_QUERY_ID": None,
+            "QUERY_TEXT": "SELECT id, name FROM test_table",
+            "QUERY_TYPE": "SELECT",
+            "SESSION_ID": "session_456",
+            "USER_NAME": "test_user",
+            "ROLE_NAME": "test_role",
+            "QUERY_START_TIME": datetime(2021, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            "END_TIME": datetime(2021, 1, 1, 12, 0, 1, tzinfo=timezone.utc),
+            "QUERY_DURATION": 1000,
+            "ROWS_INSERTED": 0,
+            "ROWS_UPDATED": 0,
+            "ROWS_DELETED": 0,
+            "DEFAULT_DB": "test_db",
+            "DEFAULT_SCHEMA": "test_schema",
+            "QUERY_COUNT": 1,
+            "QUERY_SECONDARY_FINGERPRINT": "fingerprint_456",
+            "DIRECT_OBJECTS_ACCESSED": json.dumps(
+                [
+                    {
+                        "objectName": "test_db.test_schema.test_table",
+                        "objectDomain": "Table",
+                        "columns": [
+                            {"columnName": "id"},
+                            {"columnName": "name"},
+                        ],
+                    }
+                ]
+            ),
+            "OBJECTS_MODIFIED": json.dumps([]),
+            "OBJECT_MODIFIED_BY_DDL": None,
+        }
+
+        users: dict = {}
+
+        result = extractor._parse_audit_log_row(row, users)
+
+        # Assert that a PreparsedQuery is returned when all columns are valid
+        assert isinstance(result, PreparsedQuery), (
+            f"Expected PreparsedQuery but got {type(result)}"
+        )
+        assert result.query_text == "SELECT id, name FROM test_table"
+
+
 class TestSnowflakeQueriesExtractorStatefulTimeWindowIngestion:
     """Tests for stateful time window ingestion support in queries v2."""
 

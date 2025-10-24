@@ -616,6 +616,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         upstreams = []
         column_usage = {}
 
+        has_empty_column = False
         for obj in direct_objects_accessed:
             dataset = self.identifiers.gen_dataset_urn(
                 self.identifiers.get_dataset_identifier_from_qualified_name(
@@ -625,12 +626,31 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
             columns = set()
             for modified_column in obj["columns"]:
-                columns.add(
-                    self.identifiers.snowflake_identifier(modified_column["columnName"])
-                )
+                column_name = modified_column["columnName"]
+                if not column_name or not column_name.strip():
+                    has_empty_column = True
+                    break
+                columns.add(self.identifiers.snowflake_identifier(column_name))
+
+            if has_empty_column:
+                break
 
             upstreams.append(dataset)
             column_usage[dataset] = columns
+
+        if has_empty_column:
+            return ObservedQuery(
+                query=query_text,
+                session_id=res["session_id"],
+                timestamp=timestamp,
+                user=user,
+                default_db=res["default_db"],
+                default_schema=res["default_schema"],
+                query_hash=get_query_fingerprint(
+                    query_text, self.identifiers.platform, fast=True
+                ),
+                extra_info=extra_info,
+            )
 
         downstream = None
         column_lineage = None
