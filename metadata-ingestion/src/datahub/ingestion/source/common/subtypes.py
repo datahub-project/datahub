@@ -34,6 +34,8 @@ class DatasetSubTypes(StrEnum):
     API_ENDPOINT = "API Endpoint"
     SLACK_CHANNEL = "Slack Channel"
     PROJECTIONS = "Projections"
+    GOOGLE_SHEETS = "Google Sheets"
+    GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -54,6 +56,8 @@ class DatasetContainerSubTypes(StrEnum):
     ABS_CONTAINER = "ABS container"
     KEYSPACE = "Keyspace"  # Cassandra
     NAMESPACE = "Namespace"  # Iceberg
+    DREMIO_SPACE = "Dremio Space"
+    DREMIO_SOURCE = "Dremio Source"
 
 
 class BIContainerSubTypes(StrEnum):
@@ -63,6 +67,7 @@ class BIContainerSubTypes(StrEnum):
     TABLEAU_SITE = "Site"
     TABLEAU_PROJECT = "Project"
     TABLEAU_WORKBOOK = "Workbook"
+    POWERBI_WORKSPACE = "Workspace"
     POWERBI_DATASET = "Semantic Model"
     POWERBI_DATASET_TABLE = "Table"
     QLIK_SPACE = "Qlik Space"

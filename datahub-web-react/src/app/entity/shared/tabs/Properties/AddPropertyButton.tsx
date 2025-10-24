@@ -10,12 +10,12 @@ import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit
 import { Icon, Input as InputComponent, Text, colors } from '@src/alchemy-components';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { getEntityTypesPropertyFilter, getNotHiddenPropertyFilter } from '@src/app/govern/structuredProperties/utils';
+import { getStructuredPropertiesSearchInputs } from '@src/app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useIsThemeV2 } from '@src/app/useIsThemeV2';
 import { PageRoutes } from '@src/conf/Global';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType, Maybe, StructuredProperties, StructuredPropertyEntity } from '@src/types.generated';
+import { Maybe, StructuredProperties, StructuredPropertyEntity } from '@src/types.generated';
 
 const AddButton = styled.div<{ isThemeV2: boolean; isV1Drawer?: boolean }>`
     border-radius: 200px;
@@ -87,26 +87,10 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
     const entityRegistry = useEntityRegistry();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
-    const inputs = {
-        types: [EntityType.StructuredProperty],
-        query: '',
-        start: 0,
-        count: 100,
-        searchFlags: { skipCache: true },
-        orFilters: [
-            {
-                and: [
-                    getEntityTypesPropertyFilter(entityRegistry, !!fieldUrn, entityType),
-                    getNotHiddenPropertyFilter(),
-                ],
-            },
-        ],
-    };
-
     // Execute search
     const { data, loading } = useGetSearchResultsForMultipleQuery({
         variables: {
-            input: inputs,
+            input: getStructuredPropertiesSearchInputs(entityRegistry, entityType, fieldUrn, searchQuery),
         },
         fetchPolicy: 'cache-first',
     });
@@ -157,9 +141,6 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
 
     if (!canEditProperties) return null;
 
-    // Filter items based on search query
-    const filteredItems = properties?.filter((prop) => prop.name?.toLowerCase().includes(searchQuery.toLowerCase()));
-
     const noDataText =
         properties?.length === 0 ? (
             <>
@@ -177,15 +158,16 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
         <>
             <Dropdown
                 trigger={['click']}
-                menu={{ items: filteredItems }}
+                menu={{ items: properties }}
                 dropdownRender={(menuNode) => (
-                    <DropdownContainer>
+                    <DropdownContainer data-testid="add-structured-property-dropdown">
                         <SearchContainer>
                             <InputComponent
                                 label=""
                                 placeholder="Search..."
                                 value={searchQuery}
                                 setValue={setSearchQuery}
+                                inputTestId="search-input"
                             />
                         </SearchContainer>
                         {loading ? (
@@ -195,7 +177,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                             </LoadingContainer>
                         ) : (
                             <>
-                                {filteredItems?.length === 0 && (
+                                {properties?.length === 0 && (
                                     <EmptyContainer>
                                         <Text color="gray" weight="medium">
                                             No results found
@@ -205,7 +187,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                                         </Text>
                                     </EmptyContainer>
                                 )}
-                                <OptionsContainer>{menuNode}</OptionsContainer>
+                                <OptionsContainer data-testid="options-container">{menuNode}</OptionsContainer>
                             </>
                         )}
                     </DropdownContainer>

@@ -125,7 +125,7 @@ Cypress.Commands.add("goToDomainList", () => {
 
 Cypress.Commands.add("goToViewsSettings", () => {
   cy.visit("/settings/views");
-  cy.waitTextVisible("Manage Views");
+  cy.waitTextVisible("Views");
 });
 
 Cypress.Commands.add("goToOwnershipTypesSettings", () => {
@@ -368,6 +368,13 @@ Cypress.Commands.add("enterTextInSpecificTestId", (id, value, text) => {
 });
 Cypress.Commands.add("enterTextInTestId", (id, text) => {
   cy.get(selectorWithtestId(id)).type(text);
+});
+Cypress.Commands.add("clearTextInTestId", (id) => {
+  cy.get(selectorWithtestId(id)).clear();
+});
+
+Cypress.Commands.add("clearTextInTestId", (id, text) => {
+  cy.get(selectorWithtestId(id)).clear();
 });
 
 Cypress.Commands.add("clickOptionWithTestId", (id) => {

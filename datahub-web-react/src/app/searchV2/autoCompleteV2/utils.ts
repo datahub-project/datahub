@@ -7,6 +7,6 @@ export function getEntityDisplayType(entity: Entity, registry: EntityRegistry) {
 
     const subtype = registry.getFirstSubType(properties);
     const entityName = registry.getEntityName(entity.type);
-    const displayType = capitalizeFirstLetterOnly((subtype ?? entityName)?.toLocaleLowerCase());
-    return displayType;
+
+    return subtype ? capitalizeFirstLetterOnly(subtype) : entityName;
 }

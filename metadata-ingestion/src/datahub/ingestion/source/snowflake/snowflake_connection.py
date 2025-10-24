@@ -15,13 +15,19 @@ from snowflake.connector.network import (
     OAUTH_AUTHENTICATOR,
 )
 
-from datahub.configuration.common import ConfigModel, ConfigurationError, MetaError
+from datahub.configuration.common import (
+    ConfigModel,
+    ConfigurationError,
+    HiddenFromDocs,
+    MetaError,
+)
 from datahub.configuration.connection_resolver import auto_connection_resolver
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
     CLIENT_SESSION_KEEP_ALIVE,
+    DEFAULT_SNOWFLAKE_DOMAIN,
 )
 from datahub.ingestion.source.snowflake.oauth_config import (
     OAuthConfiguration,
@@ -47,8 +53,6 @@ _VALID_AUTH_TYPES: Dict[str, str] = {
     "OAUTH_AUTHENTICATOR_TOKEN": OAUTH_AUTHENTICATOR,
 }
 
-_SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com"
-
 
 class SnowflakePermissionError(MetaError):
     """A permission error has happened"""
@@ -64,7 +68,7 @@ class SnowflakeConnectionConfig(ConfigModel):
         description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine) as kwargs.",
     )
 
-    scheme: str = "snowflake"
+    scheme: HiddenFromDocs[str] = "snowflake"
     username: Optional[str] = pydantic.Field(
         default=None, description="Snowflake username."
     )
@@ -110,18 +114,25 @@ class SnowflakeConnectionConfig(ConfigModel):
         default=None,
         description="OAuth token from external identity provider. Not recommended for most use cases because it will not be able to refresh once expired.",
     )
+    snowflake_domain: str = pydantic.Field(
+        default=DEFAULT_SNOWFLAKE_DOMAIN,
+        description="Snowflake domain. Use 'snowflakecomputing.com' for most regions or 'snowflakecomputing.cn' for China (cn-northwest-1) region.",
+    )
 
     def get_account(self) -> str:
         assert self.account_id
         return self.account_id
 
-    rename_host_port_to_account_id = pydantic_renamed_field("host_port", "account_id")
+    rename_host_port_to_account_id = pydantic_renamed_field("host_port", "account_id")  # type: ignore[pydantic-field]
 
     @pydantic.validator("account_id")
-    def validate_account_id(cls, account_id: str) -> str:
+    def validate_account_id(cls, account_id: str, values: Dict) -> str:
         account_id = remove_protocol(account_id)
         account_id = remove_trailing_slashes(account_id)
-        account_id = remove_suffix(account_id, _SNOWFLAKE_HOST_SUFFIX)
+        # Get the domain from config, fallback to default
+        domain = values.get("snowflake_domain", DEFAULT_SNOWFLAKE_DOMAIN)
+        snowflake_host_suffix = f".{domain}"
+        account_id = remove_suffix(account_id, snowflake_host_suffix)
         return account_id
 
     @pydantic.validator("authentication_type", always=True)
@@ -311,6 +322,7 @@ class SnowflakeConnectionConfig(ConfigModel):
             warehouse=self.warehouse,
             authenticator=_VALID_AUTH_TYPES.get(self.authentication_type),
             application=_APPLICATION_NAME,
+            host=f"{self.account_id}.{self.snowflake_domain}",
             **connect_args,
         )
 
@@ -324,6 +336,7 @@ class SnowflakeConnectionConfig(ConfigModel):
             role=self.role,
             authenticator=_VALID_AUTH_TYPES.get(self.authentication_type),
             application=_APPLICATION_NAME,
+            host=f"{self.account_id}.{self.snowflake_domain}",
             **connect_args,
         )
 
@@ -337,6 +350,7 @@ class SnowflakeConnectionConfig(ConfigModel):
                 warehouse=self.warehouse,
                 role=self.role,
                 application=_APPLICATION_NAME,
+                host=f"{self.account_id}.{self.snowflake_domain}",
                 **connect_args,
             )
         elif self.authentication_type == "OAUTH_AUTHENTICATOR_TOKEN":
@@ -348,6 +362,7 @@ class SnowflakeConnectionConfig(ConfigModel):
                 warehouse=self.warehouse,
                 role=self.role,
                 application=_APPLICATION_NAME,
+                host=f"{self.account_id}.{self.snowflake_domain}",
                 **connect_args,
             )
         elif self.authentication_type == "OAUTH_AUTHENTICATOR":
@@ -363,6 +378,7 @@ class SnowflakeConnectionConfig(ConfigModel):
                 role=self.role,
                 authenticator=_VALID_AUTH_TYPES.get(self.authentication_type),
                 application=_APPLICATION_NAME,
+                host=f"{self.account_id}.{self.snowflake_domain}",
                 **connect_args,
             )
         else:

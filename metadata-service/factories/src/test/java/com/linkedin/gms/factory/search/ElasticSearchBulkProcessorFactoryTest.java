@@ -5,7 +5,9 @@ import static org.testng.Assert.assertNotNull;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import org.mockito.Answers;
 import org.opensearch.action.support.WriteRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -22,6 +24,9 @@ public class ElasticSearchBulkProcessorFactoryTest extends AbstractTestNGSpringC
   @Autowired ESBulkProcessor test;
 
   @MockitoBean public MetricUtils metricUtils;
+
+  @MockitoBean(name = "searchClientShim", answers = Answers.RETURNS_MOCKS)
+  SearchClientShim<?> searchClientShim;
 
   @Test
   void testInjection() {

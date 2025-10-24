@@ -377,6 +377,7 @@ public class Constants {
   public static final String QUERY_SUBJECTS_ASPECT_NAME = "querySubjects";
 
   // DataProduct
+  public static final String DATA_PRODUCT_KEY_ASPECT_NAME = "dataProductKey";
   public static final String DATA_PRODUCT_PROPERTIES_ASPECT_NAME = "dataProductProperties";
   public static final String DATA_PRODUCTS_ASPECT_NAME = "dataProducts";
 
@@ -409,6 +410,7 @@ public class Constants {
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
   public static final String GLOBAL_SETTINGS_INFO_ASPECT_NAME = "globalSettingsInfo";
   public static final Urn GLOBAL_SETTINGS_URN = Urn.createFromTuple(GLOBAL_SETTINGS_ENTITY_NAME, 0);
+  public static final String ASSET_SETTINGS_ASPECT_NAME = "assetSettings";
 
   // Timeseries
   public static final String ES_FIELD_TIMESTAMP = "timestampMillis";
@@ -480,6 +482,10 @@ public class Constants {
   public static final String DATAHUB_PAGE_MODULE_PROPERTIES_ASPECT_NAME =
       "dataHubPageModuleProperties";
 
+  // File
+  public static final String DATAHUB_FILE_ENTITY_NAME = "dataHubFile";
+  public static final String DATAHUB_FILE_INFO_ASPECT_NAME = "dataHubFileInfo";
+
   // Step
   public static final String DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME =
       "dataHubStepStateProperties";
@@ -516,6 +522,9 @@ public class Constants {
   public static final String IS_LATEST_FIELD_NAME = "isLatest";
   public static final String VERSION_SET_FIELD_NAME = "versionSet";
   public static final String VERSION_LABEL_FIELD_NAME = "version";
+
+  // Logical
+  public static final String LOGICAL_PARENT_ASPECT_NAME = "logicalParent";
 
   public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
 

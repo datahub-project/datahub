@@ -24,7 +24,7 @@ const LatestStats = () => {
     const { sections } = useStatsSectionsContext();
 
     return (
-        <LatestStatsContainer>
+        <LatestStatsContainer data-testid="latest-stats">
             <Text size="sm" weight="bold">
                 Latest
             </Text>
@@ -37,6 +37,7 @@ const LatestStats = () => {
                     isEmpty={rowCount === undefined}
                     button={sections.rows.hasData ? <ViewButton /> : undefined}
                     onClick={() => (sections.rows.hasData ? scrollToSection?.(SectionKeys.ROWS_AND_USERS) : undefined)}
+                    dataTestId="rows-card"
                 />
                 <Card
                     title={columnCount !== undefined ? formatNumberWithoutAbbreviation(columnCount) : ''}
@@ -46,6 +47,7 @@ const LatestStats = () => {
                     isEmpty={columnCount === undefined}
                     button={hasColumnStats ? <ViewButton /> : undefined}
                     onClick={() => (hasColumnStats ? scrollToSection?.(SectionKeys.COLUMN_STATS) : undefined)}
+                    dataTestId="columns-card"
                 />
             </StatCards>
         </LatestStatsContainer>

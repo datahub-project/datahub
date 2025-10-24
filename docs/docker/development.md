@@ -31,7 +31,6 @@ Once the `debug` docker images are constructed you'll see images similar to the 
 
 ```shell
 acryldata/datahub-frontend-react                 debug              e52fef698025   28 minutes ago   763MB
-acryldata/datahub-kafka-setup                    debug              3375aaa2b12d   55 minutes ago   659MB
 acryldata/datahub-gms                            debug              ea2b0a8ea115   56 minutes ago   408MB
 acryldata/datahub-upgrade                       debug              322377a7a21d   56 minutes ago   463MB
 acryldata/datahub-mysql-setup                   debug              17768edcc3e5   2 hours ago      58.2MB
@@ -51,18 +50,15 @@ To see these changes in the deployment, a rebuilt of modified artifacts and a re
 The restart can be performed using following gradle task.
 
 ```shell
-./gradlew :docker:debugReload
+./gradlew :docker:reload
 ```
 
 This single task will build the artifacts that were modified and restart only those containers that were affected by the rebuilt artifacts.
 
-For each of the `quickstartDebug` variants, there is a corresponding `debugReload` task.
-For `quickstartDebugConsumers`, the reload task is `debugConsumersReload`
+`reload` is generally much faster than re-running `quickstartDebug` and is recommended after an initial bringup of all services via `quickstartDebug` followed
+by loading the incremental changes using `reload`.
 
-`debugReload` is generally much faster than re-running `quickstartDebug` and is recommended after an initial bringup of all services via `quickstartDebug` followed
-by loading the incremental changes using `debugReload`.
-
-If there are significant changes to the code, for example due to pulling the latest code, it is recommended to start with a `quickstartDebug` and then iterate using `debugReload`
+If there are significant changes to the code, for example due to pulling the latest code, it is recommended to start with a `quickstartDebug` and then iterate using `reload`
 
 # Setting environment variables via env files
 
@@ -73,12 +69,12 @@ To use the env file, run
 DATAHUB_LOCAL_COMMON_ENV=my-settings.env ./gradlew quickstartDebug
 ```
 
-The `debugReload` process continues to work, but the restarted containers will use the same settings that were present at the time of running `./gradlew quickstartDebug`.
+The `reload` process continues to work, but the restarted containers will use the same settings that were present at the time of running `./gradlew quickstartDebug`.
 
-If you need to reload the containers with a different env file or changes made to the env file, a task `debugReloadEnv` builds the artifacts that have code changes
+If you need to reload the containers with a different env file or changes made to the env file, a task `reloadEnv` builds the artifacts that have code changes
 and recreates all the containers that refer to these the env file via the DATAHUB_LOCAL_COMMON_ENV environment variable.
 
-`debugReloadEnv` also has variants for all the `quickstartDebug` variants. For example, `quickstartDebugConsumers` has `debugConsumersReloadEnv`
+The `reload` and `reloadEnv` tasks can only be run after running one of the debug variants of a auickstart task like `quickstartDebug`
 
 ## Start/Stop
 

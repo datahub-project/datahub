@@ -1132,3 +1132,168 @@ def test_diamond_problem(pytestconfig: pytest.Config, tmp_path: pathlib.Path) ->
         pytestconfig.rootpath
         / "tests/unit/sql_parsing/aggregator_goldens/test_diamond_problem_golden.json",
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_empty_column_in_snowflake_lineage(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """Test that column lineage with empty string column names doesn't cause errors.
+
+    Note: Uses KnownQueryLineageInfo instead of ObservedQuery since empty column names from
+    external systems would require mocking _run_sql_parser().
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    downstream_urn = DatasetUrn("snowflake", "dev.public.target_table").urn()
+    upstream_urn = DatasetUrn("snowflake", "dev.public.source_table").urn()
+
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text="insert into target_table (col_a, col_b, col_c) select col_a, col_b, col_c from source_table",
+        downstream=downstream_urn,
+        upstreams=[upstream_urn],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="col_a"),
+                upstreams=[ColumnRef(table=upstream_urn, column="col_a")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="col_b"),
+                upstreams=[
+                    ColumnRef(table=upstream_urn, column="col_b"),
+                    ColumnRef(table=upstream_urn, column=""),
+                ],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="col_c"),
+                upstreams=[
+                    ColumnRef(table=upstream_urn, column=""),
+                ],
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.INSERT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    lineage_mcpws = [mcpw for mcpw in mcpws if mcpw.aspectName == "upstreamLineage"]
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, lineage_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        RESOURCE_DIR / "test_empty_column_in_snowflake_lineage_golden.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_empty_downstream_column_in_snowflake_lineage(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """Test that column lineage with empty downstream column names doesn't cause errors.
+
+    Note: Uses KnownQueryLineageInfo instead of ObservedQuery since empty column names from
+    external systems would require mocking _run_sql_parser().
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    downstream_urn = DatasetUrn("snowflake", "dev.public.target_table").urn()
+    upstream_urn = DatasetUrn("snowflake", "dev.public.source_table").urn()
+
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text='create table target_table as select $1 as "", $2 as "   " from source_table',
+        downstream=downstream_urn,
+        upstreams=[upstream_urn],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column=""),
+                upstreams=[ColumnRef(table=upstream_urn, column="col_a")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="   "),
+                upstreams=[ColumnRef(table=upstream_urn, column="col_b")],
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.CREATE_TABLE_AS_SELECT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    lineage_mcpws = [mcpw for mcpw in mcpws if mcpw.aspectName == "upstreamLineage"]
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, lineage_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        RESOURCE_DIR / "test_empty_downstream_column_in_snowflake_lineage_golden.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_partial_empty_downstream_column_in_snowflake_lineage(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """Test that column lineage with mix of empty and valid downstream columns works correctly.
+
+    Note: Uses KnownQueryLineageInfo instead of ObservedQuery since empty column names from
+    external systems would require mocking _run_sql_parser().
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    downstream_urn = DatasetUrn("snowflake", "dev.public.empty_downstream").urn()
+    upstream_urn = DatasetUrn("snowflake", "dev.public.empty_upstream").urn()
+
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text='create table empty_downstream as select $1 as "", $2 as "TITLE_DOWNSTREAM" from empty_upstream',
+        downstream=downstream_urn,
+        upstreams=[upstream_urn],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column=""),
+                upstreams=[ColumnRef(table=upstream_urn, column="name")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(
+                    table=downstream_urn, column="TITLE_DOWNSTREAM"
+                ),
+                upstreams=[ColumnRef(table=upstream_urn, column="title")],
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.CREATE_TABLE_AS_SELECT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    lineage_mcpws = [mcpw for mcpw in mcpws if mcpw.aspectName == "upstreamLineage"]
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, lineage_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        RESOURCE_DIR
+        / "test_partial_empty_downstream_column_in_snowflake_lineage_golden.json",
+    )

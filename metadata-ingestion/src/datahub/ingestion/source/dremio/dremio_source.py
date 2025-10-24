@@ -55,7 +55,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
-    PROFILING,
+    IngestionHighStage,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
@@ -90,6 +90,10 @@ class DremioSourceMapEntry:
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.DREMIO_SPACE,
+        SourceCapabilityModifier.DREMIO_SOURCE,
+    ],
 )
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
@@ -279,7 +283,7 @@ class DremioSource(StatefulIngestionSourceBase):
             # Profiling
             if self.config.is_profiling_enabled():
                 with (
-                    self.report.new_stage(PROFILING),
+                    self.report.new_high_stage(IngestionHighStage.PROFILING),
                     ThreadPoolExecutor(
                         max_workers=self.config.profiling.max_workers
                     ) as executor,

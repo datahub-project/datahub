@@ -1,7 +1,8 @@
 package com.linkedin.metadata.search;
 
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG_WITH_PIT;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
@@ -36,6 +37,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -43,7 +45,6 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import javax.annotation.Nonnull;
-import org.opensearch.client.RestHighLevelClient;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -54,7 +55,7 @@ import org.testng.annotations.Test;
 public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextTests {
 
   @Nonnull
-  protected abstract RestHighLevelClient getSearchClient();
+  protected abstract SearchClientShim<?> getSearchClient();
 
   @Nonnull
   protected abstract ESBulkProcessor getBulkProcessor();
@@ -140,13 +141,11 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @Nonnull
   private ElasticSearchService buildEntitySearchService() {
-    ElasticSearchConfiguration esConfig =
-        TEST_ES_SEARCH_CONFIG.toBuilder().implementation(getElasticSearchImplementation()).build();
+    ElasticSearchConfiguration esConfig = TEST_OS_SEARCH_CONFIG.toBuilder().build();
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             getSearchClient(),
-            false,
-            getElasticSearchImplementation(),
+            esConfig.getSearch().isPointInTimeCreationEnabled(),
             esConfig,
             null,
             QueryFilterRewriteChain.EMPTY,
@@ -174,13 +173,11 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @Nonnull
   private ElasticSearchService buildPITEntitySearchService() {
-    ElasticSearchConfiguration esConfig =
-        TEST_ES_SEARCH_CONFIG.toBuilder().implementation(getElasticSearchImplementation()).build();
+    ElasticSearchConfiguration esConfig = TEST_OS_SEARCH_CONFIG_WITH_PIT.toBuilder().build();
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             getSearchClient(),
-            true,
-            getElasticSearchImplementation(),
+            esConfig.getSearch().isPointInTimeCreationEnabled(),
             esConfig,
             null,
             QueryFilterRewriteChain.EMPTY,

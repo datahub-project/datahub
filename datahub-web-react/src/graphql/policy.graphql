@@ -44,6 +44,7 @@ query listPolicies($input: ListPoliciesInput!) {
                 resolvedUsers {
                     username
                     urn
+                    type
                     properties {
                         active
                         displayName
@@ -64,6 +65,7 @@ query listPolicies($input: ListPoliciesInput!) {
                 resolvedGroups {
                     name
                     urn
+                    type
                     properties {
                         displayName
                         description

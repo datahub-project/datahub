@@ -2,12 +2,10 @@ package com.linkedin.metadata;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 import org.apache.avro.Schema;
 
 /** Constants and utility methods for avro schema */
@@ -55,152 +53,118 @@ public final class EventSchemaConstants {
               + ".avsc");
   public static final Schema FMCP_SCHEMA = EventUtils.RENAMED_FMCP_AVRO_SCHEMA;
 
-  // Schema ID mappings for proper schema resolution
-  // V1 schemas (backward compatible) - these get their own schema IDs
-  public static final int MCP_V1_SCHEMA_ID =
-      SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1.getSchemaId();
-  public static final int FMCP_V1_SCHEMA_ID =
-      SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL_V1.getSchemaId();
-  public static final int MCL_V1_SCHEMA_ID = SchemaIdOrdinal.METADATA_CHANGE_LOG_V1.getSchemaId();
-  public static final int MCL_TIMESERIES_V1_SCHEMA_ID =
-      SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES_V1.getSchemaId();
-  public static final int MCE_V1_SCHEMA_ID = SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1.getSchemaId();
-  public static final int FMCE_V1_SCHEMA_ID =
-      SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1.getSchemaId();
-  public static final int MAE_V1_SCHEMA_ID = SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1.getSchemaId();
-
-  // Current schemas (incompatible with V1) - these get new schema IDs
-  public static final int MCP_SCHEMA_ID = SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL.getSchemaId();
-  public static final int FMCP_SCHEMA_ID =
-      SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL.getSchemaId();
-  public static final int MCL_SCHEMA_ID = SchemaIdOrdinal.METADATA_CHANGE_LOG.getSchemaId();
-  public static final int MCL_TIMESERIES_SCHEMA_ID =
-      SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES.getSchemaId();
-  public static final int MCE_SCHEMA_ID = SchemaIdOrdinal.METADATA_CHANGE_EVENT.getSchemaId();
-  public static final int FMCE_SCHEMA_ID =
-      SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT.getSchemaId();
-  public static final int MAE_SCHEMA_ID = SchemaIdOrdinal.METADATA_AUDIT_EVENT.getSchemaId();
-  public static final int DUHE_SCHEMA_ID =
-      SchemaIdOrdinal.DATAHUB_UPGRADE_HISTORY_EVENT.getSchemaId();
-
-  // Single version schemas (backward compatible)
-  public static final int PE_SCHEMA_ID = SchemaIdOrdinal.PLATFORM_EVENT.getSchemaId();
-
-  // Schema name to list of schema IDs mapping
-  private static final Map<String, List<Integer>> SCHEMA_NAME_TO_SCHEMA_IDS_MAP = new HashMap<>();
-
-  // Schema ID to schema name mapping
-  private static final Map<Integer, String> SCHEMA_ID_TO_SCHEMA_NAME_MAP = new HashMap<>();
+  // Map from SchemaIdOrdinal enum to actual Schema objects
+  public static final Map<SchemaIdOrdinal, Schema> SCHEMA_ID_TO_SCHEMA_MAP;
 
   static {
-    // Map schema names to their list of schema IDs
-    // Each schema ID represents a different version of the schema (backwards incompatible)
-    SCHEMA_NAME_TO_SCHEMA_IDS_MAP.put(
-        EventUtils.METADATA_CHANGE_PROPOSAL_SCHEMA_NAME, List.of(MCP_V1_SCHEMA_ID, MCP_SCHEMA_ID));
-    SCHEMA_NAME_TO_SCHEMA_IDS_MAP.put(
-        EventUtils.FAILED_METADATA_CHANGE_PROPOSAL_SCHEMA_NAME,
-        List.of(FMCP_V1_SCHEMA_ID, FMCP_SCHEMA_ID));
-    SCHEMA_NAME_TO_SCHEMA_IDS_MAP.put(
-        EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME,
-        List.of(
-            MCL_V1_SCHEMA_ID,
-            MCL_SCHEMA_ID,
-            MCL_TIMESERIES_V1_SCHEMA_ID,
-            MCL_TIMESERIES_SCHEMA_ID));
-    SCHEMA_NAME_TO_SCHEMA_IDS_MAP.put(EventUtils.PLATFORM_EVENT_SCHEMA_NAME, List.of(PE_SCHEMA_ID));
-    SCHEMA_NAME_TO_SCHEMA_IDS_MAP.put(
-        EventUtils.METADATA_CHANGE_EVENT_SCHEMA_NAME, List.of(MCE_V1_SCHEMA_ID, MCE_SCHEMA_ID));
-    SCHEMA_NAME_TO_SCHEMA_IDS_MAP.put(
-        EventUtils.FAILED_METADATA_CHANGE_EVENT_SCHEMA_NAME,
-        List.of(FMCE_V1_SCHEMA_ID, FMCE_SCHEMA_ID));
-    SCHEMA_NAME_TO_SCHEMA_IDS_MAP.put(
-        EventUtils.METADATA_AUDIT_EVENT_SCHEMA_NAME, List.of(MAE_V1_SCHEMA_ID, MAE_SCHEMA_ID));
-    SCHEMA_NAME_TO_SCHEMA_IDS_MAP.put(
-        EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME, List.of(DUHE_SCHEMA_ID));
+    Map<SchemaIdOrdinal, Schema> map = new HashMap<>();
+    map.put(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1, MCP_V1_SCHEMA);
+    map.put(
+        SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1_FIX,
+        MCP_V1_SCHEMA); // Same as V1 for backward compatibility
+    map.put(SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL, MCP_SCHEMA);
+    map.put(SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL_V1, FMCP_V1_SCHEMA);
+    map.put(
+        SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL_V1_FIX,
+        FMCP_V1_SCHEMA); // Same as V1 for backward compatibility
+    map.put(SchemaIdOrdinal.FAILED_METADATA_CHANGE_PROPOSAL, FMCP_SCHEMA);
+    map.put(SchemaIdOrdinal.METADATA_CHANGE_LOG_V1, MCL_V1_SCHEMA);
+    map.put(
+        SchemaIdOrdinal.METADATA_CHANGE_LOG_V1_FIX,
+        MCL_V1_SCHEMA); // Same as V1 for backward compatibility
+    map.put(SchemaIdOrdinal.METADATA_CHANGE_LOG, MCL_SCHEMA);
+    map.put(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES_V1, MCL_TIMESERIES_V1_SCHEMA);
+    map.put(
+        SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES_V1_FIX,
+        MCL_TIMESERIES_V1_SCHEMA); // Same as V1 for backward compatibility
+    map.put(SchemaIdOrdinal.METADATA_CHANGE_LOG_TIMESERIES, MCL_TIMESERIES_SCHEMA);
+    map.put(SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1, MCE_V1_SCHEMA);
+    map.put(
+        SchemaIdOrdinal.METADATA_CHANGE_EVENT_V1_FIX,
+        MCE_V1_SCHEMA); // Same as V1 for backward compatibility
+    map.put(SchemaIdOrdinal.METADATA_CHANGE_EVENT, MCE_SCHEMA);
+    map.put(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1, FMCE_V1_SCHEMA);
+    map.put(
+        SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1_FIX,
+        FMCE_V1_SCHEMA); // Same as V1 for backward compatibility
+    map.put(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT, FMCE_SCHEMA);
+    map.put(SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1, MAE_V1_SCHEMA);
+    map.put(
+        SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1_FIX,
+        MAE_V1_SCHEMA); // Same as V1 for backward compatibility
+    map.put(SchemaIdOrdinal.METADATA_AUDIT_EVENT, MAE_SCHEMA);
+    map.put(SchemaIdOrdinal.PLATFORM_EVENT, PE_SCHEMA);
+    map.put(SchemaIdOrdinal.DATAHUB_UPGRADE_HISTORY_EVENT, DUHE_SCHEMA);
 
-    // Map schema IDs to their corresponding schema names
-    SCHEMA_ID_TO_SCHEMA_NAME_MAP.put(
-        MCP_V1_SCHEMA_ID, EventUtils.METADATA_CHANGE_PROPOSAL_SCHEMA_NAME);
-    SCHEMA_ID_TO_SCHEMA_NAME_MAP.put(
-        MCP_SCHEMA_ID, EventUtils.METADATA_CHANGE_PROPOSAL_SCHEMA_NAME);
-    SCHEMA_ID_TO_SCHEMA_NAME_MAP.put(
-        FMCP_V1_SCHEMA_ID, EventUtils.FAILED_METADATA_CHANGE_PROPOSAL_SCHEMA_NAME);
-    SCHEMA_ID_TO_SCHEMA_NAME_MAP.put(
-        FMCP_SCHEMA_ID, EventUtils.FAILED_METADATA_CHANGE_PROPOSAL_SCHEMA_NAME);
-    SCHEMA_ID_TO_SCHEMA_NAME_MAP.put(MCL_V1_SCHEMA_ID, EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME);
-    SCHEMA_ID_TO_SCHEMA_NAME_MAP.put(MCL_SCHEMA_ID, EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME);
-    SCHEMA_ID_TO_SCHEMA_NAME_MAP.put(
-        MCL_TIMESERIES_V1_SCHEMA_ID, EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME);
-    SCHEMA_ID_TO_SCHEMA_NAME_MAP.put(
-        MCL_TIMESERIES_SCHEMA_ID, EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME);
-    SCHEMA_ID_TO_SCHEMA_NAME_MAP.put(PE_SCHEMA_ID, EventUtils.PLATFORM_EVENT_SCHEMA_NAME);
-    SCHEMA_ID_TO_SCHEMA_NAME_MAP.put(
-        MCE_V1_SCHEMA_ID, EventUtils.METADATA_CHANGE_EVENT_SCHEMA_NAME);
-    SCHEMA_ID_TO_SCHEMA_NAME_MAP.put(MCE_SCHEMA_ID, EventUtils.METADATA_CHANGE_EVENT_SCHEMA_NAME);
-    SCHEMA_ID_TO_SCHEMA_NAME_MAP.put(
-        FMCE_V1_SCHEMA_ID, EventUtils.FAILED_METADATA_CHANGE_EVENT_SCHEMA_NAME);
-    SCHEMA_ID_TO_SCHEMA_NAME_MAP.put(
-        FMCE_SCHEMA_ID, EventUtils.FAILED_METADATA_CHANGE_EVENT_SCHEMA_NAME);
-    SCHEMA_ID_TO_SCHEMA_NAME_MAP.put(MAE_V1_SCHEMA_ID, EventUtils.METADATA_AUDIT_EVENT_SCHEMA_NAME);
-    SCHEMA_ID_TO_SCHEMA_NAME_MAP.put(MAE_SCHEMA_ID, EventUtils.METADATA_AUDIT_EVENT_SCHEMA_NAME);
-    SCHEMA_ID_TO_SCHEMA_NAME_MAP.put(
-        DUHE_SCHEMA_ID, EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME);
-  }
+    // Validation: Ensure all SchemaIdOrdinal enum values are mapped to schemas
+    validateAllOrdinalsMapped(map);
 
-  public static Map<String, List<Integer>> getSchemaNameToSchemaIdsMap() {
-    return Collections.unmodifiableMap(SCHEMA_NAME_TO_SCHEMA_IDS_MAP);
-  }
-
-  public static Map<Integer, String> getSchemaIdToSchemaNameMap() {
-    return Collections.unmodifiableMap(SCHEMA_ID_TO_SCHEMA_NAME_MAP);
-  }
-
-  public static Optional<List<Integer>> getSchemaIdsForSchemaName(String schemaName) {
-    return Optional.ofNullable(SCHEMA_NAME_TO_SCHEMA_IDS_MAP.get(schemaName));
-  }
-
-  public static Optional<String> getSchemaNameForSchemaId(int schemaId) {
-    return Optional.ofNullable(SCHEMA_ID_TO_SCHEMA_NAME_MAP.get(schemaId));
-  }
-
-  public static List<String> getAllSchemaNames() {
-    return new ArrayList<>(SCHEMA_NAME_TO_SCHEMA_IDS_MAP.keySet());
+    SCHEMA_ID_TO_SCHEMA_MAP = Map.copyOf(map);
   }
 
   // Schema compatibility constants
   /**
    * NONE: No compatibility checking is done. This means that any schema changes are allowed. This
-   * is the most permissive mode and should be used when you want to make breaking changes without
-   * any compatibility guarantees.
+   * is the most permissive mode.
    */
   public static final String SCHEMA_COMPATIBILITY_NONE = "NONE";
 
   /**
-   * BACKWARD: New schema can read data written by the previous schema. This means that new
-   * consumers can read old data, but old consumers cannot read new data. This is useful when you
-   * want to add new fields or make fields optional.
+   * BACKWARD: New schema must be backward compatible with existing data. This means that existing
+   * data can be read with the new schema, but new data written with the new schema may not be
+   * readable with the old schema.
    */
   public static final String SCHEMA_COMPATIBILITY_BACKWARD = "BACKWARD";
 
   /**
-   * FORWARD: Previous schema can read data written by the new schema. This means that old consumers
-   * can read new data, but new consumers cannot read old data. This is useful when you want to
-   * remove fields or make fields required.
+   * FORWARD: New schema must be forward compatible with existing consumers. This means that new
+   * data written with the new schema can be read with the old schema, but existing data may not be
+   * readable with the new schema.
    */
   public static final String SCHEMA_COMPATIBILITY_FORWARD = "FORWARD";
 
   /**
-   * FULL: Both backward and forward compatibility are maintained. This means that both old and new
-   * consumers can read data written by either schema. This is the most restrictive mode and
-   * provides the strongest compatibility guarantees.
+   * FULL: New schema must be both backward and forward compatible. This is the most restrictive
+   * mode and ensures that both old and new data can be read with either schema version.
    */
   public static final String SCHEMA_COMPATIBILITY_FULL = "FULL";
 
+  /**
+   * Validate that all SchemaIdOrdinal enum values are mapped to schemas. This ensures we don't miss
+   * any ordinals when adding new schemas.
+   *
+   * @param map the schema mapping to validate
+   * @throws RuntimeException if any ordinal is missing from the map
+   */
+  private static void validateAllOrdinalsMapped(Map<SchemaIdOrdinal, Schema> map) {
+    Set<SchemaIdOrdinal> missingOrdinals = new HashSet<>();
+
+    for (SchemaIdOrdinal ordinal : SchemaIdOrdinal.values()) {
+      if (!map.containsKey(ordinal)) {
+        missingOrdinals.add(ordinal);
+      }
+    }
+
+    if (!missingOrdinals.isEmpty()) {
+      throw new RuntimeException(
+          "Missing schema mappings for ordinals: "
+              + missingOrdinals
+              + ". All SchemaIdOrdinal enum values must be mapped to schemas in SCHEMA_ID_TO_SCHEMA_MAP.");
+    }
+  }
+
+  /**
+   * Load a schema from a resource file.
+   *
+   * @param resourceName the name of the resource file
+   * @return the loaded schema
+   * @throws RuntimeException if the schema cannot be loaded
+   */
   private static Schema loadSchemaFromResource(String resourceName) {
     try (InputStream inputStream =
         EventSchemaConstants.class.getClassLoader().getResourceAsStream(resourceName)) {
       if (inputStream == null) {
-        throw new RuntimeException("Could not find schema resource: " + resourceName);
+        throw new RuntimeException("Schema resource not found: " + resourceName);
       }
       return new Schema.Parser().parse(inputStream);
     } catch (IOException e) {

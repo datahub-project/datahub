@@ -87,13 +87,9 @@ public class GraphQLEngine {
             graphQLQueryComplexityLimit, new DataHubFieldComplexityCalculator()));
 
     if (metricUtils != null && graphQLConfiguration.getMetrics().isEnabled()) {
-      metricUtils
-          .getRegistry()
-          .ifPresent(
-              meterRegistry ->
-                  instrumentations.add(
-                      new GraphQLTimingInstrumentation(
-                          meterRegistry, graphQLConfiguration.getMetrics())));
+      instrumentations.add(
+          new GraphQLTimingInstrumentation(
+              metricUtils.getRegistry(), graphQLConfiguration.getMetrics()));
     }
 
     ChainedInstrumentation chainedInstrumentation = new ChainedInstrumentation(instrumentations);

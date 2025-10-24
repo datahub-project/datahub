@@ -2,9 +2,9 @@ import { Input } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import FormItem from '@app/homeV3/modules/hierarchyViewModule/components/form/components/FormItem';
 import RelatedEntitiesSection from '@app/homeV3/modules/hierarchyViewModule/components/form/sections/relatedEntities/RelatedEntitiesSection';
 import SelectAssetsSection from '@app/homeV3/modules/hierarchyViewModule/components/form/sections/selectAssets/SelectAssetsSection';
+import FormItem from '@app/homeV3/modules/shared/Form/FormItem';
 
 const FormWrapper = styled.div`
     display: flex;
@@ -24,7 +24,12 @@ export default function HierarchyViewModuleForm() {
                     },
                 ]}
             >
-                <Input label="Name" placeholder="Choose a name for your module" isRequired />
+                <Input
+                    label="Name"
+                    placeholder="Choose a name for your module"
+                    isRequired
+                    data-testid="hierarchy-module-name"
+                />
             </FormItem>
 
             <SelectAssetsSection />

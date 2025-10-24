@@ -39,6 +39,7 @@ import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.dataset.DatasetProfile;
@@ -56,7 +57,13 @@ import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
@@ -147,6 +154,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     // Mock scroll ascending/descending results
     ScrollResult expectedResultAscending =
         new ScrollResult()
+            .setNumEntities(3)
             .setEntities(
                 new SearchEntityArray(
                     List.of(
@@ -165,6 +173,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         .thenReturn(expectedResultAscending);
     ScrollResult expectedResultDescending =
         new ScrollResult()
+            .setNumEntities(3)
             .setEntities(
                 new SearchEntityArray(
                     List.of(
@@ -529,6 +538,65 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testScrollFilterToRecordTemplate() {
+    // Construct expected filter.
+    ConjunctiveCriterionArray criteria = new ConjunctiveCriterionArray();
+    ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
+    Criterion criterion1 =
+        new Criterion()
+            .setField("name")
+            .setValues(new StringArray("foo"))
+            .setCondition(Condition.EQUAL);
+    Criterion criterion2 =
+        new Criterion()
+            .setField("anotherName")
+            .setValues(new StringArray("bar"))
+            .setCondition(Condition.EQUAL);
+    conjunctiveCriterion.setAnd(new CriterionArray(criterion1, criterion2));
+    criteria.add(conjunctiveCriterion);
+    Filter expectedFilter = new Filter().setOr(criteria);
+
+    // Construct tested filter.
+    io.datahubproject.openapi.v3.models.ConjunctiveCriterion openapiConjunctiveCriterion =
+        io.datahubproject.openapi.v3.models.ConjunctiveCriterion.builder()
+            .criteria(
+                List.of(
+                    io.datahubproject.openapi.v3.models.Criterion.builder()
+                        .field("name")
+                        .values(List.of("foo"))
+                        .build(),
+                    io.datahubproject.openapi.v3.models.Criterion.builder()
+                        .field("anotherName")
+                        .values(List.of("bar"))
+                        .build()))
+            .build();
+
+    io.datahubproject.openapi.v3.models.Filter openapiFilter =
+        io.datahubproject.openapi.v3.models.Filter.builder()
+            .and(List.of(openapiConjunctiveCriterion))
+            .build();
+
+    // Assert they are equal.
+    assertEquals(expectedFilter, openapiFilter.toRecordTemplate());
+  }
+
+  @Test
+  public void testScrollSortCriteriaToRecordTemplate() {
+    // Expected sort criteria.
+    SortCriterion sortCriterion = new SortCriterion();
+    sortCriterion.setField("name").setOrder(SortOrder.ASCENDING);
+
+    // Tested sort criteria
+    io.datahubproject.openapi.v3.models.SortCriterion openapiSortCriterion =
+        io.datahubproject.openapi.v3.models.SortCriterion.builder()
+            .field("name")
+            .order(io.datahubproject.openapi.v3.models.SortCriterion.SortOrder.ASCENDING)
+            .build();
+
+    assertEquals(sortCriterion, openapiSortCriterion.toRecordTemplate());
+  }
+
+  @Test
   public void testScrollEntitiesWithMultipleSortFields() throws Exception {
     List<Urn> TEST_URNS =
         List.of(
@@ -537,6 +605,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     ScrollResult expectedResult =
         new ScrollResult()
+            .setNumEntities(2)
             .setEntities(
                 new SearchEntityArray(
                     List.of(
@@ -583,6 +652,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     ScrollResult expectedResult =
         new ScrollResult()
+            .setNumEntities(1)
             .setEntities(
                 new SearchEntityArray(List.of(new SearchEntity().setEntity(TEST_URNS.get(0)))))
             .setScrollId("test-scroll-id");
@@ -628,6 +698,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     ScrollResult expectedResult =
         new ScrollResult()
+            .setNumEntities(2)
             .setEntities(
                 new SearchEntityArray(
                     List.of(
@@ -702,6 +773,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     ScrollResult expectedResult =
         new ScrollResult()
+            .setNumEntities(1)
             .setEntities(
                 new SearchEntityArray(List.of(new SearchEntity().setEntity(TEST_URNS.get(0)))));
 

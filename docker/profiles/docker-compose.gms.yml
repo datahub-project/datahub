@@ -29,17 +29,18 @@ x-graph-datastore-neo4j-env: &graph-datastore-neo4j-env
 x-graph-datastore-search-env: &graph-datastore-search-env
   GRAPH_SERVICE_IMPL: elasticsearch
 
-x-search-datastore-elasticsearch-env: &search-datastore-env
+x-search-datastore-opensearch-env: &search-datastore-env
   ELASTICSEARCH_HOST: search
   ELASTICSEARCH_PORT: 9200
   ELASTICSEARCH_PROTOCOL: http
   ELASTICSEARCH_USE_SSL: ${ELASTICSEARCH_USE_SSL:-false}
+  ELASTICSEARCH_IMPLEMENTATION: opensearch
 
 x-kafka-env: &kafka-env
   KAFKA_BOOTSTRAP_SERVER: broker:29092
   # KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
   SCHEMA_REGISTRY_TYPE: INTERNAL
-  KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
+  KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH:-}/schema-registry/api/
 
 x-datahub-quickstart-telemetry-env: &datahub-quickstart-telemetry-env
   DATAHUB_SERVER_TYPE: ${DATAHUB_SERVER_TYPE:-quickstart}
@@ -56,6 +57,10 @@ x-localstack-env: &localstack-env
   AWS_REGION: ${DATAHUB_AWS_REGION:-us-east-1}
   DATAHUB_EXECUTOR_ROLE_ARN: ${DATAHUB_EXECUTOR_ROLE_ARN:-arn:aws:iam::000000000000:role/test-role}
 
+x-datahub-common: &datahub-common-env
+  DATAHUB_BASE_PATH: ${DATAHUB_BASE_PATH:-/}
+  DATAHUB_GMS_BASE_PATH: ${DATAHUB_GMS_BASE_PATH:-/}
+
 #################################
 # System Update
 #################################
@@ -70,12 +75,16 @@ x-datahub-system-update-service: &datahub-system-update-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_SYS_UPDATE_ENV:-empty2.env}
   environment: &datahub-system-update-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env]
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env, *datahub-common-env]
     SCHEMA_REGISTRY_SYSTEM_UPDATE: ${SCHEMA_REGISTRY_SYSTEM_UPDATE:-true}
     SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS: ${SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS:-true}
     SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION: ${SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
     ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:-3}
+    DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-true}
+    KAFKA_BOOTSTRAP_SERVER: broker:29092
+    USE_CONFLUENT_SCHEMA_REGISTRY: false
+    DATAHUB_SQL_SETUP_ENABLED: ${DATAHUB_SQL_SETUP_ENABLED:-true}
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   labels:
@@ -110,12 +119,18 @@ x-datahub-gms-service: &datahub-gms-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_GMS_ENV:-empty2.env}
   environment: &datahub-gms-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
     ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
     STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
     THEME_V2_DEFAULT: ${THEME_V2_DEFAULT:-true}
     METADATA_SERVICE_AUTH_ENABLED: ${METADATA_SERVICE_AUTH_ENABLED:-true}
+    SHOW_HAS_SIBLINGS_FILTER: ${SHOW_HAS_SIBLINGS_FILTER:-true}
+    SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:-true}
+    SEARCH_BAR_API_VARIANT: ${SEARCH_BAR_API_VARIANT:-SEARCH_ACROSS_ENTITIES}
+    POLICY_CACHE_REFRESH_INTERVAL_SECONDS: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:-120}
+    SHOW_INGESTION_PAGE_REDESIGN: ${SHOW_INGESTION_PAGE_REDESIGN:-true}
+    SHOW_HOME_PAGE_REDESIGN: ${SHOW_HOME_PAGE_REDESIGN:-true}
   healthcheck:
     test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
     start_period: 90s
@@ -155,6 +170,7 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
     - ${HOME}/.datahub/search:/etc/datahub/search
 
+
 #################################
 # MAE Consumer
 #################################
@@ -168,13 +184,13 @@ x-datahub-mae-consumer-service: &datahub-mae-consumer-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_MAE_ENV:-empty2.env}
   environment: &datahub-mae-consumer-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env]
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env, *datahub-common-env]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
 
 x-datahub-mae-consumer-service-dev: &datahub-mae-consumer-service-dev
   <<: *datahub-mae-consumer-service
   image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mae-consumer}:${DATAHUB_MAE_VERSION:-${DATAHUB_VERSION:-debug}}
-  environment:
+  environment: &datahub-mae-consumer-dev-env
     <<: [*datahub-dev-telemetry-env, *datahub-mae-consumer-env]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
   volumes:
@@ -196,7 +212,7 @@ x-datahub-mce-consumer-service: &datahub-mce-consumer-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_MCE_ENV:-empty2.env}
   environment: &datahub-mce-consumer-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
     ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
     STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
@@ -207,7 +223,7 @@ x-datahub-mce-consumer-service-dev: &datahub-mce-consumer-service-dev
     - 5009:5009
   <<: *datahub-mce-consumer-service
   image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_MCE_VERSION:-${DATAHUB_VERSION:-debug}}
-  environment:
+  environment: &datahub-mce-consumer-env-dev
     <<: [*datahub-dev-telemetry-env, *datahub-mce-consumer-env]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
     JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5009"
@@ -233,12 +249,33 @@ services:
         condition: service_completed_successfully
       opensearch-setup:
         condition: service_completed_successfully
-      kafka-setup:
+      opensearch:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+  system-update-quickstart-cdc:
+    <<: *datahub-system-update-service
+    profiles:
+      - quickstart-consumers-cdc
+    environment:
+      <<: *datahub-system-update-env
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+      CDC_USER: ${CDC_USER:-datahub_cdc}
+      CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
+      DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
+      DEBEZIUM_PLUGIN_NAME: pgoutput
+    depends_on:
+      mysql-setup-cdc:
+        condition: service_completed_successfully
+      opensearch-setup:
         condition: service_completed_successfully
       opensearch:
         condition: service_healthy
       mysql:
         condition: service_healthy
+      kafka-connect:
+        condition: service_started
   system-update-quickstart-cassandra:
     <<: *datahub-system-update-service
     profiles:
@@ -252,8 +289,6 @@ services:
         condition: service_completed_successfully
       opensearch-setup:
         condition: service_completed_successfully
-      kafka-setup:
-        condition: service_completed_successfully
   system-update-quickstart-postgres:
     <<: *datahub-system-update-service
     profiles:
@@ -265,7 +300,23 @@ services:
         condition: service_completed_successfully
       opensearch-setup:
         condition: service_completed_successfully
-      kafka-setup:
+  system-update-quickstart-postgres-cdc:
+    <<: *datahub-system-update-service
+    profiles:
+      - quickstart-postgres-cdc
+    environment: &system-update-quickstart-postgres-cdc-env
+      <<: [*primary-datastore-postgres-env, *datahub-system-update-env]
+      DEBEZIUM_CONNECTOR_CLASS: io.debezium.connector.postgresql.PostgresConnector
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+      CDC_USER: ${CDC_USER:-datahub_cdc}
+      CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
+      DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
+      CDC_DB_TYPE: postgres
+    depends_on:
+      postgres-setup-cdc:
+        condition: service_completed_successfully
+      opensearch-setup:
         condition: service_completed_successfully
   system-update-debug: &system-update-debug
     <<: *datahub-system-update-service-dev
@@ -275,14 +326,14 @@ services:
       - debug-backend
       - debug-backend-aws
     depends_on:
-      mysql-setup-dev:
-        condition: service_completed_successfully
-      opensearch-setup-dev:
-        condition: service_completed_successfully
-      kafka-setup-dev:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
   system-update-debug-aws: &system-update-debug
     <<: *datahub-system-update-service-dev
+    environment:
+      <<: [*localstack-env]
     profiles:
       - debug-backend-aws
       - debug-aws
@@ -291,22 +342,40 @@ services:
         condition: service_completed_successfully
       opensearch-setup-dev:
         condition: service_completed_successfully
-      kafka-setup-dev:
-        condition: service_completed_successfully
   system-update-debug-consumers: # for consistent naming based on profile
     <<: *system-update-debug
     profiles:
       - debug-consumers
+  system-update-debug-consumers-cdc:
+    <<: *datahub-system-update-service-dev
+    profiles:
+      - debug-consumers-cdc
+    depends_on:
+      mysql-setup-dev-cdc:
+        condition: service_completed_successfully
+      opensearch-setup-dev:
+        condition: service_completed_successfully
+      kafka-connect:
+        condition: service_started
+    environment:
+      <<: *datahub-system-update-dev-env
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+      CDC_USER: ${CDC_USER:-datahub_cdc}
+      CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
+      DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
+      DEBEZIUM_CONFIG_OVERRIDE: mclProcessing.cdcSource.debeziumConfig.mysqlConfig
   system-update-debug-elasticsearch:
     <<: *datahub-system-update-service-dev
     profiles:
       - debug-elasticsearch
+    environment:
+      <<: *datahub-system-update-dev-env
+      ELASTICSEARCH_IMPLEMENTATION: elasticsearch
     depends_on:
       mysql-setup-dev:
         condition: service_completed_successfully
       elasticsearch-setup-dev:
-        condition: service_completed_successfully
-      kafka-setup-dev:
         condition: service_completed_successfully
   system-update-debug-postgres:
     <<: *datahub-system-update-service-dev
@@ -319,7 +388,16 @@ services:
         condition: service_completed_successfully
       opensearch-setup-dev:
         condition: service_completed_successfully
-      kafka-setup-dev:
+  system-update-debug-postgres-cdc:
+    <<: *datahub-system-update-service-dev
+    profiles:
+      - debug-postgres-cdc
+    environment:
+      <<: *system-update-quickstart-postgres-cdc-env
+    depends_on:
+      postgres-setup-dev-cdc:
+        condition: service_completed_successfully
+      opensearch-setup-dev:
         condition: service_completed_successfully
   system-update-debug-cassandra:
     <<: *datahub-system-update-service-dev
@@ -332,8 +410,6 @@ services:
         condition: service_completed_successfully
       opensearch-setup-dev:
         condition: service_completed_successfully
-      kafka-setup-dev:
-        condition: service_completed_successfully
   system-update-debug-neo4j:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -344,8 +420,6 @@ services:
       neo4j:
         condition: service_healthy
       opensearch-setup-dev:
-        condition: service_completed_successfully
-      kafka-setup-dev:
         condition: service_completed_successfully
   #################################
   # GMS
@@ -376,16 +450,44 @@ services:
     depends_on:
       system-update-quickstart-postgres:
         condition: service_completed_successfully
+  datahub-gms-quickstart-postgres-cdc:
+    <<: *datahub-gms-service
+    profiles:
+      - quickstart-postgres-cdc
+    environment:
+      <<: [*primary-datastore-postgres-env, *datahub-gms-env]
+      DEBEZIUM_CONNECTOR_CLASS: io.debezium.connector.postgresql.PostgresConnector
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+      CDC_DB_TYPE: postgres
+      MAE_CONSUMER_ENABLED: false
+      MCE_CONSUMER_ENABLED: false
+    depends_on:
+      system-update-quickstart-postgres-cdc:
+        condition: service_completed_successfully
+
   datahub-gms-quickstart-consumers:
     <<: *datahub-gms-service
     profiles:
       - quickstart-consumers
-    environment:
+    environment: &datahub-gms-quickstart-consumers-env
       <<: *datahub-gms-env
       MAE_CONSUMER_ENABLED: false
       MCE_CONSUMER_ENABLED: false
     depends_on:
       system-update-quickstart:
+        condition: service_completed_successfully
+  datahub-gms-quickstart-consumers-cdc:
+    <<: *datahub-gms-service
+    profiles:
+      - quickstart-consumers-cdc
+    environment:
+      <<: *datahub-gms-quickstart-consumers-env
+      DEBEZIUM_CONNECTOR_CLASS: io.debezium.connector.postgresql.PostgresConnector
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+    depends_on:
+      system-update-quickstart-cdc:
         condition: service_completed_successfully
   datahub-gms-debug:
     <<: *datahub-gms-service-dev
@@ -422,6 +524,22 @@ services:
     depends_on:
       system-update-debug-postgres:
         condition: service_completed_successfully
+  datahub-gms-debug-postgres-cdc:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug-postgres-cdc
+    environment:
+      <<: [*primary-datastore-postgres-env, *datahub-gms-dev-env]
+      DEBEZIUM_CONNECTOR_CLASS: io.debezium.connector.postgresql.PostgresConnector
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+      CDC_USER: ${CDC_USER:-datahub_cdc}
+      CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
+      DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
+      CDC_DB_TYPE: postgres
+    depends_on:
+      system-update-debug-postgres-cdc:
+        condition: service_completed_successfully
   datahub-gms-debug-cassandra:
     <<: *datahub-gms-service-dev
     profiles:
@@ -435,12 +553,23 @@ services:
     <<: *datahub-gms-service-dev
     profiles:
       - debug-consumers
-    environment:
+    environment: &datahub-gms-debug-consumers-env
       <<: *datahub-gms-dev-env
       MAE_CONSUMER_ENABLED: false
       MCE_CONSUMER_ENABLED: false
     depends_on:
       system-update-debug-consumers:
+        condition: service_completed_successfully
+  datahub-gms-debug-consumers-cdc:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug-consumers-cdc
+    environment:
+      <<: *datahub-gms-debug-consumers-env
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+    depends_on:
+      system-update-debug-consumers-cdc:
         condition: service_completed_successfully
   datahub-gms-debug-neo4j:
     <<: *datahub-gms-service-dev
@@ -455,6 +584,9 @@ services:
     <<: *datahub-gms-service-dev
     profiles:
       - debug-elasticsearch
+    environment:
+      <<: *datahub-gms-dev-env
+      ELASTICSEARCH_IMPLEMENTATION: elasticsearch
     depends_on:
       system-update-debug-elasticsearch:
         condition: service_completed_successfully
@@ -475,6 +607,41 @@ services:
     depends_on:
       datahub-gms-debug-consumers:
         condition: service_healthy
+  datahub-mae-consumer-quickstart-consumers-cdc:
+    <<: *datahub-mae-consumer-service
+    environment:
+      <<: *datahub-mae-consumer-env
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+    profiles:
+      - quickstart-consumers-cdc
+    depends_on:
+      datahub-gms-quickstart-consumers-cdc:
+        condition: service_healthy
+  datahub-mae-consumer-quickstart-postgres-cdc:
+    <<: *datahub-mae-consumer-service
+    environment:
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+    profiles:
+      - quickstart-postgres-cdc
+    depends_on:
+      datahub-gms-quickstart-postgres-cdc:
+        condition: service_healthy
+
+  datahub-mae-consumer-debug-consumers-cdc:
+    <<: *datahub-mae-consumer-service-dev
+    environment:
+      <<: *datahub-mae-consumer-dev-env
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+    profiles:
+      - debug-consumers-cdc
+    depends_on:
+      datahub-gms-debug-consumers-cdc:
+        condition: service_healthy
+
   #################################
   # MCE Consumer
   #################################
@@ -485,10 +652,44 @@ services:
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
+  datahub-mce-consumer-quickstart-consumers-cdc:
+    <<: *datahub-mce-consumer-service
+    environment:
+      <<: *datahub-mce-consumer-env
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+    profiles:
+      - quickstart-consumers-cdc
+    depends_on:
+      datahub-gms-quickstart-consumers-cdc:
+        condition: service_healthy
+  datahub-mce-consumer-quickstart-postgres-consumers-cdc:
+    <<: *datahub-mce-consumer-service
+    environment:
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+    profiles:
+      - quickstart-postgres-cdc
+    depends_on:
+      datahub-gms-quickstart-postgres-cdc:
+        condition: service_healthy
+
   datahub-mce-consumer-debug-consumers:
     <<: *datahub-mce-consumer-service-dev
     profiles:
       - debug-consumers
     depends_on:
       datahub-gms-debug-consumers:
+        condition: service_healthy
+  datahub-mce-consumer-debug-consumers-cdc:
+    <<: *datahub-mce-consumer-service-dev
+    profiles:
+      - debug-consumers-cdc
+    environment:
+      <<: *datahub-mce-consumer-env-dev
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+    depends_on:
+      datahub-gms-debug-consumers-cdc:
         condition: service_healthy

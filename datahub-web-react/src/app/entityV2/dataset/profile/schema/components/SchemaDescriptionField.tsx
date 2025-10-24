@@ -9,13 +9,13 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
-import DocumentationPropagationDetails from '@app/sharedV2/propagation/DocumentationPropagationDetails';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
+import { Editor, Tooltip } from '@src/alchemy-components';
 import CompactMarkdownViewer from '@src/app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 
 import { UpdateDatasetMutation } from '@graphql/dataset.generated';
-import { StringMapEntry } from '@types';
+import { MetadataAttribution } from '@types';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -97,6 +97,7 @@ const StyledViewer = styled(Editor)`
 const DescriptionWrapper = styled.span`
     display: inline-flex;
     align-items: center;
+    width: 100%;
 `;
 
 const AddModalWrapper = styled.div``;
@@ -112,7 +113,7 @@ type Props = {
     isEdited?: boolean;
     isReadOnly?: boolean;
     isPropagated?: boolean;
-    sourceDetail?: StringMapEntry[] | null;
+    attribution?: MetadataAttribution | null;
 };
 
 export default function DescriptionField({
@@ -124,7 +125,7 @@ export default function DescriptionField({
     original,
     isReadOnly,
     isPropagated,
-    sourceDetail,
+    attribution,
 }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
 
@@ -207,22 +208,24 @@ export default function DescriptionField({
                         suffix={EditButton}
                         shouldWrap
                     > */}
-                        <DescriptionWrapper>
-                            {isPropagated && <DocumentationPropagationDetails sourceDetail={sourceDetail} />}
-                            &nbsp;
-                            <CompactMarkdownViewer
-                                content={description}
-                                lineLimit={1}
-                                fixedLineHeight
-                                customStyle={{ fontSize: '12px' }}
-                                scrollableY={false}
-                            />
-                        </DescriptionWrapper>
+                        <Tooltip
+                            title={isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}
+                        >
+                            <DescriptionWrapper>
+                                <CompactMarkdownViewer
+                                    content={description}
+                                    lineLimit={1}
+                                    fixedLineHeight
+                                    customStyle={{ fontSize: '12px' }}
+                                    scrollableY={false}
+                                />
+                                {isSchemaEditable && isEdited && <EditedLabel>(edited)</EditedLabel>}
+                            </DescriptionWrapper>
+                        </Tooltip>
                         {/* </StripMarkdownText> */}
                     </>
                 )
             )}
-            {isSchemaEditable && isEdited && <EditedLabel>(edited)</EditedLabel>}
             {showAddModal && (
                 <AddModalWrapper onClick={(e) => e.stopPropagation()}>
                     <UpdateDescriptionModal

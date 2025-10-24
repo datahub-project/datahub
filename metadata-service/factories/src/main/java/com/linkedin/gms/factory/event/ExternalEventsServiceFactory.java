@@ -1,5 +1,7 @@
 package com.linkedin.gms.factory.event;
 
+import static io.datahubproject.event.ExternalEventsService.METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME;
+import static io.datahubproject.event.ExternalEventsService.METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME;
 import static io.datahubproject.event.ExternalEventsService.PLATFORM_EVENT_TOPIC_NAME;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,7 +20,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ExternalEventsServiceFactory {
 
-  @Value("${eventsApi.defaultPollTimeoutSeconds:10}")
+  @Value("${eventsApi.defaultPollTimeoutSeconds:5}")
   private int pollTimeout;
 
   @Value("${eventsApi.defaultLimit:100}")
@@ -39,6 +41,12 @@ public class ExternalEventsServiceFactory {
   private Map<String, String> buildTopicNameMappings() {
     final Map<String, String> topicNames = new HashMap<>();
     topicNames.put(PLATFORM_EVENT_TOPIC_NAME, topicConvention.getPlatformEventTopicName());
+    topicNames.put(
+        METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
+        topicConvention.getMetadataChangeLogVersionedTopicName());
+    topicNames.put(
+        METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
+        topicConvention.getMetadataChangeLogTimeseriesTopicName());
     return topicNames;
   }
 }

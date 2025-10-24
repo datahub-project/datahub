@@ -9,6 +9,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp_builder import DatabaseKey, DataProductKey, SchemaKey
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.snowflake.constants import (
+    DEFAULT_SNOWFLAKE_DOMAIN,
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
     SnowflakeCloudProvider,
     SnowflakeObjectDomain,
@@ -34,16 +35,21 @@ class SnowsightUrlBuilder:
         "us-east-1",
         "eu-west-1",
         "eu-central-1",
-        "ap-southeast-1",
         "ap-southeast-2",
     ]
 
     snowsight_base_url: str
 
-    def __init__(self, account_locator: str, region: str, privatelink: bool = False):
+    def __init__(
+        self,
+        account_locator: str,
+        region: str,
+        privatelink: bool = False,
+        snowflake_domain: str = DEFAULT_SNOWFLAKE_DOMAIN,
+    ):
         cloud, cloud_region_id = self.get_cloud_region_from_snowflake_region_id(region)
         self.snowsight_base_url = self.create_snowsight_base_url(
-            account_locator, cloud_region_id, cloud, privatelink
+            account_locator, cloud_region_id, cloud, privatelink, snowflake_domain
         )
 
     @staticmethod
@@ -52,6 +58,7 @@ class SnowsightUrlBuilder:
         cloud_region_id: str,
         cloud: str,
         privatelink: bool = False,
+        snowflake_domain: str = DEFAULT_SNOWFLAKE_DOMAIN,
     ) -> str:
         if cloud:
             url_cloud_provider_suffix = f".{cloud}"
@@ -66,8 +73,14 @@ class SnowsightUrlBuilder:
                 url_cloud_provider_suffix = ""
             else:
                 url_cloud_provider_suffix = f".{cloud}"
-        if privatelink:
-            url = f"https://app.{account_locator}.{cloud_region_id}.privatelink.snowflakecomputing.com/"
+        # Note: Snowsight is always accessed via the public internet (app.snowflake.com)
+        # even for accounts using privatelink. Privatelink only applies to database connections,
+        # not the Snowsight web UI.
+        # Standard Snowsight URL format - works for most regions
+        # China region may use app.snowflake.cn instead of app.snowflake.com. This is not documented, just
+        # guessing Based on existence of snowflake.cn domain (https://domainindex.com/domains/snowflake.cn)
+        if snowflake_domain == "snowflakecomputing.cn":
+            url = f"https://app.snowflake.cn/{cloud_region_id}{url_cloud_provider_suffix}/{account_locator}/"
         else:
             url = f"https://app.snowflake.com/{cloud_region_id}{url_cloud_provider_suffix}/{account_locator}/"
         return url

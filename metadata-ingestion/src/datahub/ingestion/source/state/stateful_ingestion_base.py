@@ -10,6 +10,7 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
     DynamicTypedConfig,
+    HiddenFromDocs,
 )
 from datahub.configuration.pydantic_migration_helpers import GenericModel
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
@@ -55,25 +56,21 @@ class StatefulIngestionConfig(ConfigModel):
         description="Whether or not to enable stateful ingest. "
         "Default: True if a pipeline_name is set and either a datahub-rest sink or `datahub_api` is specified, otherwise False",
     )
-    max_checkpoint_state_size: pydantic.PositiveInt = Field(
+    max_checkpoint_state_size: HiddenFromDocs[pydantic.PositiveInt] = Field(
         default=2**24,  # 16 MB
         description="The maximum size of the checkpoint state in bytes. Default is 16MB",
-        hidden_from_docs=True,
     )
-    state_provider: Optional[DynamicTypedStateProviderConfig] = Field(
+    state_provider: HiddenFromDocs[Optional[DynamicTypedStateProviderConfig]] = Field(
         default=None,
         description="The ingestion state provider configuration.",
-        hidden_from_docs=True,
     )
-    ignore_old_state: bool = Field(
+    ignore_old_state: HiddenFromDocs[bool] = Field(
         default=False,
         description="If set to True, ignores the previous checkpoint state.",
-        hidden_from_docs=True,
     )
-    ignore_new_state: bool = Field(
+    ignore_new_state: HiddenFromDocs[bool] = Field(
         default=False,
         description="If set to True, ignores the current checkpoint state.",
-        hidden_from_docs=True,
     )
 
     @pydantic.root_validator(skip_on_failure=True)
@@ -104,7 +101,9 @@ class StatefulLineageConfigMixin(ConfigModel):
         default=True,
         description="Enable stateful lineage ingestion."
         " This will store lineage window timestamps after successful lineage ingestion. "
-        "and will not run lineage ingestion for same timestamps in subsequent run. ",
+        "and will not run lineage ingestion for same timestamps in subsequent run. "
+        "NOTE: This only works with use_queries_v2=False (legacy extraction path). "
+        "For queries v2, use enable_stateful_time_window instead.",
     )
 
     _store_last_lineage_extraction_timestamp = pydantic_renamed_field(
@@ -153,7 +152,9 @@ class StatefulUsageConfigMixin(BaseTimeWindowConfig):
         default=True,
         description="Enable stateful lineage ingestion."
         " This will store usage window timestamps after successful usage ingestion. "
-        "and will not run usage ingestion for same timestamps in subsequent run. ",
+        "and will not run usage ingestion for same timestamps in subsequent run. "
+        "NOTE: This only works with use_queries_v2=False (legacy extraction path). "
+        "For queries v2, use enable_stateful_time_window instead.",
     )
 
     _store_last_usage_extraction_timestamp = pydantic_renamed_field(
@@ -169,6 +170,30 @@ class StatefulUsageConfigMixin(BaseTimeWindowConfig):
                     "Stateful ingestion is disabled, disabling enable_stateful_usage_ingestion config option as well"
                 )
                 values["enable_stateful_usage_ingestion"] = False
+        return values
+
+
+class StatefulTimeWindowConfigMixin(BaseTimeWindowConfig):
+    enable_stateful_time_window: bool = Field(
+        default=False,
+        description="Enable stateful time window tracking."
+        " This will store the time window after successful extraction "
+        "and adjust the time window in subsequent runs to avoid reprocessing. "
+        "NOTE: This is ONLY applicable when using queries v2 (use_queries_v2=True). "
+        "This replaces enable_stateful_lineage_ingestion and enable_stateful_usage_ingestion "
+        "for the queries v2 extraction path, since queries v2 extracts lineage, usage, operations, "
+        "and queries together from a single audit log and uses a unified time window.",
+    )
+
+    @root_validator(skip_on_failure=True)
+    def time_window_stateful_option_validator(cls, values: Dict) -> Dict:
+        sti = values.get("stateful_ingestion")
+        if not sti or not sti.enabled:
+            if values.get("enable_stateful_time_window"):
+                logger.warning(
+                    "Stateful ingestion is disabled, disabling enable_stateful_time_window config option as well"
+                )
+                values["enable_stateful_time_window"] = False
         return values
 
 

@@ -54,9 +54,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.time.StopWatch;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.StopWatch;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Result;
@@ -340,6 +340,19 @@ public class Neo4jGraphService implements GraphService {
 
     log.debug("Neo4j getLineage results = {}", result);
     return result;
+  }
+
+  @Nonnull
+  @Override
+  public EntityLineageResult getImpactLineage(
+      @Nonnull final OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull LineageGraphFilters lineageGraphFilters,
+      int maxHops) {
+    // For Neo4j, we can reuse the existing getLineage method with appropriate parameters
+    // since Neo4j doesn't have the same slice-based search capabilities as Elasticsearch
+    log.debug("Neo4j getImpactLineage maxHops = {}", maxHops);
+    return getLineage(opContext, entityUrn, lineageGraphFilters, 0, null, maxHops);
   }
 
   private String getPathFindingLabelFilter(Set<String> entityNames) {

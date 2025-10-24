@@ -18,7 +18,6 @@ dependencies {
     compileOnly "io.openlineage:openlineage-java:$openLineageVersion"
 
     implementation externalDependency.slf4jApi
-    implementation externalDependency.commonsLang
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
 

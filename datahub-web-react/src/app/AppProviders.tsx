@@ -8,6 +8,7 @@ import HomePageProvider from '@app/homeV3/context/HomePageProvider';
 import OnboardingTourProvider from '@app/onboarding/OnboardingTourContextProvider';
 import SearchContextProvider from '@app/search/context/SearchContextProvider';
 import { BrowserTitleProvider } from '@app/shared/BrowserTabTitleContext';
+import { ReloadableProvider } from '@app/sharedV2/reloadableContext/ReloadableContext';
 import { EducationStepsProvider } from '@providers/EducationStepsProvider';
 import QuickFiltersProvider from '@providers/QuickFiltersProvider';
 import AppConfigProvider from '@src/AppConfigProvider';
@@ -27,9 +28,11 @@ export default function AppProviders({ children }: Props) {
                                 <OnboardingTourProvider>
                                     <QuickFiltersProvider>
                                         <SearchContextProvider>
-                                            <HomePageProvider>
-                                                <NavBarProvider>{children}</NavBarProvider>
-                                            </HomePageProvider>
+                                            <ReloadableProvider>
+                                                <HomePageProvider>
+                                                    <NavBarProvider>{children}</NavBarProvider>
+                                                </HomePageProvider>
+                                            </ReloadableProvider>
                                         </SearchContextProvider>
                                     </QuickFiltersProvider>
                                 </OnboardingTourProvider>

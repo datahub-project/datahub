@@ -1,48 +1,34 @@
-import { Modal, Tag, message } from 'antd';
+import { Modal, message } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import OwnerContent from '@app/entityV2/shared/components/styled/ExpandedOwner/OwnerContent';
 import { getNameFromType } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
-import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
-import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import ActorPill from '@app/sharedV2/owners/ActorPill';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { StyledLink } from '@src/app/previewV2/EntityHeader';
 
 import { useRemoveOwnerMutation } from '@graphql/mutations.generated';
-import { EntityType, Owner } from '@types';
+import { DataHubPageModuleType, EntityType, Owner } from '@types';
 
-const OwnerTag = styled(Tag)`
-    padding: 1px;
-    padding-right: 6px;
-    margin-bottom: 8px;
-    display: inline-flex;
-    align-items: center;
-    font-weight: 600;
-    border-color: #9da7c0 !important;
-    padding: 2px 6px 2px 3px;
-
-    max-width: inherit;
-`;
+const OwnerWrapper = styled.div``;
 
 type Props = {
     entityUrn?: string;
     owner: Owner;
-    hidePopOver?: boolean | undefined;
     refetch?: () => Promise<any>;
     readOnly?: boolean;
-    fontSize?: number;
 };
 
-export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly, fontSize }: Props) => {
+export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) => {
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
-    const linkProps = useEmbeddedProfileLinkProps();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
-    const { setReloadHomepageModules } = usePageTemplateContext();
+    const { reloadByKeyType } = useReloadableContext();
     const { user } = useUserContext();
 
     let name = '';
@@ -58,8 +44,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     } else if (owner.type) {
         ownershipTypeName = getNameFromType(owner.type);
     }
-    const pictureLink =
-        (owner.owner.__typename === 'CorpUser' && owner.owner.editableProperties?.pictureLink) || undefined;
+
     const onDelete = async () => {
         if (!entityUrn) {
             return;
@@ -82,7 +67,13 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
                 entityUrn,
             });
             const isCurrentUserRemoved = user?.urn === owner.owner.urn;
-            if (isCurrentUserRemoved) setReloadHomepageModules(true);
+            // Reload modules
+            // OwnedAssets - update Your assets module on home page
+            if (isCurrentUserRemoved)
+                reloadByKeyType(
+                    [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.OwnedAssets)],
+                    3000,
+                );
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
@@ -106,23 +97,18 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
         });
     };
 
+    const propagationDetails = { attribution: owner.attribution };
+
     return (
-        <OwnerTag onClose={onClose} closable={!!entityUrn && !readOnly}>
-            {readOnly && <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />}
-            {!readOnly && (
-                <StyledLink
-                    to={`${entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}/owner of`}
-                    {...linkProps}
-                >
-                    <OwnerContent
-                        name={name}
-                        owner={owner}
-                        hidePopOver={hidePopOver}
-                        pictureLink={pictureLink}
-                        fontSize={fontSize}
-                    />
-                </StyledLink>
-            )}
-        </OwnerTag>
+        <>
+            <OwnerWrapper>
+                <ActorPill
+                    actor={owner.owner}
+                    onClose={!readOnly ? onClose : undefined}
+                    hideLink={readOnly}
+                    propagationDetails={propagationDetails}
+                />
+            </OwnerWrapper>
+        </>
     );
 };

@@ -13,7 +13,7 @@ services:
     - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
     - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
     - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
-    - KAFKA_HEAP_OPTS=-Xms256m -Xmx256m
+    - KAFKA_HEAP_OPTS=-Xms512m -Xmx512m
     - KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE=false
     - KAFKA_MESSAGE_MAX_BYTES=5242880
     - KAFKA_MAX_MESSAGE_BYTES=5242880
@@ -56,7 +56,7 @@ services:
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
     - DATAHUB_SECRET=YouKnowNothing
-    - DATAHUB_APP_VERSION=1.0
+    - DATAHUB_APP_VERSION=${DATAHUB_VERSION:-v1.0.0}
     - DATAHUB_PLAY_MEM_BUFFER_SIZE=10MB
     - JAVA_OPTS=-Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf -Dlogback.configurationFile=datahub-frontend/conf/logback.xml -Dlogback.debug=false -Dpidfile.path=/dev/null
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
@@ -156,7 +156,8 @@ services:
     - discovery.type=single-node
     - ${XPACK_SECURITY_ENABLED:-xpack.security.enabled=false}
     - ES_JAVA_OPTS=-Xms256m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
-    - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
+    - OPENSEARCH_JAVA_OPTS=-Xms768m -Xmx1024m -Dlog4j2.formatMsgNoLookups=true
+    - DISABLE_SECURITY_PLUGIN=true
     healthcheck:
       interval: 1s
       retries: 3
@@ -191,9 +192,6 @@ services:
         condition: service_healthy
     environment:
     - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}
-    - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-    - USE_CONFLUENT_SCHEMA_REGISTRY=TRUE
     hostname: kafka-setup
     image: ${DATAHUB_KAFKA_SETUP_IMAGE:-acryldata/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
     labels:
@@ -229,6 +227,10 @@ services:
     - MYSQL_USERNAME=datahub
     - MYSQL_PASSWORD=datahub
     - DATAHUB_DB_NAME=datahub
+    - MYSQL_ROOT_PASSWORD=datahub
+    - CDC_MCL_PROCESSING_ENABLED=false
+    - CDC_USER=datahub_cdc
+    - CDC_PASSWORD=datahub_cdc
     hostname: mysql-setup
     image: ${DATAHUB_MYSQL_SETUP_IMAGE:-acryldata/datahub-mysql-setup}:${DATAHUB_VERSION:-head}
     labels:

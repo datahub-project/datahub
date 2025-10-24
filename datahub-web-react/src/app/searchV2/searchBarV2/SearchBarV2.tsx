@@ -159,7 +159,7 @@ export const SearchBarV2 = ({
 
     return (
         <ViewSelectContextProvider isOpen={isViewsDropdownOpened} onOpenChange={setIsViewsDropdownOpened}>
-            <Wrapper id={id} className={SEARCH_BAR_CLASS_NAME}>
+            <Wrapper id={id} className={SEARCH_BAR_CLASS_NAME} data-testid="v2-search-bar-wrapper">
                 <StyledViewsExternalDropdown disabled={viewsInPopover}>
                     <StyledAutocomplete
                         dataTestId="search-bar"
