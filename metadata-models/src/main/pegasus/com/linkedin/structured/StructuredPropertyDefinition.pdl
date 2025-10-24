@@ -11,13 +11,19 @@ record StructuredPropertyDefinition {
     /**
     * The fully qualified name of the property. e.g. io.acryl.datahub.myProperty
     */
-    @Searchable = {}
+    @Searchable = {
+      "enableAutocomplete": false,
+    }
     qualifiedName: string
 
     /**
     * The display name of the property. This is the name that will be shown in the UI and can be used to look up the property id.
     */
-    @Searchable = {}
+    @Searchable = {
+      "enableAutocomplete": true,
+      "fieldType": "WORD_GRAM",
+      "boostScore": 10.0
+      }
     displayName: optional string
 
     /**
