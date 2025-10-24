@@ -171,13 +171,15 @@ export default function StructuredPropertyValue({
         }
     }
 
+    const tooltipContent = (
+        <div>
+            <span>{value.value?.toString()}</span>
+            <HoverCardAttributionDetails propagationDetails={{ attribution }} />
+        </div>
+    );
+
     return (
-        <Tooltip
-            placement="topLeft"
-            title={
-                !value.entity && !!attribution && <HoverCardAttributionDetails propagationDetails={{ attribution }} />
-            }
-        >
+        <Tooltip placement="topLeft" title={!value.entity && !!attribution && tooltipContent}>
             <ValueText size={size} $isProposed={isProposed}>
                 {value.entity ? (
                     valueEntityRender
@@ -191,6 +193,7 @@ export default function StructuredPropertyValue({
                                         lineLimit={isFieldColumn ? 1 : undefined}
                                         hideShowMore={isFieldColumn}
                                         scrollableY={!isFieldColumn}
+                                        hideTooltip
                                     />
                                 </ViewerContainer>
                                 {isProposed && <ProposedIcon propertyName="property value" />}
@@ -198,9 +201,7 @@ export default function StructuredPropertyValue({
                         ) : (
                             <>
                                 {truncateText ? (
-                                    <Typography.Text
-                                        ellipsis={{ tooltip: attribution ? { placement: 'bottom' } : true }}
-                                    >
+                                    <Typography.Text ellipsis={{ tooltip: attribution ? false : { showArrow: false } }}>
                                         {value.value?.toString() || <div style={{ minHeight: 22 }} />}
                                     </Typography.Text>
                                 ) : (
