@@ -57,7 +57,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("Fivetran")
 @config_class(FivetranSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_FINE,
