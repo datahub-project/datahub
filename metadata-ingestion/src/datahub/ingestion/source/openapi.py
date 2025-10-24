@@ -80,6 +80,12 @@ class OpenApiConfig(ConfigModel):
 
     This class defines all the configuration parameters needed to ingest OpenAPI specifications
     and extract dataset metadata from API endpoints.
+
+    Schema Extraction Behavior:
+    - OpenAPI spec extraction always occurs (parsing the specification file)
+    - Example data extraction always occurs (from examples in the spec)
+    - Live API calls only occur if enable_api_calls_for_schema_extraction=True
+    - API calls are only made for GET methods with valid credentials
     """
 
     name: str = Field(description="Name of ingestion.")
@@ -119,13 +125,11 @@ class OpenApiConfig(ConfigModel):
     verify_ssl: bool = Field(
         default=True, description="Enable SSL certificate verification"
     )
-    use_schema_extraction: bool = Field(
-        default=True,
-        description="Whether to extract schema from response schemas.",
-    )
-    disable_api_calls: bool = Field(
+    enable_api_calls_for_schema_extraction: bool = Field(
         default=False,
-        description="If True, will not make any API calls and rely only on OpenAPI specification for schema extraction.",
+        description="If True, will make live GET API calls to extract schemas when OpenAPI spec extraction fails. "
+        "Requires credentials (username/password, token, or bearer_token). "
+        "OpenAPI spec and example extraction always occur regardless of this setting.",
     )
 
     @validator("bearer_token", always=True)
@@ -543,7 +547,7 @@ class APISource(Source, ABC):
         self, endpoint_k: str, dataset_name: str, sw_dict: Dict
     ) -> Optional[SchemaMetadataClass]:
         """
-        Extract schema from OpenAPI specification if enabled.
+        Extract schema from OpenAPI specification.
 
         This is the primary method for schema extraction, attempting to extract
         schemas directly from the OpenAPI specification without making API calls.
@@ -557,11 +561,8 @@ class APISource(Source, ABC):
             SchemaMetadataClass if schema found and extracted, None otherwise
 
         Note:
-            Only runs if use_schema_extraction is enabled in config
             Tracks statistics for reporting
         """
-        if not self.config.use_schema_extraction:
-            return None
 
         # Try to extract schema from all methods for this endpoint
         schema = self.extract_schema_from_all_methods(endpoint_k, sw_dict)
@@ -614,8 +615,7 @@ class APISource(Source, ABC):
         Determine if we should make an API call based on configuration and endpoint details.
 
         This method implements the logic for when API calls are allowed:
-        - Schema extraction must be enabled
-        - API calls must not be explicitly disabled
+        - API calls must be explicitly enabled
         - Method must be GET (for safety)
         - Credentials must be provided
         - Endpoint must not be in ignore list
@@ -630,12 +630,8 @@ class APISource(Source, ABC):
         Note:
             This ensures API calls are only made when safe and necessary
         """
-        # Don't make API calls if schema extraction is disabled
-        if not self.config.use_schema_extraction:
-            return False
-
-        # Don't make API calls if explicitly disabled
-        if self.config.disable_api_calls:
+        # Don't make API calls if not explicitly enabled
+        if not self.config.enable_api_calls_for_schema_extraction:
             return False
 
         # Only make API calls for GET methods
@@ -811,21 +807,21 @@ class APISource(Source, ABC):
             for wu in workunits:
                 yield wu
 
-            # Try to extract schema metadata - prioritize OpenAPI spec extraction
+            # Try to extract schema metadata - always attempt spec extraction first
             schema_metadata = None
 
-            # First try OpenAPI spec extraction (enhanced)
+            # Always try OpenAPI spec extraction first
             schema_metadata = self._extract_schema_from_openapi_spec(
                 endpoint_k, dataset_name, sw_dict
             )
 
-            # If not found, try endpoint data
+            # If not found, always try endpoint data from spec
             if not schema_metadata:
                 schema_metadata = self._extract_schema_from_endpoint_data(
                     endpoint_dets, dataset_name
                 )
 
-            # Only make API calls as a last resort and only when necessary
+            # Only make API calls as a last resort and only if explicitly enabled
             if not schema_metadata and self._should_make_api_call(
                 endpoint_k, endpoint_dets
             ):
@@ -864,7 +860,7 @@ class APISource(Source, ABC):
                 # Check if we could have made an API call but didn't due to missing credentials
                 if (
                     endpoint_dets.get("method") == "get"
-                    and not self.config.disable_api_calls
+                    and self.config.enable_api_calls_for_schema_extraction
                     and not self._has_credentials()
                 ):
                     self.report.report_warning(
