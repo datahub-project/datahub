@@ -1,10 +1,19 @@
+import { PageTitle } from '@components';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
 
 import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
 import HelpLinkExample from '@app/settingsV2/helpLink/HelpLinkExample';
 import HelpLinkForm from '@app/settingsV2/helpLink/HelpLinkForm';
-import { PageContainer, PageHeaderContainer, PageTitle } from '@app/settingsV2/posts/ManagePosts';
+
+const PageContainer = styled.div`
+    padding: 16px 20px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    gap: 16px;
+`;
 
 const PageContentWrapper = styled.div`
     display: flex;
@@ -20,9 +29,10 @@ export default function ManageHelpLink() {
 
     return (
         <PageContainer>
-            <PageHeaderContainer>
-                <PageTitle level={3}>Custom Help Link</PageTitle>
-            </PageHeaderContainer>
+            <PageTitle
+                title="Custom Help Link"
+                subTitle="Configure a custom help link that appears in the help menu."
+            />
             <PageContentWrapper>
                 <HelpLinkForm />
                 <HelpLinkExample />
