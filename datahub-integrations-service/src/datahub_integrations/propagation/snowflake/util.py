@@ -24,6 +24,7 @@ from sqlalchemy.exc import ProgrammingError
 from datahub_integrations.propagation.snowflake.comment_writer import (
     SnowflakeCommentManager,
     SQLIdentifierFormatter,
+    URNParser,
 )
 from datahub_integrations.propagation.snowflake.config import (
     SnowflakeConnectionConfigPermissive,
@@ -135,7 +136,18 @@ class SnowflakeTagHelper(Closeable):
             raise ValueError(
                 f"Invalid entity urn {entity_urn}, can only handle Dataset and SchemaField urns."
             )
-        database, schema, table = dataset_urn.name.split(".")
+
+        # Parse the dataset URN to extract database, schema, and table
+        # This handles platform instances correctly (takes last 3 parts)
+        snowflake_table = URNParser.parse_dataset_urn(dataset_urn)
+        if snowflake_table is None:
+            logger.warning(f"Failed to parse dataset URN: {dataset_urn}")
+            return
+        database, schema, table = (
+            snowflake_table.database,
+            snowflake_table.schema,
+            snowflake_table.table_name,
+        )
         self._create_tag(database, schema, tag, tag_or_term_urn)
 
         if isinstance(parsed_entity_urn, DatasetUrn):
@@ -302,7 +314,19 @@ class SnowflakeTagHelper(Closeable):
                 )
                 return None
             dataset_urn = DatasetUrn.create_from_string(parsed_entity_urn.parent)
-            database, schema, table = dataset_urn.name.split(".")
+
+            # Parse the dataset URN to extract database, schema, and table
+            # This handles platform instances correctly (takes last 3 parts)
+            snowflake_table = URNParser.parse_dataset_urn(dataset_urn)
+            if snowflake_table is None:
+                logger.warning(f"Failed to parse dataset URN: {dataset_urn}")
+                return
+            database, schema, table = (
+                snowflake_table.database,
+                snowflake_table.schema,
+                snowflake_table.table_name,
+            )
+
             # Since when removing a tag, it might not exist on Snowflake (just datahub), we need to handle the exception
             # internally to prevent getting locked out of the account.
             query = """

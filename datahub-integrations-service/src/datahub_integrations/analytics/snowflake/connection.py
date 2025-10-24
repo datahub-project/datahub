@@ -26,7 +26,7 @@ class SnowflakeConnection(_FrozenConnectionModel):  # type: ignore[misc]  # Froz
     account: str
     warehouse: str
     user: str
-    password: Optional[str] = None
+    password: Optional[SecretStr] = None
     role: Optional[str] = None
     authentication_type: Union[SnowflakeAuthenticationType, str] = (
         SnowflakeAuthenticationType.DEFAULT_AUTHENTICATOR

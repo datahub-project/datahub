@@ -2,13 +2,13 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
-import sqlglot
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
+from sqlglot import exp
 
 logger = logging.getLogger(__name__)
 
-# Snowflake dialect for SQL identifier formatting
-_SNOWFLAKE_DIALECT = sqlglot.Dialect.get_or_raise("snowflake")
+# Snowflake dialect for SQL generation and parsing
+_SNOWFLAKE_DIALECT = "snowflake"
 
 
 @dataclass(frozen=True)
@@ -36,6 +36,12 @@ class URNParser:
         """
         Extract database, schema, and table from a DatasetUrn.
 
+        Handles platform instances - if present, the dataset name format is:
+        platform_instance.database.schema.table
+
+        If no platform instance:
+        database.schema.table
+
         Returns:
             SnowflakeTable or None if parsing fails
         """
@@ -43,10 +49,20 @@ class URNParser:
         parts = dataset_name.split(".")
 
         if len(parts) < 3:
-            logger.warning(f"Could not parse dataset URN: {dataset_name}")
+            logger.warning(
+                f"Could not parse dataset URN: {dataset_name} - expected at least 3 parts, got {len(parts)}"
+            )
             return None
 
-        return SnowflakeTable(database=parts[0], schema=parts[1], table_name=parts[2])
+        # Always take the last 3 parts: database, schema, table
+        # This safely handles platform instances with any number of dots
+        # Examples:
+        #   "db.schema.table" -> db, schema, table (no platform instance)
+        #   "prod.db.schema.table" -> db, schema, table (platform instance: "prod")
+        #   "prod.us-west-2.db.schema.table" -> db, schema, table (platform instance: "prod.us-west-2")
+        return SnowflakeTable(
+            database=parts[-3], schema=parts[-2], table_name=parts[-1]
+        )
 
     @staticmethod
     def parse_field_urn(field_urn: SchemaFieldUrn) -> Optional[SnowflakeColumn]:
@@ -74,99 +90,31 @@ class URNParser:
 class SQLIdentifierFormatter:
     """Handles formatting and quoting of SQL identifiers using sqlglot."""
 
-    # Characters that require an identifier to be quoted
-    # Expanded set based on Snowflake documentation
-    SPECIAL_CHARS_REQUIRING_QUOTES = {
-        " ",
-        "-",
-        ".",
-        "/",
-        "\\",
-        "(",
-        ")",
-        "[",
-        "]",
-        "*",
-        "?",
-        "!",
-        "@",
-        "#",
-        "$",
-        "%",
-        "^",
-        "&",
-        "+",
-        "=",
-        "{",
-        "}",
-        "|",
-        ":",
-        ";",
-        "<",
-        ">",
-        ",",
-    }
-
     @staticmethod
     def format_identifier(identifier: str) -> str:
         """
-        Format a Snowflake identifier with smart quoting.
-        Only quotes when necessary (special characters, spaces, reserved words).
-        Uses sqlglot's comprehensive keyword list for accurate detection.
+        Format a Snowflake identifier with smart quoting using sqlglot.
+
+        sqlglot automatically handles:
+        - Reserved keyword detection
+        - Special character detection
+        - Proper quoting rules for the Snowflake dialect
+
+        Args:
+            identifier: The identifier to format
+
+        Returns:
+            Properly formatted and quoted identifier
         """
         if not identifier:
             return identifier
 
-        # Strip existing quotes to avoid double-quoting
-        clean_identifier = identifier.strip('"')
+        # Use sqlglot to create an identifier expression
+        # It will automatically determine if quoting is needed
+        identifier_expr = exp.to_identifier(identifier, quoted=None)
 
-        # Check if quoting is needed
-        if SQLIdentifierFormatter._should_quote_identifier(clean_identifier):
-            return f'"{clean_identifier}"'
-
-        return clean_identifier
-
-    @staticmethod
-    def _should_quote_identifier(identifier: str) -> bool:
-        """
-        Determine if an identifier needs to be quoted.
-        Uses sqlglot's keyword list for comprehensive reserved word detection.
-        """
-        if not identifier:
-            return False
-
-        # Quote if starts with a number
-        if identifier[0].isdigit():
-            return True
-
-        # Quote if contains special characters or spaces
-        if any(
-            char in identifier
-            for char in SQLIdentifierFormatter.SPECIAL_CHARS_REQUIRING_QUOTES
-        ):
-            return True
-
-        # Quote if it's a reserved keyword (using sqlglot's comprehensive list)
-        if identifier.upper() in _SNOWFLAKE_DIALECT.tokenizer_class.KEYWORDS:
-            return True
-
-        return False
-
-    @staticmethod
-    def escape_description(description: str) -> str:
-        """
-        Prepare description for SQL by escaping single quotes.
-
-        In Snowflake SQL, single quotes are escaped by doubling them.
-
-        Args:
-            description: The description text to prepare
-
-        Returns:
-            Description ready for use in SQL with single quotes
-        """
-        # In SQL, single quotes are escaped by doubling them: ' becomes ''
-        return description.replace("'", "''")
+        # Generate SQL for Snowflake dialect
+        return identifier_expr.sql(dialect=_SNOWFLAKE_DIALECT)
 
 
 class ObjectTypeDetector:
@@ -183,28 +131,54 @@ class ObjectTypeDetector:
             'TABLE', 'VIEW', or 'UNKNOWN'
         """
         try:
-            formatted_database = SQLIdentifierFormatter.format_identifier(
-                table.database
+            # Build the query using sqlglot with literal values (safely escaped)
+            query = (
+                exp.select(
+                    exp.Case(
+                        ifs=[
+                            exp.If(
+                                this=exp.EQ(
+                                    this=exp.column("table_type"),
+                                    expression=exp.Literal.string("BASE TABLE"),
+                                ),
+                                true=exp.Literal.string("TABLE"),
+                            ),
+                            exp.If(
+                                this=exp.EQ(
+                                    this=exp.column("table_type"),
+                                    expression=exp.Literal.string("VIEW"),
+                                ),
+                                true=exp.Literal.string("VIEW"),
+                            ),
+                        ],
+                        default=exp.column("table_type"),
+                    ).as_("object_type")
+                )
+                .from_(
+                    exp.Table(
+                        this=exp.to_identifier("TABLES"),
+                        db=exp.to_identifier("INFORMATION_SCHEMA"),
+                        catalog=exp.to_identifier(table.database),
+                    )
+                )
+                .where(
+                    exp.and_(
+                        exp.EQ(
+                            this=exp.column("table_schema"),
+                            expression=exp.Literal.string(table.schema.upper()),
+                        ),
+                        exp.EQ(
+                            this=exp.column("table_name"),
+                            expression=exp.Literal.string(table.table_name.upper()),
+                        ),
+                    )
+                )
             )
 
-            # Snowflake stores object names in uppercase in information schema
-            # Use parameterized query to prevent SQL injection
-            check_sql = f"""
-            SELECT 
-                CASE 
-                    WHEN table_type = 'BASE TABLE' THEN 'TABLE'
-                    WHEN table_type = 'VIEW' THEN 'VIEW'
-                    ELSE table_type
-                END as object_type
-            FROM {formatted_database}.INFORMATION_SCHEMA.TABLES 
-            WHERE table_schema = %s 
-            AND table_name = %s
-            """
+            check_sql = query.sql(dialect=_SNOWFLAKE_DIALECT)
 
             with self.connection.cursor() as cursor:
-                cursor.execute(
-                    check_sql, (table.schema.upper(), table.table_name.upper())
-                )
+                cursor.execute(check_sql)
                 result = cursor.fetchone()
 
                 if result:
@@ -230,29 +204,40 @@ class ObjectTypeDetector:
             The actual column name as stored in Snowflake, or None if not found
         """
         try:
-            formatted_database = SQLIdentifierFormatter.format_identifier(
-                column.table.database
+            # Build the query using sqlglot with literal values (safely escaped)
+            query = (
+                exp.select(exp.column("column_name"))
+                .from_(
+                    exp.Table(
+                        this=exp.to_identifier("COLUMNS"),
+                        db=exp.to_identifier("INFORMATION_SCHEMA"),
+                        catalog=exp.to_identifier(column.table.database),
+                    )
+                )
+                .where(
+                    exp.and_(
+                        exp.EQ(
+                            this=exp.column("table_schema"),
+                            expression=exp.Literal.string(column.table.schema.upper()),
+                        ),
+                        exp.EQ(
+                            this=exp.column("table_name"),
+                            expression=exp.Literal.string(
+                                column.table.table_name.upper()
+                            ),
+                        ),
+                        exp.EQ(
+                            this=exp.Upper(this=exp.column("column_name")),
+                            expression=exp.Literal.string(column.column_name.upper()),
+                        ),
+                    )
+                )
             )
 
-            # Query information schema for actual column name
-            # Use parameterized query to prevent SQL injection
-            check_sql = f"""
-            SELECT column_name 
-            FROM {formatted_database}.INFORMATION_SCHEMA.COLUMNS 
-            WHERE table_schema = %s 
-            AND table_name = %s
-            AND UPPER(column_name) = %s
-            """
+            check_sql = query.sql(dialect=_SNOWFLAKE_DIALECT)
 
             with self.connection.cursor() as cursor:
-                cursor.execute(
-                    check_sql,
-                    (
-                        column.table.schema.upper(),
-                        column.table.table_name.upper(),
-                        column.column_name.upper(),
-                    ),
-                )
+                cursor.execute(check_sql)
                 result = cursor.fetchone()
 
                 if result:
@@ -293,14 +278,18 @@ class CommentUpdater:
         self, table: SnowflakeTable, description: str, object_type: str
     ) -> None:
         """Execute the SQL to update a table or view comment."""
-        escaped_description = SQLIdentifierFormatter.escape_description(description)
-        formatted_database = SQLIdentifierFormatter.format_identifier(table.database)
-        formatted_schema = SQLIdentifierFormatter.format_identifier(table.schema)
-        formatted_table_name = SQLIdentifierFormatter.format_identifier(
-            table.table_name
+        # Build ALTER TABLE/VIEW SET COMMENT statement using sqlglot for identifier formatting
+        table_ref = exp.Table(
+            this=exp.to_identifier(table.table_name),
+            db=exp.to_identifier(table.schema),
+            catalog=exp.to_identifier(table.database),
         )
 
-        sql = f"ALTER {object_type} {formatted_database}.{formatted_schema}.{formatted_table_name} SET COMMENT = '{escaped_description}'"
+        table_sql = table_ref.sql(dialect=_SNOWFLAKE_DIALECT)
+        comment_sql = exp.Literal.string(description).sql(dialect=_SNOWFLAKE_DIALECT)
+
+        # Build the ALTER statement - sqlglot doesn't have a direct expression for this
+        sql = f"ALTER {object_type} {table_sql} SET COMMENT = {comment_sql}"
 
         self.query_executor(sql)
         logger.info(
@@ -311,23 +300,26 @@ class CommentUpdater:
         self, column: SnowflakeColumn, description: str, object_type: str
     ) -> None:
         """Execute the SQL to update a column comment."""
-        escaped_description = SQLIdentifierFormatter.escape_description(description)
-        formatted_database = SQLIdentifierFormatter.format_identifier(
-            column.table.database
-        )
-        formatted_schema = SQLIdentifierFormatter.format_identifier(column.table.schema)
-        formatted_table_name = SQLIdentifierFormatter.format_identifier(
-            column.table.table_name
-        )
-        formatted_column_name = SQLIdentifierFormatter.format_identifier(
-            column.column_name
+        # Build ALTER TABLE/VIEW MODIFY COLUMN statement using sqlglot
+        # Note: We build this as a raw string since sqlglot doesn't have explicit support
+        # for MODIFY COLUMN ... COMMENT syntax
+        table_ref = exp.Table(
+            this=exp.to_identifier(column.table.table_name),
+            db=exp.to_identifier(column.table.schema),
+            catalog=exp.to_identifier(column.table.database),
         )
 
-        # Try to update column comment - different syntax for TABLE vs VIEW
+        table_sql = table_ref.sql(dialect=_SNOWFLAKE_DIALECT)
+        column_sql = exp.to_identifier(column.column_name).sql(
+            dialect=_SNOWFLAKE_DIALECT
+        )
+        comment_sql = exp.Literal.string(description).sql(dialect=_SNOWFLAKE_DIALECT)
+
+        # Different syntax for TABLE vs VIEW
         if object_type == "TABLE":
-            sql = f"ALTER TABLE {formatted_database}.{formatted_schema}.{formatted_table_name} MODIFY COLUMN {formatted_column_name} COMMENT '{escaped_description}'"
+            sql = f"ALTER TABLE {table_sql} MODIFY COLUMN {column_sql} COMMENT {comment_sql}"
         else:  # VIEW
-            sql = f"ALTER VIEW {formatted_database}.{formatted_schema}.{formatted_table_name} MODIFY COLUMN {formatted_column_name} COMMENT '{escaped_description}'"
+            sql = f"ALTER VIEW {table_sql} MODIFY COLUMN {column_sql} COMMENT {comment_sql}"
 
         try:
             self.query_executor(sql)
@@ -337,34 +329,39 @@ class CommentUpdater:
         except Exception as e:
             if object_type == "VIEW":
                 # Try alternative syntax for views
-                self._try_alternative_view_column_comment(
-                    column, escaped_description, e
-                )
+                self._try_alternative_view_column_comment(column, description, e)
             else:
                 raise e
 
     def _try_alternative_view_column_comment(
         self,
         column: SnowflakeColumn,
-        escaped_description: str,
+        description: str,
         original_error: Exception,
     ) -> None:
         """Try alternative COMMENT ON COLUMN syntax for view column comments."""
         try:
-            formatted_database = SQLIdentifierFormatter.format_identifier(
-                column.table.database
-            )
-            formatted_schema = SQLIdentifierFormatter.format_identifier(
-                column.table.schema
-            )
-            formatted_table_name = SQLIdentifierFormatter.format_identifier(
-                column.table.table_name
-            )
-            formatted_column_name = SQLIdentifierFormatter.format_identifier(
-                column.column_name
+            # Build COMMENT ON COLUMN statement using sqlglot
+            # Build the fully qualified column reference
+            table_ref = exp.Table(
+                this=exp.to_identifier(column.table.table_name),
+                db=exp.to_identifier(column.table.schema),
+                catalog=exp.to_identifier(column.table.database),
             )
 
-            alt_sql = f"COMMENT ON COLUMN {formatted_database}.{formatted_schema}.{formatted_table_name}.{formatted_column_name} IS '{escaped_description}'"
+            column_ref = exp.Column(
+                this=exp.to_identifier(column.column_name), table=table_ref
+            )
+
+            # Build the parts using sqlglot
+            column_sql = column_ref.sql(dialect=_SNOWFLAKE_DIALECT)
+            comment_sql = exp.Literal.string(description).sql(
+                dialect=_SNOWFLAKE_DIALECT
+            )
+
+            # COMMENT ON COLUMN doesn't have explicit sqlglot support, so we construct it
+            alt_sql = f"COMMENT ON COLUMN {column_sql} IS {comment_sql}"
+
             self.query_executor(alt_sql)
             logger.info(
                 f"Successfully updated view column comment using COMMENT ON COLUMN for {column.table.database}.{column.table.schema}.{column.table.table_name}.{column.column_name}"

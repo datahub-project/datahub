@@ -194,8 +194,8 @@ class TestCommentUpdater:
 
         self.updater.update_table_comment(table, description_with_quotes, "TABLE")
 
-        # Single quotes are escaped by doubling them, double quotes pass through
-        expected_description = "Test ''description'' with \"quotes\""
+        # sqlglot escapes single quotes with backslashes, double quotes pass through
+        expected_description = "Test \\'description\\' with \"quotes\""
         expected_query = (
             f"ALTER TABLE test_db.test_schema.test_table "
             f"SET COMMENT = '{expected_description}'"
