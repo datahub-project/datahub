@@ -383,4 +383,194 @@ public class ProductUpdateParserTest {
     assertNotNull(result.getDescription());
     assertEquals(result.getDescription().length(), 10000);
   }
+
+  @Test
+  public void testParseProductUpdateWithClientId() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"ctaLink\": \"https://example.com\""
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+    String clientId = "abc-123-def-456";
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), clientId);
+
+    assertNotNull(result);
+    assertEquals(result.getCtaLink(), "https://example.com?q=abc-123-def-456");
+  }
+
+  @Test
+  public void testParseProductUpdateWithClientIdAndExistingQueryParams() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"ctaLink\": \"https://example.com?foo=bar\""
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+    String clientId = "abc-123-def-456";
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), clientId);
+
+    assertNotNull(result);
+    assertEquals(result.getCtaLink(), "https://example.com?foo=bar&q=abc-123-def-456");
+  }
+
+  @Test
+  public void testParseProductUpdateWithClientIdMultipleQueryParams() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"ctaLink\": \"https://example.com?foo=bar&baz=qux#anchor\""
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+    String clientId = "test-uuid";
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), clientId);
+
+    assertNotNull(result);
+    assertEquals(result.getCtaLink(), "https://example.com?foo=bar&baz=qux#anchor&q=test-uuid");
+  }
+
+  @Test
+  public void testParseProductUpdateWithNullClientId() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"ctaLink\": \"https://example.com\""
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), null);
+
+    assertNotNull(result);
+    assertEquals(result.getCtaLink(), "https://example.com");
+  }
+
+  @Test
+  public void testParseProductUpdateWithEmptyClientId() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"ctaLink\": \"https://example.com\""
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), "");
+
+    assertNotNull(result);
+    assertEquals(result.getCtaLink(), "https://example.com");
+  }
+
+  @Test
+  public void testParseProductUpdateWithWhitespaceClientId() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"ctaLink\": \"https://example.com\""
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), "   ");
+
+    assertNotNull(result);
+    assertEquals(result.getCtaLink(), "https://example.com");
+  }
+
+  @Test
+  public void testParseProductUpdateWithClientIdAndEmptyCtaLink() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"ctaLink\": \"\""
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+    String clientId = "abc-123";
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), clientId);
+
+    assertNotNull(result);
+    assertEquals(result.getCtaLink(), "");
+  }
+
+  @Test
+  public void testParseProductUpdateWithClientIdAndNoCtaLink() throws Exception {
+    String jsonString =
+        "{" + "\"enabled\": true," + "\"id\": \"v1.0.0\"," + "\"title\": \"What's New\"" + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+    String clientId = "abc-123";
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), clientId);
+
+    assertNotNull(result);
+    assertEquals(result.getCtaLink(), "");
+  }
+
+  @Test
+  public void testParseProductUpdateWithClientIdSpecialCharacters() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"ctaLink\": \"https://example.com\""
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+    String clientId = "abc 123+def/456";
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), clientId);
+
+    assertNotNull(result);
+    assertEquals(result.getCtaLink(), "https://example.com?q=abc+123%2Bdef%2F456");
+  }
+
+  @Test
+  public void testParseProductUpdateWithClientIdUnicodeCharacters() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"ctaLink\": \"https://example.com\""
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+    String clientId = "测试-client-id-🎉";
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), clientId);
+
+    assertNotNull(result);
+    assertTrue(result.getCtaLink().startsWith("https://example.com?q="));
+    assertTrue(result.getCtaLink().contains("%"));
+  }
+
+  @Test
+  public void testParseProductUpdateBackwardCompatibilityWithoutClientId() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"ctaLink\": \"https://example.com\""
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode));
+
+    assertNotNull(result);
+    assertEquals(result.getCtaLink(), "https://example.com");
+  }
 }

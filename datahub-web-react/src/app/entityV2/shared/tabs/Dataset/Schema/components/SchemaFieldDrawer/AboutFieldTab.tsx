@@ -13,6 +13,7 @@ import SampleValuesSection from '@app/entityV2/shared/tabs/Dataset/Schema/compon
 import StatsSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSection';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
 import SidebarStructuredProperties from '@src/app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 
 import {
@@ -49,6 +50,12 @@ interface AboutFieldTabProps {
 export function AboutFieldTab({ properties }: AboutFieldTabProps) {
     const datasetUrn = useMutationUrn();
     const { refetch, refetchNotes } = properties;
+
+    const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
+        scenario: UploadDownloadScenario.AssetDocumentation,
+        assetUrn: properties.assetUrn,
+        schemaField: properties.fieldUrn,
+    });
 
     const { uploadFile } = useFileUpload({
         scenario: UploadDownloadScenario.AssetDocumentation,
@@ -96,7 +103,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                         <FieldDescription
                             expandedField={expandedField}
                             editableFieldInfo={editableFieldInfo}
-                            editorProps={{ uploadFile }}
+                            editorProps={{ uploadFile, ...uploadFileAnalyticsCallbacks }}
                         />
                         <FieldTags
                             expandedField={expandedField}

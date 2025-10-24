@@ -64,9 +64,10 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
 
   private void setupElasticsearchUsageEvents(String prefix, int numShards, int numReplicas)
       throws Exception {
-    String prefixedPolicy = prefix + "datahub_usage_event_policy";
-    String prefixedTemplate = prefix + "datahub_usage_event_index_template";
-    String prefixedDataStream = prefix + "datahub_usage_event";
+    String separator = prefix.isEmpty() ? "" : "_";
+    String prefixedPolicy = prefix + separator + "datahub_usage_event_policy";
+    String prefixedTemplate = prefix + separator + "datahub_usage_event_index_template";
+    String prefixedDataStream = prefix + separator + "datahub_usage_event";
 
     // Create ILM policy
     UsageEventIndexUtils.createIlmPolicy(esComponents, prefixedPolicy);
@@ -81,9 +82,10 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
 
   private void setupOpenSearchUsageEvents(String prefix, int numShards, int numReplicas)
       throws Exception {
-    String prefixedPolicy = prefix + "datahub_usage_event_policy";
-    String prefixedTemplate = prefix + "datahub_usage_event_index_template";
-    String prefixedIndex = prefix + "datahub_usage_event-000001";
+    String separator = prefix.isEmpty() ? "" : "_";
+    String prefixedPolicy = prefix + separator + "datahub_usage_event_policy";
+    String prefixedTemplate = prefix + separator + "datahub_usage_event_index_template";
+    String prefixedIndex = prefix + separator + "datahub_usage_event-000001";
 
     // Create ISM policy
     UsageEventIndexUtils.createIsmPolicy(esComponents, prefixedPolicy, prefix);

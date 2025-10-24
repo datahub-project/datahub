@@ -267,8 +267,21 @@ public class CreateUsageEventIndicesStepTest {
     Assert.assertEquals(result.stepId(), "CreateUsageEventIndicesStep");
     Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    // Verify empty prefix was used
+    // Verify empty prefix was used and no underscore separator was added
     Mockito.verify(index).getPrefix();
+
+    // Verify that the low-level requests were made with correct names (no underscore prefix)
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.argThat(
+                request -> request.getEndpoint().equals("_ilm/policy/datahub_usage_event_policy")));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.argThat(
+                request ->
+                    request
+                        .getEndpoint()
+                        .equals("_index_template/datahub_usage_event_index_template")));
   }
 
   @Test
@@ -287,8 +300,165 @@ public class CreateUsageEventIndicesStepTest {
     Assert.assertEquals(result.stepId(), "CreateUsageEventIndicesStep");
     Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    // Verify null prefix was handled
+    // Verify null prefix was handled and no underscore separator was added
     Mockito.verify(index).getPrefix();
+
+    // Verify that the low-level requests were made with correct names (no underscore prefix)
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.argThat(
+                request -> request.getEndpoint().equals("_ilm/policy/datahub_usage_event_policy")));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.argThat(
+                request ->
+                    request
+                        .getEndpoint()
+                        .equals("_index_template/datahub_usage_event_index_template")));
+  }
+
+  @Test
+  public void testExecutable_WithNonEmptyPrefix() throws Exception {
+    // Arrange
+    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
+    Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
+    Mockito.when(index.getPrefix()).thenReturn("prod"); // Non-empty prefix
+
+    // Act
+    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
+    UpgradeStepResult result = executable.apply(upgradeContext);
+
+    // Assert
+    Assert.assertNotNull(result);
+    Assert.assertEquals(result.stepId(), "CreateUsageEventIndicesStep");
+    Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+    // Verify non-empty prefix was used and underscore separator was added
+    Mockito.verify(index).getPrefix();
+
+    // Verify that the low-level requests were made with correct names (with underscore prefix)
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.argThat(
+                request ->
+                    request.getEndpoint().equals("_ilm/policy/prod_datahub_usage_event_policy")));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.argThat(
+                request ->
+                    request
+                        .getEndpoint()
+                        .equals("_index_template/prod_datahub_usage_event_index_template")));
+  }
+
+  @Test
+  public void testExecutable_WithSpecificPrefix() throws Exception {
+    // Arrange
+    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
+    Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
+    Mockito.when(index.getPrefix())
+        .thenReturn("kbcpyv7ss3-staging-test"); // Specific prefix from issue
+
+    // Act
+    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
+    UpgradeStepResult result = executable.apply(upgradeContext);
+
+    // Assert
+    Assert.assertNotNull(result);
+    Assert.assertEquals(result.stepId(), "CreateUsageEventIndicesStep");
+    Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+    // Verify specific prefix was used and underscore separator was added
+    Mockito.verify(index).getPrefix();
+
+    // Verify that the low-level requests were made with correct names (with underscore prefix)
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.argThat(
+                request ->
+                    request
+                        .getEndpoint()
+                        .equals("_ilm/policy/kbcpyv7ss3-staging-test_datahub_usage_event_policy")));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.argThat(
+                request ->
+                    request
+                        .getEndpoint()
+                        .equals(
+                            "_index_template/kbcpyv7ss3-staging-test_datahub_usage_event_index_template")));
+  }
+
+  @Test
+  public void testExecutable_OpenSearchPath_WithEmptyPrefix() throws Exception {
+    // Arrange
+    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
+    Mockito.when(searchEngineType.isOpenSearch()).thenReturn(true);
+    Mockito.when(index.getPrefix()).thenReturn(""); // Empty prefix
+
+    // Act
+    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
+    UpgradeStepResult result = executable.apply(upgradeContext);
+
+    // Assert
+    Assert.assertNotNull(result);
+    Assert.assertEquals(result.stepId(), "CreateUsageEventIndicesStep");
+    Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+    // Verify OpenSearch path was taken and empty prefix was used
+    Mockito.verify(searchEngineType).isOpenSearch();
+    Mockito.verify(index).getPrefix();
+
+    // Verify that the low-level requests were made with correct names (no underscore prefix)
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.argThat(
+                request ->
+                    request
+                        .getEndpoint()
+                        .equals("_plugins/_ism/policies/datahub_usage_event_policy")));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.argThat(
+                request ->
+                    request.getEndpoint().equals("_template/datahub_usage_event_index_template")));
+  }
+
+  @Test
+  public void testExecutable_OpenSearchPath_WithNonEmptyPrefix() throws Exception {
+    // Arrange
+    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
+    Mockito.when(searchEngineType.isOpenSearch()).thenReturn(true);
+    Mockito.when(index.getPrefix()).thenReturn("prod"); // Non-empty prefix
+
+    // Act
+    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
+    UpgradeStepResult result = executable.apply(upgradeContext);
+
+    // Assert
+    Assert.assertNotNull(result);
+    Assert.assertEquals(result.stepId(), "CreateUsageEventIndicesStep");
+    Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+    // Verify OpenSearch path was taken and non-empty prefix was used
+    Mockito.verify(searchEngineType).isOpenSearch();
+    Mockito.verify(index).getPrefix();
+
+    // Verify that the low-level requests were made with correct names (with underscore prefix)
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.argThat(
+                request ->
+                    request
+                        .getEndpoint()
+                        .equals("_plugins/_ism/policies/prod_datahub_usage_event_policy")));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.argThat(
+                request ->
+                    request
+                        .getEndpoint()
+                        .equals("_template/prod_datahub_usage_event_index_template")));
   }
 
   @Test
