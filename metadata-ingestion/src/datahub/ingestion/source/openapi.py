@@ -3,6 +3,7 @@ import logging
 import time
 import warnings
 from abc import ABC
+from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import requests
@@ -53,6 +54,25 @@ from datahub.metadata.schema_classes import (
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SchemaExtractionStats:
+    """Statistics tracking for schema extraction from different sources."""
+
+    from_openapi_spec: int = 0
+    from_api_calls: int = 0
+    from_endpoint_data: int = 0
+    no_schema_found: int = 0
+
+    def total(self) -> int:
+        """Calculate total number of endpoints processed."""
+        return (
+            self.from_openapi_spec
+            + self.from_api_calls
+            + self.from_endpoint_data
+            + self.no_schema_found
+        )
 
 
 class OpenApiConfig(ConfigModel):
@@ -233,12 +253,7 @@ class APISource(Source, ABC):
         self.platform = platform
         self.report = SourceReport()
         self.url_basepath = ""
-        self.schema_extraction_stats = {
-            "from_openapi_spec": 0,
-            "from_api_calls": 0,
-            "from_endpoint_data": 0,
-            "no_schema_found": 0,
-        }
+        self.schema_extraction_stats = SchemaExtractionStats()
 
     def report_bad_responses(self, status_code: int, type: str) -> None:
         """
@@ -572,7 +587,7 @@ class APISource(Source, ABC):
                 message="Schema extracted from OpenAPI specification",
                 context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
             )
-            self.schema_extraction_stats["from_openapi_spec"] += 1
+            self.schema_extraction_stats.from_openapi_spec += 1
             return schema_metadata
         else:
             logger.debug(f"No schema found in OpenAPI spec for {dataset_name}")
@@ -589,7 +604,7 @@ class APISource(Source, ABC):
 
             fields = flatten2list(endpoint_dets["data"])
             if fields:
-                self.schema_extraction_stats["from_endpoint_data"] += 1
+                self.schema_extraction_stats.from_endpoint_data += 1
                 return set_metadata(
                     dataset_name, fields, original_data=endpoint_dets["data"]
                 )
@@ -688,7 +703,7 @@ class APISource(Source, ABC):
                     context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
                 )
             else:
-                self.schema_extraction_stats["from_api_calls"] += 1
+                self.schema_extraction_stats.from_api_calls += 1
             return set_metadata(dataset_name, fields2add)
         elif response:
             self.report_bad_responses(response.status_code, type=endpoint_k)
@@ -733,7 +748,7 @@ class APISource(Source, ABC):
                         context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
                     )
                 else:
-                    self.schema_extraction_stats["from_api_calls"] += 1
+                    self.schema_extraction_stats.from_api_calls += 1
                 return set_metadata(dataset_name, fields2add)
             elif response:
                 self.report_bad_responses(response.status_code, type=endpoint_k)
@@ -753,7 +768,7 @@ class APISource(Source, ABC):
                         context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
                     )
                 else:
-                    self.schema_extraction_stats["from_api_calls"] += 1
+                    self.schema_extraction_stats.from_api_calls += 1
                 return set_metadata(dataset_name, fields2add)
             elif response:
                 self.report_bad_responses(response.status_code, type=endpoint_k)
@@ -854,7 +869,7 @@ class APISource(Source, ABC):
                 yield wu
             else:
                 # Log when no schema could be extracted
-                self.schema_extraction_stats["no_schema_found"] += 1
+                self.schema_extraction_stats.no_schema_found += 1
 
                 # Check if we could have made an API call but didn't due to missing credentials
                 if (
@@ -889,26 +904,21 @@ class APISource(Source, ABC):
             Provides insights into the effectiveness of the extraction strategy
         """
         # Add schema extraction statistics to the report
-        total_endpoints = (
-            self.schema_extraction_stats["from_openapi_spec"]
-            + self.schema_extraction_stats["from_api_calls"]
-            + self.schema_extraction_stats["from_endpoint_data"]
-            + self.schema_extraction_stats["no_schema_found"]
-        )
+        total_endpoints = self.schema_extraction_stats.total()
 
         if total_endpoints > 0:
             openapi_percentage = (
-                self.schema_extraction_stats["from_openapi_spec"] / total_endpoints
+                self.schema_extraction_stats.from_openapi_spec / total_endpoints
             ) * 100
             api_calls_percentage = (
-                self.schema_extraction_stats["from_api_calls"] / total_endpoints
+                self.schema_extraction_stats.from_api_calls / total_endpoints
             ) * 100
 
             self.report.info(
-                message=f"Schema extraction summary: {self.schema_extraction_stats['from_openapi_spec']} from OpenAPI spec ({openapi_percentage:.1f}%), "
-                f"{self.schema_extraction_stats['from_api_calls']} from API calls ({api_calls_percentage:.1f}%), "
-                f"{self.schema_extraction_stats['from_endpoint_data']} from endpoint data, "
-                f"{self.schema_extraction_stats['no_schema_found']} no schema found"
+                message=f"Schema extraction summary: {self.schema_extraction_stats.from_openapi_spec} from OpenAPI spec ({openapi_percentage:.1f}%), "
+                f"{self.schema_extraction_stats.from_api_calls} from API calls ({api_calls_percentage:.1f}%), "
+                f"{self.schema_extraction_stats.from_endpoint_data} from endpoint data, "
+                f"{self.schema_extraction_stats.no_schema_found} no schema found"
             )
 
         return self.report
