@@ -2,6 +2,8 @@ import { colors } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
 import { StyledDivider } from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
 import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
@@ -60,7 +62,20 @@ export default function FieldLogicalSection({ expandedField }: Props) {
                 title="Logical Parent"
                 infoPopover="Column in the Logical Model that defines this column's metadata.
                 Changes to the Logical Parent's column metadata propagate automatically to this column."
-                content={<CompactEntityNameComponent key={logicalParent.urn} entity={logicalParent} showFullTooltip />}
+                content={
+                    <CompactEntityNameComponent
+                        key={logicalParent.urn}
+                        entity={logicalParent}
+                        onClick={() =>
+                            analytics.event({
+                                type: EventType.GoToLogicalParentColumnEvent,
+                                entityUrn: urn,
+                                parentUrn: logicalParent.urn,
+                            })
+                        }
+                        showFullTooltip
+                    />
+                }
             />
         );
     }
@@ -76,7 +91,17 @@ export default function FieldLogicalSection({ expandedField }: Props) {
                 Changes to this column's metadata propagate automatically to these child columns."
                 content={
                     <EntityListContainer data-testid="physical-children-list">
-                        <CompactEntityNameList entities={physicalChildren} showFullTooltips />
+                        <CompactEntityNameList
+                            entities={physicalChildren}
+                            onClick={(index) =>
+                                analytics.event({
+                                    type: EventType.GoToPhysicalChildColumnEvent,
+                                    entityUrn: urn,
+                                    childUrn: physicalChildren[index]?.urn,
+                                })
+                            }
+                            showFullTooltips
+                        />
                         {numNotShown > 0 && (
                             <AndMoreWrapper onClick={() => setShowAllChildren(true)}>
                                 and {numNotShown} more

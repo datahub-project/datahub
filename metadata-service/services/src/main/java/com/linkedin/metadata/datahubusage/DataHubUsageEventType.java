@@ -164,6 +164,12 @@ public enum DataHubUsageEventType {
       "WelcomeToDataHubModalClickViewDocumentationEvent"),
   PRODUCT_TOUR_BUTTON_CLICK_EVENT("ProductTourButtonClickEvent"),
 
+  // Logical models
+  GO_TO_LOGICAL_PARENT_EVENT("GoToLogicalParentEvent"),
+  GO_TO_PHYSICAL_CHILD_EVENT("GoToPhysicalChildEvent"),
+  GO_TO_LOGICAL_PARENT_COLUMN_EVENT("GoToLogicalParentColumnEvent"),
+  GO_TO_PHYSICAL_CHILD_COLUMN_EVENT("GoToPhysicalChildColumnEvent"),
+
   // SaaS only events
   BATCH_PROPOSAL_ACTION_EVENT("BatchProposalActionEvent"),
   COMPLETE_DOC_REQUEST_PROMPT("CompleteDocRequestPrompt"),

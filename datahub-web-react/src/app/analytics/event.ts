@@ -135,6 +135,10 @@ export enum EventType {
     CompleteDocRequestPrompt,
     CompleteVerification,
     OpenTaskCenter,
+    GoToLogicalParentEvent,
+    GoToPhysicalChildEvent,
+    GoToLogicalParentColumnEvent,
+    GoToPhysicalChildColumnEvent,
     // SaaS only events
     CreateTestEvent,
     UpdateTestEvent,
@@ -1802,6 +1806,30 @@ export interface AssetPageReplaceSummaryElementEvent extends BaseEvent {
     newElementType: SummaryElementType;
 }
 
+interface GoToLogicalParentEvent extends BaseEvent {
+    type: EventType.GoToLogicalParentEvent;
+    entityUrn: string;
+    parentUrn?: string;
+}
+
+interface GoToPhysicalChildEvent extends BaseEvent {
+    type: EventType.GoToPhysicalChildEvent;
+    entityUrn: string;
+    childUrn?: string;
+}
+
+interface GoToLogicalParentColumnEvent extends BaseEvent {
+    type: EventType.GoToLogicalParentColumnEvent;
+    entityUrn: string;
+    parentUrn?: string;
+}
+
+interface GoToPhysicalChildColumnEvent extends BaseEvent {
+    type: EventType.GoToPhysicalChildColumnEvent;
+    entityUrn: string;
+    childUrn?: string;
+}
+
 export interface FileUploadAttemptEvent extends BaseEvent {
     type: EventType.FileUploadAttemptEvent;
     fileType: string;
@@ -1936,6 +1964,10 @@ export type Event =
     | CompleteDocRequestPrompt
     | CompleteVerification
     | OpenTaskCenter
+    | GoToLogicalParentEvent
+    | GoToPhysicalChildEvent
+    | GoToLogicalParentColumnEvent
+    | GoToPhysicalChildColumnEvent
     | CreateAssertionMonitorEvent
     | UpdateAssertionMonitorEvent
     | UpdateAssertionMetadataEvent
