@@ -20,18 +20,15 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
-import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -39,7 +36,6 @@ import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
-import com.linkedin.metadata.entity.logical.LogicalModelUtils;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.entity.versioning.VersionPropertiesInput;
 import com.linkedin.metadata.models.AspectSpec;
@@ -51,19 +47,17 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
-import com.linkedin.schema.SchemaField;
-import com.linkedin.schema.SchemaMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.controller.GenericEntitiesController;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.datahubproject.openapi.util.MappingUtil;
 import io.datahubproject.openapi.util.RequestInputUtil;
 import io.datahubproject.openapi.v3.models.AspectItem;
 import io.datahubproject.openapi.v3.models.Filter;
@@ -381,6 +375,8 @@ public class EntityController
             .collect(Collectors.toList()));
   }
 
+  // Use LogicalController instead
+  @Deprecated
   @Tag(name = "Logical Models")
   @PostMapping(
       value = "logical/{childDatasetUrn}/relationship/physicalInstanceOf/{parentDatasetUrn}",
@@ -393,101 +389,36 @@ public class EntityController
       @PathVariable("parentDatasetUrn") String parentDatasetUrnStr,
       @RequestBody String jsonBody)
       throws JsonProcessingException {
-    // Expect map of parent field path to child field path
-    Map<String, String> fieldPathMap =
-        objectMapper.readValue(jsonBody, new TypeReference<Map<String, String>>() {});
+    return LogicalModelController.setLogicalParentsHelper(
+        request,
+        childDatasetUrnStr,
+        parentDatasetUrnStr,
+        jsonBody,
+        entityService,
+        authorizationChain,
+        objectMapper,
+        systemOperationContext);
+  }
 
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    Urn childDatasetUrn = UrnUtils.getUrn(childDatasetUrnStr);
-    Urn parentDatasetUrn = UrnUtils.getUrn(parentDatasetUrnStr);
-    OperationContext opContext =
-        OperationContext.asSession(
-            systemOperationContext,
-            RequestContext.builder()
-                .buildOpenapi(
-                    authentication.getActor().toUrnStr(),
-                    request,
-                    "setLogicalParents",
-                    ImmutableSet.of(
-                        childDatasetUrn.getEntityType(), parentDatasetUrn.getEntityType())),
-            authorizationChain,
-            authentication,
-            true);
-
-    // Assumes if a user has access to a dataset, they have access to its schema fields
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(
-        opContext, UPDATE, ImmutableSet.of(childDatasetUrn, parentDatasetUrn))) {
-      throw new UnauthorizedException(
-          String.format(
-              "%s is unauthorized to %s entities %s and %s",
-              authentication.getActor().toUrnStr(),
-              UPDATE,
-              childDatasetUrnStr,
-              parentDatasetUrnStr));
-    }
-
-    // Validate all field paths exist, if schema metadata aspects exist
-    RecordTemplate parentSchemaMetadataAspect =
-        entityService.getLatestAspect(
-            opContext, parentDatasetUrn, Constants.SCHEMA_METADATA_ASPECT_NAME);
-    RecordTemplate childSchemaMetadataAspect =
-        entityService.getLatestAspect(
-            opContext, childDatasetUrn, Constants.SCHEMA_METADATA_ASPECT_NAME);
-
-    if (parentSchemaMetadataAspect != null && childSchemaMetadataAspect != null) {
-      SchemaMetadata parentSchema = (SchemaMetadata) parentSchemaMetadataAspect;
-      SchemaMetadata childSchema = (SchemaMetadata) childSchemaMetadataAspect;
-
-      Set<String> childFieldPaths =
-          childSchema.getFields().stream()
-              .map(SchemaField::getFieldPath)
-              .collect(Collectors.toSet());
-      Set<String> parentFieldPaths =
-          parentSchema.getFields().stream()
-              .map(SchemaField::getFieldPath)
-              .collect(Collectors.toSet());
-
-      for (Map.Entry<String, String> mapping : fieldPathMap.entrySet()) {
-        if (!parentFieldPaths.contains(mapping.getKey())) {
-          throw new IllegalArgumentException(
-              String.format(
-                  "Field path not found on parent %s: %s", parentDatasetUrnStr, mapping.getKey()));
-        }
-        if (!childFieldPaths.contains(mapping.getValue())) {
-          throw new IllegalArgumentException(
-              String.format(
-                  "Field path not found on child %s: %s", childDatasetUrnStr, mapping.getValue()));
-        }
-      }
-    }
-
-    // Create logical parent proposals
-    List<MetadataChangeProposal> proposals = new ArrayList<>();
-
-    // Create dataset -> dataset logical parent aspect
-    proposals.add(
-        LogicalModelUtils.createLogicalParentProposal(
-            childDatasetUrn, parentDatasetUrn, opContext));
-
-    // Create schema field -> schema field logical parent aspects
-    for (Map.Entry<String, String> mapping : fieldPathMap.entrySet()) {
-      Urn parentSchemaFieldUrn =
-          SchemaFieldUtils.generateSchemaFieldUrn(parentDatasetUrn, mapping.getKey());
-      Urn childSchemaFieldUrn =
-          SchemaFieldUtils.generateSchemaFieldUrn(childDatasetUrn, mapping.getValue());
-      proposals.add(
-          LogicalModelUtils.createLogicalParentProposal(
-              childSchemaFieldUrn, parentSchemaFieldUrn, opContext));
-    }
-
-    // Batch ingest all proposals
-    AuditStamp auditStamp = AuditStampUtils.createAuditStamp(authentication.getActor().toUrnStr());
-    AspectsBatch batch =
-        AspectsBatchImpl.builder()
-            .mcps(proposals, auditStamp, opContext.getRetrieverContext())
-            .build(opContext);
-    List<IngestResult> results = entityService.ingestProposal(opContext, batch, false);
-    return ResponseEntity.ok(buildEntityList(opContext, results, false));
+  // Use LogicalController instead
+  @Deprecated
+  @Tag(name = "Logical Models")
+  @DeleteMapping(
+      value = "logical/{childDatasetUrn}/relationship/physicalInstanceOf",
+      consumes = MediaType.APPLICATION_JSON_VALUE,
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(
+      summary =
+          "Remove the associations between a physical and a logical dataset, including their schema fields")
+  public ResponseEntity<List<GenericEntityV3>> removeLogicalParents(
+      HttpServletRequest request, @PathVariable("childDatasetUrn") String childDatasetUrnStr) {
+    return LogicalModelController.removeLogicalParentsHelper(
+        request,
+        childDatasetUrnStr,
+        entityService,
+        authorizationChain,
+        objectMapper,
+        systemOperationContext);
   }
 
   @Tag(name = "Generic Entities")
@@ -827,56 +758,7 @@ public class EntityController
       OperationContext opContext,
       Collection<IngestResult> ingestResults,
       boolean withSystemMetadata) {
-    List<GenericEntityV3> responseList = new LinkedList<>();
-
-    Map<Urn, List<IngestResult>> entityMap =
-        ingestResults.stream().collect(Collectors.groupingBy(IngestResult::getUrn));
-    for (Map.Entry<Urn, List<IngestResult>> urnAspects : entityMap.entrySet()) {
-      Map<String, AspectItem> aspectsMap =
-          urnAspects.getValue().stream()
-              .map(
-                  ingest -> {
-                    final AspectItem.AspectItemBuilder aspectItemBuilder =
-                        AspectItem.builder()
-                            .systemMetadata(
-                                withSystemMetadata ? ingest.getRequest().getSystemMetadata() : null)
-                            .auditStamp(
-                                withSystemMetadata ? ingest.getRequest().getAuditStamp() : null);
-
-                    RecordTemplate recordTemplate;
-                    if (ingest.getRequest().getChangeType() == ChangeType.PATCH) {
-                      try {
-                        MCPItem mcpItem = (MCPItem) ingest.getRequest();
-                        JsonNode jsonNode =
-                            objectMapper.readTree(
-                                mcpItem
-                                    .getMetadataChangeProposal()
-                                    .getAspect()
-                                    .getValue()
-                                    .asString(StandardCharsets.UTF_8));
-                        recordTemplate = GenericRecordUtils.fromJson(jsonNode, "GenericJsonPatch");
-                      } catch (JsonProcessingException e) {
-                        throw new RuntimeException(e);
-                      }
-                    } else {
-                      recordTemplate =
-                          (ingest.getResult() != null && ingest.getResult().getNewValue() != null)
-                              ? ingest.getResult().getNewValue()
-                              : ingest.getRequest().getRecordTemplate();
-                    }
-
-                    return Map.entry(
-                        ingest.getRequest().getAspectName(),
-                        aspectItemBuilder.aspect(recordTemplate).build());
-                  })
-              // Map merge strategy, just take latest one
-              .collect(
-                  Collectors.toMap(
-                      Map.Entry::getKey, Map.Entry::getValue, (value1, value2) -> value2));
-      responseList.add(
-          GenericEntityV3.builder().build(objectMapper, urnAspects.getKey(), aspectsMap));
-    }
-    return responseList;
+    return MappingUtil.buildGenericEntityV3List(objectMapper, ingestResults, withSystemMetadata);
   }
 
   @Override
