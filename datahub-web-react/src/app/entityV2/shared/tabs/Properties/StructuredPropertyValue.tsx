@@ -193,7 +193,7 @@ export default function StructuredPropertyValue({
                                         lineLimit={isFieldColumn ? 1 : undefined}
                                         hideShowMore={isFieldColumn}
                                         scrollableY={!isFieldColumn}
-                                        hideTooltip
+                                        hideTooltip={!!attribution}
                                     />
                                 </ViewerContainer>
                                 {isProposed && <ProposedIcon propertyName="property value" />}
