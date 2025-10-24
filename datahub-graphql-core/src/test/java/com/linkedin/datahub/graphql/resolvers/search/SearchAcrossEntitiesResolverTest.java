@@ -253,8 +253,10 @@ public class SearchAcrossEntitiesResolverTest {
                 .setPageSize(0)
                 .setMetadata(new SearchResultMetadata()));
 
+    FormService mockFormService = Mockito.mock(FormService.class);
+
     final SearchAcrossEntitiesResolver resolver =
-        new SearchAcrossEntitiesResolver(mockClient, mockService);
+        new SearchAcrossEntitiesResolver(mockClient, mockService, mockFormService);
 
     final SearchAcrossEntitiesInput testInput =
         new SearchAcrossEntitiesInput(
@@ -272,6 +274,9 @@ public class SearchAcrossEntitiesResolverTest {
                             ImmutableList.of("baseTest", "baseTest"),
                             false,
                             FilterOperator.EQUAL)))),
+            null,
+            null,
+            null,
             null,
             null,
             null);
