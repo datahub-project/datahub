@@ -941,19 +941,106 @@ def create_search_field_name_property() -> List[MetadataChangeProposalWrapper]:
     return [definition_mcp, settings_mcp]
 
 
+def _strip_types(field_path: str) -> str:
+    """Remove type annotations from field paths."""
+    final_path = field_path
+    final_path = re.sub(r"(\[type=[a-zA-Z]+\]\.)", "", final_path)
+    final_path = re.sub(r"^\[version=2.0\]\.", "", final_path)
+    return final_path
+
+
+def _process_aspect_annotation(
+    f_field: SchemaField,
+    aspect_info: Dict[str, Any],
+    entity_def: Any,
+) -> None:
+    """Process Aspect annotation for a schema field."""
+    f_field.globalTags = f_field.globalTags or GlobalTagsClass(tags=[])
+    f_field.globalTags.tags.append(TagAssociationClass(tag="urn:li:tag:Aspect"))
+
+    if entity_def.keyAspect == aspect_info.get("name"):
+        f_field.isPartOfKey = True
+
+    if aspect_info.get("type", "") == "timeseries":
+        f_field.globalTags.tags.append(TagAssociationClass(tag="urn:li:tag:Temporal"))
+
+
+def _process_searchable_annotation(
+    f_field: SchemaField,
+    searchable_config: Any,
+    source_dataset_urn: str,
+    schema_field_properties: Dict[str, str],
+) -> None:
+    """Process Searchable annotation for a schema field."""
+    f_field.globalTags = f_field.globalTags or GlobalTagsClass(tags=[])
+    f_field.globalTags.tags.append(TagAssociationClass(tag="urn:li:tag:Searchable"))
+
+    if isinstance(searchable_config, dict) and "fieldName" in searchable_config:
+        search_field_name = searchable_config["fieldName"]
+        actual_field_name = _strip_types(f_field.fieldPath).split(".")[-1]
+
+        if search_field_name != actual_field_name:
+            schema_field_urn = make_schema_field_urn(
+                source_dataset_urn, f_field.fieldPath
+            )
+            schema_field_properties[schema_field_urn] = search_field_name
+
+
+def _process_relationship_annotation(
+    f_field: SchemaField,
+    relationship_info: Dict[str, Any],
+    entity_display_name: str,
+    source_dataset_urn: str,
+    foreign_keys: List[ForeignKeyConstraintClass],
+    relnships_graph: RelationshipGraph,
+) -> None:
+    """Process Relationship annotation for a schema field."""
+    relationship_info = {k: v for k, v in relationship_info.items() if v is not None}
+    if not relationship_info:
+        return
+
+    if "entityTypes" not in relationship_info:
+        if len(relationship_info.keys()) > 1:
+            print(f"Found more than one relationship info: {relationship_info}")
+        assert len(relationship_info.keys()) == 1, (
+            "We should never have more than one path spec assigned to a relationship annotation"
+        )
+        final_info = None
+        for _, v in relationship_info.items():
+            final_info = v
+        relationship_info = final_info
+
+    assert "entityTypes" in relationship_info
+
+    entity_types: List[str] = relationship_info.get("entityTypes", [])
+    relnship_name = relationship_info.get("name", None)
+
+    for entity_type in entity_types:
+        destination_entity_name = capitalize_first(entity_type)
+        foreign_dataset_urn = make_dataset_urn(
+            platform="datahub",
+            name=destination_entity_name,
+        )
+        fkey = ForeignKeyConstraintClass(
+            name=relnship_name,
+            foreignDataset=foreign_dataset_urn,
+            foreignFields=[make_schema_field_urn(foreign_dataset_urn, "urn")],
+            sourceFields=[make_schema_field_urn(source_dataset_urn, f_field.fieldPath)],
+        )
+        foreign_keys.append(fkey)
+        relnships_graph.add_edge(
+            entity_display_name,
+            destination_entity_name,
+            fkey.name,
+            f" via `{_strip_types(f_field.fieldPath)}`",
+            edge_id=f"{entity_display_name}:{fkey.name}:{destination_entity_name}:{_strip_types(f_field.fieldPath)}",
+        )
+
+
 def generate_stitched_record(
     relnships_graph: RelationshipGraph,
 ) -> Iterable[MetadataChangeProposalWrapper]:
-    def strip_types(field_path: str) -> str:
-        final_path = field_path
-        final_path = re.sub(r"(\[type=[a-zA-Z]+\]\.)", "", final_path)
-        final_path = re.sub(r"^\[version=2.0\]\.", "", final_path)
-        return final_path
-
-    # Track schema fields that need structured properties
-    schema_field_properties: Dict[
-        str, str
-    ] = {}  # schema_field_urn -> search_field_name
+    schema_field_properties: Dict[str, str] = {}
 
     for entity_name, entity_def in entity_registry.items():
         entity_display_name = entity_def.display_name
@@ -963,7 +1050,6 @@ def generate_stitched_record(
                 print(f"Did not find aspect name: {aspect_name} in aspect_registry")
                 continue
 
-            # all aspects should have a schema
             aspect_schema = aspect_registry[aspect_name].schema
             assert aspect_schema
             entity_fields.append(
@@ -993,7 +1079,6 @@ def generate_stitched_record(
                 )
                 entity_avro_schema.set_prop("fields", field_objects)
             rawSchema = json.dumps(entity_avro_schema.to_json())
-            # always add the URN which is the primary key
             urn_field = SchemaField(
                 fieldPath="urn",
                 type=SchemaFieldDataTypeClass(type=StringTypeClass()),
@@ -1014,110 +1099,25 @@ def generate_stitched_record(
                 if f_field.jsonProps:
                     json_dict = json.loads(f_field.jsonProps)
                     if "Aspect" in json_dict:
-                        aspect_info = json_dict["Aspect"]
-                        f_field.globalTags = f_field.globalTags or GlobalTagsClass(
-                            tags=[]
+                        _process_aspect_annotation(
+                            f_field, json_dict["Aspect"], entity_def
                         )
-                        f_field.globalTags.tags.append(
-                            TagAssociationClass(tag="urn:li:tag:Aspect")
-                        )
-                        # if this is the key aspect, also add primary-key
-                        if entity_def.keyAspect == aspect_info.get("name"):
-                            f_field.isPartOfKey = True
-
-                        if aspect_info.get("type", "") == "timeseries":
-                            # f_field.globalTags = f_field.globalTags or GlobalTagsClass(
-                            #    tags=[]
-                            # )
-                            f_field.globalTags.tags.append(
-                                TagAssociationClass(tag="urn:li:tag:Temporal")
-                            )
                     if "Searchable" in json_dict:
-                        f_field.globalTags = f_field.globalTags or GlobalTagsClass(
-                            tags=[]
+                        _process_searchable_annotation(
+                            f_field,
+                            json_dict["Searchable"],
+                            source_dataset_urn,
+                            schema_field_properties,
                         )
-                        f_field.globalTags.tags.append(
-                            TagAssociationClass(tag="urn:li:tag:Searchable")
-                        )
-
-                        # Check if search field name differs from actual field name
-                        searchable_config = json_dict["Searchable"]
-                        if (
-                            isinstance(searchable_config, dict)
-                            and "fieldName" in searchable_config
-                        ):
-                            search_field_name = searchable_config["fieldName"]
-                            # Extract the actual field name from the field path
-                            # Field path format: "[version=2.0].[type=...].<fieldName>"
-                            actual_field_name = strip_types(f_field.fieldPath).split(
-                                "."
-                            )[-1]
-
-                            if search_field_name != actual_field_name:
-                                # Track this for later - we'll emit a separate MCP for the schema field entity
-                                schema_field_urn = make_schema_field_urn(
-                                    source_dataset_urn, f_field.fieldPath
-                                )
-                                schema_field_properties[schema_field_urn] = (
-                                    search_field_name
-                                )
                     if "Relationship" in json_dict:
-                        relationship_info = json_dict["Relationship"]
-                        # detect if we have relationship specified at leaf level
-                        # or thru path specs
-                        # ignore any relationship annotations that are null
-                        relationship_info = {
-                            k: v for k, v in relationship_info.items() if v is not None
-                        }
-                        if not relationship_info:
-                            continue
-                        if "entityTypes" not in relationship_info:
-                            if len(relationship_info.keys()) > 1:
-                                print(
-                                    f"Found more than one relationship info: {relationship_info}"
-                                )
-                            # path spec
-                            assert len(relationship_info.keys()) == 1, (
-                                "We should never have more than one path spec assigned to a relationship annotation"
-                            )
-                            final_info = None
-                            for _, v in relationship_info.items():
-                                final_info = v
-                            relationship_info = final_info
-
-                        assert "entityTypes" in relationship_info
-
-                        entity_types: List[str] = relationship_info.get(
-                            "entityTypes", []
+                        _process_relationship_annotation(
+                            f_field,
+                            json_dict["Relationship"],
+                            entity_display_name,
+                            source_dataset_urn,
+                            foreign_keys,
+                            relnships_graph,
                         )
-                        relnship_name = relationship_info.get("name", None)
-                        for entity_type in entity_types:
-                            destination_entity_name = capitalize_first(entity_type)
-
-                            foreign_dataset_urn = make_dataset_urn(
-                                platform="datahub",
-                                name=destination_entity_name,
-                            )
-                            fkey = ForeignKeyConstraintClass(
-                                name=relnship_name,
-                                foreignDataset=foreign_dataset_urn,
-                                foreignFields=[
-                                    make_schema_field_urn(foreign_dataset_urn, "urn")
-                                ],
-                                sourceFields=[
-                                    make_schema_field_urn(
-                                        source_dataset_urn, f_field.fieldPath
-                                    )
-                                ],
-                            )
-                            foreign_keys.append(fkey)
-                            relnships_graph.add_edge(
-                                entity_display_name,
-                                destination_entity_name,
-                                fkey.name,
-                                f" via `{strip_types(f_field.fieldPath)}`",
-                                edge_id=f"{entity_display_name}:{fkey.name}:{destination_entity_name}:{strip_types(f_field.fieldPath)}",
-                            )
 
             dataset_urn = make_dataset_urn(
                 platform="datahub",
@@ -1155,7 +1155,6 @@ def generate_stitched_record(
                 ],
             )
 
-    # Emit structured properties for schema fields
     property_urn = "urn:li:structuredProperty:com.datahub.metadata.searchFieldName"
     for schema_field_urn, search_field_name in schema_field_properties.items():
         yield MetadataChangeProposalWrapper(
