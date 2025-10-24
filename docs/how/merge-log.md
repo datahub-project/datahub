@@ -1212,3 +1212,87 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 - **0641aa434d** - feat(uloadFiles): add support to schema field and asset documentation tab (#15055)
   *by v-tarasevich-blitz-brain on 2025-10-22*
 
+
+## Upstream Merge Session - 2025-10-24 16:40:01
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-2025-10-24-164000`
+- **Merge Base**: `0641aa434db4c1e36d80fb402e7b452a54343798`
+- **End Commit**: `upstream/master (latest)`
+- **Total Commits**: 23
+- **Strategy**: stacked
+- **Started**: Fri Oct 24 16:40:01 UTC 2025
+
+### Commits Included in This Merge
+- **9b212562dd** - feat(uploadFiles): add anaytics events (#15080)
+  *by v-tarasevich-blitz-brain on 2025-10-23*
+
+- **b9c263b0f6** - fix(datahub-web-react): Update Titles and subtitles of Settings pages (#15072)
+  *by ani-malgari on 2025-10-22*
+
+- **a7f1c6b32f** - fix(sort): fix out of bounds exception with count 0 (#15085)
+  *by david-leifker on 2025-10-22*
+
+- **81310f7e4f** - fix(ui): Minor UX improvements for Query Tab (#15074)
+  *by Saketh Varma on 2025-10-23*
+
+- **12cf28186c** - fix(druid): fixes docker setup for postgres in druid integration tests (#15090)
+  *by Sergio Gómez Villamor on 2025-10-23*
+
+- **695fb4904e** - fix(quickstart): handle potential wrapping of df cmd output in disk space check (#15083)
+  *by Chakru on 2025-10-23*
+
+- **8079e1c91b** - fix(system-update): fix index prefix in new setup for es/os (#15087)
+  *by david-leifker on 2025-10-23*
+
+- **0d91067feb** - chore: udpate ingestion support status (#15053)
+  *by Sergio Gómez Villamor on 2025-10-23*
+
+- **4d0f2b76e3** - fix(search): Remove duplicate filter values that can't be handled by elasticsearch (#15078)
+  *by Andrew Sikowitz on 2025-10-23*
+
+- **a5f823a07b** - fix(files) Remove bucket name prefix to presigned urls for files (#15082)
+  *by Chris Collins on 2025-10-23*
+
+- **232bf3551d** - fix(smoke-tests): correct server config access in tracking test (#15092)
+  *by Shirshanka Das on 2025-10-23*
+
+- **b1b68b42fb** - feat(docs): enhance metadata model entity documentation with field tables and SDK examples (#15095)
+  *by Shirshanka Das on 2025-10-23*
+
+- **114186b01b** - feat(fivetran/google_sheets): add Google Sheets support and API client integration (#15007)
+  *by Anush Kumar on 2025-10-23*
+
+- **96c20cb81f** - fix(datahub-web-react): Fixed routing issue to prevent non-admin users from accessing analytics page (#15093)
+  *by ani-malgari on 2025-10-23*
+
+- **eed191c72e** - fix(datahub-web-react): Fix icons not rendering for domains on autocomplete search results (#15096)
+  *by ani-malgari on 2025-10-23*
+
+- **f5d0efcc73** - feat(oss): add clientId to ctaLink (#15071)
+  *by Ben Blazke on 2025-10-23*
+
+- **7372b9120d** - SE-123: Fetch product updates from backend  (#15079)
+  *by Ben Blazke on 2025-10-23*
+
+- **5a1569743a** - feat(docs): add structured property for search field names in metadata model (#15097)
+  *by Shirshanka Das on 2025-10-23*
+
+- **a865b6ba63** - fix(ingest/dremio): Fix platform_instance URN generation (#15076)
+  *by Tamas Nemeth on 2025-10-24*
+
+- **9bfb90e188** - docs(testing): add guidelines to avoid AI test anti-patterns (#15073)
+  *by Abe on 2025-10-24*
+
+- **61f9dd92ab** - refactor(smoke test): centralise env variables (#15100)
+  *by Aseem Bansal on 2025-10-24*
+
+- **a18e716bdd** - fix(restore-indices): log error instead of silent failure (#15070)
+  *by david-leifker on 2025-10-24*
+
+- **55c4692e19** - fix(ui): Fix routing issue in Manage Views (#15101)
+  *by Saketh Varma on 2025-10-24*
+
