@@ -15,7 +15,6 @@ Note: Some tests may be skipped if required configuration (e.g., Mixpanel API se
 """
 
 import json
-import os
 import time
 from datetime import datetime, timezone
 
@@ -24,6 +23,7 @@ import requests
 from confluent_kafka import Consumer, KafkaError
 from dotenv import load_dotenv
 
+from tests.utilities import env_vars
 from tests.utils import get_kafka_broker_url
 
 # Load environment variables from .env file if it exists
@@ -37,7 +37,7 @@ def test_tracking_api_mixpanel(auth_session, graph_client):
     """Test that we can post events to the tracking endpoint and verify they are sent to Mixpanel."""
 
     # Check if Mixpanel API secret is available in environment variables
-    api_secret = os.environ.get("MIXPANEL_API_SECRET")
+    api_secret = env_vars.get_mixpanel_api_secret()
     if not api_secret:
         pytest.skip("MIXPANEL_API_SECRET environment variable not set, skipping test")
 
@@ -80,9 +80,7 @@ def test_tracking_api_mixpanel(auth_session, graph_client):
 
     # Query Mixpanel's JQL API to retrieve our test event
     # Note: This requires a service account with access to JQL
-    project_id = os.environ.get(
-        "MIXPANEL_PROJECT_ID", "3653440"
-    )  # Allow project ID to be configurable too
+    project_id = env_vars.get_mixpanel_project_id()
 
     # log the unique_id
     print(f"\nLooking for test event with customField: {unique_id}")
@@ -357,8 +355,8 @@ def test_tracking_api_elasticsearch(auth_session):
 
     # Query Elasticsearch to retrieve our test event
     # This requires the Elasticsearch URL and credentials
-    es_url = os.environ.get("ELASTICSEARCH_URL", "http://localhost:9200")
-    es_index = os.environ.get("ELASTICSEARCH_INDEX", "datahub_usage_event")
+    es_url = env_vars.get_elasticsearch_url()
+    es_index = env_vars.get_elasticsearch_index()
 
     # Create a query to find our test event by the unique browserId and customField
     es_query = {
