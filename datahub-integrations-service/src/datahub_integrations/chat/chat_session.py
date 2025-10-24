@@ -93,7 +93,7 @@ else:
 
 # Smart search tool feature flag
 SMART_SEARCH_ENABLED = get_boolean_env_variable(
-    "CHATBOT_SMART_SEARCH_ENABLED", default=True
+    "CHATBOT_SMART_SEARCH_ENABLED", default=False
 )
 
 if SMART_SEARCH_ENABLED:

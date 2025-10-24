@@ -1,8 +1,4 @@
-import {
-    ASSERTION_SOURCES_OPTIONS,
-    ASSERTION_TYPE_OPTIONS,
-    AssertionResultTypeOptions,
-} from '@app/observe/dataset/assertion/constants';
+import { ASSERTION_SOURCES_OPTIONS, AssertionResultTypeOptions } from '@app/observe/dataset/assertion/constants';
 import { QueryParamDecoder, QueryParamEncoder } from '@app/observe/dataset/shared/util';
 
 export const DEFAULT_PAGE_SIZE = 25;
@@ -84,7 +80,7 @@ export const DEFAULT_FILTER_OPTIONS: FitlerOptions = {
     timeRange: DEFAULT_TIME_RANGE,
 
     // assertion filters
-    types: ASSERTION_TYPE_OPTIONS.map((option) => option.value),
+    types: [],
     source:
         ASSERTION_SOURCES_OPTIONS.find((option) => option.value === 'All')?.value || ASSERTION_SOURCES_OPTIONS[0].value,
     tags: [],

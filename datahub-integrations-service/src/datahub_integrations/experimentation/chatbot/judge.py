@@ -21,7 +21,7 @@ if JUDGE_CACHE_ENABLED and not TYPE_CHECKING:
 
     call_bedrock_llm = _cache.memoize()(call_bedrock_llm)
 
-CHATBOT_AI_JUDGE_MODEL = BedrockModel.CLAUDE_35_SONNET_V2
+CHATBOT_AI_JUDGE_MODEL = BedrockModel.CLAUDE_45_SONNET
 
 # Derived from https://github.com/braintrustdata/autoevals/blob/main/templates/closed_q_a.yaml
 LLM_JUDGE_PROMPT = PromptTemplate(
