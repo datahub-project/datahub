@@ -74,7 +74,13 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                 props: {
                     handleDOMEvents: {
                         drop: (view: EditorView, event: DragEvent) => {
-                            return this.handleDrop(view, event);
+                            const data = event.dataTransfer;
+                            if (data && data.files && data.files.length > 0) {
+                                // External file drop
+                                return this.handleDrop(view, event);
+                            }
+                            // Moving nodes internally
+                            return false;
                         },
                         dragover: (view: EditorView, event: DragEvent) => {
                             if (event.dataTransfer?.types.includes('Files')) {
@@ -96,6 +102,23 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                         },
                         dragleave: (_view: EditorView, _event: DragEvent) => {
                             return false;
+                        },
+                        dragstart: (view: EditorView, event: DragEvent) => {
+                            const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
+                            if (!pos) return false;
+
+                            const node = view.state.doc.nodeAt(pos.pos);
+                            if (!node || node.type !== this.type) return false;
+
+                            const data = event.dataTransfer;
+                            if (data) {
+                                data.setData(
+                                    'application/x-prosemirror-node',
+                                    JSON.stringify({ id: node.attrs.id, type: node.type.name }),
+                                );
+                                data.effectAllowed = 'move';
+                            }
+                            return false; // Allow default handling in ProseMirror
                         },
                     },
                 },
@@ -313,7 +336,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
             group: 'block',
             marks: '',
             selectable: true,
-            draggable: true,
+            draggable: (state) => state.editable,
             atom: true,
             ...override,
             attrs: {
