@@ -129,7 +129,7 @@ class OpenApiConfig(ConfigModel):
         default=True,  # TODO This should be false by default, but set to true for backwards compatibility
         description="If True, will make live GET API calls to extract schemas when OpenAPI spec extraction fails. "
         "Requires credentials (username/password, token, or bearer_token). "
-        "OpenAPI spec and example extraction always occur regardless of this setting.",
+        "Only applicable for GET methods.",
     )
 
     @validator("bearer_token", always=True)
