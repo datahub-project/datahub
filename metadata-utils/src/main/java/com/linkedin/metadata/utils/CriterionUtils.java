@@ -130,7 +130,11 @@ public class CriterionUtils {
     criterion.setField(field);
     criterion.setCondition(condition);
     criterion.setNegated(negated != null ? negated : false);
-    criterion.setValues(values != null ? new StringArray(values) : new StringArray());
+
+    // Remove duplicates
+    List<String> distinctValues =
+        values == null ? List.of() : values.stream().distinct().collect(Collectors.toList());
+    criterion.setValues(new StringArray(distinctValues));
     criterion.setValue(""); // deprecated
     return criterion;
   }
