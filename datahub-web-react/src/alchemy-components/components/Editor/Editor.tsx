@@ -37,6 +37,7 @@ import { FloatingToolbar } from '@components/components/Editor/toolbar/FloatingT
 import { TableCellMenu } from '@components/components/Editor/toolbar/TableCellMenu';
 import { Toolbar } from '@components/components/Editor/toolbar/Toolbar';
 import { EditorProps } from '@components/components/Editor/types';
+import { colors } from '@components/theme';
 
 import { notEmpty } from '@app/entityV2/shared/utils';
 
@@ -53,6 +54,10 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         onKeyDown,
         hideBorder,
         uploadFile,
+        onFileUploadAttempt,
+        onFileUploadFailed,
+        onFileUploadSucceeded,
+        onFileDownloadView,
     } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
@@ -62,12 +67,21 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new CodeBlockExtension({ syntaxTheme: 'base16_ateliersulphurpool_light' }),
             new CodeExtension(),
             new DataHubMentionsExtension({}),
-            new DropCursorExtension({}),
+            new DropCursorExtension({
+                color: colors.primary[100],
+                width: 2,
+            }),
             new HardBreakExtension(),
             new HeadingExtension({}),
             new HistoryExtension({}),
             new HorizontalRuleExtension({}),
-            new FileDragDropExtension({ onFileUpload: uploadFile }),
+            new FileDragDropExtension({
+                onFileUpload: uploadFile,
+                onFileUploadAttempt,
+                onFileUploadFailed,
+                onFileUploadSucceeded,
+                onFileDownloadView,
+            }),
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),

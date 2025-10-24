@@ -1,3 +1,11 @@
+export type FileUploadSource = 'drag-and-drop' | 'button';
+
+export enum FileUploadFailureType {
+    FILE_SIZE = 'file_size',
+    FILE_TYPE = 'file_type',
+    UNKNOWN = 'unknown',
+}
+
 export type EditorProps = {
     readOnly?: boolean;
     content?: string;
@@ -11,4 +19,14 @@ export type EditorProps = {
     onKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void;
     hideBorder?: boolean;
     uploadFile?: (file: File) => Promise<string>;
+    onFileUploadAttempt?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
+    onFileUploadFailed?: (
+        fileType: string,
+        fileSize: number,
+        source: FileUploadSource,
+        failureType: FileUploadFailureType,
+        comment?: string,
+    ) => void;
+    onFileUploadSucceeded?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
+    onFileDownloadView?: (fileType: string, fileSize: number) => void;
 };

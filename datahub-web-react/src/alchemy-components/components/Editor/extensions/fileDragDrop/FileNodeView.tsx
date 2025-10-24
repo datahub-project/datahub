@@ -5,14 +5,25 @@ import styled from 'styled-components';
 import {
     FILE_ATTRS,
     FileNodeAttributes,
+    getExtensionFromFileName,
+    getFileIconFromExtension,
     handleFileDownload,
 } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { Icon } from '@components/components/Icon';
+import { colors } from '@components/theme';
 
 import Loading from '@app/shared/Loading';
 
 const FileContainer = styled.div`
     max-width: 100%;
+
+    width: max-content;
+    padding: 4px;
+
+    :hover {
+        border-radius: 8px;
+        background-color: ${colors.gray[1500]};
+    }
 `;
 
 const FileDetails = styled.div`
@@ -37,9 +48,10 @@ interface FileNodeViewProps extends NodeViewComponentProps {
     node: {
         attrs: FileNodeAttributes;
     };
+    onFileDownloadView?: (fileType: string, fileSize: number) => void;
 }
 
-export const FileNodeView: React.FC<FileNodeViewProps> = ({ node }) => {
+export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownloadView }) => {
     const { url, name, type, size, id } = node.attrs;
 
     // Create props with data attributes for markdown conversion
@@ -65,15 +77,20 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node }) => {
         );
     }
 
+    const extension = getExtensionFromFileName(name);
+    const icon = getFileIconFromExtension(extension || '');
+
     return (
         <FileContainer {...containerProps}>
             <FileDetails
                 onClick={(e) => {
                     e.stopPropagation();
+                    // Track file download/view event
+                    onFileDownloadView?.(type, size);
                     handleFileDownload(url, name);
                 }}
             >
-                <Icon icon="FileArrowDown" size="lg" source="phosphor" />
+                <Icon icon={icon} size="lg" source="phosphor" />
                 <FileName>{name}</FileName>
             </FileDetails>
         </FileContainer>
