@@ -36,8 +36,8 @@ logger.add(
     serialize=True,  # JSON serialization keeps multi-line exceptions together
     format="{time} {level} {name}:{function}:{line} - {message}",
     backtrace=True,
-    diagnose=True,  # Keep False in production for security
-    level="INFO",
+    diagnose=True,
+    level="DEBUG",  # Match loguru's default level
 )
 
 logging.basicConfig(handlers=[InterceptHandler()], level=logging.INFO, force=True)
