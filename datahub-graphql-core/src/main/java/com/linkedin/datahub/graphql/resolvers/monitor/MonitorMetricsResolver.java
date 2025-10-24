@@ -3,9 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.monitor;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.anomaly.MonitorAnomalyEvent;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AssertionMetric;
@@ -15,25 +13,17 @@ import com.linkedin.datahub.graphql.generated.MonitorMetric;
 import com.linkedin.datahub.graphql.types.monitor.MonitorMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
-import com.linkedin.metadata.query.filter.CriterionArray;
-import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metric.DataHubMetricCubeEvent;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /** GraphQL Resolver used for fetching Monitor Metrics. */
@@ -151,10 +141,7 @@ public class MonitorMetricsResolver
     return monitorMetric;
   }
 
-  /**
-   * Fetches the anomaly events for a given monitor within the time range. This is copied from
-   * AssertionRunEventResolver with minor modifications.
-   */
+  /** Fetches the anomaly events for a given monitor within the time range. */
   @Nonnull
   private List<MonitorAnomalyEvent> fetchAnomalyEvents(
       @Nonnull QueryContext context,
@@ -162,90 +149,14 @@ public class MonitorMetricsResolver
       @Nonnull Long startTimeMillis,
       @Nonnull Long endTimeMillis)
       throws RemoteInvocationException {
-
-    final List<EnvelopedAspect> aspects =
-        _client.getTimeseriesAspectValues(
-            context.getOperationContext(),
-            monitorUrn,
-            MONITOR_ENTITY_NAME,
-            MONITOR_ANOMALY_EVENT_ASPECT_NAME,
-            null,
-            null,
-            null, // no limit to capture all anomaly events in the time range
-            startTimeMillis != null || endTimeMillis != null
-                ? buildAnomalyFeedbackEventsFilter(startTimeMillis, endTimeMillis)
-                : null);
-
-    return aspects.stream()
-        .map(
-            aspect ->
-                GenericRecordUtils.deserializeAspect(
-                    aspect.getAspect().getValue(),
-                    aspect.getAspect().getContentType(),
-                    com.linkedin.anomaly.MonitorAnomalyEvent.class))
-        .collect(Collectors.toList());
+    return MonitorAnomalyEventUtils.fetchAnomalyEvents(
+        context.getOperationContext(), _client, monitorUrn, startTimeMillis, endTimeMillis);
   }
 
+  /** Builds a map from source event timestamp to anomaly event. */
   @Nonnull
-  protected static Filter buildAnomalyFeedbackEventsFilter(
-      @Nullable Long maybeStartTimeMillis, @Nullable Long maybeEndTimeMillis) {
-    return new Filter()
-        .setOr(
-            new ConjunctiveCriterionArray(
-                new ConjunctiveCriterion()
-                    .setAnd(
-                        new CriterionArray(
-                            ImmutableList.of(
-                                new Criterion()
-                                    .setField("sourceEventTimestampMillis")
-                                    .setCondition(Condition.BETWEEN)
-                                    .setValues(
-                                        new StringArray(
-                                            List.of(
-                                                maybeStartTimeMillis != null
-                                                    ? maybeStartTimeMillis.toString()
-                                                    : "0",
-                                                maybeEndTimeMillis != null
-                                                    ? maybeEndTimeMillis.toString()
-                                                    : String.valueOf(Long.MAX_VALUE)))))))));
-  }
-
-  /**
-   * Builds a map from source event timestamp to anomaly event. This is copied from
-   * AssertionRunEventResolver.
-   */
-  @Nonnull
-  private static Map<Long, MonitorAnomalyEvent> buildAnomalyEventMap(
+  private Map<Long, MonitorAnomalyEvent> buildAnomalyEventMap(
       @Nonnull List<MonitorAnomalyEvent> anomalyEvents) {
-    final Map<Long, MonitorAnomalyEvent> anomalyEventMap = new HashMap<>();
-
-    for (MonitorAnomalyEvent anomalyEvent : anomalyEvents) {
-      if (anomalyEvent.getSource().hasProperties()
-          && anomalyEvent.getSource().getProperties().hasAssertionMetric()
-          && anomalyEvent.getSource().getProperties().getAssertionMetric().getTimestampMs()
-              == null) {
-        continue;
-      }
-      final MonitorAnomalyEvent maybeExistingEvent =
-          anomalyEventMap.get(
-              anomalyEvent.getSource().getProperties().getAssertionMetric().getTimestampMs());
-      // If an anomaly event already exists for this timestamp, skip if the new one is NOT more
-      // recent
-      if (maybeExistingEvent != null
-          && anomalyEvent.getSource().getProperties().getAssertionMetric().getTimestampMs()
-              <= maybeExistingEvent
-                  .getSource()
-                  .getProperties()
-                  .getAssertionMetric()
-                  .getTimestampMs()) {
-        continue;
-      }
-      // Use the timestamp as the key to map anomaly events to metrics
-      anomalyEventMap.put(
-          anomalyEvent.getSource().getProperties().getAssertionMetric().getTimestampMs(),
-          anomalyEvent);
-    }
-
-    return anomalyEventMap;
+    return MonitorAnomalyEventUtils.buildAnomalyEventMapByMetric(anomalyEvents);
   }
 }

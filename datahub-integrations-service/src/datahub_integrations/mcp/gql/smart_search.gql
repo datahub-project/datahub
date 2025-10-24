@@ -1,0 +1,263 @@
+# Smart search GraphQL query
+# Includes rich entity details needed for reranking
+#
+# Note: The following entity types are not currently included:
+# - DataJob
+# - DataFlow
+# - ML entities (MLModel, MLModelGroup, MLFeature, MLFeatureTable, MLPrimaryKey)
+# - Tag
+# - StructuredProperty
+# - CorpUser
+# - CorpGroup
+
+fragment platformFields on DataPlatform {
+  urn
+  name
+}
+
+fragment globalTagsFields on GlobalTags {
+  tags {
+    tag {
+      urn
+      properties {
+        name
+        description
+      }
+    }
+  }
+}
+
+fragment glossaryTerms on GlossaryTerms {
+  terms {
+    term {
+      urn
+      properties {
+        name
+        description
+      }
+    }
+  }
+}
+
+fragment ownershipFields on Ownership {
+  owners {
+    owner {
+      ... on CorpUser {
+        urn
+        properties {
+          displayName
+          email
+        }
+      }
+      ... on CorpGroup {
+        urn
+        properties {
+          displayName
+        }
+      }
+    }
+  }
+}
+
+fragment schemaMetadataFields on SchemaMetadata {
+  fields {
+    fieldPath
+    nullable
+    description
+    type
+    nativeDataType
+    tags {
+      ...globalTagsFields
+    }
+  }
+}
+
+# Rich entity info for reranking
+fragment ErsatzSearchEntityInfo on Entity {
+  urn
+
+  ... on Dataset {
+    name
+    platform {
+      ...platformFields
+    }
+    properties {
+      name
+      qualifiedName
+      description
+      customProperties {
+        key
+        value
+      }
+    }
+    editableProperties {
+      name
+      description
+    }
+    tags {
+      ...globalTagsFields
+    }
+    glossaryTerms {
+      ...glossaryTerms
+    }
+    ownership {
+      ...ownershipFields
+    }
+    schemaMetadata(version: 0) {
+      ...schemaMetadataFields
+    }
+    editableSchemaMetadata {
+      editableSchemaFieldInfo {
+        fieldPath
+        description
+      }
+    }
+    statsSummary {                                               #[CLOUD]
+      queryCountLast30Days                                       #[CLOUD]
+      queryCountPercentileLast30Days                             #[CLOUD]
+      uniqueUserCountLast30Days                                  #[CLOUD]
+      rowCount                                                   #[CLOUD]
+      sizeInBytes                                                #[CLOUD]
+    }                                                            #[CLOUD]
+  }
+
+  ... on Dashboard {
+    properties {
+      name
+      description
+    }
+    editableProperties {
+      description
+    }
+    platform {
+      ...platformFields
+    }
+    tags {
+      ...globalTagsFields
+    }
+    glossaryTerms {
+      ...glossaryTerms
+    }
+    ownership {
+      ...ownershipFields
+    }
+  }
+
+  ... on Chart {
+    properties {
+      name
+      description
+    }
+    editableProperties {
+      description
+    }
+    platform {
+      ...platformFields
+    }
+    tags {
+      ...globalTagsFields
+    }
+    ownership {
+      ...ownershipFields
+    }
+  }
+
+  ... on Container {
+    properties {
+      name
+      description
+    }
+    platform {
+      ...platformFields
+    }
+    tags {
+      ...globalTagsFields
+    }
+  }
+
+  ... on GlossaryTerm {
+    properties {
+      name
+      description
+    }
+  }
+
+  ... on Domain {
+    properties {
+      name
+      description
+    }
+  }
+
+  ... on DataProduct {
+    properties {
+      name
+      description
+    }
+  }
+}
+
+fragment FacetEntityInfo on Entity {
+  ... on Dataset {
+    name
+    properties {
+      name
+    }
+  }
+  ... on Container {
+    subTypes {
+      typeNames
+    }
+    properties {
+      name
+    }
+  }
+  ... on GlossaryTerm {
+    properties {
+      name
+    }
+  }
+}
+
+query smartSearch(
+  $types: [EntityType!]
+  $query: String!
+  $orFilters: [AndFilterInput!]
+  $count: Int!
+  $scrollId: String
+  $viewUrn: String
+) {
+  scrollAcrossEntities(
+    input: {
+      query: $query
+      count: $count
+      scrollId: $scrollId
+      types: $types
+      orFilters: $orFilters
+      viewUrn: $viewUrn
+      searchFlags: { skipHighlighting: true, maxAggValues: 5 }
+    }
+  ) {
+    count
+    total
+    searchResults {
+      entity {
+        ...ErsatzSearchEntityInfo
+      }
+      score                                                        #[CLOUD] #[NEWER_GMS]
+    }
+    facets {
+      field
+      displayName
+      aggregations {
+        value
+        count
+        displayName
+        entity {
+          ...FacetEntityInfo
+        }
+      }
+    }
+  }
+}
+

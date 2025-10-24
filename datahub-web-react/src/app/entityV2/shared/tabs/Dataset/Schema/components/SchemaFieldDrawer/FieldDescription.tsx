@@ -5,6 +5,7 @@ import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { EditorProps } from '@components/components/Editor/types';
 import { sanitizeRichText } from '@components/components/Editor/utils';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
@@ -58,13 +59,14 @@ const AddDescriptionText = styled.span`
 interface Props {
     expandedField: SchemaField;
     editableFieldInfo?: EditableSchemaFieldInfo;
+    editorProps?: Partial<EditorProps>;
 }
 
 export function getShouldShowProposeButton(entityType: EntityType) {
     return PROPOSAL_ENTITY_TYPES.includes(entityType);
 }
 
-export default function FieldDescription({ expandedField, editableFieldInfo }: Props) {
+export default function FieldDescription({ expandedField, editableFieldInfo, editorProps }: Props) {
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -216,6 +218,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                     inferOnMount={inferOnModalVisible}
                     canEditDescription={canEditDescription}
                     canProposeDescription={canProposeDescription}
+                    editorProps={editorProps}
                 />
             )}
             <StyledDivider dashed />

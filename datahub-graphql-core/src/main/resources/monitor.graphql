@@ -56,6 +56,11 @@ extend type Mutation {
   reportAnomalyFeedback(
     input: ReportAnomalyFeedbackInput!
   ): MonitorAnomalyEvent!
+
+  """
+  Bulk update anomalies for a monitor.
+  """
+  bulkUpdateAnomalies(input: BulkUpdateAnomaliesInput!): [MonitorAnomalyEvent!]!
 }
 
 """
@@ -1029,6 +1034,32 @@ input ReportAnomalyFeedbackInput {
 
   """
   The state of the anomaly.
+  """
+  state: AnomalyReviewState!
+}
+
+input BulkUpdateAnomaliesInput {
+  """
+  The urn of the monitor to bulk update anomalies for.
+  """
+  monitorUrn: String!
+  """
+  The urn of the assertion that we're reporting an anomaly for.
+  """
+  assertionUrn: String!
+
+  """
+  The start time of the anomalies to update.
+  """
+  startTimeMillis: Long!
+
+  """
+  The end time of the anomalies to update.
+  """
+  endTimeMillis: Long!
+
+  """
+  The state of the anomalies.
   """
   state: AnomalyReviewState!
 }

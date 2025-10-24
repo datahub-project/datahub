@@ -19,7 +19,7 @@ export const ASSERTION_GROUP_BY_FILTER_OPTIONS = [
     { label: 'Status', value: 'status' },
 ];
 
-export const ASSERTION_SUMMARY_CARD_STATUSES = ['failing', 'passing', 'erroring'];
+export const ASSERTION_SUMMARY_CARD_STATUSES = ['failing', 'passing', 'erroring', 'initializing', 'notRunning'];
 
 export const NO_RUNNING_STATE = 'notRunning';
 

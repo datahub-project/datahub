@@ -1,6 +1,6 @@
 #!/bin/bash
 
-threshold=7200
+threshold=600
 queues=$(aws --region us-west-2 sqs list-queues --queue-name-prefix re-ci-smoke-test | jq -r '.QueueUrls[]')
 now=$(date +%s)
 

@@ -25,6 +25,7 @@ from datahub.ingestion.source.redshift.query import (
     RedshiftServerlessQuery,
 )
 from datahub.ingestion.source.redshift.redshift_schema import (
+    RedshiftDataDictionary,
     RedshiftTable,
     RedshiftView,
 )
@@ -263,8 +264,7 @@ class RedshiftUsageExtractor:
         connection: redshift_connector.Connection,
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> Iterable[RedshiftAccessEvent]:
-        cursor = connection.cursor()
-        cursor.execute(query)
+        cursor = RedshiftDataDictionary.get_query_result(conn=connection, query=query)
         results = cursor.fetchmany()
         field_names = [i[0] for i in cursor.description]
         while results:

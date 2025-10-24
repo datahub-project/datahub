@@ -138,9 +138,12 @@
         "build-storybook": "NODE_OPTIONS='--max-old-space-size=8192 --openssl-legacy-provider' storybook build"
     },
     "lint-staged": {
-        "*/**/*.{js,jsx,ts,tsx,json}": [
+        "*/**/*.{js,jsx,ts,tsx}": [
             "prettier --write",
             "eslint --quiet --fix"
+        ],
+        "*/**/*.json": [
+            "prettier --write"
         ]
     },
     "browserslist": {

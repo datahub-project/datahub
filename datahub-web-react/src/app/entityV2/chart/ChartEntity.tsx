@@ -47,7 +47,6 @@ import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTa
 import {
     SidebarTitleActionType,
     getDashboardLastUpdatedMs,
-    getDataProduct,
     getFirstSubType,
     isOutputPort,
 } from '@app/entityV2/shared/utils';
@@ -298,8 +297,6 @@ export class ChartEntity implements Entity<Chart> {
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}
                 logoUrl={data?.platform?.properties?.logoUrl}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 parentContainers={data.parentContainers}
                 subType={getFirstSubType(data)}
                 tier={
@@ -337,8 +334,6 @@ export class ChartEntity implements Entity<Chart> {
                 glossaryTerms={data?.glossaryTerms}
                 insights={result.insights}
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 deprecation={data.deprecation}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={getDashboardLastUpdatedMs(data?.properties)}

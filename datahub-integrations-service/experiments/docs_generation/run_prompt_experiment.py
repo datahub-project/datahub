@@ -31,9 +31,9 @@ from datahub_integrations.gen_ai import description_context, description_v3
 from datahub_integrations.gen_ai.description_context import (
     transform_table_info_for_llm,
 )
+from datahub_integrations.gen_ai.model_config import model_config
 from datahub_integrations.gen_ai.description_v3 import (
     ANYIO_THREAD_COUNT,
-    CURRENT_MODEL,
     MAX_COLUMNS_PER_BATCH,
     EntityDescriptionResult,
     generate_entity_descriptions_for_urn_eval_v3,
@@ -227,7 +227,7 @@ def run_experiment(files: List[pathlib.Path], run_description: Optional[str]) ->
         log_artifacts(artifact_temp_path, table_descriptions, column_descriptions)
         mlflow.log_params(
             {
-                "model": CURRENT_MODEL,
+                "model": model_config.documentation_ai.model,
                 "parallel_files": BATCH_SIZE,
                 "max_columns_per_batch": MAX_COLUMNS_PER_BATCH,
                 "anyio_thread_count": ANYIO_THREAD_COUNT,

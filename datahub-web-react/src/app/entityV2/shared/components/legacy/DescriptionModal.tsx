@@ -3,6 +3,8 @@ import { Form, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { EditorProps } from '@components/components/Editor/types';
+
 import { useMutationUrn } from '@app/entity/shared/EntityContext';
 import InferDocsPanel from '@app/entityV2/shared/components/inferredDocs/InferDocsPanel';
 import { StyledEditor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/note/AssertionNoteTab';
@@ -39,6 +41,7 @@ type Props = {
     isEmbeddedProfile?: boolean;
     canEditDescription?: boolean;
     canProposeDescription?: boolean;
+    editorProps?: Partial<EditorProps>;
 };
 
 export default function UpdateDescriptionModal({
@@ -57,6 +60,7 @@ export default function UpdateDescriptionModal({
     isEmbeddedProfile,
     canEditDescription = true,
     canProposeDescription = true,
+    editorProps,
 }: Props) {
     const urn = useMutationUrn();
     const [updatedDesc, setDesc] = useState(description || original || '');
@@ -111,7 +115,7 @@ export default function UpdateDescriptionModal({
                     </OriginalDocumentation>
                 )}
                 <Form.Item>
-                    <StyledEditor key={editorKey} content={updatedDesc} onChange={setDesc} />
+                    <StyledEditor key={editorKey} content={updatedDesc} onChange={setDesc} {...editorProps} />
                 </Form.Item>
 
                 {(fieldPath || isEmbeddedProfile) && (

@@ -78,6 +78,12 @@ mutation reportAnomalyFeedback($input: ReportAnomalyFeedbackInput!) {
     }
 }
 
+mutation bulkUpdateAnomalies($input: BulkUpdateAnomaliesInput!) {
+    bulkUpdateAnomalies(input: $input) {
+        ...monitorAnomalyEventDetails
+    }
+}
+
 fragment assertionDetailsWithMonitors on Assertion {
     ...assertionDetailsWithRunEvents
     monitor: relationships(input: { types: ["Evaluates"], direction: INCOMING, start: 0, count: 1 }) {
@@ -116,21 +122,19 @@ fragment assertionDetailsForSearch on Assertion {
             }
         }
     }
-    dataset: relationships(input: { types: ["Asserts"], direction: OUTGOING, start: 0, count: 1 }) {
-        relationships {
-            entity {
-                urn
-                type
-                ... on SchemaFieldEntity {
-                    parent {
-                        ... on Dataset {
-                            ...assertionDatasetFields
-                        }
-                    }
-                }
-                ... on Dataset {
-                    ...assertionDatasetFields
-                }
+    dataset {
+        urn
+        type
+        ... on Dataset {
+            name
+            platform {
+                ...platformFields
+            }
+            properties {
+                name
+                description
+                qualifiedName
+                externalUrl
             }
         }
     }
@@ -236,9 +240,9 @@ fragment assertionSearchResults on SearchResults {
 
 query searchAssertions(
     $input: SearchAcrossEntitiesInput!
-    $runEventsStart: Long!
-    $runEventsEnd: Long!
-    $runEventsLimit: Int!
+    $runEventsStart: Long
+    $runEventsEnd: Long
+    $runEventsLimit: Int
 ) {
     searchAcrossEntities(input: $input) {
         ...assertionSearchResults

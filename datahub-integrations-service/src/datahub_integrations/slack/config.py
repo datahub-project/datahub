@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import cachetools
 import pydantic
 from datahub.configuration.common import ConnectionModel
 from datahub.metadata.urns import DataPlatformUrn
@@ -126,8 +127,15 @@ class SlackGlobalSettings(_FrozenConnectionModel):
     datahub_at_mention_enabled: bool = False
 
 
-def _get_global_settings() -> SlackGlobalSettings:
-    """Gets the current global settings from DataHub."""
+@cachetools.cached(cache=cachetools.TTLCache(maxsize=1, ttl=60 * 5))
+def get_global_settings() -> SlackGlobalSettings:
+    """
+    Gets the current global settings from DataHub.
+
+    Settings are cached for 5 minutes via TTLCache decorator to ensure changes
+    to Slack integration settings (e.g., @mention enablement) take effect within
+    a reasonable timeframe without requiring service restart.
+    """
     try:
         data = graph.execute_graphql(_SLACK_GET_GLOBAL_SETTINGS_QUERY)
         slack_settings: dict = data["globalSettings"]["integrationSettings"][
@@ -146,7 +154,6 @@ class _SlackConfigManager:
     """A caching wrapper around the Slack config."""
 
     _connection: Optional[SlackConnection] = None
-    _global_settings: Optional[SlackGlobalSettings] = None
     _slack_history_cache: SlackHistoryCache = dataclasses.field(
         default_factory=SlackHistoryCache
     )
@@ -159,11 +166,8 @@ class _SlackConfigManager:
         return self._connection
 
     def get_global_settings(self) -> SlackGlobalSettings:
-        if self._global_settings is None:
-            self.reload()
-            assert self._global_settings is not None
-
-        return self._global_settings
+        # Fetch from the cached function, which automatically expires every 5 minutes
+        return get_global_settings()
 
     def get_slack_history_cache(self) -> SlackHistoryCache:
         return self._slack_history_cache
@@ -178,7 +182,6 @@ class _SlackConfigManager:
         logger.info("Reloading slack connection and settings")
         old_config = self._connection
         self._connection = _get_current_slack_connection()
-        self._global_settings = _get_global_settings()
 
         if (old_app_id := self._get_app_id(old_config)) != (
             new_app_id := self._get_app_id(self._connection)

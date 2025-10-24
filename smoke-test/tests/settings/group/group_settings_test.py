@@ -1,6 +1,11 @@
 import pytest
 
-from tests.utils import delete_urns_from_file, execute_gql, ingest_file_via_rest
+from tests.utils import (
+    delete_urns_from_file,
+    execute_gql,
+    execute_graphql,
+    ingest_file_via_rest,
+)
 
 test_group_urn = "urn:li:corpGroup:test-settings"
 
@@ -30,8 +35,7 @@ def test_get_group_notification_settings(auth_session, ingest_cleanup_data):
     }
     """
     variables: dict[str, object] = {"input": {"groupUrn": test_group_urn}}
-    response = execute_gql(auth_session, query, variables)
-    assert "errors" not in response, response.get("errors")
+    response = execute_graphql(auth_session, query, variables)
 
     # Ensure there are no settings to start with.
     assert response["data"]["getGroupNotificationSettings"] is None
@@ -63,8 +67,7 @@ def test_get_group_notification_settings(auth_session, ingest_cleanup_data):
     variables = {
         "input": {"notificationSettings": new_settings, "groupUrn": test_group_urn}
     }
-    response = execute_gql(auth_session, mutation, variables)
-    assert "errors" not in response, response.get("errors")
+    response = execute_graphql(auth_session, mutation, variables)
 
     # Step 3: Verify the getGroupNotificationSettings API returns updated values
     query = """
@@ -78,8 +81,7 @@ def test_get_group_notification_settings(auth_session, ingest_cleanup_data):
     }
     """
     variables = {"input": {"groupUrn": test_group_urn}}
-    response = execute_gql(auth_session, query, variables)
-    assert "errors" not in response, response.get("errors")
+    response = execute_graphql(auth_session, query, variables)
     settings = response["data"]["getGroupNotificationSettings"]
     assert settings is not None
     assert settings["sinkTypes"] == ["EMAIL", "SLACK"]
@@ -102,16 +104,14 @@ def test_get_group_notification_settings(auth_session, ingest_cleanup_data):
         "slackSettings": {},
         "settings": [],
     }
-    response = execute_gql(
+    response = execute_graphql(
         auth_session,
         mutation,
         {"input": {"notificationSettings": reset_settings, "groupUrn": test_group_urn}},
     )
-    assert "errors" not in response, response.get("errors")
 
     # Step 4: Verify settings are reset
-    response = execute_gql(auth_session, query, variables)
-    assert "errors" not in response, response.get("errors")
+    response = execute_graphql(auth_session, query, variables)
     settings = response["data"]["getGroupNotificationSettings"]
     assert settings is None or settings["sinkTypes"] == []
     assert settings is None or settings["emailSettings"]["email"] == ""
@@ -180,8 +180,7 @@ def test_update_group_notification_settings(auth_session, ingest_cleanup_data):
     variables = {
         "input": {"notificationSettings": new_settings, "groupUrn": test_group_urn}
     }
-    response = execute_gql(auth_session, mutation, variables)
-    assert "errors" not in response, response.get("errors")
+    response = execute_graphql(auth_session, mutation, variables)
     updated_settings = response["data"]["updateGroupNotificationSettings"]
     assert updated_settings["sinkTypes"] == ["EMAIL", "SLACK"]
     assert updated_settings["emailSettings"]["email"] == "test@example.com"
@@ -200,7 +199,7 @@ def test_update_group_notification_settings(auth_session, ingest_cleanup_data):
     scenario_update = {
         "settings": [{"type": "NEW_INCIDENT", "value": "DISABLED", "params": []}]
     }
-    response = execute_gql(
+    response = execute_graphql(
         auth_session,
         mutation,
         {
@@ -236,7 +235,7 @@ def test_update_group_notification_settings(auth_session, ingest_cleanup_data):
         "sinkTypes": ["EMAIL"],
         "emailSettings": {"email": "new@example.com"},
     }
-    response = execute_gql(
+    response = execute_graphql(
         auth_session,
         mutation,
         {

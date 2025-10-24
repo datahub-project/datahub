@@ -27,7 +27,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 
 @TestConfiguration
-@Import(value = {SystemAuthenticationFactory.class})
+@Import(value = {UpgradeConfigurationSelector.class, SystemAuthenticationFactory.class})
 public class UpgradeCliApplicationTestConfiguration {
 
   // TODO: We cannot remove the MockBean annotation here because with MockitoBean it is still trying

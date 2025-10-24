@@ -1,5 +1,5 @@
 import { colors } from '@components';
-import { ExclamationMark, ExcludeSquare } from '@phosphor-icons/react';
+import { ExclamationMark, ExcludeSquare, UniteSquare } from '@phosphor-icons/react';
 import { Axis, GlyphSeries, LineSeries, Tooltip, XYChart } from '@visx/xychart';
 import moment from 'moment';
 import { MagnifyingGlass } from 'phosphor-react';
@@ -177,6 +177,7 @@ type Props = {
     resetRange?: () => void;
     onDateRangeChange?: (startDate: moment.Moment | null, endDate: moment.Moment | null) => void;
     onAddExclusionWindow?: (startTimeMillis: number, endTimeMillis: number) => void;
+    onBulkUnmarkAnomalies?: (startTimeMillis: number, endTimeMillis: number) => void;
     dateRange?: [moment.Moment | null, moment.Moment | null];
     currentTime?: number;
     latestMetricTimestamp?: number | null;
@@ -193,6 +194,7 @@ export const MonitorMetricsChart: React.FC<Props> = ({
     resetRange,
     onDateRangeChange,
     onAddExclusionWindow,
+    onBulkUnmarkAnomalies,
     dateRange,
     currentTime,
     latestMetricTimestamp,
@@ -247,11 +249,11 @@ export const MonitorMetricsChart: React.FC<Props> = ({
         return endTime > latestMetricTimestamp;
     }, [internalDateRange, currentTime, latestMetricTimestamp]);
 
-    // Filter predictions to only include future ones, and only if we should show them
+    // Filter predictions to only include future ones within the date range, and only if we should show them
     const futurePredictions = useMemo(() => {
         if (!shouldShowPredictions) return [];
-        return getFuturePredictions(predictions);
-    }, [predictions, shouldShowPredictions]);
+        return getFuturePredictions(predictions, internalDateRange);
+    }, [predictions, shouldShowPredictions, internalDateRange]);
 
     // Create x-axis domain based on selected date range or data range
     const xAxisDomain = useMemo(() => {
@@ -361,6 +363,15 @@ export const MonitorMetricsChart: React.FC<Props> = ({
         setSelectionStart(null);
         setSelectionEnd(null);
     }, [actionMenu, onAddExclusionWindow]);
+
+    const handleIncludeAction = useCallback(() => {
+        if (onBulkUnmarkAnomalies && actionMenu) {
+            onBulkUnmarkAnomalies(actionMenu.startTime, actionMenu.endTime);
+        }
+        setActionMenu(null);
+        setSelectionStart(null);
+        setSelectionEnd(null);
+    }, [actionMenu, onBulkUnmarkAnomalies]);
 
     // Close action menu when clicking outside
     const handleCloseActionMenu = useCallback(() => {
@@ -572,6 +583,10 @@ export const MonitorMetricsChart: React.FC<Props> = ({
                             <ActionButton onClick={handleExcludeAction}>
                                 <ExcludeSquare size={16} weight="fill" />
                                 Exclude Metrics
+                            </ActionButton>
+                            <ActionButton onClick={handleIncludeAction}>
+                                <UniteSquare size={16} weight="fill" />
+                                Include Metrics
                             </ActionButton>
                         </ActionMenu>
                     </>

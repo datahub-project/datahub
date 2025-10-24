@@ -13,7 +13,7 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "mongo"
     ) as docker_services:
-        wait_for_port(docker_services, "testmongodb", 27017)
+        wait_for_port(docker_services, "testmongodb", 27017, timeout=60)
 
         # Run the metadata ingestion pipeline.
         pipeline = Pipeline.create(

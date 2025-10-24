@@ -60,7 +60,6 @@ import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import {
     SidebarTitleActionType,
-    getDataProduct,
     getDatasetLastUpdatedMs,
     getFirstSubType,
     isOutputPort,
@@ -411,8 +410,6 @@ export class DatasetEntity implements Entity<Dataset> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 glossaryTerms={data.glossaryTerms}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 container={data.container}
                 externalUrl={data.properties?.externalUrl}
                 health={data.health}
@@ -457,8 +454,6 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformLogos={genericProperties?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 deprecation={data.deprecation}
                 glossaryTerms={data.glossaryTerms}
                 subtype={getFirstSubType(data)}

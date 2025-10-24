@@ -30,6 +30,10 @@ class BedrockModel(enum.Enum):
     CLAUDE_4_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-sonnet-4-20250514-v1:0"
     CLAUDE_45_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
+    def __str__(self) -> str:
+        """Return the model ID string when converted to string."""
+        return self.value
+
 
 def get_bedrock_model_env_variable(
     env_var: str, default_model: BedrockModel, alternate_env_var: Optional[str] = None
@@ -62,6 +66,10 @@ class LiteLLMModel(enum.Enum):
     CLAUDE_4_SONNET = f"bedrock/{BedrockModel.CLAUDE_4_SONNET.value}"
     CLAUDE_45_SONNET = f"bedrock/{BedrockModel.CLAUDE_45_SONNET.value}"
 
+    def __str__(self) -> str:
+        """Return the model ID string when converted to string."""
+        return self.value
+
 
 def get_litellm_model_env_variable(
     env_var: str, default_model: LiteLLMModel, alternate_env_var: Optional[str] = None
@@ -71,7 +79,7 @@ def get_litellm_model_env_variable(
         model_value = os.getenv(alternate_env_var, default_model.value)
     else:
         model_value = model_value or default_model.value
-    if not model_value.startswith(("bedrock/", "gemini/")):
+    if not model_value.startswith(("bedrock/", "gemini/", "vertex_ai/")):
         logger.warning(
             f"Invalid model value for {env_var}: {model_value}, using default model: {default_model.value}"
         )
@@ -80,9 +88,8 @@ def get_litellm_model_env_variable(
 
 
 def _get_model_value(model: LiteLLMModel | BedrockModel | str) -> str:
-    if isinstance(model, LiteLLMModel | BedrockModel):
-        return model.value
-    return model
+    """Convert a model to its string representation."""
+    return str(model)
 
 
 class DocumentationAIConfig(BaseModel):
@@ -159,7 +166,7 @@ def get_docs_ai_config() -> DocumentationAIConfig:
     query_desc_model = _get_model_value(
         get_litellm_model_env_variable(
             "QUERY_DESCRIPTION_GENERATION_MODEL",
-            LiteLLMModel.CLAUDE_35_SONNET,
+            LiteLLMModel.CLAUDE_37_SONNET,
             "QUERY_DESCRIPTION_GENERATION_BEDROCK_MODEL",
         )
     )

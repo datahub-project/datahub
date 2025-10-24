@@ -1,14 +1,18 @@
+import { TableProps } from 'antd';
+import { SorterResult } from 'antd/es/table/interface';
 import ResizeObserver from 'rc-resize-observer';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { StyledTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTable';
 import { useAssertionsTableColumns } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/hooks';
+import { AssertionListTableRow } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { mapAssertionDataToTableProperties } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
 import {
-    AssertionListTableRow,
-    AssertionTable,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
-import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+    AssertionWithMonitorDetails,
+    getEntityUrnForAssertion,
+    getSiblingWithUrn,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
 import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
@@ -23,23 +27,35 @@ const TableContainer = styled.div`
 `;
 
 type Props = {
-    assertionData: AssertionTable;
+    assertions: AssertionWithMonitorDetails[];
     refetch: () => void;
     contract: DataContract | undefined;
     canEditAssertions: boolean;
     canEditMonitors: boolean;
     canEditSqlAssertions: boolean;
     isEntityReachable: boolean;
+    page: number;
+    setPage: (page: number) => void;
+    pageSize: number;
+    totalAssertions: number;
+    loading: boolean;
+    onSortColumnChange: (sorter: SorterResult<AssertionListTableRow>) => void;
 };
 
 export const AcrylAssertionListTable = ({
-    assertionData,
+    assertions,
     refetch,
     contract,
     canEditAssertions,
     canEditMonitors,
     canEditSqlAssertions,
     isEntityReachable,
+    page,
+    setPage,
+    pageSize,
+    totalAssertions,
+    loading,
+    onSortColumnChange,
 }: Props) => {
     const { entityData } = useEntityData();
     const [tableHeight, setTableHeight] = useState(0);
@@ -55,14 +71,13 @@ export const AcrylAssertionListTable = ({
     });
 
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
-    const focusedAssertion = assertionData.assertions.find((assertion) => assertion.urn === focusAssertionUrn);
-    const focusedEntityUrn = focusedAssertion ? getEntityUrnForAssertion(focusedAssertion.assertion) : undefined;
+    const focusedAssertion = assertions.find((assertion) => assertion.urn === focusAssertionUrn);
+    const focusedEntityUrn = focusedAssertion ? getEntityUrnForAssertion(focusedAssertion) : undefined;
 
     const focusedAssertionEntity =
         focusedEntityUrn && entityData ? getSiblingWithUrn(entityData, focusedEntityUrn) : undefined;
-
     const canEditFocusAssertion = focusedAssertion
-        ? (focusedAssertion?.type === AssertionType.Sql && canEditSqlAssertions) || canEditAssertions
+        ? (focusedAssertion?.info?.type === AssertionType.Sql && canEditSqlAssertions) || canEditAssertions
         : false;
     const canEditFocusMonitor = focusedAssertion ? canEditMonitors : false;
 
@@ -84,10 +99,7 @@ export const AcrylAssertionListTable = ({
         return 'acryl-assertions-table-row';
     };
 
-    const memoizedData = useMemo(
-        () => assertionData.assertions.map((assertion) => ({ ...assertion, key: assertion.urn })),
-        [assertionData.assertions],
-    );
+    const assertionRows = mapAssertionDataToTableProperties(assertions);
 
     const handleRowClick = useCallback(
         (record) => {
@@ -100,6 +112,12 @@ export const AcrylAssertionListTable = ({
         [setFocusAssertionUrn],
     );
 
+    const handleTableChange: TableProps<AssertionListTableRow>['onChange'] = (_, __, sorter) => {
+        if (sorter && Object.keys(sorter).length && !Array.isArray(sorter)) {
+            onSortColumnChange(sorter as SorterResult<AssertionListTableRow>);
+        }
+    };
+
     return (
         <TableContainer>
             <ResizeObserver
@@ -108,20 +126,27 @@ export const AcrylAssertionListTable = ({
                 <StyledTable<AssertionListTableRow>
                     columns={assertionsTableCols}
                     showSelect
-                    dataSource={memoizedData}
+                    dataSource={assertionRows}
                     showHeader
                     scroll={{
                         y: tableHeight,
                     }}
                     pagination={{
-                        pageSize: 50,
+                        current: page,
+                        pageSize,
+                        total: totalAssertions,
                         position: ['bottomCenter'],
                         showSizeChanger: false,
+                        onChange: (newPage) => {
+                            setPage(newPage);
+                        },
                     }}
                     rowClassName={rowClassName}
                     bordered={false}
                     onRow={handleRowClick}
                     tableLayout="fixed"
+                    loading={loading}
+                    onChange={handleTableChange}
                 />
             </ResizeObserver>
             {focusAssertionUrn && focusedAssertionEntity && (

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import dataclasses
+import functools
+import inspect
 import json
 import os
-from typing import Any, Callable, List, Optional
+from typing import Any, Awaitable, Callable, List, Optional, ParamSpec, TypeVar
 
 import asyncer
 import fastmcp.tools
@@ -14,9 +16,41 @@ from mcp.types import TextContent
 
 from datahub_integrations.chat.context_reducer import TokenCountEstimator
 
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
 # Maximum token count for tool responses to prevent context window issues
 # As per telemetry tool result length goes upto
 TOOL_RESPONSE_TOKEN_LIMIT = int(os.getenv("TOOL_RESPONSE_TOKEN_LIMIT", 80000))
+
+
+# Note: This is intentionally duplicated from mcp_server.py (which is a copy from upstream project)
+# to keep tool.py independent and mcp_server.py easy to sync with upstream.
+# See https://github.com/jlowin/fastmcp/issues/864#issuecomment-3103678258
+# for why we need to wrap sync functions with asyncify.
+def async_background(fn: Callable[_P, _R]) -> Callable[_P, Awaitable[_R]]:
+    """Wrap a synchronous function to run in a background thread.
+
+    This prevents blocking the event loop when the function does I/O operations.
+    Use this for any sync function that makes API calls or does other blocking work.
+
+    Args:
+        fn: A synchronous function to wrap
+
+    Returns:
+        An async version of the function that runs in a thread pool
+
+    Raises:
+        RuntimeError: If fn is already async (use it directly instead)
+    """
+    if inspect.iscoroutinefunction(fn):
+        raise RuntimeError("async_background can only be used on non-async functions")
+
+    @functools.wraps(fn)
+    async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        return await asyncer.asyncify(fn)(*args, **kwargs)
+
+    return wrapper
 
 
 class ToolRunError(Exception):
@@ -52,6 +86,10 @@ class ToolWrapper:
 
         Tools with complex return types will be returned as dicts. Otherwise,
         the results will be JSON-serialized.
+
+        This method handles both sync and async tool functions:
+        - For async tools: uses syncify to run them synchronously
+        - For sync tools: runs them directly without blocking async operations
         """
         with mlflow.start_span(
             f"run_tool_{self.name}",
@@ -60,6 +98,9 @@ class ToolWrapper:
         ) as span:
             span.set_inputs(arguments)
             try:
+                # Check if _tool.run is a coroutine function (async)
+                # FastMCP's Tool.run is always async, so we need to use syncify
+                # The raise_sync_error=False allows this to work even if we're in an async context
                 tool_result = asyncer.syncify(self._tool.run, raise_sync_error=False)(
                     arguments
                 )
@@ -94,6 +135,12 @@ class ToolWrapper:
     def from_function(
         cls, fn: Callable[..., Any], name: str, description: str
     ) -> ToolWrapper:
+        """Create a ToolWrapper from a function.
+
+        Note: For sync functions that do blocking I/O (like API calls), wrap them
+        with async_background() before passing to this method. See mcp_server.py
+        for examples.
+        """
         return ToolWrapper(
             fastmcp.tools.Tool.from_function(fn, name=name, description=description)
         )

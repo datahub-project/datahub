@@ -111,29 +111,35 @@ def track_saas_event(
         logger.debug("Skipping telemetry as environment variable is not set")
         return
 
-    # Include the timestamp in ISO format in the properties
-    # The TrackingService will handle the conversion to the appropriate format
-    # for each destination (Mixpanel and Kafka)
-    properties = {
-        **_default_global_properties(),
-        **event.model_dump(
-            exclude={"timestamp", "user_urn"}
-        ),  # Exclude timestamp and user_urn from event.dict()
-        "distinct_id": event.user_urn or _get_server_id(),
-        "origin": _get_origin(),
-        "timestamp": event.timestamp.isoformat(),  # Include ISO formatted timestamp
-    }
-
     # Send to Mixpanel only if the environment variable is set
     if SEND_MIXPANEL_EVENTS:
-        telemetry_client.track(
-            event.user_urn or _get_server_id(),
-            event.type,
-            properties,
-        )
-        logger.debug("Sent telemetry event to Mixpanel")
+        mixpanel_properties = {
+            **_default_global_properties(),
+            **event.model_dump(
+                exclude={
+                    "timestamp",
+                    "user_urn",
+                    "full_history",  # Entire conversation history as JSON
+                    "reduction_sequence",  # Can be large JSON
+                }
+            ),
+            "distinct_id": event.user_urn or _get_server_id(),
+            "origin": _get_origin(),
+            "timestamp": event.timestamp.isoformat(),
+        }
+
+        try:
+            telemetry_client.track(
+                event.user_urn or _get_server_id(),
+                event.type,
+                mixpanel_properties,
+            )
+            logger.debug("Sent telemetry event to Mixpanel")
+        except Exception as e:
+            # Log the error but don't let Mixpanel failures affect the main flow
+            logger.error(f"Failed to send telemetry event to Mixpanel: {str(e)}")
     else:
         logger.debug("Skipping Mixpanel telemetry as environment variable is not set")
 
-    # Send to DataHub API
+    # Send to DataHub API (this should always work and includes full data)
     _send_to_api(event)

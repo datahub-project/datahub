@@ -1,4 +1,5 @@
 import re
+import time
 from typing import Optional
 
 import pytest
@@ -145,3 +146,47 @@ def test_tool_response_token_limit_dict_response() -> None:
     assert "Error executing tool test:" in error_message
     assert "Tool response too large" in error_message
     assert f"limit: {TOOL_RESPONSE_TOKEN_LIMIT:,}" in error_message
+
+
+def test_sync_function_with_blocking_io() -> None:
+    """Test that sync functions with blocking I/O run in a background thread.
+
+    This verifies the fix for the threading issue where sync functions like
+    create_plan were blocking for long periods (up to 10 minutes).
+    """
+
+    def blocking_sync_fn(duration: float) -> str:
+        """Simulate a blocking I/O operation like a Bedrock API call."""
+        time.sleep(duration)
+        return f"Completed after {duration}s"
+
+    tool = ToolWrapper.from_function(
+        fn=blocking_sync_fn, name="blocking_test", description="Test blocking sync"
+    )
+
+    # Run the tool - it should complete without hanging
+    start_time = time.time()
+    result = tool.run({"duration": 0.1})
+    elapsed = time.time() - start_time
+
+    # Verify it completed correctly
+    assert result == {"result": "Completed after 0.1s"}
+
+    # Should take approximately 0.1s (with some overhead for thread pool)
+    # If it takes significantly longer, there's likely a threading issue
+    assert elapsed < 1.0, f"Tool execution took too long: {elapsed}s"
+
+
+def test_async_function_still_works() -> None:
+    """Test that async functions continue to work correctly after the fix."""
+
+    async def async_fn(x: int, y: int) -> int:
+        """An async function for testing."""
+        return x * y
+
+    tool = ToolWrapper.from_function(
+        fn=async_fn, name="async_test", description="Test async function"
+    )
+
+    result = tool.run({"x": 5, "y": 7})
+    assert result == {"result": 35}

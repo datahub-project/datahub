@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import { RangeInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/RangeInput';
 import { TabbedInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/TabbedInput';
-import { ValueInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/ValueInput';
 import {
     getFieldValuesOperatorOptions,
     getSelectedFieldValuesOperatorOption,
@@ -64,12 +63,13 @@ export const FieldValuesParameterBuilder = ({ value, onChange, disabled, isEditM
             return <RangeInput value={value} onChange={onChange} disabled={disabled} />;
         }
         return (
-            <ValueInput
+            <TabbedInput
                 value={value}
                 onChange={onChange}
                 inputType={selectedOption?.inputType}
                 disabled={disabled}
                 isEditMode={isEditMode}
+                isSetOperation={false}
             />
         );
     };

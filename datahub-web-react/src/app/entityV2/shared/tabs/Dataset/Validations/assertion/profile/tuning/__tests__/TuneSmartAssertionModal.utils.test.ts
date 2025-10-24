@@ -95,6 +95,7 @@ describe('TuneSmartAssertionModal.utils', () => {
                                     __typename: 'AnomalySource',
                                     type: AnomalySourceType.InferredAssertionFailure,
                                     sourceUrn: 'urn:li:assertion:test',
+                                    sourceEventTimestampMillis: 1640995200000,
                                     properties: {
                                         __typename: 'AnomalySourceProperties',
                                         assertionMetric: {
@@ -141,6 +142,7 @@ describe('TuneSmartAssertionModal.utils', () => {
                                     __typename: 'AnomalySource',
                                     type: AnomalySourceType.InferredAssertionFailure,
                                     sourceUrn: 'urn:li:assertion:test',
+                                    sourceEventTimestampMillis: 1640995200000,
                                     properties: {
                                         __typename: 'AnomalySourceProperties',
                                         assertionMetric: {
@@ -427,6 +429,7 @@ describe('TuneSmartAssertionModal.utils', () => {
                                     __typename: 'AnomalySource',
                                     type: AnomalySourceType.InferredAssertionFailure,
                                     sourceUrn: 'urn:li:assertion:test',
+                                    sourceEventTimestampMillis: 1640995200000,
                                     properties: {
                                         __typename: 'AnomalySourceProperties',
                                         assertionMetric: {
@@ -464,6 +467,7 @@ describe('TuneSmartAssertionModal.utils', () => {
                                     __typename: 'AnomalySource',
                                     type: AnomalySourceType.InferredAssertionFailure,
                                     sourceUrn: 'urn:li:assertion:test',
+                                    sourceEventTimestampMillis: 1641168000000,
                                     properties: {
                                         __typename: 'AnomalySourceProperties',
                                         assertionMetric: {

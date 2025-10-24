@@ -1,0 +1,16 @@
+export { FileDragDropExtension } from './FileDragDropExtension';
+export { FileNodeView } from './FileNodeView';
+export {
+    FILE_ATTRS,
+    SUPPORTED_FILE_TYPES,
+    createFileNodeAttributes,
+    handleFileDownload,
+    validateFile,
+    isFileUrl,
+    getFileTypeFromUrl,
+    getFileTypeFromFilename,
+    generateFileId,
+} from './fileUtils';
+
+// Export types separately
+export type { FileNodeAttributes } from './fileUtils';

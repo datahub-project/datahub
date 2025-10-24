@@ -1,3 +1,4 @@
+from datahub.utilities.perf_timer import PerfTimer
 from datahub_integrations.experimentation.ai_init import (
     AI_EXPERIMENTATION_INITIALIZED,
 )
@@ -98,9 +99,11 @@ async def run_prompt(
             output_file = local_results_dir / f"{case.id}.json"
 
             logger.debug("Generating chatbot response")
-            next_message: NextMessage = await asyncer.asyncify(
-                session.generate_next_message
-            )()
+            with PerfTimer() as timer:
+                next_message: NextMessage = await asyncer.asyncify(
+                    session.generate_next_message
+                )()
+                response_time = timer.elapsed_seconds()
 
             logger.info(f"Successfully generated response for prompt: {case.id}")
             logger.debug(
@@ -114,6 +117,7 @@ async def run_prompt(
                 "next_message": next_message.model_dump_json(),
                 "history": history.model_dump_json(),
                 "error": None,
+                "response_time": response_time,
             }
         except Exception as e:
             logger.error(f"Error in prompt {case.id}: {str(e)}")
@@ -124,6 +128,7 @@ async def run_prompt(
                 "next_message": None,
                 "history": None,
                 "error": str(e),
+                "response_time": None,
             }
         finally:
             logger.debug(f"Saving history file for {case.id}")
@@ -228,6 +233,13 @@ async def process_all_batches(
         f"All {len(all_results)} tasks have been completed across {len(prompt_batches)} batches"
     )
     return all_results
+
+def log_generation_time_metrics(evals_df: pd.DataFrame) -> None:
+    """Log generation time metrics to MLflow."""
+    response_times = evals_df["response_time"].dropna()
+    if len(response_times) > 0:
+        mlflow.log_metric("response_time_max", response_times.max())
+        mlflow.log_metric("response_time_avg", response_times.mean())
 
 
 async def main(
@@ -360,6 +372,7 @@ async def main(
                 # mlflow.metrics.token_count(),
             ],
         )
+        log_generation_time_metrics(results_df)
         logger.info("Evaluation completed successfully")
         logger.debug(f"Evaluation results: {eval_result}")
 

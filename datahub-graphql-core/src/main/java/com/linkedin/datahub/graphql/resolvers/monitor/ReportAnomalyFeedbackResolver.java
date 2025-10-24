@@ -1,11 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.monitor;
 
 import com.linkedin.anomaly.AnomalyReviewState;
-import com.linkedin.anomaly.AnomalySource;
-import com.linkedin.anomaly.AnomalySourceProperties;
-import com.linkedin.anomaly.AnomalySourceType;
 import com.linkedin.assertion.AssertionRunEvent;
-import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -82,33 +78,38 @@ public class ReportAnomalyFeedbackResolver
                 DataHubGraphQLErrorCode.NOT_FOUND);
           }
 
-          // 2. create the anomaly event
-
-          final AnomalySourceProperties anomalySourceProperties = new AnomalySourceProperties();
-          if (runEvent.hasResult() && runEvent.getResult().hasMetric()) {
-            anomalySourceProperties.setAssertionMetric(runEvent.getResult().getMetric());
+          // 2. get the latest anomaly event timestamp
+          // We use the max of current time and the latest anomaly event timestamp to ensure
+          // timestamps are always moving forward
+          final long currentTimeMillis = _timeProvider.getAsLong();
+          long anomalyEventTimestampMillis;
+          try {
+            final long latestAnomalyEventTimestampMillis =
+                MonitorAnomalyEventUtils.getLatestAnomalyEventTimestamp(
+                    queryContext.getOperationContext(), this._entityClient, monitorUrn);
+            anomalyEventTimestampMillis =
+                Math.max(currentTimeMillis, latestAnomalyEventTimestampMillis);
+          } catch (Exception e) {
+            log.warn(
+                "Failed to get latest anomaly event timestamp for monitor {}. Using current time as fallback. Error: {}",
+                monitorUrn,
+                e.getMessage());
+            anomalyEventTimestampMillis = currentTimeMillis;
           }
 
-          final AnomalySource anomalySource = new AnomalySource();
-          anomalySource.setSourceUrn(assertionUrn);
-          anomalySource.setSourceEventTimestampMillis(runEventTimestampMillis);
-          anomalySource.setType(AnomalySourceType.USER_FEEDBACK);
-          anomalySource.setProperties(anomalySourceProperties);
-
-          final TimeStamp now = new TimeStamp().setTime(_timeProvider.getAsLong());
+          // 3. create the anomaly event
           final com.linkedin.anomaly.MonitorAnomalyEvent anomalyEvent =
-              new com.linkedin.anomaly.MonitorAnomalyEvent();
-          anomalyEvent.setTimestampMillis(_timeProvider.getAsLong());
-          anomalyEvent.setState(AnomalyReviewState.valueOf(input.getState().name()));
-          anomalyEvent.setSource(anomalySource);
-          anomalyEvent.setCreated(now);
-          anomalyEvent.setLastUpdated(now);
+              MonitorAnomalyEventUtils.buildMonitorAnomalyEvent(
+                  assertionUrn,
+                  runEvent,
+                  AnomalyReviewState.valueOf(input.getState().name()),
+                  anomalyEventTimestampMillis);
 
-          // 3. ingest the anomaly event
+          // 4. ingest the anomaly event
           try {
             this._entityClient.ingestProposal(
                 queryContext.getOperationContext(),
-                AspectUtils.buildMetadataChangeProposal(
+                AspectUtils.buildSynchronousMetadataChangeProposal(
                     monitorUrn, Constants.MONITOR_ANOMALY_EVENT_ASPECT_NAME, anomalyEvent),
                 false);
             // best attempt to trigger retraining of the monitor

@@ -36,7 +36,7 @@ public class ReindexAssertionInfo implements NonBlockingSystemUpgrade {
 
   @Override
   public String id() {
-    return this.getClass().getName() + "v3";
+    return this.getClass().getName() + "v2";
   }
 
   @Override

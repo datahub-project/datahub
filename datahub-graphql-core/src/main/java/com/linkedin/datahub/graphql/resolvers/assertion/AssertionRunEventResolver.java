@@ -6,7 +6,6 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.anomaly.MonitorAnomalyEvent;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Assertion;
@@ -17,26 +16,23 @@ import com.linkedin.datahub.graphql.generated.AssertionRunStatus;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.resolvers.monitor.MonitorAnomalyEventUtils;
 import com.linkedin.datahub.graphql.types.dataset.mappers.AssertionRunEventMapper;
 import com.linkedin.datahub.graphql.types.monitor.MonitorMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.AssertionService;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -188,75 +184,19 @@ public class AssertionRunEventResolver
     if (monitorUrn == null) {
       return Collections.emptyList();
     }
-    final List<EnvelopedAspect> aspects =
-        _client.getTimeseriesAspectValues(
-            context.getOperationContext(),
-            monitorUrn.toString(),
-            Constants.MONITOR_ENTITY_NAME,
-            Constants.MONITOR_ANOMALY_EVENT_ASPECT_NAME,
-            null,
-            null,
-            null, // NOTE: we cannot pass through the limit as there may be multiple anomaly
-            // feedback events for a given assertion run
-            maybeStartTimeMillis != null || maybeEndTimeMillis != null
-                ? buildAnomalyFeedbackEventsFilter(maybeStartTimeMillis, maybeEndTimeMillis)
-                : null);
-
-    return aspects.stream()
-        .map(
-            aspect ->
-                GenericRecordUtils.deserializeAspect(
-                    aspect.getAspect().getValue(),
-                    aspect.getAspect().getContentType(),
-                    com.linkedin.anomaly.MonitorAnomalyEvent.class))
-        .toList();
+    return MonitorAnomalyEventUtils.fetchAnomalyEvents(
+        context.getOperationContext(),
+        _client,
+        monitorUrn.toString(),
+        maybeStartTimeMillis,
+        maybeEndTimeMillis);
   }
 
+  /** Builds a map from source event timestamp to anomaly event. */
   @Nonnull
-  protected static Filter buildAnomalyFeedbackEventsFilter(
-      @Nullable Long maybeStartTimeMillis, @Nullable Long maybeEndTimeMillis) {
-    return new Filter()
-        .setOr(
-            new ConjunctiveCriterionArray(
-                new ConjunctiveCriterion()
-                    .setAnd(
-                        new CriterionArray(
-                            ImmutableList.of(
-                                new Criterion()
-                                    .setField("sourceEventTimestampMillis")
-                                    .setCondition(Condition.BETWEEN)
-                                    .setValues(
-                                        new StringArray(
-                                            List.of(
-                                                maybeStartTimeMillis != null
-                                                    ? maybeStartTimeMillis.toString()
-                                                    : "0",
-                                                maybeEndTimeMillis != null
-                                                    ? maybeEndTimeMillis.toString()
-                                                    : String.valueOf(Long.MAX_VALUE)))))))));
-  }
-
-  private static Map<Long, MonitorAnomalyEvent> buildAnomalyEventMap(
+  private Map<Long, MonitorAnomalyEvent> buildAnomalyEventMap(
       @Nonnull List<MonitorAnomalyEvent> anomalyEvents) {
-    final Map<Long, MonitorAnomalyEvent> anomalyEventMap = new HashMap<>();
-
-    for (MonitorAnomalyEvent anomalyEvent : anomalyEvents) {
-      if (anomalyEvent.getSource().getSourceEventTimestampMillis() == null) {
-        continue;
-      }
-      final MonitorAnomalyEvent maybeExistingEvent =
-          anomalyEventMap.get(anomalyEvent.getSource().getSourceEventTimestampMillis());
-      // If an anomaly event already exists for this timestamp, skip if the new one is NOT more
-      // recent
-      if (maybeExistingEvent != null
-          && anomalyEvent.getTimestampMillis() <= maybeExistingEvent.getTimestampMillis()) {
-        continue;
-      }
-      // Use the timestamp as the key to map anomaly events to run events
-      anomalyEventMap.put(anomalyEvent.getSource().getSourceEventTimestampMillis(), anomalyEvent);
-    }
-
-    return anomalyEventMap;
+    return MonitorAnomalyEventUtils.buildAnomalyEventMapBySourceEvent(anomalyEvents);
   }
 
   @Nullable

@@ -69,7 +69,7 @@ public class AssertionInfoMutator extends MutationHook {
     return mutated;
   }
 
-  private static Urn getEntityFromAssertionInfo(AssertionInfo assertionInfo) {
+  public static Urn getEntityFromAssertionInfo(AssertionInfo assertionInfo) {
     switch (assertionInfo.getType()) {
       case DATASET:
         return assertionInfo.getDatasetAssertion().getDataset();

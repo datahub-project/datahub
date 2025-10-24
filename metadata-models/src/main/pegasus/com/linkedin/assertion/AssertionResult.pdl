@@ -12,7 +12,8 @@ record AssertionResult includes AssertionWithoutAnnotations, BaseAssertionWithou
   @TimeseriesField = {}
   @Searchable = {
     "fieldName": "lastResultType",
-    "fieldType": "KEYWORD"
+    "fieldType": "KEYWORD",
+    "addToFilters": true
   }
   type: AssertionResultType
 

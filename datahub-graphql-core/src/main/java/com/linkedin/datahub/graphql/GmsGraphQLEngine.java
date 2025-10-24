@@ -57,6 +57,7 @@ import com.linkedin.datahub.graphql.resolvers.businessattribute.UpdateBusinessAt
 import com.linkedin.datahub.graphql.resolvers.chart.BrowseV2Resolver;
 import com.linkedin.datahub.graphql.resolvers.chart.ChartStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
+import com.linkedin.datahub.graphql.resolvers.config.ProductUpdateResolver;
 import com.linkedin.datahub.graphql.resolvers.connection.CreateNotificationConnectionTestResolver;
 import com.linkedin.datahub.graphql.resolvers.connection.DeleteConnectionResolver;
 import com.linkedin.datahub.graphql.resolvers.connection.GetNotificationConnectionTestResultResolver;
@@ -90,6 +91,7 @@ import com.linkedin.datahub.graphql.resolvers.entity.EntityExistsResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.versioning.LinkAssetVersionResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.versioning.UnlinkAssetVersionResolver;
+import com.linkedin.datahub.graphql.resolvers.file.CreateDataHubFileResolver;
 import com.linkedin.datahub.graphql.resolvers.files.GetPresignedUploadUrlResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchAssignFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchRemoveFormResolver;
@@ -299,6 +301,7 @@ import com.linkedin.datahub.graphql.types.entitytype.EntityTypeType;
 import com.linkedin.datahub.graphql.types.ermodelrelationship.CreateERModelRelationshipResolver;
 import com.linkedin.datahub.graphql.types.ermodelrelationship.ERModelRelationshipType;
 import com.linkedin.datahub.graphql.types.ermodelrelationship.UpdateERModelRelationshipResolver;
+import com.linkedin.datahub.graphql.types.file.DataHubFileType;
 import com.linkedin.datahub.graphql.types.form.FormType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
@@ -326,7 +329,6 @@ import com.linkedin.datahub.graphql.types.template.PageTemplateType;
 import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.datahub.graphql.types.versioning.VersionSetType;
 import com.linkedin.datahub.graphql.types.view.DataHubViewType;
-import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
@@ -345,6 +347,7 @@ import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
+import com.linkedin.metadata.service.DataHubFileService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
@@ -352,11 +355,13 @@ import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.PageModuleService;
 import com.linkedin.metadata.service.PageTemplateService;
+import com.linkedin.metadata.service.ProductUpdateService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.test.MetadataTestClient;
@@ -420,6 +425,7 @@ public class GmsGraphQLEngine {
   private final InviteTokenService inviteTokenService;
   private final PostService postService;
   private final SettingsService settingsService;
+  private final ProductUpdateService productUpdateService;
   private final ViewService viewService;
   private final OwnershipTypeService ownershipTypeService;
   private final LineageService lineageService;
@@ -435,6 +441,7 @@ public class GmsGraphQLEngine {
   private final ApplicationService applicationService;
   private final PageTemplateService pageTemplateService;
   private final PageModuleService pageModuleService;
+  private final DataHubFileService dataHubFileService;
 
   private final BusinessAttributeService businessAttributeService;
   private final FeatureFlags featureFlags;
@@ -449,6 +456,7 @@ public class GmsGraphQLEngine {
   private final ViewsConfiguration viewsConfiguration;
   private final SearchBarConfiguration searchBarConfiguration;
   private final SearchCardConfiguration searchCardConfiguration;
+  private final SearchFlagsConfiguration searchFlagsConfiguration;
   private final HomePageConfiguration homePageConfiguration;
   private final ChromeExtensionConfiguration chromeExtensionConfiguration;
   private final ClassificationConfiguration classificationConfiguration;
@@ -506,6 +514,7 @@ public class GmsGraphQLEngine {
   private final ExecutionRequestType executionRequestType;
   private final PageTemplateType dataHubPageTemplateType;
   private final PageModuleType dataHubPageModuleType;
+  private final DataHubFileType dataHubFileType;
 
   private final GraphQLConfiguration graphQLConfiguration;
   private final MetricUtils metricUtils;
@@ -560,6 +569,10 @@ public class GmsGraphQLEngine {
     this.viewService = args.viewService;
     this.ownershipTypeService = args.ownershipTypeService;
     this.settingsService = args.settingsService;
+    this.productUpdateService =
+        new ProductUpdateService(
+            args.featureFlags.getProductUpdatesJsonUrl(),
+            args.featureFlags.getProductUpdatesJsonFallbackResourceUrl());
     this.lineageService = args.lineageService;
     this.queryService = args.queryService;
     this.erModelRelationshipService = args.erModelRelationshipService;
@@ -567,6 +580,7 @@ public class GmsGraphQLEngine {
     this.applicationService = args.applicationService;
     this.pageTemplateService = args.pageTemplateService;
     this.pageModuleService = args.pageModuleService;
+    this.dataHubFileService = args.dataHubFileService;
     this.formService = args.formService;
     this.restrictedService = args.restrictedService;
     this.connectionService = args.connectionService;
@@ -585,6 +599,7 @@ public class GmsGraphQLEngine {
     this.viewsConfiguration = args.viewsConfiguration;
     this.searchBarConfiguration = args.searchBarConfiguration;
     this.searchCardConfiguration = args.searchCardConfiguration;
+    this.searchFlagsConfiguration = args.searchFlagsConfiguration;
     this.homePageConfiguration = args.homePageConfiguration;
     this.featureFlags = args.featureFlags;
     this.chromeExtensionConfiguration = args.chromeExtensionConfiguration;
@@ -640,6 +655,7 @@ public class GmsGraphQLEngine {
     this.executionRequestType = new ExecutionRequestType(entityClient);
     this.dataHubPageTemplateType = new PageTemplateType(entityClient);
     this.dataHubPageModuleType = new PageModuleType(entityClient);
+    this.dataHubFileType = new DataHubFileType(entityClient);
     this.graphQLConfiguration = args.graphQLConfiguration;
     this.metricUtils = args.metricUtils;
     this.s3Util = args.s3Util;
@@ -696,7 +712,8 @@ public class GmsGraphQLEngine {
                 applicationType,
                 executionRequestType,
                 dataHubPageTemplateType,
-                dataHubPageModuleType));
+                dataHubPageModuleType,
+                dataHubFileType));
     this.loadableTypes = new ArrayList<>(entityTypes);
 
     this.graphQLPlugins =
@@ -813,6 +830,7 @@ public class GmsGraphQLEngine {
     configureGlobalHomePageSettingsResolvers(builder);
     configureSourceDetailsResolvers(builder);
     configurePageTemplateResolvers(builder);
+    configureDataHubFileResolvers(builder);
     configureAssetSettingsResolver(builder);
   }
 
@@ -1007,12 +1025,17 @@ public class GmsGraphQLEngine {
                         this.viewsConfiguration,
                         this.searchBarConfiguration,
                         this.searchCardConfiguration,
+                        this.searchFlagsConfiguration,
                         this.homePageConfiguration,
                         this.featureFlags,
                         this.chromeExtensionConfiguration,
                         this.settingsService,
                         this.classificationConfiguration,
-                        this.defaultLineageLastDaysFilter))
+                        this.defaultLineageLastDaysFilter,
+                        this.s3Util != null))
+                .dataFetcher(
+                    "latestProductUpdate",
+                    new ProductUpdateResolver(this.productUpdateService, this.featureFlags))
                 .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
                 .dataFetcher("search", new SearchResolver(this.entityClient))
                 .dataFetcher(
@@ -1461,6 +1484,10 @@ public class GmsGraphQLEngine {
                   "deletePageTemplate", new DeletePageTemplateResolver(this.pageTemplateService))
               .dataFetcher("upsertPageModule", new UpsertPageModuleResolver(this.pageModuleService))
               .dataFetcher("deletePageModule", new DeletePageModuleResolver(this.pageModuleService))
+              .dataFetcher(
+                  "createDataHubFile",
+                  new CreateDataHubFileResolver(
+                      this.dataHubFileService, this.datahubConfiguration.getS3()))
               .dataFetcher("setLogicalParent", new SetLogicalParentResolver(this.entityClient))
               .dataFetcher(
                   "updateDocPropagationSettings",
@@ -3210,6 +3237,16 @@ public class GmsGraphQLEngine {
                               : null;
                         }))
                 .dataFetcher(
+                    "dataset",
+                    new LoadableTypeResolver<>(
+                        datasetType,
+                        (env) -> {
+                          final Assertion assertion = env.getSource();
+                          return assertion.getDataset() != null
+                              ? assertion.getDataset().getUrn()
+                              : null;
+                        }))
+                .dataFetcher(
                     "runEvents", new AssertionRunEventResolver(entityClient, assertionService))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));
@@ -3896,6 +3933,47 @@ public class GmsGraphQLEngine {
                     "platform",
                     new EntityTypeResolver(
                         entityTypes, (env) -> ((SourceDetails) env.getSource()).getPlatform())));
+  }
+
+  private void configureDataHubFileResolvers(final RuntimeWiring.Builder builder) {
+    builder
+        .type(
+            "CreateDataHubFileResponse",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "file",
+                    new LoadableTypeResolver<>(
+                        dataHubFileType,
+                        (env) -> {
+                          final CreateDataHubFileResponse response = env.getSource();
+                          return response.getFile() != null ? response.getFile().getUrn() : null;
+                        })))
+        .type(
+            "DataHubFile",
+            typeWiring ->
+                typeWiring
+                    .dataFetcher(
+                        "relationships", new EntityRelationshipsResultResolver(graphClient))
+                    .dataFetcher("exists", new EntityExistsResolver(entityService)));
+    builder.type(
+        "DataHubFileInfo",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "referencedByAsset",
+                    new EntityTypeResolver(
+                        entityTypes,
+                        (env) -> ((DataHubFileInfo) env.getSource()).getReferencedByAsset()))
+                .dataFetcher(
+                    "schemaField",
+                    new LoadableTypeResolver<>(
+                        schemaFieldType,
+                        (env) -> {
+                          final DataHubFileInfo fileInfo = env.getSource();
+                          return fileInfo.getSchemaField() != null
+                              ? fileInfo.getSchemaField().getUrn()
+                              : null;
+                        })));
   }
 
   private void configureAssetSettingsResolver(final RuntimeWiring.Builder builder) {

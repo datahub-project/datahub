@@ -16,11 +16,16 @@ const InputGroup = styled.div`
     display: flex;
     flex-direction: column;
     gap: 8px;
+    flex: 1;
 `;
 
 const StyledFormItem = styled(Form.Item)`
-    display: inline-block;
+    width: 100%;
     margin: 0;
+`;
+
+const StyledNumberInput = styled(InputNumber)`
+    width: 100%;
 `;
 
 type Props = {
@@ -35,7 +40,7 @@ export const SqlParametersRangeBuilder = ({ value, onChange, updateMetricChange,
     const changeType = value.assertion?.sqlAssertion?.changeType;
     const isPercentage = changeType === AssertionValueChangeType.Percentage;
 
-    const updateMinValue = (newValue: string | null) => {
+    const updateMinValue = (newValue: string | number | null) => {
         onChange({
             ...value,
             assertion: {
@@ -54,7 +59,7 @@ export const SqlParametersRangeBuilder = ({ value, onChange, updateMetricChange,
         });
     };
 
-    const updateMaxValue = (newValue: string | null) => {
+    const updateMaxValue = (newValue: string | number | null) => {
         onChange({
             ...value,
             assertion: {
@@ -94,7 +99,7 @@ export const SqlParametersRangeBuilder = ({ value, onChange, updateMetricChange,
                     }),
                 ]}
             >
-                <InputNumber
+                <StyledNumberInput
                     value={minValue}
                     onChange={updateMinValue}
                     disabled={disabled}
@@ -129,7 +134,7 @@ export const SqlParametersRangeBuilder = ({ value, onChange, updateMetricChange,
                     }),
                 ]}
             >
-                <InputNumber
+                <StyledNumberInput
                     value={maxValue}
                     onChange={updateMaxValue}
                     disabled={disabled}

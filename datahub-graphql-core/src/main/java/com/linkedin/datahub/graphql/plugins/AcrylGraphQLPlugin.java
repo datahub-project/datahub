@@ -70,6 +70,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.logging.CloudLoggingConfigs
 import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.integration.GetLinkPreviewResolver;
 import com.linkedin.datahub.graphql.resolvers.load.*;
+import com.linkedin.datahub.graphql.resolvers.monitor.BulkUpdateAnomaliesResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.CreateAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.DeleteMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.MonitorMetricsResolver;
@@ -152,7 +153,6 @@ import com.linkedin.datahub.graphql.types.remoteexecutor.RemoteExecutorPoolType;
 import com.linkedin.datahub.graphql.types.remoteexecutor.RemoteExecutorType;
 import com.linkedin.datahub.graphql.types.subscription.SubscriptionType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
-import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
@@ -177,6 +177,7 @@ import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.test.MetadataTestClient;
 import graphql.schema.DataFetchingEnvironmentImpl;
 import graphql.schema.idl.RuntimeWiring;
@@ -321,7 +322,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     if (executorRoleArn == null || executorRoleArn.trim().isEmpty()) {
       log.info("Executor role ARN is not set, not creating S3Util");
     } else {
-      this.s3Util = new S3Util(args.getEntityClient(), args.getStsClient(), executorRoleArn);
+      this.s3Util = new S3Util(args.getStsClient(), executorRoleArn);
     }
 
     this.initialized = true;
@@ -452,6 +453,9 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     "reportAnomalyFeedback",
                     new ReportAnomalyFeedbackResolver(
                         assertionService, monitorService, entityClient))
+                .dataFetcher(
+                    "bulkUpdateAnomalies",
+                    new BulkUpdateAnomaliesResolver(assertionService, monitorService, entityClient))
                 .dataFetcher(
                     "upsertDatasetFreshnessAssertionMonitor",
                     new UpsertDatasetFreshnessAssertionMonitorResolver(

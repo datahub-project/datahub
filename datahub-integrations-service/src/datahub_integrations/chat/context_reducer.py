@@ -28,10 +28,71 @@ class TokenCountEstimator:
     @staticmethod
     @lru_cache(maxsize=100)
     def estimate_tokens(text: str) -> int:
-        # This is rough estimate based on eval corpus
-        # We can also use 1.1 * token count from tiktoken encoding for gpt-4o
+        """
+        Fast token estimation using character-based heuristic.
+
+        Uses 1.3 * len(text) / 4 which empirically approximates token counts
+        for entity metadata. This approach is preferred over tiktoken because:
+        - Faster (no tokenizer overhead)
+        - More robust for structured/repetitive content
+        - No dependency on tokenizer libraries
+        - Accuracy is sufficient with 90% budget buffer
+
+        Returns:
+            Approximate token count
+        """
 
         return int(1.3 * len(text) / 4)
+
+    @staticmethod
+    def estimate_dict_tokens(
+        obj: Union[dict, list, str, int, float, bool, None],
+    ) -> int:
+        """
+        Fast approximation of token count for dict/list structures without JSON serialization.
+
+        Recursively walks structure counting characters. Much faster than json.dumps + estimate_tokens.
+
+        IMPORTANT: Assumes no circular references in the structure.
+        Protected against infinite recursion with MAX_DEPTH=100.
+
+        Args:
+            obj: Dict, list, or primitive value (must not contain circular references)
+
+        Returns:
+            Approximate token count
+        """
+        MAX_DEPTH = 100
+
+        def _count_chars(item, depth: int = 0) -> int:
+            if depth > MAX_DEPTH:
+                logger.error(
+                    f"Max depth {MAX_DEPTH} exceeded in structure, stopping recursion"
+                )
+                return 0
+
+            if item is None:
+                return 4  # "null"
+            elif isinstance(item, bool):
+                return 5  # "true" or "false"
+            elif isinstance(item, str):
+                return len(item)
+            elif isinstance(item, (int, float)):
+                return 6  # Average number length
+            elif isinstance(item, list):
+                return sum(_count_chars(elem, depth + 1) for elem in item) + len(item)
+            elif isinstance(item, dict):
+                total = 0
+                for key, value in item.items():
+                    total += len(str(key)) + 2  # Key + quotes/colon
+                    total += _count_chars(value, depth + 1)
+                return total + len(item)  # Add commas
+            else:
+                return 10  # Fallback for other types
+
+        chars = _count_chars(obj, depth=0)
+        # Use same formula as estimate_tokens for consistency
+        return int(1.3 * chars / 4)
 
 
 @dataclass

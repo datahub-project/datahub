@@ -22,6 +22,11 @@ const Row = styled.div`
     gap: 8px;
 `;
 
+const FooterButtons = styled.div`
+    display: flex;
+    justify-content: flex-end;
+`;
+
 type Props = {
     visible: boolean;
     handleClose: () => void;
@@ -63,7 +68,13 @@ export const TestAssertionModal = ({ visible, handleClose, input }: Props) => {
             title="Assertion Result"
             open={visible}
             onCancel={handleClose}
-            footer={<Button onClick={handleClose}>Done</Button>}
+            footer={
+                <FooterButtons>
+                    <Button variant="outline" onClick={handleClose}>
+                        Done
+                    </Button>
+                </FooterButtons>
+            }
         >
             {data?.testAssertion && (
                 <>

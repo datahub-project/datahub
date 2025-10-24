@@ -16,7 +16,7 @@ echo "admin:mypass" > ~/.datahub/plugins/frontend/auth/user.props
 
 echo "DATAHUB_VERSION = ${DATAHUB_VERSION:=acryl-datahub 0.0.0.dev0}"
 DATAHUB_SEARCH_IMAGE="${DATAHUB_SEARCH_IMAGE:=opensearchproject/opensearch}"
-DATAHUB_SEARCH_TAG="${DATAHUB_SEARCH_TAG:=2.17.0}"
+DATAHUB_SEARCH_TAG="${DATAHUB_SEARCH_TAG:=2.19.3}"
 XPACK_SECURITY_ENABLED="${XPACK_SECURITY_ENABLED:=plugins.security.disabled=true}"
 ELASTICSEARCH_USE_SSL="${ELASTICSEARCH_USE_SSL:=false}"
 USE_AWS_ELASTICSEARCH="${USE_AWS_ELASTICSEARCH:=true}"

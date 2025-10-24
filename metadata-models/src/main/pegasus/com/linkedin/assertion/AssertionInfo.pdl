@@ -19,7 +19,8 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     */
     @Searchable = {
       "fieldName": "assertionType",
-      "fieldType": "KEYWORD"
+      "fieldType": "KEYWORD",
+      "addToFilters": true
     }
     type: AssertionType
 

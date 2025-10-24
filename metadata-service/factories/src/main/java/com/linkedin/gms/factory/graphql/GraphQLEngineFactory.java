@@ -12,7 +12,6 @@ import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLWorkerPoolThreadFactory;
-import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.actionrequest.ActionRequestFactory;
@@ -49,6 +48,7 @@ import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataContractService;
+import com.linkedin.metadata.service.DataHubFileService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
@@ -66,6 +66,7 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -306,6 +307,10 @@ public class GraphQLEngineFactory {
   @Qualifier("s3Util")
   private S3Util s3Util;
 
+  @Autowired
+  @Qualifier("dataHubFileService")
+  private DataHubFileService dataHubFileService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -346,6 +351,7 @@ public class GraphQLEngineFactory {
     args.setViewsConfiguration(configProvider.getViews());
     args.setSearchBarConfiguration(configProvider.getSearchBar());
     args.setSearchCardConfiguration(configProvider.getSearchCard());
+    args.setSearchFlagsConfiguration(configProvider.getSearchFlags());
     args.setHomePageConfiguration(configProvider.getHomePage());
     args.setSiblingGraphService(siblingGraphService);
     args.setGroupService(groupService);
@@ -365,6 +371,7 @@ public class GraphQLEngineFactory {
     args.setApplicationService(applicationService);
     args.setPageTemplateService(pageTemplateService);
     args.setPageModuleService(pageModuleService);
+    args.setDataHubFileService(dataHubFileService);
     args.setGraphQLConfiguration(configProvider.getGraphQL());
     args.setBusinessAttributeService(businessAttributeService);
     args.setChromeExtensionConfiguration(configProvider.getChromeExtension());

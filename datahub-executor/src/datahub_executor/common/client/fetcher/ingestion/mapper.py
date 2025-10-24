@@ -64,7 +64,7 @@ def ingestion_sources_to_execution_requests(
                         if ingestion_source.config.version
                         else default_cli_version
                     ),
-                    "debug_mode": ingestion_source.config.debug_mode,
+                    "debug_mode": str(ingestion_source.config.debug_mode),
                     **ingestion_source.config.extra_args,
                 },
             )

@@ -12,7 +12,6 @@ import com.datahub.authorization.role.RoleService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.datahub.graphql.GraphQLEngine;
-import com.linkedin.datahub.graphql.util.S3Util;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -41,6 +40,7 @@ import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -321,6 +321,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @Qualifier("pageModuleService")
   private PageModuleService pageModuleService;
 
+  @MockitoBean
+  @Qualifier("dataHubFileService")
+  private DataHubFileService dataHubFileService;
+
   @Value("${platformAnalytics.enabled}")
   private Boolean isAnalyticsEnabled;
 
@@ -437,6 +441,9 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     setField(factoryWithAnalytics, "assertionService", assertionService);
     setField(factoryWithAnalytics, "metadataTestClient", metadataTestClient);
     setField(factoryWithAnalytics, "actionRequestService", actionRequestService);
+    setField(factoryWithAnalytics, "pageTemplateService", pageTemplateService);
+    setField(factoryWithAnalytics, "pageModuleService", pageModuleService);
+    setField(factoryWithAnalytics, "dataHubFileService", dataHubFileService);
     setField(factoryWithAnalytics, "s3Util", s3Util);
     setField(factoryWithAnalytics, "isAnalyticsEnabled", true);
     setField(factoryWithAnalytics, "defaultLineageLastDaysFilter", 30);
@@ -499,6 +506,9 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     assertNotNull(assertionService);
     assertNotNull(metadataTestClient);
     assertNotNull(actionRequestService);
+    assertNotNull(pageTemplateService);
+    assertNotNull(pageModuleService);
+    assertNotNull(dataHubFileService);
     assertNotNull(entityClient);
     assertNotNull(systemEntityClient);
     assertNotNull(s3Util);

@@ -145,6 +145,10 @@ public enum DataHubUsageEventType {
   ASSET_PAGE_ADD_SUMMARY_ELEMENT("AssetPageAddSummaryElement"),
   ASSET_PAGE_REMOVE_SUMMARY_ELEMENT("AssetPageRemoveSummaryElement"),
   ASSET_PAGE_REPLACE_SUMMARY_ELEMENT("AssetPageReplaceSummaryElement"),
+  FILE_UPLOAD_ATTEMPT_EVENT("FileUploadAttemptEvent"),
+  FILE_UPLOAD_FAILED_EVENT("FileUploadFailedEvent"),
+  FILE_UPLOAD_SUCCEEDED_EVENT("FileUploadSucceededEvent"),
+  FILE_DOWNLOAD_VIEW_EVENT("FileDownloadViewEvent"),
   // Not replicated in frontend, represents generic event from backend
   CREATE_USER_EVENT("CreateUserEvent"),
   UPDATE_USER_EVENT("UpdateUserEvent"),
@@ -159,6 +163,12 @@ public enum DataHubUsageEventType {
   WELCOME_TO_DATAHUB_MODAL_CLICK_VIEW_DOCUMENTATION_EVENT(
       "WelcomeToDataHubModalClickViewDocumentationEvent"),
   PRODUCT_TOUR_BUTTON_CLICK_EVENT("ProductTourButtonClickEvent"),
+
+  // Logical models
+  GO_TO_LOGICAL_PARENT_EVENT("GoToLogicalParentEvent"),
+  GO_TO_PHYSICAL_CHILD_EVENT("GoToPhysicalChildEvent"),
+  GO_TO_LOGICAL_PARENT_COLUMN_EVENT("GoToLogicalParentColumnEvent"),
+  GO_TO_PHYSICAL_CHILD_COLUMN_EVENT("GoToPhysicalChildColumnEvent"),
 
   // SaaS only events
   BATCH_PROPOSAL_ACTION_EVENT("BatchProposalActionEvent"),

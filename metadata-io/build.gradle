@@ -70,12 +70,20 @@ dependencies {
     exclude group: 'org.json', module: 'json'
   }
 
-  // acryl-main only
-  implementation('software.amazon.awssdk:eventbridge:2.17.170')
-  implementation('software.amazon.awssdk:sts:2.17.170')
-  implementation('software.amazon.awssdk:apache-client:2.17.170')
+  // acryl-main only - AWS SDK v2 dependencies
+  implementation platform(externalDependency.awsSdk2Bom)
+  implementation 'software.amazon.awssdk:eventbridge'
+  implementation 'software.amazon.awssdk:sts'
+  implementation 'software.amazon.awssdk:apache-client'
   api project(":datahub-integrations-service:clients:java")
   implementation 'com.squareup.okhttp3:okhttp:4.10.0'
+
+  // Exclude AWS SDK v1 to avoid conflicts with AWS SDK v2
+  configurations.all {
+    exclude group: 'com.amazonaws', module: 'aws-java-sdk-core'
+    exclude group: 'com.amazonaws', module: 'aws-java-sdk-sts'
+    exclude group: 'com.amazonaws', module: 'aws-java-sdk-s3'
+  }
 
   annotationProcessor externalDependency.lombok
 

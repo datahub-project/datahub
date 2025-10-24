@@ -17,12 +17,14 @@ dependencies {
   implementation 'software.amazon.awssdk:regions'
   implementation 'software.amazon.awssdk:sqs'
   implementation 'software.amazon.awssdk:sts'
+  implementation 'software.amazon.awssdk:s3'
 
   implementation project(':metadata-io')
   implementation project(':metadata-service:factories')
   implementation project(':metadata-service:restli-client-api')
   implementation project(':metadata-service:configuration')
   implementation project(':metadata-dao-impl:kafka-producer')
+  implementation project(':metadata-utils')
   implementation project(':metadata-service:openapi-servlet:models')
   implementation externalDependency.charle
 
@@ -37,6 +39,13 @@ dependencies {
     exclude group: "org.apache.hadoop.thirdparty", module: "hadoop-shaded-protobuf_3_7"
     exclude group: "com.charleskorn.kaml", module:"kaml"
     exclude group: "org.apache.kerby", module:"kerb-simplekdc"
+  }
+
+  // Exclude AWS SDK v1 to avoid conflicts with AWS SDK v2
+  configurations.all {
+    exclude group: 'com.amazonaws', module: 'aws-java-sdk-core'
+    exclude group: 'com.amazonaws', module: 'aws-java-sdk-sts'
+    exclude group: 'com.amazonaws', module: 'aws-java-sdk-s3'
   }
 
   constraints {
@@ -87,10 +96,6 @@ dependencies {
   runtimeOnly externalDependency.opentelemetryExporter
   runtimeOnly externalDependency.openTelemetryExporterLogging
   runtimeOnly externalDependency.openTelemetryExporterCommon
-
-  implementation externalDependency.awsJavaSdkCore
-  implementation externalDependency.awsJavaSdkSts
-  implementation externalDependency.awsJavaSdkS3
 
   runtimeOnly externalDependency.logbackClassic
   runtimeOnly externalDependency.logbackJackson
@@ -166,6 +171,7 @@ task run(type: Exec) {
   environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
   environment "SCHEMA_REGISTRY_TYPE", "INTERNAL"
   environment "BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_ENABLED", "false"
+  environment "SQL_SETUP_ENABLED", "true"
   commandLine "java",
           "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
           "-jar",
@@ -362,6 +368,79 @@ task runLoadIndices(type: Exec) {
   }
 
   commandLine args
+}
+
+
+/**
+ * Runs SqlSetup for MySQL on locally running system.
+ * Configured for quickstart MySQL service running on localhost:3306
+ * Uses environment variables for backwards compatibility with docker/mysql-setup
+ *
+ * Usage:
+ * ./gradlew runSqlSetupMysql
+ * MYSQL_USERNAME=datahub MYSQL_PASSWORD=datahub CREATE_USER=true ./gradlew runSqlSetupMysql
+ * CDC_MCL_PROCESSING_ENABLED=true CDC_USER=datahub_cdc CDC_PASSWORD=datahub_cdc ./gradlew runSqlSetupMysql
+ */
+task runSqlSetupMysql(type: Exec) {
+    dependsOn bootJar
+    group = "Execution"
+    description = "Run the SqlSetup process for MySQL locally - creates tables and optionally users/CDC. Uses environment variables for backwards compatibility."
+    environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+
+    // Set standard Ebean environment variables for MySQL
+    environment "EBEAN_DATASOURCE_USERNAME", "datahub"
+    environment "EBEAN_DATASOURCE_PASSWORD", "datahub"
+    environment "EBEAN_DATASOURCE_URL", "jdbc:mysql://localhost:3306/datahub"
+    environment "EBEAN_DATASOURCE_DRIVER", "com.mysql.cj.jdbc.Driver"
+    environment "EBEAN_USE_IAM_AUTH", "false"
+
+    // Set SqlSetup-specific environment variables
+    environment "CREATE_TABLES", "true"
+    environment "CREATE_USER", "false"
+    environment "CDC_MCL_PROCESSING_ENABLED", "false"
+    environment "CDC_USER", "datahub_cdc"
+    environment "CDC_PASSWORD", "datahub_cdc"
+
+    def args = ["java", "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+                "-jar", "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SqlSetup"]
+
+    commandLine args
+}
+
+/**
+ * Runs SqlSetup for PostgreSQL on locally running system.
+ * Configured for quickstart PostgreSQL service running on localhost:5432
+ * Uses environment variables for backwards compatibility with docker/postgres-setup
+ *
+ * Usage:
+ * ./gradlew runSqlSetupPostgres
+ * POSTGRES_USERNAME=datahub POSTGRES_PASSWORD=datahub CREATE_USER=true ./gradlew runSqlSetupPostgres
+ * CDC_MCL_PROCESSING_ENABLED=true CDC_USER=datahub_cdc CDC_PASSWORD=datahub_cdc ./gradlew runSqlSetupPostgres
+ */
+task runSqlSetupPostgres(type: Exec) {
+    dependsOn bootJar
+    group = "Execution"
+    description = "Run the SqlSetup process for PostgreSQL locally - creates database, tables and optionally users/CDC. Uses environment variables for backwards compatibility."
+    environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+
+    // Set standard Ebean environment variables for PostgreSQL
+    environment "EBEAN_DATASOURCE_USERNAME", "datahub"
+    environment "EBEAN_DATASOURCE_PASSWORD", "datahub"
+    environment "EBEAN_DATASOURCE_URL", "jdbc:postgresql://localhost:5432/datahub"
+    environment "EBEAN_DATASOURCE_DRIVER", "org.postgresql.Driver"
+    environment "EBEAN_USE_IAM_AUTH", "false"
+
+    // Set SqlSetup-specific environment variables
+    environment "CREATE_TABLES", "true"
+    environment "CREATE_USER", "false"
+    environment "CDC_MCL_PROCESSING_ENABLED", "false"
+    environment "CDC_USER", "datahub_cdc"
+    environment "CDC_PASSWORD", "datahub_cdc"
+
+    def args = ["java", "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+                "-jar", "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SqlSetup"]
+
+    commandLine args
 }
 
 docker {

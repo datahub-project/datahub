@@ -38,6 +38,7 @@ import io.datahubproject.openapi.generated.TestEntityResponseV2;
 import io.datahubproject.openapi.health.HealthCheckController;
 import io.datahubproject.openapi.operations.elastic.ElasticsearchController;
 import io.datahubproject.openapi.v1.event.ExternalEventsController;
+import io.datahubproject.openapi.v1.files.FilesController;
 import io.datahubproject.openapi.v2.controller.RelationshipController;
 import io.datahubproject.openapi.v2.controller.TimelineControllerV2;
 import io.datahubproject.openapi.v2.delegates.EntityApiDelegateImpl;
@@ -138,6 +139,7 @@ public class MetadataTestsTestConfiguration {
   @MockBean public HealthCheckController healthCheckController;
   @MockBean public ElasticsearchController operationsController;
   @MockBean public ExternalEventsController externalEventsController;
+  @MockBean public FilesController filesController;
   @MockBean public TestEngine testEngine;
   @MockBean public ManualThrottleSensor manualThrottleSensor;
 

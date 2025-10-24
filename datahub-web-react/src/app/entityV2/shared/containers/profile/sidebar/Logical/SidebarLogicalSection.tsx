@@ -2,6 +2,8 @@ import { colors } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
@@ -50,7 +52,20 @@ export default function SidebarLogicalSection() {
                 title="Logical Parent"
                 infoPopover="Logical Model that defines this asset's metadata.
                 Changes to the Logical Parent's metadata propagate automatically to this asset."
-                content={<CompactEntityNameComponent key={logicalParent.urn} entity={logicalParent} showFullTooltip />}
+                content={
+                    <CompactEntityNameComponent
+                        key={logicalParent.urn}
+                        entity={logicalParent}
+                        onClick={() =>
+                            analytics.event({
+                                type: EventType.GoToLogicalParentEvent,
+                                entityUrn: urn,
+                                parentUrn: logicalParent.urn,
+                            })
+                        }
+                        showFullTooltip
+                    />
+                }
             />
         );
     }
@@ -66,7 +81,17 @@ export default function SidebarLogicalSection() {
                 Changes to this asset's metadata propagate automatically to these children."
                 content={
                     <EntityListContainer data-testid="physical-children-list">
-                        <CompactEntityNameList entities={physicalChildren} showFullTooltips />
+                        <CompactEntityNameList
+                            entities={physicalChildren}
+                            onClick={(index) =>
+                                analytics.event({
+                                    type: EventType.GoToPhysicalChildEvent,
+                                    entityUrn: urn,
+                                    childUrn: physicalChildren[index]?.urn,
+                                })
+                            }
+                            showFullTooltips
+                        />
                         {numNotShown > 0 && (
                             <AndMoreWrapper onClick={() => setShowAllChildren(true)}>
                                 and {numNotShown} more

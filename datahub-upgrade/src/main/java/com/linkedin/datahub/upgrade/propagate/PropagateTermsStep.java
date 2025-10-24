@@ -13,7 +13,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
-import com.linkedin.datahub.upgrade.UpgradeUtils;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.propagate.comparator.EntityMatcher;
 import com.linkedin.datahub.upgrade.propagate.comparator.SchemaBasedMatcher;
@@ -32,6 +31,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.EnvironmentUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -104,7 +104,8 @@ public class PropagateTermsStep implements UpgradeStep {
 
       context.report().addLine(String.format("Starting term propagation (Run ID: %s)...", runId));
 
-      List<String> sourceFiltersStr = UpgradeUtils.parseListArgs(context.args(), "SOURCE_FILTER");
+      List<String> sourceFiltersStr =
+          EnvironmentUtils.parseListArgs(context.args(), "SOURCE_FILTER");
       if (sourceFiltersStr.isEmpty()) {
         context
             .report()
@@ -115,7 +116,7 @@ public class PropagateTermsStep implements UpgradeStep {
       Filter sourceFilter = buildFilter(sourceFiltersStr, systemOpContext.getAspectRetriever());
 
       List<String> destFiltersStr =
-          UpgradeUtils.parseListArgs(context.args(), "DESTINATION_FILTER");
+          EnvironmentUtils.parseListArgs(context.args(), "DESTINATION_FILTER");
       Filter destinationFilter = buildFilter(destFiltersStr, systemOpContext.getAspectRetriever());
 
       Optional<String> allowedNodesStr =

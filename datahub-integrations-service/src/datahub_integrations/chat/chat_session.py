@@ -61,8 +61,13 @@ from datahub_integrations.mcp.mcp_server import (
     mcp,
     with_datahub_client,
 )
-from datahub_integrations.mcp.tool import ToolWrapper, tools_from_fastmcp
+from datahub_integrations.mcp.tool import (
+    ToolWrapper,
+    async_background,
+    tools_from_fastmcp,
+)
 from datahub_integrations.slack.utils.string import truncate
+from datahub_integrations.smart_search.smart_search import smart_search
 from datahub_integrations.telemetry.chat_events import ChatbotToolCallEvent
 from datahub_integrations.telemetry.telemetry import track_saas_event
 
@@ -85,6 +90,16 @@ if PLANNING_TOOLS_ENABLED:
     logger.info("Planning tools ENABLED for ChatSession")
 else:
     logger.info("Planning tools DISABLED for ChatSession")
+
+# Smart search tool feature flag
+SMART_SEARCH_ENABLED = get_boolean_env_variable(
+    "CHATBOT_SMART_SEARCH_ENABLED", default=True
+)
+
+if SMART_SEARCH_ENABLED:
+    logger.info("Smart search tool ENABLED for ChatSession")
+else:
+    logger.info("Smart search tool DISABLED for ChatSession")
 
 MAX_TOOL_CALLS = 30
 
@@ -219,6 +234,8 @@ def _get_internal_chatbot_tools(session: "ChatSession") -> List[ToolWrapper]:
     tools = [_respond_to_user_tool]
 
     if PLANNING_TOOLS_ENABLED:
+        # Import inline to avoid circular dependency
+        # (planner.tools imports from chat_session for get_extra_llm_instructions)
         from datahub_integrations.chat.planner.tools import get_planning_tool_wrappers
 
         tools.extend(get_planning_tool_wrappers(session))
@@ -481,6 +498,19 @@ class ChatSession:
                 tools_from_fastmcp(entry) if isinstance(entry, FastMCP) else [entry]
             )
         ]
+
+        # Add smart_search to plannable tools (if enabled)
+        # This is a data-gathering tool that should be available for planning
+        # Wrap with async_background since it makes blocking Bedrock API calls for reranking
+        if SMART_SEARCH_ENABLED:
+            self._plannable_tools.append(
+                ToolWrapper.from_function(
+                    fn=async_background(smart_search),
+                    name="smart_search",
+                    description=smart_search.__doc__
+                    or "Smart search with AI reranking",
+                )
+            )
 
         # Build full tool list: plannable tools + internal tools
         self.tools: List[ToolWrapper] = (

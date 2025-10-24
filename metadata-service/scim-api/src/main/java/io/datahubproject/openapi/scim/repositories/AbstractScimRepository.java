@@ -25,6 +25,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.openapi.scim.util.ScimUtil;
 import io.opentelemetry.context.Context;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
@@ -76,8 +77,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 abstract class AbstractScimRepository<
         T extends ScimResource, U extends Urn, K extends RecordTemplate>
     implements Repository<T> {
-
-  private static final String SCIM_CLIENT_PREFIX = "SCIM_client_";
 
   static String USERS_ENDPOINT = "/Users";
 
@@ -197,6 +196,13 @@ abstract class AbstractScimRepository<
     ScimReadableCorpEntity corpEntity = new ScimReadableCorpEntity(id);
     log.debug(String.format("GET-fetched entity %s with scim-id %s", corpEntity.urn, id));
 
+    // ensure this is a SCIM-created entity
+    Origin origin = corpEntity.getAspect(Origin.class);
+    if (!ScimUtil.isScimCreatedEntity(origin)) {
+      ScimUtil.logNonScimEntityWithUnexpectedType(corpEntity.urn, origin, "Attempted to access");
+      throw resourceNotFoundException(id);
+    }
+
     return corpEntity.asScimResource();
   }
 
@@ -264,7 +270,10 @@ abstract class AbstractScimRepository<
     Origin origin = new Origin();
     origin.setType(OriginType.EXTERNAL);
     if (resource.getExternalId() != null) {
-      origin.setExternalType(SCIM_CLIENT_PREFIX + resource.getExternalId());
+      origin.setExternalType(ScimUtil.SCIM_CLIENT_PREFIX + resource.getExternalId());
+    } else {
+      // Mark as SCIM-created even when externalId is null
+      origin.setExternalType(ScimUtil.SCIM_CLIENT_PREFIX);
     }
     ingest(urn, ORIGIN_ASPECT_NAME, origin, auditStamp);
     return origin;
@@ -661,15 +670,7 @@ abstract class AbstractScimRepository<
       Origin origin = (Origin) aspects.get(Origin.class);
       // Native groups created via datahub ui have a type set as NATIVE and no external ID.
       // ExternalID may be set if passed the SCIM resource was created from an external IDP
-      if (origin == null || !origin.hasType() || !origin.getType().equals(OriginType.EXTERNAL)) {
-        return null;
-      }
-      if (origin.getExternalType() == null) {
-        return null;
-      }
-      String externalId = origin.getExternalType().substring(SCIM_CLIENT_PREFIX.length());
-
-      return externalId.equals("null") ? null : externalId;
+      return ScimUtil.extractScimExternalId(origin);
     }
   }
 
@@ -710,9 +711,15 @@ abstract class AbstractScimRepository<
               aspectNamesToClasses().keySet());
 
       for (Map.Entry<Urn, List<EnvelopedAspect>> entry : aspects.entrySet()) {
-        ScimReadableCorpEntity scimEntity =
-            new ScimReadableCorpEntity(urnFromStr(entry.getKey().toString()), entry.getValue());
-        result.add(scimEntity.asScimResource());
+        // Only process SCIM-created entities, skip others (e.g., OKTA users)
+        Origin origin = ScimUtil.extractOriginFromAspects(entry.getValue());
+        if (ScimUtil.isScimCreatedEntity(origin)) {
+          ScimReadableCorpEntity scimEntity =
+              new ScimReadableCorpEntity(urnFromStr(entry.getKey().toString()), entry.getValue());
+          result.add(scimEntity.asScimResource());
+        } else {
+          ScimUtil.logNonScimEntityWithUnexpectedType(entry.getKey(), origin, "Skipping");
+        }
       }
 
       totalResults =

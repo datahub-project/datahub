@@ -1,3 +1,4 @@
+import logging
 import os
 
 import pytest
@@ -5,7 +6,11 @@ from typing import List, Optional, Tuple
 from _pytest.nodes import Item
 import requests
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph, get_default_graph
-from tests.test_result_msg import send_message
+from tests.test_result_msg import send_message, get_module_tracker
+
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+
+logger = logging.getLogger(__name__)
 from tests.utils import (
     TestSessionWrapper,
     get_frontend_session,
@@ -92,23 +97,61 @@ def _ingest_cleanup_data_impl(
                 "tags_and_terms"
             )
     """
-    print(f"deleting {test_name} test data for idempotency")
+    logger.info(f"deleting {test_name} test data for idempotency")
     delete_urns_from_file(graph_client, data_file)
-    print(f"ingesting {test_name} test data")
+    logger.info(f"ingesting {test_name} test data")
     ingest_file_via_rest(auth_session, data_file)
     wait_for_writes_to_sync()
     yield
-    print(f"removing {test_name} test data")
+    logger.info(f"removing {test_name} test data")
     delete_urns_from_file(graph_client, data_file)
     if to_delete_urns:
         delete_urns(graph_client, to_delete_urns)
     wait_for_writes_to_sync()
 
 
+def pytest_collection_modifyitems(session, config, items: List[Item]):
+    """Called after collection has been performed and items have been collected."""
+    tracker = get_module_tracker()
+    tracker.total_tests = len(items)
+    logger.info(f"Collected {len(items)} tests")
+    tracker.send_collection_message()
+
+
+def pytest_runtest_logreport(report):
+    """
+    Called when a test report is created.
+    This is called for setup, call, and teardown phases.
+    We track failures from any phase but only count passes/skips from the call phase.
+    """
+    tracker = get_module_tracker()
+    nodeid = report.nodeid
+
+    if report.failed:
+        tracker.record_failure(nodeid)
+        return
+
+    # Only count passes and skips from the call phase to avoid double-counting
+    if report.when != "call":
+        return
+
+    # Skip if we've already counted this test
+    if tracker.has_counted_test(nodeid):
+        return
+
+    if report.passed:
+        tracker.record_outcome(nodeid, "passed")
+    elif report.skipped:
+        tracker.record_outcome(nodeid, "skipped")
+
+    # Send periodic updates
+    if tracker.should_send_update():
+        tracker.send_update()
+
 
 def pytest_sessionfinish(session, exitstatus):
     """whole test run finishes."""
-    send_message(exitstatus)
+    get_module_tracker().send_final_message(exitstatus)
 
 
 def bin_pack_tasks(tasks, n_buckets):
@@ -176,6 +219,6 @@ def get_batch_start_end(num_tests: int) -> Tuple[int, int]:
         batch_end = num_tests
 
     if batch_count > 0:
-        print(f"Running tests for batch {batch_number} of {batch_count}")
+        logger.info(f"Running tests for batch {batch_number} of {batch_count}")
 
     return batch_start, batch_end

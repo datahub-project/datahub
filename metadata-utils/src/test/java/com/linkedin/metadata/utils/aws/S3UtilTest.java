@@ -1,7 +1,6 @@
-package com.linkedin.datahub.graphql.util;
+package com.linkedin.metadata.utils.aws;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -10,8 +9,6 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
-import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.entity.client.EntityClient;
 import java.net.URL;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
@@ -36,10 +33,8 @@ import software.amazon.awssdk.services.sts.model.Credentials;
 
 public class S3UtilTest {
 
-  @Mock private EntityClient mockEntityClient;
   @Mock private S3Client mockS3Client;
   @Mock private StsClient mockStsClient;
-  @Mock private QueryContext mockQueryContext;
   @Mock private S3Presigner mockS3Presigner; // Mock S3Presigner
 
   private AutoCloseable mocks;
@@ -58,7 +53,7 @@ public class S3UtilTest {
 
   @Test
   public void testConstructorWithS3Client() {
-    S3Util s3Util = new S3Util(mockS3Client, mockEntityClient);
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
     assertNotNull(s3Util);
   }
 
@@ -79,19 +74,22 @@ public class S3UtilTest {
 
     when(mockStsClient.assumeRole(any(AssumeRoleRequest.class))).thenReturn(mockResponse);
 
-    S3Util s3Util = new S3Util(mockEntityClient, mockStsClient, roleArn);
+    S3Util s3Util = new S3Util(mockStsClient, roleArn);
     assertNotNull(s3Util);
   }
 
   @Test
   public void testGeneratePresignedDownloadUrlWithoutCredentialRefresh() {
-    S3Util s3Util = new S3Util(mockS3Client, mockEntityClient);
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
 
     String bucket = "test-bucket";
     String key = "test-key";
     int expirationSeconds = 3600;
 
-    // This will throw an exception because mockS3Client doesn't have real configuration
+    // This will throw an exception because mockS3Presigner will throw when called
+    when(mockS3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
+        .thenThrow(new RuntimeException("Presigner error"));
+
     assertThrows(
         RuntimeException.class,
         () -> s3Util.generatePresignedDownloadUrl(bucket, key, expirationSeconds));
@@ -99,7 +97,7 @@ public class S3UtilTest {
 
   @Test
   public void testGeneratePresignedDownloadUrlWithNullParameters() {
-    S3Util s3Util = new S3Util(mockS3Client, mockEntityClient);
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
 
     assertThrows(Exception.class, () -> s3Util.generatePresignedDownloadUrl(null, "key", 3600));
 
@@ -123,7 +121,7 @@ public class S3UtilTest {
 
     when(mockStsClient.assumeRole(any(AssumeRoleRequest.class))).thenReturn(mockResponse);
 
-    S3Util s3Util = new S3Util(mockEntityClient, mockStsClient, roleArn);
+    S3Util s3Util = new S3Util(mockStsClient, roleArn);
 
     ExecutorService executor = Executors.newFixedThreadPool(5);
     CompletableFuture<?>[] futures = new CompletableFuture[10];
@@ -148,10 +146,12 @@ public class S3UtilTest {
 
   @Test
   public void testGeneratePresignedUrlExceptionHandling() {
-    S3Util s3Util = new S3Util(mockS3Client, mockEntityClient);
+    // Mock the presigner to pass it explicitly, bypassing createPresigner()
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
 
-    when(mockS3Client.serviceClientConfiguration())
-        .thenThrow(new RuntimeException("S3 client configuration error"));
+    // Mock the presigner to throw an exception during URL generation
+    when(mockS3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
+        .thenThrow(new RuntimeException("Presigner error"));
 
     assertThrows(
         RuntimeException.class, () -> s3Util.generatePresignedDownloadUrl("bucket", "key", 3600));
@@ -161,7 +161,7 @@ public class S3UtilTest {
   public void testConstructorParameterValidation() {
     // The constructors don't currently validate null parameters, so let's just test they don't
     // throw
-    S3Util s3Util1 = new S3Util(mockS3Client, mockEntityClient);
+    S3Util s3Util1 = new S3Util(mockS3Client, mockS3Presigner);
     assertNotNull(s3Util1);
 
     // Test the STS constructor variation
@@ -178,8 +178,7 @@ public class S3UtilTest {
 
     when(mockStsClient.assumeRole(any(AssumeRoleRequest.class))).thenReturn(mockResponse);
 
-    S3Util s3Util2 =
-        new S3Util(mockEntityClient, mockStsClient, "arn:aws:iam::123456789012:role/test");
+    S3Util s3Util2 = new S3Util(mockStsClient, "arn:aws:iam::123456789012:role/test");
     assertNotNull(s3Util2);
   }
 
@@ -192,7 +191,7 @@ public class S3UtilTest {
     String expectedUrl =
         "https://test-upload-bucket.s3.amazonaws.com/test-upload-key?X-Amz-Signature=mocked";
 
-    S3Util s3Util = new S3Util(mockS3Client, mockEntityClient, mockS3Presigner);
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
 
     PresignedPutObjectRequest mockPresignedRequest = mock(PresignedPutObjectRequest.class);
     when(mockPresignedRequest.url()).thenReturn(new URL(expectedUrl));
@@ -211,7 +210,7 @@ public class S3UtilTest {
 
   @Test
   public void testGeneratePresignedUploadUrlWithNullParameters() throws Exception {
-    S3Util s3Util = new S3Util(mockS3Client, mockEntityClient, mockS3Presigner);
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
 
     // Test with null bucket
     assertThrows(
@@ -242,7 +241,7 @@ public class S3UtilTest {
 
   @Test
   public void testGeneratePresignedUploadUrlExceptionHandling() {
-    S3Util s3Util = new S3Util(mockS3Client, mockEntityClient, mockS3Presigner);
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
 
     String bucket = "test-upload-bucket";
     String key = "test-upload-key";
@@ -259,7 +258,7 @@ public class S3UtilTest {
 
   @Test
   public void testConstructorWithS3ClientAndPresigner() {
-    S3Util s3Util = new S3Util(mockS3Client, mockEntityClient, mockS3Presigner);
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
     assertNotNull(s3Util);
   }
 
@@ -280,7 +279,7 @@ public class S3UtilTest {
 
     when(mockStsClient.assumeRole(any(AssumeRoleRequest.class))).thenReturn(mockResponse);
 
-    S3Util s3Util = new S3Util(mockEntityClient, mockStsClient, roleArn, mockS3Presigner);
+    S3Util s3Util = new S3Util(mockStsClient, roleArn, mockS3Presigner);
     assertNotNull(s3Util);
   }
 
@@ -292,7 +291,7 @@ public class S3UtilTest {
     String expectedUrl =
         "https://test-download-bucket.s3.amazonaws.com/test-download-key?X-Amz-Signature=mocked";
 
-    S3Util s3Util = new S3Util(mockS3Client, mockEntityClient, mockS3Presigner);
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
 
     PresignedGetObjectRequest mockPresignedRequest = mock(PresignedGetObjectRequest.class);
     when(mockPresignedRequest.url()).thenReturn(new URL(expectedUrl));
@@ -310,7 +309,7 @@ public class S3UtilTest {
 
   @Test
   public void testGeneratePresignedDownloadUrlExceptionHandling() {
-    S3Util s3Util = new S3Util(mockS3Client, mockEntityClient, mockS3Presigner);
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
 
     String bucket = "test-download-bucket";
     String key = "test-download-key";
@@ -325,7 +324,7 @@ public class S3UtilTest {
   }
 
   @Test
-  public void testCredentialRefreshWithExpiredCredentials() {
+  public void testConstructorWithExpiredCredentials() {
     String roleArn = "arn:aws:iam::123456789012:role/test-role";
 
     // Create credentials that are already expired
@@ -342,15 +341,12 @@ public class S3UtilTest {
 
     when(mockStsClient.assumeRole(any(AssumeRoleRequest.class))).thenReturn(mockResponse);
 
-    S3Util s3Util = new S3Util(mockEntityClient, mockStsClient, roleArn);
-
-    // This should trigger credential refresh
-    assertThrows(
-        RuntimeException.class, () -> s3Util.generatePresignedDownloadUrl("bucket", "key", 3600));
+    S3Util s3Util = new S3Util(mockStsClient, roleArn);
+    assertNotNull(s3Util);
   }
 
   @Test
-  public void testS3ClientCloseFailure() {
+  public void testStsClientConstructorCreatesS3Client() {
     String roleArn = "arn:aws:iam::123456789012:role/test-role";
 
     Credentials mockCredentials =
@@ -366,27 +362,17 @@ public class S3UtilTest {
 
     when(mockStsClient.assumeRole(any(AssumeRoleRequest.class))).thenReturn(mockResponse);
 
-    // Mock S3Client to throw exception on close
-    S3Client mockS3ClientWithCloseFailure = mock(S3Client.class);
-    doThrow(new RuntimeException("Close failed")).when(mockS3ClientWithCloseFailure).close();
-
-    S3Util s3Util = new S3Util(mockEntityClient, mockStsClient, roleArn);
-
-    // This should not throw an exception even if close fails
-    assertThrows(
-        RuntimeException.class, () -> s3Util.generatePresignedDownloadUrl("bucket", "key", 3600));
+    S3Util s3Util = new S3Util(mockStsClient, roleArn);
+    assertNotNull(s3Util);
   }
 
   @Test
   public void testPresignerCreationWithS3ClientConfiguration() {
-    S3Util s3Util = new S3Util(mockS3Client, mockEntityClient);
-
-    // Mock S3Client configuration to throw exception
+    // Mock S3Client configuration to throw exception BEFORE creating S3Util
     when(mockS3Client.serviceClientConfiguration())
         .thenThrow(new RuntimeException("S3 client configuration error"));
 
-    // This will fail because we can't create a real presigner, but it tests the path
-    assertThrows(
-        RuntimeException.class, () -> s3Util.generatePresignedDownloadUrl("bucket", "key", 3600));
+    // This will fail during construction when createPresigner() is called
+    assertThrows(RuntimeException.class, () -> new S3Util(mockS3Client));
   }
 }

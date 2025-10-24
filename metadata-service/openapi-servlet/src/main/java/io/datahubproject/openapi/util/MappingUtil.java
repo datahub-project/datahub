@@ -22,12 +22,14 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -44,8 +46,12 @@ import io.datahubproject.openapi.generated.OneOfEnvelopedAspectValue;
 import io.datahubproject.openapi.generated.OneOfGenericAspectValue;
 import io.datahubproject.openapi.generated.Status;
 import io.datahubproject.openapi.generated.StructuredProperties;
+import io.datahubproject.openapi.v3.models.AspectItem;
+import io.datahubproject.openapi.v3.models.GenericEntityV3;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -652,5 +658,61 @@ public class MappingUtil {
         .entityUrn(urn.toString())
         .entityType(urn.getEntityType())
         .build();
+  }
+
+  public static List<GenericEntityV3> buildGenericEntityV3List(
+      ObjectMapper objectMapper,
+      Collection<IngestResult> ingestResults,
+      boolean withSystemMetadata) {
+    List<GenericEntityV3> responseList = new LinkedList<>();
+
+    Map<Urn, List<IngestResult>> entityMap =
+        ingestResults.stream().collect(Collectors.groupingBy(IngestResult::getUrn));
+    for (Map.Entry<Urn, List<IngestResult>> urnAspects : entityMap.entrySet()) {
+      Map<String, AspectItem> aspectsMap =
+          urnAspects.getValue().stream()
+              .map(
+                  ingest -> {
+                    final AspectItem.AspectItemBuilder aspectItemBuilder =
+                        AspectItem.builder()
+                            .systemMetadata(
+                                withSystemMetadata ? ingest.getRequest().getSystemMetadata() : null)
+                            .auditStamp(
+                                withSystemMetadata ? ingest.getRequest().getAuditStamp() : null);
+
+                    RecordTemplate recordTemplate;
+                    if (ingest.getRequest().getChangeType() == ChangeType.PATCH) {
+                      try {
+                        MCPItem mcpItem = (MCPItem) ingest.getRequest();
+                        JsonNode jsonNode =
+                            objectMapper.readTree(
+                                mcpItem
+                                    .getMetadataChangeProposal()
+                                    .getAspect()
+                                    .getValue()
+                                    .asString(StandardCharsets.UTF_8));
+                        recordTemplate = GenericRecordUtils.fromJson(jsonNode, "GenericJsonPatch");
+                      } catch (JsonProcessingException e) {
+                        throw new RuntimeException(e);
+                      }
+                    } else {
+                      recordTemplate =
+                          (ingest.getResult() != null && ingest.getResult().getNewValue() != null)
+                              ? ingest.getResult().getNewValue()
+                              : ingest.getRequest().getRecordTemplate();
+                    }
+
+                    return Map.entry(
+                        ingest.getRequest().getAspectName(),
+                        aspectItemBuilder.aspect(recordTemplate).build());
+                  })
+              // Map merge strategy, just take latest one
+              .collect(
+                  Collectors.toMap(
+                      Map.Entry::getKey, Map.Entry::getValue, (value1, value2) -> value2));
+      responseList.add(
+          GenericEntityV3.builder().build(objectMapper, urnAspects.getKey(), aspectsMap));
+    }
+    return responseList;
   }
 }

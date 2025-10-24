@@ -513,7 +513,7 @@ graphql-relay==3.2.0
     # via
     #   -r requirements.txt
     #   graphene
-greenlet==3.0.3 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
+greenlet==3.2.4 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
     # via
     #   -r requirements.txt
     #   sqlalchemy
@@ -647,6 +647,11 @@ joblib==1.5.2
     # via
     #   -r requirements.txt
     #   scikit-learn
+json-repair==0.52.3
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
 json5==0.9.25
     # via acryl-datahub-integrations (pyproject.toml)
 jsonpatch==1.33
@@ -1146,7 +1151,7 @@ pytz==2024.1
     #   croniter
     #   pandas
     #   snowflake-connector-python
-pywin32==308 ; sys_platform == 'win32'
+pywin32==311 ; sys_platform == 'win32'
     # via
     #   -r requirements.txt
     #   docker

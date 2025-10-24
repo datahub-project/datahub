@@ -4,6 +4,7 @@ from datahub_integrations.slack.config import (
     SlackAppConfigCredentials,
     SlackAppDetails,
     SlackConnection,
+    get_global_settings,
 )
 
 
@@ -111,3 +112,24 @@ def test_slack_connection_defaults() -> None:
     assert config.app_config_tokens is None
     assert config.app_details is None
     assert config.bot_token is None
+
+
+def test_get_global_settings_caching_and_expiry() -> None:
+    """Test that Slack global settings are cached and cache can be cleared."""
+    # Clear any existing cache
+    get_global_settings.cache_clear()  # type: ignore[attr-defined]
+
+    # Test caching behavior - same object returned due to caching
+    settings1 = get_global_settings()
+    settings2 = get_global_settings()
+    assert settings1 is settings2  # Same object due to caching
+
+    # Test that cache_clear() works
+    get_global_settings.cache_clear()  # type: ignore[attr-defined]
+    settings3 = get_global_settings()
+    # Should be different objects after cache clear
+    assert settings1 is not settings3
+
+    # Test that cache is working again after clear
+    settings4 = get_global_settings()
+    assert settings3 is settings4  # Same object due to caching

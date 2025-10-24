@@ -2,6 +2,8 @@
 Utils for proposal tests.
 """
 
+from tests.utils import execute_graphql
+
 ACTION_REQUEST_ASSIGNEES = """
 query getActionRequestAssignee($input: GetActionRequestAssigneeInput!) {
   getActionRequestAssignee(input: $input)
@@ -9,28 +11,11 @@ query getActionRequestAssignee($input: GetActionRequestAssigneeInput!) {
 """
 
 
-def execute_gql(auth_session, query, variables=None):
-    """
-    Helper for sending GraphQL requests via the auth_session's post method.
-    Raises an HTTP error on bad status, returns the parsed JSON response on success.
-    """
-    payload = {"query": query}
-    if variables is not None:
-        payload["variables"] = variables
-
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=payload
-    )
-    response.raise_for_status()
-
-    return response.json()
-
-
 def validate_assignee_is_correct(auth_session, dataset_urn, request_type: str):
     """
     Validate that the assignee is correct.
     """
-    assignees_res = execute_gql(
+    assignees_res = execute_graphql(
         auth_session=auth_session,
         query=ACTION_REQUEST_ASSIGNEES,
         variables={

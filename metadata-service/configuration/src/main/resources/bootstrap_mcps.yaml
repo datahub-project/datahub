@@ -7,17 +7,10 @@ bootstrap:
   templates:
     # Bootstrap
     - name: root-user
-      version: v3
+      version: v4
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/root-user.yaml"
-
-    - name: root-user-editable-info
-      version: v1
-      blocking: true
-      optional: true
-      async: false
-      mcps_location: "bootstrap_mcps/root-user-editable-info.yaml"
 
     - name: data-platforms
       version: v4
@@ -44,7 +37,7 @@ bootstrap:
       mcps_location: "bootstrap_mcps/roles.yaml"
 
     - name: page-modules
-      version: v5
+      version: v6
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/page-modules.yaml"
@@ -118,7 +111,6 @@ bootstrap:
       values_env: "DATAHUB_FORMS_NOTIFICATIONS_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_FORMS_NOTIFICATIONS_REVISION"
 
-
     - name: ingestion-datahub-lineage-features
       version: v1
       optional: true
@@ -135,3 +127,9 @@ bootstrap:
       mcps_location: "bootstrap_mcps/support-group.yaml"
       values_env: "DATAHUB_SUPPORT_GROUP_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_SUPPORT_GROUP_BOOTSTRAP_REVISION"
+  
+    - name: root-user-acryl
+      version: v1
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/root-user-acryl.yaml"

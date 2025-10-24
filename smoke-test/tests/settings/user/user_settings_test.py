@@ -1,6 +1,6 @@
 import time
 
-from tests.utils import execute_gql
+from tests.utils import execute_gql, execute_graphql
 
 
 def test_get_user_notification_settings(auth_session):
@@ -32,9 +32,8 @@ def test_get_user_notification_settings(auth_session):
         ],
     }
     variables = {"input": {"notificationSettings": new_settings}}
-    response = execute_gql(auth_session, mutation, variables)
+    response = execute_graphql(auth_session, mutation, variables)
 
-    assert "errors" not in response, response.get("errors")
     updated_settings = response["data"]["updateUserNotificationSettings"]
     assert updated_settings["sinkTypes"] == ["EMAIL", "SLACK"]  # Basic validity check.
 
@@ -78,14 +77,12 @@ def test_get_user_notification_settings(auth_session):
         "slackSettings": {},
         "settings": [],
     }
-    response = execute_gql(
+    response = execute_graphql(
         auth_session, mutation, {"input": {"notificationSettings": reset_settings}}
     )
-    assert "errors" not in response, response.get("errors")
 
     # Step 4: Verify settings are reset
-    response = execute_gql(auth_session, query)
-    assert "errors" not in response, response.get("errors")
+    response = execute_graphql(auth_session, query)
     settings = response["data"]["getUserNotificationSettings"]
     assert settings is None or settings["sinkTypes"] == []
     assert settings is None or settings["emailSettings"]["email"] == ""
@@ -127,8 +124,7 @@ def test_update_user_notification_settings(auth_session):
         ],
     }
     variables = {"input": {"notificationSettings": new_settings}}
-    response = execute_gql(auth_session, mutation, variables)
-    assert "errors" not in response, response.get("errors")
+    response = execute_graphql(auth_session, mutation, variables)
     updated_settings = response["data"]["updateUserNotificationSettings"]
     assert updated_settings["sinkTypes"] == ["EMAIL", "SLACK"]
     assert updated_settings["emailSettings"]["email"] == "test@example.com"
@@ -147,7 +143,7 @@ def test_update_user_notification_settings(auth_session):
     scenario_update = {
         "settings": [{"type": "NEW_INCIDENT", "value": "DISABLED", "params": []}]
     }
-    response = execute_gql(
+    response = execute_graphql(
         auth_session, mutation, {"input": {"notificationSettings": scenario_update}}
     )
     updated_settings = response["data"]["updateUserNotificationSettings"]
@@ -176,7 +172,7 @@ def test_update_user_notification_settings(auth_session):
         "sinkTypes": ["EMAIL"],
         "emailSettings": {"email": "new@example.com"},
     }
-    response = execute_gql(
+    response = execute_graphql(
         auth_session, mutation, {"input": {"notificationSettings": sink_email_update}}
     )
     updated_settings = response["data"]["updateUserNotificationSettings"]
@@ -208,7 +204,7 @@ def test_update_user_notification_settings(auth_session):
         "slackSettings": {},
         "settings": [],
     }
-    response = execute_gql(
+    response = execute_graphql(
         auth_session, mutation, {"input": {"notificationSettings": reset_settings}}
     )
     updated_settings = response["data"]["updateUserNotificationSettings"]

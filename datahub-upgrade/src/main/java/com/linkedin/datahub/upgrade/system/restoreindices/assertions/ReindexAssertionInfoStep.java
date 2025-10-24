@@ -25,7 +25,7 @@ public class ReindexAssertionInfoStep extends AbstractMCLStep {
 
   @Override
   public String id() {
-    return "assertion-info-v3";
+    return "assertion-info-v2";
   }
 
   @Nonnull

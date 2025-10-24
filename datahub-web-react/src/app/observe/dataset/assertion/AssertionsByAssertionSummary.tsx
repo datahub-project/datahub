@@ -46,14 +46,12 @@ import {
     AndFilterInput,
     Assertion,
     AssertionSourceType,
-    Dataset,
     Entity,
     EntityType,
     FacetFilterInput,
     FilterOperator,
     Maybe,
     Monitor,
-    SchemaFieldEntity,
     SortOrder,
 } from '@types';
 
@@ -164,8 +162,7 @@ export const AssertionsByAssertionSummary = ({ isAnomalyDetectionEnabled }: Prop
     useEffect(
         () => {
             setPage(1);
-        },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, // eslint-disable-next-line react-hooks/exhaustive-deps
         [
             searchQuery,
             statuses,
@@ -298,23 +295,16 @@ export const AssertionsByAssertionSummary = ({ isAnomalyDetectionEnabled }: Prop
     const facets = searchResults?.searchAcrossEntities?.facets;
 
     const assertions: Assertion[] =
-        searchResults?.searchAcrossEntities?.searchResults?.map((result) => {
-            const relatedEntity =
-                result.entity.__typename === 'Assertion'
-                    ? result.entity.dataset?.relationships?.[0]?.entity
-                    : undefined;
-            return {
-                ...result.entity,
-                monitor:
-                    result.entity.__typename === 'Assertion'
-                        ? (result.entity.monitor?.relationships?.[0]?.entity as Maybe<Monitor>)
-                        : undefined,
-                dataset:
-                    relatedEntity?.type === EntityType.SchemaField
-                        ? ((relatedEntity as SchemaFieldEntity).parent as Maybe<Dataset>)
-                        : (relatedEntity as Maybe<Dataset>),
-            } as Assertion;
-        }) || [];
+        searchResults?.searchAcrossEntities?.searchResults?.map(
+            (result) =>
+                ({
+                    ...result.entity,
+                    monitor:
+                        result.entity.__typename === 'Assertion'
+                            ? (result.entity.monitor?.relationships?.[0]?.entity as Maybe<Monitor>)
+                            : undefined,
+                }) as Assertion,
+        ) || [];
 
     return (
         <Container>

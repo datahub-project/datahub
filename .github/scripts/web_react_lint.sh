@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Get a list of staged files in the datahub-web-react directory
-STAGED_FILES=$(git diff --cached --name-only | grep -E '^datahub-web-react/.*\.(js|jsx|ts|tsx)$')
+STAGED_FILES=$(git diff --cached --name-only | grep -E '^datahub-web-react/.*\.(js|jsx|ts|tsx)$' || true)
 
 if [ -n "$STAGED_FILES" ]; then
   # Capture the git diff before running lint-staged

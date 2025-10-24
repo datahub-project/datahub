@@ -58,8 +58,8 @@ export const usePollForNewPredictions = (
         if (!isPolling) return undefined;
 
         const timeout = setTimeout(() => {
-            console.warn(`Polling timeout reached after ${POLLING_TIMEOUT_MS / 1000} seconds`);
-            message.warning(`Polling timeout reached after ${POLLING_TIMEOUT_MS / 1000} seconds`);
+            console.warn(`Polling for new predictions timed out after ${POLLING_TIMEOUT_MS / 1000} seconds`);
+            message.warning(`Polling for new predictions timed out after ${POLLING_TIMEOUT_MS / 1000} seconds`);
 
             stopPolling();
         }, POLLING_TIMEOUT_MS);
