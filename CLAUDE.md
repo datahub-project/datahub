@@ -155,6 +155,104 @@ connection_timeout = 30
 - Frontend: Tests in `__tests__/` or `.test.tsx` files
 - Smoke tests go in the `smoke-test/` directory
 
+#### Testing Principles: Focus on Value Over Coverage
+
+**IMPORTANT**: Quality over quantity. Avoid AI-generated test anti-patterns that create maintenance burden without providing real value.
+
+**Focus on behavior, not implementation**:
+
+- ✅ Test what the code does (business logic, edge cases that occur in production)
+- ❌ Don't test how it does it (implementation details, private fields via reflection)
+- ❌ Don't test third-party libraries work correctly (Spring, Micrometer, Kafka clients, etc.)
+- ❌ Don't test Java/Python language features (`synchronized` methods are thread-safe, `@Nonnull` parameters reject nulls)
+
+**Avoid these specific anti-patterns**:
+
+- ❌ Testing null inputs on `@Nonnull`/`@NonNull` annotated parameters
+- ❌ Verifying exact error message wording (creates brittleness during refactoring)
+- ❌ Testing every possible input variation (case sensitivity × whitespace × special chars = maintenance nightmare)
+- ❌ Using reflection to verify private implementation details
+- ❌ Redundant concurrency testing on `synchronized` methods
+- ❌ Testing obvious getter/setter behavior without business logic
+- ❌ Testing Lombok-generated code (`@Data`, `@Builder`, `@Value` classes) - you're testing Lombok's code generator, not your logic
+- ❌ Testing that annotations exist on classes - if required annotations are missing, the framework/compiler will fail at startup, not in your tests
+
+**Appropriate test scope**:
+
+- **Simple utilities** (enums, string parsing, formatters): ~50-100 lines of focused tests
+  - Happy path for each method
+  - One example of invalid input per method
+  - Edge cases likely to occur in production
+- **Complex business logic**: Test proportional to risk and complexity
+  - Integration points and system boundaries
+  - Security-critical operations
+  - Error handling for realistic failure scenarios
+- **Warning sign**: If tests are 5x+ the size of implementation, reconsider scope
+
+**Examples of low-value tests to avoid**:
+
+```java
+// ❌ BAD: Testing @Nonnull contract (framework's job)
+@Test
+public void testNullParameterThrowsException() {
+    assertThrows(NullPointerException.class,
+        () -> service.process(null)); // parameter is @Nonnull
+}
+
+// ❌ BAD: Testing Lombok-generated code
+@Test
+public void testBuilderSetsAllFields() {
+    MyConfig config = MyConfig.builder()
+        .field1("value1")
+        .field2("value2")
+        .build();
+    assertEquals(config.getField1(), "value1");
+    assertEquals(config.getField2(), "value2");
+}
+
+// ❌ BAD: Testing that annotations exist
+@Test
+public void testConfigurationAnnotations() {
+    assertNotNull(MyConfig.class.getAnnotation(Configuration.class));
+    assertNotNull(MyConfig.class.getAnnotation(ComponentScan.class));
+}
+// If @Configuration is missing, Spring won't load the context - you don't need a test for this
+
+// ❌ BAD: Exact error message (brittle)
+assertEquals(exception.getMessage(),
+    "Unsupported database type 'oracle'. Only PostgreSQL and MySQL variants are supported.");
+
+// ❌ BAD: Redundant variations
+assertEquals(DatabaseType.fromString("postgresql"), DatabaseType.POSTGRES);
+assertEquals(DatabaseType.fromString("PostgreSQL"), DatabaseType.POSTGRES);
+assertEquals(DatabaseType.fromString("POSTGRESQL"), DatabaseType.POSTGRES);
+assertEquals(DatabaseType.fromString("  postgresql  "), DatabaseType.POSTGRES);
+// ... 10 more case/whitespace variations
+
+// ✅ GOOD: Focused behavioral test
+@Test
+public void testFromString_ValidInputsCaseInsensitive() {
+    assertEquals(DatabaseType.fromString("postgresql"), DatabaseType.POSTGRES);
+    assertEquals(DatabaseType.fromString("POSTGRESQL"), DatabaseType.POSTGRES);
+    assertEquals(DatabaseType.fromString("  postgresql  "), DatabaseType.POSTGRES);
+}
+
+@Test
+public void testFromString_InvalidInputThrows() {
+    assertThrows(IllegalArgumentException.class,
+        () -> DatabaseType.fromString("oracle"));
+}
+
+// ✅ GOOD: Testing YOUR custom validation logic on a Lombok class
+@Test
+public void testCustomValidation() {
+    assertThrows(IllegalArgumentException.class,
+        () -> MyConfig.builder().field1("invalid").build().validate());
+}
+```
+
+**When in doubt**: Ask "Does this test protect against a realistic regression?" If not, skip it.
+
 #### Security Testing: Configuration Property Classification
 
 **Critical test**: `metadata-io/src/test/java/com/linkedin/metadata/system_info/collectors/PropertiesCollectorConfigurationTest.java`
