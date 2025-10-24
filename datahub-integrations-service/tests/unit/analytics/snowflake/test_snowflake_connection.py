@@ -13,7 +13,7 @@ class TestSnowflakeConnection:
             account="test_account",
             warehouse="test_warehouse",
             user="test_user",
-            password="test_password",
+            password="test_password",  # type: ignore[arg-type]  # Pydantic coerces str to SecretStr
             role="test_role",
             authentication_type="DEFAULT_AUTHENTICATOR",
         )
@@ -67,7 +67,8 @@ class TestSnowflakeConnection:
 
         # Verify the JSON parsing worked correctly
         assert connection.authentication_type == "DEFAULT_AUTHENTICATOR"
-        assert connection.password == "test_password"
+        assert connection.password is not None
+        assert connection.password.get_secret_value() == "test_password"
         assert connection.private_key is None
 
     def test_datahub_integration_handles_escaped_newlines_in_private_keys(self) -> None:
