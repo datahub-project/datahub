@@ -6,6 +6,8 @@ on:
       - acryl-main
     paths:
       - "metadata-models/**"
+      - "metadata-ingestion/scripts/modeldocgen.py"
+      - "metadata-ingestion/scripts/modeldocupload.sh"
   release:
     types: [published]
   workflow_dispatch:
