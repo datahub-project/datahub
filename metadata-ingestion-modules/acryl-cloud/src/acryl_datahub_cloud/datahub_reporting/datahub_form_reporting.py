@@ -2,10 +2,10 @@ import json
 import logging
 from datetime import date, datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
 import pandas as pd
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from acryl_datahub_cloud.elasticsearch.graph_service import BaseModelRow
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -129,6 +129,22 @@ class DataHubFormReportingData(FormData):
         platform: str = ""
         platformInstance: Optional[str] = None
         domains: List[str] = []
+
+        @field_validator(
+            "completedFormsIncompletePromptResponseTimes",
+            "completedFormsCompletedPromptResponseTimes",
+            "incompleteFormsIncompletePromptResponseTimes",
+            "incompleteFormsCompletedPromptResponseTimes",
+            mode="before",
+        )
+        @classmethod
+        def convert_timestamps_to_strings(
+            cls, v: Union[List[int], List[str]]
+        ) -> List[str]:
+            """Convert timestamp integers to strings for compatibility with GMS data."""
+            if not isinstance(v, list):
+                return v
+            return [str(item) for item in v]
 
     def __init__(self, graph: DataHubGraph, allowed_forms: Optional[List[str]] = None):
         self.graph: DataHubGraph = graph
@@ -430,7 +446,7 @@ class DataHubFormReportingData(FormData):
                             question_status=QuestionStatus.COMPLETED,
                             question_completed_date=datetime.fromtimestamp(
                                 float(prompt_response_time) / 1000, tz=timezone.utc
-                            ),
+                            ).date(),
                             snapshot_date=self.snapshot_date,
                         )
             complete_forms = (
@@ -532,7 +548,7 @@ class DataHubFormReportingData(FormData):
                             question_status=QuestionStatus.COMPLETED,
                             question_completed_date=datetime.fromtimestamp(
                                 float(prompt_response_time) / 1000, tz=timezone.utc
-                            ),
+                            ).date(),
                             snapshot_date=self.snapshot_date,
                         )
 
