@@ -47,7 +47,6 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
-    OtherSchemaClass,
     SchemaMetadataClass,
     SubTypesClass,
     TagAssociationClass,
@@ -428,7 +427,7 @@ class APISource(Source, ABC):
 
     def create_schema_metadata_from_schema(
         self, dataset_name: str, schema: Dict
-    ) -> SchemaMetadataClass:
+    ) -> Optional[SchemaMetadataClass]:
         """
         Create schema metadata using json_schema_util.py.
 
@@ -456,15 +455,8 @@ class APISource(Source, ABC):
             logger.warning(
                 f"Error creating schema metadata for {dataset_name}: {str(e)}"
             )
-            # Fallback to empty schema metadata
-            return SchemaMetadataClass(
-                schemaName=dataset_name,
-                platform=f"urn:li:dataPlatform:{self.platform}",
-                version=0,
-                hash="",
-                platformSchema=OtherSchemaClass(rawSchema=""),
-                fields=[],
-            )
+            # Return None instead of empty schema - no schema aspect is better than empty one
+            return None
 
     def init_dataset(
         self, endpoint_k: str, endpoint_dets: dict
