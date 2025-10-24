@@ -53,7 +53,7 @@ public class S3UtilTest {
 
   @Test
   public void testConstructorWithS3Client() {
-    S3Util s3Util = new S3Util(mockS3Client);
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
     assertNotNull(s3Util);
   }
 
@@ -80,13 +80,16 @@ public class S3UtilTest {
 
   @Test
   public void testGeneratePresignedDownloadUrlWithoutCredentialRefresh() {
-    S3Util s3Util = new S3Util(mockS3Client);
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
 
     String bucket = "test-bucket";
     String key = "test-key";
     int expirationSeconds = 3600;
 
-    // This will throw an exception because mockS3Client doesn't have real configuration
+    // This will throw an exception because mockS3Presigner will throw when called
+    when(mockS3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
+        .thenThrow(new RuntimeException("Presigner error"));
+
     assertThrows(
         RuntimeException.class,
         () -> s3Util.generatePresignedDownloadUrl(bucket, key, expirationSeconds));
@@ -94,7 +97,7 @@ public class S3UtilTest {
 
   @Test
   public void testGeneratePresignedDownloadUrlWithNullParameters() {
-    S3Util s3Util = new S3Util(mockS3Client);
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
 
     assertThrows(Exception.class, () -> s3Util.generatePresignedDownloadUrl(null, "key", 3600));
 
@@ -143,10 +146,12 @@ public class S3UtilTest {
 
   @Test
   public void testGeneratePresignedUrlExceptionHandling() {
-    S3Util s3Util = new S3Util(mockS3Client);
+    // Mock the presigner to pass it explicitly, bypassing createPresigner()
+    S3Util s3Util = new S3Util(mockS3Client, mockS3Presigner);
 
-    when(mockS3Client.serviceClientConfiguration())
-        .thenThrow(new RuntimeException("S3 client configuration error"));
+    // Mock the presigner to throw an exception during URL generation
+    when(mockS3Presigner.presignGetObject(any(GetObjectPresignRequest.class)))
+        .thenThrow(new RuntimeException("Presigner error"));
 
     assertThrows(
         RuntimeException.class, () -> s3Util.generatePresignedDownloadUrl("bucket", "key", 3600));
@@ -156,7 +161,7 @@ public class S3UtilTest {
   public void testConstructorParameterValidation() {
     // The constructors don't currently validate null parameters, so let's just test they don't
     // throw
-    S3Util s3Util1 = new S3Util(mockS3Client);
+    S3Util s3Util1 = new S3Util(mockS3Client, mockS3Presigner);
     assertNotNull(s3Util1);
 
     // Test the STS constructor variation
@@ -363,14 +368,11 @@ public class S3UtilTest {
 
   @Test
   public void testPresignerCreationWithS3ClientConfiguration() {
-    S3Util s3Util = new S3Util(mockS3Client);
-
-    // Mock S3Client configuration to throw exception
+    // Mock S3Client configuration to throw exception BEFORE creating S3Util
     when(mockS3Client.serviceClientConfiguration())
         .thenThrow(new RuntimeException("S3 client configuration error"));
 
-    // This will fail because we can't create a real presigner, but it tests the path
-    assertThrows(
-        RuntimeException.class, () -> s3Util.generatePresignedDownloadUrl("bucket", "key", 3600));
+    // This will fail during construction when createPresigner() is called
+    assertThrows(RuntimeException.class, () -> new S3Util(mockS3Client));
   }
 }

@@ -13,14 +13,17 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
+import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
+import software.amazon.awssdk.services.sts.model.Credentials;
 
 @Slf4j
 public class S3Util {
 
   private final S3Client s3Client;
 
-  // Optional S3Presigner for testing purposes
-  @Nullable private final S3Presigner s3Presigner;
+  // Cached S3Presigner instance (or injected for testing purposes)
+  @Nonnull private final S3Presigner s3Presigner;
 
   public S3Util(@Nonnull S3Client s3Client) {
     this(s3Client, null);
@@ -28,7 +31,7 @@ public class S3Util {
 
   public S3Util(@Nonnull S3Client s3Client, @Nullable S3Presigner s3Presigner) {
     this.s3Client = s3Client;
-    this.s3Presigner = s3Presigner;
+    this.s3Presigner = s3Presigner != null ? s3Presigner : createPresigner();
   }
 
   public S3Util(@Nonnull StsClient stsClient, @Nonnull String roleArn) {
@@ -37,8 +40,9 @@ public class S3Util {
 
   public S3Util(
       @Nonnull StsClient stsClient, @Nonnull String roleArn, @Nullable S3Presigner s3Presigner) {
-    this.s3Presigner = s3Presigner;
+
     this.s3Client = createS3Client(stsClient, roleArn);
+    this.s3Presigner = s3Presigner != null ? s3Presigner : createPresigner();
   }
 
   /** Creates S3Client with StsAssumeRoleCredentialsProvider for automatic credential refresh. */
@@ -74,11 +78,23 @@ public class S3Util {
     }
   }
 
-  private S3Presigner getPresigner() {
-    if (this.s3Presigner != null) {
-      return this.s3Presigner;
-    }
+  public static Credentials assumeRole(
+      @Nonnull StsClient stsClient, @Nonnull String roleArn, @Nonnull String sessionName) {
+    try {
+      AssumeRoleRequest roleRequest =
+          AssumeRoleRequest.builder().roleArn(roleArn).roleSessionName(sessionName).build();
 
+      AssumeRoleResponse roleResponse = stsClient.assumeRole(roleRequest);
+      return roleResponse.credentials();
+
+    } catch (Exception e) {
+      log.error("Failed to assume role: roleArn={}, sessionName={}", roleArn, sessionName, e);
+      throw new RuntimeException("Failed to assume AWS role: " + e.getMessage(), e);
+    }
+  }
+
+  private S3Presigner createPresigner() {
+    // Create and cache the presigner to avoid creating/closing it repeatedly
     var presignerBuilder =
         S3Presigner.builder()
             .credentialsProvider(s3Client.serviceClientConfiguration().credentialsProvider())
@@ -104,24 +120,21 @@ public class S3Util {
   public String generatePresignedDownloadUrl(
       @Nonnull String bucket, @Nonnull String key, int expirationSeconds) {
     try {
-      // Create a pre-signer using the same configuration as the S3 client
-      try (S3Presigner presigner = getPresigner()) {
+      // Create the GetObjectRequest
+      GetObjectRequest getObjectRequest =
+          GetObjectRequest.builder().bucket(bucket).key(key).build();
 
-        // Create the GetObjectRequest
-        GetObjectRequest getObjectRequest =
-            GetObjectRequest.builder().bucket(bucket).key(key).build();
+      // Create the presign request
+      GetObjectPresignRequest presignRequest =
+          GetObjectPresignRequest.builder()
+              .signatureDuration(Duration.ofSeconds(expirationSeconds))
+              .getObjectRequest(getObjectRequest)
+              .build();
 
-        // Create the presign request
-        GetObjectPresignRequest presignRequest =
-            GetObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofSeconds(expirationSeconds))
-                .getObjectRequest(getObjectRequest)
-                .build();
-
-        // Generate the presigned URL
-        PresignedGetObjectRequest presignedRequest = presigner.presignGetObject(presignRequest);
-        return presignedRequest.url().toString();
-      }
+      // Generate the presigned URL
+      PresignedGetObjectRequest presignedRequest =
+          this.s3Presigner.presignGetObject(presignRequest);
+      return presignedRequest.url().toString();
     } catch (Exception e) {
       log.error("Failed to generate presigned URL for bucket: {}, key: {}", bucket, key, e);
       throw new RuntimeException("Failed to generate presigned URL: " + e.getMessage(), e);
@@ -144,24 +157,21 @@ public class S3Util {
       int expirationSeconds,
       @Nullable String contentType) {
     try {
-      // Create a pre-signer using the same configuration as the S3 client
-      try (S3Presigner presigner = getPresigner()) {
+      // Create the PutObjectRequest
+      PutObjectRequest putObjectRequest =
+          PutObjectRequest.builder().bucket(bucket).contentType(contentType).key(key).build();
 
-        // Create the PutObjectRequest
-        PutObjectRequest putObjectRequest =
-            PutObjectRequest.builder().bucket(bucket).contentType(contentType).key(key).build();
+      // Create the presign request
+      PutObjectPresignRequest presignRequest =
+          PutObjectPresignRequest.builder()
+              .signatureDuration(Duration.ofSeconds(expirationSeconds))
+              .putObjectRequest(putObjectRequest)
+              .build();
 
-        // Create the presign request
-        PutObjectPresignRequest presignRequest =
-            PutObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofSeconds(expirationSeconds))
-                .putObjectRequest(putObjectRequest)
-                .build();
-
-        // Generate the presigned URL
-        PresignedPutObjectRequest presignedRequest = presigner.presignPutObject(presignRequest);
-        return presignedRequest.url().toString();
-      }
+      // Generate the presigned URL
+      PresignedPutObjectRequest presignedRequest =
+          this.s3Presigner.presignPutObject(presignRequest);
+      return presignedRequest.url().toString();
     } catch (Exception e) {
       log.error("Failed to generate presigned upload URL for bucket: {}, key: {}", bucket, key, e);
       throw new RuntimeException("Failed to generate presigned upload URL: " + e.getMessage(), e);
