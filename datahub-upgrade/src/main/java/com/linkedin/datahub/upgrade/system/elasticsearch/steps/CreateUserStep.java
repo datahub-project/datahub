@@ -43,11 +43,8 @@ public class CreateUserStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
-        String indexPrefix = configurationProvider.getElasticSearch().getIndex().getPrefix();
-        // Handle null prefix by converting to empty string
-        if (indexPrefix == null) {
-          indexPrefix = "";
-        }
+        final String indexPrefix =
+            configurationProvider.getElasticSearch().getIndex().getFinalPrefix();
 
         // Check for CREATE_USER_ES_USERNAME and CREATE_USER_ES_PASSWORD environment variables first
         String username = EnvironmentUtils.getString("CREATE_USER_ES_USERNAME");
@@ -59,7 +56,7 @@ public class CreateUserStep implements UpgradeStep {
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }
 
-        String roleName = IndexUtils.createPrefixedName(indexPrefix, "access");
+        String roleName = indexPrefix + "access";
 
         if (esComponents.getSearchClient().getEngineType().isOpenSearch()) {
           setupOpenSearchUser(indexPrefix, roleName, username, password);
