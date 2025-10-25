@@ -78,7 +78,7 @@ const buildOrFilters = (
     urn: string,
 ): AndFilterInput[] => {
     // First, choose which entities to search across
-    const siblingUrns = entityData?.siblingsSearch?.searchResults.map((result) => result.entity.urn);
+    const siblingUrns = entityData?.siblingsSearch?.searchResults?.map((result) => result.entity.urn);
     // Include siblings if not in hide sibling mode
     const urnsToSearch = !isHideSiblingMode ? [urn, ...(siblingUrns || [])] : [urn];
     const filters: FacetFilterInput[] = [

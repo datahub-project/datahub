@@ -97,13 +97,13 @@ const AcrylAssertionTypeSummary = ({
 
     const statusFacet = data?.searchAcrossEntities?.facets?.find((facet) => facet.field === 'lastResultType');
     const passingCount =
-        statusFacet?.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Success)?.count || 0;
+        statusFacet?.aggregations?.find((aggregation) => aggregation.value === AssertionResultType.Success)?.count || 0;
     const failingCount =
-        statusFacet?.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Failure)?.count || 0;
+        statusFacet?.aggregations?.find((aggregation) => aggregation.value === AssertionResultType.Failure)?.count || 0;
     const erroringCount =
-        statusFacet?.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Error)?.count || 0;
+        statusFacet?.aggregations?.find((aggregation) => aggregation.value === AssertionResultType.Error)?.count || 0;
     const initializingCount =
-        statusFacet?.aggregations.find((aggregation) => aggregation.value === AssertionResultType.Init)?.count || 0;
+        statusFacet?.aggregations?.find((aggregation) => aggregation.value === AssertionResultType.Init)?.count || 0;
     const totalCount = data?.searchAcrossEntities?.total ?? 0;
     const totalAssertionsCount = data?.searchAcrossEntities?.total ?? 0;
 
@@ -133,7 +133,7 @@ export const AcrylAssertionSummaryTab = () => {
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const { pathname } = useLocation();
     const { basePath } = useGetValidationsTab(pathname, ['Summary']);
-    const siblingUrns = entityData?.siblingsSearch?.searchResults.map((result) => result.entity.urn);
+    const siblingUrns = entityData?.siblingsSearch?.searchResults?.map((result) => result.entity.urn);
     // Include siblings if not in hide sibling mode
     const urnsToSearch = !isHideSiblingMode ? [entityUrn, ...(siblingUrns || [])] : [entityUrn];
     const filters: FacetFilterInput[] = [getBaseFilter(urnsToSearch)];
