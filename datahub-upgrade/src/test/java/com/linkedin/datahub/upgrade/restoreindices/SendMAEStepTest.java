@@ -136,6 +136,9 @@ public class SendMAEStepTest {
     // Insert a few test rows
     insertTestRows(5, null);
 
+    // Mock countAspect to return 5 rows
+    when(mockEntityService.countAspect(any(RestoreIndicesArgs.class), any())).thenReturn(5);
+
     // Execute
     UpgradeStepResult result = sendMAEStep.executable().apply(mockContext);
 
@@ -175,6 +178,8 @@ public class SendMAEStepTest {
     // Insert some test data
     insertTestRows(5, "testAspect");
 
+    when(mockEntityService.countAspect(any(RestoreIndicesArgs.class), any())).thenReturn(5);
+
     // Execute
     UpgradeStepResult result = sendMAEStep.executable().apply(mockContext);
 
@@ -209,6 +214,8 @@ public class SendMAEStepTest {
     // Insert data that matches the URN pattern
     insertTestRows(3, null);
 
+    when(mockEntityService.countAspect(any(RestoreIndicesArgs.class), any())).thenReturn(3);
+
     // Execute
     UpgradeStepResult result = sendMAEStep.executable().apply(mockContext);
 
@@ -242,6 +249,8 @@ public class SendMAEStepTest {
     insertTestRow("urn:li:test:2", "testAspect", 0, oneHourAgo, "testUser"); // Edge of range
     insertTestRow("urn:li:test:3", "testAspect", 0, twoHoursAgo, "testUser"); // Outside range
 
+    when(mockEntityService.countAspect(any(RestoreIndicesArgs.class), any())).thenReturn(2);
+
     // Execute
     UpgradeStepResult result = sendMAEStep.executable().apply(mockContext);
 
@@ -267,14 +276,14 @@ public class SendMAEStepTest {
     insertTestRow("urn:li:test:2", "aspect2", 0, now, "testUser");
     insertTestRow("urn:li:test:3", "aspect3", 0, now, "testUser");
 
+    when(mockEntityService.countAspect(any(RestoreIndicesArgs.class), any())).thenReturn(3);
+
     // Execute
     UpgradeStepResult result = sendMAEStep.executable().apply(mockContext);
 
-    // Verify aspect names parameter
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
     verify(mockEntityService).restoreIndices(eq(mockOpContext), argsCaptor.capture(), any());
-
     RestoreIndicesArgs capturedArgs = argsCaptor.getValue();
     assertEquals(capturedArgs.aspectNames.size(), 3);
     assertTrue(capturedArgs.aspectNames.contains("aspect1"));
@@ -290,6 +299,8 @@ public class SendMAEStepTest {
 
     // Insert enough rows to trigger pagination
     insertTestRows(5, null);
+
+    when(mockEntityService.countAspect(any(RestoreIndicesArgs.class), any())).thenReturn(5);
 
     // Setup sequential results for pagination
     RestoreIndicesResult firstResult = new RestoreIndicesResult();
@@ -374,6 +385,8 @@ public class SendMAEStepTest {
     // Insert rows so the query returns data
     insertTestRows(10, null);
 
+    when(mockEntityService.countAspect(any(RestoreIndicesArgs.class), any())).thenReturn(10);
+
     // Force the service to throw an exception
     when(mockEntityService.restoreIndices(eq(mockOpContext), any(RestoreIndicesArgs.class), any()))
         .thenThrow(new RuntimeException("Test exception"));
@@ -385,6 +398,28 @@ public class SendMAEStepTest {
     assertTrue(result instanceof DefaultUpgradeStepResult);
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
     assertEquals(result.stepId(), sendMAEStep.id());
+  }
+
+  @Test
+  public void testUrnBasedPaginationExecutableWithError() {
+    parsedArgs.put(RestoreIndices.URN_BASED_PAGINATION_ARG_NAME, Optional.of("true"));
+
+    when(mockEntityService.countAspect(any(RestoreIndicesArgs.class), any())).thenReturn(10);
+
+    // Force the service to throw an exception
+    when(mockEntityService.restoreIndices(eq(mockOpContext), any(RestoreIndicesArgs.class), any()))
+        .thenThrow(new RuntimeException("Test exception"));
+
+    // Execute
+    UpgradeStepResult result = sendMAEStep.executable().apply(mockContext);
+
+    // Verify failure
+    assertTrue(result instanceof DefaultUpgradeStepResult);
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    assertEquals(result.stepId(), sendMAEStep.id());
+
+    // verify exception reported
+    verify(mockReport, atLeastOnce()).addLine(anyString(), any(Exception.class));
   }
 
   @Test
@@ -406,6 +441,8 @@ public class SendMAEStepTest {
 
     // Insert test data
     insertTestRows(3, null);
+
+    when(mockEntityService.countAspect(any(RestoreIndicesArgs.class), any())).thenReturn(3);
 
     // Execute
     UpgradeStepResult result = sendMAEStep.executable().apply(mockContext);
