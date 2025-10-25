@@ -54,13 +54,13 @@ public class CreateUsageEventIndicesStepTest {
     Mockito.when(esComponents.getSearchClient()).thenReturn(searchClient);
     Mockito.when(searchClient.getEngineType()).thenReturn(searchEngineType);
     Mockito.when(esComponents.getIndexBuilder()).thenReturn(indexBuilder);
-    Mockito.when(indexBuilder.getNumShards()).thenReturn(2);
-    Mockito.when(indexBuilder.getNumReplicas()).thenReturn(1);
 
     Mockito.when(configurationProvider.getPlatformAnalytics()).thenReturn(platformAnalytics);
     Mockito.when(configurationProvider.getElasticSearch()).thenReturn(elasticSearch);
     Mockito.when(elasticSearch.getIndex()).thenReturn(index);
     Mockito.when(index.getPrefix()).thenReturn("test_");
+    Mockito.when(index.getNumShards()).thenReturn(2);
+    Mockito.when(index.getNumReplicas()).thenReturn(1);
 
     Mockito.when(upgradeContext.opContext()).thenReturn(opContext);
 
@@ -196,8 +196,8 @@ public class CreateUsageEventIndicesStepTest {
 
     // Verify Elasticsearch path was taken
     Mockito.verify(searchEngineType).isOpenSearch();
-    Mockito.verify(indexBuilder).getNumShards();
-    Mockito.verify(indexBuilder).getNumReplicas();
+    Mockito.verify(index).getNumShards();
+    Mockito.verify(index).getNumReplicas();
   }
 
   @Test
@@ -217,8 +217,8 @@ public class CreateUsageEventIndicesStepTest {
 
     // Verify OpenSearch path was taken
     Mockito.verify(searchEngineType).isOpenSearch();
-    Mockito.verify(indexBuilder).getNumShards();
-    Mockito.verify(indexBuilder).getNumReplicas();
+    Mockito.verify(index).getNumShards();
+    Mockito.verify(index).getNumReplicas();
   }
 
   @Test
@@ -226,7 +226,7 @@ public class CreateUsageEventIndicesStepTest {
     // Arrange
     Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
     Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
-    Mockito.when(indexBuilder.getNumShards())
+    Mockito.when(index.getNumShards())
         .thenThrow(new RuntimeException("Elasticsearch setup failed"));
 
     // Act
@@ -244,8 +244,7 @@ public class CreateUsageEventIndicesStepTest {
     // Arrange
     Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
     Mockito.when(searchEngineType.isOpenSearch()).thenReturn(true);
-    Mockito.when(indexBuilder.getNumShards())
-        .thenThrow(new RuntimeException("OpenSearch setup failed"));
+    Mockito.when(index.getNumShards()).thenThrow(new RuntimeException("OpenSearch setup failed"));
 
     // Act
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
@@ -502,8 +501,8 @@ public class CreateUsageEventIndicesStepTest {
     // Arrange
     Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
     Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
-    Mockito.when(indexBuilder.getNumShards()).thenReturn(5);
-    Mockito.when(indexBuilder.getNumReplicas()).thenReturn(3);
+    Mockito.when(index.getNumShards()).thenReturn(5);
+    Mockito.when(index.getNumReplicas()).thenReturn(3);
 
     // Act
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
@@ -515,8 +514,8 @@ public class CreateUsageEventIndicesStepTest {
     Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
     // Verify custom shards and replicas were retrieved
-    Mockito.verify(indexBuilder).getNumShards();
-    Mockito.verify(indexBuilder).getNumReplicas();
+    Mockito.verify(index).getNumShards();
+    Mockito.verify(index).getNumReplicas();
   }
 
   @Test

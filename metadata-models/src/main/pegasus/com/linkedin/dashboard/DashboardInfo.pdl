@@ -25,7 +25,9 @@ record DashboardInfo includes CustomProperties, ExternalReference {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
   }
   title: string
 
@@ -34,7 +36,8 @@ record DashboardInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription"
+    "hasValuesFieldName": "hasDescription",
+    "searchTier": 2
   }
   description: string
 
@@ -123,13 +126,21 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   /**
    * Captures information about who created/last modified/deleted this dashboard and when
    */
+  @Searchable = {
+    "/lastModified/time": {
+      "fieldName": "lastModifiedAt",
+         "fieldType": "DATETIME",
+         "searchLabel": "lastModifiedAt"
+       }
+     }
   lastModified: ChangeAuditStamps
 
   /**
    * URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard
    */
   @Searchable = {
-    "fieldType": "KEYWORD"
+    "fieldType": "KEYWORD",
+    "searchTier": 4
   }
   dashboardUrl: optional Url
 
@@ -139,7 +150,8 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldType": "KEYWORD",
     "addToFilters": true,
-    "filterNameOverride": "Access Level"
+    "filterNameOverride": "Access Level",
+    "searchTier": 4
   }
   access: optional AccessLevel
 

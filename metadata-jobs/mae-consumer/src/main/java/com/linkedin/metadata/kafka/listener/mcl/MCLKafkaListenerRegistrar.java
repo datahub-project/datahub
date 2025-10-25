@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
+@Slf4j
 public class MCLKafkaListenerRegistrar
     extends AbstractKafkaListenerRegistrar<
         MetadataChangeLog, MetadataChangeLogHook, GenericRecord> {
@@ -68,7 +70,21 @@ public class MCLKafkaListenerRegistrar
 
   @Override
   protected String getProcessorType() {
-    return "MetadataChangeLogProcessor";
+    // Check if batch processing is enabled
+    boolean batchEnabled = false;
+    try {
+      if (configurationProvider.getMetadataChangeLog() != null
+          && configurationProvider.getMetadataChangeLog().getConsumer() != null
+          && configurationProvider.getMetadataChangeLog().getConsumer().getBatch() != null) {
+        batchEnabled =
+            configurationProvider.getMetadataChangeLog().getConsumer().getBatch().isEnabled();
+      }
+    } catch (Exception e) {
+      log.debug(
+          "Error checking batch processing configuration, defaulting to individual processing", e);
+    }
+
+    return batchEnabled ? "BatchMetadataChangeLogProcessor" : "MetadataChangeLogProcessor";
   }
 
   @Override
@@ -94,8 +110,29 @@ public class MCLKafkaListenerRegistrar
           @Nonnull List<MetadataChangeLogHook> hooks,
           boolean fineGrainedLoggingEnabled,
           @Nonnull Map<String, Set<String>> aspectsToDrop) {
-    MCLKafkaListener listener = new MCLKafkaListener();
-    return listener.init(
-        systemOperationContext, consumerGroupId, hooks, fineGrainedLoggingEnabled, aspectsToDrop);
+
+    // Check if batch processing is enabled
+    boolean batchEnabled = false;
+    try {
+      if (configurationProvider.getMetadataChangeLog() != null
+          && configurationProvider.getMetadataChangeLog().getConsumer() != null
+          && configurationProvider.getMetadataChangeLog().getConsumer().getBatch() != null) {
+        batchEnabled =
+            configurationProvider.getMetadataChangeLog().getConsumer().getBatch().isEnabled();
+      }
+    } catch (Exception e) {
+      log.debug(
+          "Error checking batch processing configuration, defaulting to individual processing", e);
+    }
+
+    if (batchEnabled) {
+      MCLBatchKafkaListener listener = new MCLBatchKafkaListener();
+      return listener.init(
+          systemOperationContext, consumerGroupId, hooks, fineGrainedLoggingEnabled, aspectsToDrop);
+    } else {
+      MCLKafkaListener listener = new MCLKafkaListener();
+      return listener.init(
+          systemOperationContext, consumerGroupId, hooks, fineGrainedLoggingEnabled, aspectsToDrop);
+    }
   }
 }
