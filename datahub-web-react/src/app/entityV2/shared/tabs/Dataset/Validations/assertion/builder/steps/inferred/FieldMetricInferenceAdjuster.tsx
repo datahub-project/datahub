@@ -8,6 +8,7 @@ import { EvaluationScheduleBuilder } from '@app/entityV2/shared/tabs/Dataset/Val
 import { ExclusionWindowAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/ExclusionWindowAdjuster';
 import { InferenceSensitivityAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/InferenceSensitivityAdjuster';
 import { LookBackWindowAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/LookBackWindowAdjuster';
+import { ENABLE_INFERRED_ASSERTION_PREDICTIONS_TUNING_FORM_ON_SINGLE_CREATE } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/contsants';
 import {
     AssertionMonitorBuilderExclusionWindow,
     AssertionMonitorBuilderState,
@@ -48,6 +49,7 @@ type Props = {
 
 export const FieldMetricInferenceAdjuster = (props: Props) => {
     const { state, updateState, disabled, collapsable, isEditMode, monitor, assertion } = props;
+    const isBulkCreate = collapsable;
     const { inferenceSettings, schedule } = state;
     const { sensitivity, trainingDataLookbackWindowDays, exclusionWindows } = inferenceSettings || {};
 
@@ -59,7 +61,7 @@ export const FieldMetricInferenceAdjuster = (props: Props) => {
     const inferenceContent = (
         <>
             {/* Title - only show if not collapsable since Collapse will have its own title */}
-            {!collapsable && (
+            {!collapsable && (ENABLE_INFERRED_ASSERTION_PREDICTIONS_TUNING_FORM_ON_SINGLE_CREATE || isEditMode) && (
                 <TitleWrapper>
                     <Typography.Title level={5}>AI Model Tuning</Typography.Title>
                     {!isEditMode && (
@@ -87,43 +89,45 @@ export const FieldMetricInferenceAdjuster = (props: Props) => {
                     <Text>Tune Predictions</Text>
                 </Button>
             ) : (
-                <>
-                    {/* Sensitivity */}
-                    <InferenceSensitivityAdjuster
-                        sensitivity={sensitivity?.level}
-                        disabled={disabled}
-                        onChange={(value) => {
-                            updateState({
-                                ...state,
-                                inferenceSettings: { ...inferenceSettings, sensitivity: { level: value } },
-                            });
-                        }}
-                    />
+                (ENABLE_INFERRED_ASSERTION_PREDICTIONS_TUNING_FORM_ON_SINGLE_CREATE || isBulkCreate) && (
+                    <>
+                        {/* Sensitivity */}
+                        <InferenceSensitivityAdjuster
+                            sensitivity={sensitivity?.level}
+                            disabled={disabled}
+                            onChange={(value) => {
+                                updateState({
+                                    ...state,
+                                    inferenceSettings: { ...inferenceSettings, sensitivity: { level: value } },
+                                });
+                            }}
+                        />
 
-                    {/* Exclusion windows */}
-                    <ExclusionWindowAdjuster
-                        exclusionWindows={exclusionWindows || []}
-                        disabled={disabled}
-                        onChange={(value: AssertionMonitorBuilderExclusionWindow) => {
-                            updateState({
-                                ...state,
-                                inferenceSettings: { ...inferenceSettings, exclusionWindows: value },
-                            });
-                        }}
-                    />
+                        {/* Exclusion windows */}
+                        <ExclusionWindowAdjuster
+                            exclusionWindows={exclusionWindows || []}
+                            disabled={disabled}
+                            onChange={(value: AssertionMonitorBuilderExclusionWindow) => {
+                                updateState({
+                                    ...state,
+                                    inferenceSettings: { ...inferenceSettings, exclusionWindows: value },
+                                });
+                            }}
+                        />
 
-                    {/* Training data lookback window days */}
-                    <LookBackWindowAdjuster
-                        trainingDataLookbackWindowDays={trainingDataLookbackWindowDays}
-                        disabled={disabled}
-                        onChange={(value) => {
-                            updateState({
-                                ...state,
-                                inferenceSettings: { ...inferenceSettings, trainingDataLookbackWindowDays: value },
-                            });
-                        }}
-                    />
-                </>
+                        {/* Training data lookback window days */}
+                        <LookBackWindowAdjuster
+                            trainingDataLookbackWindowDays={trainingDataLookbackWindowDays}
+                            disabled={disabled}
+                            onChange={(value) => {
+                                updateState({
+                                    ...state,
+                                    inferenceSettings: { ...inferenceSettings, trainingDataLookbackWindowDays: value },
+                                });
+                            }}
+                        />
+                    </>
+                )
             )}
         </>
     );
@@ -151,6 +155,7 @@ export const FieldMetricInferenceAdjuster = (props: Props) => {
                     });
                 }}
                 disabled={disabled}
+                headerLabel="Check field metric"
             />
 
             {isEditMode && monitor && assertion && isTunePredictionsModalOpen ? (

@@ -12,7 +12,7 @@ import {
     SQL_OPERATION_OPTIONS,
     SqlOperationOptionEnum,
     getOperationOption,
-    getSqlOperationOptions,
+    getSqlOperationOptionGroups,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/utils';
 import { AssertionMonitorBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 import { nullsToUndefined } from '@src/app/entityV2/shared/utils';
@@ -40,7 +40,7 @@ type Props = {
 };
 
 export const SqlEvaluationBuilder = ({ value, onChange, disabled }: Props) => {
-    const options = getSqlOperationOptions();
+    const options = getSqlOperationOptionGroups();
     const optionValue = getOperationOption(
         value.assertion?.sqlAssertion?.type,
         value.assertion?.sqlAssertion?.operator,
@@ -83,7 +83,7 @@ export const SqlEvaluationBuilder = ({ value, onChange, disabled }: Props) => {
             <Typography.Title level={5}>Pass if resulting value</Typography.Title>
             <Row>
                 <StyledSelect
-                    value={optionValue ? SQL_OPERATION_OPTIONS[optionValue] : undefined}
+                    value={optionValue}
                     placeholder="Select condition"
                     options={options}
                     onChange={(newOption) => updateOperationOption(newOption as SqlOperationOptionEnum)}

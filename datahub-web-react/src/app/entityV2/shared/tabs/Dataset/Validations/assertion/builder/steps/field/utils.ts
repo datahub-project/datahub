@@ -1,6 +1,10 @@
 import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { HIGH_WATERMARK_FIELD_TYPES } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/constants';
 import {
+    SECTION_LABELS,
+    groupOptions,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/common/groupedOptions';
+import {
     AssertionMonitorBuilderState,
     FieldMetricAssertionBuilderOperator,
     FieldMetricAssertionBuilderOperatorOptions,
@@ -612,11 +616,30 @@ export const getFieldMetricOperatorOptions = ({ disableAiInferred }: { disableAi
     }
     return [
         {
-            label: 'Detect anomalies with AI',
+            label: 'Detect with AI',
             value: FieldMetricAssertionBuilderOperatorOptions.AiInferred,
             hideParameters: true,
         },
     ].concat(options);
+};
+
+// Grouped options for Select dropdown with section headers.
+export const getFieldMetricOperatorOptionGroups = ({ disableAiInferred }: { disableAiInferred?: boolean } = {}) => {
+    const baseOptions = getFieldMetricOperatorOptions({ disableAiInferred });
+    const hasAi = !disableAiInferred;
+    const aiOptions = hasAi
+        ? baseOptions
+              .filter((o) => o.value === FieldMetricAssertionBuilderOperatorOptions.AiInferred)
+              .map((o) => ({ label: o.label, value: o.value }))
+        : [];
+    const valueOptions = baseOptions
+        .filter((o) => o.value !== FieldMetricAssertionBuilderOperatorOptions.AiInferred)
+        .map((o) => ({ label: o.label, value: o.value }));
+
+    return groupOptions([
+        [SECTION_LABELS.anomalyDetection, aiOptions],
+        ['Metric Value', valueOptions],
+    ]);
 };
 export const getSelectedFieldMetricOperatorOption = (operator?: FieldMetricAssertionBuilderOperator | null) => {
     if (!operator) return null;

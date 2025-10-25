@@ -1,3 +1,8 @@
+import {
+    SECTION_LABELS,
+    groupOptions,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/common/groupedOptions';
+
 import { AssertionStdOperator, AssertionStdParameters, AssertionValueChangeType, SqlAssertionType } from '@types';
 
 export type SqlOperationOption = {
@@ -78,6 +83,29 @@ export const getSqlOperationOptions = () => {
         value: key,
         disabled: !!option.disabled,
     }));
+};
+
+export const getSqlOperationOptionGroups = () => {
+    const all = (Object.entries(SQL_OPERATION_OPTIONS) as [SqlOperationOptionEnum, SqlOperationOption][]).map(
+        ([key, option]) => ({ key, option }),
+    );
+
+    const toOptions = (predicate: (entry: { key: SqlOperationOptionEnum; option: SqlOperationOption }) => boolean) =>
+        all
+            .filter(predicate)
+            .map(({ key, option }) => ({ label: option.label, value: key, disabled: !!option.disabled }));
+
+    const ai = toOptions(({ key }) => key === SqlOperationOptionEnum.AI_INFERRED);
+    const metric = toOptions(
+        ({ key, option }) => key !== SqlOperationOptionEnum.AI_INFERRED && option.type === SqlAssertionType.Metric,
+    );
+    const growth = toOptions(({ option }) => option.type === SqlAssertionType.MetricChange);
+
+    return groupOptions([
+        [SECTION_LABELS.anomalyDetection, ai],
+        ['Absolute Value', metric],
+        [SECTION_LABELS.growthRate, growth],
+    ]);
 };
 
 export const getOperationOption = (type?: SqlAssertionType | null, operator?: AssertionStdOperator | null) => {
