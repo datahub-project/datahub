@@ -173,10 +173,10 @@ export const TuneSmartAssertionModal = ({ onClose, monitor: originalMonitor, ass
     const onBulkUnmarkAnomalies = useCallback(
         (startTimeMillis: number, endTimeMillis: number) => {
             AntdModal.confirm({
-                title: 'Confirm Bulk Unmark Anomalies',
+                title: 'Bulk-Remove Anomalies?',
                 content:
                     'This action will mark all data points in the selected time range as not anomalies. You can always add an exclusion window later.',
-                okText: 'Yes, Unmark',
+                okText: 'Remove',
                 cancelText: 'Cancel',
                 icon: <Info size={24} color={colors.gray[900]} />,
                 onOk: () => executeBulkUnmarkAnomalies(startTimeMillis, endTimeMillis),
