@@ -360,7 +360,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   @Override
   public Collection<MappingsBuilder.IndexMapping> getIndexMappings(
       @Nonnull OperationContext opContext) {
-    return mappingsBuilder.getMappings(opContext);
+    return mappingsBuilder.getIndexMappings(opContext);
   }
 
   @Override

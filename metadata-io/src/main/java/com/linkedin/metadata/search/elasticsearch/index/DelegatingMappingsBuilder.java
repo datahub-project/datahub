@@ -104,7 +104,7 @@ public class DelegatingMappingsBuilder implements MappingsBuilder {
   }
 
   @Override
-  public Collection<IndexMapping> getMappings(@Nonnull OperationContext opContext) {
+  public Collection<IndexMapping> getIndexMappings(@Nonnull OperationContext opContext) {
     return getIndexMappings(opContext, Collections.emptySet());
   }
 
@@ -186,7 +186,7 @@ public class DelegatingMappingsBuilder implements MappingsBuilder {
   }
 
   @Override
-  public Map<String, Object> getMappingsForStructuredProperty(
+  public Map<String, Object> getIndexMappingsForStructuredProperty(
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     if (builders.isEmpty()) {
       return Collections.emptyMap();
@@ -196,7 +196,7 @@ public class DelegatingMappingsBuilder implements MappingsBuilder {
     MappingsBuilder firstBuilder = builders.get(0);
     Map<String, Object> referenceMappings;
     try {
-      referenceMappings = firstBuilder.getMappingsForStructuredProperty(properties);
+      referenceMappings = firstBuilder.getIndexMappingsForStructuredProperty(properties);
       log.debug(
           "Reference structured property mappings from {}: {} entries",
           firstBuilder.getClass().getSimpleName(),
@@ -213,7 +213,7 @@ public class DelegatingMappingsBuilder implements MappingsBuilder {
     for (int i = 1; i < builders.size(); i++) {
       MappingsBuilder builder = builders.get(i);
       try {
-        Map<String, Object> mappings = builder.getMappingsForStructuredProperty(properties);
+        Map<String, Object> mappings = builder.getIndexMappingsForStructuredProperty(properties);
         if (!mapsEqual(referenceMappings, mappings)) {
           log.error(
               "Inconsistent structured property mappings detected between {} and {}",
@@ -243,7 +243,7 @@ public class DelegatingMappingsBuilder implements MappingsBuilder {
   }
 
   @Override
-  public Map<String, Object> getMappings(
+  public Map<String, Object> getIndexMappings(
       @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec) {
     if (builders.isEmpty()) {
       return Collections.emptyMap();
@@ -252,7 +252,7 @@ public class DelegatingMappingsBuilder implements MappingsBuilder {
     // TODO: Consider how to handle multiple builders for single entity spec mappings
     // For now, just return the first builder's result
     MappingsBuilder firstBuilder = builders.get(0);
-    return firstBuilder.getMappings(entityRegistry, entitySpec);
+    return firstBuilder.getIndexMappings(entityRegistry, entitySpec);
   }
 
   /**

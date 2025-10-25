@@ -806,7 +806,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   public void testV2IndexCreation() throws Exception {
     // Test that v2 indices are created with proper settings using delegating builders
     Collection<MappingsBuilder.IndexMapping> allIndexMappings =
-        delegatingMappingsBuilder.getMappings(opContext);
+        delegatingMappingsBuilder.getIndexMappings(opContext);
     Map<String, Object> v2Mappings =
         allIndexMappings.stream()
             .filter(mapping -> TEST_V2_INDEX_NAME.equals(mapping.getIndexName()))
@@ -1065,7 +1065,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   public void testV3AliasPaths() throws Exception {
     // Test that v3 aliases point to the correct paths
     Collection<MappingsBuilder.IndexMapping> allIndexMappings =
-        delegatingMappingsBuilder.getMappings(opContext);
+        delegatingMappingsBuilder.getIndexMappings(opContext);
     Map<String, Object> v3Mappings =
         allIndexMappings.stream()
             .filter(mapping -> TEST_V3_INDEX_NAME.equals(mapping.getIndexName()))

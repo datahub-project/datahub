@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -21,6 +22,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
+@Slf4j
 @Configuration
 @Import(ElasticSearchServiceFactory.class)
 public class UpdateIndicesServiceFactory {
@@ -54,6 +56,13 @@ public class UpdateIndicesServiceFactory {
     if (v3Strategy != null) {
       strategies.add(v3Strategy);
     }
+
+    List<String> strategyNames =
+        strategies.stream().map(strategy -> strategy.getClass().getSimpleName()).toList();
+
+    log.info(
+        "UpdateIndicesService strategies: {}",
+        strategyNames.isEmpty() ? "None" : String.join(", ", strategyNames));
 
     return strategies;
   }

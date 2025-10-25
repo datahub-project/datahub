@@ -28,7 +28,7 @@ public class NoOpMappingsBuilder implements MappingsBuilder {
   }
 
   @Override
-  public Collection<IndexMapping> getMappings(@Nonnull OperationContext opContext) {
+  public Collection<IndexMapping> getIndexMappings(@Nonnull OperationContext opContext) {
     log.debug("NoOpMappingsBuilder: returning empty collection for getMappings");
     return Collections.emptyList();
   }
@@ -44,14 +44,14 @@ public class NoOpMappingsBuilder implements MappingsBuilder {
   }
 
   @Override
-  public Map<String, Object> getMappingsForStructuredProperty(
+  public Map<String, Object> getIndexMappingsForStructuredProperty(
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     log.debug("NoOpMappingsBuilder: returning empty map for getMappingsForStructuredProperty");
     return Collections.emptyMap();
   }
 
   @Override
-  public Map<String, Object> getMappings(
+  public Map<String, Object> getIndexMappings(
       @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec) {
     log.debug("NoOpMappingsBuilder: returning empty map for getMappings");
     return Collections.emptyMap();

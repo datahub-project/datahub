@@ -83,9 +83,9 @@ public class DelegatingMappingsBuilderTest {
   }
 
   @Test
-  public void testGetMappingsWithV2V3Enabled() {
+  public void testGetIndexMappingsWithV2V3Enabled() {
     // Test getMappings when both v2 and v3 are enabled
-    Collection<IndexMapping> result = delegatingMappingsBuilder.getMappings(operationContext);
+    Collection<IndexMapping> result = delegatingMappingsBuilder.getIndexMappings(operationContext);
 
     assertNotNull(result, "Result should not be null");
     // Should have mappings from both v2 and v3 builders
@@ -93,7 +93,7 @@ public class DelegatingMappingsBuilderTest {
   }
 
   @Test
-  public void testGetMappingsWithOnlyV2Enabled() {
+  public void testGetIndexMappingsWithOnlyV2Enabled() {
     // Test getMappings when only v2 is enabled
     EntityIndexConfiguration v2OnlyConfig = mock(EntityIndexConfiguration.class);
     EntityIndexVersionConfiguration v2Config = mock(EntityIndexVersionConfiguration.class);
@@ -108,7 +108,7 @@ public class DelegatingMappingsBuilderTest {
     List<MappingsBuilder> builders = new ArrayList<>();
     builders.add(new V2MappingsBuilder(v2OnlyConfig));
     DelegatingMappingsBuilder v2OnlyBuilder = new DelegatingMappingsBuilder(builders);
-    Collection<IndexMapping> result = v2OnlyBuilder.getMappings(operationContext);
+    Collection<IndexMapping> result = v2OnlyBuilder.getIndexMappings(operationContext);
 
     assertNotNull(result, "Result should not be null");
     // Should have mappings from v2 builder only
@@ -116,7 +116,7 @@ public class DelegatingMappingsBuilderTest {
   }
 
   @Test
-  public void testGetMappingsWithOnlyV3Enabled() {
+  public void testGetIndexMappingsWithOnlyV3Enabled() {
     // Test getMappings when only v3 is enabled
     EntityIndexConfiguration v3OnlyConfig =
         EntityIndexConfiguration.builder()
@@ -138,7 +138,7 @@ public class DelegatingMappingsBuilderTest {
       throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
     }
     DelegatingMappingsBuilder v3OnlyBuilder = new DelegatingMappingsBuilder(builders);
-    Collection<IndexMapping> result = v3OnlyBuilder.getMappings(operationContext);
+    Collection<IndexMapping> result = v3OnlyBuilder.getIndexMappings(operationContext);
 
     assertNotNull(result, "Result should not be null");
     // Should have mappings from v3 builder only
@@ -157,10 +157,10 @@ public class DelegatingMappingsBuilderTest {
   }
 
   @Test
-  public void testGetMappingsForStructuredProperty() {
+  public void testGetIndexMappingsForStructuredProperty() {
     // Test getMappingsForStructuredProperty
     Map<String, Object> result =
-        delegatingMappingsBuilder.getMappingsForStructuredProperty(Collections.emptyList());
+        delegatingMappingsBuilder.getIndexMappingsForStructuredProperty(Collections.emptyList());
 
     assertNotNull(result, "Result should not be null");
     // Result may be empty if no structured properties are provided, which is valid
@@ -170,8 +170,10 @@ public class DelegatingMappingsBuilderTest {
   @Test
   public void testMappingsConsistency() {
     // Test that mappings from different builders are consistent
-    Collection<IndexMapping> mappings1 = delegatingMappingsBuilder.getMappings(operationContext);
-    Collection<IndexMapping> mappings2 = delegatingMappingsBuilder.getMappings(operationContext);
+    Collection<IndexMapping> mappings1 =
+        delegatingMappingsBuilder.getIndexMappings(operationContext);
+    Collection<IndexMapping> mappings2 =
+        delegatingMappingsBuilder.getIndexMappings(operationContext);
 
     // Should be consistent between calls
     assertEquals(mappings1.size(), mappings2.size(), "Mappings should be consistent between calls");
@@ -188,7 +190,7 @@ public class DelegatingMappingsBuilderTest {
   @Test
   public void testMappingsMerging() {
     // Test that mappings from v2 and v3 are properly merged
-    Collection<IndexMapping> result = delegatingMappingsBuilder.getMappings(operationContext);
+    Collection<IndexMapping> result = delegatingMappingsBuilder.getIndexMappings(operationContext);
 
     assertNotNull(result, "Result should not be null");
 
@@ -1179,7 +1181,7 @@ public class DelegatingMappingsBuilderTest {
   // Tests for getMappingsForStructuredProperty exception handling
 
   @Test(expectedExceptions = RuntimeException.class)
-  public void testGetMappingsForStructuredPropertyWithInconsistentMappings() {
+  public void testGetMappingsForStructuredPropertyWithInconsistentIndexIndexMappings() {
     // Test that getMappingsForStructuredProperty throws RuntimeException when builders return
     // inconsistent mappings
     DelegatingMappingsBuilder builder = createBuilderWithMockMappingsBuilders();
@@ -1194,18 +1196,18 @@ public class DelegatingMappingsBuilderTest {
     Map<String, Object> mappings2 = new HashMap<>();
     mappings2.put("property1", Map.of("type", "keyword")); // Different type
 
-    when(mockBuilder1.getMappingsForStructuredProperty(any())).thenReturn(mappings1);
-    when(mockBuilder2.getMappingsForStructuredProperty(any())).thenReturn(mappings2);
+    when(mockBuilder1.getIndexMappingsForStructuredProperty(any())).thenReturn(mappings1);
+    when(mockBuilder2.getIndexMappingsForStructuredProperty(any())).thenReturn(mappings2);
 
     // Inject mock builders using reflection
     injectMockBuilders(builder, mockBuilder1, mockBuilder2);
 
     // This should throw RuntimeException wrapping IllegalStateException
-    builder.getMappingsForStructuredProperty(Collections.emptyList());
+    builder.getIndexMappingsForStructuredProperty(Collections.emptyList());
   }
 
   @Test
-  public void testGetMappingsForStructuredPropertyInconsistentMappingsExceptionMessage() {
+  public void testGetMappingsForStructuredPropertyInconsistentIndexIndexMappingsExceptionMessage() {
     // Test that the RuntimeException wraps IllegalStateException with proper message
     DelegatingMappingsBuilder builder = createBuilderWithMockMappingsBuilders();
 
@@ -1218,14 +1220,14 @@ public class DelegatingMappingsBuilderTest {
     Map<String, Object> mappings2 = new HashMap<>();
     mappings2.put("property1", Map.of("type", "keyword")); // Different type
 
-    when(mockBuilder1.getMappingsForStructuredProperty(any())).thenReturn(mappings1);
-    when(mockBuilder2.getMappingsForStructuredProperty(any())).thenReturn(mappings2);
+    when(mockBuilder1.getIndexMappingsForStructuredProperty(any())).thenReturn(mappings1);
+    when(mockBuilder2.getIndexMappingsForStructuredProperty(any())).thenReturn(mappings2);
 
     // Inject mock builders using reflection
     injectMockBuilders(builder, mockBuilder1, mockBuilder2);
 
     try {
-      builder.getMappingsForStructuredProperty(Collections.emptyList());
+      builder.getIndexMappingsForStructuredProperty(Collections.emptyList());
       fail("Expected RuntimeException to be thrown");
     } catch (RuntimeException e) {
       // Verify the RuntimeException message
@@ -1247,7 +1249,7 @@ public class DelegatingMappingsBuilderTest {
   }
 
   @Test(expectedExceptions = RuntimeException.class)
-  public void testGetMappingsForStructuredPropertyWithFailingBuilder() {
+  public void testGetIndexMappingsForStructuredPropertyWithFailingBuilder() {
     // Test that getMappingsForStructuredProperty throws RuntimeException when a builder fails
     DelegatingMappingsBuilder builder = createBuilderWithMockMappingsBuilders();
 
@@ -1257,19 +1259,19 @@ public class DelegatingMappingsBuilderTest {
     Map<String, Object> mappings1 = new HashMap<>();
     mappings1.put("property1", Map.of("type", "text"));
 
-    when(mockBuilder1.getMappingsForStructuredProperty(any())).thenReturn(mappings1);
-    when(mockBuilder2.getMappingsForStructuredProperty(any()))
+    when(mockBuilder1.getIndexMappingsForStructuredProperty(any())).thenReturn(mappings1);
+    when(mockBuilder2.getIndexMappingsForStructuredProperty(any()))
         .thenThrow(new RuntimeException("Builder failure"));
 
     // Inject mock builders using reflection
     injectMockBuilders(builder, mockBuilder1, mockBuilder2);
 
     // This should throw RuntimeException
-    builder.getMappingsForStructuredProperty(Collections.emptyList());
+    builder.getIndexMappingsForStructuredProperty(Collections.emptyList());
   }
 
   @Test
-  public void testGetMappingsForStructuredPropertyBuilderFailureExceptionMessage() {
+  public void testGetIndexMappingsForStructuredPropertyBuilderFailureExceptionMessage() {
     // Test that the RuntimeException has proper message when builder fails
     DelegatingMappingsBuilder builder = createBuilderWithMockMappingsBuilders();
 
@@ -1280,14 +1282,14 @@ public class DelegatingMappingsBuilderTest {
     mappings1.put("property1", Map.of("type", "text"));
 
     RuntimeException originalException = new RuntimeException("Builder failure");
-    when(mockBuilder1.getMappingsForStructuredProperty(any())).thenReturn(mappings1);
-    when(mockBuilder2.getMappingsForStructuredProperty(any())).thenThrow(originalException);
+    when(mockBuilder1.getIndexMappingsForStructuredProperty(any())).thenReturn(mappings1);
+    when(mockBuilder2.getIndexMappingsForStructuredProperty(any())).thenThrow(originalException);
 
     // Inject mock builders using reflection
     injectMockBuilders(builder, mockBuilder1, mockBuilder2);
 
     try {
-      builder.getMappingsForStructuredProperty(Collections.emptyList());
+      builder.getIndexMappingsForStructuredProperty(Collections.emptyList());
       fail("Expected RuntimeException to be thrown");
     } catch (RuntimeException e) {
       // Verify the RuntimeException message
@@ -1305,7 +1307,7 @@ public class DelegatingMappingsBuilderTest {
   }
 
   @Test(expectedExceptions = RuntimeException.class)
-  public void testGetMappingsForStructuredPropertyWithIOExceptionFromBuilder() {
+  public void testGetIndexMappingsForStructuredPropertyWithIOExceptionFromBuilder() {
     // Test that RuntimeException is thrown when builder throws IOException
     DelegatingMappingsBuilder builder = createBuilderWithMockMappingsBuilders();
 
@@ -1315,19 +1317,19 @@ public class DelegatingMappingsBuilderTest {
     Map<String, Object> mappings1 = new HashMap<>();
     mappings1.put("property1", Map.of("type", "text"));
 
-    when(mockBuilder1.getMappingsForStructuredProperty(any())).thenReturn(mappings1);
-    when(mockBuilder2.getMappingsForStructuredProperty(any()))
+    when(mockBuilder1.getIndexMappingsForStructuredProperty(any())).thenReturn(mappings1);
+    when(mockBuilder2.getIndexMappingsForStructuredProperty(any()))
         .thenThrow(new IOException("IO error"));
 
     // Inject mock builders using reflection
     injectMockBuilders(builder, mockBuilder1, mockBuilder2);
 
     // This should throw RuntimeException wrapping IOException
-    builder.getMappingsForStructuredProperty(Collections.emptyList());
+    builder.getIndexMappingsForStructuredProperty(Collections.emptyList());
   }
 
   @Test(expectedExceptions = RuntimeException.class)
-  public void testGetMappingsForStructuredPropertyWithIllegalArgumentExceptionFromBuilder() {
+  public void testGetIndexMappingsForStructuredPropertyWithIllegalArgumentExceptionFromBuilder() {
     // Test that RuntimeException is thrown when builder throws IllegalArgumentException
     DelegatingMappingsBuilder builder = createBuilderWithMockMappingsBuilders();
 
@@ -1337,19 +1339,19 @@ public class DelegatingMappingsBuilderTest {
     Map<String, Object> mappings1 = new HashMap<>();
     mappings1.put("property1", Map.of("type", "text"));
 
-    when(mockBuilder1.getMappingsForStructuredProperty(any())).thenReturn(mappings1);
-    when(mockBuilder2.getMappingsForStructuredProperty(any()))
+    when(mockBuilder1.getIndexMappingsForStructuredProperty(any())).thenReturn(mappings1);
+    when(mockBuilder2.getIndexMappingsForStructuredProperty(any()))
         .thenThrow(new IllegalArgumentException("Invalid argument"));
 
     // Inject mock builders using reflection
     injectMockBuilders(builder, mockBuilder1, mockBuilder2);
 
     // This should throw RuntimeException wrapping IllegalArgumentException
-    builder.getMappingsForStructuredProperty(Collections.emptyList());
+    builder.getIndexMappingsForStructuredProperty(Collections.emptyList());
   }
 
   @Test
-  public void testGetMappingsForStructuredPropertyWithDifferentPropertyCounts() {
+  public void testGetIndexMappingsForStructuredPropertyWithDifferentPropertyCounts() {
     // Test that RuntimeException is thrown when builders return mappings with different property
     // counts
     DelegatingMappingsBuilder builder = createBuilderWithMockMappingsBuilders();
@@ -1365,14 +1367,14 @@ public class DelegatingMappingsBuilderTest {
     mappings2.put("property1", Map.of("type", "text"));
     // Missing property2 - different count
 
-    when(mockBuilder1.getMappingsForStructuredProperty(any())).thenReturn(mappings1);
-    when(mockBuilder2.getMappingsForStructuredProperty(any())).thenReturn(mappings2);
+    when(mockBuilder1.getIndexMappingsForStructuredProperty(any())).thenReturn(mappings1);
+    when(mockBuilder2.getIndexMappingsForStructuredProperty(any())).thenReturn(mappings2);
 
     // Inject mock builders using reflection
     injectMockBuilders(builder, mockBuilder1, mockBuilder2);
 
     try {
-      builder.getMappingsForStructuredProperty(Collections.emptyList());
+      builder.getIndexMappingsForStructuredProperty(Collections.emptyList());
       fail("Expected RuntimeException to be thrown");
     } catch (RuntimeException e) {
       // Verify the RuntimeException wraps IllegalStateException
@@ -1388,7 +1390,7 @@ public class DelegatingMappingsBuilderTest {
   }
 
   @Test
-  public void testGetMappingsForStructuredPropertyWithEmptyBuildersList() {
+  public void testGetIndexMappingsForStructuredPropertyWithEmptyBuildersList() {
     // Test that getMappingsForStructuredProperty returns empty map when builders list is empty
     DelegatingMappingsBuilder builder = createBuilderWithMockMappingsBuilders();
 
@@ -1403,7 +1405,8 @@ public class DelegatingMappingsBuilderTest {
       fail("Failed to clear builders list: " + e.getMessage());
     }
 
-    Map<String, Object> result = builder.getMappingsForStructuredProperty(Collections.emptyList());
+    Map<String, Object> result =
+        builder.getIndexMappingsForStructuredProperty(Collections.emptyList());
 
     assertNotNull(result, "Result should not be null");
     assertTrue(result.isEmpty(), "Result should be empty when builders list is empty");
@@ -1412,7 +1415,7 @@ public class DelegatingMappingsBuilderTest {
   // Additional edge case tests for the outer catch block
 
   @Test(expectedExceptions = RuntimeException.class)
-  public void testGetMappingsForStructuredPropertyWithNullPointerExceptionFromBuilder() {
+  public void testGetIndexMappingsForStructuredPropertyWithNullPointerExceptionFromBuilder() {
     // Test that RuntimeException is thrown when builder throws NullPointerException
     DelegatingMappingsBuilder builder = createBuilderWithMockMappingsBuilders();
 
@@ -1422,19 +1425,19 @@ public class DelegatingMappingsBuilderTest {
     Map<String, Object> mappings1 = new HashMap<>();
     mappings1.put("property1", Map.of("type", "text"));
 
-    when(mockBuilder1.getMappingsForStructuredProperty(any())).thenReturn(mappings1);
-    when(mockBuilder2.getMappingsForStructuredProperty(any()))
+    when(mockBuilder1.getIndexMappingsForStructuredProperty(any())).thenReturn(mappings1);
+    when(mockBuilder2.getIndexMappingsForStructuredProperty(any()))
         .thenThrow(new NullPointerException("Null pointer error"));
 
     // Inject mock builders using reflection
     injectMockBuilders(builder, mockBuilder1, mockBuilder2);
 
     // This should throw RuntimeException wrapping NullPointerException
-    builder.getMappingsForStructuredProperty(Collections.emptyList());
+    builder.getIndexMappingsForStructuredProperty(Collections.emptyList());
   }
 
   @Test(expectedExceptions = RuntimeException.class)
-  public void testGetMappingsForStructuredPropertyWithClassCastExceptionFromBuilder() {
+  public void testGetIndexMappingsForStructuredPropertyWithClassCastExceptionFromBuilder() {
     // Test that RuntimeException is thrown when builder throws ClassCastException
     DelegatingMappingsBuilder builder = createBuilderWithMockMappingsBuilders();
 
@@ -1444,19 +1447,19 @@ public class DelegatingMappingsBuilderTest {
     Map<String, Object> mappings1 = new HashMap<>();
     mappings1.put("property1", Map.of("type", "text"));
 
-    when(mockBuilder1.getMappingsForStructuredProperty(any())).thenReturn(mappings1);
-    when(mockBuilder2.getMappingsForStructuredProperty(any()))
+    when(mockBuilder1.getIndexMappingsForStructuredProperty(any())).thenReturn(mappings1);
+    when(mockBuilder2.getIndexMappingsForStructuredProperty(any()))
         .thenThrow(new ClassCastException("Class cast error"));
 
     // Inject mock builders using reflection
     injectMockBuilders(builder, mockBuilder1, mockBuilder2);
 
     // This should throw RuntimeException wrapping ClassCastException
-    builder.getMappingsForStructuredProperty(Collections.emptyList());
+    builder.getIndexMappingsForStructuredProperty(Collections.emptyList());
   }
 
   @Test(expectedExceptions = OutOfMemoryError.class)
-  public void testGetMappingsForStructuredPropertyWithOutOfMemoryErrorFromBuilder() {
+  public void testGetIndexMappingsForStructuredPropertyWithOutOfMemoryErrorFromBuilder() {
     // Test that OutOfMemoryError is thrown when builder throws OutOfMemoryError
     // Note: OutOfMemoryError extends Error, not Exception, so it's not caught by catch(Exception e)
     DelegatingMappingsBuilder builder = createBuilderWithMockMappingsBuilders();
@@ -1467,19 +1470,19 @@ public class DelegatingMappingsBuilderTest {
     Map<String, Object> mappings1 = new HashMap<>();
     mappings1.put("property1", Map.of("type", "text"));
 
-    when(mockBuilder1.getMappingsForStructuredProperty(any())).thenReturn(mappings1);
-    when(mockBuilder2.getMappingsForStructuredProperty(any()))
+    when(mockBuilder1.getIndexMappingsForStructuredProperty(any())).thenReturn(mappings1);
+    when(mockBuilder2.getIndexMappingsForStructuredProperty(any()))
         .thenThrow(new OutOfMemoryError("Out of memory error"));
 
     // Inject mock builders using reflection
     injectMockBuilders(builder, mockBuilder1, mockBuilder2);
 
     // This should throw OutOfMemoryError directly (not wrapped in RuntimeException)
-    builder.getMappingsForStructuredProperty(Collections.emptyList());
+    builder.getIndexMappingsForStructuredProperty(Collections.emptyList());
   }
 
   @Test
-  public void testGetMappingsForStructuredPropertyOuterCatchBlockExceptionMessage() {
+  public void testGetIndexMappingsForStructuredPropertyOuterCatchBlockExceptionMessage() {
     // Test that the outer catch block preserves exception details correctly
     DelegatingMappingsBuilder builder = createBuilderWithMockMappingsBuilders();
 
@@ -1490,14 +1493,14 @@ public class DelegatingMappingsBuilderTest {
     mappings1.put("property1", Map.of("type", "text"));
 
     RuntimeException originalException = new RuntimeException("Original builder error");
-    when(mockBuilder1.getMappingsForStructuredProperty(any())).thenReturn(mappings1);
-    when(mockBuilder2.getMappingsForStructuredProperty(any())).thenThrow(originalException);
+    when(mockBuilder1.getIndexMappingsForStructuredProperty(any())).thenReturn(mappings1);
+    when(mockBuilder2.getIndexMappingsForStructuredProperty(any())).thenThrow(originalException);
 
     // Inject mock builders using reflection
     injectMockBuilders(builder, mockBuilder1, mockBuilder2);
 
     try {
-      builder.getMappingsForStructuredProperty(Collections.emptyList());
+      builder.getIndexMappingsForStructuredProperty(Collections.emptyList());
       fail("Expected RuntimeException to be thrown");
     } catch (RuntimeException e) {
       // Verify the outer catch block message
@@ -1519,7 +1522,7 @@ public class DelegatingMappingsBuilderTest {
   }
 
   @Test(expectedExceptions = RuntimeException.class)
-  public void testGetMappingsForStructuredPropertyWithSecurityExceptionFromBuilder() {
+  public void testGetIndexMappingsForStructuredPropertyWithSecurityExceptionFromBuilder() {
     // Test that RuntimeException is thrown when builder throws SecurityException
     DelegatingMappingsBuilder builder = createBuilderWithMockMappingsBuilders();
 
@@ -1529,15 +1532,15 @@ public class DelegatingMappingsBuilderTest {
     Map<String, Object> mappings1 = new HashMap<>();
     mappings1.put("property1", Map.of("type", "text"));
 
-    when(mockBuilder1.getMappingsForStructuredProperty(any())).thenReturn(mappings1);
-    when(mockBuilder2.getMappingsForStructuredProperty(any()))
+    when(mockBuilder1.getIndexMappingsForStructuredProperty(any())).thenReturn(mappings1);
+    when(mockBuilder2.getIndexMappingsForStructuredProperty(any()))
         .thenThrow(new SecurityException("Security error"));
 
     // Inject mock builders using reflection
     injectMockBuilders(builder, mockBuilder1, mockBuilder2);
 
     // This should throw RuntimeException wrapping SecurityException
-    builder.getMappingsForStructuredProperty(Collections.emptyList());
+    builder.getIndexMappingsForStructuredProperty(Collections.emptyList());
   }
 
   // Tests for mappingsEqual method comparison logic (tested indirectly through public methods)

@@ -61,7 +61,7 @@ public class V2MappingsBuilderTest {
     when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(true);
 
     // Use the real EntityRegistry from the test OperationContext
-    Collection<IndexMapping> result = mappingsBuilder.getMappings(operationContext);
+    Collection<IndexMapping> result = mappingsBuilder.getIndexMappings(operationContext);
 
     assertNotNull(result, "Result should not be null");
 
@@ -79,12 +79,12 @@ public class V2MappingsBuilderTest {
   }
 
   @Test
-  public void testGetMappingsWithStructuredProperty() throws URISyntaxException {
+  public void testGetIndexMappingsWithStructuredProperty() throws URISyntaxException {
     when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(true);
 
     // Baseline comparison: Mappings with no structured props
     Collection<IndexMapping> resultWithoutStructuredProps =
-        mappingsBuilder.getMappings(operationContext);
+        mappingsBuilder.getIndexMappings(operationContext);
 
     // Test that a structured property that does not apply to the entity does not alter the mappings
     StructuredPropertyDefinition structPropNotForThisEntity =
@@ -144,12 +144,12 @@ public class V2MappingsBuilderTest {
   }
 
   @Test
-  public void testGetMappingsWithStructuredPropertyV1() throws URISyntaxException {
+  public void testGetIndexMappingsWithStructuredPropertyV1() throws URISyntaxException {
     when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(true);
 
     // Baseline comparison: Mappings with no structured props
     Collection<IndexMapping> resultWithoutStructuredProps =
-        mappingsBuilder.getMappings(operationContext);
+        mappingsBuilder.getIndexMappings(operationContext);
 
     // Test that a structured property that does not apply to the entity does not alter the mappings
     StructuredPropertyDefinition structPropNotForThisEntity =
@@ -209,7 +209,7 @@ public class V2MappingsBuilderTest {
   }
 
   @Test
-  public void testGetMappingsForStructuredProperty() throws URISyntaxException {
+  public void testGetIndexMappingsForStructuredProperty() throws URISyntaxException {
     StructuredPropertyDefinition testStructProp =
         new StructuredPropertyDefinition()
             .setVersion(null, SetMode.REMOVE_IF_NULL)
@@ -221,7 +221,7 @@ public class V2MappingsBuilderTest {
                     Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "testEntity")))
             .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     Map<String, Object> structuredPropertyFieldMappings =
-        mappingsBuilder.getMappingsForStructuredProperty(
+        mappingsBuilder.getIndexMappingsForStructuredProperty(
             List.of(
                 Pair.of(UrnUtils.getUrn("urn:li:structuredProperty:testProp"), testStructProp)));
     assertEquals(structuredPropertyFieldMappings.size(), 1);
@@ -250,7 +250,7 @@ public class V2MappingsBuilderTest {
                     Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "testEntity")))
             .setValueType(Urn.createFromString("urn:li:logicalType:NUMBER"));
     Map<String, Object> structuredPropertyFieldMappingsNumber =
-        mappingsBuilder.getMappingsForStructuredProperty(
+        mappingsBuilder.getIndexMappingsForStructuredProperty(
             List.of(
                 Pair.of(
                     UrnUtils.getUrn("urn:li:structuredProperty:testPropNumber"),
@@ -263,7 +263,7 @@ public class V2MappingsBuilderTest {
   }
 
   @Test
-  public void testGetMappingsForStructuredPropertyV1() throws URISyntaxException {
+  public void testGetIndexMappingsForStructuredPropertyV1() throws URISyntaxException {
     StructuredPropertyDefinition testStructProp =
         new StructuredPropertyDefinition()
             .setVersion("00000000000001")
@@ -275,7 +275,7 @@ public class V2MappingsBuilderTest {
                     Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "testEntity")))
             .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     Map<String, Object> structuredPropertyFieldMappings =
-        mappingsBuilder.getMappingsForStructuredProperty(
+        mappingsBuilder.getIndexMappingsForStructuredProperty(
             List.of(
                 Pair.of(UrnUtils.getUrn("urn:li:structuredProperty:testProp"), testStructProp)));
     assertEquals(structuredPropertyFieldMappings.size(), 1);
@@ -304,7 +304,7 @@ public class V2MappingsBuilderTest {
                     Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "testEntity")))
             .setValueType(Urn.createFromString("urn:li:logicalType:NUMBER"));
     Map<String, Object> structuredPropertyFieldMappingsNumber =
-        mappingsBuilder.getMappingsForStructuredProperty(
+        mappingsBuilder.getIndexMappingsForStructuredProperty(
             List.of(
                 Pair.of(
                     UrnUtils.getUrn("urn:li:structuredProperty:testPropNumber"),
@@ -330,7 +330,7 @@ public class V2MappingsBuilderTest {
     // one
     // and rely on the test entity registry being set up properly
 
-    Collection<IndexMapping> result = mappingsBuilder.getMappings(testOperationContext);
+    Collection<IndexMapping> result = mappingsBuilder.getIndexMappings(testOperationContext);
     assertNotNull(result, "Result should not be null");
 
     // If there are mappings, verify they contain expected properties
@@ -353,23 +353,23 @@ public class V2MappingsBuilderTest {
   }
 
   @Test
-  public void testGetMappingsWithCleanupEnabled() {
+  public void testGetIndexMappingsWithCleanupEnabled() {
     // Test getMappings when cleanup is enabled
     when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(true);
 
     // Use the real EntityRegistry from the test OperationContext
-    Collection<IndexMapping> result = mappingsBuilder.getMappings(operationContext);
+    Collection<IndexMapping> result = mappingsBuilder.getIndexMappings(operationContext);
 
     assertNotNull(result, "Result should not be null");
     // Note: The actual result depends on the implementation, but we can test that it doesn't throw
   }
 
   @Test
-  public void testGetMappingsWithCleanupDisabled() {
+  public void testGetIndexMappingsWithCleanupDisabled() {
     // Test getMappings when cleanup is disabled - should still return mappings
     when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(false);
 
-    Collection<IndexMapping> result = mappingsBuilder.getMappings(operationContext);
+    Collection<IndexMapping> result = mappingsBuilder.getIndexMappings(operationContext);
 
     assertNotNull(result, "Result should not be null");
     // With the fix, mappings should be returned regardless of cleanup setting
@@ -473,7 +473,7 @@ public class V2MappingsBuilderTest {
   public void testNullOperationContext() {
     // Test that methods properly handle null OperationContext
     try {
-      Collection<IndexMapping> result = mappingsBuilder.getMappings(null);
+      Collection<IndexMapping> result = mappingsBuilder.getIndexMappings(null);
       // If it doesn't throw an exception, the result should be null or empty
       assertTrue(
           result == null || result.isEmpty(), "Result should be null or empty for null input");

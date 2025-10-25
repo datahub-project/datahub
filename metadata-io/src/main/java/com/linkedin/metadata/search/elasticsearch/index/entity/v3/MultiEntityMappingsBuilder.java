@@ -13,6 +13,7 @@ import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.FieldSpecUtils;
 import com.linkedin.metadata.models.LogicalValueType;
@@ -39,12 +40,84 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Builder for Elasticsearch mappings that supports multiple entities in a unified index structure.
+ * This class implements the v3 search architecture where entities are grouped by search groups and
+ * share common index mappings.
+ *
+ * <p>The MultiEntityMappingsBuilder creates mappings with the following structure:
+ *
+ * <ul>
+ *   <li>Aspect-based field organization under {@code _aspects} object
+ *   <li>Root-level aliases for single-aspect fields
+ *   <li>Root-level fields with copy_to for multi-aspect conflicts
+ *   <li>Structured properties support under {@code structuredProperties} field
+ *   <li>Search tier and label organization under {@code _search} object
+ * </ul>
+ *
+ * <p>Key features:
+ *
+ * <ul>
+ *   <li>Conflict resolution for fields appearing in multiple aspects
+ *   <li>Type conflict resolution using configurable strategies
+ *   <li>Support for field name aliases
+ *   <li>Dynamic structured properties handling
+ *   <li>Search tier and label organization
+ *   <li>Eager global ordinals optimization
+ * </ul>
+ *
+ * <p>Example mapping structure:
+ *
+ * <pre>{@code
+ * {
+ *   "properties": {
+ *     "_aspects": {
+ *       "properties": {
+ *         "ownership": {
+ *           "properties": {
+ *             "owners": { "type": "keyword", "copy_to": "owners" }
+ *           }
+ *         }
+ *       }
+ *     },
+ *     "owners": { "type": "keyword" },
+ *     "_search": {
+ *       "properties": {
+ *         "tier_1": { "type": "keyword" },
+ *         "entityName": { "type": "keyword" }
+ *       }
+ *     }
+ *   }
+ * }
+ * }</pre>
+ *
+ * @see MappingsBuilder
+ * @see EntityIndexConfiguration
+ * @see ConflictResolver
+ * @see AspectMappingBuilder
+ * @see StructuredPropertyMappingBuilder
+ */
 @Slf4j
 public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
+  /** Configuration for entity indexing behavior and v3 search settings. */
   private final EntityIndexConfiguration entityIndexConfiguration;
+
+  /** Base mapping configuration loaded from external resource if specified. */
   private final Map<String, Object> mappingBaseConfiguration;
 
+  /**
+   * Constructs a new MultiEntityMappingsBuilder with the given entity index configuration.
+   *
+   * <p>This constructor initializes the builder and optionally loads base mapping configuration
+   * from a resource file if specified in the configuration. The base configuration is merged with
+   * generated mappings to provide system-level field definitions.
+   *
+   * @param entityIndexConfiguration the configuration containing v3 search settings and optional
+   *     mapping configuration resource path
+   * @throws IOException if there's an error loading the mapping configuration resource
+   * @throws IllegalArgumentException if the configuration is null
+   */
   public MultiEntityMappingsBuilder(@Nonnull EntityIndexConfiguration entityIndexConfiguration)
       throws IOException {
 
@@ -58,11 +131,32 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     }
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Generates index mappings for all search groups defined in the entity registry. Each search
+   * group gets its own index with mappings that support all entities within that group.
+   *
+   * @param opContext the operation context containing entity registry and search configuration
+   * @return collection of index mappings, one per search group, or empty if v3 is disabled
+   */
   @Override
-  public Collection<IndexMapping> getMappings(@Nonnull OperationContext opContext) {
+  public Collection<IndexMapping> getIndexMappings(@Nonnull OperationContext opContext) {
     return getIndexMappings(opContext, null);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Generates index mappings for all search groups with the specified structured properties.
+   * This method creates mappings that include both entity fields and structured property fields for
+   * comprehensive search capabilities.
+   *
+   * @param opContext the operation context containing entity registry and search configuration
+   * @param structuredProperties collection of structured property definitions to include in
+   *     mappings
+   * @return collection of index mappings, one per search group, or empty if v3 is disabled
+   */
   @Override
   public Collection<IndexMapping> getIndexMappings(
       @Nonnull OperationContext opContext,
@@ -89,40 +183,64 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     return Collections.emptyList();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Generates index mappings for a specific entity's search group when a new structured property
+   * is added. This method is used for incremental updates when structured properties are created or
+   * modified.
+   *
+   * @param opContext the operation context containing entity registry and search configuration
+   * @param urn the URN of the entity for which to generate mappings
+   * @param property the new structured property definition to include
+   * @return collection containing a single index mapping for the entity's search group, or empty if
+   *     v3 is disabled or entity has no search group
+   */
   @Override
   public Collection<IndexMapping> getIndexMappingsWithNewStructuredProperty(
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull StructuredPropertyDefinition property) {
+
+    if (!entityIndexConfiguration.getV3().isEnabled()) {
+      return Collections.emptyList();
+    }
+
     List<IndexMapping> result = new ArrayList<>(1);
 
-    if (entityIndexConfiguration.getV3().isEnabled()) {
-      EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
+    EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
 
-      if (entitySpec != null && entitySpec.getSearchGroup() != null) {
-        String searchGroup = entitySpec.getSearchGroup();
-        Map<String, Object> mappings =
-            getMappingsForMultipleEntities(
-                opContext.getEntityRegistry(), searchGroup, List.of(Pair.of(urn, property)));
-        result.add(
-            IndexMapping.builder()
-                .indexName(
-                    opContext
-                        .getSearchContext()
-                        .getIndexConvention()
-                        .getEntityIndexNameV3(searchGroup))
-                .mappings(mappings)
-                .build());
-      } else {
-        log.warn("Missing entitySpec with searchGroup for {}", urn.getEntityType());
-      }
+    if (entitySpec == null || entitySpec.getSearchGroup() == null) {
+      log.warn("Missing entitySpec with searchGroup for {}", urn.getEntityType());
+      return result;
     }
+
+    String searchGroup = entitySpec.getSearchGroup();
+    Map<String, Object> mappings =
+        getMappingsForMultipleEntities(
+            opContext.getEntityRegistry(), searchGroup, List.of(Pair.of(urn, property)));
+    result.add(
+        IndexMapping.builder()
+            .indexName(
+                opContext.getSearchContext().getIndexConvention().getEntityIndexNameV3(searchGroup))
+            .mappings(mappings)
+            .build());
 
     return result;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Generates Elasticsearch field mappings for structured properties based on their value types.
+   * This method maps structured property value types to appropriate Elasticsearch field types for
+   * indexing and searching.
+   *
+   * @param properties collection of structured property definitions with their associated URNs
+   * @return map of field names to their Elasticsearch mapping configurations
+   */
   @Override
-  public Map<String, Object> getMappingsForStructuredProperty(
+  public Map<String, Object> getIndexMappingsForStructuredProperty(
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     return properties.stream()
         .map(
@@ -157,7 +275,19 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    * method aggregates mappings from all entities and merges them into a single mapping structure.
    * Fields are structured based on aspect names to provide better organization.
    *
-   * @param entityRegistry entity registry
+   * <p>This method performs the following operations:
+   *
+   * <ul>
+   *   <li>Extracts all entity specs for the given search group
+   *   <li>Detects and resolves field name and type conflicts
+   *   <li>Generates mappings for each entity spec
+   *   <li>Merges all mappings into a unified structure
+   *   <li>Creates root-level fields with copy_to for conflicted fields
+   *   <li>Merges with base configuration if available
+   *   <li>Builds the _search section for tier and label organization
+   * </ul>
+   *
+   * @param entityRegistry entity registry containing all entity specifications
    * @param searchGroup the search group to get entities from
    * @param structuredProperties structured properties for all entities
    * @return combined mappings with aspect-based field structure for all entities
@@ -220,8 +350,11 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
               "Resolved alias '{}' type conflict {} -> {}", alias, conflictingTypes, resolvedType);
         }
       } catch (IllegalArgumentException e) {
-        // Re-throw the exception for non-resolvable conflicts
-        throw e;
+        throw new IllegalArgumentException(
+            String.format(
+                "Non-resolvable field type conflicts detected in search group '%s'. %s",
+                searchGroup, e.getMessage()),
+            e);
       }
     }
 
@@ -230,7 +363,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     // Process each entity spec and combine their mappings
     for (EntitySpec entitySpec : entitySpecs) {
       Map<String, Object> entityMappings =
-          getMappings(
+          getIndexMappings(
               entityRegistry,
               entitySpec,
               structuredProperties,
@@ -272,16 +405,26 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
   /**
    * Builds mappings from entity spec with aspect-based field structure. This is the main method
-   * that handles all mapping generation scenarios.
+   * that handles all mapping generation scenarios for a single entity.
    *
-   * @param entityRegistry entity registry
-   * @param entitySpec entity's spec
+   * <p>This method creates mappings with the following structure:
+   *
+   * <ul>
+   *   <li>Aspect mappings under {@code _aspects} object using AspectMappingBuilder
+   *   <li>Searchable reference field mappings for related entities
+   *   <li>Root-level aliases for single-aspect fields
+   *   <li>Structured property mappings under {@code structuredProperties} field
+   *   <li>System fields from base configuration (merged separately)
+   * </ul>
+   *
+   * @param entityRegistry entity registry containing entity specifications
+   * @param entitySpec entity's specification containing aspect and field definitions
    * @param structuredProperties structured properties for the entity (optional)
    * @param fieldNameConflicts map of field names that have conflicts (optional)
    * @param fieldNameAliasConflicts map of field name aliases that have conflicts (optional)
    * @return mappings with aspect-based field structure
    */
-  private Map<String, Object> getMappings(
+  private Map<String, Object> getIndexMappings(
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull final EntitySpec entitySpec,
       @Nullable Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
@@ -368,72 +511,89 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   }
 
   /**
-   * Method to get mappings for a single entity spec. This method is used by
-   * ESUtils.buildSearchableFieldTypes to extract field types from mappings.
+   * Gets mappings for a single entity spec without structured properties or conflicts. This method
+   * is used by ESUtils.buildSearchableFieldTypes to extract field types from mappings for backward
+   * compatibility and utility purposes.
    *
-   * @param entityRegistry entity registry
-   * @param entitySpec entity spec to get mappings for
-   * @return mappings for the entity spec
+   * @param entityRegistry entity registry containing entity specifications
+   * @param entitySpec entity specification to get mappings for
+   * @return mappings for the entity spec with aspect-based field structure
    */
-  public Map<String, Object> getMappings(
+  public Map<String, Object> getIndexMappings(
       @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec) {
-    return getMappings(entityRegistry, entitySpec, null, null, null);
+    return getIndexMappings(entityRegistry, entitySpec, null, null, null);
   }
 
   /**
-   * Convenience method for building mappings with structured properties but no conflicts.
+   * Convenience method for building mappings with structured properties but no conflicts. This
+   * method provides a simplified interface for cases where conflict resolution is not needed.
    *
-   * @param entityRegistry entity registry
-   * @param entitySpec entity's spec
+   * @param entityRegistry entity registry containing entity specifications
+   * @param entitySpec entity specification containing aspect and field definitions
    * @param structuredProperties structured properties for the entity
    * @return mappings with aspect-based field structure
    */
-  private Map<String, Object> getMappings(
+  private Map<String, Object> getIndexMappings(
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull final EntitySpec entitySpec,
       @Nullable Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
-    return getMappings(entityRegistry, entitySpec, structuredProperties, null, null);
+    return getIndexMappings(entityRegistry, entitySpec, structuredProperties, null, null);
   }
 
   /**
-   * Collects all field names and their paths from an entity spec.
+   * Collects all field names and their paths from an entity spec. This method extracts field paths
+   * for non-structuredProperties aspects, excluding MAP_ARRAY object fields that are handled
+   * separately.
    *
-   * @param entitySpec the entity spec to collect field paths from
-   * @return map of field names to their paths
+   * @param entitySpec the entity specification to collect field paths from
+   * @return map of field names to their aspect-based paths (e.g., "_aspects.ownership.owners")
    */
   private static Map<String, String> collectFieldPaths(@Nonnull final EntitySpec entitySpec) {
     Map<String, String> fieldPaths = new HashMap<>();
 
-    entitySpec
-        .getAspectSpecs()
-        .forEach(
-            aspectSpec -> {
-              String aspectName = aspectSpec.getName();
-
-              // Only collect paths for non-structuredProperties aspects and non-MAP_ARRAY fields
-              if (!"structuredProperties".equals(aspectName)) {
-                aspectSpec
-                    .getSearchableFieldSpecs()
-                    .forEach(
-                        searchableFieldSpec -> {
-                          FieldType fieldType =
-                              searchableFieldSpec.getSearchableAnnotation().getFieldType();
-
-                          // don't get root-level aliases
-                          if (OBJECT_FIELD_TYPES.contains(fieldType)) {
-                            return;
-                          }
-
-                          String fieldName =
-                              searchableFieldSpec.getSearchableAnnotation().getFieldName();
-
-                          String aspectFieldPath = "_aspects." + aspectName + "." + fieldName;
-                          fieldPaths.put(fieldName, aspectFieldPath);
-                        });
-              }
-            });
+    for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
+      if (!"structuredProperties".equals(aspectSpec.getName())) {
+        collectFieldPathsFromAspect(aspectSpec, fieldPaths);
+      }
+    }
 
     return fieldPaths;
+  }
+
+  /**
+   * Collects field paths from a single aspect specification. This helper method extracts field
+   * names and their aspect-based paths, excluding object field types that are handled as root-level
+   * aliases.
+   *
+   * <p>Note: If the same field name appears in multiple aspects within the same entity, only the
+   * last occurrence is kept (overwrites previous). This is intentional behavior for conflict
+   * detection - we only need one representative path per field name per entity. The actual conflict
+   * detection happens at the multi-entity level in collectAllFieldPaths.
+   *
+   * @param aspectSpec the aspect specification to collect field paths from
+   * @param fieldPaths map to populate with field names and their paths
+   */
+  private static void collectFieldPathsFromAspect(
+      @Nonnull AspectSpec aspectSpec, @Nonnull Map<String, String> fieldPaths) {
+    String aspectName = aspectSpec.getName();
+
+    for (SearchableFieldSpec searchableFieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+      FieldType fieldType = searchableFieldSpec.getSearchableAnnotation().getFieldType();
+
+      // Skip object field types (root-level aliases)
+      if (OBJECT_FIELD_TYPES.contains(fieldType)) {
+        continue;
+      }
+
+      String fieldName = searchableFieldSpec.getSearchableAnnotation().getFieldName();
+      String aspectFieldPath = "_aspects." + aspectName + "." + fieldName;
+
+      // Note: If the same field name appears in multiple aspects within the same entity,
+      // this will overwrite the previous path. This is intentional behavior for conflict
+      // detection - we only need one representative path per field name per entity.
+      // The actual conflict detection happens at the multi-entity level in collectAllFieldPaths.
+      fieldPaths.put(fieldName, aspectFieldPath);
+    }
   }
 
   /**
@@ -441,9 +601,13 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    * root field that aspect fields copy_to. For fields without conflicts, creates a root alias
    * pointing to the single aspect field.
    *
-   * @param entitySpecs all entity specs
-   * @param fieldNameConflicts map of field names that have conflicts
-   * @param fieldNameAliasConflicts map of field name aliases that have conflicts
+   * <p>This method handles both regular field names and field name aliases, creating appropriate
+   * root-level mappings that allow unified search across all aspects while maintaining aspect-based
+   * organization.
+   *
+   * @param entitySpecs all entity specifications in the search group
+   * @param fieldNameConflicts map of field names that have conflicts across aspects
+   * @param fieldNameAliasConflicts map of field name aliases that have conflicts across aspects
    * @return map of root fields with appropriate configuration (alias or field definition)
    */
   private static Map<String, Object> createRootFieldsWithCopyTo(
@@ -471,7 +635,14 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     return rootFields;
   }
 
-  /** Collects all field paths from all entity specs. */
+  /**
+   * Collects all field paths from all entity specifications in a search group. This method
+   * aggregates field paths across all entities to identify which fields appear in multiple aspects
+   * and require conflict resolution.
+   *
+   * @param entitySpecs collection of entity specifications in the search group
+   * @return map of field names to sets of all paths where they appear
+   */
   private static Map<String, Set<String>> collectAllFieldPaths(
       @Nonnull Collection<EntitySpec> entitySpecs) {
     Map<String, Set<String>> fieldNameToAllPaths = new HashMap<>();
@@ -488,7 +659,14 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     return fieldNameToAllPaths;
   }
 
-  /** Collects all field name alias paths from all entity specs. */
+  /**
+   * Collects all field name alias paths from all entity specifications in a search group. This
+   * method aggregates field name alias paths across all entities to identify which aliases appear
+   * in multiple aspects and require conflict resolution.
+   *
+   * @param entitySpecs collection of entity specifications in the search group
+   * @return map of field name aliases to sets of all paths where they appear
+   */
   private static Map<String, Set<String>> collectAllFieldNameAliasPaths(
       @Nonnull Collection<EntitySpec> entitySpecs) {
     Map<String, Set<String>> fieldNameAliasToAllPaths = new HashMap<>();
@@ -506,7 +684,16 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     return fieldNameAliasToAllPaths;
   }
 
-  /** Creates root fields for regular field names. */
+  /**
+   * Creates root fields for regular field names based on conflict analysis. For conflicted fields,
+   * creates root fields with resolved types. For non-conflicted fields, creates aliases pointing to
+   * their single aspect location.
+   *
+   * @param rootFields map to populate with root field configurations
+   * @param fieldNameToAllPaths map of field names to all their paths
+   * @param fieldNameConflicts map of field names that have conflicts
+   * @param entitySpecs all entity specifications for type resolution
+   */
   private static void createRootFieldsForFieldNames(
       @Nonnull Map<String, Object> rootFields,
       @Nonnull Map<String, Set<String>> fieldNameToAllPaths,
@@ -527,7 +714,17 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     }
   }
 
-  /** Creates root fields for field name aliases. */
+  /**
+   * Creates root fields for field name aliases based on conflict analysis. Handles both conflicted
+   * and non-conflicted aliases, with special handling for aliases that conflict with regular field
+   * names.
+   *
+   * @param rootFields map to populate with root field configurations
+   * @param fieldNameAliasToAllPaths map of field name aliases to all their paths
+   * @param fieldNameAliasConflicts map of field name aliases that have conflicts
+   * @param fieldNameConflicts map of field names that have conflicts (for overlap detection)
+   * @param entitySpecs all entity specifications for type resolution
+   */
   private static void createRootFieldsForFieldNameAliases(
       @Nonnull Map<String, Object> rootFields,
       @Nonnull Map<String, Set<String>> fieldNameAliasToAllPaths,
@@ -548,7 +745,16 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     }
   }
 
-  /** Creates a mapping for a field that has conflicts (multiple aspects with same field name). */
+  /**
+   * Creates a mapping for a field that has conflicts (appears in multiple aspects). Resolves type
+   * conflicts and creates a root field that aspect fields will copy_to. Special handling for
+   * _entityName field which creates an alias to _search.entityName.
+   *
+   * @param rootFields map to populate with root field configurations
+   * @param fieldName the conflicted field name
+   * @param allPaths all paths where this field appears
+   * @param entitySpecs all entity specifications for type resolution
+   */
   private static void createConflictedFieldMapping(
       @Nonnull Map<String, Object> rootFields,
       @Nonnull String fieldName,
@@ -577,8 +783,11 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
             elasticsearchTypes,
             resolvedElasticsearchType);
       } catch (IllegalArgumentException e) {
-        // Re-throw the exception for non-resolvable conflicts
-        throw e;
+        throw new IllegalArgumentException(
+            String.format(
+                "Non-resolvable field type conflict for field '%s' with types %s. %s",
+                fieldName, elasticsearchTypes, e.getMessage()),
+            e);
       }
     } else {
       resolvedElasticsearchType = elasticsearchTypes.iterator().next();
@@ -612,7 +821,14 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         fieldName);
   }
 
-  /** Creates an alias for a field that has no conflicts (single aspect with field name). */
+  /**
+   * Creates an alias for a field that has no conflicts (appears in only one aspect). The alias
+   * points directly to the single aspect field location.
+   *
+   * @param rootFields map to populate with root field configurations
+   * @param fieldName the non-conflicted field name
+   * @param allPaths set containing the single path where this field appears
+   */
   private static void createSingleFieldAlias(
       @Nonnull Map<String, Object> rootFields,
       @Nonnull String fieldName,
@@ -629,7 +845,17 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     log.debug("Creating root alias for single field: '{}' -> '{}'", fieldName, singlePath);
   }
 
-  /** Creates a mapping for a field name alias that has conflicts. */
+  /**
+   * Creates a mapping for a field name alias that has conflicts. Handles special cases where the
+   * alias conflicts with a regular field name, and creates appropriate root field mappings with
+   * type resolution.
+   *
+   * @param rootFields map to populate with root field configurations
+   * @param alias the conflicted field name alias
+   * @param allPaths all paths where this alias appears
+   * @param fieldNameConflicts map of field names that have conflicts (for overlap detection)
+   * @param entitySpecs all entity specifications for type resolution
+   */
   private static void createConflictedFieldNameAliasMapping(
       @Nonnull Map<String, Object> rootFields,
       @Nonnull String alias,
@@ -685,7 +911,14 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         alias);
   }
 
-  /** Creates an alias for a field name alias that has no conflicts. */
+  /**
+   * Creates an alias for a field name alias that has no conflicts. The alias points directly to the
+   * single aspect field location.
+   *
+   * @param rootFields map to populate with root field configurations
+   * @param alias the non-conflicted field name alias
+   * @param allPaths set containing the single path where this alias appears
+   */
   private static void createSingleFieldNameAlias(
       @Nonnull Map<String, Object> rootFields,
       @Nonnull String alias,
@@ -702,11 +935,42 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     log.debug("Creating root alias for single field name alias: '{}' -> '{}'", alias, singlePath);
   }
 
+  /**
+   * Gets Elasticsearch mappings for a single searchable field specification. This method creates
+   * field mappings with appropriate type, indexing, and copy_to configurations based on the field's
+   * annotations and conflict status.
+   *
+   * <p>This is a convenience method that calls the full version with empty conflict maps.
+   *
+   * @param searchableFieldSpec the field specification to create mappings for
+   * @param aspectName the aspect name where this field is located
+   * @return map containing the field mapping configuration
+   */
   public static Map<String, Object> getMappingsForField(
       @Nonnull final SearchableFieldSpec searchableFieldSpec, @Nonnull final String aspectName) {
     return getMappingsForField(searchableFieldSpec, aspectName, Collections.emptyMap(), null);
   }
 
+  /**
+   * Gets Elasticsearch mappings for a single searchable field specification with conflict handling.
+   * This method creates comprehensive field mappings including:
+   *
+   * <ul>
+   *   <li>Field type mapping based on annotations
+   *   <li>Eager global ordinals configuration
+   *   <li>Search tier and label copy_to fields
+   *   <li>Entity field name copy_to fields
+   *   <li>Conflict resolution copy_to fields
+   *   <li>HasValues and numValues field creation
+   *   <li>SystemModifiedAt field creation
+   * </ul>
+   *
+   * @param searchableFieldSpec the field specification to create mappings for
+   * @param aspectName the aspect name where this field is located
+   * @param fieldNameConflicts map of field names that have conflicts (optional)
+   * @param fieldNameAliasConflicts map of field name aliases that have conflicts (optional)
+   * @return map containing the field mapping configuration
+   */
   public static Map<String, Object> getMappingsForField(
       @Nonnull final SearchableFieldSpec searchableFieldSpec,
       @Nonnull final String aspectName,
@@ -910,6 +1174,17 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     return mappings;
   }
 
+  /**
+   * Gets mappings for a searchable reference field that references other entities. This method
+   * creates nested mappings for referenced entity fields up to the specified depth. For depth 0,
+   * creates a simple URN field. For depth > 0, creates nested object mappings containing the
+   * referenced entity's searchable fields.
+   *
+   * @param entityRegistry entity registry for resolving referenced entity specifications
+   * @param searchableRefFieldSpec the reference field specification
+   * @param depth the maximum depth of nested references to include
+   * @return map containing the reference field mapping configuration
+   */
   private static Map<String, Object> getMappingForSearchableRefField(
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull final SearchableRefFieldSpec searchableRefFieldSpec,
@@ -934,19 +1209,16 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
             searchableFieldSpec ->
                 mappingForField.putAll(
                     getMappingsForField(searchableFieldSpec, "ref_" + entityType)));
-    entitySpec
-        .getSearchableRefFieldSpecs()
-        .forEach(
-            entitySearchableRefFieldSpec ->
-                mappingForField.putAll(
-                    getMappingForSearchableRefField(
-                        entityRegistry,
-                        entitySearchableRefFieldSpec,
-                        Math.min(
-                            depth - 1,
-                            entitySearchableRefFieldSpec
-                                .getSearchableRefAnnotation()
-                                .getDepth()))));
+    // Process searchable reference fields recursively
+    for (SearchableRefFieldSpec refFieldSpec : entitySpec.getSearchableRefFieldSpecs()) {
+      int configuredDepth = refFieldSpec.getSearchableRefAnnotation().getDepth();
+      int remainingDepth = Math.min(depth - 1, configuredDepth);
+
+      Map<String, Object> refFieldMappings =
+          getMappingForSearchableRefField(entityRegistry, refFieldSpec, remainingDepth);
+
+      mappingForField.putAll(refFieldMappings);
+    }
 
     mappingForField.put("urn", FieldTypeMapper.getMappingsForUrn());
     mappingForProperty.put("properties", mappingForField);

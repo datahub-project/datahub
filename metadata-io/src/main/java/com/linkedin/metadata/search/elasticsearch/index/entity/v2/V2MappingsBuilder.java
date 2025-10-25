@@ -80,7 +80,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
   }
 
   @Override
-  public Collection<IndexMapping> getMappings(@Nonnull OperationContext opContext) {
+  public Collection<IndexMapping> getIndexMappings(@Nonnull OperationContext opContext) {
     return getIndexMappings(opContext, Collections.emptySet());
   }
 
@@ -93,7 +93,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
         .map(
             entitySpec -> {
               Map<String, Object> mappings =
-                  getMappings(opContext.getEntityRegistry(), entitySpec, structuredProperties);
+                  getIndexMappings(opContext.getEntityRegistry(), entitySpec, structuredProperties);
               return IndexMapping.builder()
                   .indexName(
                       opContext.getSearchContext().getIndexConvention().getIndexName(entitySpec))
@@ -114,7 +114,8 @@ public class V2MappingsBuilder implements MappingsBuilder {
       EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
       if (entitySpec != null) {
         Map<String, Object> mappings =
-            getMappings(opContext.getEntityRegistry(), entitySpec, List.of(Pair.of(urn, property)));
+            getIndexMappings(
+                opContext.getEntityRegistry(), entitySpec, List.of(Pair.of(urn, property)));
         result.add(
             IndexMapping.builder()
                 .indexName(
@@ -136,11 +137,11 @@ public class V2MappingsBuilder implements MappingsBuilder {
    * @param structuredProperties structured properties for the entity
    * @return mappings
    */
-  public Map<String, Object> getMappings(
+  public Map<String, Object> getIndexMappings(
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull final EntitySpec entitySpec,
       Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
-    Map<String, Object> mappings = getMappings(entityRegistry, entitySpec);
+    Map<String, Object> mappings = getIndexMappings(entityRegistry, entitySpec);
 
     String entityName = entitySpec.getEntityAnnotation().getName();
     Map<String, Object> structuredPropertiesForEntity = Collections.emptyMap();
@@ -149,7 +150,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
       Urn matchUrn = UrnUtils.getUrn(ENTITY_TYPE_URN_PREFIX + entityName);
 
       structuredPropertiesForEntity =
-          getMappingsForStructuredProperty(
+          getIndexMappingsForStructuredProperty(
               structuredProperties.stream()
                   .filter(urnProp -> urnProp.getSecond().getEntityTypes().contains(matchUrn))
                   .collect(Collectors.toSet()));
@@ -184,7 +185,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
    * @param entitySpec entity spec to get mappings for
    * @return mappings for the entity spec
    */
-  public Map<String, Object> getMappings(
+  public Map<String, Object> getIndexMappings(
       @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec) {
     Map<String, Object> mappings = new HashMap<>();
 
@@ -240,7 +241,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
   }
 
   @Override
-  public Map<String, Object> getMappingsForStructuredProperty(
+  public Map<String, Object> getIndexMappingsForStructuredProperty(
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     return properties.stream()
         .map(

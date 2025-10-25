@@ -33,7 +33,7 @@ public interface MappingsBuilder {
    *
    * @return mappings
    */
-  Collection<IndexMapping> getMappings(@Nonnull OperationContext opContext);
+  Collection<IndexMapping> getIndexMappings(@Nonnull OperationContext opContext);
 
   Collection<IndexMapping> getIndexMappingsWithNewStructuredProperty(
       @Nonnull OperationContext opContext,
@@ -46,7 +46,7 @@ public interface MappingsBuilder {
    * @param properties collection of structured property definitions
    * @return mappings for structured properties
    */
-  Map<String, Object> getMappingsForStructuredProperty(
+  Map<String, Object> getIndexMappingsForStructuredProperty(
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties);
 
   /**
@@ -57,7 +57,7 @@ public interface MappingsBuilder {
    * @param entitySpec entity spec to get mappings for
    * @return mappings for the entity spec
    */
-  Map<String, Object> getMappings(
+  Map<String, Object> getIndexMappings(
       @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec);
 
   @Builder

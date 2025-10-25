@@ -204,7 +204,7 @@ public class ESUtils {
               Map<String, Map<String, Object>> rawMappingTypes =
                   ((Map<String, Object>)
                           mappingsBuilder
-                              .getMappings(entityRegistry, entitySpec)
+                              .getIndexMappings(entityRegistry, entitySpec)
                               .getOrDefault("properties", Map.<String, Object>of()))
                       .entrySet().stream()
                           .filter(
