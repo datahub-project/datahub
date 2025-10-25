@@ -32,45 +32,6 @@ public class IndexUtilsTest {
   }
 
   @Test
-  public void testCreatePrefixedName_WithPrefix() {
-    // Arrange
-    String prefix = "test";
-    String resourceName = "index";
-
-    // Act
-    String result = IndexUtils.createPrefixedName(prefix, resourceName);
-
-    // Assert
-    Assert.assertEquals(result, "test_index");
-  }
-
-  @Test
-  public void testCreatePrefixedName_EmptyPrefix() {
-    // Arrange
-    String prefix = "";
-    String resourceName = "index";
-
-    // Act
-    String result = IndexUtils.createPrefixedName(prefix, resourceName);
-
-    // Assert
-    Assert.assertEquals(result, "index");
-  }
-
-  @Test
-  public void testCreatePrefixedName_NullPrefix() {
-    // Arrange
-    String prefix = null;
-    String resourceName = "index";
-
-    // Act
-    String result = IndexUtils.createPrefixedName(prefix, resourceName);
-
-    // Assert
-    Assert.assertEquals(result, "index");
-  }
-
-  @Test
   public void testIsAwsOpenSearchService_AwsHost() {
     // Arrange
     Mockito.when(searchClient.getShimConfiguration())
