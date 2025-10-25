@@ -4,6 +4,11 @@ import styled, { useTheme } from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 
+/* 
+  TO-DO: 
+  Import image from path at theme config object assets.logoUrl
+  Update TitleSection Image src value accordingly
+*/
 import dataHubLogo from '@images/datahublogo.png';
 
 const Section = styled.div`
