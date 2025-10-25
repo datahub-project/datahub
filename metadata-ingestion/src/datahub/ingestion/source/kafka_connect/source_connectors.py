@@ -218,8 +218,12 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                     iter([t for t in table_name_tuples if t and t[-1] == source_table]),
                     (),
                 )
-                if len(table_name_tuple) > 1:
+                if len(table_name_tuple) > 1 and table_name_tuple[-2]:
+                    # Only include schema if it's not empty
                     source_table = f"{table_name_tuple[-2]}.{source_table}"
+                elif len(table_name_tuple) > 1:
+                    # Schema is empty, use just the table name
+                    source_table = source_table
                 else:
                     include_source_dataset = False
                     self.report.warning(
@@ -402,7 +406,12 @@ class ConfluentJDBCSourceConnector(BaseConnector):
 
                 if topic in self.connector_manifest.topic_names:
                     # include schema name for three-level hierarchies
-                    if has_three_level_hierarchy(source_platform) and len(table) > 1:
+                    if (
+                        has_three_level_hierarchy(source_platform)
+                        and len(table) > 1
+                        and table[-2]
+                    ):
+                        # Only include schema if it's not empty
                         source_table = f"{table[-2]}.{table[-1]}"
 
                     dataset_name = get_dataset_name(database_name, source_table)
