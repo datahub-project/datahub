@@ -168,37 +168,16 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,postgres_source,PROD),postgres1.postgres.member)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,postgres_source,PROD),postgres1.postgres.public.member)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": "postgres_source:postgres1.postgres.member",
+            "name": "postgres_source:postgres1.postgres.public.member",
             "type": {
                 "string": "COMMAND"
             }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-run",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,postgres_source,PROD),postgres1.postgres.member)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.member,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka1.test-postgres-jdbc-member,PROD)"
-            ]
         }
     },
     "systemMetadata": {
@@ -222,10 +201,31 @@
                 "tasks.max": "1",
                 "name": "postgres_source",
                 "connection.url": "postgresql://test_postgres:5432/postgres",
-                "table.whitelist": "member"
+                "table.whitelist": "public.member"
             },
             "name": "postgres_source",
             "description": "Source connector using `io.confluent.connect.jdbc.JdbcSourceConnector` plugin."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-run",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,postgres_source,PROD),postgres1.postgres.public.member)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.member,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka1.test-postgres-jdbc-member,PROD)"
+            ]
         }
     },
     "systemMetadata": {
@@ -1230,7 +1230,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,postgres_source,PROD),postgres1.postgres.member)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,postgres_source,PROD),postgres1.postgres.public.member)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

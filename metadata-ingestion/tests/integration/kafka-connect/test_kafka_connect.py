@@ -327,7 +327,7 @@ def loaded_kafka_connect(kafka_connect_runner):
                 "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
                 "mode": "incrementing",
                 "incrementing.column.name": "id",
-                "table.whitelist": "member",
+                "table.whitelist": "public.member",
                 "topic.prefix": "test-postgres-jdbc-",
                 "tasks.max": "1",
                 "connection.url": "${env:POSTGRES_CONNECTION_URL}"
