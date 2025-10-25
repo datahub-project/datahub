@@ -1,5 +1,32 @@
 # Acryl's AI-powered features
 
+extend type Query {
+  """
+  List DataHub AI conversations for the current user
+  """
+  listDataHubAiConversations(
+    """
+    Starting offset for pagination
+    """
+    start: Int
+
+    """
+    Number of conversations to return
+    """
+    count: Int
+  ): DataHubAiConversationConnection!
+
+  """
+  Get a specific DataHub AI conversation by URN
+  """
+  getDataHubAiConversation(
+    """
+    URN of the conversation to retrieve
+    """
+    urn: String!
+  ): DataHubAiConversation
+}
+
 extend type Mutation {
   """
   Infer documentation for a given entity. Currently only supports Datasets & Columns (Schema Fields).
@@ -13,6 +40,186 @@ extend type Mutation {
     excludeAsset: Boolean
     excludeColumns: Boolean
   ): InferredDocumentation
+
+  """
+  Create a new DataHub AI conversation
+  """
+  createDataHubAiConversation(
+    """
+    Input for creating the conversation
+    """
+    input: CreateDataHubAiConversationInput!
+  ): DataHubAiConversation!
+
+  """
+  Delete a DataHub AI conversation
+  """
+  deleteDataHubAiConversation(
+    """
+    URN of the conversation to delete
+    """
+    urn: String!
+  ): Boolean!
+}
+
+"""
+Input for creating a new DataHub AI conversation
+"""
+input CreateDataHubAiConversationInput {
+  """
+  Optional title for the conversation - If not provided one is automatically generated.
+  """
+  title: String
+
+  """
+  The origin of the conversation. Defaults to DataHub UI.
+  """
+  originType: DataHubAiConversationOriginType
+}
+
+"""
+Connection for DataHub AI conversations
+"""
+type DataHubAiConversationConnection {
+  """
+  List of conversations
+  """
+  conversations: [DataHubAiConversation!]!
+
+  """
+  Total count of conversations
+  """
+  total: Int!
+}
+
+"""
+A DataHub AI conversation
+"""
+type DataHubAiConversation {
+  """
+  URN of the conversation
+  """
+  urn: String!
+
+  """
+  Title of the conversation
+  """
+  title: String
+
+  """
+  When the conversation was created
+  """
+  created: AuditStamp!
+
+  """
+  When the conversation was last updated
+  """
+  lastUpdated: AuditStamp!
+
+  """
+  Messages in the conversation
+  """
+  messages: [DataHubAiConversationMessage!]!
+
+  """
+  Number of messages in the conversation
+  """
+  messageCount: Int!
+
+  """
+  The origin type of the conversation
+  """
+  originType: DataHubAiConversationOriginType!
+}
+
+"""
+A message in a DataHub AI conversation
+"""
+type DataHubAiConversationMessage {
+  """
+  Type of message
+  """
+  type: DataHubAiConversationMessageType!
+
+  """
+  Timestamp of the message
+  """
+  time: Long!
+
+  """
+  Actor who sent the message
+  """
+  actor: DataHubAiConversationActor!
+
+  """
+  Content of the message
+  """
+  content: DataHubAiConversationMessageContent!
+}
+
+"""
+Actor in a DataHub AI conversation message
+"""
+type DataHubAiConversationActor {
+  """
+  Type of actor
+  """
+  type: DataHubAiConversationActorType!
+
+  """
+  URN of the actor (if applicable)
+  """
+  actor: String
+}
+
+"""
+Content of a DataHub AI conversation message
+"""
+type DataHubAiConversationMessageContent {
+  """
+  Text content of the message
+  """
+  text: String!
+}
+
+"""
+Type of DataHub AI conversation message
+"""
+enum DataHubAiConversationMessageType {
+  """
+  Regular text message
+  """
+  TEXT
+
+  """
+  Tool call message
+  """
+  TOOL_CALL
+
+  """
+  Tool result message
+  """
+  TOOL_RESULT
+
+  """
+  AI thinking message
+  """
+  THINKING
+}
+
+"""
+Type of DataHub AI conversation actor
+"""
+enum DataHubAiConversationActorType {
+  """
+  User actor
+  """
+  USER
+
+  """
+  Agent actor
+  """
+  AGENT
 }
 
 """
@@ -38,4 +245,14 @@ type InferredColumnDescriptions {
   Structure is expected to be { [columnName:string]: string }
   """
   jsonBlob: String
+}
+
+"""
+Origin type for DataHub AI conversations
+"""
+enum DataHubAiConversationOriginType {
+  """
+  Chat session originated in DataHub UI
+  """
+  DATAHUB_UI
 }

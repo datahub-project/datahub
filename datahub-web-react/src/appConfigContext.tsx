@@ -142,6 +142,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         actionWorkflowsEnabled: false,
         assetSummaryPageV1: false,
         inviteUsersEnabled: false,
+        showAskDataHub: false,
         supportTicketsEnabled: false,
         teamsNotificationsEnabled: false,
         documentationFileUploadV1: false,

@@ -63,3 +63,8 @@ export function useIsInviteUsersEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.inviteUsersEnabled;
 }
+
+export function useIsAiChatEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.showAskDataHub;
+}

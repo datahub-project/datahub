@@ -233,6 +233,11 @@ public enum DataHubUsageEventType {
   DATASET_HEALTH_FILTER_EVENT("DatasetHealthFilterEvent"),
   CLICK_BULK_INVITE_RECOMMENDED_USERS_EVENT("ClickBulkInviteRecommendedUsersEvent"),
   CLICK_BULK_DISMISS_RECOMMENDED_USERS_EVENT("ClickBulkDismissRecommendedUsersEvent"),
+  CREATE_DATAHUB_CHAT_EVENT("CreateDataHubChatEvent"),
+  CREATE_DATAHUB_CHAT_MESSAGE_EVENT("CreateDataHubChatMessageEvent"),
+  DELETE_DATAHUB_CHAT_EVENT("DeleteDataHubChatEvent"),
+  DATAHUB_CHAT_RESPONSE_ERROR_EVENT("DataHubChatResponseErrorEvent"),
+  STOP_DATAHUB_CHAT_RESPONSE_EVENT("StopDataHubChatResponseEvent"),
 
   // Integrations service events
   CHATBOT_INTERACTION_EVENT("ChatbotInteraction"),

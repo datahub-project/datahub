@@ -1,0 +1,32 @@
+namespace com.linkedin.conversation
+
+/**
+ * Conversation info 
+ */
+record DataHubAiConversationMessage {
+
+    /**
+     * The type of message
+     */
+    type: enum DataHubAiConversationMessageType {
+        TEXT
+        TOOL_CALL
+        TOOL_RESULT
+        THINKING
+    }
+
+    /**
+     * Timestamp in milliseconds
+     */ 
+    time: long
+
+    /**
+     * Messages in the conversation
+     */
+     actor: DataHubAiConversationActor 
+
+     /**
+      * The contents of the message. 
+      */
+     content: DataHubAiConversationMessageContent  
+}

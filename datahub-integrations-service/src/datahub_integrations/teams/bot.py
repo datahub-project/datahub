@@ -423,12 +423,13 @@ class DataHubTeamsBot(ActivityHandler):
             progress_queue: "queue.Queue[dict[str, Any]]" = queue.Queue()
 
             # Progress callback for AI reasoning steps
-            def progress_callback(steps: list[str]) -> None:
+            def progress_callback(steps: list["ProgressUpdate"]) -> None:
                 """Update progress with reasoning steps."""
                 try:
                     if steps:
+                        step_texts = [step.text for step in steps]
                         progress_text, progress_detail = (
-                            self._build_teams_progress_message(steps)
+                            self._build_teams_progress_message(step_texts)
                         )
                         logger.info(f"AI Progress: {progress_text}")
 
@@ -454,7 +455,12 @@ class DataHubTeamsBot(ActivityHandler):
             from datahub.sdk.main_client import DataHubClient
 
             from datahub_integrations.chat.chat_history import HumanMessage
-            from datahub_integrations.chat.chat_session import ChatSession, NextMessage
+            from datahub_integrations.chat.chat_session import (
+                ChatSession,
+                NextMessage,
+                ProgressUpdate,
+            )
+            from datahub_integrations.chat.types import ChatType
             from datahub_integrations.mcp.mcp_server import mcp
             from datahub_integrations.teams.config import teams_config
 
@@ -481,6 +487,7 @@ class DataHubTeamsBot(ActivityHandler):
                     tools=[mcp],
                     client=DataHubClient(graph=graph),
                     history=history,
+                    chat_type=ChatType.TEAMS,
                 )
 
                 # Generate response with progress updates
@@ -885,12 +892,13 @@ Need more help? Check out the [DataHub documentation](https://datahubproject.io/
             progress_queue: "queue.Queue[dict[str, Any]]" = queue.Queue()
 
             # Progress callback for AI reasoning steps
-            def progress_callback(steps: list[str]) -> None:
+            def progress_callback(steps: list["ProgressUpdate"]) -> None:
                 """Update progress with reasoning steps."""
                 try:
                     if steps:
+                        step_texts = [step.text for step in steps]
                         progress_text, progress_detail = (
-                            self._build_teams_progress_message(steps)
+                            self._build_teams_progress_message(step_texts)
                         )
                         logger.info(f"AI Progress: {progress_text}")
 
@@ -916,7 +924,12 @@ Need more help? Check out the [DataHub documentation](https://datahubproject.io/
             from datahub.sdk.main_client import DataHubClient
 
             from datahub_integrations.chat.chat_history import HumanMessage
-            from datahub_integrations.chat.chat_session import ChatSession, NextMessage
+            from datahub_integrations.chat.chat_session import (
+                ChatSession,
+                NextMessage,
+                ProgressUpdate,
+            )
+            from datahub_integrations.chat.types import ChatType
             from datahub_integrations.mcp.mcp_server import mcp
             from datahub_integrations.teams.config import teams_config
 
@@ -944,6 +957,7 @@ Need more help? Check out the [DataHub documentation](https://datahubproject.io/
                     tools=[mcp],
                     client=DataHubClient(graph=graph),
                     history=history,
+                    chat_type=ChatType.TEAMS,
                 )
 
                 # Generate response with progress updates

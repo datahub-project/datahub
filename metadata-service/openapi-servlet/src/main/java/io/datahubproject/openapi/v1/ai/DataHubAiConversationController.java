@@ -1,0 +1,195 @@
+package io.datahubproject.openapi.v1.ai;
+
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.integration.IntegrationsService;
+import com.linkedin.metadata.integration.StreamingChatClient;
+import com.linkedin.metadata.service.DataHubAiConversationService;
+import io.datahubproject.metadata.context.OperationContext;
+import java.io.IOException;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+/**
+ * REST controller for streaming chat completions via Server-Sent Events (SSE).
+ *
+ * <p>This endpoint acts as a simple passthrough to the Python integrations service, which handles
+ * both message persistence and AI response generation. The Python service saves messages directly
+ * to DataHub and returns structured SSE events that this controller forwards to the client.
+ */
+@RestController
+@RequestMapping("/openapi/v1/ai-chat")
+@Slf4j
+public class DataHubAiConversationController {
+
+  private static final String STREAM_ENDPOINT = "/message";
+  private static final String MESSAGE_EVENT_NAME = "message";
+  private static final String COMPLETE_EVENT_NAME = "complete";
+  private static final String ERROR_EVENT_NAME = "error";
+  private static final String CONVERSATION_URN_REQUIRED_ERROR =
+      "conversationUrn and text are required";
+
+  private final IntegrationsService integrationsService;
+  private final DataHubAiConversationService conversationService;
+  private final OperationContext systemOperationContext;
+
+  @Autowired
+  public DataHubAiConversationController(
+      IntegrationsService integrationsService,
+      DataHubAiConversationService conversationService,
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
+    this.integrationsService = integrationsService;
+    this.conversationService = conversationService;
+    this.systemOperationContext = systemOperationContext;
+  }
+
+  @Data
+  public static class ChatRequest {
+    private String conversationUrn;
+    private String text;
+  }
+
+  /**
+   * Stream chat completions via Server-Sent Events.
+   *
+   * <p>This endpoint acts as a simple passthrough: the Python integrations service handles message
+   * persistence and returns SSE events that we forward directly to the client without parsing or
+   * modification.
+   *
+   * <p><strong>Security Note:</strong> The user URN is extracted from the authenticated session
+   * context and is NOT accepted from the client request to prevent impersonation attacks.
+   *
+   * @param request The chat request containing conversation URN and text
+   * @return SSE emitter that streams the AI response
+   */
+  @PostMapping(value = STREAM_ENDPOINT, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+  public SseEmitter streamChat(@RequestBody ChatRequest request) {
+    log.debug("Received chat stream request for conversation: {}", request.getConversationUrn());
+
+    // Extract authenticated user from context - do NOT trust client-provided userUrn
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String authenticatedUserUrn = authentication.getActor().toUrnStr();
+    Urn userUrn = UrnUtils.getUrn(authenticatedUserUrn);
+
+    // Validate request
+    if (request.getConversationUrn() == null || request.getText() == null) {
+      throw new IllegalArgumentException(CONVERSATION_URN_REQUIRED_ERROR);
+    }
+
+    // Parse conversation URN
+    Urn conversationUrn;
+    try {
+      conversationUrn = UrnUtils.getUrn(request.getConversationUrn());
+    } catch (Exception e) {
+      throw new IllegalArgumentException(
+          "Invalid conversation URN: " + request.getConversationUrn());
+    }
+
+    // Check authorization - user must be the creator of the conversation
+    if (!isAuthorizedToSendMessage(conversationUrn, userUrn)) {
+      log.warn(
+          "User {} attempted to send message to conversation {} but is not authorized",
+          authenticatedUserUrn,
+          request.getConversationUrn());
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN,
+          "You are not authorized to send messages to this conversation. Only the conversation creator can send messages.");
+    }
+
+    log.debug(
+        "Processing chat request for user: {}, conversation: {}",
+        authenticatedUserUrn,
+        request.getConversationUrn());
+
+    // Create SSE emitter with 30 minute timeout
+    SseEmitter emitter = new SseEmitter(30 * 60 * 1000L);
+
+    // Process asynchronously
+    new Thread(
+            () -> {
+              try {
+                // Stream response from Python integrations service
+                // Python handles both message persistence and AI response generation
+                StreamingChatClient streamingClient = integrationsService.getStreamingChatClient();
+                streamingClient
+                    .sendStreamingMessage(
+                        request.getConversationUrn(),
+                        authenticatedUserUrn,
+                        request.getText(),
+                        (sseEvent) -> {
+                          try {
+                            // Forward SSE event with proper event name from Python service
+                            // Python sends: event: message/error/complete\ndata: {...}
+                            // We preserve the event name to maintain error/completion semantics
+                            log.debug(
+                                "Forwarding SSE event: name={}, conversation={}",
+                                sseEvent.getEventName(),
+                                request.getConversationUrn());
+                            emitter.send(
+                                SseEmitter.event()
+                                    .name(sseEvent.getEventName())
+                                    .data(sseEvent.getData()));
+                          } catch (IOException e) {
+                            log.error("Failed to forward SSE event", e);
+                            emitter.completeWithError(e);
+                          } catch (Exception e) {
+                            log.error("Unexpected error in streaming callback", e);
+                            emitter.completeWithError(e);
+                          }
+                        })
+                    .get(); // Wait for the streaming to complete
+
+                // Complete the stream
+                emitter.send(SseEmitter.event().name(COMPLETE_EVENT_NAME).data(""));
+                emitter.complete();
+                log.debug(
+                    "Chat stream completed for conversation: {}", request.getConversationUrn());
+
+              } catch (Exception e) {
+                log.error(
+                    "Failed to stream chat for conversation: {}", request.getConversationUrn(), e);
+                try {
+                  emitter.send(SseEmitter.event().name(ERROR_EVENT_NAME).data(e.getMessage()));
+                } catch (IOException ioException) {
+                  log.error("Failed to send error event", ioException);
+                }
+                emitter.completeWithError(e);
+              }
+            })
+        .start();
+
+    return emitter;
+  }
+
+  /**
+   * Checks if a user is authorized to send a message to a conversation.
+   *
+   * <p>A user is authorized if they are the creator of the conversation. This prevents users from
+   * sending messages to conversations they don't own.
+   *
+   * @param conversationUrn the conversation URN
+   * @param userUrn the user URN
+   * @return true if authorized, false otherwise
+   */
+  private boolean isAuthorizedToSendMessage(Urn conversationUrn, Urn userUrn) {
+    try {
+      return conversationService.canAccessConversation(
+          systemOperationContext, conversationUrn, userUrn);
+    } catch (Exception e) {
+      log.error("Error checking conversation access for user {}: {}", userUrn, e.getMessage(), e);
+      return false;
+    }
+  }
+}
