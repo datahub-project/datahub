@@ -32,8 +32,8 @@ export default function useFileUpload({ scenario, assetUrn, schemaField }: Props
             },
         });
 
-        const uploadUrl = data?.getPresignedUploadUrl.url;
-        const fileId = data?.getPresignedUploadUrl.fileId;
+        const uploadUrl = data?.getPresignedUploadUrl?.url;
+        const fileId = data?.getPresignedUploadUrl?.fileId;
 
         if (!uploadUrl) {
             throw new Error('Issue uploading file to server');

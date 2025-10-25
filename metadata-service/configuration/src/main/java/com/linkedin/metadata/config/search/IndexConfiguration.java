@@ -30,4 +30,12 @@ public class IndexConfiguration {
   private int maxArrayLength;
   private int maxObjectKeys;
   private int maxValueLength;
+
+  public String getFinalPrefix() {
+    if (prefix == null || prefix.isEmpty()) {
+      return "";
+    } else {
+      return prefix + "_";
+    }
+  }
 }

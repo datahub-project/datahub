@@ -148,25 +148,6 @@ public class IndexUtils {
   }
 
   /**
-   * Creates a prefixed name for usage event resources.
-   *
-   * <p>This method handles the logic for adding prefixes to usage event resource names, including
-   * the proper separator handling. If the prefix is empty, no separator is added. If the prefix is
-   * not empty, an underscore separator is added between the prefix and the resource name.
-   *
-   * @param prefix the index prefix (e.g., "prod", "dev", or empty string)
-   * @param resourceName the base resource name (e.g., "datahub_usage_event_policy")
-   * @return the prefixed resource name (e.g., "prod_datahub_usage_event_policy" or
-   *     "datahub_usage_event_policy")
-   */
-  public static String createPrefixedName(String prefix, String resourceName) {
-    if (prefix == null || prefix.isEmpty()) {
-      return resourceName;
-    }
-    return prefix + "_" + resourceName;
-  }
-
-  /**
    * Loads a resource file as a UTF-8 encoded string.
    *
    * <p>This utility method reads a resource file from the classpath and returns its contents as a
