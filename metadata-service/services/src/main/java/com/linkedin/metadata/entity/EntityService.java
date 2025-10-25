@@ -423,6 +423,8 @@ public interface EntityService<U extends ChangeMCP> {
   Integer getCountAspect(
       @Nonnull OperationContext opContext, @Nonnull String aspectName, @Nullable String urnLike);
 
+  Integer countAspect(@Nonnull RestoreIndicesArgs args, @Nonnull Consumer<String> logger);
+
   // TODO: Extract this to a different service, doesn't need to be here
   List<RestoreIndicesResult> restoreIndices(
       @Nonnull OperationContext opContext,
