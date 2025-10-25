@@ -56,12 +56,12 @@ def get_kafka_schema_registry_url() -> Optional[str]:
 
 def get_admin_username() -> str:
     """Admin username for smoke tests."""
-    return os.getenv("ADMIN_USERNAME", "datahub")
+    return os.getenv("ADMIN_USERNAME", "admin")
 
 
 def get_admin_password() -> str:
     """Admin password for smoke tests."""
-    return os.getenv("ADMIN_PASSWORD", "datahub")
+    return os.getenv("ADMIN_PASSWORD", "mypass")
 
 
 # ============================================================================
