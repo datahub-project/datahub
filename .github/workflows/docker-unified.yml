@@ -155,7 +155,7 @@ jobs:
         env:
           ENABLE_PUBLISH: >-
             ${{
-            (github.event_name == 'release' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'push')  && github.ref == 'refs/heads/acryl-main')) 
+            (github.event_name == 'release' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'push')  && github.ref == 'refs/heads/acryl-main'))
                && (( secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' ) || secrets.AWS_ECR_SECRET_ACCESS_KEY != '')
             }}
         run: |
@@ -606,7 +606,36 @@ jobs:
         run: |
           ./gradlew :metadata-ingestion:install
 
+      - name: Stagger 1Password API calls
+        run: |
+          # Add random delay to spread out API calls across parallel jobs
+          DELAY=$((RANDOM % 45 + 5))
+          echo "Waiting ${DELAY} seconds before loading secrets to avoid rate limiting..."
+          sleep $DELAY
+
       - name: Load secrets
+        id: load-secrets
+        uses: 1password/load-secrets-action@v2
+        continue-on-error: true
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          BIGQUERY_PROJECT_ID: op://Engineering/SmokeTest - Bigquery/project_id
+          BIGQUERY_CLIENT_EMAIL: op://Engineering/SmokeTest - Bigquery/client_email
+          BIGQUERY_PRIVATE_KEY: op://Engineering/SmokeTest - Bigquery/private_key
+          BIGQUERY_PRIVATE_KEY_ID: op://Engineering/SmokeTest - Bigquery/private_key_id
+          BIGQUERY_CLIENT_ID: op://Engineering/SmokeTest - Bigquery/client_id
+
+      - name: Retry load secrets if rate limited
+        if: steps.load-secrets.outcome == 'failure'
+        run: |
+          RETRY_DELAY=$((RANDOM % 60 + 30))
+          echo "First attempt failed, waiting ${RETRY_DELAY} seconds before retry..."
+          sleep $RETRY_DELAY
+
+      - name: Load secrets (retry)
+        if: steps.load-secrets.outcome == 'failure'
         uses: 1password/load-secrets-action@v2
         with:
           export-env: true

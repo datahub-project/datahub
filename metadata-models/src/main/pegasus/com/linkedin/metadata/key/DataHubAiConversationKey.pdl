@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a DataHub conversation
+ */
+@Aspect = {
+  "name": "dataHubAiConversationKey"
+}
+record DataHubAiConversationKey {
+  /**
+   * Unique identifier for the conversation
+   */
+  @Searchable = {}
+  id: string
+}

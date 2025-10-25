@@ -1,6 +1,10 @@
 import React from 'react';
 
 import {
+    SECTION_LABELS,
+    groupOptions,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/common/groupedOptions';
+import {
     VolumeAssertionBuilderState,
     VolumeAssertionBuilderType,
     VolumeAssertionBuilderTypeOptions,
@@ -286,22 +290,34 @@ export const VOLUME_TYPE_OPTIONS_BY_CATEGORY: Record<VolumeTypeCategoryEnum, Vol
 };
 
 export const getVolumeTypeOptions = ({ disableAiInferred }: { disableAiInferred?: boolean } = {}) => {
-    return Object.entries(VOLUME_TYPE_OPTIONS_BY_CATEGORY)
-        .filter(([categoryKey]) => !disableAiInferred || categoryKey !== VolumeTypeCategoryEnum.AI_INFERRED)
-        .map(([categoryKey, categoryOptions]) => {
-            const category = VOLUME_TYPE_CATEGORIES[categoryKey as VolumeTypeCategoryEnum];
-            return {
-                label: category.label,
-                options: categoryOptions.map((optionKey) => {
-                    const option = VOLUME_TYPE_OPTIONS[optionKey as VolumeTypeOptionEnum];
-                    return {
-                        label: option.label,
-                        value: optionKey,
-                        disabled: category.disabled,
-                    };
-                }),
-            };
-        });
+    const entries = Object.entries(VOLUME_TYPE_OPTIONS_BY_CATEGORY).filter(
+        ([categoryKey]) => !disableAiInferred || categoryKey !== VolumeTypeCategoryEnum.AI_INFERRED,
+    ) as [VolumeTypeCategoryEnum, VolumeTypeOptionEnum[]][];
+
+    const sections: Array<[string, { label: string; value: string; disabled?: boolean }[]]> = entries.map(
+        ([categoryKey, categoryOptions]) => {
+            const category = VOLUME_TYPE_CATEGORIES[categoryKey];
+            const opts = categoryOptions.map((optionKey) => {
+                const option = VOLUME_TYPE_OPTIONS[optionKey];
+                return { label: option.label, value: optionKey, disabled: category.disabled };
+            });
+            // Standardize label usage where possible
+            let label: string;
+            switch (categoryKey) {
+                case VolumeTypeCategoryEnum.AI_INFERRED:
+                    label = SECTION_LABELS.anomalyDetection;
+                    break;
+                case VolumeTypeCategoryEnum.GROWTH_RATE:
+                    label = SECTION_LABELS.growthRate;
+                    break;
+                default:
+                    label = SECTION_LABELS.rowCount; // ROW_COUNT
+            }
+            return [label, opts];
+        },
+    );
+
+    return groupOptions(sections);
 };
 
 export const getVolumeTypeOption = (optionKey: VolumeTypeOptionEnum) => {

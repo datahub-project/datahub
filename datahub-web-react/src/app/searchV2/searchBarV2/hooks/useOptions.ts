@@ -6,6 +6,7 @@ import useRecentlyViewedEntitiesOptions from '@app/searchV2/searchBarV2/hooks/us
 import useViewAllResultsOptions from '@app/searchV2/searchBarV2/hooks/useViewAllResultsOptions';
 import { EntityWithMatchedFields } from '@app/searchV2/utils/combineSiblingsInEntitiesWithMatchedFields';
 import usePrevious from '@app/shared/usePrevious';
+import { useIsAiChatEnabled } from '@app/useAppConfig';
 
 export default function useOptions(
     searchQuery: string,
@@ -18,6 +19,7 @@ export default function useOptions(
 ) {
     // used to show Loader when we searching for suggestions in both cases for the first time and after clearing searchQuery
     const [isDataInitialized, setIsDataInitialized] = useState<boolean>(false);
+    const isAskDataHubEnabled = useIsAiChatEnabled();
 
     const hasResults = useMemo(() => (entitiesWithMatchedFields?.length ?? 0) > 0, [entitiesWithMatchedFields?.length]);
 
@@ -53,7 +55,11 @@ export default function useOptions(
         if (!isSearching) return initialOptions;
 
         if (shouldShowAutoCompleteResults) {
-            if (!isDataLoading && !hasResults && isDataInitialized) return [];
+            if (!isDataLoading && !hasResults && isDataInitialized) {
+                // When there are no results and Ask DataHub is enabled, show viewAllResultsOptions (e.g., "Ask DataHub")
+                // to avoid showing "no results found". Otherwise, return empty array to show "no results found".
+                return isAskDataHubEnabled ? viewAllResultsOptions : [];
+            }
             return [...viewAllResultsOptions, ...searchResultsOptions];
         }
 
@@ -67,6 +73,7 @@ export default function useOptions(
         shouldShowAutoCompleteResults,
         isDataLoading,
         isDataInitialized,
+        isAskDataHubEnabled,
     ]);
 
     return options;

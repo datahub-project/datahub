@@ -48,6 +48,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
@@ -81,10 +82,11 @@ public class IntegrationsService {
   private final int timeoutSeconds;
 
   private final ActionsApi actionsApi;
-  private final AiApi aiApi;
+  @Getter private final AiApi aiApi;
   @Getter private final AnalyticsApi analyticsApi;
   private final ShareApi shareApi;
   @Getter private final TeamsApi teamsApi;
+  @Getter private final StreamingChatClient streamingChatClient;
   @Nonnull private final OperationContext systemOperationContext;
 
   public IntegrationsService(
@@ -97,10 +99,27 @@ public class IntegrationsService {
         integrationsServicePort,
         useSsl,
         systemOperationContext,
-        HttpClients.createDefault(),
+        createConfiguredHttpClient(),
         new ExponentialBackoff(DEFAULT_RETRY_INTERVAL),
         3,
         60);
+  }
+
+  /**
+   * Creates an HTTP client configured with appropriate timeouts for SSE streaming. Connection
+   * timeout: 30 seconds (time to establish connection) Socket timeout: 10 minutes (time between
+   * data packets - important for SSE) Connection request timeout: 30 seconds (time to get
+   * connection from pool)
+   */
+  private static CloseableHttpClient createConfiguredHttpClient() {
+    RequestConfig requestConfig =
+        RequestConfig.custom()
+            .setConnectTimeout(30000) // 30 seconds to establish connection
+            .setSocketTimeout(300000) // 5 minutes between data packets (for SSE streaming)
+            .setConnectionRequestTimeout(30000) // 30 seconds to get connection from pool
+            .build();
+
+    return HttpClients.custom().setDefaultRequestConfig(requestConfig).build();
   }
 
   public IntegrationsService(
@@ -136,6 +155,12 @@ public class IntegrationsService {
     this.analyticsApi = new AnalyticsApi(okHttpClient);
     this.shareApi = new ShareApi(okHttpClient);
     this.teamsApi = new TeamsApi(okHttpClient);
+
+    // Initialize streaming chat client
+    final String chatServiceUrl =
+        String.format("%s://%s:%d", protocol, integrationsServiceHost, integrationsServicePort);
+    this.streamingChatClient =
+        new StreamingChatClient(httpClient, chatServiceUrl, systemAuthentication.getCredentials());
   }
 
   /** Calls the integration service to refresh their connection settings on demand. */

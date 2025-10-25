@@ -1764,6 +1764,11 @@ type FeatureFlagsConfig {
   inviteUsersEnabled: Boolean!
 
   """
+  Whether DataHub AI / DataHub Chat capability is available
+  """
+  showAskDataHub: Boolean!
+
+  """
   Whether creating support tickets is enabled or not
   """
   supportTicketsEnabled: Boolean!

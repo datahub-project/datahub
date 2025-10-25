@@ -167,6 +167,7 @@ query appConfig {
             viewIngestionSourcePrivilegesEnabled
             actionWorkflowsEnabled
             inviteUsersEnabled
+            showAskDataHub
             teamsNotificationsEnabled
             documentationFileUploadV1
         }

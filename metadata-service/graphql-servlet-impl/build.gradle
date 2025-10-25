@@ -25,6 +25,14 @@ dependencies {
   implementation externalDependency.charle
   implementation externalDependency.jetbrains
   implementation externalDependency.opentelemetryApi
+
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.mockito
+  testImplementation project(':datahub-graphql-core')
+  testImplementation project(':metadata-io')
+  testImplementation project(':metadata-service:services')
+  testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
 }
 
 configurations.all{

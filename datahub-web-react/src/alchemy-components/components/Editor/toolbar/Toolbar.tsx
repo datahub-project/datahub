@@ -9,18 +9,21 @@ import {
     TextStrikethrough,
     TextUnderline,
 } from '@phosphor-icons/react';
-import { useActive, useCommands } from '@remirror/react';
+import { useActive, useCommands, useRemirrorContext } from '@remirror/react';
 import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop';
 import { AddImageButton } from '@components/components/Editor/toolbar/AddImageButton';
+import { AddImageButtonV2 } from '@components/components/Editor/toolbar/AddImageButtonV2';
 import { AddLinkButton } from '@components/components/Editor/toolbar/AddLinkButton';
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
 import { FileUploadButton } from '@components/components/Editor/toolbar/FileUploadButton';
 import { FontSizeSelect } from '@components/components/Editor/toolbar/FontSizeSelect';
 import { HeadingMenu } from '@components/components/Editor/toolbar/HeadingMenu';
 
+import { useAppConfig } from '@app/useAppConfig';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const Container = styled.div`
@@ -59,6 +62,12 @@ interface Props {
 export const Toolbar = ({ styles }: Props) => {
     const commands = useCommands();
     const active = useActive(true);
+    const { config } = useAppConfig();
+    const { documentationFileUploadV1 } = config.featureFlags;
+    const remirrorContext = useRemirrorContext();
+    const fileExtension = remirrorContext.getExtension(FileDragDropExtension);
+
+    const shouldShowImageButtonV2 = documentationFileUploadV1 && fileExtension.options.onFileUpload;
 
     return (
         <Container style={styles}>
@@ -120,7 +129,7 @@ export const Toolbar = ({ styles }: Props) => {
                     onClick={() => commands.toggleCodeBlock()}
                 />
                 <CustomDivider type="vertical" />
-                <AddImageButton />
+                {shouldShowImageButtonV2 ? <AddImageButtonV2 /> : <AddImageButton />}
                 <AddLinkButton />
                 <CommandButton
                     icon={<Table size={20} color={colors.gray[1800]} />}

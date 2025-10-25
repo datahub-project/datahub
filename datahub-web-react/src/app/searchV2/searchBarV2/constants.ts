@@ -20,6 +20,7 @@ export const AUTOCOMPLETE_DROPDOWN_ALIGN: AutocompleteDropdownAlign = {
 
 export const EXACT_AUTOCOMPLETE_OPTION_TYPE = 'exact_query';
 export const RELEVANCE_QUERY_OPTION_TYPE = 'recommendation';
+export const ASK_DATAHUB_OPTION_TYPE = 'ask_datahub';
 
 export const DEBOUNCE_ON_SEARCH_TIMEOUT_MS = 100;
 

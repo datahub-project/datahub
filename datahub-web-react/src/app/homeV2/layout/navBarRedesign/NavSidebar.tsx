@@ -19,6 +19,7 @@ import {
     TrendUp,
     UserCircle,
 } from '@phosphor-icons/react';
+import { Sparkle } from 'phosphor-react';
 import React, { useContext, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
@@ -42,7 +43,7 @@ import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { ZendeskWidget } from '@app/shared/ZendeskWidget';
 import { SidebarWidthProvider } from '@app/shared/hooks/useSidebarWidth';
-import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
+import { useAppConfig, useBusinessAttributesFlag, useIsAiChatEnabled } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
@@ -127,6 +128,7 @@ export const NavSidebar = () => {
         config?.featureFlags?.showManageTags &&
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
     const businessAttributesFlag = useBusinessAttributesFlag();
+    const isChatEnabled = useIsAiChatEnabled();
 
     /* SaaS Only */
     const { helpLinkState, globalSettings } = useGlobalSettingsContext();
@@ -208,6 +210,15 @@ export const NavSidebar = () => {
                     count: unfinishedTaskCount,
                     show: unfinishedTaskCount > 0,
                 },
+            },
+            {
+                type: NavBarMenuItemTypes.Item,
+                title: 'Chat',
+                icon: <Sparkle />,
+                selectedIcon: <Sparkle weight="fill" />,
+                key: 'chat',
+                link: PageRoutes.AI_CHAT,
+                isHidden: !isChatEnabled,
             },
             {
                 type: NavBarMenuItemTypes.Group,

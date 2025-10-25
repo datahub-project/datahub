@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.AssertJUnit.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -234,23 +234,37 @@ public class LogicalModelControllerTest extends AbstractTestNGSpringContextTests
         aspect0.getParent().getLastModified().getActor().toString());
 
     MetadataChangeProposal mcp1 = capturedBatch.getMCPItems().get(1).getMetadataChangeProposal();
+    MetadataChangeProposal mcp2 = capturedBatch.getMCPItems().get(2).getMetadataChangeProposal();
+
     LogicalParent aspect1 =
         GenericRecordUtils.deserializeAspect(
             mcp1.getAspect().getValue(), JSON, LogicalParent.class);
-    assertEquals(childField1Urn, mcp1.getEntityUrn());
-    assertEquals(LOGICAL_PARENT_ASPECT_NAME, mcp1.getAspectName());
-    assertEquals(
-        SchemaFieldUtils.generateSchemaFieldUrn(parentDatasetUrn, "parent_field1"),
-        aspect1.getParent().getDestinationUrn());
-    MetadataChangeProposal mcp2 = capturedBatch.getMCPItems().get(2).getMetadataChangeProposal();
     LogicalParent aspect2 =
         GenericRecordUtils.deserializeAspect(
             mcp2.getAspect().getValue(), JSON, LogicalParent.class);
-    assertEquals(childField2Urn, mcp2.getEntityUrn());
+
+    assertEquals(LOGICAL_PARENT_ASPECT_NAME, mcp1.getAspectName());
     assertEquals(LOGICAL_PARENT_ASPECT_NAME, mcp2.getAspectName());
-    assertEquals(
-        SchemaFieldUtils.generateSchemaFieldUrn(parentDatasetUrn, "parent_field2"),
-        aspect2.getParent().getDestinationUrn());
+
+    if (mcp1.getEntityUrn().equals(childField1Urn)) {
+      assertEquals(
+          SchemaFieldUtils.generateSchemaFieldUrn(parentDatasetUrn, "parent_field1"),
+          aspect1.getParent().getDestinationUrn());
+
+      assertEquals(childField2Urn, mcp2.getEntityUrn());
+      assertEquals(
+          SchemaFieldUtils.generateSchemaFieldUrn(parentDatasetUrn, "parent_field2"),
+          aspect2.getParent().getDestinationUrn());
+    } else {
+      assertEquals(
+          SchemaFieldUtils.generateSchemaFieldUrn(parentDatasetUrn, "parent_field2"),
+          aspect1.getParent().getDestinationUrn());
+
+      assertEquals(childField2Urn, mcp1.getEntityUrn());
+      assertEquals(
+          SchemaFieldUtils.generateSchemaFieldUrn(parentDatasetUrn, "parent_field1"),
+          aspect2.getParent().getDestinationUrn());
+    }
   }
 
   @Test
@@ -527,20 +541,26 @@ public class LogicalModelControllerTest extends AbstractTestNGSpringContextTests
 
     // Verify schema field proposals
     MetadataChangeProposal mcp1 = capturedBatch.getMCPItems().get(1).getMetadataChangeProposal();
+    MetadataChangeProposal mcp2 = capturedBatch.getMCPItems().get(2).getMetadataChangeProposal();
+
     LogicalParent aspect1 =
         GenericRecordUtils.deserializeAspect(
             mcp1.getAspect().getValue(), JSON, LogicalParent.class);
-    assertEquals(childField1Urn, mcp1.getEntityUrn());
-    assertEquals(LOGICAL_PARENT_ASPECT_NAME, mcp1.getAspectName());
-    assertEquals(null, aspect1.getParent());
-
-    MetadataChangeProposal mcp2 = capturedBatch.getMCPItems().get(2).getMetadataChangeProposal();
     LogicalParent aspect2 =
         GenericRecordUtils.deserializeAspect(
             mcp2.getAspect().getValue(), JSON, LogicalParent.class);
-    assertEquals(childField2Urn, mcp2.getEntityUrn());
+
+    assertEquals(LOGICAL_PARENT_ASPECT_NAME, mcp1.getAspectName());
     assertEquals(LOGICAL_PARENT_ASPECT_NAME, mcp2.getAspectName());
+    assertEquals(null, aspect1.getParent());
     assertEquals(null, aspect2.getParent());
+
+    if (mcp1.getEntityUrn().equals(childField1Urn)) {
+      assertEquals(childField2Urn, mcp2.getEntityUrn());
+    } else {
+      assertEquals(childField2Urn, mcp1.getEntityUrn());
+      assertEquals(childField1Urn, mcp2.getEntityUrn());
+    }
   }
 
   @Test
