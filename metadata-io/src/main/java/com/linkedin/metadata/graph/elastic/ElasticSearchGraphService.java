@@ -368,7 +368,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     SearchHit[] searchHits = response.getHits().getHits();
     // Only return next scroll ID if there are more results, indicated by full size results
     String nextScrollId = null;
-    if (searchHits.length == count) {
+    if (searchHits.length == count && searchHits.length > 0) {
       Object[] sort = searchHits[searchHits.length - 1].getSortValues();
       nextScrollId = new SearchAfterWrapper(sort, null, 0L).toScrollId();
     }

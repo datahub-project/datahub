@@ -1392,6 +1392,43 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertFalse(result.hasScrollId());
   }
 
+  @Test
+  public void testExtractScrollResultWithZeroCount() {
+    // Test the edge case where count=0 is passed, which should not cause
+    // ArrayIndexOutOfBoundsException
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+
+    // Create empty search hits array (simulating no results)
+    SearchHit[] hits = new SearchHit[0];
+
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(0L, TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getHits()).thenReturn(hits);
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    when(mockResponse.pointInTimeId()).thenReturn("test-pit-id");
+
+    // This should not throw ArrayIndexOutOfBoundsException
+    ScrollResult result =
+        handler.extractScrollResult(operationContext, mockResponse, null, "5m", 0, true);
+
+    // Verify the result
+    assertNotNull(result);
+    assertEquals(result.getPageSize().intValue(), 0);
+    assertEquals(result.getNumEntities().intValue(), 0);
+    assertFalse(result.hasScrollId()); // No scroll ID since no results
+  }
+
   // Helper method to create scroll results with specific sizes
   private ScrollResult verifyScrollResultSize(
       SearchRequestHandler handler,

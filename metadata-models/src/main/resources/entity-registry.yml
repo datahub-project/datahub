@@ -726,6 +726,11 @@ entities:
     keyAspect: dataHubPageModuleKey
     aspects:
       - dataHubPageModuleProperties
+  - name: dataHubFile
+    category: core
+    keyAspect: dataHubFileKey
+    aspects:
+      - dataHubFileInfo
   - name: dataHubConnection
     category: internal
     keyAspect: dataHubConnectionKey

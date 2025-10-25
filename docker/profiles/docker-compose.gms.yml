@@ -328,8 +328,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-      opensearch-setup-dev:
-        condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
   system-update-debug-aws: &system-update-debug
     <<: *datahub-system-update-service-dev
     environment:

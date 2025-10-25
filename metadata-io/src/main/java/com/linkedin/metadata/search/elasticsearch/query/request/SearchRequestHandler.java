@@ -448,7 +448,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     SearchHit[] searchHits = searchResponse.getHits().getHits();
     // Only return next scroll ID if there are more results, indicated by full size results
     String nextScrollId = null;
-    if (searchHits.length == size) {
+    if (searchHits.length == size && searchHits.length > 0) {
       Object[] sort = searchHits[searchHits.length - 1].getSortValues();
       long expirationTimeMs = 0L;
       if (keepAlive != null && supportsPointInTime) {
