@@ -20,8 +20,22 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_connect.common import (
+    BIGQUERY_SINK_CLOUD,
+    BIGQUERY_SINK_CONNECTOR_CLASS,
+    CLOUD_JDBC_SOURCE_CLASSES,
+    CLOUD_OTHER_SOURCE_CLASSES,
     CONNECTOR_CLASS,
+    DEBEZIUM_SOURCE_CONNECTOR_PREFIX,
+    JDBC_SOURCE_CONNECTOR_CLASS,
+    MONGO_SOURCE_CONNECTOR_CLASS,
+    MYSQL_SINK_CLOUD,
+    MYSQL_SINK_CONNECTOR_CLASS,
+    POSTGRES_SINK_CLOUD,
+    S3_SINK_CLOUD,
+    S3_SINK_CONNECTOR_CLASS,
     SINK,
+    SNOWFLAKE_SINK_CLOUD,
+    SNOWFLAKE_SINK_CONNECTOR_CLASS,
     SOURCE,
     BaseConnector,
     ConnectorManifest,
@@ -32,17 +46,13 @@ from datahub.ingestion.source.kafka_connect.common import (
     transform_connector_config,
 )
 from datahub.ingestion.source.kafka_connect.sink_connectors import (
-    BIGQUERY_SINK_CONNECTOR_CLASS,
-    S3_SINK_CONNECTOR_CLASS,
-    SNOWFLAKE_SINK_CONNECTOR_CLASS,
     BigQuerySinkConnector,
     ConfluentS3SinkConnector,
+    MySqlSinkConnector,
+    PostgresSinkConnector,
     SnowflakeSinkConnector,
 )
 from datahub.ingestion.source.kafka_connect.source_connectors import (
-    DEBEZIUM_SOURCE_CONNECTOR_PREFIX,
-    JDBC_SOURCE_CONNECTOR_CLASS,
-    MONGO_SOURCE_CONNECTOR_CLASS,
     ConfigDrivenSourceConnector,
     ConfluentJDBCSourceConnector,
     DebeziumSourceConnector,
@@ -56,6 +66,36 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# Connector class to implementation mapping for clean, extensible detection
+SOURCE_CONNECTOR_MAPPING = {
+    # OSS Platform JDBC source
+    JDBC_SOURCE_CONNECTOR_CLASS: ConfluentJDBCSourceConnector,
+    # Confluent Cloud JDBC sources
+    **{cls: ConfluentJDBCSourceConnector for cls in CLOUD_JDBC_SOURCE_CLASSES},
+    # MongoDB source
+    MONGO_SOURCE_CONNECTOR_CLASS: MongoSourceConnector,
+    # Cloud other sources (Datagen, etc.)
+    **{cls: ConfigDrivenSourceConnector for cls in CLOUD_OTHER_SOURCE_CLASSES},
+}
+
+SINK_CONNECTOR_MAPPING = {
+    # BigQuery sinks
+    BIGQUERY_SINK_CONNECTOR_CLASS: BigQuerySinkConnector,
+    BIGQUERY_SINK_CLOUD: BigQuerySinkConnector,
+    # S3 sinks
+    S3_SINK_CONNECTOR_CLASS: ConfluentS3SinkConnector,
+    S3_SINK_CLOUD: ConfluentS3SinkConnector,
+    # Snowflake sinks
+    SNOWFLAKE_SINK_CONNECTOR_CLASS: SnowflakeSinkConnector,
+    SNOWFLAKE_SINK_CLOUD: SnowflakeSinkConnector,
+    # PostgreSQL sinks
+    POSTGRES_SINK_CLOUD: PostgresSinkConnector,
+    # MySQL sinks
+    MYSQL_SINK_CONNECTOR_CLASS: MySqlSinkConnector,
+    MYSQL_SINK_CLOUD: MySqlSinkConnector,
+}
 
 
 @platform_name("Kafka Connect")
@@ -130,25 +170,14 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
             class_type: Type[BaseConnector] = BaseConnector
 
-            # Populate Source Connector metadata
+            # Determine connector implementation class using clean mapping approach
             if connector_manifest.type == SOURCE:
                 connector_manifest.tasks = self._get_connector_tasks(connector_name)
+                class_type = self._get_source_connector_class(
+                    connector_class_value, connector_manifest
+                )
 
-                # JDBC source connector lineages
-                if connector_class_value == JDBC_SOURCE_CONNECTOR_CLASS:
-                    class_type = ConfluentJDBCSourceConnector
-                elif connector_class_value.startswith(DEBEZIUM_SOURCE_CONNECTOR_PREFIX):
-                    class_type = DebeziumSourceConnector
-                elif connector_class_value == MONGO_SOURCE_CONNECTOR_CLASS:
-                    class_type = MongoSourceConnector
-                elif any(
-                    [
-                        connector.connector_name == connector_manifest.name
-                        for connector in self.config.generic_connectors
-                    ]
-                ):
-                    class_type = ConfigDrivenSourceConnector
-                else:
+                if class_type is None:
                     self.report.report_dropped(connector_manifest.name)
                     self.report.warning(
                         "Lineage for Source Connector not supported. "
@@ -156,19 +185,17 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                         context=f"{connector_manifest.name} of type {connector_class_value}",
                     )
                     continue
+
             elif connector_manifest.type == SINK:
-                if connector_class_value == BIGQUERY_SINK_CONNECTOR_CLASS:
-                    class_type = BigQuerySinkConnector
-                elif connector_class_value == S3_SINK_CONNECTOR_CLASS:
-                    class_type = ConfluentS3SinkConnector
-                elif connector_class_value == SNOWFLAKE_SINK_CONNECTOR_CLASS:
-                    class_type = SnowflakeSinkConnector
-                else:
+                class_type = self._get_sink_connector_class(connector_class_value)
+
+                if class_type is None:
                     self.report.report_dropped(connector_manifest.name)
                     self.report.warning(
                         "Lineage for Sink Connector not supported.",
                         context=f"{connector_manifest.name} of type {connector_class_value}",
                     )
+                    continue
 
             connector_class = class_type(connector_manifest, self.config, self.report)
             connector_manifest.lineages = connector_class.extract_lineages()
@@ -207,6 +234,42 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         return response.json()
 
+    def _get_source_connector_class(
+        self, connector_class_value: str, connector_manifest: ConnectorManifest
+    ) -> Optional[Type[BaseConnector]]:
+        """
+        Determine the appropriate source connector implementation class.
+
+        Uses mapping-based approach for clean, extensible connector detection.
+        """
+        # 1. Direct mapping lookup (most common cases)
+        if connector_class_value in SOURCE_CONNECTOR_MAPPING:
+            return SOURCE_CONNECTOR_MAPPING[connector_class_value]
+
+        # 2. Debezium connector detection (prefix-based)
+        if connector_class_value.startswith(DEBEZIUM_SOURCE_CONNECTOR_PREFIX):
+            return DebeziumSourceConnector
+
+        # 3. Generic connector configuration (user-defined)
+        if any(
+            connector.connector_name == connector_manifest.name
+            for connector in self.config.generic_connectors
+        ):
+            return ConfigDrivenSourceConnector
+
+        # 4. No supported connector found
+        return None
+
+    def _get_sink_connector_class(
+        self, connector_class_value: str
+    ) -> Optional[Type[BaseConnector]]:
+        """
+        Determine the appropriate sink connector implementation class.
+
+        Uses mapping-based approach for clean, extensible connector detection.
+        """
+        return SINK_CONNECTOR_MAPPING.get(connector_class_value)
+
     def _get_connector_topics(
         self, connector_name: str, config: Dict[str, str], connector_type: str
     ) -> List[str]:
@@ -215,13 +278,15 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 f"{self.config.connect_uri}/connectors/{connector_name}/topics",
             )
             response.raise_for_status()
+            processed_topics = response.json()[connector_name]["topics"]
         except Exception as e:
             self.report.warning(
-                "Error getting connector topics", context=connector_name, exc=e
+                "Error getting connector topics via API, attempting to parse from config",
+                context=connector_name,
+                exc=e,
             )
-            return []
-
-        processed_topics = response.json()[connector_name]["topics"]
+            # Fallback to parsing topics from configuration (needed for Confluent Cloud)
+            processed_topics = self._parse_topics_from_config(config, connector_type)
 
         if connector_type == SINK:
             try:
@@ -236,6 +301,38 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 return processed_topics
         else:
             return processed_topics
+
+    def _parse_topics_from_config(
+        self, config: Dict[str, str], connector_type: str
+    ) -> List[str]:
+        """Parse topics from connector configuration when topics endpoint is not available.
+
+        This is particularly useful for Confluent Cloud where the topics endpoint is not supported.
+        """
+        topics = []
+
+        if connector_type == SINK:
+            # For sink connectors, check topics or topics.regex
+            topics_config = config.get("topics")
+            if topics_config:
+                topics = [
+                    topic.strip() for topic in topics_config.split(",") if topic.strip()
+                ]
+            else:
+                # If using topics.regex, we can't determine exact topics from config alone
+                # This would require additional logic or external topic discovery
+                topics_regex = config.get("topics.regex")
+                if topics_regex:
+                    self.report.warning(
+                        "Connector uses topics.regex - cannot determine exact topics from config alone",
+                        context=f"regex: {topics_regex}",
+                    )
+        else:
+            # For source connectors, topics are typically generated based on table names
+            # This is handled by the specific connector implementations
+            pass
+
+        return topics
 
     def construct_flow_workunit(self, connector: ConnectorManifest) -> MetadataWorkUnit:
         connector_name = connector.name

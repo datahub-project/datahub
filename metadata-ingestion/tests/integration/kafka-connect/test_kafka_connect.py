@@ -877,6 +877,187 @@ def test_kafka_connect_debezium_sqlserver(
     )
 
 
+@freeze_time(FROZEN_TIME)
+def test_kafka_connect_confluent_cloud_ingest(
+    pytestconfig, tmp_path, mock_time, requests_mock
+):
+    """Test Confluent Cloud connector configurations and API differences."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
+
+    # Mock Confluent Cloud API responses
+    override_data = {
+        "http://localhost:28083/connectors": {
+            "method": "GET",
+            "status_code": 200,
+            "json": [
+                "postgres-cdc-cloud-connector",
+                "mysql-sink-cloud-connector",
+                "snowflake-sink-cloud-connector",
+            ],
+        },
+        "http://localhost:28083/connectors/postgres-cdc-cloud-connector": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "name": "postgres-cdc-cloud-connector",
+                "config": {
+                    "connector.class": "PostgresCdcSource",
+                    "connection.host": "test-postgres.us-east-1.rds.amazonaws.com",
+                    "connection.port": "5432",
+                    "connection.user": "test_user",
+                    "db.name": "test_database",
+                    "database.server.name": "test-server",
+                    "table.include.list": "public.users,public.orders",
+                    "tasks.max": "1",
+                    "name": "postgres-cdc-cloud-connector",
+                },
+                "tasks": [{"connector": "postgres-cdc-cloud-connector", "task": 0}],
+                "type": "source",
+            },
+        },
+        "http://localhost:28083/connectors/mysql-sink-cloud-connector": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "name": "mysql-sink-cloud-connector",
+                "config": {
+                    "connector.class": "MySqlSink",
+                    "connection.host": "mysql-test.database.azure.com",
+                    "connection.port": "3306",
+                    "connection.user": "test_user",
+                    "db.name": "testdb",
+                    "topics": "sample_data_orders,sample_data_users,sample_data_stock_trades",
+                    "table.name.format": "${topic}",
+                    "tasks.max": "1",
+                    "name": "mysql-sink-cloud-connector",
+                },
+                "tasks": [{"connector": "mysql-sink-cloud-connector", "task": 0}],
+                "type": "sink",
+            },
+        },
+        "http://localhost:28083/connectors/snowflake-sink-cloud-connector": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "name": "snowflake-sink-cloud-connector",
+                "config": {
+                    "connector.class": "SnowflakeSink",
+                    "snowflake.database.name": "test_db",
+                    "snowflake.schema.name": "test_schema",
+                    "topics": "user-events,order-events",
+                    "tasks.max": "1",
+                    "name": "snowflake-sink-cloud-connector",
+                },
+                "tasks": [{"connector": "snowflake-sink-cloud-connector", "task": 0}],
+                "type": "sink",
+            },
+        },
+        # Confluent Cloud doesn't support the /topics endpoint - simulate 404
+        "http://localhost:28083/connectors/postgres-cdc-cloud-connector/topics": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {
+                "error_code": 404,
+                "message": "Connector postgres-cdc-cloud-connector not found",
+            },
+        },
+        "http://localhost:28083/connectors/mysql-sink-cloud-connector/topics": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {
+                "error_code": 404,
+                "message": "Connector mysql-sink-cloud-connector not found",
+            },
+        },
+        "http://localhost:28083/connectors/snowflake-sink-cloud-connector/topics": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {
+                "error_code": 404,
+                "message": "Connector snowflake-sink-cloud-connector not found",
+            },
+        },
+        # Add missing tasks endpoints
+        "http://localhost:28083/connectors/postgres-cdc-cloud-connector/tasks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": [
+                {
+                    "id": {"connector": "postgres-cdc-cloud-connector", "task": 0},
+                    "config": {},
+                }
+            ],
+        },
+        "http://localhost:28083/connectors/mysql-sink-cloud-connector/tasks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": [
+                {
+                    "id": {"connector": "mysql-sink-cloud-connector", "task": 0},
+                    "config": {},
+                }
+            ],
+        },
+        "http://localhost:28083/connectors/snowflake-sink-cloud-connector/tasks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": [
+                {
+                    "id": {"connector": "snowflake-sink-cloud-connector", "task": 0},
+                    "config": {},
+                }
+            ],
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "kafka-connect-confluent-cloud-test",
+            "source": {
+                "type": "kafka-connect",
+                "config": {
+                    "connect_uri": KAFKA_CONNECT_SERVER,
+                    "connector_patterns": {
+                        "allow": [
+                            "postgres-cdc-cloud-connector",
+                            "mysql-sink-cloud-connector",
+                            "snowflake-sink-cloud-connector",
+                        ]
+                    },
+                    "convert_lineage_urns_to_lowercase": True,
+                    "platform_instance_map": {
+                        "postgres": "postgres-cloud",
+                        "mysql": "mysql-cloud",
+                        "snowflake": "snowflake-cloud",
+                    },
+                    "connect_to_platform_map": {
+                        "postgres-cdc-cloud-connector": {"postgres": "postgres-cloud"}
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/kafka_connect_confluent_cloud_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    golden_file = "kafka_connect_confluent_cloud_mces_golden.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_confluent_cloud_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
 def test_filter_stale_topics_topics_list():
     """
     Test case for filter_stale_topics method when sink_config has 'topics' key.

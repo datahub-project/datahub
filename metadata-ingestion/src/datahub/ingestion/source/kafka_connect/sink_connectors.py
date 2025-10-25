@@ -1,7 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from datahub.ingestion.source.kafka_connect.common import (
     KAFKA,
@@ -13,14 +13,149 @@ from datahub.ingestion.source.kafka_connect.common import (
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class DatabaseConnectionInfo:
+    """Parsed database connection information for both Platform and Cloud formats."""
+
+    host: str
+    port: str
+    database_name: str
+
+    @classmethod
+    def parse_from_config(
+        cls,
+        config: Dict[str, str],
+        default_port: str,
+        url_pattern: str,
+        platform_name: str,
+    ) -> "DatabaseConnectionInfo":
+        """
+        Parse database connection from either Platform JDBC URL or Cloud individual fields.
+
+        Args:
+            config: Connector configuration
+            default_port: Default port if not specified (e.g., "5432" for PostgreSQL)
+            url_pattern: Regex pattern for parsing JDBC URL
+            platform_name: Platform name for error messages
+        """
+        if "connection.url" in config:
+            # Platform format: Parse from JDBC URL
+            url = config["connection.url"]
+            match = re.search(url_pattern, url)
+            if match:
+                host, port, database_name = match.groups()
+                return cls(host=host, port=port, database_name=database_name)
+            else:
+                raise ValueError(
+                    f"Could not parse {platform_name} connection URL: {url}"
+                )
+        else:
+            # Cloud format: Individual connection fields with fallback field names
+            host = config.get("connection.host") or config.get("database.hostname")
+            port = (
+                config.get("connection.port")
+                or config.get("database.port")
+                or default_port
+            )
+            database_name = config.get("db.name") or config.get("database.dbname")
+
+            if not host or not database_name:
+                raise ValueError(
+                    f"{platform_name} connection details (host, database) are required"
+                )
+
+            return cls(host=host, port=port, database_name=database_name)
+
+
+class DatabaseSinkConnectorHelper:
+    """Helper methods for database sink connectors to reduce code duplication."""
+
+    @staticmethod
+    def build_topic_to_table_mapping(
+        topics: Iterable[str],
+        regex_router: "RegexRouterTransform",
+        table_name_format: str,
+        table_name_sanitizer: Optional[Callable[[str], str]] = None,
+    ) -> Dict[str, str]:
+        """
+        Build mapping from Kafka topics to database table names.
+
+        Handles RegexRouter transforms and table.name.format placeholders.
+        """
+        topics_to_tables: Dict[str, str] = {}
+
+        for topic in topics:
+            # Apply Kafka Connect transforms first
+            transformed_topic = regex_router.apply_transforms(topic)
+
+            if "${topic}" in table_name_format:
+                # Replace placeholder with transformed topic name
+                table_name = table_name_format.replace("${topic}", transformed_topic)
+                # Remove schema prefix if present (handled separately)
+                if "." in table_name:
+                    table_name = table_name.split(".")[-1]
+            else:
+                # Custom format without ${topic} - use sanitizer if provided
+                table_name = (
+                    table_name_sanitizer(transformed_topic)
+                    if table_name_sanitizer
+                    else transformed_topic
+                )
+
+            topics_to_tables[topic] = table_name
+
+        return topics_to_tables
+
+    @staticmethod
+    def create_database_flow_property_bag(
+        config: Dict[str, str], additional_excluded_fields: Optional[List[str]] = None
+    ) -> Dict[str, str]:
+        """
+        Create flow property bag for database connectors, filtering sensitive fields.
+
+        Handles Platform vs Cloud differences in connection.user field handling.
+        """
+        # Standard sensitive fields for all database connectors
+        excluded_fields = [
+            "connection.password",
+            "database.password",
+        ]
+
+        # Add any connector-specific excluded fields
+        if additional_excluded_fields:
+            excluded_fields.extend(additional_excluded_fields)
+
+        # Platform connectors include connection.user in JDBC URL, so exclude it
+        # Cloud connectors have connection.user as separate field, so keep it
+        if "connection.url" in config:
+            excluded_fields.append("connection.user")
+
+        return {k: v for k, v in config.items() if k not in excluded_fields}
+
+
 class RegexRouterTransform:
-    """Helper class to handle RegexRouter transformations for topic/table names."""
+    """
+    Handles Kafka Connect RegexRouter transformations for topic routing.
+
+    RegexRouter transforms allow renaming topics using regex patterns, commonly used
+    to route topics to different table names in sink connectors.
+
+    Reference: https://docs.confluent.io/platform/current/connect/transforms/regexrouter.html
+    """
 
     def __init__(self, config: Dict[str, str]) -> None:
         self.transforms = self._parse_transforms(config)
 
     def _parse_transforms(self, config: Dict[str, str]) -> List[Dict[str, str]]:
-        """Parse transforms configuration from connector config."""
+        """
+        Extract RegexRouter transform configurations from connector config.
+
+        Parses transforms like:
+        - transforms=MyTransform
+        - transforms.MyTransform.type=org.apache.kafka.connect.transforms.RegexRouter
+        - transforms.MyTransform.regex=(.*)
+        - transforms.MyTransform.replacement=prefix_$1
+        """
         transforms_list: List[Dict[str, str]] = []
 
         # Get the transforms parameter
@@ -56,7 +191,12 @@ class RegexRouterTransform:
         return transforms_list
 
     def apply_transforms(self, topic_name: str) -> str:
-        """Apply RegexRouter transforms to the topic name using Java regex."""
+        """
+        Apply RegexRouter transforms to topic name using Java regex engine.
+
+        Uses jpype to access Java Pattern/Matcher for exact Kafka Connect compatibility,
+        since Python regex may behave differently than Java regex.
+        """
         result: str = topic_name
 
         for transform in self.transforms:
@@ -445,6 +585,194 @@ class BigQuerySinkConnector(BaseConnector):
         return lineages
 
 
-BIGQUERY_SINK_CONNECTOR_CLASS = "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector"
-S3_SINK_CONNECTOR_CLASS = "io.confluent.connect.s3.S3SinkConnector"
-SNOWFLAKE_SINK_CONNECTOR_CLASS = "com.snowflake.kafka.connector.SnowflakeSinkConnector"
+@dataclass
+class PostgresSinkConnector(BaseConnector):
+    @dataclass
+    class PostgresParser:
+        database_name: str
+        schema_name: str
+        topics_to_tables: Dict[str, str]
+        regex_router: RegexRouterTransform
+        host: str
+        port: str
+
+    def get_table_name_from_topic_name(self, topic_name: str) -> str:
+        """
+        Convert topic name to PostgreSQL table name.
+        PostgreSQL is more flexible with naming than Snowflake.
+        """
+        # For PostgreSQL, we can be less restrictive than Snowflake
+        # but still need to handle some special characters
+        table_name: str = re.sub("[^a-zA-Z0-9_]", "_", topic_name)
+        if re.match("^[^a-zA-Z_].*", table_name):
+            table_name = "_" + table_name
+        return table_name.lower()  # PostgreSQL convention is lowercase
+
+    def get_parser(
+        self,
+        connector_manifest: ConnectorManifest,
+    ) -> PostgresParser:
+        # Parse database connection using helper method
+        connection_info = DatabaseConnectionInfo.parse_from_config(
+            config=connector_manifest.config,
+            default_port="5432",
+            url_pattern=r"jdbc:postgresql://([^:]+):(\d+)/([^?]+)",
+            platform_name="PostgreSQL",
+        )
+
+        # Extract schema from table.name.format (e.g., "schema.${topic}" -> "schema")
+        table_name_format = connector_manifest.config.get(
+            "table.name.format", "${topic}"
+        )
+        schema_name = (
+            table_name_format.split(".")[0] if "." in table_name_format else "public"
+        )
+
+        # Initialize transform handler
+        regex_router = RegexRouterTransform(connector_manifest.config)
+
+        # Build topic-to-table mapping using helper method
+        # Only use sanitizer for custom formats without ${topic} placeholder
+        sanitizer = (
+            None
+            if "${topic}" in table_name_format
+            else self.get_table_name_from_topic_name
+        )
+        topics_to_tables = DatabaseSinkConnectorHelper.build_topic_to_table_mapping(
+            topics=connector_manifest.topic_names,
+            regex_router=regex_router,
+            table_name_format=table_name_format,
+            table_name_sanitizer=sanitizer,
+        )
+
+        return self.PostgresParser(
+            database_name=connection_info.database_name,
+            schema_name=schema_name,
+            topics_to_tables=topics_to_tables,
+            regex_router=regex_router,
+            host=connection_info.host,
+            port=connection_info.port,
+        )
+
+    def extract_flow_property_bag(self) -> Dict[str, str]:
+        return DatabaseSinkConnectorHelper.create_database_flow_property_bag(
+            self.connector_manifest.config
+        )
+
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        lineages: List[KafkaConnectLineage] = []
+        parser = self.get_parser(self.connector_manifest)
+
+        for topic in self.connector_manifest.topic_names:
+            table_name = parser.topics_to_tables.get(topic, topic)
+
+            # Create dataset names (not full URNs) - URNs are created by kafka_connect.py
+            source_dataset_name = topic
+            target_dataset_name = (
+                f"{parser.database_name}.{parser.schema_name}.{table_name}"
+            )
+
+            lineages.append(
+                KafkaConnectLineage(
+                    source_dataset=source_dataset_name,
+                    source_platform="kafka",
+                    target_dataset=target_dataset_name,
+                    target_platform="postgres",
+                )
+            )
+
+        return lineages
+
+
+@dataclass
+class MySqlSinkConnector(BaseConnector):
+    """MySQL sink connector for both Platform and Cloud configurations."""
+
+    @dataclass
+    class MySqlParser:
+        database_name: str
+        topics_to_tables: Dict[str, str]
+        regex_router: RegexRouterTransform
+        host: str
+        port: str
+
+    def get_table_name_from_topic_name(self, topic_name: str) -> str:
+        """
+        Convert topic name to MySQL table name.
+        MySQL has specific naming conventions and restrictions.
+        """
+        # MySQL table names: alphanumeric + underscore, max 64 chars
+        table_name: str = re.sub("[^a-zA-Z0-9_]", "_", topic_name)
+        if re.match("^[^a-zA-Z_].*", table_name):
+            table_name = "_" + table_name
+        # MySQL table names are case-sensitive on some systems, use lowercase for consistency
+        return table_name.lower()[:64]  # MySQL max table name length
+
+    def get_parser(
+        self,
+        connector_manifest: ConnectorManifest,
+    ) -> MySqlParser:
+        # Parse database connection using helper method
+        connection_info = DatabaseConnectionInfo.parse_from_config(
+            config=connector_manifest.config,
+            default_port="3306",
+            url_pattern=r"jdbc:mysql://([^:]+):(\d+)/([^?]+)",
+            platform_name="MySQL",
+        )
+
+        # Initialize transform handler
+        regex_router = RegexRouterTransform(connector_manifest.config)
+
+        # Get table name format
+        table_name_format = connector_manifest.config.get(
+            "table.name.format", "${topic}"
+        )
+
+        # Build topic-to-table mapping using helper method
+        # Only use sanitizer for custom formats without ${topic} placeholder
+        sanitizer = (
+            None
+            if "${topic}" in table_name_format
+            else self.get_table_name_from_topic_name
+        )
+        topics_to_tables = DatabaseSinkConnectorHelper.build_topic_to_table_mapping(
+            topics=connector_manifest.topic_names,
+            regex_router=regex_router,
+            table_name_format=table_name_format,
+            table_name_sanitizer=sanitizer,
+        )
+
+        return self.MySqlParser(
+            database_name=connection_info.database_name,
+            topics_to_tables=topics_to_tables,
+            regex_router=regex_router,
+            host=connection_info.host,
+            port=connection_info.port,
+        )
+
+    def extract_flow_property_bag(self) -> Dict[str, str]:
+        return DatabaseSinkConnectorHelper.create_database_flow_property_bag(
+            self.connector_manifest.config
+        )
+
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        lineages: List[KafkaConnectLineage] = []
+        parser = self.get_parser(self.connector_manifest)
+
+        for topic in self.connector_manifest.topic_names:
+            table_name = parser.topics_to_tables.get(topic, topic)
+
+            # Create dataset names (not full URNs)
+            source_dataset_name = topic
+            target_dataset_name = f"{parser.database_name}.{table_name}"
+
+            lineages.append(
+                KafkaConnectLineage(
+                    source_dataset=source_dataset_name,
+                    source_platform="kafka",
+                    target_dataset=target_dataset_name,
+                    target_platform="mysql",
+                )
+            )
+
+        return lineages

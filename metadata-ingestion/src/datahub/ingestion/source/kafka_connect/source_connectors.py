@@ -100,22 +100,79 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         self,
         connector_manifest: ConnectorManifest,
     ) -> JdbcParser:
-        url = remove_prefix(
-            str(connector_manifest.config.get("connection.url")), "jdbc:"
+        # Handle both Platform and Cloud connection formats
+        if "connection.url" in connector_manifest.config:
+            # Platform format
+            # Reference: https://docs.confluent.io/kafka-connectors/jdbc/current/source-connector/source_config_options.html#connection-url
+            url = remove_prefix(
+                str(connector_manifest.config.get("connection.url")), "jdbc:"
+            )
+            url_instance = make_url(url)
+            source_platform = get_platform_from_sqlalchemy_uri(str(url_instance))
+            database_name = url_instance.database
+            assert database_name
+            db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{database_name}"
+        else:
+            # Cloud format
+            # Reference: https://docs.confluent.io/cloud/current/connectors/cc-postgresql-cdc-source.html#connection-details
+            hostname = connector_manifest.config.get(
+                "connection.host"
+            ) or connector_manifest.config.get("database.hostname")
+            port = connector_manifest.config.get(
+                "connection.port"
+            ) or connector_manifest.config.get("database.port")
+            database_name = connector_manifest.config.get(
+                "db.name"
+            ) or connector_manifest.config.get("database.dbname")
+            connector_manifest.config.get(
+                "connection.user"
+            ) or connector_manifest.config.get("database.user")
+
+            # Ensure database_name is not None
+            if not database_name:
+                raise ValueError(
+                    "Database name is required but not found in Cloud connector configuration"
+                )
+
+            # Determine platform from connector class if available
+            connector_class = connector_manifest.config.get("connector.class", "")
+            from datahub.ingestion.source.kafka_connect.common import (
+                get_source_platform_from_connector_class,
+            )
+
+            source_platform = get_source_platform_from_connector_class(connector_class)
+
+            # If platform is still unknown, try to infer from hostname or default to postgres
+            if source_platform == "unknown":
+                if hostname and "postgres" in hostname.lower():
+                    source_platform = "postgres"
+                else:
+                    source_platform = "postgres"  # Default for most Cloud CDC sources
+
+            # Construct connection URL from individual fields
+            if source_platform == "postgres":
+                db_connection_url = f"postgresql://{hostname}:{port}/{database_name}"
+            elif source_platform == "mysql":
+                db_connection_url = f"mysql://{hostname}:{port}/{database_name}"
+            else:
+                db_connection_url = (
+                    f"{source_platform}://{hostname}:{port}/{database_name}"
+                )
+
+        # Handle topic prefix differences
+        # Platform: https://docs.confluent.io/kafka-connectors/jdbc/current/source-connector/source_config_options.html#topic-prefix
+        # Cloud: https://docs.confluent.io/cloud/current/connectors/cc-postgresql-cdc-source.html#topic-naming
+        topic_prefix = (
+            connector_manifest.config.get("topic.prefix")
+            or connector_manifest.config.get("database.server.name")
+            or ""
         )
-        url_instance = make_url(url)
-        source_platform = get_platform_from_sqlalchemy_uri(str(url_instance))
-        database_name = url_instance.database
-        assert database_name
-        db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{database_name}"
 
-        topic_prefix = self.connector_manifest.config.get("topic.prefix") or ""
-
-        query = self.connector_manifest.config.get("query") or ""
+        query = connector_manifest.config.get("query") or ""
 
         transform_names = (
-            self.connector_manifest.config.get("transforms", "").split(",")
-            if self.connector_manifest.config.get("transforms")
+            connector_manifest.config.get("transforms", "").split(",")
+            if connector_manifest.config.get("transforms")
             else []
         )
 
@@ -123,10 +180,10 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         for name in transform_names:
             transform = {"name": name}
             transforms.append(transform)
-            for key in self.connector_manifest.config:
+            for key in connector_manifest.config:
                 if key.startswith(f"transforms.{name}."):
                     transform[key.replace(f"transforms.{name}.", "")] = (
-                        self.connector_manifest.config[key]
+                        connector_manifest.config[key]
                     )
 
         return self.JdbcParser(
@@ -185,11 +242,22 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         trailing_quote_char: str = leading_quote_char
 
         table_ids: List[str] = []
-        if self.connector_manifest.tasks:
+
+        # Handle both field names
+        # Platform: https://docs.confluent.io/kafka-connectors/jdbc/current/source-connector/source_config_options.html#table-whitelist
+        # Cloud: https://docs.confluent.io/cloud/current/connectors/cc-postgresql-cdc-source.html#table-include-list
+        table_config = self.connector_manifest.config.get(
+            "table.include.list"
+        ) or self.connector_manifest.config.get("table.whitelist")
+
+        if table_config:
+            table_ids = table_config.split(",")
+        elif self.connector_manifest.tasks:
+            # Platform-style task-based discovery
             table_ids = (
                 ",".join(
                     [
-                        task["config"].get("tables")
+                        task["config"].get("tables", "")
                         for task in self.connector_manifest.tasks
                     ]
                 )
@@ -206,8 +274,9 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                 leading_quote_char = table_ids[0][0]
                 trailing_quote_char = table_ids[-1][-1]
                 # This will only work for single character quotes
-        elif self.connector_manifest.config.get("table.whitelist"):
-            table_ids = self.connector_manifest.config.get("table.whitelist").split(",")  # type: ignore
+
+        # Clean up table_ids - remove empty strings
+        table_ids = [table_id.strip() for table_id in table_ids if table_id.strip()]
 
         # List of Tuple containing (schema, table)
         tables: List[Tuple] = [
@@ -228,16 +297,27 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         return tables
 
     def extract_flow_property_bag(self) -> Dict[str, str]:
+        # For Platform connectors, exclude connection.password and connection.user
+        # For Cloud connectors, only exclude connection.password (connection.user is a valid field)
+        excluded_fields = ["connection.password"]
+        if "connection.url" in self.connector_manifest.config:
+            # Platform connector - also exclude connection.user since it's in the URL
+            excluded_fields.append("connection.user")
+
         flow_property_bag = {
             k: v
             for k, v in self.connector_manifest.config.items()
-            if k not in ["connection.password", "connection.user"]
+            if k not in excluded_fields
         }
 
         # Mask/Remove properties that may reveal credentials
-        flow_property_bag["connection.url"] = self.get_parser(
-            self.connector_manifest
-        ).db_connection_url
+        # Only add connection.url for Platform connectors, not Cloud connectors
+        if "connection.url" in self.connector_manifest.config:
+            # Platform connector - add the masked connection URL
+            flow_property_bag["connection.url"] = self.get_parser(
+                self.connector_manifest
+            ).db_connection_url
+        # For Cloud connectors, preserve the original connection properties
 
         return flow_property_bag
 
@@ -618,8 +698,3 @@ class ConfigDrivenSourceConnector(BaseConnector):
             )
             lineages.append(lineage)
         return lineages
-
-
-JDBC_SOURCE_CONNECTOR_CLASS = "io.confluent.connect.jdbc.JdbcSourceConnector"
-DEBEZIUM_SOURCE_CONNECTOR_PREFIX = "io.debezium.connector"
-MONGO_SOURCE_CONNECTOR_CLASS = "com.mongodb.kafka.connect.MongoSourceConnector"
