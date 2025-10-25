@@ -119,7 +119,10 @@ export const SearchRoutes = (): JSX.Element => {
                     <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                     {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
                     <Route path={PageRoutes.MANAGE_APPLICATIONS} render={() => <ManageApplications />} />
-                    <Route path={PageRoutes.ANALYTICS} render={renderAnalyticsPage} />
+                    <Route
+                        path={PageRoutes.ANALYTICS}
+                        render={() => (isThemeV2 ? <AnalyticsPageV2 /> : <AnalyticsPage />)}
+                    />
                     {isAiChatEnabled && <Route path={PageRoutes.AI_CHAT} render={() => <ChatPage />} />}
                     <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/permissions/policies" />} />
                     <Route
