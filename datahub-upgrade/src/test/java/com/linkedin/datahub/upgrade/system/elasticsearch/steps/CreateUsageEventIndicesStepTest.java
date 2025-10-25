@@ -1,8 +1,5 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -84,6 +81,13 @@ public class CreateUsageEventIndicesStepTest {
   }
 
   private void setupMockClientResponses() throws IOException {
+    // Mock ShimConfiguration for AWS detection
+    SearchClientShim.ShimConfiguration shimConfig =
+        Mockito.mock(SearchClientShim.ShimConfiguration.class);
+    Mockito.when(searchClient.getShimConfiguration()).thenReturn(shimConfig);
+    Mockito.when(shimConfig.getHost())
+        .thenReturn("localhost"); // Non-AWS host for self-hosted OpenSearch
+
     // Mock RawResponse for low-level requests (ILM/ISM policies, index templates)
     Mockito.when(rawResponse.getStatusLine())
         .thenReturn(
@@ -140,13 +144,39 @@ public class CreateUsageEventIndicesStepTest {
   }
 
   @Test
-  public void testExecutable_AnalyticsDisabled() throws Exception {
+  public void testSkip_AnalyticsDisabled() throws Exception {
     // Arrange
     Mockito.when(platformAnalytics.isEnabled()).thenReturn(false);
-    assertTrue(step.skip(Mockito.mock(UpgradeContext.class)));
 
+    // Act
+    boolean shouldSkip = step.skip(upgradeContext);
+
+    // Assert
+    Assert.assertTrue(shouldSkip);
+    Mockito.verify(platformAnalytics).isEnabled();
+  }
+
+  @Test
+  public void testSkip_AnalyticsEnabled() throws Exception {
+    // Arrange
     Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
-    assertFalse(step.skip(Mockito.mock(UpgradeContext.class)));
+
+    // Act
+    boolean shouldSkip = step.skip(upgradeContext);
+
+    // Assert
+    Assert.assertFalse(shouldSkip);
+    Mockito.verify(platformAnalytics).isEnabled();
+  }
+
+  @Test
+  public void testSkip_ConfigurationProviderException() throws Exception {
+    // Arrange
+    Mockito.when(platformAnalytics.isEnabled()).thenThrow(new RuntimeException("Config error"));
+
+    // Act & Assert
+    Assert.assertThrows(RuntimeException.class, () -> step.skip(upgradeContext));
+    Mockito.verify(platformAnalytics).isEnabled();
   }
 
   @Test
@@ -230,8 +260,9 @@ public class CreateUsageEventIndicesStepTest {
   @Test
   public void testExecutable_EngineTypeException() throws Exception {
     // Arrange
-    Mockito.when(platformAnalytics.isEnabled()).thenReturn(true);
-    Mockito.when(searchClient.getEngineType()).thenThrow(new RuntimeException("Engine type error"));
+    // Throw exception in a method that executable() actually calls
+    Mockito.when(esComponents.getSearchClient().getEngineType())
+        .thenThrow(new RuntimeException("Engine type error"));
 
     // Act
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
@@ -263,17 +294,21 @@ public class CreateUsageEventIndicesStepTest {
     Mockito.verify(index).getPrefix();
 
     // Verify that the low-level requests were made with correct names (no underscore prefix)
+    Mockito.verify(searchClient, Mockito.atLeast(2)).performLowLevelRequest(Mockito.any());
+
+    // Verify specific endpoint calls were made
     Mockito.verify(searchClient)
         .performLowLevelRequest(
             Mockito.argThat(
-                request -> request.getEndpoint().equals("_ilm/policy/datahub_usage_event_policy")));
+                request ->
+                    request.getEndpoint().equals("/_ilm/policy/datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
             Mockito.argThat(
                 request ->
                     request
                         .getEndpoint()
-                        .equals("_index_template/datahub_usage_event_index_template")));
+                        .equals("/_index_template/datahub_usage_event_index_template")));
   }
 
   @Test
@@ -296,17 +331,21 @@ public class CreateUsageEventIndicesStepTest {
     Mockito.verify(index).getPrefix();
 
     // Verify that the low-level requests were made with correct names (no underscore prefix)
+    Mockito.verify(searchClient, Mockito.atLeast(2)).performLowLevelRequest(Mockito.any());
+
+    // Verify specific endpoint calls were made
     Mockito.verify(searchClient)
         .performLowLevelRequest(
             Mockito.argThat(
-                request -> request.getEndpoint().equals("_ilm/policy/datahub_usage_event_policy")));
+                request ->
+                    request.getEndpoint().equals("/_ilm/policy/datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
             Mockito.argThat(
                 request ->
                     request
                         .getEndpoint()
-                        .equals("_index_template/datahub_usage_event_index_template")));
+                        .equals("/_index_template/datahub_usage_event_index_template")));
   }
 
   @Test
@@ -333,14 +372,14 @@ public class CreateUsageEventIndicesStepTest {
         .performLowLevelRequest(
             Mockito.argThat(
                 request ->
-                    request.getEndpoint().equals("_ilm/policy/prod_datahub_usage_event_policy")));
+                    request.getEndpoint().equals("/_ilm/policy/prod_datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
             Mockito.argThat(
                 request ->
                     request
                         .getEndpoint()
-                        .equals("_index_template/prod_datahub_usage_event_index_template")));
+                        .equals("/_index_template/prod_datahub_usage_event_index_template")));
   }
 
   @Test
@@ -370,7 +409,8 @@ public class CreateUsageEventIndicesStepTest {
                 request ->
                     request
                         .getEndpoint()
-                        .equals("_ilm/policy/kbcpyv7ss3-staging-test_datahub_usage_event_policy")));
+                        .equals(
+                            "/_ilm/policy/kbcpyv7ss3-staging-test_datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
             Mockito.argThat(
@@ -378,7 +418,7 @@ public class CreateUsageEventIndicesStepTest {
                     request
                         .getEndpoint()
                         .equals(
-                            "_index_template/kbcpyv7ss3-staging-test_datahub_usage_event_index_template")));
+                            "/_index_template/kbcpyv7ss3-staging-test_datahub_usage_event_index_template")));
   }
 
   @Test
@@ -402,18 +442,21 @@ public class CreateUsageEventIndicesStepTest {
     Mockito.verify(index).getPrefix();
 
     // Verify that the low-level requests were made with correct names (no underscore prefix)
+    // Note: createIsmPolicy makes 2 calls - one for creation and one for update attempt
+    Mockito.verify(searchClient, Mockito.atLeast(1))
+        .performLowLevelRequest(
+            Mockito.argThat(
+                request ->
+                    request
+                        .getEndpoint()
+                        .equals("/_plugins/_ism/policies/datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
             Mockito.argThat(
                 request ->
                     request
                         .getEndpoint()
-                        .equals("_plugins/_ism/policies/datahub_usage_event_policy")));
-    Mockito.verify(searchClient)
-        .performLowLevelRequest(
-            Mockito.argThat(
-                request ->
-                    request.getEndpoint().equals("_template/datahub_usage_event_index_template")));
+                        .equals("/_index_template/datahub_usage_event_index_template")));
   }
 
   @Test
@@ -437,20 +480,21 @@ public class CreateUsageEventIndicesStepTest {
     Mockito.verify(index).getPrefix();
 
     // Verify that the low-level requests were made with correct names (with underscore prefix)
+    // Note: createIsmPolicy makes 2 calls - one for creation and one for update attempt
+    Mockito.verify(searchClient, Mockito.atLeast(1))
+        .performLowLevelRequest(
+            Mockito.argThat(
+                request ->
+                    request
+                        .getEndpoint()
+                        .equals("/_plugins/_ism/policies/prod_datahub_usage_event_policy")));
     Mockito.verify(searchClient)
         .performLowLevelRequest(
             Mockito.argThat(
                 request ->
                     request
                         .getEndpoint()
-                        .equals("_plugins/_ism/policies/prod_datahub_usage_event_policy")));
-    Mockito.verify(searchClient)
-        .performLowLevelRequest(
-            Mockito.argThat(
-                request ->
-                    request
-                        .getEndpoint()
-                        .equals("_template/prod_datahub_usage_event_index_template")));
+                        .equals("/_index_template/prod_datahub_usage_event_index_template")));
   }
 
   @Test

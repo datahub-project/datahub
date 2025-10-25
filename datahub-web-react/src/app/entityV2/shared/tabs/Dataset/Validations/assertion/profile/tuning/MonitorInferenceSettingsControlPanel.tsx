@@ -112,10 +112,10 @@ export const MonitorInferenceSettingsControlPanel = ({
                     ...existingSettings,
                     trainingDataLookbackWindowDays: value,
                 });
-                message.success('Training lookback window updated successfully');
+                message.success('Maximum lookback days updated successfully');
             } catch (error) {
                 console.error('Error updating lookback days:', error);
-                message.error('Failed to update training lookback window');
+                message.error('Failed to update maximum lookback days');
             }
         },
         [onUpdateSettings, inferenceSettings],
@@ -266,9 +266,9 @@ export const MonitorInferenceSettingsControlPanel = ({
                     <SettingsSection>
                         <SectionTitleContainer>
                             <Text size="sm" weight="bold" color="gray" colorLevel={600}>
-                                Training Look Back Days
+                                Maximum Training Data Days
                             </Text>
-                            <Tooltip title="Number of days of historical data to use for training the smart assertion model. More days provide better accuracy but require more data processing time.">
+                            <Tooltip title="Number of days of historical data to use for training the smart assertion model. More days provide better seasonal detection but can be more susceptible to outliers.">
                                 <HelpIcon icon="Question" source="phosphor" size="sm" />
                             </Tooltip>
                         </SectionTitleContainer>

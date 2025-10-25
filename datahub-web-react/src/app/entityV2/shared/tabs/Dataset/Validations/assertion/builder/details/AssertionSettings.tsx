@@ -184,6 +184,9 @@ export const AssertionSettings = (props: Props) => {
                         state={builderState}
                         updateState={setBuilderState}
                         disabled={isFullEditingDisabled}
+                        isEditMode
+                        monitor={props.monitor}
+                        assertion={props.assertion}
                     />
                 ) : null}
                 {props.assertion.info?.type === AssertionType.Freshness ? (

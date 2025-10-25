@@ -300,6 +300,36 @@ public class PatchTest {
 
   @Test
   @Ignore
+  public void testLocalOwnershipRemoveTypeUrn() {
+    FileEmitter fileEmitter =
+        new FileEmitter(FileEmitterConfig.builder().fileName("test_mcp.json").build());
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+
+      DatasetUrn datasetUrn =
+          new DatasetUrn(new DataPlatformUrn("hive"), "SampleHiveDataset", FabricType.PROD);
+      MetadataChangeProposal ownershipPatch =
+          new OwnershipPatchBuilder()
+              .urn(datasetUrn)
+              .removeOwnershipType(
+                  new CorpuserUrn("gdoe"),
+                  OwnershipType.TECHNICAL_OWNER,
+                  Urn.createFromTuple(OWNERSHIP_TYPE_ENTITY_NAME, "myOwnershipType"))
+              .build();
+      System.out.println(ownershipPatch.toString());
+      Future<MetadataWriteResponse> response = fileEmitter.emit(ownershipPatch);
+      response.get();
+      response = restEmitter.emit(ownershipPatch);
+      System.out.println(response.get().getResponseContent());
+      fileEmitter.close();
+
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
   public void testLocalDataJobInfo() {
     RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
     try {

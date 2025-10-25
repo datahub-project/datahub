@@ -354,6 +354,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setTermPropagationV2Enabled(_featureFlags.isTermPropagationV2Enabled())
             .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
             .setInviteUsersEnabled(_featureFlags.isInviteUsersEnabled())
+            .setShowAskDataHub(_featureFlags.isShowAskDataHub())
             .setSupportTicketsEnabled(_featureFlags.isSupportTicketsEnabled())
             .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
             .build();

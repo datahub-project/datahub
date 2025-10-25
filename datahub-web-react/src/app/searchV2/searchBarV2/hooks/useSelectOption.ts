@@ -1,10 +1,15 @@
 import { useCallback } from 'react';
 import { useHistory } from 'react-router';
 
-import { EXACT_AUTOCOMPLETE_OPTION_TYPE, RELEVANCE_QUERY_OPTION_TYPE } from '@app/searchV2/searchBarV2/constants';
+import {
+    ASK_DATAHUB_OPTION_TYPE,
+    EXACT_AUTOCOMPLETE_OPTION_TYPE,
+    RELEVANCE_QUERY_OPTION_TYPE,
+} from '@app/searchV2/searchBarV2/constants';
 import { Option } from '@app/searchV2/searchBarV2/types';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
 import { useAppConfig } from '@app/useAppConfig';
+import { PageRoutes } from '@conf/Global';
 import analytics, { Event, EventType } from '@src/app/analytics';
 import { getEntityPath } from '@src/app/entityV2/shared/containers/profile/utils';
 import { isEntityType } from '@src/app/entityV2/shared/utils';
@@ -23,8 +28,19 @@ export default function useSelectOption(
 
     return useCallback(
         (value: string, option: Option) => {
-            // If the autocomplete option type is NOT an entity, then render as a normal search query.
-            if (option.type === EXACT_AUTOCOMPLETE_OPTION_TYPE || option.type === RELEVANCE_QUERY_OPTION_TYPE) {
+            // Handle "Ask DataHub" option
+            if (option.type === ASK_DATAHUB_OPTION_TYPE) {
+                const query = value.replace('ask_datahub:', '');
+                history.push(PageRoutes.AI_CHAT, { initialMessage: `Help me find data related to ${query}` });
+                onClear();
+                analytics.event({
+                    type: EventType.SelectAutoCompleteOption,
+                    optionType: option.type,
+                    showSearchBarAutocompleteRedesign: true,
+                    apiVariant: searchAPIVariant,
+                } as Event);
+            } else if (option.type === EXACT_AUTOCOMPLETE_OPTION_TYPE || option.type === RELEVANCE_QUERY_OPTION_TYPE) {
+                // If the autocomplete option type is NOT an entity, then render as a normal search query.
                 onSearch(`${filterSearchQuery(value)}`, filters);
                 analytics.event({
                     type: EventType.SelectAutoCompleteOption,

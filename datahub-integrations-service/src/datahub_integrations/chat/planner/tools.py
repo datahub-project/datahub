@@ -267,22 +267,19 @@ def create_plan(
     """
     Create an execution plan for complex multi-step tasks that require coordination across multiple tools and steps.
 
-    You MUST use create_plan for tasks needing 2+ operations, especially:
+    WHEN TO USE:
+    Use create_plan for tasks that will require 3 or more tool calls, especially:
     - Impact/dependency analysis (e.g., "what breaks if I delete X?", "what depends on Y?")
-    - Multiple searches with different strategies
-    - Search + examination of results
-    - Finding data by topic/classification
+    - Multiple searches with different strategies (try one approach, then refine)
+    - Complex search + examination workflows (search → filter → examine details)
+    - Finding data by topic/classification across multiple filters
+    - Lineage traversal with multi-step analysis
 
-    STRONGLY RECOMMENDED for tasks with:
-    - Multiple search strategies needed (tags, keywords, filters)
-    - Iterative refinement (search → examine → search more)
-    - Data aggregation across sources
-    - Lineage traversal with analysis
-
-    DO NOT use for simple single-step tasks like:
+    DO NOT use for simple tasks that need 1-2 tool calls:
     - Basic search queries (one search, return results)
     - Single entity lookups (get one entity)
     - Straightforward lineage queries (one entity, one hop, no analysis)
+    - Simple gets followed by respond_to_user
 
     WHAT THIS TOOL DOES:
     1. Breaks down complex tasks into sequential steps with clear "done_when" criteria

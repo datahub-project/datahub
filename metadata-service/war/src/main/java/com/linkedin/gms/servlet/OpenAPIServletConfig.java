@@ -20,6 +20,8 @@ import org.springframework.context.annotation.Configuration;
       "com.linkedin.gms.factory.timeline",
       "com.linkedin.gms.factory.event",
       "com.linkedin.gms.factory.s3",
+      "com.linkedin.gms.factory.conversation",
+      "com.linkedin.gms.factory.integration",
       "org.springdoc",
       "com.linkedin.gms.factory.system_info",
       // SaaS Only

@@ -47,7 +47,14 @@ public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<Owners
 
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(), BASE_PATH + owner + "/" + type, value));
+            PatchOperationType.ADD.getValue(),
+            BASE_PATH
+                + encodeValueUrn(owner)
+                + "/"
+                + encodeValue(type.toString())
+                + "/"
+                + encodeValueUrn(ownershipTypeUrn),
+            value));
 
     return this;
   }
@@ -57,10 +64,11 @@ public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<Owners
     value.put(OWNER_KEY, owner.toString());
     value.put(TYPE_KEY, type.toString());
 
+    // Mimic Python client behavior by using "None" as the key when no ownershipTypeUrn is provided
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.ADD.getValue(),
-            BASE_PATH + encodeValueUrn(owner) + "/" + encodeValue(type.toString()),
+            BASE_PATH + encodeValueUrn(owner) + "/" + encodeValue(type.toString()) + "/None",
             value));
 
     return this;
@@ -81,12 +89,37 @@ public class OwnershipPatchBuilder extends AbstractMultiFieldPatchBuilder<Owners
   }
 
   /**
+   * Removes a specific ownership type urn for a particular owner. A single owner may have multiple
+   * ownership types.
+   */
+  public OwnershipPatchBuilder removeOwnershipType(
+      @Nonnull Urn owner, @Nonnull OwnershipType type, @Nullable Urn ownershipTypeUrn) {
+    if (ownershipTypeUrn == null) {
+      return removeOwnershipType(owner, type);
+    }
+
+    ObjectNode value = instance.objectNode();
+    value.put(OWNER_KEY, owner.toString());
+    value.put(TYPE_KEY, type.toString());
+    value.put(TYPE_URN_KEY, ownershipTypeUrn.toString());
+
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.REMOVE.getValue(),
+            BASE_PATH
+                + encodeValueUrn(owner)
+                + "/"
+                + encodeValue(type.toString())
+                + "/"
+                + encodeValueUrn(ownershipTypeUrn),
+            value));
+
+    return this;
+  }
+
+  /**
    * Removes a specific ownership type for a particular owner, a single owner may have multiple
-   * ownership types
-   *
-   * @param owner
-   * @param type
-   * @return
+   * ownership types.
    */
   public OwnershipPatchBuilder removeOwnershipType(
       @Nonnull Urn owner, @Nonnull OwnershipType type) {

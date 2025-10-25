@@ -92,5 +92,9 @@ public class AcrylConstants {
   public static final String REMOTE_EXECUTOR_ENTITY_NAME = "dataHubRemoteExecutor";
   public static final String REMOTE_EXECUTOR_STATUS_ASPECT_NAME = "dataHubRemoteExecutorStatus";
 
+  // For agent conversations
+  public static final String AGENT_CONVERSATION_ENTITY_NAME = "dataHubAiConversation";
+  public static final String AGENT_CONVERSATION_INFO_ASPECT_NAME = "dataHubAiConversationInfo";
+
   private AcrylConstants() {}
 }

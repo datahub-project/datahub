@@ -29,6 +29,7 @@ from datahub.metadata.schema_classes import (
 from datahub.specific.aspect_helpers.fine_grained_lineage import (
     HasFineGrainedLineagePatch,
 )
+from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 
 
 def helper_test_entity_terms_patch(
@@ -138,16 +139,13 @@ def helper_test_dataset_tags_patch(
 def helper_test_ownership_patch(
     graph_client: DataHubGraph,
     test_entity_urn: str,
-    patch_builder_class: Type[MetadataPatchProposal],
+    patch_builder_class: Type[HasOwnershipPatch],
 ):
     owner_to_set = OwnerClass(
         owner=make_user_urn("jdoe"), type=OwnershipTypeClass.DATAOWNER
     )
     ownership_to_set = OwnershipClass(owners=[owner_to_set])
 
-    owner_to_add = OwnerClass(
-        owner=make_user_urn("gdoe"), type=OwnershipTypeClass.DATAOWNER
-    )
     mcpw = MetadataChangeProposalWrapper(
         entityUrn=test_entity_urn, aspect=ownership_to_set
     )
@@ -159,9 +157,12 @@ def helper_test_ownership_patch(
     assert owner is not None
     assert owner.owners[0].owner == make_user_urn("jdoe")
 
+    owner_to_add = OwnerClass(
+        owner=make_user_urn("gdoe"), type=OwnershipTypeClass.DATAOWNER
+    )
     patch_builder = patch_builder_class(test_entity_urn)
-    assert hasattr(patch_builder, "add_owner")
-    for patch_mcp in patch_builder.add_owner(owner_to_add).build():
+    patch_builder.add_owner(owner_to_add)
+    for patch_mcp in patch_builder.build():
         graph_client.emit_mcp(patch_mcp)
 
     owner = graph_client.get_aspect(
@@ -169,9 +170,38 @@ def helper_test_ownership_patch(
     )
     assert owner is not None
     assert len(owner.owners) == 2
+    assert all(o.typeUrn is None for o in owner.owners)
+
+    owner_to_add_with_type_urn = OwnerClass(
+        owner=make_user_urn("gdoe"),
+        type=OwnershipTypeClass.DATAOWNER,
+        typeUrn="urn:li:ownershipType:someType",
+    )
+    patch_builder = patch_builder_class(test_entity_urn)
+    for patch_mcp in patch_builder.add_owner(owner_to_add_with_type_urn).build():
+        graph_client.emit_mcp(patch_mcp)
+    owner = graph_client.get_aspect(
+        entity_urn=test_entity_urn, aspect_type=OwnershipClass
+    )
+    assert owner is not None
+    assert len(owner.owners) == 3
+    assert any(o.typeUrn == "urn:li:ownershipType:someType" for o in owner.owners)
 
     patch_builder = patch_builder_class(test_entity_urn)
-    assert hasattr(patch_builder, "remove_owner")
+    for patch_mcp in patch_builder.remove_owner(
+        owner_to_add_with_type_urn.owner,
+        owner_to_add_with_type_urn.type,
+        owner_to_add_with_type_urn.typeUrn,
+    ).build():
+        graph_client.emit_mcp(patch_mcp)
+    owner = graph_client.get_aspect(
+        entity_urn=test_entity_urn, aspect_type=OwnershipClass
+    )
+    assert owner is not None
+    assert len(owner.owners) == 2
+    assert all(o.typeUrn is None for o in owner.owners)
+
+    patch_builder = patch_builder_class(test_entity_urn)
     for patch_mcp in patch_builder.remove_owner(make_user_urn("gdoe")).build():
         graph_client.emit_mcp(patch_mcp)
 

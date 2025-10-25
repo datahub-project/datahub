@@ -22,6 +22,7 @@ import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.conversation.DataHubAiConversationServiceFactory;
 import com.linkedin.gms.factory.datacontract.DataContractServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.integration.IntegrationsServiceFactory;
@@ -48,6 +49,7 @@ import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataContractService;
+import com.linkedin.metadata.service.DataHubAiConversationService;
 import com.linkedin.metadata.service.DataHubFileService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
@@ -104,7 +106,8 @@ import software.amazon.awssdk.services.sts.StsClient;
   ActionRequestFactory.class,
   ActionWorkflowServiceFactory.class,
   DataContractServiceFactory.class,
-  IntegrationsServiceFactory.class
+  IntegrationsServiceFactory.class,
+  DataHubAiConversationServiceFactory.class
 })
 public class GraphQLEngineFactory {
   @Autowired
@@ -276,6 +279,10 @@ public class GraphQLEngineFactory {
   private AssertionService assertionService;
 
   @Autowired
+  @Qualifier("dataHubAiConversationService")
+  private DataHubAiConversationService dataHubAiConversationService;
+
+  @Autowired
   @Qualifier("pageTemplateService")
   private PageTemplateService pageTemplateService;
 
@@ -391,6 +398,7 @@ public class GraphQLEngineFactory {
     args.setAssertionMonitorsConfiguration(configProvider.getAssertionMonitors());
     args.setDataContractService(_dataContractService);
     args.setAssertionService(assertionService);
+    args.setDataHubAiConversationService(dataHubAiConversationService);
     args.setMetricUtils(metricUtils);
     args.setBaseUrl(baseUrl);
     args.setMetadataTestClient(metadataTestClient);

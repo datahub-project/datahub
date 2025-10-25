@@ -1,0 +1,65 @@
+# AI Chat Queries and Mutations
+
+query listDataHubAiConversations($start: Int, $count: Int) {
+    listDataHubAiConversations(start: $start, count: $count) {
+        conversations {
+            urn
+            title
+            created {
+                time
+                actor
+            }
+            lastUpdated {
+                time
+                actor
+            }
+            messageCount
+        }
+        total
+    }
+}
+
+query getDataHubAiConversation($urn: String!) {
+    getDataHubAiConversation(urn: $urn) {
+        urn
+        title
+        created {
+            time
+            actor
+        }
+        lastUpdated {
+            time
+            actor
+        }
+        messages {
+            type
+            time
+            actor {
+                type
+                actor
+            }
+            content {
+                text
+            }
+        }
+    }
+}
+
+mutation createDataHubAiConversation($input: CreateDataHubAiConversationInput!) {
+    createDataHubAiConversation(input: $input) {
+        urn
+        title
+        created {
+            time
+            actor
+        }
+        lastUpdated {
+            time
+            actor
+        }
+    }
+}
+
+mutation deleteDataHubAiConversation($urn: String!) {
+    deleteDataHubAiConversation(urn: $urn)
+}

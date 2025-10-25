@@ -1,0 +1,47 @@
+namespace com.linkedin.conversation
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Conversation info 
+ */
+@Aspect = {
+  "name": "dataHubAiConversationInfo"
+}
+record DataHubAiConversationInfo {
+
+    /**
+     * Optional title for the conversation. 
+     */
+    title: optional string
+
+    /**
+     * Messages in the conversation
+     */
+     messages: array[DataHubAiConversationMessage]
+
+     /**
+      * The time and actor who initiated the conversation
+      */
+    @Searchable = {
+      "/actor": {
+        "fieldName": "creator",
+        "fieldType": "URN"
+      },
+      "/time": {
+        "fieldName": "createdAt",
+        "fieldType": "DATETIME"
+      }
+    }
+    created: AuditStamp 
+
+    /**
+     * Origin type for the chat session
+     */
+     originType: enum DataHubAiConversationOriginType {
+        /**
+         * Chat session originated in DataHub UI 
+         */
+        DATAHUB_UI
+     } = "DATAHUB_UI"
+}

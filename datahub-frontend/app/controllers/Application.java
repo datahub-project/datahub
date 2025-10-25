@@ -3,7 +3,6 @@ package controllers;
 import static auth.AuthUtils.ACTOR;
 import static auth.AuthUtils.SESSION_COOKIE_GMS_TOKEN_NAME;
 
-import akka.util.ByteString;
 import auth.Authenticator;
 import com.datahub.authentication.AuthenticationConstants;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -180,7 +179,7 @@ public class Application extends Controller {
             "%s://%s:%s%s%s",
             protocol, metadataServiceHost, metadataServicePort, resolvedBasePath, resolvedUri);
     HttpRequest.Builder httpRequestBuilder =
-        HttpRequest.newBuilder().uri(URI.create(targetUrl)).timeout(Duration.ofSeconds(120));
+        HttpRequest.newBuilder().uri(URI.create(targetUrl)).timeout(Duration.ofSeconds(300));
     httpRequestBuilder.method(request.method(), buildBodyPublisher(request));
     Map<String, List<String>> headers = request.getHeaders().toMap();
     if (headers.containsKey(Http.HeaderNames.HOST)
@@ -211,8 +210,9 @@ public class Application extends Controller {
         .contentType()
         .ifPresent(ct -> httpRequestBuilder.header(Http.HeaderNames.CONTENT_TYPE, ct));
     Instant start = Instant.now();
+    // Use streaming for all requests - more efficient and supports SSE
     return httpClient
-        .sendAsync(httpRequestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray())
+        .sendAsync(httpRequestBuilder.build(), HttpResponse.BodyHandlers.ofInputStream())
         .thenApply(
             apiResponse -> {
               boolean verboseGraphQLLogging = config.getBoolean("graphql.verbose.logging");
@@ -234,9 +234,12 @@ public class Application extends Controller {
                                   !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey()))
                           .map(entry -> Pair.of(entry.getKey(), String.join(";", entry.getValue())))
                           .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
+              // Stream the response body - works for both regular and SSE responses
               final HttpEntity body =
-                  new HttpEntity.Strict(
-                      ByteString.fromArray(apiResponse.body()),
+                  new HttpEntity.Streamed(
+                      akka.stream.javadsl.StreamConverters.fromInputStream(
+                          () -> apiResponse.body()),
+                      Optional.empty(),
                       apiResponse.headers().firstValue(Http.HeaderNames.CONTENT_TYPE));
               return new Result(header, body);
             })

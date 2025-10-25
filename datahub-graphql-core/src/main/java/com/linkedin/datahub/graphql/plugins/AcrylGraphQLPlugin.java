@@ -27,6 +27,7 @@ import com.linkedin.datahub.graphql.resolvers.actionworkflows.DeleteActionWorkfl
 import com.linkedin.datahub.graphql.resolvers.actionworkflows.ListActionWorkflowsResolver;
 import com.linkedin.datahub.graphql.resolvers.actionworkflows.ReviewActionWorkflowFormRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.actionworkflows.UpsertActionWorkflowResolver;
+import com.linkedin.datahub.graphql.resolvers.ai.DataHubAiConversationResolvers;
 import com.linkedin.datahub.graphql.resolvers.ai.InferDocumentationResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateDatasetAssertionResolver;
@@ -168,6 +169,7 @@ import com.linkedin.metadata.service.ActionRequestService;
 import com.linkedin.metadata.service.ActionWorkflowService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.DataContractService;
+import com.linkedin.metadata.service.DataHubAiConversationService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.service.SettingsService;
@@ -213,6 +215,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private UserInvitationService userInvitationService;
   private AssertionService assertionService;
   private DataContractService dataContractService;
+  private DataHubAiConversationService dataHubAiConversationService;
   private EntitySearchService entitySearchService;
   private SemanticSearchService semanticSearchService;
   private MonitorService monitorService;
@@ -262,6 +265,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.usageClient = args.getUsageClient();
     this.assertionService = args.getAssertionService();
     this.dataContractService = args.getDataContractService();
+    this.dataHubAiConversationService = args.getDataHubAiConversationService();
     this.secretService = args.getSecretService();
     this.monitorService = args.getMonitorService();
     this.integrationsService = args.getIntegrationsService();
@@ -388,6 +392,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     configureQueryEntityResolvers(builder, baseEngine);
     configureAssertionResolvers(builder, baseEngine);
     configureActionWorkflowResolvers(builder, baseEngine);
+    configureAiConversationResolvers(builder, baseEngine);
   }
 
   private void configureMutationResolvers(
@@ -1354,5 +1359,13 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                           .map(OwnershipTypeEntity::getUrn)
                           .collect(Collectors.toList());
                     })));
+  }
+
+  private void configureAiConversationResolvers(
+      final RuntimeWiring.Builder builder, GmsGraphQLEngine baseEngine) {
+    // Use the properly wired conversation service from Spring
+    final DataHubAiConversationResolvers agentConversationResolvers =
+        new DataHubAiConversationResolvers(dataHubAiConversationService);
+    agentConversationResolvers.configureResolvers(builder);
   }
 }

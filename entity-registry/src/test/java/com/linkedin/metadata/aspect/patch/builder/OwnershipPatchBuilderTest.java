@@ -22,6 +22,7 @@ public class OwnershipPatchBuilderTest {
   private static final String TEST_ENTITY_URN =
       "urn:li:dataset:(urn:li:dataPlatform:hive,SampleTable,PROD)";
   private static final String TEST_OWNER_URN = "urn:li:corpuser:test/User";
+  private static final String OWNERSHIP_TYPE_URN = "urn:li:ownershipType:myOwnershipType";
 
   // Test helper class to expose protected method
   private static class TestableOwnershipPatchBuilder extends OwnershipPatchBuilder {
@@ -39,8 +40,9 @@ public class OwnershipPatchBuilderTest {
   @Test
   public void testBuildDoesNotAffectPathValues() throws URISyntaxException {
     Urn ownerUrn = CorpuserUrn.createFromString(TEST_OWNER_URN);
+    Urn ownershipTypeUrn = Urn.createFromString(OWNERSHIP_TYPE_URN);
 
-    builder.addOwner(ownerUrn, OwnershipType.TECHNICAL_OWNER);
+    builder.addOwner(ownerUrn, OwnershipType.TECHNICAL_OWNER, ownershipTypeUrn);
 
     // First call build()
     builder.build();
@@ -81,6 +83,29 @@ public class OwnershipPatchBuilderTest {
   }
 
   @Test
+  public void testAddOwnerWithOwnershipTypeUrn() throws URISyntaxException {
+    Urn ownerUrn = CorpuserUrn.createFromString(TEST_OWNER_URN);
+    OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
+    Urn ownershipTypeUrn = Urn.createFromString(OWNERSHIP_TYPE_URN);
+
+    builder.addOwner(ownerUrn, ownershipType, ownershipTypeUrn);
+    builder.build();
+
+    List<ImmutableTriple<String, String, JsonNode>> pathValues = builder.getTestPathValues();
+    assertNotNull(pathValues);
+    assertEquals(pathValues.size(), 1);
+
+    ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
+    assertEquals(operation.getLeft(), "add");
+    assertTrue(operation.getMiddle().startsWith("/owners/"));
+    assertTrue(operation.getMiddle().contains("/" + ownershipType + "/" + OWNERSHIP_TYPE_URN));
+    assertTrue(operation.getRight().isObject());
+    assertEquals(operation.getRight().get("owner").asText(), ownerUrn.toString());
+    assertEquals(operation.getRight().get("type").asText(), ownershipType.toString());
+    assertEquals(operation.getRight().get("typeUrn").asText(), OWNERSHIP_TYPE_URN);
+  }
+
+  @Test
   public void testRemoveOwner() throws URISyntaxException {
     Urn ownerUrn = CorpuserUrn.createFromString(TEST_OWNER_URN);
 
@@ -114,6 +139,29 @@ public class OwnershipPatchBuilderTest {
     assertTrue(operation.getMiddle().startsWith("/owners/"));
     assertTrue(operation.getMiddle().contains("/" + ownershipType.toString()));
     assertNull(operation.getRight());
+  }
+
+  @Test
+  public void testRemoveOwnerWithOwnershipTypeUrn() throws URISyntaxException {
+    Urn ownerUrn = CorpuserUrn.createFromString(TEST_OWNER_URN);
+    OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
+    Urn ownershipTypeUrn = Urn.createFromString(OWNERSHIP_TYPE_URN);
+
+    builder.removeOwnershipType(ownerUrn, ownershipType, ownershipTypeUrn);
+    builder.build();
+
+    List<ImmutableTriple<String, String, JsonNode>> pathValues = builder.getTestPathValues();
+    assertNotNull(pathValues);
+    assertEquals(pathValues.size(), 1);
+
+    ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
+    assertEquals(operation.getLeft(), "remove");
+    assertTrue(operation.getMiddle().startsWith("/owners/"));
+    assertTrue(operation.getMiddle().contains("/" + ownershipType + "/" + OWNERSHIP_TYPE_URN));
+    assertTrue(operation.getRight().isObject());
+    assertEquals(operation.getRight().get("owner").asText(), ownerUrn.toString());
+    assertEquals(operation.getRight().get("type").asText(), ownershipType.toString());
+    assertEquals(operation.getRight().get("typeUrn").asText(), OWNERSHIP_TYPE_URN);
   }
 
   @Test
