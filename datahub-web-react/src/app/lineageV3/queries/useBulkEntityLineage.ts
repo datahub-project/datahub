@@ -97,7 +97,8 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
             endTimeMillis,
             separateSiblings: true,
             showColumns: true,
-            includeGhostEntities: showGhostEntities || (rootType === EntityType.SchemaField && ignoreSchemaFieldStatus),
+            includeGhostEntities:
+                showGhostEntities || (rootType === EntityType?.SchemaField && ignoreSchemaFieldStatus),
         },
         onCompleted: (data) => {
             const smallContext = { nodes, edges, adjacencyList, setDisplayVersion, rootType };
