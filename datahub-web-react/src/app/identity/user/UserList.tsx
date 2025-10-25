@@ -61,7 +61,7 @@ export const UserList = () => {
     const [isViewingInviteToken, setIsViewingInviteToken] = useState(false);
 
     const authenticatedUser = useUserContext();
-    const canManagePolicies = authenticatedUser?.platformPrivileges?.managePolicies || false;
+    const canManageUserCredentials = authenticatedUser?.platformPrivileges?.manageUserCredentials || false;
 
     const pageSize = DEFAULT_USER_LIST_PAGE_SIZE;
     const start = (page - 1) * pageSize;
@@ -115,7 +115,7 @@ export const UserList = () => {
     const error = usersError || rolesError;
     const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
 
-    useToggleEducationStepIdsAllowList(canManagePolicies, USERS_INVITE_LINK_ID);
+    useToggleEducationStepIdsAllowList(canManageUserCredentials, USERS_INVITE_LINK_ID);
 
     return (
         <>
@@ -127,7 +127,7 @@ export const UserList = () => {
                     <div>
                         <Button
                             id={USERS_INVITE_LINK_ID}
-                            disabled={!canManagePolicies}
+                            disabled={!canManageUserCredentials}
                             type="text"
                             onClick={() => setIsViewingInviteToken(true)}
                         >
@@ -166,7 +166,7 @@ export const UserList = () => {
                         <UserListItem
                             onDelete={() => handleDelete(item.urn as string)}
                             user={item as CorpUser}
-                            canManageUserCredentials={canManagePolicies}
+                            canManageUserCredentials={canManageUserCredentials}
                             selectRoleOptions={selectRoleOptions}
                             refetch={usersRefetch}
                         />
@@ -183,7 +183,7 @@ export const UserList = () => {
                         showSizeChanger={false}
                     />
                 </UserPaginationContainer>
-                {canManagePolicies && (
+                {canManageUserCredentials && (
                     <ViewInviteTokenModal open={isViewingInviteToken} onClose={() => setIsViewingInviteToken(false)} />
                 )}
             </UserContainer>
