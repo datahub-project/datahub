@@ -135,6 +135,10 @@ export enum EventType {
     CompleteDocRequestPrompt,
     CompleteVerification,
     OpenTaskCenter,
+    GoToLogicalParentEvent,
+    GoToPhysicalChildEvent,
+    GoToLogicalParentColumnEvent,
+    GoToPhysicalChildColumnEvent,
     // SaaS only events
     CreateTestEvent,
     UpdateTestEvent,
@@ -248,10 +252,17 @@ export enum EventType {
     AssetPageAddSummaryElement,
     AssetPageRemoveSummaryElement,
     AssetPageReplaceSummaryElement,
+    CreateDataHubChatEvent,
+    CreateDataHubChatMessageEvent,
+    DeleteDataHubChatEvent,
+    DataHubChatResponseErrorEvent,
+    StopDataHubChatResponseEvent,
     FileUploadAttemptEvent,
     FileUploadFailedEvent,
     FileUploadSucceededEvent,
     FileDownloadViewEvent,
+    FileUploadLatencyEvent,
+    FileDownloadLatencyEvent,
 }
 
 /**
@@ -1802,6 +1813,65 @@ export interface AssetPageReplaceSummaryElementEvent extends BaseEvent {
     newElementType: SummaryElementType;
 }
 
+// DataHub Chat Events
+
+export interface CreateDataHubChatEvent extends BaseEvent {
+    type: EventType.CreateDataHubChatEvent;
+    origin: 'manual' | 'search_bar'; // manual = plus button, search_bar = from Ask DataHub
+    conversationUrn?: string;
+}
+
+export interface CreateDataHubChatMessageEvent extends BaseEvent {
+    type: EventType.CreateDataHubChatMessageEvent;
+    conversationUrn: string;
+    messageLength: number;
+    hasEntityMentions: boolean;
+    entityMentionCount?: number;
+}
+
+export interface DeleteDataHubChatEvent extends BaseEvent {
+    type: EventType.DeleteDataHubChatEvent;
+    conversationUrn: string;
+    messageCount?: number;
+}
+
+export interface DataHubChatResponseErrorEvent extends BaseEvent {
+    type: EventType.DataHubChatResponseErrorEvent;
+    conversationUrn?: string;
+    errorMessage: string;
+    errorType?: string; // e.g., 'connection_interrupted', 'server_error', 'parse_error'
+    statusCode?: number;
+}
+
+export interface StopDataHubChatResponseEvent extends BaseEvent {
+    type: EventType.StopDataHubChatResponseEvent;
+    conversationUrn: string;
+}
+
+interface GoToLogicalParentEvent extends BaseEvent {
+    type: EventType.GoToLogicalParentEvent;
+    entityUrn: string;
+    parentUrn?: string;
+}
+
+interface GoToPhysicalChildEvent extends BaseEvent {
+    type: EventType.GoToPhysicalChildEvent;
+    entityUrn: string;
+    childUrn?: string;
+}
+
+interface GoToLogicalParentColumnEvent extends BaseEvent {
+    type: EventType.GoToLogicalParentColumnEvent;
+    entityUrn: string;
+    parentUrn?: string;
+}
+
+interface GoToPhysicalChildColumnEvent extends BaseEvent {
+    type: EventType.GoToPhysicalChildColumnEvent;
+    entityUrn: string;
+    childUrn?: string;
+}
+
 export interface FileUploadAttemptEvent extends BaseEvent {
     type: EventType.FileUploadAttemptEvent;
     fileType: string;
@@ -1842,6 +1912,18 @@ export interface FileDownloadViewEvent extends BaseEvent {
     scenario: UploadDownloadScenario;
     assetUrn?: string;
     schemaFieldUrn?: string;
+}
+
+export interface FileUploadLatencyEvent extends BaseEvent {
+    type: EventType.FileUploadLatencyEvent;
+    url: string;
+    duration: number;
+}
+
+export interface FileDownloadLatencyEvent extends BaseEvent {
+    type: EventType.FileDownloadLatencyEvent;
+    url: string;
+    duration: number;
 }
 
 /**
@@ -1936,6 +2018,10 @@ export type Event =
     | CompleteDocRequestPrompt
     | CompleteVerification
     | OpenTaskCenter
+    | GoToLogicalParentEvent
+    | GoToPhysicalChildEvent
+    | GoToLogicalParentColumnEvent
+    | GoToPhysicalChildColumnEvent
     | CreateAssertionMonitorEvent
     | UpdateAssertionMonitorEvent
     | UpdateAssertionMetadataEvent
@@ -2054,7 +2140,14 @@ export type Event =
     | AssetPageAddSummaryElementEvent
     | AssetPageRemoveSummaryElementEvent
     | AssetPageReplaceSummaryElementEvent
+    | CreateDataHubChatEvent
+    | CreateDataHubChatMessageEvent
+    | DeleteDataHubChatEvent
+    | DataHubChatResponseErrorEvent
+    | StopDataHubChatResponseEvent
     | FileUploadAttemptEvent
     | FileUploadFailedEvent
     | FileUploadSucceededEvent
-    | FileDownloadViewEvent;
+    | FileDownloadViewEvent
+    | FileUploadLatencyEvent
+    | FileDownloadLatencyEvent;

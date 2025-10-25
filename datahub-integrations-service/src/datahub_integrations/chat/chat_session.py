@@ -4,6 +4,7 @@ import contextlib
 import json
 import re
 import uuid
+from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -12,6 +13,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Literal,
     Optional,
     Sequence,
     TypeGuard,
@@ -39,6 +41,7 @@ from datahub_integrations.chat.chat_history import (
     ToolResult,
     ToolResultError,
 )
+from datahub_integrations.chat.chat_session_formatter import format_message
 from datahub_integrations.chat.context_reducer import (
     ChatContextReducer,
     ContextReducerConfig,
@@ -50,6 +53,7 @@ from datahub_integrations.chat.reducers.conversation_summarizer import (
 from datahub_integrations.chat.reducers.sliding_window_reducer import (
     SlidingWindowReducer,
 )
+from datahub_integrations.chat.types import ChatType
 from datahub_integrations.chat.utils import parse_reasoning_message
 from datahub_integrations.gen_ai.bedrock import (
     get_bedrock_client,
@@ -93,7 +97,7 @@ else:
 
 # Smart search tool feature flag
 SMART_SEARCH_ENABLED = get_boolean_env_variable(
-    "CHATBOT_SMART_SEARCH_ENABLED", default=True
+    "CHATBOT_SMART_SEARCH_ENABLED", default=False
 )
 
 if SMART_SEARCH_ENABLED:
@@ -115,7 +119,22 @@ assert MESSAGE_LENGTH_HARD_LIMIT >= 1.5 * MESSAGE_LENGTH_SOFT_LIMIT
 _MAX_SUGGESTIONS = 4
 
 CLAUDE_TOKEN_LIMIT = int(200e3)
-ProgressCallback = Callable[[List[str]], None]
+
+
+@dataclass
+class ProgressUpdate:
+    """
+    Structured progress update with both text content and message type.
+
+    This replaces the old string-only progress updates to avoid losing
+    type information and having to reconstruct it later.
+    """
+
+    text: str
+    message_type: Literal["THINKING", "TOOL_CALL", "TOOL_RESULT", "TEXT"]
+
+
+ProgressCallback = Callable[[List[ProgressUpdate]], None]
 
 
 class ChatSessionMaxTokensExceededError(Exception):
@@ -138,32 +157,39 @@ class NextMessage(BaseModel):
     text: str
     suggestions: List[str] = []
 
-    @field_validator("text", mode="after")
-    @classmethod
-    def validate_text(cls, v: str) -> str:
-        if len(v) > MESSAGE_LENGTH_HARD_LIMIT:
-            raise ValueError(
-                f"Text length exceeds hard length limit of {MESSAGE_LENGTH_HARD_LIMIT}"
-            )
-        return v
-
     @field_validator("suggestions", mode="after")
     @classmethod
     def validate_suggestions(cls, v: List[str]) -> List[str]:
+        """
+        Validate and warn about suggestion count limits.
+
+        Args:
+            v: List of suggestion strings
+
+        Returns:
+            Validated suggestions list
+        """
         if len(v) > _MAX_SUGGESTIONS:
-            raise ValueError(
-                f"Too many suggestions provided. Please provide at most {_MAX_SUGGESTIONS} suggestions."
+            logger.warning(
+                f"Model provided {len(v)} suggestions, but only {_MAX_SUGGESTIONS} are allowed. Truncating to {_MAX_SUGGESTIONS}."
             )
+            return v[:_MAX_SUGGESTIONS]
+
         return v
 
 
 def respond_to_user(
     response: str,
     follow_up_suggestions: Optional[List[str]] = None,
+    chat_type: ChatType = ChatType.DEFAULT,
 ) -> NextMessage:
     client = get_datahub_client()
     response = auto_fix_chat_links(response, client._graph.frontend_base_url)
-    return NextMessage(text=response, suggestions=follow_up_suggestions or [])
+    formatted_text = format_message(response, chat_type)
+    return NextMessage(
+        text=formatted_text,
+        suggestions=follow_up_suggestions or [],
+    )
 
 
 _respond_to_user_tool = ToolWrapper.from_function(
@@ -256,7 +282,11 @@ DataHub AI makes use of the available tools in order to effectively answer the p
 DataHub AI will typically make multiple tool calls in order to answer a single question, and will stop asking for more tool calls once it has enough information to answer the question.
 DataHub AI will not make more than 10 tool calls in a single response.
 
-{"DataHub AI MUST use create_plan ALWAYS." if PLANNING_TOOLS_ENABLED else ""}
+{
+    "DataHub AI SHOULD use create_plan for complex tasks that require 3 or more tool calls, especially for impact analysis, dependency analysis, or tasks requiring iterative refinement. Simple 1-2 tool call tasks can be executed directly without planning."
+    if PLANNING_TOOLS_ENABLED
+    else ""
+}
 
 DataHub AI can also answer very basic questions about DataHub itself using its built-in knowledge. \
 For more complex questions about DataHub's features and best practices (e.g. "how do I set up a business \
@@ -430,7 +460,7 @@ class FilteredProgressListener:
         self.session = session
         self.start_offset = start_offset
 
-        self._last_progress_steps: Optional[List[str]] = None
+        self._last_progress_updates: Optional[List[ProgressUpdate]] = None
 
     @classmethod
     def _sanitize_progress_step(cls, step: str) -> str:
@@ -438,18 +468,22 @@ class FilteredProgressListener:
         return re.sub(r":\s*$", ".", step).strip()
 
     @classmethod
-    def get_progress_steps(
+    def get_progress_updates(
         cls,
         history: ChatHistory,
         *,
         start_offset: int,
         session: Optional["ChatSession"] = None,
-    ) -> List[str]:
-        """Get current progress steps derived from chat history"""
-        steps = []
+    ) -> List[ProgressUpdate]:
+        """Get current progress updates derived from chat history with type information"""
+        updates = []
 
         for message in history.messages[start_offset:]:
+            # Determine message type
+            message_type: Literal["THINKING", "TOOL_CALL", "TOOL_RESULT", "TEXT"]
+
             if isinstance(message, ReasoningMessage):
+                message_type = "THINKING"
                 # Parse the reasoning message to extract user-friendly text
                 parsed = parse_reasoning_message(message.text)
                 user_visible_text = parsed.to_user_visible_message(session=session)
@@ -459,20 +493,34 @@ class FilteredProgressListener:
                 # typically 50-200 chars. Even with 10 steps (10K chars total), this
                 # stays well within Slack's 3K recommended limit and Teams' 28KB limit.
                 sanitized_text = cls._sanitize_progress_step(user_visible_text)
-                steps.append(truncate(sanitized_text, max_length=1000))
-            # elif isinstance(message, ToolCallRequest):
-            #     steps.append(self._get_progress_message(message.tool_name))
+                text = truncate(sanitized_text, max_length=1000)
 
-        return steps
+                updates.append(ProgressUpdate(text=text, message_type=message_type))
+
+            elif isinstance(message, ToolCallRequest):
+                message_type = "TOOL_CALL"
+                # Could add tool call details here if needed
+                # For now
+                # updates.append(ProgressUpdate(text=f"Calling tool: {message.tool_name}", message_type=message_type))
+                pass
+
+            elif isinstance(message, (ToolResult, ToolResultError)):
+                message_type = "TOOL_RESULT"
+                # Could add tool result details here if needed
+                # For now, skip
+                # updates.append(ProgressUpdate(text="Tool completed", message_type=message_type))
+                pass
+
+        return updates
 
     def _handle_history_updated(self) -> None:
-        current_steps = self.get_progress_steps(
+        current_updates = self.get_progress_updates(
             self.history, start_offset=self.start_offset, session=self.session
         )
-        if current_steps != self._last_progress_steps:
-            self._last_progress_steps = current_steps
+        if current_updates != self._last_progress_updates:
+            self._last_progress_updates = current_updates
             if self.progress_callback:
-                self.progress_callback(current_steps)
+                self.progress_callback(current_updates)
 
 
 class ChatSession:
@@ -482,6 +530,7 @@ class ChatSession:
         client: DataHubClient,
         history: Optional[ChatHistory] = None,
         extra_instructions_override: Optional[str] = None,
+        chat_type: ChatType = ChatType.DEFAULT,
         # Custom context reducers can be supported in future
     ):
         self.session_id = str(uuid.uuid4())  # TODO: use uuid7 in the future
@@ -489,6 +538,7 @@ class ChatSession:
         self.extra_instructions_override = extra_instructions_override
         self.history: ChatHistory = history or ChatHistory()
         self.plan_cache: Dict[str, Dict[str, Any]] = {}
+        self.chat_type = chat_type
 
         # Build plannable tools (data-gathering tools from MCP, etc.)
         self._plannable_tools: List[ToolWrapper] = [
@@ -747,6 +797,7 @@ class ChatSession:
             # This is a fallback case where LLM outputs text without using respond_to_user tool
             # We log this to track when it happens (unexpected behavior)
             response_text = content_block["text"]
+            logger.info(f"Adding AssistantMessage: {response_text}")
             self._add_message(AssistantMessage(text=response_text))
 
             # Log final response as MLflow span to track unexpected direct responses
@@ -857,8 +908,9 @@ class ChatSession:
                 return NextMessage.model_validate(last_message.result)
             elif isinstance(last_message, AssistantMessage):
                 logger.info(f"End turn message received for session {self.session_id}")
+                formatted_text = format_message(last_message.text, self.chat_type)
                 return NextMessage(
-                    text=last_message.text,
+                    text=formatted_text,
                     suggestions=[],
                 )
 

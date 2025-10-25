@@ -129,6 +129,8 @@ function list_markdown_files(): string[] {
     /^gradle\/docker\/README\.md/,
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
+    /AGENTS\.md$/, // Internal AI agent documentation
+    /CLAUDE\.md$/, // Internal Claude Code documentation
     /^\s*$/, //Empty string
   ];
 

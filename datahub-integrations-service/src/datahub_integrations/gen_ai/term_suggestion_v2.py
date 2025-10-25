@@ -24,7 +24,7 @@ from datahub_integrations.gen_ai.model_config import model_config
 from datahub_integrations.gen_ai.term_suggestion_v2_context import GlossaryInfo
 
 # The AWS quota is 1000 requests per minute for Haiku 3 and
-# 20-50 (depending on region) for Claude 3.5 Sonnet.
+# 20-50 (depending on region) for Claude Sonnet models (3.7/4/4.5).
 # However, this limits the number of concurrent requests we can make, and not
 # the requests per minute. (Ideally we'll switch to a leaky bucket ratelimiter instead.)
 # Given that an average request might take a couple seconds, 80 seemed like

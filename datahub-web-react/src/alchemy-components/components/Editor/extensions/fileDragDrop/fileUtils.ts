@@ -45,6 +45,11 @@ export const SUPPORTED_FILE_TYPES = [
     'audio/mpeg',
     'video/x-ms-wmv',
     'image/tiff',
+    'text/x-python-script',
+    'application/json',
+    'text/html',
+    'text/x-java-source',
+    'image/svg+xml',
 ];
 
 const EXTENSION_TO_FILE_TYPE = {
@@ -73,6 +78,12 @@ const EXTENSION_TO_FILE_TYPE = {
     tiff: 'image/tiff',
     md: 'text/markdown',
     csv: 'text/csv',
+    py: 'text/x-python-script',
+    json: 'application/json',
+    html: 'text/html',
+    java: 'text/x-java-source',
+    svg: 'image/svg+xml',
+    log: 'text/plain',
 };
 
 /**
@@ -127,6 +138,27 @@ export const getExtensionFromFileName = (fileName: string): string | undefined =
 };
 
 /**
+ * Extract file type from URL
+ * @param url - the URL to extract type from
+ * @returns MIME type if detectable, empty string otherwise
+ */
+export const getFileTypeFromUrl = (url: string): string => {
+    const extension = getExtensionFromFileName(url);
+    if (!extension) return '';
+
+    return EXTENSION_TO_FILE_TYPE[extension] || '';
+};
+
+/**
+ * Extract file type from filename
+ * @param filename - the filename to extract type from
+ * @returns MIME type if detectable, empty string otherwise
+ */
+export const getFileTypeFromFilename = (filename: string): string => {
+    return getFileTypeFromUrl(filename);
+};
+
+/**
  * Validate file before processing
  */
 export const validateFile = (
@@ -137,6 +169,7 @@ export const validateFile = (
     },
 ): { isValid: boolean; error?: string; displayError?: string; failureType?: FileUploadFailureType } => {
     const { maxSize = MAX_FILE_SIZE_IN_BYTES, allowedTypes = SUPPORTED_FILE_TYPES } = options || {};
+    const fileType = file.type || getFileTypeFromFilename(file.name);
 
     // Check file size
     if (file.size > maxSize) {
@@ -149,11 +182,11 @@ export const validateFile = (
     }
 
     // Check file type
-    if (!isFileTypeSupported(file.type, allowedTypes)) {
+    if (!isFileTypeSupported(fileType, allowedTypes)) {
         const extension = getExtensionFromFileName(file.name);
         return {
             isValid: false,
-            error: `File type "${file.type}" is not allowed. Supported types: ${allowedTypes.join(', ')}`,
+            error: `File type "${fileType}" is not allowed. Supported types: ${allowedTypes.join(', ')}`,
             displayError: `File type not supported${extension ? `: ${extension.toLocaleUpperCase()}` : ''}`,
             failureType: FileUploadFailureType.FILE_TYPE,
         };
@@ -192,27 +225,6 @@ export const isFileUrl = (url: string): boolean => {
 };
 
 /**
- * Extract file type from URL
- * @param url - the URL to extract type from
- * @returns MIME type if detectable, empty string otherwise
- */
-export const getFileTypeFromUrl = (url: string): string => {
-    const extension = getExtensionFromFileName(url);
-    if (!extension) return '';
-
-    return EXTENSION_TO_FILE_TYPE[extension] || '';
-};
-
-/**
- * Extract file type from filename
- * @param filename - the filename to extract type from
- * @returns MIME type if detectable, empty string otherwise
- */
-export const getFileTypeFromFilename = (filename: string): string => {
-    return getFileTypeFromUrl(filename);
-};
-
-/**
  * Get icon to show based on file extension
  * @param extension - the extension of the file
  * @returns string depicting the phosphor icon name
@@ -227,6 +239,8 @@ export const getFileIconFromExtension = (extension: string) => {
         case 'txt':
         case 'md':
         case 'rtf':
+        case 'log':
+        case 'json':
             return 'FileText';
         case 'xls':
         case 'xlsx':
@@ -234,9 +248,13 @@ export const getFileIconFromExtension = (extension: string) => {
         case 'ppt':
         case 'pptx':
             return 'FilePpt';
+        case 'svg':
+            return 'FileSvg';
         case 'jpg':
         case 'jpeg':
+            return 'FileJpg';
         case 'png':
+            return 'FilePng';
         case 'gif':
         case 'webp':
         case 'bmp':
@@ -254,6 +272,12 @@ export const getFileIconFromExtension = (extension: string) => {
             return 'FileZip';
         case 'csv':
             return 'FileCsv';
+        case 'html':
+            return 'FileHtml';
+        case 'py':
+            return 'FilePy';
+        case 'java':
+            return 'FileCode';
         default:
             return 'FileArrowDown';
     }

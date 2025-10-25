@@ -182,7 +182,7 @@ export const AssertionsByAssertionSummary = ({ isAnomalyDetectionEnabled }: Prop
     const hasFilters =
         statuses.length !== DEFAULT_STATUS_OPTIONS.length ||
         searchQuery.length > 0 ||
-        assertionTypes.length !== ASSERTION_TYPE_OPTIONS.length ||
+        assertionTypes.length > 0 ||
         assertionTags.length > 0 ||
         Object.values(assetFilterOptions).some((value) => value.length > 0);
 
@@ -195,7 +195,9 @@ export const AssertionsByAssertionSummary = ({ isAnomalyDetectionEnabled }: Prop
             condition: FilterOperator.Between,
         });
 
-        filters.push({ field: ASSERTION_TYPE_FILTER_NAME, values: assertionTypes });
+        if (assertionTypes.length > 0) {
+            filters.push({ field: ASSERTION_TYPE_FILTER_NAME, values: assertionTypes });
+        }
 
         if (assertionSource !== 'All') {
             // NOTE: for external assertions, sometimes source is just not set
@@ -410,18 +412,16 @@ export const AssertionsByAssertionSummary = ({ isAnomalyDetectionEnabled }: Prop
                         }))}
                         values={assertionTypes}
                         onUpdate={(values) => {
-                            if (values.length !== 0) {
-                                setAssertionTypes(values);
-                                analytics.event({
-                                    type: EventType.DatasetHealthFilterEvent,
-                                    tabType: 'AssertionsByAssertion',
-                                    filterType: 'filter',
-                                    filterSubType: 'assertionType',
-                                    content: {
-                                        filterValues: values,
-                                    },
-                                });
-                            }
+                            setAssertionTypes(values);
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'AssertionsByAssertion',
+                                filterType: 'filter',
+                                filterSubType: 'assertionType',
+                                content: {
+                                    filterValues: values,
+                                },
+                            });
                         }}
                         placeholder="Type"
                         isMultiSelect

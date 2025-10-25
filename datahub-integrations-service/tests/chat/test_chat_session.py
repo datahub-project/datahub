@@ -1,8 +1,5 @@
 from typing import List
 
-import pydantic
-import pytest
-
 from datahub_integrations.chat.chat_history import (
     AssistantMessage,
     ChatHistory,
@@ -16,7 +13,7 @@ from datahub_integrations.chat.chat_session import (
 
 
 def test_get_progress_steps_extracts_reasoning_messages() -> None:
-    """Test that progress steps are extracted from ReasoningMessage instances."""
+    """Test that progress updates are extracted from ReasoningMessage instances."""
     history = ChatHistory(
         messages=[
             HumanMessage(text="Hello"),
@@ -26,11 +23,13 @@ def test_get_progress_steps_extracts_reasoning_messages() -> None:
         ]
     )
 
-    steps = FilteredProgressListener.get_progress_steps(history, start_offset=0)
+    updates = FilteredProgressListener.get_progress_updates(history, start_offset=0)
 
-    assert len(steps) == 2
-    assert steps[0] == "Thinking about the question"
-    assert steps[1] == "Processing the request"
+    assert len(updates) == 2
+    assert updates[0].text == "Thinking about the question"
+    assert updates[0].message_type == "THINKING"
+    assert updates[1].text == "Processing the request"
+    assert updates[1].message_type == "THINKING"
 
 
 def test_get_progress_steps_respects_start_offset() -> None:
@@ -43,20 +42,22 @@ def test_get_progress_steps_respects_start_offset() -> None:
         ]
     )
 
-    steps = FilteredProgressListener.get_progress_steps(history, start_offset=1)
+    updates = FilteredProgressListener.get_progress_updates(history, start_offset=1)
 
-    assert len(steps) == 2
-    assert steps[0] == "Second reasoning"
-    assert steps[1] == "Third reasoning"
+    assert len(updates) == 2
+    assert updates[0].text == "Second reasoning"
+    assert updates[1].text == "Third reasoning"
 
 
 def test_callback_called_on_changes() -> None:
-    """Test that callback is called when progress steps change."""
+    """Test that callback is called when progress updates change."""
+    from datahub_integrations.chat.chat_session import ProgressUpdate
+
     history = ChatHistory(messages=[HumanMessage(text="Hello")])
     callback_calls = []
 
-    def mock_callback(steps: List[str]) -> None:
-        callback_calls.append(steps.copy())
+    def mock_callback(updates: List[ProgressUpdate]) -> None:
+        callback_calls.append(updates.copy())
 
     listener = FilteredProgressListener(history, mock_callback)
 
@@ -65,7 +66,9 @@ def test_callback_called_on_changes() -> None:
     listener._handle_history_updated()
 
     assert len(callback_calls) == 1
-    assert callback_calls[0] == ["Processing"]
+    assert len(callback_calls[0]) == 1
+    assert callback_calls[0][0].text == "Processing"
+    assert callback_calls[0][0].message_type == "THINKING"
 
 
 def test_sanitize_progress_step_replaces_trailing_colon() -> None:
@@ -93,7 +96,7 @@ def test_sanitize_progress_step_preserves_other_colons() -> None:
 
 
 def test_get_progress_steps_sanitizes_reasoning_messages() -> None:
-    """Test that progress steps are sanitized when extracted from ReasoningMessage instances."""
+    """Test that progress updates are sanitized when extracted from ReasoningMessage instances."""
     history = ChatHistory(
         messages=[
             HumanMessage(text="Hello"),
@@ -103,19 +106,19 @@ def test_get_progress_steps_sanitizes_reasoning_messages() -> None:
         ]
     )
 
-    steps = FilteredProgressListener.get_progress_steps(history, start_offset=0)
+    updates = FilteredProgressListener.get_progress_updates(history, start_offset=0)
 
-    assert len(steps) == 2
-    assert steps[0] == "Thinking about the question."
-    assert steps[1] == "Processing the request."
-
-
-def test_message_too_long_raises() -> None:
-    with pytest.raises(pydantic.ValidationError, match="hard length limit"):
-        NextMessage(text="a" * 10000)
+    assert len(updates) == 2
+    assert updates[0].text == "Thinking about the question."
+    assert updates[1].text == "Processing the request."
 
 
-def test_too_many_suggestions_raises() -> None:
-    suggestions = [chr(i) for i in range(ord("a"), ord("z") + 1)]  # [a, b, ..., z]
-    with pytest.raises(pydantic.ValidationError, match="Too many suggestions"):
-        NextMessage(text="This is a normal response", suggestions=suggestions)
+def test_too_many_suggestions_truncates() -> None:
+    # Test that too many suggestions are truncated with a warning instead of raising an error
+    suggestions = [
+        chr(i) for i in range(ord("a"), ord("z") + 1)
+    ]  # [a, b, ..., z] (26 suggestions)
+    message = NextMessage(text="This is a normal response", suggestions=suggestions)
+    # Should be truncated to 4 suggestions (MAX_SUGGESTIONS)
+    assert len(message.suggestions) == 4
+    assert message.suggestions == ["a", "b", "c", "d"]

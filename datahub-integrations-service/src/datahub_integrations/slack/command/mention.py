@@ -22,7 +22,9 @@ from datahub_integrations.chat.chat_session import (
     ChatSession,
     ChatSessionMaxTokensExceededError,
     NextMessage,
+    ProgressUpdate,
 )
+from datahub_integrations.chat.types import ChatType
 from datahub_integrations.mcp.mcp_server import mcp
 from datahub_integrations.slack.command.mention_helpers import (
     DATAHUB_FEEDBACK_PROMPT,
@@ -130,10 +132,11 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
         user_info = app.client.users_info(user=event.user_id)["user"]
         user_name = user_info["name"]
 
-        def progress_callback(steps: List[str]) -> None:
+        def progress_callback(steps: List[ProgressUpdate]) -> None:
             try:
                 if response_ts is not None and steps:
-                    text, blocks = _build_progress_message(steps)
+                    step_texts = [step.text for step in steps]
+                    text, blocks = _build_progress_message(step_texts)
                     app.client.chat_update(
                         channel=channel_id,
                         ts=response_ts,
@@ -250,7 +253,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
 def _generate_mention_response(
     chat_session: ChatSession,
     event: SlackMentionEvent,
-    progress_callback: Callable[[List[str]], None],
+    progress_callback: Callable[[List[ProgressUpdate]], None],
     response_ts: str,
 ) -> Tuple[str, List[str]]:
     original_history_length = len(chat_session.history.messages)
@@ -316,6 +319,7 @@ def _build_chat_session(
         tools=[mcp],
         client=DataHubClient(graph=graph),
         history=history,
+        chat_type=ChatType.SLACK,
     )
 
     return chat_session, thread_history.is_limited_history()

@@ -10,7 +10,7 @@ import { RangeInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assert
 import { TabbedInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/TabbedInput';
 import { ValueInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/inputs/ValueInput';
 import {
-    getFieldMetricOperatorOptions,
+    getFieldMetricOperatorOptionGroups,
     getSelectedFieldMetricOperatorOption,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
 import {
@@ -54,7 +54,7 @@ export const FieldMetricParameterBuilder = ({ value, onChange, disabled, isEditM
     const isHardDisabled = isEditMode && isAiInferenceSelected;
 
     const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
-    const options = getFieldMetricOperatorOptions({
+    const optionGroups = getFieldMetricOperatorOptionGroups({
         disableAiInferred: (isEditMode || !onlineSmartAssertionsEnabled) && !isAiInferenceSelected,
     });
     const selectedOption = getSelectedFieldMetricOperatorOption(operator);
@@ -128,7 +128,8 @@ export const FieldMetricParameterBuilder = ({ value, onChange, disabled, isEditM
                     <Select
                         placeholder="Select passing criteria"
                         onChange={(newOperator) => updateOperator(newOperator)}
-                        options={options}
+                        // Use grouped options to show section headers
+                        options={optionGroups}
                         disabled={disabled || isHardDisabled}
                     />
                 </StyledFormItem>

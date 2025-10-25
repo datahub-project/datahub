@@ -33,6 +33,6 @@ export const shouldShowGlossary = (canManageGlossary: boolean, hideGlossary: boo
  */
 export const shouldShowTopUserPill = (user: CorpUser): boolean => {
     return Boolean(
-        user.usageFeatures?.userUsagePercentilePast30Days && user.usageFeatures.userUsagePercentilePast30Days >= 90,
+        user?.usageFeatures?.userUsagePercentilePast30Days && user?.usageFeatures?.userUsagePercentilePast30Days >= 90,
     );
 };

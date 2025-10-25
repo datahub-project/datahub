@@ -17,9 +17,10 @@ export const LookBackWindowAdjuster = (props: Props) => {
         <Form.Item
             label={
                 <AssertionFormTitleAndTooltip
-                    formTitle="Training data lookback window days"
-                    tooltipTitle="Training data lookback window days"
-                    tooltipDescription="Set the number of days to look back for training data when inferring assertion bounds."
+                    formTitle="Maximum training data days"
+                    formSubtitle="This does not affect the minimum number of days required for training."
+                    tooltipTitle="Maximum training data days"
+                    tooltipDescription="Number of days of historical data to use for training the smart assertion model. More days provide better seasonal detection but can be more susceptible to outliers."
                 />
             }
             name="trainingDataLookbackWindowDays"

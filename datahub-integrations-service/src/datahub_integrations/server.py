@@ -24,6 +24,7 @@ from datahub_integrations.actions.router import (
 )
 from datahub_integrations.analytics.router import router as analytics_router
 from datahub_integrations.app import STATIC_ASSETS_DIR
+from datahub_integrations.chat.chat_api import router as chat_router
 from datahub_integrations.dist import external_router as dist_external_router
 from datahub_integrations.gen_ai.description_context import (
     ShellEntityError,
@@ -155,6 +156,8 @@ internal_router.include_router(
 )
 internal_router.include_router(share_router, prefix="/share", tags=["Share"])
 internal_router.include_router(sql_router, prefix="/sql", tags=["SQL"])
+# Chat router - only include in internal router for now
+internal_router.include_router(chat_router, tags=["Chat"])
 
 external_router.include_router(dist_external_router, tags=["Dist"])
 

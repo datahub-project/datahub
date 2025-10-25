@@ -9,6 +9,7 @@ import { ManageApplications } from '@app/applications/ManageApplications';
 import { Automations } from '@app/automations/Automations';
 import { BrowseResultsPage } from '@app/browse/BrowseResultsPage';
 import { BusinessAttributes } from '@app/businessAttribute/BusinessAttributes';
+import { ChatPage } from '@app/chat/ChatPage';
 import { useUserContext } from '@app/context/useUserContext';
 import DomainRoutes from '@app/domain/DomainRoutes';
 import { ManageDomainsPage } from '@app/domain/ManageDomainsPage';
@@ -42,6 +43,7 @@ import { ManageTestsPage } from '@app/tests/ManageTestsPage';
 import {
     useAppConfig,
     useBusinessAttributesFlag,
+    useIsAiChatEnabled,
     useIsAppConfigContextLoaded,
     useIsDocumentationFormsEnabled,
     useIsNestedDomainsEnabled,
@@ -71,6 +73,7 @@ export const SearchRoutes = (): JSX.Element => {
 
     const businessAttributesFlag = useBusinessAttributesFlag();
     const appConfigContextLoaded = useIsAppConfigContextLoaded();
+    const isAiChatEnabled = useIsAiChatEnabled();
 
     const showStructuredProperties =
         config?.featureFlags?.showManageStructuredProperties &&
@@ -117,6 +120,7 @@ export const SearchRoutes = (): JSX.Element => {
                     {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
                     <Route path={PageRoutes.MANAGE_APPLICATIONS} render={() => <ManageApplications />} />
                     <Route path={PageRoutes.ANALYTICS} render={renderAnalyticsPage} />
+                    {isAiChatEnabled && <Route path={PageRoutes.AI_CHAT} render={() => <ChatPage />} />}
                     <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/permissions/policies" />} />
                     <Route
                         path={PageRoutes.SETTINGS_POLICIES}

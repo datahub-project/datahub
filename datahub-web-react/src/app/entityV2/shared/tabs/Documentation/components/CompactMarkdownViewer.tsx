@@ -104,6 +104,7 @@ export type Props = {
     scrollableY?: boolean; // Whether the viewer is vertically scrollable.
     handleShowMore?: () => void;
     hideShowMore?: boolean;
+    hideTooltip?: boolean;
 };
 
 export default function CompactMarkdownViewer({
@@ -114,6 +115,7 @@ export default function CompactMarkdownViewer({
     scrollableY = true,
     handleShowMore,
     hideShowMore,
+    hideTooltip,
 }: Props) {
     const [isShowingMore, setIsShowingMore] = useState(false);
     const [isTruncated, setIsTruncated] = useState(false);
@@ -139,7 +141,7 @@ export default function CompactMarkdownViewer({
                     readOnly
                 />
             </MarkdownViewContainer>
-            {hideShowMore && isTruncated && (
+            {hideShowMore && isTruncated && !hideTooltip && (
                 <Tooltip title={content}>
                     <MoreIndicator>...</MoreIndicator>
                 </Tooltip>

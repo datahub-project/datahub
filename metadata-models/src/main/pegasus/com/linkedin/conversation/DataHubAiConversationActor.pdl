@@ -1,0 +1,29 @@
+namespace com.linkedin.conversation
+
+import com.linkedin.common.Urn
+
+record DataHubAiConversationActor {
+    /**
+     * The type of actor 
+     */
+    type: enum DataHubAiConversationActorType {
+        /**
+        * A user initiated message. 
+        */ 
+        USER
+        /**
+        * An agent initiated message. 
+        */
+        AGENT
+    }
+
+    /**
+     * The actor that has sent the message.
+     * Required if type is not AGENT.
+     */
+    @Relationship = {
+        "name": "AuthoredBy",
+        "entityTypes": [ "corpuser", "corpGroup" ] 
+    }
+    actor: optional Urn
+}

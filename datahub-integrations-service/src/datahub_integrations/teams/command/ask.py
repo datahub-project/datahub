@@ -5,7 +5,12 @@ from datahub.sdk.main_client import DataHubClient
 from loguru import logger
 
 from datahub_integrations.chat.chat_history import HumanMessage
-from datahub_integrations.chat.chat_session import ChatSession, NextMessage
+from datahub_integrations.chat.chat_session import (
+    ChatSession,
+    NextMessage,
+    ProgressUpdate,
+)
+from datahub_integrations.chat.types import ChatType
 from datahub_integrations.mcp.mcp_server import mcp
 from datahub_integrations.teams.teams_history import TeamsConversationHistory
 
@@ -54,7 +59,7 @@ async def handle_ask_command_teams(
     graph: DataHubGraph,
     question: str,
     user_urn: Optional[str] = None,
-    progress_callback: Optional[Callable[[List[str]], None]] = None,
+    progress_callback: Optional[Callable[[List[ProgressUpdate]], None]] = None,
     conversation_id: Optional[str] = None,
     message_ts: Optional[str] = None,
 ) -> dict:
@@ -105,6 +110,7 @@ async def handle_ask_command_teams(
                 tools=[mcp],
                 client=DataHubClient(graph=graph),
                 history=history,  # Use conversation history if enabled
+                chat_type=ChatType.TEAMS,
             )
 
             # If no history or empty history, add the user's question to the chat history
@@ -114,7 +120,7 @@ async def handle_ask_command_teams(
             # Use the provided progress callback or create a default one
             session_progress_callback = progress_callback or (
                 lambda steps: logger.debug(
-                    f"AI progress: {steps[-1] if steps else 'Starting...'}"
+                    f"AI progress: {steps[-1].text if steps else 'Starting...'}"
                 )
             )
 

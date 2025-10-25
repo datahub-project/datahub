@@ -31,6 +31,7 @@ import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataContractService;
+import com.linkedin.metadata.service.DataHubAiConversationService;
 import com.linkedin.metadata.service.DataHubFileService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
@@ -107,6 +108,7 @@ public class GmsGraphQLEngineArgs {
   ChromeExtensionConfiguration chromeExtensionConfiguration;
   ConnectionService connectionService;
   AssertionService assertionService;
+  DataHubAiConversationService dataHubAiConversationService;
   EntityVersioningService entityVersioningService;
   StsClient stsClient;
   ApplicationService applicationService;

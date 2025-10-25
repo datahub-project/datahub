@@ -149,6 +149,8 @@ public enum DataHubUsageEventType {
   FILE_UPLOAD_FAILED_EVENT("FileUploadFailedEvent"),
   FILE_UPLOAD_SUCCEEDED_EVENT("FileUploadSucceededEvent"),
   FILE_DOWNLOAD_VIEW_EVENT("FileDownloadViewEvent"),
+  FILE_UPLOAD_LATENCY_EVENT("FileUploadLatencyEvent"),
+  FILE_DOWNLOAD_LATENCY_EVENT("FileDownloadLatencyEvent"),
   // Not replicated in frontend, represents generic event from backend
   CREATE_USER_EVENT("CreateUserEvent"),
   UPDATE_USER_EVENT("UpdateUserEvent"),
@@ -163,6 +165,12 @@ public enum DataHubUsageEventType {
   WELCOME_TO_DATAHUB_MODAL_CLICK_VIEW_DOCUMENTATION_EVENT(
       "WelcomeToDataHubModalClickViewDocumentationEvent"),
   PRODUCT_TOUR_BUTTON_CLICK_EVENT("ProductTourButtonClickEvent"),
+
+  // Logical models
+  GO_TO_LOGICAL_PARENT_EVENT("GoToLogicalParentEvent"),
+  GO_TO_PHYSICAL_CHILD_EVENT("GoToPhysicalChildEvent"),
+  GO_TO_LOGICAL_PARENT_COLUMN_EVENT("GoToLogicalParentColumnEvent"),
+  GO_TO_PHYSICAL_CHILD_COLUMN_EVENT("GoToPhysicalChildColumnEvent"),
 
   // SaaS only events
   BATCH_PROPOSAL_ACTION_EVENT("BatchProposalActionEvent"),
@@ -225,6 +233,11 @@ public enum DataHubUsageEventType {
   DATASET_HEALTH_FILTER_EVENT("DatasetHealthFilterEvent"),
   CLICK_BULK_INVITE_RECOMMENDED_USERS_EVENT("ClickBulkInviteRecommendedUsersEvent"),
   CLICK_BULK_DISMISS_RECOMMENDED_USERS_EVENT("ClickBulkDismissRecommendedUsersEvent"),
+  CREATE_DATAHUB_CHAT_EVENT("CreateDataHubChatEvent"),
+  CREATE_DATAHUB_CHAT_MESSAGE_EVENT("CreateDataHubChatMessageEvent"),
+  DELETE_DATAHUB_CHAT_EVENT("DeleteDataHubChatEvent"),
+  DATAHUB_CHAT_RESPONSE_ERROR_EVENT("DataHubChatResponseErrorEvent"),
+  STOP_DATAHUB_CHAT_RESPONSE_EVENT("StopDataHubChatResponseEvent"),
 
   // Integrations service events
   CHATBOT_INTERACTION_EVENT("ChatbotInteraction"),

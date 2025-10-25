@@ -1,8 +1,8 @@
 import React from 'react';
 
 import { EvaluationScheduleBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/common/EvaluationScheduleBuilder';
+import { SqlInferenceAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/SqlInferenceAdjuster';
 import { SqlEvaluationBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/SqlEvaluationBuilder';
-import { SqlInferenceAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/SqlInferenceAdjuster';
 import { SqlQueryBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/SqlQueryBuilder';
 import {
     SqlOperationOptionEnum,
@@ -10,15 +10,25 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/utils';
 import { AssertionMonitorBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 
-import { AssertionType, CronSchedule } from '@types';
+import { Assertion, AssertionType, CronSchedule, Monitor } from '@types';
 
 type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (newState: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
+    isEditMode?: boolean;
+    monitor?: Monitor;
+    assertion?: Assertion;
 };
 
-export const SqlAssertionBuilder = ({ state, updateState, disabled = false }: Props) => {
+export const SqlAssertionBuilder = ({
+    state,
+    updateState,
+    disabled = false,
+    isEditMode,
+    monitor,
+    assertion: originalAssertion,
+}: Props) => {
     const updateAssertionSchedule = (schedule: CronSchedule) => {
         updateState({
             ...state,
@@ -52,14 +62,24 @@ export const SqlAssertionBuilder = ({ state, updateState, disabled = false }: Pr
                 disabled={disabled}
             />
             <SqlEvaluationBuilder value={state} onChange={updateState} disabled={disabled} />
-            {isAiInferred && <SqlInferenceAdjuster state={state} updateState={updateState} disabled={disabled} />}
-            <EvaluationScheduleBuilder
-                value={state.schedule}
-                onChange={updateAssertionSchedule}
-                assertionType={AssertionType.Sql}
-                showAdvanced={false}
-                disabled={disabled}
-            />
+            {isAiInferred ? (
+                <SqlInferenceAdjuster
+                    state={state}
+                    updateState={updateState}
+                    disabled={disabled}
+                    monitor={monitor}
+                    assertion={originalAssertion}
+                    isEditMode={isEditMode}
+                />
+            ) : (
+                <EvaluationScheduleBuilder
+                    value={state.schedule}
+                    onChange={updateAssertionSchedule}
+                    assertionType={AssertionType.Sql}
+                    showAdvanced={false}
+                    disabled={disabled}
+                />
+            )}
         </div>
     );
 };

@@ -1,0 +1,11 @@
+namespace com.linkedin.conversation
+
+/**
+ * Conversation message content info 
+ */
+record DataHubAiConversationMessageContent {
+    /**
+     * Raw message text
+     */ 
+    text: string
+}

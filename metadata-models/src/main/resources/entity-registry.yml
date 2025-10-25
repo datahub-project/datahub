@@ -941,6 +941,11 @@ entities:
       - dataHubMetricCubeEvent
       # To be added later.
       # - dataHubMetricCubeStorageConfig
+  - name: dataHubAiConversation
+    category: core
+    keyAspect: dataHubAiConversationKey
+    aspects:
+      - dataHubAiConversationInfo
 events:
   # SaaS Only Events
   - name: notificationRequest
