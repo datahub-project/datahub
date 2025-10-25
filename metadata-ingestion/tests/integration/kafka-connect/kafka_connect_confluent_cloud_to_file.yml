@@ -1,0 +1,22 @@
+source:
+  type: "kafka-connect"
+  config:
+    connect_uri: "http://localhost:28083"    
+    connector_patterns:
+      allow:
+        - postgres-cdc-cloud-connector
+        - mysql-sink-cloud-connector
+        - snowflake-sink-cloud-connector
+    convert_lineage_urns_to_lowercase: true
+    platform_instance_map:
+      postgres: postgres-cloud
+      mysql: mysql-cloud
+      snowflake: snowflake-cloud
+    connect_to_platform_map:
+      postgres-cdc-cloud-connector:
+        postgres: postgres-cloud
+
+sink:
+  type: file
+  config:
+    filename: "./kafka_connect_mces.json"
