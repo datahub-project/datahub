@@ -9,7 +9,10 @@ from typing import Dict, List, Optional
 
 from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
+    MYSQL_SINK_CLOUD,
+    POSTGRES_SINK_CLOUD,
     SINK,
+    SNOWFLAKE_SINK_CLOUD,
     SOURCE,
     BaseConnector,
     ConnectorManifest,
@@ -111,19 +114,31 @@ class ConnectorRegistry:
             SNOWFLAKE_SINK_CONNECTOR_CLASS,
             BigQuerySinkConnector,
             ConfluentS3SinkConnector,
+            JdbcSinkConnector,
             SnowflakeSinkConnector,
         )
 
+        # BigQuery sink connectors
         if (
             connector_class_value == BIGQUERY_SINK_CONNECTOR_CLASS
             or connector_class_value
             == "io.confluent.connect.bigquery.BigQuerySinkConnector"
         ):
             return BigQuerySinkConnector(manifest, config, report)
+        # S3 sink connectors
         elif connector_class_value == S3_SINK_CONNECTOR_CLASS:
             return ConfluentS3SinkConnector(manifest, config, report)
-        elif connector_class_value == SNOWFLAKE_SINK_CONNECTOR_CLASS:
+        # Snowflake sink connectors (both self-hosted and Cloud)
+        elif connector_class_value in (
+            SNOWFLAKE_SINK_CONNECTOR_CLASS,
+            SNOWFLAKE_SINK_CLOUD,
+        ):
             return SnowflakeSinkConnector(manifest, config, report)
+        # Confluent Cloud JDBC sink connectors (Postgres, MySQL)
+        elif connector_class_value == POSTGRES_SINK_CLOUD:
+            return JdbcSinkConnector(manifest, config, report, platform="postgres")
+        elif connector_class_value == MYSQL_SINK_CLOUD:
+            return JdbcSinkConnector(manifest, config, report, platform="mysql")
 
         return None
 

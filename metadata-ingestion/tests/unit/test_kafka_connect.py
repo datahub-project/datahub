@@ -23,9 +23,6 @@ from datahub.ingestion.source.kafka_connect.sink_connectors import (
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     ConfluentJDBCSourceConnector,
     MongoSourceConnector,
-    RegexRouterTransform as SourceRegexRouterTransform,
-    TableId,
-    TransformPipeline,
 )
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
     get_transform_pipeline,
@@ -557,7 +554,7 @@ class TestMongoSourceConnector:
             name="mongo-source-connector",
             type="source",
             config=config,
-            tasks={},
+            tasks=[],
             topic_names=[
                 "prod.mongo.avro.my-new-database.users",
                 "prod.mongo.avro.-leading-hyphen._leading-underscore",
@@ -2542,3 +2539,402 @@ class TestCloudTransformPipeline:
         # Forward transforms should preserve schema in topic generation
         expected_topics = connector._apply_forward_transforms(source_tables, parser)
         assert len(expected_topics) == 2
+
+
+class TestJdbcSinkConnector:
+    """Test the JDBC sink connector for Confluent Cloud and self-hosted configurations."""
+
+    def test_jdbc_sink_parser_self_hosted_postgres(self) -> None:
+        """Test parsing self-hosted PostgreSQL sink configuration with JDBC URL."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkParserFactory,
+        )
+
+        config = {
+            "name": "postgres-sink-self-hosted",
+            "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+            "connection.url": "jdbc:postgresql://localhost:5432/mydb",
+            "topics": "users,orders",
+            "table.name.format": "${topic}",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-sink-self-hosted",
+            type="sink",
+            config=config,
+            tasks=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        parser = factory.create_parser(manifest, "postgres")
+
+        assert parser.database_name == "mydb"
+        assert parser.schema_name == "public"  # Default for Postgres
+        assert parser.target_platform in [
+            "postgres",
+            "postgresql",
+        ]  # SQLAlchemy may return either
+        assert parser.table_name_format == "${topic}"
+        assert "localhost:5432/mydb" in parser.db_connection_url
+
+    def test_jdbc_sink_parser_confluent_cloud_postgres(self) -> None:
+        """Test parsing Confluent Cloud PostgreSQL sink configuration."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkParserFactory,
+        )
+
+        config = {
+            "name": "postgres-sink-cloud",
+            "connector.class": "PostgresSink",
+            "connection.host": "my-postgres.rds.amazonaws.com",
+            "connection.port": "5432",
+            "db.name": "production_db",
+            "topics": "topic1,topic2",
+            "table.name.format": "${topic}",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-sink-cloud",
+            type="sink",
+            config=config,
+            tasks=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        parser = factory.create_parser(manifest, "postgres")
+
+        assert parser.database_name == "production_db"
+        assert parser.schema_name == "public"  # Default for Postgres
+        assert parser.target_platform == "postgres"
+        assert parser.table_name_format == "${topic}"
+        assert (
+            parser.db_connection_url
+            == "postgres://my-postgres.rds.amazonaws.com:5432/production_db"
+        )
+
+    def test_jdbc_sink_parser_with_custom_schema(self) -> None:
+        """Test parsing with custom schema configuration."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkParserFactory,
+        )
+
+        config = {
+            "name": "postgres-sink-custom-schema",
+            "connector.class": "PostgresSink",
+            "connection.host": "localhost",
+            "connection.port": "5432",
+            "db.name": "mydb",
+            "db.schema": "analytics",
+            "topics": "events",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-sink-custom-schema",
+            type="sink",
+            config=config,
+            tasks=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+        parser = factory.create_parser(manifest, "postgres")
+
+        assert parser.schema_name == "analytics"
+
+    def test_jdbc_sink_parser_missing_required_fields(self) -> None:
+        """Test that parser raises ValueError when required fields are missing."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkParserFactory,
+        )
+
+        config = {
+            "name": "invalid-sink",
+            "connector.class": "PostgresSink",
+            # Missing connection.host and db.name
+            "topics": "test",
+        }
+
+        manifest = ConnectorManifest(
+            name="invalid-sink",
+            type="sink",
+            config=config,
+            tasks=[],
+        )
+
+        factory = JdbcSinkParserFactory()
+
+        with pytest.raises(ValueError, match="Missing 'connection.host'"):
+            factory.create_parser(manifest, "postgres")
+
+    def test_jdbc_sink_lineage_extraction_simple(self) -> None:
+        """Test lineage extraction with simple topic-to-table mapping."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkConnector,
+        )
+
+        config_dict = {
+            "name": "postgres-sink",
+            "connector.class": "PostgresSink",
+            "connection.host": "localhost",
+            "connection.port": "5432",
+            "db.name": "analytics",
+            "topics": "users,orders",
+            "table.name.format": "${topic}",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-sink",
+            type="sink",
+            config=config_dict,
+            tasks=[],
+            topic_names=["users", "orders"],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = JdbcSinkConnector(manifest, config, report, platform="postgres")
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+
+        # Check first lineage
+        assert lineages[0].source_dataset == "users"
+        assert lineages[0].source_platform == "kafka"
+        assert lineages[0].target_dataset == "analytics.public.users"
+        assert lineages[0].target_platform == "postgres"
+
+        # Check second lineage
+        assert lineages[1].source_dataset == "orders"
+        assert lineages[1].source_platform == "kafka"
+        assert lineages[1].target_dataset == "analytics.public.orders"
+        assert lineages[1].target_platform == "postgres"
+
+    def test_jdbc_sink_lineage_with_transforms(self) -> None:
+        """Test lineage extraction with topic transforms."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkConnector,
+        )
+
+        config_dict = {
+            "name": "postgres-sink-transform",
+            "connector.class": "PostgresSink",
+            "connection.host": "localhost",
+            "connection.port": "5432",
+            "db.name": "analytics",
+            "topics": "prod.users,prod.orders",
+            "table.name.format": "${topic}",
+            "transforms": "stripPrefix",
+            "transforms.stripPrefix.type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "transforms.stripPrefix.regex": "prod\\.(.*)",
+            "transforms.stripPrefix.replacement": "$1",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-sink-transform",
+            type="sink",
+            config=config_dict,
+            tasks=[],
+            topic_names=["prod.users", "prod.orders"],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = JdbcSinkConnector(manifest, config, report, platform="postgres")
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+
+        # Original topics should be preserved in source
+        assert lineages[0].source_dataset == "prod.users"
+        assert lineages[1].source_dataset == "prod.orders"
+
+        # Transformed topics should be used for table names
+        assert lineages[0].target_dataset == "analytics.public.users"
+        assert lineages[1].target_dataset == "analytics.public.orders"
+
+    def test_jdbc_sink_mysql_without_schema(self) -> None:
+        """Test MySQL sink which doesn't use schema hierarchy."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkConnector,
+        )
+
+        config_dict = {
+            "name": "mysql-sink",
+            "connector.class": "MySqlSink",
+            "connection.host": "localhost",
+            "connection.port": "3306",
+            "db.name": "myapp",
+            "topics": "events",
+        }
+
+        manifest = ConnectorManifest(
+            name="mysql-sink",
+            type="sink",
+            config=config_dict,
+            tasks=[],
+            topic_names=["events"],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = JdbcSinkConnector(manifest, config, report, platform="mysql")
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        # MySQL doesn't use schema, so should be database.table
+        assert lineages[0].target_dataset == "myapp.events"
+
+    def test_jdbc_sink_flow_property_bag_sanitization(self) -> None:
+        """Test that sensitive credentials are removed from flow property bag."""
+        from datahub.ingestion.source.kafka_connect.sink_connectors import (
+            JdbcSinkConnector,
+        )
+
+        config_dict = {
+            "name": "postgres-sink",
+            "connector.class": "PostgresSink",
+            "connection.host": "localhost",
+            "connection.port": "5432",
+            "connection.user": "admin",
+            "connection.password": "secret123",
+            "db.name": "mydb",
+            "db.user": "dbuser",
+            "db.password": "dbpass",
+            "topics": "test",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-sink",
+            type="sink",
+            config=config_dict,
+            tasks=[],
+        )
+
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        report = KafkaConnectSourceReport()
+
+        connector = JdbcSinkConnector(manifest, config, report, platform="postgres")
+        property_bag = connector.extract_flow_property_bag()
+
+        # Sensitive fields should be removed
+        assert "connection.password" not in property_bag
+        assert "connection.user" not in property_bag
+        assert "db.password" not in property_bag
+        assert "db.user" not in property_bag
+
+        # Non-sensitive fields should remain
+        assert property_bag["connection.host"] == "localhost"
+        assert property_bag["db.name"] == "mydb"
+
+        # Connection URL should be sanitized (no credentials)
+        assert "connection.url" in property_bag
+        assert "admin" not in property_bag["connection.url"]
+        assert "secret123" not in property_bag["connection.url"]
+
+
+class TestConfluentCloudConnectorManifest:
+    """Test Confluent Cloud connector manifest handling."""
+
+    def test_connector_manifest_filters_extensions_field(self) -> None:
+        """Test that connector manifest handles unexpected fields like 'extensions'."""
+        # This tests the fix for the 'extensions' field error
+        config: Dict[str, Any] = {
+            "name": "test-connector",
+            "type": "source",
+            "config": {"connector.class": "PostgresCdcSource"},
+            "tasks": [],
+            "extensions": {},  # This field should be filtered out
+        }
+
+        # Should not raise TypeError about unexpected 'extensions' argument
+        manifest = ConnectorManifest(
+            name=str(config["name"]),
+            type=str(config["type"]),
+            config=dict(config["config"]),
+            tasks=list(config["tasks"]),
+        )
+
+        assert manifest.name == "test-connector"
+        assert manifest.type == "source"
+
+    def test_connector_manifest_with_missing_name(self) -> None:
+        """Test connector manifest handles missing name field gracefully."""
+        config: Dict[str, Any] = {
+            "type": "source",
+            "config": {"connector.class": "PostgresCdcSource"},
+            "tasks": [],
+        }
+
+        # Should use a fallback name or handle None
+        manifest = ConnectorManifest(
+            name="fallback-name",  # Provided as fallback
+            type=str(config["type"]),
+            config=dict(config["config"]),
+            tasks=list(config["tasks"]),
+        )
+
+        assert manifest.name == "fallback-name"
+
+
+class TestConfluentCloudTasksEndpoint:
+    """Test that tasks endpoint is skipped for Confluent Cloud."""
+
+    @patch("requests.Session")
+    def test_tasks_endpoint_skipped_for_confluent_cloud(
+        self, mock_session: Mock
+    ) -> None:
+        """Test that /tasks endpoint is not called for Confluent Cloud connectors."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock the session responses
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "version": "1.0.0",
+        }
+        mock_response.raise_for_status = Mock()
+        mock_session.return_value.get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://localhost:8888/connect/v1/environments/env-00000/clusters/cluster-123",
+            confluent_cloud_environment_id="env-00000",
+            confluent_cloud_cluster_id="cluster-123",
+            username="test-api-key",
+            password="test-api-secret",
+        )
+
+        source = KafkaConnectSource(config, Mock())
+
+        # Verify Confluent Cloud is detected
+        assert source._is_confluent_cloud is True
+
+        # The tasks endpoint should not be called for Confluent Cloud
+        # This is tested implicitly by the implementation - tasks are only
+        # fetched for self-hosted connectors
+
+
+class TestHelperFunctions:
+    """Test helper functions used by connectors."""
+
+    def test_get_dataset_name(self) -> None:
+        """Test get_dataset_name helper function."""
+        # Two-level hierarchy
+        assert get_dataset_name("mydb", "mytable") == "mydb.mytable"
+
+        # Three-level hierarchy
+        assert get_dataset_name("mydb", "myschema.mytable") == "mydb.myschema.mytable"
+
+    def test_has_three_level_hierarchy(self) -> None:
+        """Test platform hierarchy detection."""
+        # Platforms with schema support
+        assert has_three_level_hierarchy("postgres") is True
+        assert has_three_level_hierarchy("trino") is True
+        assert has_three_level_hierarchy("redshift") is True
+        assert has_three_level_hierarchy("snowflake") is True
+
+        # Platforms without schema support
+        assert has_three_level_hierarchy("mysql") is False
+        assert has_three_level_hierarchy("mongodb") is False

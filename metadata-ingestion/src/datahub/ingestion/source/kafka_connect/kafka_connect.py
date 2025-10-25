@@ -89,7 +89,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     "Confluent Cloud requires authentication credentials for API access."
                 )
 
-        effective_uri = self.config.get_effective_connect_uri()
+        effective_uri = self.config.connect_uri
         test_response = self.session.get(f"{effective_uri}/connectors")
         test_response.raise_for_status()
         logger.info(f"Connection to {self.config.connect_uri} is ok")
@@ -119,7 +119,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
     def get_connectors_manifest(self) -> Iterable[ConnectorManifest]:
         """Get Kafka Connect connectors manifest using REST API."""
-        effective_uri = self.config.get_effective_connect_uri()
+        effective_uri = self.config.connect_uri
         connector_response = self.session.get(
             f"{effective_uri}/connectors",
         )
@@ -148,7 +148,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             )
 
             # Add tasks for source connectors
-            if connector_manifest.type == SOURCE:
+            # Skip for Confluent Cloud as the /tasks endpoint is not available in Connect v1 API
+            if connector_manifest.type == SOURCE and not self._is_confluent_cloud:
                 connector_manifest.tasks = self._get_connector_tasks(connector_name)
 
             # Extract lineages for this connector
@@ -178,6 +179,15 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 connector_manifest.lineages = lineages
                 connector_manifest.flow_property_bag = flow_property_bag or {}
             else:
+                # Debug logging to help understand why lineage extraction failed
+                connector_class = connector_manifest.config.get(
+                    CONNECTOR_CLASS, "unknown"
+                )
+                config_keys = list(connector_manifest.config.keys())
+                logger.debug(
+                    f"No lineages extracted for connector {connector_manifest.name} "
+                    f"(class: {connector_class}, config keys: {config_keys})"
+                )
                 # Handle unsupported connectors
                 self._handle_unsupported_connector(connector_manifest)
 
@@ -239,12 +249,59 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             )
             return None
         manifest = connector_response.json()
-        connector_manifest = ConnectorManifest(**manifest)
+
+        # Filter the manifest to only include fields expected by ConnectorManifest
+        # This handles API responses that may contain additional fields (e.g., 'extensions' in Confluent Cloud)
+        # Some APIs may have nested structure - try to extract the actual connector info
+
+        # Check if this is a nested response structure (e.g., {"info": {...}})
+        if "info" in manifest and isinstance(manifest["info"], dict):
+            manifest = manifest["info"]
+
+        # Validate required fields exist and are of correct type
+        name = manifest.get("name")
+        if not name or not isinstance(name, str):
+            # Fallback to connector_name if name is missing or invalid
+            logger.debug(
+                f"Using fallback name '{connector_name}' for connector with invalid/missing name field"
+            )
+            name = connector_name
+
+        connector_type = manifest.get("type")
+        if not connector_type or not isinstance(connector_type, str):
+            self.report.warning(
+                "Connector manifest missing or has invalid 'type' field",
+                context=f"{connector_name} (manifest keys: {list(manifest.keys())})",
+            )
+            return None
+
+        config = manifest.get("config", {})
+        if not isinstance(config, dict):
+            logger.warning(
+                f"Connector {connector_name} has invalid 'config' field, using empty dict"
+            )
+            config = {}
+
+        tasks = manifest.get("tasks", [])
+        if not isinstance(tasks, list):
+            logger.warning(
+                f"Connector {connector_name} has invalid 'tasks' field, using empty list"
+            )
+            tasks = []
+
+        filtered_manifest = {
+            "name": name,
+            "type": connector_type,
+            "config": config,
+            "tasks": tasks,
+        }
+
+        connector_manifest = ConnectorManifest(**filtered_manifest)
         return connector_manifest
 
     def _get_connector_tasks(self, connector_name: str) -> List[Dict[str, dict]]:
         try:
-            effective_uri = self.config.get_effective_connect_uri()
+            effective_uri = self.config.connect_uri
             response = self.session.get(
                 f"{effective_uri}/connectors/{connector_name}/tasks",
             )
@@ -336,7 +393,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
     def _get_topics_self_hosted(self, connector_name: str) -> List[str]:
         """Get topics using the original runtime /topics API (self-hosted only)."""
         try:
-            effective_uri = self.config.get_effective_connect_uri()
+            effective_uri = self.config.connect_uri
             response = self.session.get(
                 f"{effective_uri}/connectors/{connector_name}/topics"
             )
@@ -543,7 +600,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
     def _get_connector_names_for_endpoint_discovery(self) -> List[str]:
         """Get list of connector names for endpoint discovery."""
-        effective_uri = self.config.get_effective_connect_uri()
+        effective_uri = self.config.connect_uri
         response = self.session.get(f"{effective_uri}/connectors")
         response.raise_for_status()
         return response.json()
@@ -566,7 +623,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
     ) -> Optional[str]:
         """Extract Kafka endpoint from a single connector configuration."""
         try:
-            effective_uri = self.config.get_effective_connect_uri()
+            effective_uri = self.config.connect_uri
             connector_response = self.session.get(
                 f"{effective_uri}/connectors/{connector_name}"
             )

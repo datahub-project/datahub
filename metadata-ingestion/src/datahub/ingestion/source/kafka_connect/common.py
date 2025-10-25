@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, Final, List, Optional
 
+from pydantic import root_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, LaxStr
@@ -231,12 +232,48 @@ class KafkaConnectSourceConfig(
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
+    @root_validator(pre=True)
+    def auto_construct_connect_uri(cls, values: Dict) -> Dict:
+        """
+        Auto-construct connect_uri from Confluent Cloud environment and cluster IDs.
+
+        If both confluent_cloud_environment_id and confluent_cloud_cluster_id are provided,
+        and connect_uri is not explicitly set or is the default value, automatically
+        construct the Confluent Cloud Connect URI.
+        """
+        env_id = values.get("confluent_cloud_environment_id")
+        cluster_id = values.get("confluent_cloud_cluster_id")
+        connect_uri = values.get("connect_uri")
+
+        # Auto-construct if both IDs provided and URI is default or not set
+        if (
+            env_id
+            and cluster_id
+            and (not connect_uri or connect_uri == DEFAULT_CONNECT_URI)
+        ):
+            values["connect_uri"] = (
+                f"https://api.confluent.cloud/connect/v1/"
+                f"environments/{env_id}/"
+                f"clusters/{cluster_id}"
+            )
+            logger.info(
+                f"Auto-constructed Confluent Cloud Connect URI from environment '{env_id}' "
+                f"and cluster '{cluster_id}'"
+            )
+
+        return values
+
     def get_connect_credentials(self) -> tuple[Optional[str], Optional[str]]:
         """Get the appropriate credentials for Connect API access."""
         return self.username, self.password
 
     def get_kafka_credentials(self) -> tuple[Optional[str], Optional[str]]:
-        """Get the appropriate credentials for Kafka REST API access."""
+        """
+        Get the appropriate credentials for Kafka REST API access.
+
+        If dedicated Kafka API credentials are provided, use those.
+        Otherwise, fall back to reusing Connect credentials.
+        """
         if self.kafka_api_key and self.kafka_api_secret:
             return self.kafka_api_key, self.kafka_api_secret
         # Fall back to Connect credentials (username/password)
@@ -262,21 +299,14 @@ class KafkaConnectSourceConfig(
 
     def get_effective_connect_uri(self) -> str:
         """
-        Get the effective Connect URI, constructing from Confluent Cloud IDs if provided.
+        Get the effective Connect URI.
+
+        Note: With the auto_construct_connect_uri validator, this now simply returns
+        connect_uri as it's already been auto-constructed if needed during validation.
 
         Returns:
             The URI to use for connecting to Kafka Connect
         """
-        # Auto-construct URI if both Confluent Cloud IDs are provided and using default URI
-        if (
-            self.confluent_cloud_environment_id
-            and self.confluent_cloud_cluster_id
-            and self.connect_uri == DEFAULT_CONNECT_URI
-        ):
-            return self.construct_confluent_cloud_uri(
-                self.confluent_cloud_environment_id, self.confluent_cloud_cluster_id
-            )
-
         return self.connect_uri
 
 

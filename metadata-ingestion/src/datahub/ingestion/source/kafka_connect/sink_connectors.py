@@ -3,16 +3,27 @@ import re
 from dataclasses import dataclass
 from typing import Dict, Final, Iterable, List, Optional, Tuple
 
+from sqlalchemy.engine.url import URL, make_url
+
 from datahub.ingestion.source.kafka_connect.common import (
     KAFKA,
     BaseConnector,
     ConnectorConfigKeys,
     ConnectorManifest,
     KafkaConnectLineage,
+    KafkaConnectSourceConfig,
+    KafkaConnectSourceReport,
+    get_dataset_name,
+    has_three_level_hierarchy,
     parse_comma_separated_list,
+    remove_prefix,
+    validate_jdbc_url,
 )
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
     get_transform_pipeline,
+)
+from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
+    get_platform_from_sqlalchemy_uri,
 )
 
 logger = logging.getLogger(__name__)
@@ -510,6 +521,442 @@ class BigQuerySinkConnector(BaseConnector):
                 )
             )
         return lineages
+
+
+@dataclass
+class JdbcSinkParser:
+    """
+    Data transfer object for JDBC sink connector configuration.
+
+    Mirrors the pattern used in source connectors for consistency.
+    """
+
+    db_connection_url: str
+    target_platform: str
+    database_name: str
+    schema_name: Optional[str]
+    table_name_format: str
+
+
+class JdbcSinkParserFactory:
+    """
+    Factory for creating JDBC sink parsers based on configuration type.
+
+    Supports two configuration styles:
+    1. Self-hosted JDBC connectors: Use 'connection.url' with full JDBC URL
+    2. Confluent Cloud managed connectors: Use 'connection.host', 'connection.port', 'db.name'
+    """
+
+    def create_parser(
+        self, connector_manifest: ConnectorManifest, platform: str
+    ) -> JdbcSinkParser:
+        """
+        Main factory method - creates parser from connector configuration.
+
+        Detects configuration style and delegates to appropriate parser method.
+
+        Args:
+            connector_manifest: The connector manifest with configuration
+            platform: Target platform ('postgres', 'mysql', etc.)
+
+        Returns:
+            JdbcSinkParser with parsed configuration
+
+        Raises:
+            ValueError: If required configuration is missing or invalid
+        """
+        config = connector_manifest.config
+
+        # Check which configuration style is being used
+        connection_url = config.get("connection.url", "")
+
+        if connection_url and validate_jdbc_url(connection_url):
+            # Self-hosted style: Parse JDBC URL
+            return self._create_parser_from_url(
+                connector_manifest, platform, connection_url
+            )
+        else:
+            # Confluent Cloud style: Build from separate fields
+            return self._create_parser_from_fields(connector_manifest, platform)
+
+    def _create_parser_from_url(
+        self,
+        connector_manifest: ConnectorManifest,
+        platform: str,
+        connection_url: str,
+    ) -> JdbcSinkParser:
+        """
+        Create parser from self-hosted JDBC connector configuration.
+
+        Uses connection.url field with full JDBC URL.
+
+        Args:
+            connector_manifest: The connector manifest
+            platform: Target platform
+            connection_url: Full JDBC URL
+
+        Returns:
+            JdbcSinkParser with parsed configuration
+        """
+        # Parse JDBC URL using SQLAlchemy
+        jdbc_url = remove_prefix(connection_url, "jdbc:")
+        url_instance = make_url(jdbc_url)
+
+        # Extract database name
+        database_name = url_instance.database
+        if not database_name:
+            raise ValueError(
+                f"Missing database name in JDBC URL: {jdbc_url}. "
+                f"JDBC URLs must include a database name, e.g., 'jdbc:postgresql://host:port/database_name'"
+            )
+
+        # Get target platform from SQLAlchemy URL
+        target_platform = get_platform_from_sqlalchemy_uri(str(url_instance))
+
+        # Extract schema from URL query parameters or use defaults
+        schema_name = self._extract_schema_from_url(
+            url_instance, platform, connector_manifest.config
+        )
+
+        # Build clean connection URL for property bag
+        db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{database_name}"
+
+        # Get table name format (how topics map to tables)
+        table_name_format = connector_manifest.config.get(
+            "table.name.format", "${topic}"
+        )
+
+        return JdbcSinkParser(
+            db_connection_url=db_connection_url,
+            target_platform=target_platform,
+            database_name=database_name,
+            schema_name=schema_name,
+            table_name_format=table_name_format,
+        )
+
+    def _create_parser_from_fields(
+        self, connector_manifest: ConnectorManifest, platform: str
+    ) -> JdbcSinkParser:
+        """
+        Create parser from Confluent Cloud managed connector configuration.
+
+        Uses separate fields: connection.host, connection.port, db.name
+
+        Args:
+            connector_manifest: The connector manifest
+            platform: Target platform ('postgres', 'mysql', etc.)
+
+        Returns:
+            JdbcSinkParser with parsed configuration
+
+        Raises:
+            ValueError: If required fields are missing
+        """
+        config = connector_manifest.config
+
+        # Extract connection details from separate fields
+        host = config.get("connection.host")
+        port = config.get("connection.port", "5432")  # Default Postgres port
+        database_name = config.get("db.name")
+
+        if not host:
+            raise ValueError(
+                f"Missing 'connection.host' in Confluent Cloud connector {connector_manifest.name}"
+            )
+
+        if not database_name:
+            raise ValueError(
+                f"Missing 'db.name' in Confluent Cloud connector {connector_manifest.name}"
+            )
+
+        # Build a clean connection URL (without credentials)
+        db_connection_url = f"{platform}://{host}:{port}/{database_name}"
+
+        # Use platform parameter as target platform
+        target_platform = platform
+
+        # Extract schema from config or use defaults
+        schema_name = config.get("db.schema") or config.get("schema.name")
+
+        # Use platform-specific defaults if not specified
+        if not schema_name and has_three_level_hierarchy(platform):
+            if platform == "postgres":
+                schema_name = "public"  # PostgreSQL default schema
+
+        # Get table name format (how topics map to tables)
+        table_name_format = config.get("table.name.format", "${topic}")
+
+        return JdbcSinkParser(
+            db_connection_url=db_connection_url,
+            target_platform=target_platform,
+            database_name=database_name,
+            schema_name=schema_name,
+            table_name_format=table_name_format,
+        )
+
+    def _extract_schema_from_url(
+        self,
+        url_instance: URL,
+        platform: str,
+        config: Dict[str, str],
+    ) -> Optional[str]:
+        """
+        Extract schema name from JDBC URL query parameters or config.
+
+        Args:
+            url_instance: SQLAlchemy URL instance
+            platform: Database platform ('postgres', 'mysql', etc.)
+            config: Full connector configuration
+
+        Returns:
+            Schema name or None if not applicable
+        """
+        schema = None
+
+        # Try to get schema from query parameters (Postgres-specific)
+        if url_instance.query:
+            # Check for currentSchema or schema parameters
+            # url_instance.query.get() can return str or Sequence[str], so we need to handle both
+            if "currentSchema" in url_instance.query:
+                schema_value = url_instance.query.get("currentSchema")
+                if schema_value:
+                    schema = (
+                        schema_value[0]
+                        if isinstance(schema_value, (list, tuple))
+                        else str(schema_value)
+                    )
+            elif "schema" in url_instance.query:
+                schema_value = url_instance.query.get("schema")
+                if schema_value:
+                    schema = (
+                        schema_value[0]
+                        if isinstance(schema_value, (list, tuple))
+                        else str(schema_value)
+                    )
+
+        # Fallback: Check explicit config fields
+        if not schema:
+            schema = config.get("schema.name") or config.get("db.schema")
+
+        # Use platform-specific defaults
+        if not schema and has_three_level_hierarchy(platform):
+            if platform == "postgres":
+                schema = "public"  # PostgreSQL default schema
+            # MySQL doesn't use schemas (database == schema)
+            # SQL Server, Oracle use user-specific defaults
+
+        return schema
+
+
+@dataclass
+class JdbcSinkConnector(BaseConnector):
+    """
+    Generic JDBC sink connector for Confluent Cloud managed JDBC sinks.
+
+    Supports PostgresSink and MySqlSink connectors that write Kafka topics
+    to database tables.
+
+    This implementation follows the patterns established in source connectors:
+    - Uses dedicated parser classes for configuration
+    - Leverages SQLAlchemy for JDBC URL parsing
+    - Utilizes common utility functions for consistency
+    """
+
+    platform: str = "postgres"  # Default platform, overridden in __init__
+
+    def __init__(
+        self,
+        manifest: ConnectorManifest,
+        config: KafkaConnectSourceConfig,
+        report: KafkaConnectSourceReport,
+        platform: str = "postgres",
+    ):
+        super().__init__(manifest, config, report)
+        self.platform = platform
+        self._parser_factory = JdbcSinkParserFactory()
+
+    def get_parser(self) -> JdbcSinkParser:
+        """
+        Get parser for this connector using the factory.
+
+        Returns:
+            JdbcSinkParser with parsed configuration
+
+        Raises:
+            ValueError: If configuration is invalid
+        """
+        return self._parser_factory.create_parser(
+            self.connector_manifest, self.platform
+        )
+
+    def get_table_name_from_topic(self, topic: str, table_format: str) -> str:
+        """
+        Extract table name from topic using connector configuration.
+
+        Uses the table.name.format config or defaults to topic name.
+        Common format: "${topic}" means table name = topic name
+
+        Args:
+            topic: The Kafka topic name
+            table_format: Table name format from configuration
+
+        Returns:
+            Table name derived from topic
+        """
+        # Replace ${topic} placeholder with actual topic name
+        if "${topic}" in table_format:
+            return table_format.replace("${topic}", topic)
+
+        # If no ${topic} placeholder, assume format IS the table name
+        return table_format
+
+    def get_topics_from_config(self) -> List[str]:
+        """Extract topics from JDBC sink connector configuration."""
+        config = self.connector_manifest.config
+
+        # JDBC sink connectors use 'topics' field
+        topics = config.get(ConnectorConfigKeys.TOPICS, "")
+        if topics:
+            return parse_comma_separated_list(topics)
+
+        return []
+
+    def extract_flow_property_bag(self) -> Dict[str, str]:
+        """
+        Remove sensitive credentials from property bag.
+
+        Uses the parser to get a sanitized connection URL without credentials.
+        """
+        try:
+            parser = self.get_parser()
+
+            # Remove sensitive fields and use sanitized URL
+            flow_property_bag: Dict[str, str] = {
+                k: v
+                for k, v in self.connector_manifest.config.items()
+                if k
+                not in [
+                    "connection.password",
+                    "connection.user",
+                    "db.password",
+                    "db.user",
+                ]
+            }
+
+            # Replace connection URL with sanitized version
+            flow_property_bag["connection.url"] = parser.db_connection_url
+
+            return flow_property_bag
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to parse JDBC sink connector config for {self.connector_manifest.name}: {e}"
+            )
+            # Fallback to basic filtering without URL sanitization
+            return {
+                k: v
+                for k, v in self.connector_manifest.config.items()
+                if k
+                not in [
+                    "connection.password",
+                    "connection.user",
+                    "db.password",
+                    "db.user",
+                    "connection.url",  # Remove URL entirely if we can't parse it
+                ]
+            }
+
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        """
+        Extract lineage from Kafka topics to database tables.
+
+        Creates lineage for each topic: Kafka topic → Database table
+        Uses the parser for configuration and helper functions for consistency.
+
+        Returns:
+            List of lineage mappings
+        """
+        lineages: List[KafkaConnectLineage] = []
+
+        try:
+            # Parse configuration using factory
+            parser = self.get_parser()
+
+            logger.debug(
+                f"Extracting lineages for JDBC sink: platform={parser.target_platform}, "
+                f"database={parser.database_name}, schema={parser.schema_name}"
+            )
+
+            # Apply transforms to topics
+            topic_list = list(self.connector_manifest.topic_names)
+            transform_result = get_transform_pipeline().apply_forward(
+                topic_list, self.connector_manifest.config
+            )
+            transformed_topics = transform_result.topics
+
+            # Log any warnings from transform processing
+            for warning in transform_result.warnings:
+                self.report.warning(
+                    f"Transform warning for {self.connector_manifest.name}: {warning}"
+                )
+
+            if transform_result.fallback_used:
+                self.report.info(
+                    f"Complex transforms detected in {self.connector_manifest.name}. "
+                    f"Consider using 'generic_connectors' config for explicit mappings."
+                )
+
+            # Create lineage for each topic
+            for original_topic, transformed_topic in zip(
+                topic_list, transformed_topics
+            ):
+                # Get table name using format from config
+                table_name = self.get_table_name_from_topic(
+                    transformed_topic, parser.table_name_format
+                )
+
+                # Build fully qualified dataset name using helper function
+                if parser.schema_name and has_three_level_hierarchy(
+                    parser.target_platform
+                ):
+                    # Platform supports schema hierarchy: database.schema.table
+                    table_with_schema = f"{parser.schema_name}.{table_name}"
+                    target_dataset = get_dataset_name(
+                        parser.database_name, table_with_schema
+                    )
+                else:
+                    # Platform doesn't use schemas: database.table
+                    target_dataset = get_dataset_name(parser.database_name, table_name)
+
+                lineages.append(
+                    KafkaConnectLineage(
+                        source_dataset=original_topic,
+                        source_platform=KAFKA,
+                        target_dataset=target_dataset,
+                        target_platform=parser.target_platform,
+                    )
+                )
+
+            logger.debug(
+                f"Extracted {len(lineages)} lineages for JDBC sink connector {self.connector_manifest.name}"
+            )
+
+            return lineages
+
+        except ValueError as e:
+            self.report.warning(
+                f"Configuration error in JDBC sink connector {self.connector_manifest.name}",
+                self.connector_manifest.name,
+                exc=e,
+            )
+            return []
+        except Exception as e:
+            self.report.warning(
+                f"Failed to extract lineage for JDBC sink connector {self.connector_manifest.name}",
+                self.connector_manifest.name,
+                exc=e,
+            )
+            return []
 
 
 BIGQUERY_SINK_CONNECTOR_CLASS: Final[str] = (
