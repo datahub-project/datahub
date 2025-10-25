@@ -173,11 +173,11 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             # Determine connector implementation class using clean mapping approach
             if connector_manifest.type == SOURCE:
                 connector_manifest.tasks = self._get_connector_tasks(connector_name)
-                class_type = self._get_source_connector_class(
+                source_class_type = self._get_source_connector_class(
                     connector_class_value, connector_manifest
                 )
 
-                if class_type is None:
+                if source_class_type is None:
                     self.report.report_dropped(connector_manifest.name)
                     self.report.warning(
                         "Lineage for Source Connector not supported. "
@@ -186,16 +186,20 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     )
                     continue
 
-            elif connector_manifest.type == SINK:
-                class_type = self._get_sink_connector_class(connector_class_value)
+                class_type = source_class_type
 
-                if class_type is None:
+            elif connector_manifest.type == SINK:
+                sink_class_type = self._get_sink_connector_class(connector_class_value)
+
+                if sink_class_type is None:
                     self.report.report_dropped(connector_manifest.name)
                     self.report.warning(
                         "Lineage for Sink Connector not supported.",
                         context=f"{connector_manifest.name} of type {connector_class_value}",
                     )
                     continue
+
+                class_type = sink_class_type
 
             connector_class = class_type(connector_manifest, self.config, self.report)
             connector_manifest.lineages = connector_class.extract_lineages()
