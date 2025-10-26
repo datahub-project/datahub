@@ -5,6 +5,7 @@
 DataHub's Kafka Connect source automatically detects your environment (self-hosted vs Confluent Cloud) and uses the appropriate topic discovery strategy:
 
 #### Self-hosted Kafka Connect
+
 Uses the runtime `/connectors/{name}/topics` API endpoint for accurate, real-time topic information:
 
 ```yml
@@ -16,50 +17,54 @@ source:
     # use_connect_topics_api: true  # Default - enables runtime topic discovery
 ```
 
-#### Confluent Cloud  
+#### Confluent Cloud
+
 Uses comprehensive transform pipeline support with Kafka REST API v3 topic validation and config-based fallback:
 
 **Recommended approach using environment and cluster IDs:**
+
 ```yml
 source:
   type: kafka-connect
   config:
     # Auto-construct URI from environment and cluster IDs (recommended)
-    confluent_cloud_environment_id: "env-xyz123"   # Your Confluent Cloud environment ID
-    confluent_cloud_cluster_id: "lkc-abc456"       # Your Kafka Connect cluster ID
-    
+    confluent_cloud_environment_id: "env-xyz123" # Your Confluent Cloud environment ID
+    confluent_cloud_cluster_id: "lkc-abc456" # Your Kafka Connect cluster ID
+
     # Standard credentials for Kafka Connect API
-    username: "your-connect-api-key"        # API key for Kafka Connect access
-    password: "your-connect-api-secret"     # API secret for Kafka Connect access
-    
+    username: "your-connect-api-key" # API key for Kafka Connect access
+    password: "your-connect-api-secret" # API secret for Kafka Connect access
+
     # Optional: Separate credentials for Kafka REST API (if different from Connect API)
-    kafka_api_key: "your-kafka-api-key"            # API key for Kafka REST API access  
-    kafka_api_secret: "your-kafka-api-secret"      # API secret for Kafka REST API access
-    
-    # Optional: Dedicated Kafka REST endpoint for comprehensive topic retrieval  
+    kafka_api_key: "your-kafka-api-key" # API key for Kafka REST API access
+    kafka_api_secret: "your-kafka-api-secret" # API secret for Kafka REST API access
+
+    # Optional: Dedicated Kafka REST endpoint for comprehensive topic retrieval
     kafka_rest_endpoint: "https://pkc-xxxxx.region.provider.confluent.cloud"
-    
+
     # use_connect_topics_api: true  # Default - enables comprehensive topic retrieval
 ```
 
 **Alternative approach using full URI (legacy):**
+
 ```yml
 source:
   type: kafka-connect
   config:
     # Confluent Cloud Connect URI - automatically detected
     connect_uri: "https://api.confluent.cloud/connect/v1/environments/env-123/clusters/lkc-abc456"
-    username: "your-connect-api-key"         # API key for Kafka Connect
-    password: "your-connect-api-secret"      # API secret for Kafka Connect
-    kafka_api_key: "your-kafka-api-key"     # API key for Kafka REST API (if different)
+    username: "your-connect-api-key" # API key for Kafka Connect
+    password: "your-connect-api-secret" # API secret for Kafka Connect
+    kafka_api_key: "your-kafka-api-key" # API key for Kafka REST API (if different)
     kafka_api_secret: "your-kafka-api-secret" # API secret for Kafka REST API (if different)
-    
-    # Optional: Dedicated Kafka REST endpoint for comprehensive topic retrieval  
+
+    # Optional: Dedicated Kafka REST endpoint for comprehensive topic retrieval
     kafka_rest_endpoint: "https://pkc-xxxxx.region.provider.confluent.cloud"
 ```
 
 **Enhanced Transform Pipeline Support:**
 DataHub now provides comprehensive transform pipeline support for Confluent Cloud by:
+
 1. **Extracting source tables** from Cloud connector configuration (`table.include.list`, `query` modes)
 2. **Applying forward transforms** to predict expected topic names (RegexRouter, etc.)
 3. **Validating against cluster topics** using Kafka REST API v3 for accuracy
@@ -68,12 +73,14 @@ DataHub now provides comprehensive transform pipeline support for Confluent Clou
 6. **Graceful fallback** to config-based derivation if transforms fail
 
 **Key Benefits**:
+
 - **90-95% accuracy** for Cloud connectors with transforms (significant improvement over previous config-only approach)
-- **Full RegexRouter support** with Java regex compatibility 
+- **Full RegexRouter support** with Java regex compatibility
 - **Complex transform chains** handled correctly
 - **Schema preservation** maintains full table names with schema information
 
 **Configuration Options:**
+
 - **Environment/Cluster IDs (recommended)**: Use `confluent_cloud_environment_id` and `confluent_cloud_cluster_id` for automatic URI construction
 - **Auto-derivation**: DataHub finds Kafka REST endpoint automatically from connector configs
 - **Manual endpoint**: Specify `kafka_rest_endpoint` if auto-derivation doesn't work
@@ -81,6 +88,7 @@ DataHub now provides comprehensive transform pipeline support for Confluent Clou
 - **Legacy credentials**: Use `username`/`password` for Connect API (falls back for Kafka API if separate credentials not provided)
 
 #### Air-gapped or Performance-Optimized Environments
+
 Disable topic discovery entirely for environments where API access is not available or not needed:
 
 ```yml
@@ -88,7 +96,7 @@ source:
   type: kafka-connect
   config:
     connect_uri: "http://localhost:8083"
-    use_connect_topics_api: false  # Disables all topic discovery API calls
+    use_connect_topics_api: false # Disables all topic discovery API calls
 ```
 
 **Note**: When `use_connect_topics_api` is `false`, topic information will not be extracted, which may impact lineage accuracy but improves performance and works in air-gapped environments.
@@ -175,6 +183,7 @@ provided_configs:
 **Solutions**:
 
 1. **Verify Environment Detection**:
+
    ```bash
    # Check logs for environment detection messages
    # Self-hosted: "Detected self-hosted Kafka Connect - using runtime topics API"
@@ -182,10 +191,11 @@ provided_configs:
    ```
 
 2. **Test API Connectivity**:
+
    ```bash
    # For self-hosted - test topics API
    curl -X GET "http://localhost:8083/connectors/{connector-name}/topics"
-   
+
    # For Confluent Cloud - test Kafka REST API v3
    curl -X GET "https://pkc-xxxxx.region.provider.confluent.cloud/kafka/v3/clusters/{cluster-id}/topics"
    ```
@@ -197,17 +207,19 @@ provided_configs:
      type: kafka-connect
      config:
        # ... other config ...
-       use_connect_topics_api: true  # Ensure this is enabled (default)
+       use_connect_topics_api: true # Ensure this is enabled (default)
    ```
 
 ### Environment-Specific Issues
 
 **Self-hosted Issues**:
+
 - **403/401 errors**: Check authentication credentials (`username`, `password`)
 - **404 errors**: Verify Kafka Connect cluster is running and REST API is accessible
 - **Empty topic lists**: Check if connectors are actually running and processing data
 
 **Confluent Cloud Issues**:
+
 - **Missing topics**: Verify connector configuration has proper source table fields (`table.include.list`, `query`)
 - **Transform accuracy**: Check that RegexRouter patterns in connector config are valid Java regex
 - **Complex transforms**: Now fully supported via forward transform pipeline with topic validation
@@ -219,8 +231,8 @@ If topic discovery is impacting performance:
 
 ```yml
 source:
-  type: kafka-connect  
+  type: kafka-connect
   config:
     connect_uri: "http://localhost:8083"
-    use_connect_topics_api: false  # Disable for better performance (no topic info)
+    use_connect_topics_api: false # Disable for better performance (no topic info)
 ```
