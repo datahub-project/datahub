@@ -175,9 +175,10 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                         self.config, self.report
                     )
 
-            # Always set flow_property_bag regardless of lineages
+            # Set flow_property_bag if it has content, regardless of lineages
             # The connector configuration is valuable metadata even without lineage
-            connector_manifest.flow_property_bag = flow_property_bag or {}
+            if flow_property_bag:
+                connector_manifest.flow_property_bag = flow_property_bag
 
             if lineages:
                 connector_manifest.lineages = lineages
@@ -904,9 +905,16 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         for connector in self.get_connectors_manifest():
-            yield self.construct_flow_workunit(connector)
-            yield from self.construct_job_workunits(connector)
-            self.report.report_connector_scanned(connector.name)
+            # Only emit workunits for connectors that have lineages or customProperties
+            # Skip unsupported connectors that provide no metadata value
+            if connector.lineages or connector.flow_property_bag:
+                yield self.construct_flow_workunit(connector)
+                yield from self.construct_job_workunits(connector)
+                self.report.report_connector_scanned(connector.name)
+            else:
+                logger.debug(
+                    f"Skipping connector {connector.name} - no lineages or customProperties"
+                )
 
     def get_report(self) -> KafkaConnectSourceReport:
         return self.report

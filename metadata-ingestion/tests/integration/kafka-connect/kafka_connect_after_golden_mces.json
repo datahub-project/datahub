@@ -21,7 +21,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test"
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -40,7 +41,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test"
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -60,7 +62,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test"
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -79,7 +82,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test"
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -99,7 +103,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test"
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -118,7 +123,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test"
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -138,7 +144,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test"
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -153,7 +160,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test"
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -168,7 +176,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test"
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -183,7 +192,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test"
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -198,7 +208,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test"
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -213,7 +224,25 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test"
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.my-new-topic-book)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "kafka-connect-stateful"
     }
 },
 {
@@ -228,22 +257,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.book)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": true
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test"
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -258,7 +273,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test"
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

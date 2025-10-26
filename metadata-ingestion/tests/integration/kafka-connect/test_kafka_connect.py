@@ -710,7 +710,7 @@ def test_kafka_connect_ingest_stateful(
     assert len(difference_job_urns) == 3
     deleted_job_urns = [
         "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.MixedCaseTable)",
-        "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.book)",
+        "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.my-new-topic-book)",
         "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.member)",
     ]
     assert sorted(deleted_job_urns) == sorted(difference_job_urns)

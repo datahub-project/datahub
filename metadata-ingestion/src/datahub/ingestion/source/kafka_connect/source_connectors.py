@@ -920,6 +920,10 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         if not self.connector_manifest.topic_names:
             return []
 
+        # Handle query-based connectors early (can't determine source tables from custom queries)
+        if parser.query:
+            return self._handle_query_based_connector(parser)
+
         # Determine environment and extraction approach
         connector_class = (
             self.connector_manifest.config.get(CONNECTOR_CLASS, "")
@@ -933,10 +937,6 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                 logger.warning(
                     f"Environment-aware extraction failed: {e}, falling back to unified approach"
                 )
-
-        # Fallback: Handle query-based connectors (can't determine source tables)
-        if parser.query:
-            return self._handle_query_based_connector(parser)
 
         # Fallback: Unified lineage extraction approach
         return self._extract_lineages_unified(parser)
