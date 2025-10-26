@@ -1428,16 +1428,7 @@ public class OpenAPIV3Generator {
                 "condition",
                 newSchema()
                     .type(TYPE_STRING)
-                    ._enum(
-                        Arrays.asList(
-                            "EQUAL",
-                            "STARTS_WITH",
-                            "ENDS_WITH",
-                            "EXISTS",
-                            "IN",
-                            "CONTAIN",
-                            "GREATER_THAN",
-                            "LESS_THAN"))
+                    ._enum(Arrays.stream(Criterion.Condition.values()).map(Enum::name).toList())
                     ._default("EQUAL")
                     .description("The condition for the criterion."))
             .addProperties(

@@ -34,7 +34,7 @@ public class Criterion {
     IN,
     CONTAIN,
     GREATER_THAN,
-    LESS_THAN,
+    LESS_THAN
   }
 
   /** Convert this criterion to its counterpart in RecordTemplate. */
