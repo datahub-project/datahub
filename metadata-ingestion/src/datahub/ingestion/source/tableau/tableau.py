@@ -2147,9 +2147,8 @@ class TableauSiteSource:
     ) -> List[FineGrainedLineage]:
         fine_grained_lineages = []
         logger.debug(
-            f"Processing column-level lineage for datasource {datasource.get(c.ID)} with {len(table_id_to_urn)} table mappings"
+            f"Processing column-level lineage for datasource {datasource.get(c.ID)} with {len(table_id_to_urn)} table mappings: {list(table_id_to_urn.keys())}"
         )
-        logger.debug(f"Table ID to URN mappings: {list(table_id_to_urn.keys())}")
 
         for field in datasource.get(c.FIELDS) or []:
             field_name = field.get(c.NAME)
@@ -4081,13 +4080,16 @@ class TableauSiteSource:
                 )
                 return matched_table
 
-            # Strategy 2: Look for suffix matches
+            # Strategy 2: Look for qualified name matches (more precise than general suffix)
+            # Only match if the suffix is preceded by a schema/database separator
             for db_name_key, db_table in self.db_tables_lookup.items():
-                if db_name_key.endswith(f".{clean_potential}") or db_name_key.endswith(
-                    f"_{clean_potential}"
-                ):
+                # More precise matching: ensure we're matching schema.table or database.table patterns
+                if (
+                    db_name_key.endswith(f".{clean_potential}")
+                    and len(db_name_key.split(".")) >= 2
+                ):  # Ensure it's actually qualified
                     logger.info(
-                        f"  Suffix match found: '{db_name_key}' for potential name '{potential_name}'"
+                        f"  Qualified name match found: '{db_name_key}' for potential name '{potential_name}'"
                     )
                     return db_table
 

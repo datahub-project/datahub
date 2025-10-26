@@ -2,6 +2,7 @@ import copy
 import html
 import json
 import logging
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
@@ -1107,20 +1108,54 @@ def optimize_query_filter(query_filter: dict) -> dict:
     return optimized_query
 
 
+# Translation table for removing special characters (created once, reused)
+# Characters to remove: [ ] " ` ' \" \
+_CLEAN_TABLE_NAME_TRANSLATION = str.maketrans("", "", '[]"`\'\\"\\')
+
+
 def clean_table_name(name: str) -> str:
     """Clean table name by removing brackets, quotes, and other special characters"""
     if not name:
         return name
 
-    # Remove brackets, quotes, backticks, and escape characters
-    cleaned = (
-        name.replace("[", "")
-        .replace("]", "")
-        .replace('"', "")
-        .replace('\\"', "")
-        .replace("`", "")
-        .replace("'", "")
-        .replace("\\", "")
+    # Use translate() for efficient character removal in a single pass
+    return name.translate(_CLEAN_TABLE_NAME_TRANSLATION).strip()
+
+
+def is_table_name_field(field_name: str, field_type: str = "") -> bool:
+    """
+    Determine if a field is actually a table name reference rather than a column field.
+
+    Common patterns:
+    - "TABLE_NAME (SCHEMA.TABLE_NAME)"
+    - Field name matches table name exactly
+    - Field has no proper column mapping
+
+    Args:
+        field_name: The field name to check
+        field_type: The field type (optional)
+
+    Returns:
+        True if this appears to be a table name field, False otherwise
+    """
+    if not field_name:
+        return False
+
+    # Pattern for "TABLE_NAME (SCHEMA.TABLE_NAME)" format
+    # Allow alphanumeric characters, underscores, and numbers in table/schema names
+    table_pattern = (
+        r"^([A-Z0-9_]+)\s*\([A-Z0-9_]+\.[A-Z0-9_]+\)(\s*\([^)]+\))*(\s*\(\d+\))?$"
     )
 
-    return cleaned.strip()
+    if re.match(table_pattern, field_name):
+        return True
+
+    # Additional checks for other table-like patterns
+    # If field name is all uppercase and contains schema-like patterns
+    if field_name.isupper() and ("." in field_name or "_" in field_name):
+        # Check if it looks like a fully qualified table name
+        parts = field_name.split(".")
+        if len(parts) >= 2 and all(part.replace("_", "").isalnum() for part in parts):
+            return True
+
+    return False

@@ -1,6 +1,7 @@
 import pathlib
 from typing import Any, Dict, List, cast
 from unittest import mock
+from unittest.mock import MagicMock
 
 from freezegun import freeze_time
 from tableauserverclient.models import SiteItem
@@ -15,6 +16,7 @@ from datahub.ingestion.source.tableau.tableau import (
 from datahub.ingestion.source.tableau.tableau_common import (
     DatasourceType,
     LineageResult,
+    is_table_name_field,
 )
 from datahub.ingestion.source.tableau.tableau_virtual_connections import (
     VCFolderKey,
@@ -890,40 +892,34 @@ class TestVirtualConnectionProcessor:
             )
 
     def test_is_table_name_field_detection(self):
-        """Test _is_table_name_field method for detecting table names vs column fields."""
+        """Test is_table_name_field function for detecting table names vs column fields."""
         # Test table name patterns that should be filtered out
-        assert self.vc_processor._is_table_name_field(
-            "ORDERS_TABLE (SALES_SCHEMA.ORDERS_TABLE)", "table"
-        )
-        assert self.vc_processor._is_table_name_field(
+        assert is_table_name_field("ORDERS_TABLE (SALES_SCHEMA.ORDERS_TABLE)", "table")
+        assert is_table_name_field(
             "CUSTOMER_DATA (ANALYTICS_SCHEMA.CUSTOMER_DATA)", "table"
         )
-        assert self.vc_processor._is_table_name_field(
-            "TABLE_NAME (SCHEMA.TABLE_NAME)", "table"
-        )
+        assert is_table_name_field("TABLE_NAME (SCHEMA.TABLE_NAME)", "table")
 
         # Test with additional parentheses
-        assert self.vc_processor._is_table_name_field(
+        assert is_table_name_field(
             "PRODUCT_SALES_2024 (ANALYTICS_SCHEMA.PRODUCT_SALES_2024) (1)", "table"
         )
 
         # Test uppercase schema-like patterns
-        assert self.vc_processor._is_table_name_field(
-            "ANALYTICS_SCHEMA.ORDERS_TABLE", ""
-        )
-        assert self.vc_processor._is_table_name_field("SCHEMA_NAME.TABLE_NAME", "")
+        assert is_table_name_field("ANALYTICS_SCHEMA.ORDERS_TABLE", "")
+        assert is_table_name_field("SCHEMA_NAME.TABLE_NAME", "")
 
         # Test normal column names that should NOT be filtered
-        assert not self.vc_processor._is_table_name_field("customer_name", "column")
-        assert not self.vc_processor._is_table_name_field("order_amount", "column")
-        assert not self.vc_processor._is_table_name_field("product_id", "column")
-        assert not self.vc_processor._is_table_name_field("sales_total", "column")
-        assert not self.vc_processor._is_table_name_field("normal_field", "field")
+        assert not is_table_name_field("customer_name", "column")
+        assert not is_table_name_field("order_amount", "column")
+        assert not is_table_name_field("product_id", "column")
+        assert not is_table_name_field("sales_total", "column")
+        assert not is_table_name_field("normal_field", "field")
 
         # Test edge cases
-        assert not self.vc_processor._is_table_name_field("", "")
-        assert not self.vc_processor._is_table_name_field("single_word", "column")
-        assert not self.vc_processor._is_table_name_field("lowercase.field", "column")
+        assert not is_table_name_field("", "")
+        assert not is_table_name_field("single_word", "column")
+        assert not is_table_name_field("lowercase.field", "column")
 
     def test_process_datasource_for_vc_refs_filters_table_names(self):
         """Test that table name fields are properly filtered during VC reference processing."""
@@ -976,3 +972,109 @@ class TestVirtualConnectionProcessor:
             field_names = [rel.get("field_name") for rel in relationships]
             assert "order_amount" in field_names
             assert "ORDERS_TABLE (SALES_SCHEMA.ORDERS_TABLE)" not in field_names
+
+    def test_create_vc_folder_container_missing_id(self):
+        """Test creating VC folder container with missing VC ID."""
+        vc_without_id = {
+            c.NAME: "Test VC",
+            c.DESCRIPTION: "Test virtual connection",
+        }
+
+        # Should raise ValueError for missing VC ID
+        try:
+            self.vc_processor._create_vc_folder_container(vc_without_id)
+            raise AssertionError("Expected ValueError for missing VC ID")
+        except ValueError as e:
+            assert "VC ID is required for container creation" in str(e)
+
+    def test_create_datasource_vc_lineage_malformed_urn(self):
+        """Test datasource VC lineage creation with malformed URN."""
+        # Test with malformed URN (not enough parts)
+        malformed_urn = "urn:li:dataset:tableau"
+        result = self.vc_processor.create_datasource_vc_lineage(malformed_urn)
+
+        # Should return empty results
+        assert result.upstream_tables == []
+        assert result.fine_grained_lineages == []
+
+    def test_create_datasource_vc_lineage_exception_handling(self):
+        """Test datasource VC lineage creation with exception during URN parsing."""
+        # Test with URN that will cause an exception during processing
+        # Using a mock that will raise an exception when split() is called
+        problematic_urn = MagicMock()
+        problematic_urn.split.side_effect = AttributeError("Mock exception")
+
+        result = self.vc_processor.create_datasource_vc_lineage(problematic_urn)
+
+        # Should handle exception gracefully and return empty results
+        assert result.upstream_tables == []
+        assert result.fine_grained_lineages == []
+
+    def test_extract_vc_references_invalid_column_mapping(self):
+        """Test extraction of VC references with invalid column mappings."""
+        field = {
+            c.NAME: "test_field",
+            c.UPSTREAM_COLUMNS: [
+                {
+                    c.NAME: None,  # Missing column name
+                    c.TABLE: {
+                        c.ID: "vc-table-1",
+                        c.NAME: "test_table",
+                        c.TYPE_NAME: c.VIRTUAL_CONNECTION_TABLE,
+                        "virtualConnection": {c.ID: "vc-123"},
+                    },
+                },
+                {
+                    c.NAME: "test_table",  # Column name matches table name (invalid)
+                    c.TABLE: {
+                        c.ID: "vc-table-1",
+                        c.NAME: "test_table",
+                        c.TYPE_NAME: c.VIRTUAL_CONNECTION_TABLE,
+                        "virtualConnection": {c.ID: "vc-123"},
+                    },
+                },
+                {
+                    c.NAME: "valid_column",  # This should be processed
+                    c.TABLE: {
+                        c.ID: "vc-table-1",
+                        c.NAME: "test_table",
+                        c.TYPE_NAME: c.VIRTUAL_CONNECTION_TABLE,
+                        "virtualConnection": {c.ID: "vc-123"},
+                    },
+                },
+            ],
+        }
+
+        vc_refs = self.vc_processor._extract_vc_references_from_field(
+            field, "test_field", DatasourceType.PUBLISHED, "Test DS"
+        )
+
+        # Should only have one valid reference (the valid_column)
+        assert len(vc_refs) == 1
+        assert vc_refs[0]["column_name"] == "valid_column"
+
+    def test_group_vc_columns_by_table_missing_name(self):
+        """Test grouping VC columns with missing table names."""
+        vc_tables = [
+            {
+                c.ID: "vc-table-1",
+                # Missing NAME field
+                c.COLUMNS: [
+                    {c.ID: "col-1", c.NAME: "column1", c.REMOTE_TYPE: "INTEGER"},
+                ],
+            },
+            {
+                c.ID: "vc-table-2",
+                c.NAME: "valid_table",
+                c.COLUMNS: [
+                    {c.ID: "col-2", c.NAME: "column2", c.REMOTE_TYPE: "STRING"},
+                ],
+            },
+        ]
+
+        grouped_columns = self.vc_processor._group_vc_columns_by_table(vc_tables)
+
+        # Should only have the table with a valid name
+        assert len(grouped_columns) == 1
+        assert "valid_table" in grouped_columns
+        assert len(grouped_columns["valid_table"]["columns"]) == 1

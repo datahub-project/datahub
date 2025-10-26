@@ -14,6 +14,7 @@ from datahub.ingestion.source.tableau.tableau_common import (
     FIELD_TYPE_MAPPING,
     DatasourceType,
     LineageResult,
+    is_table_name_field,
     virtual_connection_detailed_graphql_query,
     virtual_connection_graphql_query,
 )
@@ -54,7 +55,7 @@ class VirtualConnectionProcessor:
         self.platform = tableau_source.platform
         self.ctx = tableau_source.ctx
 
-        # VC tracking data structures
+        # Virtual Connection tracking data structures
         self.vc_table_ids_for_lookup: List[str] = []
         self.vc_table_id_to_vc_id: Dict[str, str] = {}
         self.vc_table_id_to_name: Dict[str, str] = {}
@@ -69,35 +70,6 @@ class VirtualConnectionProcessor:
             virtual_connection_id=vc_id,
         )
 
-    def _is_table_name_field(self, field_name: str, field_type: str) -> bool:
-        """
-        Determine if a field is actually a table name reference rather than a column field.
-        Common patterns:
-        - "TABLE_NAME (SCHEMA.TABLE_NAME)"
-        - Field name matches table name exactly
-        - Field has no proper column mapping
-        """
-        # Pattern for "TABLE_NAME (SCHEMA.TABLE_NAME)" format
-        # Allow alphanumeric characters, underscores, and numbers in table/schema names
-        table_pattern = (
-            r"^([A-Z0-9_]+)\s*\([A-Z0-9_]+\.[A-Z0-9_]+\)(\s*\([^)]+\))*(\s*\(\d+\))?$"
-        )
-
-        if re.match(table_pattern, field_name):
-            return True
-
-        # Additional checks for other table-like patterns
-        # If field name is all uppercase and contains schema-like patterns
-        if field_name.isupper() and ("." in field_name or "_" in field_name):
-            # Check if it looks like a fully qualified table name
-            parts = field_name.split(".")
-            if len(parts) >= 2 and all(
-                part.replace("_", "").isalnum() for part in parts
-            ):
-                return True
-
-        return False
-
     def _extract_vc_references_from_field(
         self,
         field: dict,
@@ -105,7 +77,7 @@ class VirtualConnectionProcessor:
         datasource_type: DatasourceType,
         datasource_name: str,
     ) -> List[Dict[str, Any]]:
-        """Extract VC references from a single field's upstream columns."""
+        """Extract Virtual Connection references from a single field's upstream columns."""
         vc_references = []
 
         upstream_columns = field.get(c.UPSTREAM_COLUMNS, [])
@@ -118,14 +90,14 @@ class VirtualConnectionProcessor:
                 vc_table_name = table.get(c.NAME)
                 column_name = upstream_col.get(c.NAME)
 
-                # Get VC info if available
+                # Get Virtual Connection info if available
                 vc_info = table.get("virtualConnection", {})
                 vc_id = vc_info.get(c.ID) if vc_info else None
 
                 # Validate that this is a proper column mapping, not a table-level reference
                 if not column_name or column_name == vc_table_name:
                     logger.debug(
-                        f"Skipping invalid VC reference: field={field_name}, column={column_name}, table={vc_table_name}"
+                        f"Skipping invalid Virtual Connection reference: field={field_name}, column={column_name}, table={vc_table_name}"
                     )
                     continue
 
@@ -189,7 +161,7 @@ class VirtualConnectionProcessor:
             # Skip fields that are actually table names (common pattern: "TABLE_NAME (SCHEMA.TABLE_NAME)")
             # These are not real column fields but table-level references
             field_type = field.get(c.TYPE_NAME, "")
-            if self._is_table_name_field(field_name, field_type):
+            if is_table_name_field(field_name, field_type):
                 logger.debug(
                     f"Skipping field '{field_name}' as it appears to be a table name reference, not a column field"
                 )
@@ -252,7 +224,7 @@ class VirtualConnectionProcessor:
                     if vc_id not in self.virtual_connection_ids_being_used:
                         self.virtual_connection_ids_being_used.append(vc_id)
 
-                    # Store column types for v2 field paths
+                    # Store column types for field path generation
                     columns = table.get(c.COLUMNS, [])
                     for column in columns:
                         col_name = column.get(c.NAME)
@@ -280,7 +252,7 @@ class VirtualConnectionProcessor:
             )
 
     def emit_virtual_connections(self):
-        """Emit Virtual Connection datasets with v2 schema fields"""
+        """Emit Virtual Connection datasets with schema fields"""
         if not self.virtual_connection_ids_being_used:
             logger.debug("No Virtual Connections to emit")
             return
@@ -415,7 +387,7 @@ class VirtualConnectionProcessor:
                 )
             )
 
-            # Create column-level lineage using v2 field paths
+            # Create column-level lineage using standard field paths
             if self.config.extract_column_level_lineage:
                 vc_columns = vc_table.get(c.COLUMNS, [])
                 db_columns = matched_db_table.get(c.COLUMNS, [])
@@ -462,8 +434,8 @@ class VirtualConnectionProcessor:
                                     f"Applied Snowflake normalization: '{db_col_name}' -> '{final_db_col_name}'"
                                 )
 
-                            # Create fine-grained lineage using simple field names (not v2 format)
-                            # The VC URN already includes the VC ID, so we just need the column name
+                            # Create fine-grained lineage using simple field names
+                            # The Virtual Connection URN already includes the VC ID, so we just need the column name
                             fine_grained_lineages.append(
                                 FineGrainedLineageClass(
                                     downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
@@ -610,7 +582,7 @@ class VirtualConnectionProcessor:
                 if vc_table_urn not in vc_table_urns_seen:
                     vc_table_urns_seen.add(vc_table_urn)
 
-                # Add column-level lineage with v2 field paths
+                # Add column-level lineage
                 if self.config.extract_column_level_lineage:
                     # Get column type from stored mappings
                     self.vc_table_column_types.get(
