@@ -1,0 +1,642 @@
+extend type Mutation {
+  """
+  Create a new Document. Returns the urn of the newly created document.
+  Requires the CREATE_ENTITY privilege for documents or MANAGE_DOCUMENTS platform privilege.
+  """
+  createDocument(input: CreateDocumentInput!): String!
+
+  """
+  Update the contents of an existing Document.
+  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
+  """
+  updateDocumentContents(input: UpdateDocumentContentsInput!): Boolean!
+
+  """
+  Update the related entities (assets and documents) for a Document.
+  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
+  """
+  updateDocumentRelatedEntities(
+    input: UpdateDocumentRelatedEntitiesInput!
+  ): Boolean!
+
+  """
+  Move a Document to a different parent (or to root level if no parent is specified).
+  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
+  """
+  moveDocument(input: MoveDocumentInput!): Boolean!
+
+  """
+  Delete a Document.
+  Requires the GET_ENTITY privilege for the document or MANAGE_DOCUMENTS platform privilege.
+  """
+  deleteDocument(urn: String!): Boolean!
+
+  """
+  Update the status of a Document (published/unpublished).
+  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
+  """
+  updateDocumentStatus(input: UpdateDocumentStatusInput!): Boolean!
+
+  """
+  Merge a draft document into its parent (the document it is a draft of).
+  This copies the draft's content to the published document and optionally deletes the draft.
+  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for both documents, or MANAGE_DOCUMENTS platform privilege.
+  """
+  mergeDraft(input: MergeDraftInput!): Boolean!
+}
+
+extend type Query {
+  """
+  Get a Document by URN.
+  Requires the GET_ENTITY privilege for the document or MANAGE_DOCUMENTS platform privilege.
+  """
+  document(urn: String!): Document
+
+  """
+  Search Documents with hybrid semantic search and filtering support.
+  Supports filtering by parent document, types, domains, and semantic query.
+  """
+  searchDocuments(input: SearchDocumentsInput!): SearchDocumentsResult!
+}
+
+"""
+A Document entity in DataHub
+"""
+type Document implements Entity {
+  """
+  The primary key of the Document
+  """
+  urn: String!
+
+  """
+  A standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  Information about the Document
+  """
+  info: DocumentInfo
+
+  """
+  The sub-type of the Document (e.g., "FAQ", "Tutorial", "Reference", etc.)
+  """
+  subType: String
+
+  """
+  Data Platform Instance associated with the Document
+  """
+  dataPlatformInstance: DataPlatformInstance
+
+  """
+  Ownership metadata of the Document
+  """
+  ownership: Ownership
+
+  """
+  References to internal resources related to the Document
+  """
+  institutionalMemory: InstitutionalMemory
+
+  """
+  Edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Experimental API.
+  For fetching extra entities that do not have custom UI code yet
+  """
+  aspects(input: AspectParams): [RawAspect!]
+
+  """
+  Structured properties about this asset
+  """
+  structuredProperties: StructuredProperties
+
+  """
+  Privileges given to a user relevant to this entity
+  """
+  privileges: EntityPrivileges
+
+  """
+  All draft documents that have this document as their draftOf target.
+  These are UNPUBLISHED documents being worked on as potential new versions.
+  Note: This field requires a separate query/batch loader to fetch.
+  """
+  drafts: [Document!]
+
+  """
+  Change history for this document.
+  Returns a chronological list of changes made to the document.
+  """
+  changeHistory(
+    """
+    Start time in milliseconds since epoch (optional).
+    Defaults to 30 days ago if not specified.
+    """
+    startTimeMillis: Long
+
+    """
+    End time in milliseconds since epoch (optional).
+    Defaults to current time if not specified.
+    """
+    endTimeMillis: Long
+
+    """
+    Maximum number of change entries to return.
+    Defaults to 50.
+    """
+    limit: Int = 50
+  ): [DocumentChange!]!
+}
+
+"""
+Information about a Document
+"""
+type DocumentInfo {
+  """
+  Optional title for the document
+  """
+  title: String
+
+  """
+  Information about the external source of this document.
+  Only populated for third-party documents ingested from external systems.
+  If null, the document is first-party (created directly in DataHub).
+  """
+  source: DocumentSource
+
+  """
+  Status of the Document (published, unpublished, etc.)
+  """
+  status: DocumentStatus
+
+  """
+  Content of the Document
+  """
+  contents: DocumentContent!
+
+  """
+  The audit stamp for when the document was created
+  """
+  created: AuditStamp!
+
+  """
+  The audit stamp for when the document was last modified (any field)
+  """
+  lastModified: AuditStamp!
+
+  """
+  Assets referenced by or related to this Document
+  """
+  relatedAssets: [DocumentRelatedAsset!]
+
+  """
+  Documents referenced by or related to this Document
+  """
+  relatedDocuments: [DocumentRelatedDocument!]
+
+  """
+  The parent document of this Document
+  """
+  parentDocument: DocumentParentDocument
+
+  """
+  If this document is a draft, the document it is a draft of.
+  When set, this document should be hidden from normal knowledge base browsing.
+  """
+  draftOf: DocumentDraftOf
+}
+
+"""
+The contents of a Document
+"""
+type DocumentContent {
+  """
+  The text contents of the Document
+  """
+  text: String!
+}
+
+"""
+The type of source for a document
+"""
+enum DocumentSourceType {
+  """
+  Created via the DataHub UI or API
+  """
+  NATIVE
+
+  """
+  The document was ingested from an external source
+  """
+  EXTERNAL
+}
+
+"""
+Information about the external source of a document
+"""
+type DocumentSource {
+  """
+  The type of the source
+  """
+  sourceType: DocumentSourceType!
+
+  """
+  URL to the external source where this document originated
+  """
+  externalUrl: String
+
+  """
+  Unique identifier in the external system
+  """
+  externalId: String
+
+  """
+  When the document was last synced from the external source
+  """
+  lastSynced: AuditStamp
+
+  """
+  Additional metadata about the source
+  """
+  properties: [StringMapEntry!]
+}
+
+"""
+A data asset referenced by a Document
+"""
+type DocumentRelatedAsset {
+  """
+  The asset referenced by or related to the document
+  """
+  asset: Entity!
+}
+
+"""
+A document referenced by or related to another Document
+"""
+type DocumentRelatedDocument {
+  """
+  The document referenced by or related to the document
+  """
+  document: Document!
+}
+
+"""
+The parent document of the document
+"""
+type DocumentParentDocument {
+  """
+  The hierarchical parent document for this document
+  """
+  document: Document!
+}
+
+"""
+Indicates this document is a draft of another document
+"""
+type DocumentDraftOf {
+  """
+  The document that this document is a draft of
+  """
+  document: Document!
+}
+
+"""
+Status information for a Document
+"""
+type DocumentStatus {
+  """
+  The current state of the document
+  """
+  state: DocumentState!
+}
+
+"""
+The state of a Document
+"""
+enum DocumentState {
+  """
+  Document is published and visible to users
+  """
+  PUBLISHED
+
+  """
+  Document is not published publically
+  """
+  UNPUBLISHED
+}
+
+"""
+Input required to create a new Document
+"""
+input CreateDocumentInput {
+  """
+  Optional! A custom id to use as the primary key identifier for the document.
+  If not provided, a random UUID will be generated as the id.
+  """
+  id: String
+
+  """
+  The sub-type of the Document (e.g., "FAQ", "Tutorial", "Reference")
+  """
+  subType: String!
+
+  """
+  Optional title for the document
+  """
+  title: String
+
+  """
+  Optional initial state of the document. Defaults to UNPUBLISHED if not provided.
+  """
+  state: DocumentState
+
+  """
+  Content of the Document
+  """
+  contents: DocumentContentInput!
+
+  """
+  Optional owners for the document. If not provided, the creator is automatically added as an owner.
+  """
+  owners: [OwnerInput!]
+
+  """
+  Optional URN of the parent document
+  """
+  parentDocument: String
+
+  """
+  Optional URNs of related assets
+  """
+  relatedAssets: [String!]
+
+  """
+  Optional URNs of related documents
+  """
+  relatedDocuments: [String!]
+
+  """
+  If provided, the new document will be created as a draft of the specified published document URN.
+  Draft documents should have UNPUBLISHED state and will be hidden from normal knowledge base browsing.
+  """
+  draftFor: String
+}
+
+"""
+Input for Document content
+"""
+input DocumentContentInput {
+  """
+  The text contents of the Document
+  """
+  text: String!
+}
+
+"""
+Input required to update the contents of a Document
+"""
+input UpdateDocumentContentsInput {
+  """
+  The URN of the Document to update
+  """
+  urn: String!
+
+  """
+  The new contents for the Document
+  """
+  contents: DocumentContentInput!
+
+  """
+  Optional updated title for the document
+  """
+  title: String
+}
+
+"""
+Input required to update the related entities of a Document
+"""
+input UpdateDocumentRelatedEntitiesInput {
+  """
+  The URN of the Document to update
+  """
+  urn: String!
+
+  """
+  Optional URNs of related assets (will replace existing)
+  """
+  relatedAssets: [String!]
+
+  """
+  Optional URNs of related documents (will replace existing)
+  """
+  relatedDocuments: [String!]
+}
+
+"""
+Input required to move a Document to a different parent
+"""
+input MoveDocumentInput {
+  """
+  The URN of the Document to move
+  """
+  urn: String!
+
+  """
+  Optional URN of the new parent document. If null, moves to root level.
+  """
+  parentDocument: String
+}
+
+"""
+Input required to update the status of a Document
+"""
+input UpdateDocumentStatusInput {
+  """
+  The URN of the Document to update
+  """
+  urn: String!
+
+  """
+  The new state for the document
+  """
+  state: DocumentState!
+}
+
+"""
+Input required when searching Documents
+"""
+input SearchDocumentsInput {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int
+
+  """
+  The maximum number of Documents to be returned in the result set
+  """
+  count: Int
+
+  """
+  Optional semantic search query to search across document contents and metadata
+  """
+  query: String
+
+  """
+  Optional parent document URN to filter by (for hierarchical browsing)
+  """
+  parentDocument: String
+
+  """
+  Optional list of document types to filter by (ANDed with other filters)
+  """
+  types: [String!]
+
+  """
+  Optional list of domain URNs to filter by (ANDed with other filters)
+  """
+  domains: [String!]
+
+  """
+  Optional list of document states to filter by (ANDed with other filters).
+  If not provided, defaults to PUBLISHED only.
+  """
+  states: [DocumentState!]
+
+  """
+  Whether to include draft documents in the search results.
+  Draft documents have draftOf set and are hidden from normal browsing by default.
+  Defaults to false (excludes drafts).
+  """
+  includeDrafts: Boolean
+
+  """
+  Optional facet filters to apply
+  """
+  filters: [FacetFilterInput!]
+
+  """
+  Optional flags controlling search options
+  """
+  searchFlags: SearchFlags
+}
+
+"""
+The result obtained when searching Documents
+"""
+type SearchDocumentsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Documents in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Documents in the result set
+  """
+  total: Int!
+
+  """
+  The Documents themselves
+  """
+  documents: [Document!]!
+
+  """
+  Facets for filtering search results
+  """
+  facets: [FacetMetadata!]
+}
+
+"""
+Input required to merge a draft into its parent document
+"""
+input MergeDraftInput {
+  """
+  The URN of the draft document to merge
+  """
+  draftUrn: String!
+
+  """
+  Whether to delete the draft document after merging. Defaults to true.
+  """
+  deleteDraft: Boolean
+}
+
+"""
+A change made to a document.
+Represents a single modification with timestamp, actor, and description.
+"""
+type DocumentChange {
+  """
+  Type of change that occurred
+  """
+  changeType: DocumentChangeType!
+
+  """
+  Human-readable description of what changed
+  """
+  description: String!
+
+  """
+  User who made the change (optional, may not be available for all changes)
+  """
+  actor: CorpUser
+
+  """
+  When the change occurred (milliseconds since epoch)
+  """
+  timestamp: Long!
+
+  """
+  Additional context about the change (optional).
+  For example, if a document was moved, this might contain the old and new parent URNs.
+  """
+  details: [StringMapEntry!]
+}
+
+"""
+Types of changes that can occur to a document
+"""
+enum DocumentChangeType {
+  """
+  Document was created
+  """
+  CREATED
+
+  """
+  Document content or title was modified
+  """
+  CONTENT_MODIFIED
+
+  """
+  Document was moved to a different parent
+  """
+  PARENT_CHANGED
+
+  """
+  Relationships to other documents were added or removed
+  """
+  RELATED_DOCUMENTS_CHANGED
+
+  """
+  Relationships to assets (datasets, dashboards, etc.) were added or removed
+  """
+  RELATED_ASSETS_CHANGED
+
+  """
+  Document state changed (e.g., published <-> unpublished)
+  """
+  STATE_CHANGED
+
+  """
+  Document was deleted
+  """
+  DELETED
+}

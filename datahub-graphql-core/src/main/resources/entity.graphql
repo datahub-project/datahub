@@ -1348,6 +1348,11 @@ enum EntityType {
   APPLICATION
 
   """
+  A Knowledge Article
+  """
+  DOCUMENT
+
+  """
   An DataHub Page Template
   """
   DATAHUB_PAGE_TEMPLATE

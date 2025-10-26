@@ -1,0 +1,48 @@
+namespace com.linkedin.knowledge
+
+import com.linkedin.common.Urn
+import com.linkedin.common.AuditStamp
+
+/**
+ * Information about the source of a document, especially for externally sourced documents.
+ * This record is embedded within DocumentInfo to track whether a document is first-party 
+ * (created in DataHub) or third-party (ingested from external sources like Slack, Notion, etc.)
+ */
+record DocumentSource {
+  /**
+   * The type of the source (e.g., "Confluence", "Notion", "Google Docs", "SharePoint", "Slack")
+   */
+  sourceType: enum DocumentSourceType {
+    /**
+     * Created via the DataHub UI or API
+     */
+     NATIVE
+
+     /**
+      * External - The document was ingested from an external source. 
+      */
+     EXTERNAL
+  }
+
+  /**
+   * URL to the external source where this document originated
+   */
+  @Searchable = {}
+  externalUrl: optional string
+
+  /**
+   * Unique identifier in the external system
+   */
+  externalId: optional string
+
+  /**
+   * When the document was last synced from the external source
+   */
+  lastSynced: optional AuditStamp
+
+  /**
+   * Additional metadata about the source
+   */
+  properties: optional map[string, string] = { }
+}
+

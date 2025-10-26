@@ -330,6 +330,18 @@ entities:
       - subTypes
       - displayProperties
       - assetSettings
+  - name: document
+    category: core
+    keyAspect: documentKey
+    aspects:
+      - documentInfo
+      - status
+      - ownership
+      - institutionalMemory
+      - domains
+      - structuredProperties
+      - subTypes
+      - dataPlatformInstance
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
