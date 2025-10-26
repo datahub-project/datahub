@@ -362,59 +362,12 @@ class BigQuerySinkConnector(BaseConnector):
     def sanitize_table_name(self, table_name: str) -> str:
         """
         Sanitize table name for BigQuery compatibility following Kafka Connect BigQuery connector logic.
-
-        Implementation follows the official BigQuery Kafka Connect connector sanitization behavior:
-        - BigQuery allows only specific characters for dataset and table names
-        - All invalid characters are replaced by underscores
-        - If the resulting name would start with a digit, an underscore is prepended
-
-        References:
-        - Aiven BigQuery Connector: https://github.com/Aiven-Open/bigquery-connector-for-apache-kafka
-        - Confluent BigQuery Connector: https://github.com/confluentinc/kafka-connect-bigquery
-        - BigQuery Naming Rules: https://cloud.google.com/bigquery/docs/tables#table_naming
-
-        BigQuery table naming rules:
-        - Must contain only letters (a-z, A-Z), numbers (0-9), and underscores (_)
-        - Must start with a letter or underscore
-        - Maximum 1024 characters
-
-        Args:
-            table_name: The original table name to sanitize
-
-        Returns:
-            Sanitized table name that follows BigQuery naming conventions
-
-        Raises:
-            ValueError: If the input table_name is empty or results in an empty string after sanitization
+        Refer to https://cloud.google.com/bigquery/docs/tables#table_naming
         """
-        import re
-
-        if not table_name or not table_name.strip():
-            raise ValueError("Table name cannot be empty")
-
-        # Follow the exact Confluent BigQuery connector sanitization logic:
-        # 1. Replace all invalid characters with underscores
-        # 2. If name starts with digit or other invalid character, prepend underscore
-        # This matches the actual Confluent connector implementation
-
-        # Step 1: Replace all invalid characters with underscores
-        sanitized = re.sub(r"[^a-zA-Z0-9_]", "_", table_name.strip())
-
-        # Step 2: If name doesn't start with letter or underscore, prepend underscore
-        if sanitized and re.match(r"^[^a-zA-Z_].*", sanitized):
-            sanitized = f"_{sanitized}"
-
-        # If sanitization resulted in empty string, raise error
-        if not sanitized:
-            raise ValueError(
-                f"Table name '{table_name}' cannot be sanitized to a valid BigQuery table name"
-            )
-
-        # Truncate if too long (BigQuery table name limit is 1024 characters)
-        if len(sanitized) > 1024:
-            sanitized = sanitized[:1024].rstrip("_")
-
-        return sanitized
+        table_name = re.sub("[^a-zA-Z0-9_]", "_", table_name)
+        if re.match("^[^a-zA-Z_].*", table_name):
+            table_name = "_" + table_name
+        return table_name
 
     def get_dataset_table_for_topic(
         self, topic: str, parser: BQParser
