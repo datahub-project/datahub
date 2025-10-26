@@ -483,17 +483,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     // Only return next scroll ID if there are more results, indicated by full size results
     String nextScrollId = null;
     if (searchHits.length == size && searchHits.length > 0) {
-
-      Object[] sort = searchHits[searchHits.length - 1].getSortValues();
-      long expirationTimeMs = 0L;
-      if (keepAlive != null && supportsPointInTime) {
-        expirationTimeMs =
-            TimeValue.parseTimeValue(keepAlive, "expirationTime").getMillis()
-                + System.currentTimeMillis();
-      }
-
       Object[] lastSort = searchHits[searchHits.length - 1].getSortValues();
-
       nextScrollId =
           new SearchAfterWrapper(lastSort, searchResponse.pointInTimeId(), expirationTimeMs)
               .toScrollId();

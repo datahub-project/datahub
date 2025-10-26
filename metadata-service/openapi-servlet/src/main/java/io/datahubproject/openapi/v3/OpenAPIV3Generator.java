@@ -61,6 +61,8 @@ public class OpenAPIV3Generator {
   private static final String NAME_PIT_KEEP_ALIVE = "pitKeepAlive";
   private static final String NAME_SLICE_ID = "sliceId";
   private static final String NAME_SLICE_MAX = "sliceMax";
+  private static final String NAME_SKIP_AGGREGATION = "skipAggregation";
+  private static final String NAME_SCROLL_ID_PER_ENTITY = "scrollIdPerEntity";
   private static final String PROPERTY_VALUE = "value";
   private static final String PROPERTY_URN = "urn";
   private static final String PROPERTY_PATCH = "patch";
@@ -664,6 +666,11 @@ public class OpenAPIV3Generator {
                 .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
             new Parameter()
                 .in(NAME_QUERY)
+                .name(NAME_SKIP_AGGREGATION)
+                .description("Skip aggregations when listing entities.")
+                .schema(newSchema().type(TYPE_BOOLEAN)._default(true)),
+            new Parameter()
+                .in(NAME_QUERY)
                 .name(NAME_PIT_KEEP_ALIVE)
                 .description(
                     "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
@@ -688,6 +695,11 @@ public class OpenAPIV3Generator {
                         .items(newSchema().type(TYPE_STRING)._default(PROPERTY_URN))),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_SCROLL_ID_PER_ENTITY)
+                .description("Return a scroll id per entity.")
+                .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
             new Parameter().$ref("#/components/parameters/ScrollQuery" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SliceId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SliceMax" + MODEL_VERSION));

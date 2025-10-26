@@ -102,7 +102,9 @@
         "pitKeepAlive": "1m",
         "count": "1",
         "query": "qualifiedName:entities\\.datasetSingle*",
-        "sortCriteria": "urn"
+        "sortCriteria": "urn",
+        "skipAggregation": false,
+        "scrollIdPerEntity": true
       },
       "description": "Generic scroll",
       "json": {
@@ -172,8 +174,7 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
-        "root\\['facets'\\]",
-        "root\\['entities'\\]\\[.+?\\]\\['scrollId'\\]"
+        "root\\['facets'\\]"
       ],
       "json": {
         "entities": [
@@ -229,8 +230,7 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
-        "root\\['facets'\\]",
-        "root\\['entities'\\]\\[.+?\\]\\['scrollId'\\]"
+        "root\\['facets'\\]"
       ],
       "json": {
         "entities": [

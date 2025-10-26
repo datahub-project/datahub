@@ -132,7 +132,8 @@ public class EntityController
       boolean withSystemMetadata,
       @Nullable String scrollId,
       boolean expandEmpty,
-      int totalCount)
+      int totalCount,
+      boolean includeScrollIdPerEntity)
       throws URISyntaxException {
     return GenericEntityScrollResultV2.builder()
         .results(

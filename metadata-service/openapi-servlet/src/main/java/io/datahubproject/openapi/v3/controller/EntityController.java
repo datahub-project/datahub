@@ -185,8 +185,12 @@ public class EntityController
           Boolean withSystemMetadata,
       @RequestParam(value = "skipCache", required = false, defaultValue = "false")
           Boolean skipCache,
+      @RequestParam(value = "skipAggregation", required = false, defaultValue = "true")
+          Boolean skipAggregation,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
           Boolean includeSoftDelete,
+      @RequestParam(value = "scrollIdPerEntity", required = false, defaultValue = "false")
+          Boolean scrollIdPerEntity,
       @RequestParam(value = "sliceId", required = false) Integer sliceId,
       @RequestParam(value = "sliceMax", required = false) Integer sliceMax,
       @Parameter(
@@ -241,6 +245,7 @@ public class EntityController
                 flags ->
                     DEFAULT_SEARCH_FLAGS
                         .setSkipCache(skipCache)
+                        .setSkipAggregates(skipAggregation)
                         .setIncludeSoftDeleted(includeSoftDelete)
                         .setSliceOptions(
                             sliceId != null && sliceMax != null
@@ -271,7 +276,8 @@ public class EntityController
             withSystemMetadata,
             result.getScrollId(),
             entityAspectsBody.getAspects() != null,
-            result.getNumEntities()));
+            result.getNumEntities(),
+            scrollIdPerEntity));
   }
 
   @Tag(name = "EntityVersioning")
@@ -604,7 +610,8 @@ public class EntityController
       boolean withSystemMetadata,
       @Nullable String scrollId,
       boolean expandEmpty,
-      int totalCount)
+      int totalCount,
+      boolean includeScrollIdPerEntity)
       throws URISyntaxException {
 
     List<FacetMetadata> facets = new ArrayList<>();
@@ -623,7 +630,12 @@ public class EntityController
     return GenericEntityScrollResultV3.builder()
         .entities(
             toRecordTemplates(
-                opContext, searchEntities, aspectNames, withSystemMetadata, expandEmpty))
+                opContext,
+                searchEntities,
+                aspectNames,
+                withSystemMetadata,
+                expandEmpty,
+                includeScrollIdPerEntity))
         .scrollId(scrollId)
         .facets(facets)
         .totalCount(totalCount)
@@ -826,20 +838,9 @@ public class EntityController
       SearchEntityArray searchEntities,
       Set<String> aspectNames,
       boolean withSystemMetadata,
-      boolean expandEmpty)
+      boolean expandEmpty,
+      boolean includeScrollId)
       throws URISyntaxException {
-    // Build a map of URN -> per-entity scrollId if provided via SearchEntity.extraFields
-    Map<String, String> perEntityScrollIds =
-        searchEntities.stream()
-            .collect(
-                Collectors.toMap(
-                    searchEntity -> searchEntity.getEntity().toString(),
-                    searchEntity ->
-                        searchEntity.getExtraFields() != null
-                            ? searchEntity.getExtraFields().get("scrollId")
-                            : null,
-                    (a, b) -> a,
-                    LinkedHashMap::new));
 
     List<GenericEntityV3> entities =
         buildEntityList(
@@ -849,12 +850,28 @@ public class EntityController
             withSystemMetadata,
             expandEmpty);
 
-    // Attach scrollId to each entity element when available
-    for (GenericEntityV3 entity : entities) {
-      String urn = entity.getUrn();
-      String scrollId = perEntityScrollIds.get(urn);
-      if (scrollId != null) {
-        entity.put("scrollId", scrollId);
+    // Attach a scrollId to each entity.
+    if (includeScrollId) {
+      // Build a map of URN -> per-entity scrollId if provided via SearchEntity.extraFields
+      Map<String, String> perEntityScrollIds =
+          searchEntities.stream()
+              .collect(
+                  Collectors.toMap(
+                      searchEntity -> searchEntity.getEntity().toString(),
+                      searchEntity ->
+                          searchEntity.getExtraFields() != null
+                              ? searchEntity.getExtraFields().get("scrollId")
+                              : null,
+                      (a, b) -> a,
+                      LinkedHashMap::new));
+
+      // Attach scrollId to each entity element when available
+      for (GenericEntityV3 entity : entities) {
+        String urn = entity.getUrn();
+        String scrollId = perEntityScrollIds.get(urn);
+        if (scrollId != null) {
+          entity.put("scrollId", scrollId);
+        }
       }
     }
 

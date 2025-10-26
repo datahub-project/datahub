@@ -123,7 +123,8 @@ public abstract class GenericEntitiesController<
       boolean withSystemMetadata,
       @Nullable String scrollId,
       boolean expandEmpty,
-      int totalCount)
+      int totalCount,
+      boolean includeScrollIdPerEntity)
       throws URISyntaxException;
 
   protected List<E> buildEntityList(
@@ -299,7 +300,8 @@ public abstract class GenericEntitiesController<
             withSystemMetadata,
             result.getScrollId(),
             true,
-            result.getNumEntities()));
+            result.getNumEntities(),
+            false));
   }
 
   @Tag(name = "Generic Entities")
