@@ -175,9 +175,12 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                         self.config, self.report
                     )
 
+            # Always set flow_property_bag regardless of lineages
+            # The connector configuration is valuable metadata even without lineage
+            connector_manifest.flow_property_bag = flow_property_bag or {}
+
             if lineages:
                 connector_manifest.lineages = lineages
-                connector_manifest.flow_property_bag = flow_property_bag or {}
             else:
                 # Debug logging to help understand why lineage extraction failed
                 connector_class = connector_manifest.config.get(
