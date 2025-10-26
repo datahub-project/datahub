@@ -531,6 +531,7 @@ subprojects {
           exclude 'src/**/generated/'
           exclude 'src/**/mainGeneratedDataTemplate/'
           exclude 'src/**/mainGeneratedAvroSchema/'
+          exclude 'src/**/mainGeneratedGraphQL/'
           exclude 'src/**/generatedJsonSchema/'
           exclude 'src/**/mainGeneratedRest/'
           exclude 'src/renamed/avro/'
