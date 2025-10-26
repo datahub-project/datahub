@@ -1295,10 +1295,17 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         self, topics: List[str], parser: JdbcParser
     ) -> List[KafkaConnectLineage]:
         """
-        Extract lineages using transform application from source tables.
+        Extract lineages for self-hosted Kafka Connect with transforms.
 
-        Note: topics parameter contains already-transformed topics from Kafka Connect API.
-        We need to start from source tables instead to correctly map table -> topic lineages.
+        For self-hosted environments, the topics parameter contains connector-specific topics
+        from the /connectors/{name}/topics API endpoint. These are the actual topics this
+        connector produces, so we should use them directly.
+
+        Strategy:
+        1. Get source tables from config
+        2. If single source table: All runtime topics come from that table
+           (handles ExtractTopic and other 1-to-many transforms)
+        3. If multiple source tables: Try to match each table to its topic(s) using transform prediction
         """
         config = self.connector_manifest.config
 
@@ -1311,11 +1318,48 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             )
             return []
 
+        # If no runtime topics available, connector may be failed/not started
+        if not topics:
+            logger.warning(
+                f"No runtime topics found for connector {self.connector_manifest.name}. "
+                f"Connector may be failed or not started."
+            )
+            return []
+
+        # Single source table: all runtime topics come from this table
+        # This handles cases like ExtractTopic where one table produces multiple topics
+        if len(table_ids) == 1:
+            table_id = table_ids[0]
+            source_table = table_id.table
+
+            resolved_source_table, dataset_included = self._resolve_source_table_schema(
+                source_table, parser.source_platform, table_ids, True
+            )
+
+            lineages = []
+            for runtime_topic in topics:
+                lineage = self._create_lineage_mapping(
+                    resolved_source_table,
+                    parser.database_name,
+                    parser.source_platform,
+                    runtime_topic,
+                    dataset_included,
+                )
+                lineages.append(lineage)
+
+            logger.debug(
+                f"Created {len(lineages)} lineages from single source table '{source_table}' "
+                f"to runtime topics {topics}"
+            )
+            return lineages
+
+        # Multiple source tables: match each table to its topic(s) using transform prediction
+        # This is more complex because we need to figure out which table produced which topic
         lineages = []
         connector_class = config.get(CONNECTOR_CLASS, "")
+        matched_topics = set()
 
         for table_id in table_ids:
-            # Extract table name
             source_table = table_id.table
 
             # Generate original topic name (before transforms)
@@ -1326,7 +1370,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                 connector_class,
             )
 
-            # Apply transforms to get final topic
+            # Apply transforms to predict final topic
             transform_result = get_transform_pipeline().apply_forward(
                 [original_topic], config
             )
@@ -1337,64 +1381,51 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                     f"Transform warning for {self.connector_manifest.name}: {warning}"
                 )
 
-            if transform_result.fallback_used:
-                self.report.info(
-                    f"Complex transforms detected in {self.connector_manifest.name}. "
-                    f"Consider using 'generic_connectors' config for explicit mappings."
-                )
-
-            final_topic = (
+            predicted_topic = (
                 transform_result.topics[0]
                 if transform_result.topics
                 else original_topic
             )
 
             # Resolve schema information for hierarchical platforms
-            # Use source_table for schema resolution
             resolved_source_table, dataset_included = self._resolve_source_table_schema(
                 source_table, parser.source_platform, table_ids, True
             )
 
-            # Validate that final topic exists in connector's reported topics
-            if final_topic not in topics:
-                logger.debug(
-                    f"Transformed topic '{final_topic}' not found in connector's reported topics {topics}. "
-                    f"Falling back to actual runtime topics for unpredictable transforms (e.g., ExtractTopic)."
-                )
-
-                # Fallback: Use actual runtime topics when prediction fails
-                # This handles cases like ExtractTopic where topic names depend on message data
-                # and cannot be predicted from configuration alone
-                if topics:
-                    for runtime_topic in topics:
-                        lineage = self._create_lineage_mapping(
-                            resolved_source_table,
-                            parser.database_name,
-                            parser.source_platform,
-                            runtime_topic,
-                            dataset_included,
-                        )
-                        lineages.append(lineage)
-                else:
-                    # No runtime topics available, create lineage with predicted topic as last resort
-                    lineage = self._create_lineage_mapping(
-                        resolved_source_table,
-                        parser.database_name,
-                        parser.source_platform,
-                        final_topic,
-                        dataset_included,
-                    )
-                    lineages.append(lineage)
-            else:
-                # Prediction succeeded - use predicted topic
+            # Check if predicted topic exists in runtime topics
+            if predicted_topic in topics:
+                # Match found: create lineage
                 lineage = self._create_lineage_mapping(
                     resolved_source_table,
                     parser.database_name,
                     parser.source_platform,
-                    final_topic,
+                    predicted_topic,
                     dataset_included,
                 )
                 lineages.append(lineage)
+                matched_topics.add(predicted_topic)
+                logger.debug(
+                    f"Matched table '{source_table}' to runtime topic '{predicted_topic}'"
+                )
+            else:
+                logger.warning(
+                    f"Predicted topic '{predicted_topic}' for table '{source_table}' "
+                    f"not found in runtime topics {topics}. Transform prediction may be inaccurate."
+                )
+
+        # Report any unmatched runtime topics
+        unmatched_topics = set(topics) - matched_topics
+        if unmatched_topics:
+            logger.warning(
+                f"Some runtime topics could not be matched to source tables: {unmatched_topics}. "
+                f"This may indicate complex transforms that cannot be predicted."
+            )
+
+        if transform_result.fallback_used:
+            self.report.info(
+                f"Complex transforms detected in {self.connector_manifest.name}. "
+                f"Consider using 'generic_connectors' config for explicit mappings."
+            )
 
         return lineages
 
