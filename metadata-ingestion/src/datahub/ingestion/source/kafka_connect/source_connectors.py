@@ -1294,43 +1294,69 @@ class ConfluentJDBCSourceConnector(BaseConnector):
     def _extract_lineages_with_transform_orchestrator(
         self, topics: List[str], parser: JdbcParser
     ) -> List[KafkaConnectLineage]:
-        """Extract lineages using simple transform application."""
+        """
+        Extract lineages using transform application from source tables.
 
-        # Apply transforms using the unified transform pipeline
+        Note: topics parameter contains already-transformed topics from Kafka Connect API.
+        We need to start from source tables instead to correctly map table -> topic lineages.
+        """
         config = self.connector_manifest.config
-        transform_result = get_transform_pipeline().apply_forward(topics, config)
-        transformed_topics = transform_result.topics
 
-        # Log any warnings from transform processing
-        for warning in transform_result.warnings:
-            self.report.warning(
-                f"Transform warning for {self.connector_manifest.name}: {warning}"
-            )
-
-        if transform_result.fallback_used:
-            self.report.info(
-                f"Complex transforms detected in {self.connector_manifest.name}. "
-                f"Consider using 'generic_connectors' config for explicit mappings."
-            )
-
-        # Create lineages based on transform results
-        lineages = []
-
-        # Get source tables for schema resolution
+        # Get source tables from connector configuration
         table_ids = self.get_table_names()
 
-        for original_topic, final_topic in zip(topics, transformed_topics):
-            # Extract source table name from original topic
-            source_table = self._extract_source_table_from_topic(
-                original_topic, parser.topic_prefix
+        if not table_ids:
+            logger.warning(
+                f"No source tables found in config for connector {self.connector_manifest.name}"
+            )
+            return []
+
+        lineages = []
+        connector_class = config.get(CONNECTOR_CLASS, "")
+
+        for table_id in table_ids:
+            # Extract table name
+            source_table = table_id.table
+
+            # Generate original topic name (before transforms)
+            original_topic = self._generate_original_topic_name(
+                table_id.schema or "",
+                table_id.table,
+                parser.topic_prefix or "",
+                connector_class
             )
 
+            # Apply transforms to get final topic
+            transform_result = get_transform_pipeline().apply_forward([original_topic], config)
+
+            # Log any warnings from transform processing
+            for warning in transform_result.warnings:
+                self.report.warning(
+                    f"Transform warning for {self.connector_manifest.name}: {warning}"
+                )
+
+            if transform_result.fallback_used:
+                self.report.info(
+                    f"Complex transforms detected in {self.connector_manifest.name}. "
+                    f"Consider using 'generic_connectors' config for explicit mappings."
+                )
+
+            final_topic = transform_result.topics[0] if transform_result.topics else original_topic
+
+            # Validate that final topic exists in connector's reported topics
+            if final_topic not in topics:
+                logger.debug(
+                    f"Transformed topic '{final_topic}' not found in connector's reported topics {topics}. "
+                    f"This may indicate transform prediction inaccuracy."
+                )
+
             # Resolve schema information for hierarchical platforms
+            # Use source_table for schema resolution
             resolved_source_table, dataset_included = self._resolve_source_table_schema(
                 source_table, parser.source_platform, table_ids, True
             )
 
-            # Create lineage mapping
+            # Create lineage mapping - use source table for URN, final topic for target
             lineage = self._create_lineage_mapping(
                 resolved_source_table,
                 parser.database_name,

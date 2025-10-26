@@ -71,6 +71,27 @@
 },
 {
     "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.book)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "mysql_source2:librarydb.book",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "kafka-connect-stateful"
+    }
+},
+{
+    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.member)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
@@ -87,6 +108,28 @@
         "lastObserved": 1635166800000,
         "runId": "kafka-connect-stateful-test",
         "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.book)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,librarydb.book,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,my-new-topic-book,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "kafka-connect-stateful"
     }
 },
 {
@@ -108,49 +151,6 @@
         "lastObserved": 1635166800000,
         "runId": "kafka-connect-stateful-test",
         "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.my-new-topic-book)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "mysql_source2:librarydb.my-new-topic-book",
-            "type": {
-                "string": "COMMAND"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "kafka-connect-stateful"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.my-new-topic-book)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mysql,librarydb.my-new-topic-book,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,my-new-topic-book,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "kafka-connect-stateful"
     }
 },
 {
@@ -400,23 +400,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.member)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1635166800000,
-        "runId": "kafka-connect-stateful-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.my-new-topic-book)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.book)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -429,6 +413,22 @@
         "runId": "kafka-connect-stateful-test",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "kafka-connect-stateful"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.member)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-stateful-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]
