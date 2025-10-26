@@ -1172,3 +1172,129 @@ def test_retry_on_error(pytestconfig, tmp_path, mock_datahub_graph):
 
             assert reporter.warnings == []
             assert reporter.failures == []
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_tableau_virtual_connections(pytestconfig, tmp_path, mock_datahub_graph):
+    """Test Tableau virtual connections ingestion with lineage"""
+    output_file_name: str = "tableau_virtual_connections_mces.json"
+    golden_file_name: str = "tableau_virtual_connections_mces_golden.json"
+
+    new_pipeline_config: Dict[Any, Any] = {
+        **config_source_default,
+        "ingest_virtual_connections": True,
+        "extract_column_level_lineage": True,
+    }
+
+    tableau_ingest_common(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        side_effect_query_metadata_response=[
+            read_response("workbooksConnection_all.json"),
+            read_response("sheetsConnection_all.json"),
+            read_response("dashboardsConnection_all.json"),
+            read_response("embeddedDatasourcesConnection_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_26675da44a38_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"),
+            read_response("publishedDatasourcesConnection_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"),
+            read_response("customSQLTablesConnection_all.json"),
+            read_response("databaseTablesConnection_all.json"),
+            # Virtual connections specific responses
+            read_response("virtualConnectionsConnection_all.json"),
+            read_response("virtualConnectionsDetailed_vc1_all.json"),
+            read_response("virtualConnectionsDetailed_vc2_all.json"),
+        ],
+        golden_file_name=golden_file_name,
+        output_file_name=output_file_name,
+        mock_datahub_graph=mock_datahub_graph,
+        pipeline_name="test_tableau_virtual_connections",
+        pipeline_config=new_pipeline_config,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_tableau_virtual_connections_disabled(
+    pytestconfig, tmp_path, mock_datahub_graph
+):
+    """Test that no virtual connections are ingested when disabled"""
+    output_file_name: str = "tableau_virtual_connections_disabled_mces.json"
+    golden_file_name: str = "tableau_virtual_connections_disabled_mces_golden.json"
+
+    new_pipeline_config: Dict[Any, Any] = {
+        **config_source_default,
+        "ingest_virtual_connections": False,  # Explicitly disabled
+    }
+
+    tableau_ingest_common(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        side_effect_query_metadata_response=mock_data(),  # Standard data without VC
+        golden_file_name=golden_file_name,
+        output_file_name=output_file_name,
+        mock_datahub_graph=mock_datahub_graph,
+        pipeline_name="test_tableau_virtual_connections_disabled",
+        pipeline_config=new_pipeline_config,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_tableau_virtual_connections_no_column_lineage(
+    pytestconfig, tmp_path, mock_datahub_graph
+):
+    """Test virtual connections ingestion without column-level lineage"""
+    output_file_name: str = "tableau_virtual_connections_no_column_lineage_mces.json"
+    golden_file_name: str = (
+        "tableau_virtual_connections_mces_golden.json"  # Same as full test
+    )
+
+    new_pipeline_config: Dict[Any, Any] = {
+        **config_source_default,
+        "ingest_virtual_connections": True,
+        "extract_column_level_lineage": False,  # Disabled column lineage
+    }
+
+    tableau_ingest_common(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        side_effect_query_metadata_response=[
+            read_response("workbooksConnection_all.json"),
+            read_response("sheetsConnection_all.json"),
+            read_response("dashboardsConnection_all.json"),
+            read_response("embeddedDatasourcesConnection_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_26675da44a38_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"),
+            read_response("publishedDatasourcesConnection_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"),
+            read_response("customSQLTablesConnection_all.json"),
+            read_response("databaseTablesConnection_all.json"),
+            # Virtual connections specific responses
+            read_response("virtualConnectionsConnection_all.json"),
+            read_response("virtualConnectionsDetailed_vc1_all.json"),
+            read_response("virtualConnectionsDetailed_vc2_all.json"),
+        ],
+        golden_file_name=golden_file_name,
+        output_file_name=output_file_name,
+        mock_datahub_graph=mock_datahub_graph,
+        pipeline_name="test_tableau_virtual_connections_no_column_lineage",
+        pipeline_config=new_pipeline_config,
+    )
