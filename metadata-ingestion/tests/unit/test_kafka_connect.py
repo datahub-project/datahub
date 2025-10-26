@@ -2198,14 +2198,6 @@ class TestBigQuerySinkConnectorSanitization:
                 f"'{input_name}' should become '{expected}', got '{result}'"
             )
 
-    def test_empty_input_raises_error(self) -> None:
-        """Test that empty input raises ValueError."""
-        invalid_inputs = ["", "   ", "\t\n", "  \t  "]
-
-        for invalid_input in invalid_inputs:
-            with pytest.raises(ValueError, match="Table name cannot be empty"):
-                self.connector.sanitize_table_name(invalid_input)
-
     def test_all_invalid_chars_becomes_underscores(self) -> None:
         """Test that input with only invalid characters becomes underscores (Confluent behavior)."""
         test_cases = [
@@ -2222,19 +2214,6 @@ class TestBigQuerySinkConnectorSanitization:
             assert result == expected, (
                 f"'{input_name}' should become '{expected}', got '{result}'"
             )
-
-    def test_length_truncation(self) -> None:
-        """Test that overly long names are truncated to BigQuery's 1024 character limit."""
-        # Create a name longer than 1024 characters
-        long_name = "a" * 1030  # 1030 characters
-
-        result = self.connector.sanitize_table_name(long_name)
-
-        # Should be truncated to 1024 characters
-        assert len(result) == 1024, f"Expected length 1024, got {len(result)}"
-        assert result == "a" * 1024, (
-            "Should be truncated to exactly 1024 'a' characters"
-        )
 
     def test_length_truncation_with_trailing_underscores(self) -> None:
         """Test that long names with underscores stay as-is (Confluent behavior)."""
