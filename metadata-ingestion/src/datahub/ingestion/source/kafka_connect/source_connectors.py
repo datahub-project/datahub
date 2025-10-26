@@ -1323,11 +1323,13 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                 table_id.schema or "",
                 table_id.table,
                 parser.topic_prefix or "",
-                connector_class
+                connector_class,
             )
 
             # Apply transforms to get final topic
-            transform_result = get_transform_pipeline().apply_forward([original_topic], config)
+            transform_result = get_transform_pipeline().apply_forward(
+                [original_topic], config
+            )
 
             # Log any warnings from transform processing
             for warning in transform_result.warnings:
@@ -1341,14 +1343,11 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                     f"Consider using 'generic_connectors' config for explicit mappings."
                 )
 
-            final_topic = transform_result.topics[0] if transform_result.topics else original_topic
-
-            # Validate that final topic exists in connector's reported topics
-            if final_topic not in topics:
-                logger.debug(
-                    f"Transformed topic '{final_topic}' not found in connector's reported topics {topics}. "
-                    f"This may indicate transform prediction inaccuracy."
-                )
+            final_topic = (
+                transform_result.topics[0]
+                if transform_result.topics
+                else original_topic
+            )
 
             # Resolve schema information for hierarchical platforms
             # Use source_table for schema resolution
@@ -1356,15 +1355,46 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                 source_table, parser.source_platform, table_ids, True
             )
 
-            # Create lineage mapping - use source table for URN, final topic for target
-            lineage = self._create_lineage_mapping(
-                resolved_source_table,
-                parser.database_name,
-                parser.source_platform,
-                final_topic,
-                dataset_included,
-            )
-            lineages.append(lineage)
+            # Validate that final topic exists in connector's reported topics
+            if final_topic not in topics:
+                logger.debug(
+                    f"Transformed topic '{final_topic}' not found in connector's reported topics {topics}. "
+                    f"Falling back to actual runtime topics for unpredictable transforms (e.g., ExtractTopic)."
+                )
+
+                # Fallback: Use actual runtime topics when prediction fails
+                # This handles cases like ExtractTopic where topic names depend on message data
+                # and cannot be predicted from configuration alone
+                if topics:
+                    for runtime_topic in topics:
+                        lineage = self._create_lineage_mapping(
+                            resolved_source_table,
+                            parser.database_name,
+                            parser.source_platform,
+                            runtime_topic,
+                            dataset_included,
+                        )
+                        lineages.append(lineage)
+                else:
+                    # No runtime topics available, create lineage with predicted topic as last resort
+                    lineage = self._create_lineage_mapping(
+                        resolved_source_table,
+                        parser.database_name,
+                        parser.source_platform,
+                        final_topic,
+                        dataset_included,
+                    )
+                    lineages.append(lineage)
+            else:
+                # Prediction succeeded - use predicted topic
+                lineage = self._create_lineage_mapping(
+                    resolved_source_table,
+                    parser.database_name,
+                    parser.source_platform,
+                    final_topic,
+                    dataset_included,
+                )
+                lineages.append(lineage)
 
         return lineages
 
