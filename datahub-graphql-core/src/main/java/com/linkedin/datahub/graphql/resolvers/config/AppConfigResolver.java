@@ -41,6 +41,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final FeatureFlags _featureFlags;
   private final ChromeExtensionConfiguration _chromeExtensionConfiguration;
   private final SettingsService _settingsService;
+  private final boolean _isS3Enabled;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
@@ -60,7 +61,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final HomePageConfiguration homePageConfig,
       final FeatureFlags featureFlags,
       final ChromeExtensionConfiguration chromeExtensionConfiguration,
-      final SettingsService settingsService) {
+      final SettingsService settingsService,
+      final boolean isS3Enabled) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
@@ -79,6 +81,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _featureFlags = featureFlags;
     _chromeExtensionConfiguration = chromeExtensionConfiguration;
     _settingsService = settingsService;
+    _isS3Enabled = isS3Enabled;
   }
 
   @Override
@@ -273,7 +276,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setLogicalModelsEnabled(_featureFlags.isLogicalModelsEnabled())
             .setShowHomepageUserRole(_featureFlags.isShowHomepageUserRole())
             .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
-            .setDocumentationFileUploadV1(_featureFlags.isDocumentationFileUploadV1())
+            .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
@@ -374,5 +377,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     } else {
       return null;
     }
+  }
+
+  private boolean isDocumentationFileUploadV1Enabled() {
+    boolean isEnabledInConfig = _featureFlags.isDocumentationFileUploadV1();
+    return isEnabledInConfig && _isS3Enabled;
   }
 }

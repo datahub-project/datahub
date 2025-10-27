@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-08-28T07:13:19.226648+00:00",
+  "generated_at": "2025-10-23T14:26:01.879155+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -815,7 +815,7 @@
       "classname": "datahub.ingestion.source.dynamodb.dynamodb.DynamoDBSource",
       "platform_id": "dynamodb",
       "platform_name": "DynamoDB",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "elasticsearch": {
       "capabilities": [
@@ -945,7 +945,7 @@
       "classname": "datahub.ingestion.source.fivetran.fivetran.FivetranSource",
       "platform_id": "fivetran",
       "platform_name": "Fivetran",
-      "support_status": "INCUBATING"
+      "support_status": "CERTIFIED"
     },
     "gcs": {
       "capabilities": [
@@ -1197,7 +1197,7 @@
       "classname": "datahub.ingestion.source.hex.hex.HexSource",
       "platform_id": "hex",
       "platform_name": "Hex",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "hive": {
       "capabilities": [
@@ -1395,7 +1395,7 @@
       "classname": "datahub.ingestion.source.iceberg.iceberg.IcebergSource",
       "platform_id": "iceberg",
       "platform_name": "Iceberg",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "json-schema": {
       "capabilities": [
@@ -1787,7 +1787,7 @@
       "classname": "datahub.ingestion.source.mlflow.MLflowSource",
       "platform_id": "mlflow",
       "platform_name": "MLflow",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "mode": {
       "capabilities": [
@@ -2775,7 +2775,7 @@
       "classname": "datahub.ingestion.source.s3.source.S3Source",
       "platform_id": "s3",
       "platform_name": "S3 / Local Files",
-      "support_status": "INCUBATING"
+      "support_status": "CERTIFIED"
     },
     "sac": {
       "capabilities": [
@@ -2888,7 +2888,7 @@
       "classname": "datahub.ingestion.source.salesforce.SalesforceSource",
       "platform_id": "salesforce",
       "platform_name": "Salesforce",
-      "support_status": "INCUBATING"
+      "support_status": "CERTIFIED"
     },
     "sigma": {
       "capabilities": [
@@ -2966,7 +2966,7 @@
       "classname": "datahub.ingestion.source.slack.slack.SlackSource",
       "platform_id": "slack",
       "platform_name": "Slack",
-      "support_status": "TESTING"
+      "support_status": "CERTIFIED"
     },
     "snaplogic": {
       "capabilities": [
@@ -3550,7 +3550,7 @@
       "classname": "datahub.ingestion.source.unity.source.UnityCatalogSource",
       "platform_id": "databricks",
       "platform_name": "Databricks",
-      "support_status": "INCUBATING"
+      "support_status": "CERTIFIED"
     },
     "vertexai": {
       "capabilities": [
@@ -3564,7 +3564,7 @@
       "classname": "datahub.ingestion.source.vertexai.vertexai.VertexAISource",
       "platform_id": "vertexai",
       "platform_name": "Vertex AI",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "vertica": {
       "capabilities": [
