@@ -498,7 +498,8 @@ class DremioAPIOperations:
 
     def _fetch_results_iter(self, job_id: str) -> Iterator[Dict]:
         """
-        Fetch job results as an iterator.
+        Fetch job results in a streaming fashion to reduce memory usage.
+        Yields individual rows instead of collecting all in memory.
         """
         limit = 500
         offset = 0
@@ -552,10 +553,10 @@ class DremioAPIOperations:
     def execute_query_iter(
         self, query: str, timeout: int = 3600
     ) -> Iterator[Dict[str, Any]]:
-        """Execute SQL query and return results as an iterator"""
+        """Execute SQL query and return results as a streaming iterator"""
         try:
             with PerfTimer() as timer:
-                logger.info(f"Executing query: {query}")
+                logger.info(f"Executing streaming query: {query}")
                 response = self.post(url="/sql", data=json.dumps({"sql": query}))
 
                 if "errorMessage" in response:
@@ -587,14 +588,14 @@ class DremioAPIOperations:
                     sleep(3)
 
                 logger.info(
-                    f"Query job completed in {timer.elapsed_seconds()} seconds, fetching results"
+                    f"Query job completed in {timer.elapsed_seconds()} seconds, starting streaming"
                 )
 
-                # Return iterator
+                # Return streaming iterator
                 return self._fetch_results_iter(job_id)
 
         except requests.RequestException as e:
-            raise DremioAPIException("Error executing query") from e
+            raise DremioAPIException("Error executing streaming query") from e
 
     def cancel_query(self, job_id: str) -> None:
         """Cancel a running query"""
@@ -754,7 +755,8 @@ class DremioAPIOperations:
         self, containers: Iterator["DremioContainer"]
     ) -> Iterator[Dict]:
         """
-        Get tables and columns as an iterator.
+        Memory-efficient streaming version that yields tables one at a time.
+        Reduces memory usage for large datasets by processing results as they come.
         """
         if self.edition == DremioEdition.ENTERPRISE:
             query_template = DremioSQLQueries.QUERY_DATASETS_EE
@@ -772,14 +774,13 @@ class DremioAPIOperations:
             self.deny_schema_pattern, schema_field, allow=False
         )
 
-        # Process each container's results with chunking
+        # Process each container's results with chunking to avoid memory buildup
         for schema in containers:
             try:
                 for table in self._get_container_tables_chunked(
                     schema, query_template, schema_condition, deny_schema_condition
                 ):
                     yield table
-
             except DremioAPIException as e:
                 self.report.warning(
                     message="Container has no tables or views",
@@ -967,7 +968,7 @@ class DremioAPIOperations:
 
     def extract_all_queries(self) -> Iterator[Dict[str, Any]]:
         """
-        Get queries as an iterator.
+        Memory-efficient streaming version for extracting query results.
         """
         # Convert datetime objects to string format for SQL queries
         start_timestamp_str = None

@@ -188,7 +188,7 @@ class TableData:
 
 @platform_name("S3 / Local Files", id="s3")
 @config_class(DataLakeSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
