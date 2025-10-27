@@ -1,67 +1,51 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { Pagination, Table, Typography } from 'antd';
-import { ColumnsType } from 'antd/lib/table';
-import React, { useState } from 'react';
+import { PageTitle } from '@components';
+import { Pagination, Typography } from 'antd';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
+
+import { Column, Table } from '@components/components/Table';
 
 import analytics from '@app/analytics';
 import { EventType } from '@app/analytics/event';
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { TableLoadingSkeleton } from '@app/entityV2/shared/TableLoadingSkeleton';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '@app/settingsV2/personal/notifications/constants';
+import { SubscriptionListFilters } from '@app/settingsV2/personal/subscriptions/SubscriptionListFilters';
+import { SUBSCRIPTION_DEFAULT_FILTERS } from '@app/settingsV2/personal/subscriptions/constants';
 import ChannelColumn from '@app/settingsV2/personal/subscriptions/table/ChannelColumn';
 import { EntityChangeTypesColumn } from '@app/settingsV2/personal/subscriptions/table/EntityChangeTypesColumn';
 import { EntityColumn } from '@app/settingsV2/personal/subscriptions/table/EntityColumn';
 import { SubscribedSinceColumn } from '@app/settingsV2/personal/subscriptions/table/SubscribedSinceColumn';
 import { SubscriptionActions } from '@app/settingsV2/personal/subscriptions/table/SubscriptionActions';
 import { UpstreamsColumn } from '@app/settingsV2/personal/subscriptions/table/UpstreamsColumn';
+import { SubscriptionListFilter } from '@app/settingsV2/personal/subscriptions/types';
 import { scrollToTop } from '@app/shared/searchUtils';
 import useActorSinkSettings from '@app/shared/subscribe/drawer/useSinkSettings';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
 
-import { useListSubscriptionsQuery } from '@graphql/subscriptions.generated';
-import { DataHubSubscription } from '@types';
+import { useGetOwnedGroupsQuery } from '@graphql/group.generated';
+import { useSearchSubscriptionsQuery } from '@graphql/subscriptions.generated';
+import { useGetUserGroupsQuery } from '@graphql/user.generated';
+import {
+    AndFilterInput,
+    CorpGroup,
+    CorpUser,
+    DataHubSubscription,
+    EntityType,
+    FacetFilterInput,
+    FilterOperator,
+    SortOrder,
+} from '@types';
 
 import EmptySimpleSvg from '@images/empty-simple.svg?react';
 
 const PAGE_SIZE = 10;
 
-const PageContainer = styled.div`
-    padding-top: 20px;
-    width: 100%;
-    overflow: auto;
-`;
-
-const PageHeaderContainer = styled.div`
-    && {
-        padding-left: 24px;
-    }
-`;
-
-const SubscriptionsTitle = styled(Typography.Text)`
-    font-family: 'Mulish', sans-serif;
-    font-size: 24px;
-    line-height: 32px;
-    font-weight: 400;
-`;
-
-const SubscriptionsTable = styled(Table)`
-    border: 1px solid ${ANTD_GRAY[4]};
-    border-radius: 8px;
-    margin-top: 24px;
-    margin-right: 24px;
-    align-self: flex-end;
-    && tbody > tr:hover > td {
-        background: inherit;
-    }
-`;
-
-const ColumnTitle = styled(Typography.Text)`
+const ColumnTitle = styled.div`
     font-family: 'Mulish', sans-serif;
     font-size: 14px;
     line-height: 20px;
     font-weight: 700;
-    color: rgba(0, 0, 0, 0.88);
     display: flex;
     align-items: center;
 `;
@@ -89,7 +73,7 @@ const PaginationContainer = styled.div`
 `;
 
 const StyledPagination = styled(Pagination)`
-    margin: 40px;
+    margin: 16px;
 `;
 
 const OwnerContainer = styled.div`
@@ -98,61 +82,205 @@ const OwnerContainer = styled.div`
     justify-content: start;
 `;
 
-type Props = {
-    isPersonal: boolean;
-    groupUrn?: string;
+const SubscriptionListContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    margin: 16px 20px;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+    gap: 20px 0px;
+`;
+
+const NUM_GROUP_URNS_TO_FETCH = 100;
+
+const buildOrFilters = (
+    selectedFilters: SubscriptionListFilter,
+    urn: string,
+    groupUrns: string[],
+): AndFilterInput[] => {
+    const filters: FacetFilterInput[] = [];
+    // Add other filters
+    const { entity, owner, eventType } = selectedFilters.filterCriteria;
+
+    if (owner.length > 0) {
+        filters.push({
+            field: 'actorUrn',
+            values: owner,
+            condition: FilterOperator.Equal,
+        });
+    } else if (groupUrns.length > 0) {
+        filters.push({
+            field: 'actorUrn',
+            values: [urn, ...groupUrns],
+            condition: FilterOperator.Equal,
+        });
+    } else {
+        filters.push({
+            field: 'actorUrn',
+            values: [urn],
+            condition: FilterOperator.Equal,
+        });
+    }
+
+    if (entity.length > 0) {
+        filters.push({
+            field: 'entityUrn',
+            values: entity,
+            condition: FilterOperator.Contain,
+        });
+    }
+
+    if (eventType.length > 0) {
+        filters.push({
+            field: 'entityChangeTypes',
+            values: eventType,
+            condition: FilterOperator.Equal,
+        });
+    }
+
+    return [
+        {
+            and: filters,
+        },
+    ];
 };
 
+type Props =
+    | {
+          isPersonal: true;
+          groupUrn?: undefined;
+      }
+    | {
+          isPersonal: false;
+          groupUrn: string;
+      };
+
+type ManageActorSubscriptionsContentProps =
+    | {
+          user: CorpUser;
+          isPersonal: true;
+          groupUrn?: string;
+      }
+    | {
+          user: CorpUser;
+          isPersonal: false;
+          groupUrn: string;
+      };
+
 /**
- * Component used for managing actor subscriptions.
+ * Main content component that handles subscription management logic.
+ * Only rendered after user is loaded.
  */
-export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
-    const actorUrn: any = useUserContext()?.user?.urn;
+const ManageActorSubscriptionsContent: React.FC<ManageActorSubscriptionsContentProps> = ({
+    user,
+    isPersonal,
+    groupUrn,
+}) => {
+    const userUrn = user.urn;
+    const actorUrn = isPersonal ? userUrn : groupUrn;
+    const { data: userGroupsData, loading: isUserGroupsLoading } = useGetUserGroupsQuery({
+        variables: { urn: userUrn, start: 0, count: NUM_GROUP_URNS_TO_FETCH },
+        skip: !isPersonal,
+        fetchPolicy: 'cache-and-network',
+    });
+    const { data: ownedGroupsData, loading: isOwnedGroupsLoading } = useGetOwnedGroupsQuery({
+        variables: { userUrn, start: 0, count: NUM_GROUP_URNS_TO_FETCH },
+        skip: !isPersonal,
+        fetchPolicy: 'cache-and-network',
+    });
+
     const [page, setPage] = useState(1);
+    const [selectedFilters, setSelectedFilters] = useState<SubscriptionListFilter>(SUBSCRIPTION_DEFAULT_FILTERS);
+
+    // Reset page to 1 when filters change, since we paginate results
+    useEffect(() => {
+        setPage(1);
+    }, [
+        selectedFilters.filterCriteria.searchText,
+        selectedFilters.filterCriteria.entity,
+        selectedFilters.filterCriteria.owner,
+        selectedFilters.filterCriteria.eventType,
+    ]);
+
+    const memberGroups: CorpGroup[] =
+        userGroupsData?.corpUser?.relationships?.relationships?.map((r) => r.entity as CorpGroup) || [];
+    const ownedGroups: CorpGroup[] =
+        ownedGroupsData?.search?.searchResults?.map((result) => result.entity as CorpGroup) || [];
+    const memberGroupUrns: string[] = memberGroups.map((r) => r.urn);
+    const ownedGroupUrns: string[] = ownedGroups.map((r) => r.urn);
+
+    // Combine & dedupe both member and owned group urns. This is because a user
+    // can be an owner but not a member of the group.
+    const groupUrns: string[] = [...new Set([...memberGroupUrns, ...ownedGroupUrns])];
+
+    // Get sink settings for the current group (for group subscriptions) or user (for personal subscriptions)
+    const { notificationSettings: actorNotificationSettings, loading: isSinkSettingsLoading } = useActorSinkSettings({
+        isPersonal,
+        groupUrn,
+    });
+    const orFilters = buildOrFilters(selectedFilters, actorUrn, groupUrns);
+    const { searchText } = selectedFilters.filterCriteria;
     const start = (page - 1) * PAGE_SIZE;
     const {
-        data: listSubscriptionData,
-        loading,
-        refetch: refetchListSubscriptions,
-    } = useListSubscriptionsQuery({
+        data: searchResults,
+        refetch,
+        loading: isSubscriptionsLoading,
+        previousData: previousSearchResults,
+    } = useSearchSubscriptionsQuery({
         variables: {
             input: {
+                types: [EntityType.Subscription],
+                query: searchText || '*',
                 start,
                 count: PAGE_SIZE,
-                actorUrn: (!groupUrn && actorUrn) || undefined,
-                ...(groupUrn && { groupUrn }),
+                orFilters: orFilters.length > 0 ? orFilters : undefined,
+                sortInput: {
+                    sortCriterion: {
+                        field: 'createdOn',
+                        sortOrder: SortOrder.Descending,
+                    },
+                },
             },
         },
+        skip: isPersonal && (isUserGroupsLoading || isOwnedGroupsLoading),
     });
-    const { slackSettings, emailSettings } = useActorSinkSettings({ isPersonal, groupUrn });
-    const subscriptions = listSubscriptionData?.listSubscriptions?.subscriptions || [];
-    const numSubscriptions = listSubscriptionData?.listSubscriptions?.total || 0;
-    const pageTitle = isPersonal ? 'My Subscriptions' : 'Group Subscriptions';
-    const subscriptionTableColumns: ColumnsType<DataHubSubscription> = [
+
+    const subscriptions = (searchResults?.searchAcrossEntities?.searchResults?.map((result) => result.entity) ||
+        []) as DataHubSubscription[];
+    const prevSubscriptions = (previousSearchResults?.searchAcrossEntities?.searchResults?.map(
+        (result) => result.entity,
+    ) || []) as DataHubSubscription[];
+    const numSubscriptions = searchResults?.searchAcrossEntities?.total || 0;
+
+    const handleFilterChange = (filter: SubscriptionListFilter) => {
+        setSelectedFilters(filter);
+    };
+    const subscriptionTableColumns: Column<DataHubSubscription>[] = [
         {
             title: <ColumnTitle>Name</ColumnTitle>,
-            dataIndex: 'name',
             key: 'name',
-            render: (_, subscription: DataHubSubscription) => <EntityColumn subscription={subscription} />,
+            dataIndex: 'name',
+            render: (subscription: DataHubSubscription) => <EntityColumn subscription={subscription} />,
         },
         {
             title: <ColumnTitle>Destinations</ColumnTitle>,
-            dataIndex: 'channels',
             key: 'channels',
-            render: (_, subscription: DataHubSubscription) => (
+            dataIndex: 'channels',
+            render: (subscription: DataHubSubscription) => (
                 <ChannelColumn
-                    isPersonal={isPersonal}
                     subscription={subscription}
-                    slackSettings={slackSettings}
-                    emailSettings={emailSettings}
+                    actorUrn={actorUrn}
+                    ownedAndMemberGroup={ownedGroups.concat(memberGroups)}
+                    actorNotificationSettings={actorNotificationSettings || undefined}
                 />
             ),
         },
         {
             title: <ColumnTitle>Owner</ColumnTitle>,
-            dataIndex: 'actorUrn',
             key: 'actorUrn',
-            render: (_, subscription: DataHubSubscription) => (
+            dataIndex: 'actorUrn',
+            render: (subscription: DataHubSubscription) => (
                 <OwnerContainer>
                     <ActorPill
                         actor={subscription.actor}
@@ -171,35 +299,34 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
         },
         {
             title: <ColumnTitle>Events</ColumnTitle>,
-            dataIndex: 'entityChangeTypes',
             key: 'entityChangeTypes',
-            render: (_, subscription: DataHubSubscription) => <EntityChangeTypesColumn subscription={subscription} />,
+            dataIndex: 'entityChangeTypes',
+            render: (subscription: DataHubSubscription) => <EntityChangeTypesColumn subscription={subscription} />,
         },
-
         ...(ENABLE_UPSTREAM_NOTIFICATIONS
             ? [
                   {
                       title: <ColumnTitle>Subscribed to Upstreams</ColumnTitle>,
-                      dataIndex: 'upstreams',
                       key: 'upstreams',
-                      render: (_, subscription: DataHubSubscription) => <UpstreamsColumn subscription={subscription} />,
+                      dataIndex: 'upstreams',
+                      render: (subscription: DataHubSubscription) => <UpstreamsColumn subscription={subscription} />,
                   },
               ]
             : []),
         {
             title: <ColumnTitle>Subscribed Since</ColumnTitle>,
-            dataIndex: 'since',
             key: 'since',
-            render: (_, subscription: DataHubSubscription) => <SubscribedSinceColumn subscription={subscription} />,
+            dataIndex: 'since',
+            render: (subscription: DataHubSubscription) => <SubscribedSinceColumn subscription={subscription} />,
         },
         {
             title: '',
-            dataIndex: 'actions',
             key: 'actions',
-            render: (_, subscription: DataHubSubscription) => (
+            dataIndex: 'actions',
+            render: (subscription: DataHubSubscription) => (
                 <SubscriptionActions
                     subscription={subscription}
-                    refetchListSubscriptions={refetchListSubscriptions}
+                    refetchListSubscriptions={refetch}
                     isPersonal={isPersonal}
                     groupUrn={groupUrn}
                 />
@@ -212,48 +339,96 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
         setPage(newPage);
     };
 
+    if ((isPersonal && (isUserGroupsLoading || isOwnedGroupsLoading)) || isSinkSettingsLoading) {
+        return <TableLoadingSkeleton />;
+    }
+
+    const hasResults = subscriptions.length > 0;
+    const hasPreviousResults = prevSubscriptions.length > 0;
+    // To avoid the list jumping around, we will display the stale data while
+    // refetching the new data
+    const showPreviousResultsWhileRefetching = isSubscriptionsLoading && hasPreviousResults;
+    const hasSearchQuery = searchText.trim() !== '';
+    const { entity, owner, eventType } = selectedFilters.filterCriteria;
+    const hasActiveFilters = entity.length > 0 || owner.length > 0 || eventType.length > 0;
+    const hasUserAppliedRefinements = hasSearchQuery || hasActiveFilters;
+    const refinementReturnedNoResults = !isSubscriptionsLoading && !hasResults && hasUserAppliedRefinements;
+
     return (
-        <PageContainer>
-            <PageHeaderContainer>
-                <SubscriptionsTitle>{pageTitle}</SubscriptionsTitle>
-                <SubscriptionsTable
-                    columns={subscriptionTableColumns as ColumnsType<any>}
-                    dataSource={subscriptions.map((subscription) => ({
-                        ...subscription,
-                        key: subscription.subscriptionUrn,
-                    }))}
-                    rowKey="urn"
-                    loading={loading ? { indicator: <LoadingOutlined /> } : false}
-                    locale={
-                        !loading
-                            ? {
-                                  emptyText: (
-                                      <EmptyContainer>
-                                          <EmptySimpleSvg />
-                                          <EmptySubscriptionsText>
-                                              You are not currently subscribed to any entities. Get started by
-                                              subscribing to entities most relevant to you.
-                                          </EmptySubscriptionsText>
-                                      </EmptyContainer>
-                                  ),
-                              }
-                            : undefined
-                    }
-                    pagination={false}
-                />
-                {numSubscriptions >= PAGE_SIZE && (
-                    <PaginationContainer>
-                        <StyledPagination
-                            current={page}
-                            pageSize={PAGE_SIZE}
-                            total={numSubscriptions}
-                            showLessItems
-                            onChange={onChangePage}
-                            showSizeChanger={false}
-                        />
-                    </PaginationContainer>
-                )}
-            </PageHeaderContainer>
-        </PageContainer>
+        <>
+            <SubscriptionListFilters
+                subscriptions={subscriptions}
+                selectedFilters={selectedFilters}
+                handleFilterChange={handleFilterChange}
+                viewer={user}
+                ownedAndMemberGroupUrns={groupUrns}
+            />
+            {isSubscriptionsLoading && !hasPreviousResults ? <TableLoadingSkeleton /> : null}
+            {!isSubscriptionsLoading && !hasResults && !hasUserAppliedRefinements ? (
+                <EmptyContainer>
+                    <EmptySimpleSvg />
+                    <EmptySubscriptionsText>
+                        You are not currently subscribed to any entities. Get started by subscribing to entities most
+                        relevant to you.
+                    </EmptySubscriptionsText>
+                </EmptyContainer>
+            ) : null}
+            {refinementReturnedNoResults ? (
+                <EmptyContainer>
+                    <EmptySimpleSvg />
+                    <EmptySubscriptionsText>
+                        No subscriptions match your current filters and search criteria.
+                    </EmptySubscriptionsText>
+                </EmptyContainer>
+            ) : null}
+            {(hasResults || showPreviousResultsWhileRefetching) && (
+                <>
+                    <Table
+                        columns={subscriptionTableColumns}
+                        isScrollable
+                        data={hasResults ? subscriptions : prevSubscriptions}
+                        isLoading={showPreviousResultsWhileRefetching}
+                        rowKey={(record) => record.subscriptionUrn}
+                    />
+                    {numSubscriptions >= PAGE_SIZE && (
+                        <PaginationContainer>
+                            <StyledPagination
+                                current={page}
+                                pageSize={PAGE_SIZE}
+                                total={numSubscriptions}
+                                showLessItems
+                                onChange={onChangePage}
+                                showSizeChanger={false}
+                            />
+                        </PaginationContainer>
+                    )}
+                </>
+            )}
+        </>
+    );
+};
+
+export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
+    const { user, loaded: isUserLoaded } = useUserContext();
+    const pageTitle = isPersonal ? 'My Subscriptions' : 'Group Subscriptions';
+
+    if (!isUserLoaded || !user) {
+        return (
+            <SubscriptionListContainer>
+                <PageTitle title={pageTitle} subTitle="Manage your personal and group subscriptions" />
+                <TableLoadingSkeleton />
+            </SubscriptionListContainer>
+        );
+    }
+
+    return (
+        <SubscriptionListContainer>
+            <PageTitle title={pageTitle} subTitle="Manage your personal and group subscriptions" />
+            {isPersonal ? (
+                <ManageActorSubscriptionsContent user={user} isPersonal />
+            ) : (
+                <ManageActorSubscriptionsContent user={user} isPersonal={false} groupUrn={groupUrn} />
+            )}
+        </SubscriptionListContainer>
     );
 };

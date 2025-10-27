@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingsMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -74,6 +75,18 @@ public class CorpGroupMapper implements ModelMapper<EntityResponse, CorpGroup> {
     mappingHelper.mapToResult(
         ORIGIN_ASPECT_NAME,
         (entity, dataMap) -> entity.setAssetOrigin(OriginMapper.map(context, new Origin(dataMap))));
+    if (aspectMap.containsKey(CORP_GROUP_SETTINGS_ASPECT_NAME)) {
+      mappingHelper.mapToResult(
+          CORP_GROUP_SETTINGS_ASPECT_NAME,
+          (entity, dataMap) -> {
+            com.linkedin.event.notification.settings.NotificationSettings notificationSettings =
+                new com.linkedin.identity.CorpGroupSettings(dataMap).getNotificationSettings();
+            if (notificationSettings != null) {
+              entity.setNotificationSettings(
+                  NotificationSettingsMapper.map(context, notificationSettings));
+            }
+          });
+    }
     if (aspectMap.containsKey(ORIGIN_ASPECT_NAME)) {
       mappingHelper.mapToResult(
           ORIGIN_ASPECT_NAME,

@@ -18,6 +18,37 @@ query listSubscriptions($input: ListSubscriptionsInput!) {
     }
 }
 
+query searchSubscriptions($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        ...subscriptionSearchResults
+    }
+}
+
+fragment subscriptionSearchResults on SearchResults {
+    start
+    count
+    total
+    searchResults {
+        entity {
+            ...subscriptionSearchResultFields
+        }
+    }
+    facets {
+        ...facetFields
+    }
+    suggestions {
+        text
+        frequency
+        score
+    }
+}
+
+fragment subscriptionSearchResultFields on Entity {
+    urn
+    type
+    ...subscriptionFields
+}
+
 query getEntitySubscriptionSummary($input: GetEntitySubscriptionSummaryInput!) {
     getEntitySubscriptionSummary(input: $input) {
         isUserSubscribed

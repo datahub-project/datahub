@@ -1745,6 +1745,9 @@ fragment entityDisplayNameFields on Entity {
         info {
             displayName
         }
+        properties {
+            displayName
+        }
     }
     ... on Dashboard {
         dashboardId

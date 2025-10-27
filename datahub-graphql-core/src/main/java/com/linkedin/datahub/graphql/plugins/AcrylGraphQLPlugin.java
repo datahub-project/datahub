@@ -348,7 +348,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         SEMANTIC_SEARCH_ACRYL_SCHEMA_FILE,
         EXECUTOR_SCHEMA_FILE,
         REMOTE_EXECUTOR_SCHEMA_FILE,
-        INTEGRATIONS_TEAMS_SCHEMA_FILE);
+        INTEGRATIONS_TEAMS_SCHEMA_FILE,
+        GROUP_ACRYL_SCHEMA_FILE);
   }
 
   @Override

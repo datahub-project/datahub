@@ -70,6 +70,30 @@ vi.mock('@graphql/settings.generated', () => ({
             }
         }
     }`,
+    NotificationSettingsFieldsFragment: {},
+    NotificationSettingsFieldsFragmentDoc: `fragment notificationSettingsFields on NotificationSettings {
+        sinkTypes
+        slackSettings {
+            channels
+        }
+        emailSettings {
+            email
+        }
+        teamsSettings {
+            channels {
+                id
+                name
+            }
+        }
+        settings {
+            type
+            value
+            params {
+                key
+                value
+            }
+        }
+    }`,
 
     // Mock hooks with default implementations
     useGetGlobalSettingsQuery: vi.fn(() => ({ data: undefined, loading: false, error: undefined })),

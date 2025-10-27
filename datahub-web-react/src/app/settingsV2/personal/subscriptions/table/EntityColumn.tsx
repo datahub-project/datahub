@@ -37,7 +37,7 @@ const EntityNameContainer = styled.div`
 
 const EntityNameText = styled(Typography.Text)`
     font-family: 'Mulish', sans-serif;
-    font-size: 16px;
+    font-size: 14px;
     line-height: 24px;
     font-weight: 500;
 `;

@@ -4,22 +4,15 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import {
-    getEmailSettingsChannel,
-    getEmailSubscriptionChannel,
-    getSinkTypesForSubscription,
-    getSlackSettingsChannel,
-    getSlackSubscriptionChannel,
-    getTeamsSettingsChannel,
-    getTeamsSubscriptionChannel,
-} from '@app/shared/subscribe/drawer/utils';
+import { getMergedNotificationSettingsForSubscription } from '@app/settingsV2/personal/subscriptions/utils';
 
 import {
+    CorpGroup,
     DataHubSubscription,
-    EmailNotificationSettings,
+    EntityType,
+    NotificationSettings,
     NotificationSinkType,
-    SlackNotificationSettings,
-    TeamsNotificationSettings,
+    TeamsChannel,
 } from '@types';
 
 import teamsLogo from '@images/teamslogo.png';
@@ -67,95 +60,125 @@ const TeamsIcon = styled.img`
 `;
 
 type Props = {
-    isPersonal: boolean;
     subscription: DataHubSubscription;
-    emailSettings?: EmailNotificationSettings;
-    slackSettings?: SlackNotificationSettings;
-    teamsSettings?: TeamsNotificationSettings;
+    actorUrn: string;
+    actorNotificationSettings?: NotificationSettings;
+    ownedAndMemberGroup: CorpGroup[];
 };
 
 const SlackColumn = ({
-    isPersonal,
-    subscription,
-    slackSettings,
-}: Pick<Props, 'isPersonal' | 'subscription' | 'slackSettings' | 'teamsSettings'>) => {
-    const settingsChannel = getSlackSettingsChannel(isPersonal, slackSettings);
-    const subscriptionChannel = getSlackSubscriptionChannel(isPersonal, subscription);
-    const useDefault = !!settingsChannel && !subscriptionChannel;
-    const channel = useDefault ? settingsChannel : subscriptionChannel;
+    shouldUseHandle,
+    userHandle,
+    channels,
+}: {
+    shouldUseHandle: boolean;
+    userHandle: string | undefined;
+    channels: string[] | undefined;
+}) => {
+    if (shouldUseHandle) {
+        if (!userHandle) return null;
+        return (
+            <SlackChannelContainer>
+                <SlackIcon />
+                <Typography.Text>{userHandle}</Typography.Text>
+            </SlackChannelContainer>
+        );
+    }
 
-    if (!channel) return null;
-
+    if (!channels?.length) return null;
     return (
-        <SlackChannelContainer>
-            <SlackIcon />
-            <Typography.Text>
-                {channel} {useDefault && <Typography.Text type="secondary">(default)</Typography.Text>}
-            </Typography.Text>
-        </SlackChannelContainer>
+        <>
+            {channels.map((channel) => {
+                return (
+                    <SlackChannelContainer key={channel}>
+                        <SlackIcon />
+                        <Typography.Text>{channel}</Typography.Text>
+                    </SlackChannelContainer>
+                );
+            })}
+        </>
     );
 };
 
 const TeamsColumn = ({
-    isPersonal,
-    subscription,
-    teamsSettings,
-}: Pick<Props, 'isPersonal' | 'subscription' | 'teamsSettings'>) => {
-    const settingsChannel = getTeamsSettingsChannel(isPersonal, teamsSettings);
-    const subscriptionChannel = getTeamsSubscriptionChannel(isPersonal, subscription);
-    const useDefault = !!settingsChannel && !subscriptionChannel;
-    const channel = useDefault ? settingsChannel : subscriptionChannel;
-
-    if (!channel) return null;
-
+    shouldUseDisplayName,
+    teamsUserDisplayName,
+    teamsChannels,
+}: {
+    shouldUseDisplayName: boolean;
+    teamsUserDisplayName: string | undefined;
+    teamsChannels: TeamsChannel[] | undefined;
+}) => {
+    if (shouldUseDisplayName) {
+        if (!teamsUserDisplayName) return null;
+        return (
+            <TeamsChannelContainer>
+                <TeamsIcon src={teamsLogo} alt="Teams" />
+                <Typography.Text>{teamsUserDisplayName}</Typography.Text>
+            </TeamsChannelContainer>
+        );
+    }
+    if (!teamsChannels?.length) return null;
     return (
-        <TeamsChannelContainer>
-            <TeamsIcon src={teamsLogo} alt="Teams" />
-            <Typography.Text>
-                {channel} {useDefault && <Typography.Text type="secondary">(default)</Typography.Text>}
-            </Typography.Text>
-        </TeamsChannelContainer>
+        <>
+            {teamsChannels.map((channel) => {
+                return (
+                    <TeamsChannelContainer key={channel.id}>
+                        <TeamsIcon src={teamsLogo} alt="Teams" />
+                        <Typography.Text>{channel.name || channel.id}</Typography.Text>
+                    </TeamsChannelContainer>
+                );
+            })}
+        </>
     );
 };
 
-const EmailColumn = ({
-    isPersonal,
-    subscription,
-    emailSettings,
-}: Pick<Props, 'isPersonal' | 'subscription' | 'emailSettings'>) => {
-    const settingsEmail = getEmailSettingsChannel(isPersonal, emailSettings);
-    const subscriptionEmail = getEmailSubscriptionChannel(isPersonal, subscription);
-    const useDefault = !!settingsEmail && !subscriptionEmail;
-    const finalEmail = useDefault ? settingsEmail : subscriptionEmail;
-
-    if (!finalEmail) return null;
-
+const EmailColumn = ({ email }: { email: string | undefined }) => {
+    if (!email) return null;
     return (
         <EmailContainer>
             <EmailIcon />
-            <Typography.Text>
-                {finalEmail} {useDefault && <Typography.Text type="secondary">(default)</Typography.Text>}
-            </Typography.Text>
+            <Typography.Text>{email}</Typography.Text>
         </EmailContainer>
     );
 };
 
-const sinkMap = {
-    [NotificationSinkType.Slack]: SlackColumn,
-    [NotificationSinkType.Email]: EmailColumn,
-    [NotificationSinkType.Teams]: TeamsColumn,
-} as const;
-
-const ChannelColumn = (props: Props) => {
-    const sinkTypesForSubscription = getSinkTypesForSubscription(props.subscription);
-    const sinkTypesToShow = Object.keys(sinkMap).filter((sinkType) =>
-        sinkTypesForSubscription.includes(sinkType as NotificationSinkType),
-    ) as NotificationSinkType[];
+const ChannelColumn = ({ subscription, actorUrn, actorNotificationSettings, ownedAndMemberGroup }: Props) => {
+    const mergedNotificationSettings = getMergedNotificationSettingsForSubscription(
+        subscription,
+        ownedAndMemberGroup,
+        actorUrn,
+        actorNotificationSettings,
+    );
+    const sinkTypesToShow = mergedNotificationSettings.sinkTypes || [];
+    const subscriptionOwnerIsUser = subscription.actor.type === EntityType.CorpUser;
     return (
         <ChannelsContainer>
             {sinkTypesToShow.map((sinkType) => {
-                const Component = sinkMap[sinkType];
-                return <Component key={sinkType} {...props} />;
+                switch (sinkType) {
+                    case NotificationSinkType.Slack:
+                        return (
+                            <SlackColumn
+                                key={sinkType}
+                                shouldUseHandle={subscriptionOwnerIsUser}
+                                userHandle={mergedNotificationSettings.slackUserHandle}
+                                channels={mergedNotificationSettings.slackChannels}
+                            />
+                        );
+                    case NotificationSinkType.Email:
+                        return <EmailColumn key={sinkType} email={mergedNotificationSettings.email} />;
+                    case NotificationSinkType.Teams:
+                        return (
+                            <TeamsColumn
+                                key={sinkType}
+                                shouldUseDisplayName={subscriptionOwnerIsUser}
+                                teamsUserDisplayName={mergedNotificationSettings.teamsUserDisplayName}
+                                teamsChannels={mergedNotificationSettings.teamsChannels}
+                            />
+                        );
+                    default:
+                        throw new Error(`Unhandled sink type: ${sinkType}`);
+                }
             })}
         </ChannelsContainer>
     );

@@ -40,6 +40,12 @@ record SubscriptionInfo {
     /**
     * AuditStamp for when the subscription was created
     */
+    @Searchable = {
+        "/time": {
+           "fieldType": "DATETIME",
+           "fieldName": "createdOn"
+        }
+    }
     createdOn: AuditStamp
 
     /**

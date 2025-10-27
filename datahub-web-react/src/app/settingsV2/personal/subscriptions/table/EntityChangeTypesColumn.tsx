@@ -1,12 +1,12 @@
-import { Plus } from 'phosphor-react';
+import { Pill } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
+import { getEntityChangeTypeDisplayName } from '@app/settingsV2/personal/subscriptions/utils';
 import DataHubTooltip from '@src/alchemy-components/components/Tooltip/Tooltip';
 import { getColor } from '@src/alchemy-components/theme/utils';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
-import { DataHubSubscription, EntityChangeType } from '@types';
+import { DataHubSubscription } from '@types';
 
 const StyledPillContainer = styled.div`
     display: flex;
@@ -35,52 +35,18 @@ const StyledPill = styled.div`
     }
 `;
 
-const AdditionalPillCount = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    font-size: 12px;
-    font-family: 'Mulish', sans-serif;
-    color: ${REDESIGN_COLORS.BODY_TEXT};
-    cursor: pointer;
-`;
-
 const TooltipTitleWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: fit-content;
+    gap: 4px;
     padding: 8px 4px 0px;
 `;
 
-// Helper function to get a user-friendly label for EntityChangeType
-const getChangeTypeLabel = (changeType: EntityChangeType): string => {
-    const labelMap: Record<EntityChangeType, string> = {
-        [EntityChangeType.AssertionError]: 'Assertion Error',
-        [EntityChangeType.AssertionFailed]: 'Assertion Failed',
-        [EntityChangeType.AssertionPassed]: 'Assertion Passed',
-        [EntityChangeType.Deprecated]: 'Deprecated',
-        [EntityChangeType.DocumentationChange]: 'Documentation Change',
-        [EntityChangeType.GlossaryTermAdded]: 'Glossary Term Added',
-        [EntityChangeType.GlossaryTermProposed]: 'Glossary Term Proposed',
-        [EntityChangeType.GlossaryTermRemoved]: 'Glossary Term Removed',
-        [EntityChangeType.IncidentRaised]: 'Incident Raised',
-        [EntityChangeType.IncidentResolved]: 'Incident Resolved',
-        [EntityChangeType.IngestionFailed]: 'Ingestion Failed',
-        [EntityChangeType.IngestionSucceeded]: 'Ingestion Succeeded',
-        [EntityChangeType.OperationColumnAdded]: 'Column Added',
-        [EntityChangeType.OperationColumnModified]: 'Column Modified',
-        [EntityChangeType.OperationColumnRemoved]: 'Column Removed',
-        [EntityChangeType.OperationRowsInserted]: 'Rows Inserted',
-        [EntityChangeType.OperationRowsRemoved]: 'Rows Removed',
-        [EntityChangeType.OperationRowsUpdated]: 'Rows Updated',
-        [EntityChangeType.OwnerAdded]: 'Owner Added',
-        [EntityChangeType.OwnerRemoved]: 'Owner Removed',
-        [EntityChangeType.TagAdded]: 'Tag Added',
-        [EntityChangeType.TagProposed]: 'Tag Proposed',
-        [EntityChangeType.TagRemoved]: 'Tag Removed',
-        [EntityChangeType.TestFailed]: 'Test Failed',
-        [EntityChangeType.TestPassed]: 'Test Passed',
-        [EntityChangeType.Undeprecated]: 'Undeprecated',
-    };
-    return labelMap[changeType] || changeType;
-};
+const TooltipWrapper = styled.span`
+    display: inline-block;
+`;
 
 interface EntityChangeTypesColumnProps {
     subscription: DataHubSubscription;
@@ -109,25 +75,26 @@ export const EntityChangeTypesColumn: React.FC<EntityChangeTypesColumnProps> = (
     const changeTypesPreview = (
         <>
             {displayChangeTypes.map((changeType) => (
-                <StyledPill key={changeType}>{getChangeTypeLabel(changeType)}</StyledPill>
+                <Pill variant="outline" label={getEntityChangeTypeDisplayName(changeType)} key={changeType} />
             ))}
             {remainingChangeTypesCount > 0 && (
                 <DataHubTooltip
                     overlayInnerStyle={{ backgroundColor: 'white' }}
                     title={
                         <TooltipTitleWrapper>
-                            {entityChangeTypes.slice(1).map((changeType) => (
-                                <StyledPill key={changeType} style={{ marginBottom: 4 }}>
-                                    {getChangeTypeLabel(changeType)}
-                                </StyledPill>
+                            {entityChangeTypes.slice(MAX_CHANGE_TYPES_TO_DISPLAY).map((changeType) => (
+                                <Pill
+                                    variant="outline"
+                                    label={getEntityChangeTypeDisplayName(changeType)}
+                                    key={changeType}
+                                />
                             ))}
                         </TooltipTitleWrapper>
                     }
                 >
-                    <AdditionalPillCount>
-                        <Plus size={12} />
-                        <span>{remainingChangeTypesCount}</span>
-                    </AdditionalPillCount>
+                    <TooltipWrapper>
+                        <Pill clickable variant="outline" label={`+${remainingChangeTypesCount}`} />
+                    </TooltipWrapper>
                 </DataHubTooltip>
             )}
         </>
