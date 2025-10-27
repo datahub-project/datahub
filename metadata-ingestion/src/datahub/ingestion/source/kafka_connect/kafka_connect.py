@@ -912,8 +912,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             if connector.lineages:
                 same_source_count = sum(
                     1
-                    for l in connector.lineages
-                    if l.source_dataset == lineage.source_dataset
+                    for other_lineage in connector.lineages
+                    if other_lineage.source_dataset == lineage.source_dataset
                 )
                 if same_source_count > 1:
                     # Multiple outputs from same source - append target for uniqueness
