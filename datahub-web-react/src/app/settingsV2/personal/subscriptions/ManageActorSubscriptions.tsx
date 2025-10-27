@@ -4,16 +4,20 @@ import { ColumnsType } from 'antd/lib/table';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
+import analytics from '@app/analytics';
+import { EventType } from '@app/analytics/event';
 import { useUserContext } from '@app/context/useUserContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '@app/settingsV2/personal/notifications/constants';
 import ChannelColumn from '@app/settingsV2/personal/subscriptions/table/ChannelColumn';
-import { EditSubscriptionColumn } from '@app/settingsV2/personal/subscriptions/table/EditSubscriptionColumn';
+import { EntityChangeTypesColumn } from '@app/settingsV2/personal/subscriptions/table/EntityChangeTypesColumn';
 import { EntityColumn } from '@app/settingsV2/personal/subscriptions/table/EntityColumn';
 import { SubscribedSinceColumn } from '@app/settingsV2/personal/subscriptions/table/SubscribedSinceColumn';
+import { SubscriptionActions } from '@app/settingsV2/personal/subscriptions/table/SubscriptionActions';
 import { UpstreamsColumn } from '@app/settingsV2/personal/subscriptions/table/UpstreamsColumn';
 import { scrollToTop } from '@app/shared/searchUtils';
 import useActorSinkSettings from '@app/shared/subscribe/drawer/useSinkSettings';
+import ActorPill from '@app/sharedV2/owners/ActorPill';
 
 import { useListSubscriptionsQuery } from '@graphql/subscriptions.generated';
 import { DataHubSubscription } from '@types';
@@ -88,6 +92,12 @@ const StyledPagination = styled(Pagination)`
     margin: 40px;
 `;
 
+const OwnerContainer = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: start;
+`;
+
 type Props = {
     isPersonal: boolean;
     groupUrn?: string;
@@ -120,13 +130,13 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
     const pageTitle = isPersonal ? 'My Subscriptions' : 'Group Subscriptions';
     const subscriptionTableColumns: ColumnsType<DataHubSubscription> = [
         {
-            title: <ColumnTitle>Entity</ColumnTitle>,
-            dataIndex: 'Entity',
-            key: 'entity',
+            title: <ColumnTitle>Name</ColumnTitle>,
+            dataIndex: 'name',
+            key: 'name',
             render: (_, subscription: DataHubSubscription) => <EntityColumn subscription={subscription} />,
         },
         {
-            title: <ColumnTitle>Channel</ColumnTitle>,
+            title: <ColumnTitle>Destinations</ColumnTitle>,
             dataIndex: 'channels',
             key: 'channels',
             render: (_, subscription: DataHubSubscription) => (
@@ -138,6 +148,34 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
                 />
             ),
         },
+        {
+            title: <ColumnTitle>Owner</ColumnTitle>,
+            dataIndex: 'actorUrn',
+            key: 'actorUrn',
+            render: (_, subscription: DataHubSubscription) => (
+                <OwnerContainer>
+                    <ActorPill
+                        actor={subscription.actor}
+                        hideLink={false}
+                        isProposed={false}
+                        onClick={() => {
+                            analytics.event({
+                                type: EventType.SubscriptionOwnerClickEvent,
+                                subscriptionUrn: subscription.subscriptionUrn,
+                                ownerUrn: subscription.actor?.urn,
+                            });
+                        }}
+                    />
+                </OwnerContainer>
+            ),
+        },
+        {
+            title: <ColumnTitle>Events</ColumnTitle>,
+            dataIndex: 'entityChangeTypes',
+            key: 'entityChangeTypes',
+            render: (_, subscription: DataHubSubscription) => <EntityChangeTypesColumn subscription={subscription} />,
+        },
+
         ...(ENABLE_UPSTREAM_NOTIFICATIONS
             ? [
                   {
@@ -155,11 +193,11 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
             render: (_, subscription: DataHubSubscription) => <SubscribedSinceColumn subscription={subscription} />,
         },
         {
-            title: <ColumnTitle style={{ float: 'right', paddingRight: '8px' }}>Edit</ColumnTitle>,
-            dataIndex: 'edit',
-            key: 'edit',
+            title: '',
+            dataIndex: 'actions',
+            key: 'actions',
             render: (_, subscription: DataHubSubscription) => (
-                <EditSubscriptionColumn
+                <SubscriptionActions
                     subscription={subscription}
                     refetchListSubscriptions={refetchListSubscriptions}
                     isPersonal={isPersonal}
@@ -180,7 +218,10 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
                 <SubscriptionsTitle>{pageTitle}</SubscriptionsTitle>
                 <SubscriptionsTable
                     columns={subscriptionTableColumns as ColumnsType<any>}
-                    dataSource={subscriptions}
+                    dataSource={subscriptions.map((subscription) => ({
+                        ...subscription,
+                        key: subscription.subscriptionUrn,
+                    }))}
                     rowKey="urn"
                     loading={loading ? { indicator: <LoadingOutlined /> } : false}
                     locale={

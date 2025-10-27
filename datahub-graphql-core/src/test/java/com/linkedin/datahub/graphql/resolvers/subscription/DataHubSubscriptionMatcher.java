@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.subscription;
 
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityChangeDetails;
 import com.linkedin.datahub.graphql.generated.EntityChangeType;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
@@ -21,6 +22,7 @@ public class DataHubSubscriptionMatcher implements ArgumentMatcher<DataHubSubscr
   @Override
   public boolean matches(final DataHubSubscription actual) {
     return _expected.getActorUrn().equals(actual.getActorUrn())
+        && ((Entity) _expected.getActor()).getUrn().equals(((Entity) actual.getActor()).getUrn())
         && _expected.getSubscriptionUrn().equals(actual.getSubscriptionUrn())
         && _expected.getEntity().getUrn().equals(actual.getEntity().getUrn())
         && listMatches(_expected.getSubscriptionTypes(), actual.getSubscriptionTypes())

@@ -34,9 +34,10 @@ interface Props {
     onClose?: (e: any) => void;
     hideLink?: boolean;
     propagationDetails?: AttributionDetails;
+    onClick?: () => void;
 }
 
-export default function ActorPill({ actor, isProposed, onClose, hideLink, propagationDetails }: Props) {
+export default function ActorPill({ actor, isProposed, onClose, hideLink, propagationDetails, onClick }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const name = actor && entityRegistry.getDisplayName(actor.type, actor);
     const avatarUrl = actor?.editableProperties?.pictureLink || undefined;
@@ -50,6 +51,7 @@ export default function ActorPill({ actor, isProposed, onClose, hideLink, propag
                 to={hideLink ? null : `${entityRegistry.getEntityUrl(actor.type, actor.urn)}`}
                 data-testid={`owner-${actor.urn}`}
                 {...linkProps}
+                onClick={onClick}
             >
                 <ContentWrapper $isProposed={isProposed}>
                     <CustomAvatar size={20} name={name} photoUrl={avatarUrl} hideTooltip />

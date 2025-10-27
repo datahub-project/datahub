@@ -64,9 +64,17 @@ mutation deleteSubscription($input: DeleteSubscriptionInput!) {
 
 fragment subscriptionFields on DataHubSubscription {
     actorUrn
+    actor {
+        ...resolvedActorFields
+    }
     subscriptionUrn
     entity {
         ...entityPreview
+        ... on Dataset {
+            browsePathV2 {
+                ...browsePathV2Fields
+            }
+        }
     }
     subscriptionTypes
     entityChangeTypes {

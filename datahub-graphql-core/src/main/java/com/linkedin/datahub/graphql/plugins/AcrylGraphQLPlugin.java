@@ -1074,11 +1074,17 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         .type(
             "DataHubSubscription",
             typeWiring ->
-                typeWiring.dataFetcher(
-                    "entity",
-                    new EntityTypeResolver(
-                        baseEngine.entityTypes,
-                        (env) -> ((DataHubSubscription) env.getSource()).getEntity())))
+                typeWiring
+                    .dataFetcher(
+                        "entity",
+                        new EntityTypeResolver(
+                            baseEngine.entityTypes,
+                            (env) -> ((DataHubSubscription) env.getSource()).getEntity()))
+                    .dataFetcher(
+                        "actor",
+                        new EntityTypeResolver(
+                            baseEngine.entityTypes,
+                            (env) -> (Entity) ((DataHubSubscription) env.getSource()).getActor())))
         .type(
             "EntitySubscriptionSummary",
             typeWiring ->

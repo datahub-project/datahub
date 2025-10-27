@@ -1,40 +1,39 @@
 import { EditOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components/macro';
+import styled from 'styled-components';
 
+import analytics from '@app/analytics';
+import { EventType } from '@app/analytics/event';
+import { ActionItem } from '@app/shared/actions';
 import SubscriptionDrawer from '@app/shared/subscribe/drawer/SubscriptionDrawer';
-import useDeleteSubscription from '@app/shared/subscribe/useDeleteSubscription';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataHubSubscription, EntityType } from '@types';
 
-const EditSubscriptionColumnContainer = styled.div`
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-    float: right;
-`;
-
-const EditButton = styled(Button)`
-    &&:hover {
-        background: none;
+const StyledEditOutlined = styled(EditOutlined)`
+    && {
+        font-size: 12px;
+        display: flex;
     }
 `;
 
-const EditIcon = styled(EditOutlined)`
-    color: ${(props) => props.theme.styles['primary-color']};
-`;
-
-interface Props {
+type Props = {
     subscription: DataHubSubscription;
     refetchListSubscriptions: () => void;
     isPersonal: boolean;
     groupUrn?: string;
-}
+    isExpandedView?: boolean;
+    onActionTriggered?: () => void;
+};
 
-export function EditSubscriptionColumn({ subscription, refetchListSubscriptions, isPersonal, groupUrn }: Props) {
+export const EditSubscriptionAction = ({
+    subscription,
+    refetchListSubscriptions,
+    isPersonal,
+    groupUrn,
+    isExpandedView = false,
+    onActionTriggered,
+}: Props) => {
     const [drawerIsOpen, setDrawerIsOpen] = useState(false);
     const { entity } = subscription;
     const entityRegistry = useEntityRegistry();
@@ -42,20 +41,29 @@ export function EditSubscriptionColumn({ subscription, refetchListSubscriptions,
     const entityUrn = entity.urn;
     const entityName: string = entityRegistry.getDisplayName(entityType, entity);
 
-    const deleteSubscription = useDeleteSubscription({
-        subscription,
-        isPersonal,
-        onRefetch: refetchListSubscriptions,
-    });
-
-    const onClickEdit = () => setDrawerIsOpen(true);
+    const onClickEdit = () => {
+        analytics.event({
+            type: EventType.SubscriptionEditClickEvent,
+            subscriptionUrn: subscription.subscriptionUrn,
+        });
+        setDrawerIsOpen(true);
+    };
     const onClickClose = () => setDrawerIsOpen(false);
 
+    const authorizedTip = 'Edit this subscription';
+
     return (
-        <EditSubscriptionColumnContainer>
-            <EditButton type="text" onClick={onClickEdit}>
-                <EditIcon />
-            </EditButton>
+        <>
+            <ActionItem
+                key="edit-subscription"
+                tip={authorizedTip}
+                disabled={false}
+                onClick={onClickEdit}
+                icon={<StyledEditOutlined />}
+                isExpandedView={isExpandedView}
+                actionName="Edit"
+                onActionTriggered={onActionTriggered}
+            />
             <SubscriptionDrawer
                 isOpen={drawerIsOpen}
                 onClose={onClickClose}
@@ -68,8 +76,7 @@ export function EditSubscriptionColumn({ subscription, refetchListSubscriptions,
                 canManageSubscription
                 subscription={subscription}
                 onRefetch={refetchListSubscriptions}
-                onDeleteSubscription={deleteSubscription}
             />
-        </EditSubscriptionColumnContainer>
+        </>
     );
-}
+};

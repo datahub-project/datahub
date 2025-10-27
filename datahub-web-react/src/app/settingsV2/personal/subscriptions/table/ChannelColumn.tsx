@@ -1,4 +1,5 @@
-import { MailOutlined, SlackCircleFilled } from '@ant-design/icons';
+import { MailOutlined, SlackOutlined } from '@ant-design/icons';
+import { colors } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -9,6 +10,8 @@ import {
     getSinkTypesForSubscription,
     getSlackSettingsChannel,
     getSlackSubscriptionChannel,
+    getTeamsSettingsChannel,
+    getTeamsSubscriptionChannel,
 } from '@app/shared/subscribe/drawer/utils';
 
 import {
@@ -16,7 +19,10 @@ import {
     EmailNotificationSettings,
     NotificationSinkType,
     SlackNotificationSettings,
+    TeamsNotificationSettings,
 } from '@types';
+
+import teamsLogo from '@images/teamslogo.png';
 
 const ChannelsContainer = styled.div`
     display: flex;
@@ -25,12 +31,16 @@ const ChannelsContainer = styled.div`
 `;
 
 const SlackChannelContainer = styled.div`
-    display: flex;
+    display: inline-flex;
     align-items: center;
+    width: fit-content;
+    padding: 2px 6px 2px 4px;
+    border-radius: 20px;
+    border: 1px solid ${colors.gray[1400]};
     gap: 8px;
 `;
 
-const SlackIcon = styled(SlackCircleFilled)`
+const SlackIcon = styled(SlackOutlined)`
     font-size: 16px;
 `;
 
@@ -44,18 +54,31 @@ const EmailIcon = styled(MailOutlined)`
     font-size: 16px;
 `;
 
+const TeamsChannelContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const TeamsIcon = styled.img`
+    font-size: 16px;
+    height: 16px;
+    width: 16px;
+`;
+
 type Props = {
     isPersonal: boolean;
     subscription: DataHubSubscription;
     emailSettings?: EmailNotificationSettings;
     slackSettings?: SlackNotificationSettings;
+    teamsSettings?: TeamsNotificationSettings;
 };
 
 const SlackColumn = ({
     isPersonal,
     subscription,
     slackSettings,
-}: Pick<Props, 'isPersonal' | 'subscription' | 'slackSettings'>) => {
+}: Pick<Props, 'isPersonal' | 'subscription' | 'slackSettings' | 'teamsSettings'>) => {
     const settingsChannel = getSlackSettingsChannel(isPersonal, slackSettings);
     const subscriptionChannel = getSlackSubscriptionChannel(isPersonal, subscription);
     const useDefault = !!settingsChannel && !subscriptionChannel;
@@ -70,6 +93,28 @@ const SlackColumn = ({
                 {channel} {useDefault && <Typography.Text type="secondary">(default)</Typography.Text>}
             </Typography.Text>
         </SlackChannelContainer>
+    );
+};
+
+const TeamsColumn = ({
+    isPersonal,
+    subscription,
+    teamsSettings,
+}: Pick<Props, 'isPersonal' | 'subscription' | 'teamsSettings'>) => {
+    const settingsChannel = getTeamsSettingsChannel(isPersonal, teamsSettings);
+    const subscriptionChannel = getTeamsSubscriptionChannel(isPersonal, subscription);
+    const useDefault = !!settingsChannel && !subscriptionChannel;
+    const channel = useDefault ? settingsChannel : subscriptionChannel;
+
+    if (!channel) return null;
+
+    return (
+        <TeamsChannelContainer>
+            <TeamsIcon src={teamsLogo} alt="Teams" />
+            <Typography.Text>
+                {channel} {useDefault && <Typography.Text type="secondary">(default)</Typography.Text>}
+            </Typography.Text>
+        </TeamsChannelContainer>
     );
 };
 
@@ -98,6 +143,7 @@ const EmailColumn = ({
 const sinkMap = {
     [NotificationSinkType.Slack]: SlackColumn,
     [NotificationSinkType.Email]: EmailColumn,
+    [NotificationSinkType.Teams]: TeamsColumn,
 } as const;
 
 const ChannelColumn = (props: Props) => {

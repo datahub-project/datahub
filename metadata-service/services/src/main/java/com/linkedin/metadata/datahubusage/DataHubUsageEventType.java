@@ -238,6 +238,10 @@ public enum DataHubUsageEventType {
   DELETE_DATAHUB_CHAT_EVENT("DeleteDataHubChatEvent"),
   DATAHUB_CHAT_RESPONSE_ERROR_EVENT("DataHubChatResponseErrorEvent"),
   STOP_DATAHUB_CHAT_RESPONSE_EVENT("StopDataHubChatResponseEvent"),
+  SUBSCRIPTION_OWNER_CLICK_EVENT("SubscriptionOwnerClickEvent"),
+  SUBSCRIPTION_ENTITY_CLICK_EVENT("SubscriptionEntityClickEvent"),
+  SUBSCRIPTION_EDIT_CLICK_EVENT("SubscriptionEditClickEvent"),
+  SUBSCRIPTION_DELETE_CLICK_EVENT("SubscriptionDeleteClickEvent"),
 
   // Integrations service events
   CHATBOT_INTERACTION_EVENT("ChatbotInteraction"),

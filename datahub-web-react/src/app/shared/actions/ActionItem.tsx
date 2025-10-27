@@ -16,11 +16,11 @@ type Props = {
     disabled?: boolean;
     onClick: () => void;
     icon: React.ReactNode;
-    key?: string;
     placement?: TooltipPlacement;
     isExpandedView?: boolean;
     actionName?: string;
     dataTestId?: string;
+    onActionTriggered?: () => void;
 };
 
 export const ActionItem = ({
@@ -28,11 +28,11 @@ export const ActionItem = ({
     disabled = false,
     onClick,
     icon,
-    key,
     placement = 'top',
     isExpandedView = false,
     actionName,
     dataTestId,
+    onActionTriggered,
 }: Props) => {
     return (
         <Tooltip placement={placement} title={isExpandedView ? '' : tip}>
@@ -41,14 +41,10 @@ export const ActionItem = ({
                     e.stopPropagation();
                     if (disabled) return;
                     onClick();
+                    onActionTriggered?.();
                 }}
             >
-                <ActionMenuItem
-                    key={key}
-                    disabled={disabled}
-                    title={!isExpandedView ? tip : undefined}
-                    data-testid={dataTestId}
-                >
+                <ActionMenuItem disabled={disabled} title={!isExpandedView ? tip : undefined} data-testid={dataTestId}>
                     {icon}
                 </ActionMenuItem>
                 {isExpandedView && actionName && <span>{actionName}</span>}

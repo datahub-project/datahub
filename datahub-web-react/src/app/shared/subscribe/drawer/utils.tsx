@@ -367,6 +367,11 @@ export const deleteSubscriptionFunction = ({
             input: { subscriptionUrn: subscription.subscriptionUrn },
         },
         fetchPolicy: 'no-cache',
+        onCompleted: () => {
+            setTimeout(() => {
+                onRefetch?.();
+            }, REFETCH_DELAY);
+        },
     })
         .then(() => {
             onSuccess?.();
@@ -389,7 +394,7 @@ export const deleteSubscriptionFunction = ({
                 duration: 3,
                 icon: <CheckCircleFilled style={{ color: theme?.styles['primary-color'] }} />,
             });
-            if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
+            if (onRefetch) onRefetch();
         })
         .catch((e: unknown) => {
             analytics.event({
@@ -451,6 +456,11 @@ export const createSubscriptionFunction = ({
             input,
         },
         fetchPolicy: 'no-cache',
+        onCompleted: () => {
+            setTimeout(() => {
+                onRefetch?.();
+            }, REFETCH_DELAY);
+        },
     })
         .then((result) => {
             onSuccess?.();
@@ -473,7 +483,7 @@ export const createSubscriptionFunction = ({
                 duration: 3,
                 icon: <CheckCircleFilled style={{ color: theme?.styles['primary-color'] }} />,
             });
-            if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
+            if (onRefetch) onRefetch();
         })
         .catch((e: unknown) => {
             analytics.event({
@@ -581,6 +591,11 @@ export const updateSubscriptionFunction = ({
                 input,
             },
             fetchPolicy: 'no-cache',
+            onCompleted: () => {
+                setTimeout(() => {
+                    onRefetch?.();
+                }, REFETCH_DELAY);
+            },
         })
             .then(() => {
                 analytics.event({
@@ -606,7 +621,7 @@ export const updateSubscriptionFunction = ({
                     duration: 3,
                     icon: <CheckCircleFilled style={{ color: theme?.styles['primary-color'] }} />,
                 });
-                if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
+                if (onRefetch) onRefetch();
             })
             .catch((e: unknown) => {
                 analytics.event({

@@ -4,17 +4,15 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
+import analytics, { EventType } from '@app/analytics';
 import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { SEPARATE_SIBLINGS_URL_PARAM } from '@app/entity/shared/siblingUtils';
+import ContextPath from '@app/previewV2/ContextPath';
+import { getParentEntities } from '@app/searchV2/filters/utils';
 import { getEntityNameAndLogo } from '@app/settingsV2/personal/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { DataHubSubscription, EntityType } from '@types';
-
-const EntityColumnContainer = styled.div`
-    margin-bottom: 16px;
-`;
+import { BrowsePathV2, DataHubSubscription, EntityType, Maybe } from '@types';
 
 const ContentContainer = styled.div`
     display: flex;
@@ -37,21 +35,6 @@ const EntityNameContainer = styled.div`
     gap: 4px;
 `;
 
-const EntityTypeContainer = styled.div`
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 4px;
-`;
-
-const EntityTypeText = styled(Typography.Text)`
-    font-family: 'Mulish', sans-serif;
-    font-size: 14px;
-    line-height: 20px;
-    font-weight: 400;
-    color: ${ANTD_GRAY[8]};
-`;
-
 const EntityNameText = styled(Typography.Text)`
     font-family: 'Mulish', sans-serif;
     font-size: 16px;
@@ -64,13 +47,11 @@ interface Props {
 }
 
 export function EntityColumn({ subscription }: Props) {
-    const { entity } = subscription;
+    const { entity, urn } = subscription;
     const entityRegistry = useEntityRegistry();
     const entityType: EntityType = entity.type;
     const entityUrn: string = entity.urn;
-    const entityTypeDisplayName = entityRegistry.getEntityName(entityType);
     const entityName: string = entityRegistry.getDisplayName(entityType, entity);
-    const entityTypeIcon = entityRegistry.getIcon(entityType, 14, IconStyleType.ACCENT);
     const entityUrl = `${entityRegistry.getEntityUrl(entityType, entityUrn)}?${SEPARATE_SIBLINGS_URL_PARAM}=true`;
     const { label: platformTypeDisplayName, icon: platformIcon } = getEntityNameAndLogo(
         entity,
@@ -82,23 +63,40 @@ export function EntityColumn({ subscription }: Props) {
     if (!hasIcon) {
         defaultIcon = entityRegistry.getIcon(entityType, 28, IconStyleType.HIGHLIGHT);
     }
+    const browsePath: Maybe<BrowsePathV2> | undefined =
+        'browsePathV2' in entity ? (entity.browsePathV2 as Maybe<BrowsePathV2> | undefined) : undefined;
 
+    const contextPath = getParentEntities(entity);
     return (
-        <EntityColumnContainer>
-            <Link to={entityUrl}>
-                <ContentContainer>
-                    <PlatformTypeContainer>
-                        <Tooltip overlay={platformTypeDisplayName}>{hasIcon ? platformIcon : defaultIcon}</Tooltip>
-                    </PlatformTypeContainer>
-                    <EntityNameContainer>
-                        <EntityTypeContainer>
-                            {entityTypeIcon}
-                            <EntityTypeText>{entityTypeDisplayName}</EntityTypeText>
-                        </EntityTypeContainer>
-                        <EntityNameText>{entityName}</EntityNameText>
-                    </EntityNameContainer>
-                </ContentContainer>
-            </Link>
-        </EntityColumnContainer>
+        <ContentContainer>
+            <PlatformTypeContainer>
+                <Tooltip overlay={platformTypeDisplayName}>{hasIcon ? platformIcon : defaultIcon}</Tooltip>
+            </PlatformTypeContainer>
+            <EntityNameContainer>
+                <Link
+                    to={entityUrl}
+                    onClick={() => {
+                        analytics.event({
+                            type: EventType.SubscriptionEntityClickEvent,
+                            subscriptionUrn: urn,
+                            entityType,
+                            entityUrn,
+                            entityName,
+                        });
+                    }}
+                >
+                    <EntityNameText>{entityName}</EntityNameText>
+                </Link>
+                <ContextPath
+                    entityType={entityType}
+                    parentEntities={contextPath}
+                    browsePaths={browsePath}
+                    entityTitleWidth={150}
+                    showPlatformText={false}
+                    isCompactView
+                    hideTypeIcons
+                />
+            </EntityNameContainer>
+        </ContentContainer>
     );
 }
