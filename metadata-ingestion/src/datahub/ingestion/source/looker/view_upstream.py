@@ -432,6 +432,9 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             # Check for errors encountered during table extraction.
             table_error = spr.debug_info.table_error
             if table_error is not None:
+                logger.debug(
+                    f"view-name={self.view_context.name()}, table-error={table_error}, sql-query={sql_response}"
+                )
                 self.reporter.report_warning(
                     title="Table Level Lineage Extraction Failed",
                     message="Error in parsing derived sql",
@@ -444,6 +447,9 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
             column_error = spr.debug_info.column_error
             if column_error is not None:
+                logger.debug(
+                    f"view-name={self.view_context.name()}, column-error={column_error}, sql-query={sql_response}"
+                )
                 self.reporter.report_warning(
                     title="Column Level Lineage Extraction Failed",
                     message="Error in parsing derived sql",
@@ -845,6 +851,9 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 f"No SQL found in response for view '{self.view_context.name()}'. Response: {sql_response}"
             )
 
+        logger.debug(
+            f"view-name={self.view_context.name()}, sql-response={sql_response}"
+        )
         # Extract the SQL string from the response.
         return sql_response
 
