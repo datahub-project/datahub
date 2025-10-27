@@ -19,6 +19,8 @@ from tests.integration.oracle.common import (  # type: ignore[import-untyped]
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
+FROZEN_TIME = "2022-02-03 07:00:00"
+
 
 def is_oracle_up(container_name: str, port: int) -> bool:
     """Check if Oracle is responsive on a container"""
@@ -58,6 +60,7 @@ config_files = [f for f in os.listdir(SOURCE_FILES_PATH) if f.endswith(".yml")]
 
 
 @pytest.mark.parametrize("config_file", config_files)
+@freeze_time(FROZEN_TIME, ignore=["oracledb", "oracledb.thin_impl"])
 @pytest.mark.integration
 def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_file):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/oracle"
@@ -92,10 +95,6 @@ def test_oracle_test_connection(oracle_runner):
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable
     assert report.basic_connectivity.failure_reason is None
-
-
-# Mock-based tests from master branch
-FROZEN_TIME = "2022-02-03 07:00:00"
 
 
 class OracleErrorHandlingMockData(OracleSourceMockDataBase):
