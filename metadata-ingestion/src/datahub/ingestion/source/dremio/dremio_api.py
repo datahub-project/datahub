@@ -965,7 +965,7 @@ class DremioAPIOperations:
 
         return parents_list
 
-    def extract_all_queries_iter(self) -> Iterator[Dict[str, Any]]:
+    def extract_all_queries(self) -> Iterator[Dict[str, Any]]:
         """
         Get queries as an iterator.
         """

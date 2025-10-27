@@ -468,7 +468,7 @@ class DremioCatalog:
 
     def get_queries(self) -> Deque[DremioQuery]:
         """Get all valid Dremio queries for lineage analysis."""
-        for query in self.dremio_api.extract_all_queries_iter():
+        for query in self.dremio_api.extract_all_queries():
             if not self.is_valid_query(query):
                 continue
             self.queries.append(
