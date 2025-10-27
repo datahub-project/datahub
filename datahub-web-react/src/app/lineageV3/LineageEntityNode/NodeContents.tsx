@@ -297,7 +297,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         const lastRun = entity?.genericEntityProperties?.lastRun;
         const lastRunEvent = entity?.genericEntityProperties?.lastRunEvent;
 
-        const time = lastRun?.properties?.created.time || lastRun?.created?.time;
+        const time = lastRun?.properties?.created?.time || lastRun?.created?.time;
         if (time) {
             extraDetails = (
                 <DataJobLastRunWrapper>

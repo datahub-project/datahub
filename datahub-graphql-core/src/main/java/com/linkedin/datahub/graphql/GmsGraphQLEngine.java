@@ -1007,7 +1007,8 @@ public class GmsGraphQLEngine {
                         this.s3Util != null))
                 .dataFetcher(
                     "latestProductUpdate",
-                    new ProductUpdateResolver(this.productUpdateService, this.featureFlags))
+                    new ProductUpdateResolver(
+                        this.productUpdateService, this.featureFlags, this.entityService))
                 .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
                 .dataFetcher("search", new SearchResolver(this.entityClient))
                 .dataFetcher(

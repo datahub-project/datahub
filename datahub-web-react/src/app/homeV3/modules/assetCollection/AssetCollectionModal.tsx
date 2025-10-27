@@ -24,7 +24,7 @@ const AssetCollectionModal = () => {
         moduleModalState: { position, close, isEditing, initialState },
     } = usePageTemplateContext();
     const [form] = Form.useForm();
-    const currentName = initialState?.properties.name || '';
+    const currentName = initialState?.properties?.name || '';
     const currentAssets = (initialState?.properties?.params?.assetCollectionParams?.assetUrns || []).filter(
         (urn): urn is string => typeof urn === 'string',
     );

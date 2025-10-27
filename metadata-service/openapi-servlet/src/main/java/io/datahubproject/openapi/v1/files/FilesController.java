@@ -106,7 +106,7 @@ public class FilesController {
       }
 
       // Prefix file ID with bucket name
-      String key = String.format("%s/%s/%s", bucket, folder, fileId);
+      String key = String.format("%s/%s", folder, fileId);
 
       // Generate presigned URL using the existing S3Util
       String presignedUrl = s3Util.generatePresignedDownloadUrl(bucket, key, expiration);
