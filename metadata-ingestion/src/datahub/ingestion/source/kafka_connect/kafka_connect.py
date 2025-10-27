@@ -152,74 +152,48 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             if connector_manifest.type == SOURCE and not self._is_confluent_cloud:
                 connector_manifest.tasks = self._get_connector_tasks(connector_name)
 
-            # Extract lineages for this connector
-            self.extract_connector_lineages(connector_manifest)
+            # Extract lineages for this connector and check if it should be included
+            should_include = self.extract_connector_lineages(connector_manifest)
+            if not should_include:
+                # Skip unsupported connector (matches master's behavior)
+                continue
 
             yield connector_manifest
 
-    def extract_connector_lineages(self, connector_manifest: ConnectorManifest) -> None:
-        """Extract lineages for a connector manifest."""
-        try:
-            # Try to use the ConnectorManifest's built-in extraction
-            lineages = connector_manifest.extract_lineages(self.config, self.report)
-            flow_property_bag = connector_manifest.extract_flow_property_bag(
-                self.config, self.report
-            )
+    def extract_connector_lineages(self, connector_manifest: ConnectorManifest) -> bool:
+        """
+        Extract lineages for a connector manifest.
 
-            # Handle special case: generic connectors need access to config.generic_connectors
-            if not lineages and connector_manifest.type == SOURCE:
-                lineages = self._handle_generic_source_connector(connector_manifest)
-                if lineages:
-                    # Extract flow property bag using registry (no direct imports needed)
-                    flow_property_bag = connector_manifest.extract_flow_property_bag(
-                        self.config, self.report
-                    )
-
-            # Set flow_property_bag if it has content, regardless of lineages
-            # The connector configuration is valuable metadata even without lineage
-            if flow_property_bag:
-                connector_manifest.flow_property_bag = flow_property_bag
-
-            if lineages:
-                connector_manifest.lineages = lineages
-            else:
-                # Debug logging to help understand why lineage extraction failed
-                connector_class = connector_manifest.config.get(
-                    CONNECTOR_CLASS, "unknown"
-                )
-                config_keys = list(connector_manifest.config.keys())
-                logger.debug(
-                    f"No lineages extracted for connector {connector_manifest.name} "
-                    f"(class: {connector_class}, config keys: {config_keys})"
-                )
-                # Handle unsupported connectors
-                self._handle_unsupported_connector(connector_manifest)
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to extract lineages for connector {connector_manifest.name}: {e}"
-            )
-            self._handle_unsupported_connector(connector_manifest)
-
-    def _handle_generic_source_connector(
-        self, connector_manifest: ConnectorManifest
-    ) -> List[KafkaConnectLineage]:
-        """Handle generic source connectors that need access to config.generic_connectors."""
-        # Handle generic connectors - use registry to avoid direct imports
+        Returns:
+            bool: True if connector should be included in output, False if it should be skipped
+        """
         from datahub.ingestion.source.kafka_connect.connector_registry import (
             ConnectorRegistry,
         )
 
-        if any(
-            connector.connector_name == connector_manifest.name
-            for connector in self.config.generic_connectors
-        ):
-            connector = ConnectorRegistry.get_connector_for_manifest(
-                connector_manifest, self.config, self.report
-            )
-            if connector:
-                return connector.extract_lineages()
-        return []
+        # Try to get a connector handler from the registry
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            connector_manifest, self.config, self.report
+        )
+
+        if not connector:
+            # No handler found for this connector class
+            if connector_manifest.type == SOURCE:
+                # Source connectors without handlers are skipped (master's behavior with 'continue')
+                self._handle_unsupported_connector(connector_manifest)
+                return False  # Skip unsupported source connector
+            else:
+                # Sink connectors without handlers are still included (master's BaseConnector behavior)
+                self._handle_unsupported_connector(connector_manifest)
+                connector_manifest.lineages = []
+                connector_manifest.flow_property_bag = {}
+                return True  # Include unsupported sink connector
+
+        # Handler found - extract lineages and flow_property_bag
+        # Master always extracts and yields, regardless of whether they're empty
+        connector_manifest.lineages = connector.extract_lineages()
+        connector_manifest.flow_property_bag = connector.extract_flow_property_bag()
+        return True  # Always include connectors with handlers
 
     def _handle_unsupported_connector(
         self, connector_manifest: ConnectorManifest
@@ -935,16 +909,14 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         for connector in self.get_connectors_manifest():
-            # Only emit workunits for connectors that have lineages or customProperties
-            # Skip unsupported connectors that provide no metadata value
-            if connector.lineages or connector.flow_property_bag:
-                yield self.construct_flow_workunit(connector)
+            # Always emit flow workunit (connector metadata) for all connectors
+            yield self.construct_flow_workunit(connector)
+
+            # Only emit job workunits if connector has lineages
+            if connector.lineages:
                 yield from self.construct_job_workunits(connector)
-                self.report.report_connector_scanned(connector.name)
-            else:
-                logger.debug(
-                    f"Skipping connector {connector.name} - no lineages or customProperties"
-                )
+
+            self.report.report_connector_scanned(connector.name)
 
     def get_report(self) -> KafkaConnectSourceReport:
         return self.report
