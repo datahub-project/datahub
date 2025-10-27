@@ -62,7 +62,7 @@ public class FormUtilsTest {
     assertTrue(args.containsKey("extra_pip_requirements"));
     assertEquals(
         args.get("extra_pip_requirements"),
-        "[\"acryl-datahub-cloud[datahub-forms-notifications]@/acryl-cloud\"]");
+        "[\"acryl-datahub-cloud[datahub-forms-notifications]@/metadata-ingestion-modules/acryl-cloud\"]");
 
     JSONObject config = sourceConfig.getJSONObject("config");
     assertTrue(config.has("form_urns"));
