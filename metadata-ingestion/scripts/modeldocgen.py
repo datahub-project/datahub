@@ -156,6 +156,9 @@ aspect_registry: Dict[str, AspectDefinition] = {}
 # A holder for generated docs
 generated_documentation: Dict[str, str] = {}
 
+# A holder for generated DataHub-optimized docs (without Docusaurus-specific features)
+generated_documentation_datahub: Dict[str, str] = {}
+
 
 # Patch add_name method to NOT complain about duplicate names
 def add_name(self, name_attr, space_attr, new_schema):
@@ -503,6 +506,123 @@ def make_relnship_docs(relationships: List[Relationship], direction: str) -> str
         for relnship in relnships:
             doc += f"\n   - {relnship.dst if direction == 'outgoing' else relnship.src}{relnship.doc or ''}"
     return doc
+
+
+def expand_inline_directives(content: str) -> str:
+    """
+    Expand {{ inline /path/to/file }} directives in markdown content.
+
+    This replicates the behavior of docs-website/generateDocsDir.ts's
+    markdown_process_inline_directives function.
+
+    Args:
+        content: Markdown content potentially containing inline directives
+
+    Returns:
+        Content with inline directives expanded
+    """
+
+    def replace_inline(match: re.Match) -> str:
+        indent = match.group(1)
+        inline_file_path = match.group(3)
+
+        if not inline_file_path.startswith("/"):
+            raise ValueError(f"inline path must be absolute: {inline_file_path}")
+
+        # Read file from repo root (one level up from metadata-ingestion/scripts)
+        repo_root = Path(__file__).parent.parent.parent
+        referenced_file_path = repo_root / inline_file_path.lstrip("/")
+
+        if not referenced_file_path.exists():
+            logger.warning(f"Inline file not found: {inline_file_path}")
+            return match.group(0)
+
+        logger.debug(f"Inlining {inline_file_path}")
+        referenced_content = referenced_file_path.read_text()
+
+        # Add indentation to each line (don't add "Inlined from" comment - files already have path comments)
+        new_content = "\n".join(
+            f"{indent}{line}" for line in referenced_content.split("\n")
+        )
+
+        return new_content
+
+    # Pattern matches: {{ inline /path/to/file }} or {{ inline /path/to/file show_path_as_comment }}
+    pattern = r"^(\s*){{(\s*)inline\s+(\S+)(\s+)(show_path_as_comment\s+)?(\s*)}}$"
+    return re.sub(pattern, replace_inline, content, flags=re.MULTILINE)
+
+
+def convert_relative_links_to_absolute(content: str) -> str:
+    """
+    Convert relative markdown links to absolute docs.datahub.com URLs.
+
+    Relative links don't work properly in DataHub UI, so we convert them to absolute
+    links pointing to the public documentation site.
+
+    Args:
+        content: Markdown content with potential relative links
+
+    Returns:
+        Content with relative .md links converted to absolute URLs
+    """
+
+    def replace_link(match: re.Match) -> str:
+        link_text = match.group(1)
+        link_url = match.group(2)
+
+        # Skip if already absolute
+        if link_url.startswith("http://") or link_url.startswith("https://"):
+            return match.group(0)
+
+        # Parse anchor (e.g., #section)
+        parts = link_url.split("#")
+        path = parts[0]
+        anchor = "#" + parts[1] if len(parts) > 1 else ""
+
+        # Remove .md extension
+        if path.endswith(".md"):
+            path = path[:-3]
+
+        # Resolve path to absolute form
+        if path.startswith("/docs/"):
+            # Already absolute doc path - use as-is
+            resolved = path
+        elif path.startswith("./"):
+            # Same directory (entities) - remove ./
+            resolved = "/docs/generated/metamodel/entities/" + path[2:]
+        elif path.startswith("../"):
+            # Relative path from entities directory
+            # We're at /docs/generated/metamodel/entities/
+            # Count how many levels to go up
+            up_count = 0
+            temp_path = path
+            while temp_path.startswith("../"):
+                up_count += 1
+                temp_path = temp_path[3:]
+
+            # Start from entities path and go up
+            base_parts = ["docs", "generated", "metamodel", "entities"]
+            base_parts = base_parts[: len(base_parts) - up_count]
+
+            # Add remaining path
+            remaining_parts = temp_path.split("/") if temp_path else []
+            resolved_parts = base_parts + remaining_parts
+            resolved = "/" + "/".join(resolved_parts)
+        elif "/" in path:
+            # Path with directory but no prefix - assume it needs /docs/
+            resolved = "/" + path if path.startswith("docs/") else "/docs/" + path
+        else:
+            # Just a filename - assume same directory (entities)
+            resolved = "/docs/generated/metamodel/entities/" + path
+
+        # Build absolute URL (lowercase for docs.datahub.com compatibility)
+        absolute_url = f"https://docs.datahub.com{resolved.lower()}{anchor}"
+
+        return f"[{link_text}]({absolute_url})"
+
+    # Match markdown links with .md extension: [text](path.md) or [text](path.md#anchor)
+    pattern = r"\[([^\]]+)\]\(([^)]+\.md[^)]*)\)"
+    return re.sub(pattern, replace_link, content)
 
 
 @dataclass
@@ -893,6 +1013,55 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
         raise Exception(f"Failed to find information for entity: {entity_name}")
 
 
+def make_entity_docs_datahub(entity_display_name: str) -> str:
+    """
+    Generate DataHub-optimized documentation for an entity.
+
+    This variant is simpler than the Docusaurus version:
+    - Expands {{ inline ... }} directives (since DataHub won't process them)
+    - Converts relative markdown links to absolute docs.datahub.com URLs
+    - Excludes technical sections (already available in DataHub's Columns tab)
+    - Removes Docusaurus-specific components (Tabs, TabItem, etc.)
+
+    Args:
+        entity_display_name: Display name of the entity (e.g., "Dataset")
+
+    Returns:
+        Simplified documentation suitable for DataHub ingestion
+    """
+    entity_name = entity_display_name[0:1].lower() + entity_display_name[1:]
+    entity_def: Optional[EntityDefinition] = entity_registry.get(entity_name)
+
+    if not entity_def:
+        raise Exception(f"Failed to find information for entity: {entity_name}")
+
+    # Get main documentation content (from file or from entity definition)
+    if entity_def.doc_file_contents:
+        doc = entity_def.doc_file_contents
+    elif entity_def.doc:
+        doc = f"# {entity_def.display_name}\n{entity_def.doc}"
+    else:
+        doc = f"# {entity_def.display_name}"
+
+    # Expand {{ inline ... }} directives
+    doc = expand_inline_directives(doc)
+
+    # Convert relative markdown links to absolute URLs
+    doc = convert_relative_links_to_absolute(doc)
+
+    # Add pointer to DataHub's Columns tab for technical details
+    technical_pointer = (
+        "\n\n## Technical Reference\n\n"
+        "For technical details about fields, searchability, and relationships, "
+        "view the **Columns** tab in DataHub.\n"
+    )
+
+    final_doc = doc + technical_pointer
+
+    generated_documentation_datahub[entity_name] = final_doc
+    return final_doc
+
+
 def create_search_field_name_property() -> List[MetadataChangeProposalWrapper]:
     """
     Create the structured property for documenting search field names.
@@ -1136,9 +1305,14 @@ def generate_stitched_record(
                         ]
                     ),
                     DatasetPropertiesClass(
-                        description=make_entity_docs(
-                            dataset_urn.split(":")[-1].split(",")[1], relnships_graph
-                        )
+                        description=(
+                            # Generate Docusaurus docs (stores in generated_documentation)
+                            make_entity_docs(entity_display_name, relnships_graph),
+                            # But use DataHub variant for ingestion
+                            generated_documentation_datahub.get(
+                                entity_name, f"# {entity_display_name}"
+                            ),
+                        )[1]  # Select the DataHub variant
                     ),
                     SubTypesClass(typeNames=["entity"]),
                 ],
@@ -1355,6 +1529,16 @@ def generate(  # noqa: C901
     logger.info("Creating structured property for search field names")
     structured_property_mcps = create_search_field_name_property()
 
+    # Generate DataHub-optimized documentation for all entities
+    # This must be done before generate_stitched_record() so the docs are available for MCPs
+    logger.info("Generating DataHub-optimized entity documentation")
+    for entity_name in entity_registry:
+        entity_def = entity_registry[entity_name]
+        try:
+            make_entity_docs_datahub(entity_def.display_name)
+        except Exception as e:
+            logger.warning(f"Failed to generate DataHub docs for {entity_name}: {e}")
+
     relationship_graph = RelationshipGraph()
     entity_mcps = list(generate_stitched_record(relationship_graph))
 
@@ -1373,12 +1557,22 @@ def generate(  # noqa: C901
 
             os.makedirs(entity_dir, exist_ok=True)
 
+            # Write Docusaurus variant (with Tabs, technical sections, etc.)
             with open(f"{entity_dir}/{entity_name}.md", "w") as fp:
                 fp.write("---\n")
                 fp.write(f"sidebar_position: {index}\n")
                 fp.write("---\n")
                 fp.write(generated_documentation[entity_name])
-                index += 1
+
+            # Write DataHub variant (simplified, with inline directives expanded)
+            if entity_name in generated_documentation_datahub:
+                with open(f"{entity_dir}/{entity_name}-datahub.md", "w") as fp:
+                    fp.write("---\n")
+                    fp.write(f"sidebar_position: {index}\n")
+                    fp.write("---\n")
+                    fp.write(generated_documentation_datahub[entity_name])
+
+            index += 1
 
     if file:
         logger.info(f"Will write events to {file}")
