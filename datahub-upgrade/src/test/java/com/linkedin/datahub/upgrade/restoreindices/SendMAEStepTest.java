@@ -25,6 +25,7 @@ import java.util.UUID;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -47,9 +48,10 @@ public class SendMAEStepTest {
   public void setup() {
     MockitoAnnotations.openMocks(this);
 
-    // Create a real H2 in-memory database for testing
+    // Create a real H2 in-memory database for testing with a unique name to avoid conflicts
     String instanceId = "sendmae_" + UUID.randomUUID().toString().replace("-", "");
-    database = EbeanTestUtils.createTestServer(instanceId);
+    String serverName = "sendmae_test_" + UUID.randomUUID().toString().replace("-", "");
+    database = EbeanTestUtils.createNamedTestServer(instanceId, serverName);
 
     // Setup the test database with required schema if needed
     setupTestDatabase();
@@ -70,6 +72,13 @@ public class SendMAEStepTest {
 
     when(mockEntityService.restoreIndices(eq(mockOpContext), any(RestoreIndicesArgs.class), any()))
         .thenReturn(Collections.singletonList(mockResult));
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    if (database != null) {
+      database.shutdown();
+    }
   }
 
   private void setupTestDatabase() {
@@ -414,5 +423,28 @@ public class SendMAEStepTest {
 
     RestoreIndicesArgs capturedArgs = argsCaptor.getValue();
     assertTrue(capturedArgs.createDefaultAspects);
+  }
+
+  @Test
+  public void testExecutableWithNullResultFromFuture() {
+    // Insert test data to trigger processing
+    insertTestRows(5, null);
+
+    // Enable URN-based pagination to hit log.error in URN-based pagination path
+    parsedArgs.put(RestoreIndices.URN_BASED_PAGINATION_ARG_NAME, Optional.of("true"));
+
+    // Mock the entity service to throw an exception (not NoSuchElementException)
+    when(mockEntityService.restoreIndices(eq(mockOpContext), any(RestoreIndicesArgs.class), any()))
+        .thenThrow(new RuntimeException("Test exception"));
+
+    // Execute
+    UpgradeStepResult result = sendMAEStep.executable().apply(mockContext);
+
+    // Verify failure when exception is thrown in URN-based pagination
+    // This tests the log.error in the URN-based pagination path
+    assertTrue(result instanceof DefaultUpgradeStepResult);
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    assertEquals(result.stepId(), sendMAEStep.id());
+    assertEquals(result.action(), UpgradeStepResult.Action.CONTINUE);
   }
 }

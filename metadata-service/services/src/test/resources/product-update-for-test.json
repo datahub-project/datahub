@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "id": "test-product-update",
+  "title": "Test Product Update",
+  "description": "This is a test fallback product update",
+  "ctaText": "Learn more",
+  "ctaLink": "https://example.com"
+}

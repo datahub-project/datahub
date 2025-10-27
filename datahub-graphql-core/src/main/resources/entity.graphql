@@ -170,7 +170,7 @@ type Query {
   getEntityCounts(input: EntityCountInput): EntityCountResults
 
   """
-  List all DataHub Domains
+  Lists all DataHub Domains belonging to the specified parent. If no parent is specified, lists root domains.
   """
   listDomains(input: ListDomainsInput!): ListDomainsResult
 
@@ -1356,6 +1356,11 @@ enum EntityType {
   An DataHub Page Module
   """
   DATAHUB_PAGE_MODULE
+
+  """
+  An DataHub File
+  """
+  DATAHUB_FILE
 }
 
 """
@@ -9278,14 +9283,14 @@ input UpsertLinkInput {
   label: String!
 
   """
-  Optional settings input for this link
-  """
-  settings: LinkSettingsInput
-
-  """
   The urn of the resource or entity to attach the link to, for example a dataset urn
   """
   resourceUrn: String!
+
+  """
+  Optional settings input for this link
+  """
+  settings: LinkSettingsInput
 }
 
 """

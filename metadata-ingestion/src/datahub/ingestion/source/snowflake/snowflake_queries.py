@@ -17,9 +17,11 @@ from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFr
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
+    get_time_bucket,
 )
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import SupportStatus, config_class, support_status
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
@@ -49,6 +51,9 @@ from datahub.ingestion.source.snowflake.stored_proc_lineage import (
     StoredProcCall,
     StoredProcLineageReport,
     StoredProcLineageTracker,
+)
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantQueriesRunSkipHandler,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.urns import CorpUserUrn
@@ -180,6 +185,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         structured_report: SourceReport,
         filters: SnowflakeFilter,
         identifiers: SnowflakeIdentifierBuilder,
+        redundant_run_skip_handler: Optional[RedundantQueriesRunSkipHandler] = None,
         graph: Optional[DataHubGraph] = None,
         schema_resolver: Optional[SchemaResolver] = None,
         discovered_tables: Optional[List[str]] = None,
@@ -191,8 +197,12 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         self.filters = filters
         self.identifiers = identifiers
         self.discovered_tables = set(discovered_tables) if discovered_tables else None
+        self.redundant_run_skip_handler = redundant_run_skip_handler
 
         self._structured_report = structured_report
+
+        # Adjust time window based on stateful ingestion state
+        self.start_time, self.end_time = self._get_time_window()
 
         # The exit stack helps ensure that we close all the resources we open.
         self._exit_stack = contextlib.ExitStack()
@@ -211,8 +221,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 generate_query_usage_statistics=self.config.include_query_usage_statistics,
                 usage_config=BaseUsageConfig(
                     bucket_duration=self.config.window.bucket_duration,
-                    start_time=self.config.window.start_time,
-                    end_time=self.config.window.end_time,
+                    start_time=self.start_time,
+                    end_time=self.end_time,
                     user_email_pattern=self.config.user_email_pattern,
                     # TODO make the rest of the fields configurable
                 ),
@@ -227,6 +237,34 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
     @property
     def structured_reporter(self) -> SourceReport:
         return self._structured_report
+
+    def _get_time_window(self) -> tuple[datetime, datetime]:
+        if self.redundant_run_skip_handler:
+            start_time, end_time = (
+                self.redundant_run_skip_handler.suggest_run_time_window(
+                    self.config.window.start_time,
+                    self.config.window.end_time,
+                )
+            )
+        else:
+            start_time = self.config.window.start_time
+            end_time = self.config.window.end_time
+
+        # Usage statistics are aggregated per bucket (typically per day).
+        # To ensure accurate aggregated metrics, we need to align the start_time
+        # to the beginning of a bucket so that we include complete bucket periods.
+        if self.config.include_usage_statistics:
+            start_time = get_time_bucket(start_time, self.config.window.bucket_duration)
+
+        return start_time, end_time
+
+    def _update_state(self) -> None:
+        if self.redundant_run_skip_handler:
+            self.redundant_run_skip_handler.update_state(
+                self.config.window.start_time,
+                self.config.window.end_time,
+                self.config.window.bucket_duration,
+            )
 
     @functools.cached_property
     def local_temp_path(self) -> pathlib.Path:
@@ -355,6 +393,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         with self.report.aggregator_generate_timer:
             yield from auto_workunit(self.aggregator.gen_metadata())
 
+        # Update the stateful ingestion state after successful extraction
+        self._update_state()
+
     def fetch_users(self) -> UsersMapping:
         users: UsersMapping = dict()
         with self.structured_reporter.report_exc("Error fetching users from Snowflake"):
@@ -378,8 +419,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         # Derived from _populate_external_lineage_from_copy_history.
 
         query: str = SnowflakeQuery.copy_lineage_history(
-            start_time_millis=int(self.config.window.start_time.timestamp() * 1000),
-            end_time_millis=int(self.config.window.end_time.timestamp() * 1000),
+            start_time_millis=int(self.start_time.timestamp() * 1000),
+            end_time_millis=int(self.end_time.timestamp() * 1000),
             downstreams_deny_pattern=self.config.temporary_tables_pattern,
         )
 
@@ -414,8 +455,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         Union[PreparsedQuery, TableRename, TableSwap, ObservedQuery, StoredProcCall]
     ]:
         query_log_query = QueryLogQueryBuilder(
-            start_time=self.config.window.start_time,
-            end_time=self.config.window.end_time,
+            start_time=self.start_time,
+            end_time=self.end_time,
             bucket_duration=self.config.window.bucket_duration,
             deny_usernames=self.config.pushdown_deny_usernames,
             allow_usernames=self.config.pushdown_allow_usernames,
@@ -710,6 +751,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         self._exit_stack.close()
 
 
+@support_status(SupportStatus.CERTIFIED)
+@config_class(SnowflakeQueriesSourceConfig)
 class SnowflakeQueriesSource(Source):
     def __init__(self, ctx: PipelineContext, config: SnowflakeQueriesSourceConfig):
         self.ctx = ctx

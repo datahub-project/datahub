@@ -209,15 +209,21 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
             onCancel={onModalClose}
             footer={
                 <ModalButtonContainer>
-                    <Button variant="text" color="gray" onClick={onModalClose}>
+                    <Button variant="text" color="gray" onClick={onModalClose} data-testid="cancel-button">
                         Cancel
                     </Button>
-                    <Button id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
+                    <Button
+                        id="setDomainButton"
+                        disabled={selectedDomain === undefined}
+                        onClick={onOk}
+                        data-testid="submit-button"
+                    >
                         Save
                     </Button>
                 </ModalButtonContainer>
             }
             getContainer={getModalDomContainer}
+            data-testid="set-domain-modal"
         >
             <Form component={false}>
                 <Form.Item>
@@ -247,6 +253,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                                 />
                             }
                             options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}
+                            data-testid="set-domain-select"
                         />
                         <BrowserWrapper isHidden={!isShowingDomainNavigator}>
                             <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />

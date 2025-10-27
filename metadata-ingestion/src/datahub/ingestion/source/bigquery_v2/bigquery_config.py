@@ -1,5 +1,4 @@
 import logging
-import os
 import re
 from copy import deepcopy
 from datetime import timedelta
@@ -8,6 +7,7 @@ from typing import Dict, List, Optional, Union
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.env_vars import get_bigquery_schema_parallelism
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -25,15 +25,14 @@ from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterCo
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
+    StatefulTimeWindowConfigMixin,
     StatefulUsageConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_BQ_SCHEMA_PARALLELISM = int(
-    os.getenv("DATAHUB_BIGQUERY_SCHEMA_PARALLELISM", 20)
-)
+DEFAULT_BQ_SCHEMA_PARALLELISM = get_bigquery_schema_parallelism()
 
 # Regexp for sharded tables.
 # A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
@@ -273,6 +272,7 @@ class BigQueryV2Config(
     SQLCommonConfig,
     StatefulUsageConfigMixin,
     StatefulLineageConfigMixin,
+    StatefulTimeWindowConfigMixin,
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
 ):
@@ -528,6 +528,20 @@ class BigQueryV2Config(
             )
 
         return v
+
+    @root_validator(pre=False, skip_on_failure=True)
+    def validate_queries_v2_stateful_ingestion(cls, values: Dict) -> Dict:
+        if values.get("use_queries_v2"):
+            if values.get("enable_stateful_lineage_ingestion") or values.get(
+                "enable_stateful_usage_ingestion"
+            ):
+                logger.warning(
+                    "enable_stateful_lineage_ingestion and enable_stateful_usage_ingestion are deprecated "
+                    "when using use_queries_v2=True. These configs only work with the legacy (non-queries v2) extraction path. "
+                    "For queries v2, use enable_stateful_time_window instead to enable stateful ingestion "
+                    "for the unified time window extraction (lineage + usage + operations + queries)."
+                )
+        return values
 
     def get_table_pattern(self, pattern: List[str]) -> str:
         return "|".join(pattern) if pattern else ""

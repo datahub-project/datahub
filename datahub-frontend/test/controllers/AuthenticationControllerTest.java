@@ -100,7 +100,7 @@ public class AuthenticationControllerTest {
 
     // Create the controller
     controller = new AuthenticationController(mockConfig);
-    controller.playCookieSessionStore = playCookieSessionStore;
+    controller.sessionStore = playCookieSessionStore;
     controller.ssoManager = ssoManager;
     controller.authClient = authClient;
   }
@@ -353,7 +353,7 @@ public class AuthenticationControllerTest {
     AuthenticationController testController = new AuthenticationController(config);
     testController.ssoManager = ssoManager;
     testController.authClient = authClient;
-    testController.playCookieSessionStore = playCookieSessionStore;
+    testController.sessionStore = playCookieSessionStore;
 
     // Configure SSO to be enabled
     when(ssoManager.isSsoEnabled()).thenReturn(true);
@@ -408,7 +408,7 @@ public class AuthenticationControllerTest {
     AuthenticationController testController = new AuthenticationController(config);
     testController.ssoManager = ssoManager;
     testController.authClient = authClient;
-    testController.playCookieSessionStore = playCookieSessionStore;
+    testController.sessionStore = playCookieSessionStore;
 
     // Configure SSO to be enabled
     when(ssoManager.isSsoEnabled()).thenReturn(true);
@@ -465,7 +465,7 @@ public class AuthenticationControllerTest {
     Config config = ConfigFactory.parseMap(configMap);
     AuthenticationController testController = new AuthenticationController(config);
     testController.ssoManager = ssoManager;
-    testController.playCookieSessionStore = playCookieSessionStore;
+    testController.sessionStore = playCookieSessionStore;
 
     // Configure SSO to be enabled
     when(ssoManager.isSsoEnabled()).thenReturn(true);
@@ -619,7 +619,7 @@ public class AuthenticationControllerTest {
     Config config = ConfigFactory.parseMap(configMap);
     AuthenticationController testController = new AuthenticationController(config);
     testController.ssoManager = ssoManager;
-    testController.playCookieSessionStore = playCookieSessionStore;
+    testController.sessionStore = playCookieSessionStore;
 
     // Configure SSO to be enabled
     when(ssoManager.isSsoEnabled()).thenReturn(true);

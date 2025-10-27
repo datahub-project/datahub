@@ -201,21 +201,90 @@ Reference Links:
 
 ### EBean Configuration (MySQL/PostgreSQL)
 
-| Environment Variable              | Default                               | Description                               | Components                       |
-| --------------------------------- | ------------------------------------- | ----------------------------------------- | -------------------------------- |
-| `EBEAN_DATASOURCE_USERNAME`       | `datahub`                             | Database username                         | GMS, MCE Consumer, System Update |
-| `EBEAN_DATASOURCE_PASSWORD`       | `datahub`                             | Database password                         | GMS, MCE Consumer, System Update |
-| `EBEAN_DATASOURCE_URL`            | `jdbc:mysql://localhost:3306/datahub` | JDBC URL                                  | GMS, MCE Consumer, System Update |
-| `EBEAN_DATASOURCE_DRIVER`         | `com.mysql.jdbc.Driver`               | JDBC Driver                               | GMS, MCE Consumer, System Update |
-| `EBEAN_MIN_CONNECTIONS`           | `2`                                   | Minimum database connections              | GMS, MCE Consumer, System Update |
-| `EBEAN_MAX_CONNECTIONS`           | `50`                                  | Maximum database connections              | GMS, MCE Consumer, System Update |
-| `EBEAN_MAX_INACTIVE_TIME_IN_SECS` | `120`                                 | Maximum inactive time in seconds          | GMS, MCE Consumer, System Update |
-| `EBEAN_MAX_AGE_MINUTES`           | `120`                                 | Maximum age in minutes                    | GMS, MCE Consumer, System Update |
-| `EBEAN_LEAK_TIME_MINUTES`         | `15`                                  | Leak time in minutes                      | GMS, MCE Consumer, System Update |
-| `EBEAN_WAIT_TIMEOUT_MILLIS`       | `1000`                                | Wait timeout in milliseconds              | GMS, MCE Consumer, System Update |
-| `EBEAN_AUTOCREATE`                | `false`                               | Auto-create DDL                           | GMS, MCE Consumer, System Update |
-| `EBEAN_POSTGRES_USE_AWS_IAM_AUTH` | `false`                               | Use AWS IAM authentication for PostgreSQL | GMS, MCE Consumer, System Update |
-| `EBEAN_BATCH_GET_METHOD`          | `IN`                                  | Batch get method (IN or UNION)            | GMS, MCE Consumer, System Update |
+| Environment Variable              | Default                               | Description                                     | Components                       |
+| --------------------------------- | ------------------------------------- | ----------------------------------------------- | -------------------------------- |
+| `EBEAN_DATASOURCE_USERNAME`       | `datahub`                             | Database username                               | GMS, MCE Consumer, System Update |
+| `EBEAN_DATASOURCE_PASSWORD`       | `datahub`                             | Database password                               | GMS, MCE Consumer, System Update |
+| `EBEAN_DATASOURCE_URL`            | `jdbc:mysql://localhost:3306/datahub` | JDBC URL                                        | GMS, MCE Consumer, System Update |
+| `EBEAN_DATASOURCE_DRIVER`         | `com.mysql.jdbc.Driver`               | JDBC Driver                                     | GMS, MCE Consumer, System Update |
+| `EBEAN_MIN_CONNECTIONS`           | `2`                                   | Minimum database connections                    | GMS, MCE Consumer, System Update |
+| `EBEAN_MAX_CONNECTIONS`           | `50`                                  | Maximum database connections                    | GMS, MCE Consumer, System Update |
+| `EBEAN_MAX_INACTIVE_TIME_IN_SECS` | `120`                                 | Maximum inactive time in seconds                | GMS, MCE Consumer, System Update |
+| `EBEAN_MAX_AGE_MINUTES`           | `120`                                 | Maximum age in minutes                          | GMS, MCE Consumer, System Update |
+| `EBEAN_LEAK_TIME_MINUTES`         | `15`                                  | Leak time in minutes                            | GMS, MCE Consumer, System Update |
+| `EBEAN_WAIT_TIMEOUT_MILLIS`       | `1000`                                | Wait timeout in milliseconds                    | GMS, MCE Consumer, System Update |
+| `EBEAN_AUTOCREATE`                | `false`                               | Auto-create DDL                                 | GMS, MCE Consumer, System Update |
+| `EBEAN_POSTGRES_USE_AWS_IAM_AUTH` | `false`                               | Use AWS IAM authentication for PostgreSQL       | GMS, MCE Consumer, System Update |
+| `EBEAN_USE_IAM_AUTH`              | `false`                               | Enable cross-cloud IAM authentication (AWS/GCP) | GMS, MCE Consumer, System Update |
+| `EBEAN_CLOUD_PROVIDER`            | `auto`                                | Cloud provider (auto/aws/gcp/traditional)       | GMS, MCE Consumer, System Update |
+| `EBEAN_BATCH_GET_METHOD`          | `IN`                                  | Batch get method (IN or UNION)                  | GMS, MCE Consumer, System Update |
+
+#### Cross-Cloud IAM Authentication
+
+DataHub supports cross-cloud IAM authentication for both AWS and GCP cloud providers. This enables secure, passwordless database connections using cloud identity services.
+
+**AWS IAM Authentication:**
+
+- **PostgreSQL**: Uses native `wrapperPlugins: "iam"` configuration
+- **MySQL**: Automatically swaps to MariaDB driver with `credentialType=AWS-IAM`
+- **Detection**: Based on `AWS_REGION`, `AWS_ACCESS_KEY_ID`, or RDS URLs
+
+**GCP IAM Authentication:**
+
+- **MySQL/PostgreSQL**: Uses Cloud SQL Connector with `enableIamAuth=true`
+- **Detection**: Based on `GOOGLE_APPLICATION_CREDENTIALS`, `GCP_PROJECT`, or Cloud SQL URLs
+
+**Configuration Examples:**
+
+```bash
+# AWS RDS with IAM authentication
+export EBEAN_USE_IAM_AUTH=true
+export EBEAN_CLOUD_PROVIDER=aws
+export EBEAN_DATASOURCE_URL=jdbc:mysql://rds-instance.amazonaws.com:3306/datahub
+export AWS_REGION=us-west-2
+
+# GCP Cloud SQL with IAM authentication
+export EBEAN_USE_IAM_AUTH=true
+export EBEAN_CLOUD_PROVIDER=gcp
+export EBEAN_DATASOURCE_URL=jdbc:mysql://cloudsql-instance:3306/datahub
+export INSTANCE_CONNECTION_NAME="project:region:instance"
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
+
+# Auto-detection (recommended)
+export EBEAN_USE_IAM_AUTH=true
+export EBEAN_CLOUD_PROVIDER=auto
+# Cloud provider automatically detected from environment variables
+```
+
+**Required Cloud-Specific Environment Variables:**
+
+| Cloud Provider | Required Variables               | Description                              |
+| -------------- | -------------------------------- | ---------------------------------------- |
+| **AWS**        | `AWS_REGION`                     | AWS region for RDS instances             |
+| **AWS**        | `AWS_ACCESS_KEY_ID`              | AWS access key (or use instance profile) |
+| **AWS**        | `AWS_SECRET_ACCESS_KEY`          | AWS secret key (or use instance profile) |
+| **GCP**        | `INSTANCE_CONNECTION_NAME`       | Cloud SQL instance connection name       |
+| **GCP**        | `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON file        |
+
+### SQL Setup Configuration
+
+The SQL Setup system provides automated database initialization and user management capabilities. These environment variables control the behavior of the `SqlSetup` upgrade step.
+
+| Environment Variable         | Default       | Description                                                                 | Components    |
+| ---------------------------- | ------------- | --------------------------------------------------------------------------- | ------------- |
+| `CREATE_TABLES`              | `true`        | Whether to create database tables                                           | System Update |
+| `CREATE_DB`                  | `true`        | Whether to create the database (PostgreSQL only)                            | System Update |
+| `CREATE_USER`                | `false`       | Whether to create a new database user                                       | System Update |
+| `CREATE_USER_USERNAME`       | _none_        | Username for the new database user to create (required if CREATE_USER=true) | System Update |
+| `CREATE_USER_PASSWORD`       | _none_        | Password for the new database user to create (required if CREATE_USER=true) | System Update |
+| `CDC_MCL_PROCESSING_ENABLED` | `false`       | Whether to create a CDC (Change Data Capture) user                          | System Update |
+| `CDC_USER`                   | `datahub_cdc` | Username for the CDC user                                                   | System Update |
+| `CDC_PASSWORD`               | `datahub_cdc` | Password for the CDC user                                                   | System Update |
+| `IAM_ROLE`                   | _none_        | IAM role for new user creation (required if IAM auth enabled)               | System Update |
+
+**Note:** When `CREATE_USER=true`, you must explicitly set `CREATE_USER_USERNAME` and `CREATE_USER_PASSWORD` environment variables. The system will not fall back to Ebean connection credentials for security reasons.
+
+**IAM Authentication:** When using IAM authentication (by setting `IAM_ROLE`), the system will only use `CREATE_USER_USERNAME` and ignore `CREATE_USER_PASSWORD` for security reasons. Traditional username/password authentication and IAM authentication are mutually exclusive.
 
 ### Cassandra Configuration
 
@@ -245,6 +314,7 @@ Reference Links:
 | `AWS_REGION`                               | `null`          | AWS region                                   | GMS, MAE Consumer, MCE Consumer, System Update |
 | `ELASTICSEARCH_IMPLEMENTATION`             | `elasticsearch` | Implementation (elasticsearch or opensearch) | GMS, MAE Consumer, MCE Consumer, System Update |
 | `ELASTIC_ID_HASH_ALGO`                     | `MD5`           | ID hash algorithm                            | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_DATA_NODE_COUNT`            | `1`             | Number of Elasticsearch data nodes           | GMS, MAE Consumer, MCE Consumer, System Update |
 
 #### SSL Context Configuration
 
@@ -288,27 +358,27 @@ Reference Links:
 
 #### Build Indices Configuration
 
-| Environment Variable                                       | Default | Description                                                 | Components    |
-| ---------------------------------------------------------- | ------- | ----------------------------------------------------------- | ------------- |
-| `ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH`     | `false` | Allow document count mismatch when clone indices is enabled | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES`                | `true`  | Clone indices                                               | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT`               | `DAYS`  | Retention unit for indices                                  | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE`              | `60`    | Retention value for indices                                 | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED` | `true`  | Enable reindex optimization                                 | System Update |
-| `ELASTICSEARCH_NUM_SHARDS_PER_INDEX`                       | `1`     | Number of shards per index                                  | System Update |
-| `ELASTICSEARCH_NUM_REPLICAS_PER_INDEX`                     | `1`     | Number of replicas per index                                | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES`                  | `3`     | Index builder number of retries                             | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS`     | `3`     | Index builder refresh interval                              | System Update |
-| `SEARCH_DOCUMENT_MAX_ARRAY_LENGTH`                         | `1000`  | Maximum array length in search documents                    | System Update |
-| `SEARCH_DOCUMENT_MAX_OBJECT_KEYS`                          | `1000`  | Maximum object keys in search documents                     | System Update |
-| `SEARCH_DOCUMENT_MAX_VALUE_LENGTH`                         | `4096`  | Maximum value length in search documents                    | System Update |
-| `ELASTICSEARCH_MAIN_TOKENIZER`                             | `null`  | Main tokenizer                                              | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX`             | `false` | Enable mappings reindex                                     | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX`             | `false` | Enable settings reindex                                     | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS`            | `0`     | Maximum reindex hours (0 = no timeout)                      | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`           | `null`  | Index builder settings overrides                            | System Update |
-| `ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH`                   | `3`     | Minimum search filter length                                | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES`    | `null`  | Entity settings overrides                                   | System Update |
+| Environment Variable                                       | Default                          | Description                                                 | Components    |
+| ---------------------------------------------------------- | -------------------------------- | ----------------------------------------------------------- | ------------- |
+| `ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH`     | `false`                          | Allow document count mismatch when clone indices is enabled | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES`                | `true`                           | Clone indices                                               | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT`               | `DAYS`                           | Retention unit for indices                                  | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE`              | `60`                             | Retention value for indices                                 | System Update |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED` | `true`                           | Enable reindex optimization                                 | System Update |
+| `ELASTICSEARCH_NUM_SHARDS_PER_INDEX`                       | `${elasticsearch.dataNodeCount}` | Number of shards per index, defaults to dataNodeCount       | System Update |
+| `ELASTICSEARCH_NUM_REPLICAS_PER_INDEX`                     | `1`                              | Number of replicas per index                                | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES`                  | `3`                              | Index builder number of retries                             | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS`     | `3`                              | Index builder refresh interval                              | System Update |
+| `SEARCH_DOCUMENT_MAX_ARRAY_LENGTH`                         | `1000`                           | Maximum array length in search documents                    | System Update |
+| `SEARCH_DOCUMENT_MAX_OBJECT_KEYS`                          | `1000`                           | Maximum object keys in search documents                     | System Update |
+| `SEARCH_DOCUMENT_MAX_VALUE_LENGTH`                         | `4096`                           | Maximum value length in search documents                    | System Update |
+| `ELASTICSEARCH_MAIN_TOKENIZER`                             | `null`                           | Main tokenizer                                              | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX`             | `false`                          | Enable mappings reindex                                     | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX`             | `false`                          | Enable settings reindex                                     | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS`            | `0`                              | Maximum reindex hours (0 = no timeout)                      | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`           | `null`                           | Index builder settings overrides                            | System Update |
+| `ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH`                   | `3`                              | Minimum search filter length                                | System Update |
+| `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES`    | `null`                           | Entity settings overrides                                   | System Update |
 
 #### Search Configuration
 
@@ -333,21 +403,21 @@ Reference Links:
 
 #### Graph Search Configuration
 
-| Environment Variable                                        | Default | Description                                                                     | Components |
-| ----------------------------------------------------------- | ------- | ------------------------------------------------------------------------------- | ---------- |
-| `ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS`                | `50`    | Graph DAO timeout seconds                                                       | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE`                     | `1000`  | Graph DAO batch size                                                            | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH`              | `false` | Allow path retraversal for all paths                                            | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_BOOST_VIA_NODES`                | `true`  | Boost graph edges with via nodes                                                | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_STATUS_ENABLED`                 | `false` | Enable soft delete tracking of URNs on edges                                    | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS`               | `20`    | Maximum hops to traverse lineage graph                                          | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS`                | `1000`  | Maximum hops to traverse for impact analysis (impact.maxHops)                   | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_RELATIONS`           | `40000` | Maximum number of relationships for impact analysis (impact.maxRelations)       | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SLICES`                  | `2`     | Number of slices for parallel search operations (impact.slices)                 | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_KEEP_ALIVE`              | `5m`    | Point-in-Time keepAlive duration for impact analysis queries (impact.keepAlive) | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS`             | `32`    | Maximum parallel lineage graph queries                                          | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION`             | `true`  | Reduce query nesting if possible                                                | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_POINT_IN_TIME_CREATION_ENABLED` | `true`  | Enable creation of point in time snapshots for graph queries                    | GMS        |
+| Environment Variable                                        | Default                          | Description                                                                                           | Components |
+| ----------------------------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------- | ---------- |
+| `ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS`                | `50`                             | Graph DAO timeout seconds                                                                             | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE`                     | `1000`                           | Graph DAO batch size                                                                                  | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH`              | `false`                          | Allow path retraversal for all paths                                                                  | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_BOOST_VIA_NODES`                | `true`                           | Boost graph edges with via nodes                                                                      | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_STATUS_ENABLED`                 | `false`                          | Enable soft delete tracking of URNs on edges                                                          | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS`               | `20`                             | Maximum hops to traverse lineage graph                                                                | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS`                | `1000`                           | Maximum hops to traverse for impact analysis (impact.maxHops)                                         | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_RELATIONS`           | `40000`                          | Maximum number of relationships for impact analysis (impact.maxRelations)                             | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SLICES`                  | `${elasticsearch.dataNodeCount}` | Number of slices for parallel search operations (impact.slices), defaults to dataNodeCount, minimum 2 | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_KEEP_ALIVE`              | `5m`                             | Point-in-Time keepAlive duration for impact analysis queries (impact.keepAlive)                       | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS`             | `32`                             | Maximum parallel lineage graph queries                                                                | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION`             | `true`                           | Reduce query nesting if possible                                                                      | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_POINT_IN_TIME_CREATION_ENABLED` | `true`                           | Enable creation of point in time snapshots for graph queries                                          | GMS        |
 
 ### Neo4j Configuration
 

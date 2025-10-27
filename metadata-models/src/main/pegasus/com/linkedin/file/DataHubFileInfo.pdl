@@ -1,0 +1,98 @@
+namespace com.linkedin.file
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+/**
+ * Information about a DataHub file - a file stored in S3 for use within DataHub platform features like documentation, home pages, and announcements.
+ */
+@Aspect = {
+  "name": "dataHubFileInfo"
+}
+record DataHubFileInfo {
+  /**
+   * Info about where a file is stored
+   */
+  bucketStorageLocation: BucketStorageLocation
+
+  /**
+   * The original filename as uploaded by the user
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
+  originalFileName: string
+
+  /**
+   * MIME type of the file (e.g., image/png, application/pdf)
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  mimeType: string
+
+  /**
+   * Size of the file in bytes
+   */
+  sizeInBytes: long
+
+  /**
+   * The scenario/context in which this file was uploaded
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  scenario: enum FileUploadScenario {
+    /**
+     * File uploaded for entity documentation
+     */
+    ASSET_DOCUMENTATION
+  }
+
+  /**
+   * Optional URN of the entity this file is associated with (e.g., the dataset whose docs contain this file)
+   */
+  @Relationship = {
+    "name": "ReferencedBy",
+    "entityTypes": [ "dataset", "chart", "container", "dashboard", "dataFlow", "dataJob", "glossaryTerm", "glossaryNode", "mlModel", "mlFeature", "notebook", "mlFeatureTable", "mlPrimaryKey", "mlModelGroup", "domain", "dataProduct", "businessAttribute" ]
+  }
+  @Searchable = {
+    "fieldType": "URN"
+  }
+  referencedByAsset: optional Urn
+  
+  /**
+   * The dataset schema field urn this file is referenced by
+   */
+  @Relationship= {
+    "name": "ReferencedBy",
+    "entityTypes": ["schemaField"]
+  }
+  @Searchable = {
+    "fieldType": "URN"
+  }
+  schemaField: optional Urn
+
+  /**
+   * Timestamp when this file was created and by whom
+   */
+  @Searchable = {
+    "/time": {
+       "fieldType": "DATETIME",
+       "fieldName": "createdAt"
+    },
+    "/actor": {
+      "fieldType": "URN",
+      "fieldName": "createdBy"
+    }
+  }
+  created: AuditStamp
+
+  /**
+  * SHA-256 hash of file contents
+  */
+  @Searchable = {
+  "fieldType": "KEYWORD"
+  }
+  contentHash: optional string
+}

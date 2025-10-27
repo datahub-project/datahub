@@ -354,7 +354,7 @@ jobs:
           vuln-type: "os,library"
           trivy-config: "./trivy.yaml"
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: "trivy-results.sarif"
 
