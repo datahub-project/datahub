@@ -103,7 +103,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
             setSelectedOwnerUrns([]);
         } catch (e: any) {
             message.destroy();
-            message.error(e.message);
+            message.error(`Failed to create tag. ${e.message}`);
         } finally {
             setIsLoading(false);
         }
@@ -136,7 +136,15 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
     ];
 
     return (
-        <Modal title="Create New Tag" onCancel={onClose} buttons={buttons} open={open} centered width={500}>
+        <Modal
+            title="Create New Tag"
+            onCancel={onClose}
+            buttons={buttons}
+            open={open}
+            centered
+            width={500}
+            dataTestId="create-tag-modal"
+        >
             {/* Tag Details Section */}
             <TagDetailsSection
                 tagName={tagName}
