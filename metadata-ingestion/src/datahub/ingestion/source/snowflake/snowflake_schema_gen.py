@@ -622,7 +622,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             MetadataWorkUnit: Work units for each aspect of the dashboard entity
         """
         dashboard_id = self.identifiers.snowflake_identifier(
-            f"{app.database_name}.{app.schema_name}.{app.name}"
+            f"{app.database_name}.{app.schema_name}.{app.url_id}"
         )
 
         custom_properties = {

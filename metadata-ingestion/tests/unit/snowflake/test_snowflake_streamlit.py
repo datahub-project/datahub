@@ -73,7 +73,7 @@ def test_streamlit_custom_properties():
 
 
 def test_streamlit_dashboard_id_generation():
-    """Test that dashboard IDs are generated correctly for Streamlit apps."""
+    """Test that dashboard IDs are generated correctly for Streamlit apps using url_id."""
     streamlit_app = SnowflakeStreamlitApp(
         name="MY_APP",
         created=datetime(2023, 1, 15, 10, 30, 0, 0, tzinfo=timezone.utc),
@@ -86,16 +86,16 @@ def test_streamlit_dashboard_id_generation():
         owner_role_type="ROLE",
     )
 
-    # Production code: self.identifiers.snowflake_identifier(f"{db}.{schema}.{name}")
+    # Production code: self.identifiers.snowflake_identifier(f"{db}.{schema}.{url_id}")
     # This tests the format before snowflake_identifier() transformation
-    expected_dashboard_id = "MY_DB.MY_SCHEMA.MY_APP"
-    dashboard_id = f"{streamlit_app.database_name}.{streamlit_app.schema_name}.{streamlit_app.name}"
+    expected_dashboard_id = "MY_DB.MY_SCHEMA.abc123"
+    dashboard_id = f"{streamlit_app.database_name}.{streamlit_app.schema_name}.{streamlit_app.url_id}"
     assert dashboard_id == expected_dashboard_id
 
     # Verify ID components are in the correct hierarchical format
     assert dashboard_id.count(".") == 2
     assert dashboard_id.startswith("MY_DB.")
-    assert dashboard_id.endswith(".MY_APP")
+    assert dashboard_id.endswith(".abc123")
 
 
 def test_streamlit_optional_fields():

@@ -4061,7 +4061,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_1)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.abc123def456_1)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -4077,7 +4077,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_1)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.abc123def456_1)",
     "changeType": "UPSERT",
     "aspectName": "dashboardInfo",
     "aspect": {
@@ -4306,7 +4306,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_1)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.abc123def456_1)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -4322,7 +4322,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_1)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.abc123def456_1)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -4423,7 +4423,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_1)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.abc123def456_1)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -4655,7 +4655,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_2)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.abc123def456_2)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -4671,7 +4671,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_2)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.abc123def456_2)",
     "changeType": "UPSERT",
     "aspectName": "dashboardInfo",
     "aspect": {
@@ -4808,7 +4808,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_2)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.abc123def456_2)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -4824,7 +4824,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_2)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.abc123def456_2)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -5004,7 +5004,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_2)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.abc123def456_2)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -5221,7 +5221,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_1)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.abc123def456_1)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -5269,7 +5269,7 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.streamlit_app_2)",
+    "entityUrn": "urn:li:dashboard:(streamlit,test_db.test_schema.abc123def456_2)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
