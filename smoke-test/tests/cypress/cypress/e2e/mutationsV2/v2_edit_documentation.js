@@ -16,6 +16,7 @@ const removeLinksByUrl = (url) => {
     cy.get(`[href='${url}']`).each(($el) => {
       cy.wrap($el)
         .closest(".ant-list-item")
+        .scrollIntoView()
         .within(() => cy.clickOptionWithTestId("remove-link-button"));
     });
   });
