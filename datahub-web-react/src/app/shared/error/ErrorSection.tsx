@@ -3,13 +3,7 @@ import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-
-/* 
-  TO-DO: 
-  Import image from path at theme config object assets.logoUrl
-  Update TitleSection Image src value accordingly
-*/
-import dataHubLogo from '@images/datahublogo.png';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 const Section = styled.div`
     width: auto;
@@ -66,12 +60,13 @@ const resources = [
 
 export const ErrorSection = (): JSX.Element => {
     const themeConfig = useTheme();
+    const themeLogo = resolveRuntimePath(themeConfig.assets.logoUrl || '@images/datahublogo.png');
 
     return (
         <Section>
             <div>
                 <TitleSection>
-                    <Image src={dataHubLogo} preview={false} style={{ width: 40 }} />
+                    <Image src={themeLogo} preview={false} style={{ width: 40 }} />
                     <TitleText strong>{themeConfig.content.title}</TitleText>
                 </TitleSection>
                 <MessageSection>
