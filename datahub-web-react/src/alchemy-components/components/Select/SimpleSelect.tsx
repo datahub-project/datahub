@@ -53,6 +53,7 @@ export const SimpleSelect = ({
     initialValues,
     onUpdate,
     onClear,
+    onOpenChange,
     showSearch = selectDefaults.showSearch,
     isDisabled = selectDefaults.isDisabled,
     isReadOnly = selectDefaults.isReadOnly,
@@ -104,6 +105,10 @@ export const SimpleSelect = ({
     useEffect(() => {
         setAreAllSelected(selectedValues.length === options.length);
     }, [options, selectedValues]);
+
+    useEffect(() => {
+        onOpenChange?.(isOpen);
+    }, [isOpen, onOpenChange]);
 
     const filteredOptions = useMemo(
         () =>

@@ -1,11 +1,10 @@
-import { notification } from 'antd';
 import React from 'react';
 
 import analytics, { EventType } from '@app/analytics';
 import { ViewAllTabMessage } from '@app/identity/user/UserAndGroupList.components';
 import { useBatchDismissUserSuggestionsMutation } from '@app/identity/user/hooks/useBatchDismissUserSuggestions';
 import { addToGlobalInvitedUsers } from '@app/identity/user/inviteUsersGlobalState';
-import { colors } from '@src/alchemy-components';
+import { notification } from '@src/alchemy-components';
 import { pluralize } from '@src/app/shared/textUtil';
 
 import { useSendUserInvitationsMutation } from '@graphql/mutations.generated';
@@ -104,10 +103,6 @@ export const useBulkUserActions = () => {
                     description: <ViewAllTabMessage />,
                     placement: 'top',
                     duration: 3,
-                    style: {
-                        backgroundColor: colors.green[0],
-                    },
-                    className: 'bulk-action-notification',
                 });
             } else {
                 // Mark selected users as failed to invite
@@ -187,14 +182,10 @@ export const useBulkUserActions = () => {
                 });
                 setDismissalStates((prev) => ({ ...prev, ...successDismissalStates }));
 
-                notification.warning({
+                notification.error({
                     message: `${selectedUsers.length} ${pluralize(selectedUsers.length, 'new user')} dismissed.`,
                     description: <ViewAllTabMessage />,
-                    style: {
-                        backgroundColor: colors.red[0],
-                    },
                     placement: 'top',
-                    className: 'bulk-action-notification',
                 });
             } else {
                 // Mark selected users as failed to dismiss
@@ -208,10 +199,6 @@ export const useBulkUserActions = () => {
                     message: 'Failed to dismiss user suggestions',
                     placement: 'top',
                     duration: 3,
-                    style: {
-                        backgroundColor: colors.red[0],
-                    },
-                    className: 'bulk-action-notification',
                 });
             }
 

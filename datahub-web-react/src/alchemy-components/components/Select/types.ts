@@ -28,6 +28,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     onCancel?: () => void;
     onClear?: () => void;
     onUpdate?: (selectedValues: string[]) => void;
+    onOpenChange?: (isOpen: boolean) => void;
     size?: SelectSizeOptions;
     icon?: IconNames;
     showSearch?: boolean;

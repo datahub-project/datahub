@@ -1,5 +1,5 @@
 import { Icon, SimpleSelect, Tooltip } from '@components';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { mapRoleToPhosphorIcon } from '@app/identity/user/PhosphorRoleUtils';
@@ -30,6 +30,8 @@ export default function SimpleSelectRole({
     width = 'fit-content',
     disabled = false,
 }: Props) {
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
     const placeholderWithIcon = (
         <PlaceholderContainer>
             <Icon icon="User" source="phosphor" size="xl" />
@@ -89,10 +91,11 @@ export default function SimpleSelectRole({
     };
 
     return (
-        <Tooltip title="Set user role" placement="top">
+        <Tooltip title="Set user role" placement="top" open={isDropdownOpen ? false : undefined}>
             <span>
                 <SimpleSelect
                     onUpdate={(values) => handleRoleSelect(values[0] || '')}
+                    onOpenChange={setIsDropdownOpen}
                     options={roleSelectOptions}
                     placeholder={placeholderWithIcon}
                     values={selectedRole?.urn ? [selectedRole.urn] : []}
