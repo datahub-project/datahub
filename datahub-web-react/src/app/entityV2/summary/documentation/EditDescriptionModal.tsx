@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
 
 import { UploadDownloadScenario } from '@types';
 
@@ -46,6 +47,10 @@ export default function EditDescriptionModal({
 }: Props) {
     const canEditDescription = useDocumentationPermission();
     const { urn: assetUrn } = useEntityData();
+    const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
+        scenario: UploadDownloadScenario.AssetDocumentation,
+        assetUrn,
+    });
     const { uploadFile } = useFileUpload({ scenario: UploadDownloadScenario.AssetDocumentation, assetUrn });
     return (
         <Modal
@@ -85,6 +90,7 @@ export default function EditDescriptionModal({
                 toolbarStyles={toolbarStyles}
                 dataTestId="description-editor"
                 uploadFile={uploadFile}
+                {...uploadFileAnalyticsCallbacks}
             />
         </Modal>
     );
