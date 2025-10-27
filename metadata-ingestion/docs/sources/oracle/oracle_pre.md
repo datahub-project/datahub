@@ -17,6 +17,11 @@ The following table contains a brief description of what each data dictionary vi
 | `ALL_CONSTRAINTS` or `DBA_CONSTRAINTS`             | Get constraint definitions on tables                  |
 | `ALL_CONS_COLUMNS` or `DBA_CONS_COLUMNS`           | Get list of columns that are specified in constraints |
 | `ALL_USERS` or `DBA_USERS`                         | Get all schema names                                  |
+| `ALL_OBJECTS` or `DBA_OBJECTS`                     | Get stored procedures, functions, and packages        |
+| `ALL_SOURCE` or `DBA_SOURCE`                       | Get source code for stored procedures and functions   |
+| `ALL_ARGUMENTS` or `DBA_ARGUMENTS`                 | Get arguments for stored procedures and functions     |
+| `ALL_DEPENDENCIES` or `DBA_DEPENDENCIES`           | Get dependency information for database objects       |
+| `ALL_MVIEWS` or `DBA_MVIEWS`                       | Get materialized views and their definitions          |
 
 #### Data Dictionary Views accessible information and required privileges
 
