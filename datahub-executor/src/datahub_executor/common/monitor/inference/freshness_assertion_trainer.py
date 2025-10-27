@@ -315,12 +315,20 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
     ) -> Assertion:
         """
         Rebuild an assertion with updated info.
+
+        Note: We must exclude 'entity' from assertion_info.to_obj() because:
+        - AssertionInfoClass.entity is a URN string (from PDL)
+        - Assertion.entity expects an AssertionEntity object
+        - original_assertion.entity already has the correct type
         """
+        info_dict = dict(assertion_info.to_obj())
+        info_dict.pop("entity", None)  # Remove entity URN string
+
         return Assertion.model_validate(
             dict(
-                **dict(assertion_info.to_obj()),
+                **info_dict,
                 urn=original_assertion.urn,
-                entity=original_assertion.entity,
+                entity=original_assertion.entity,  # Use AssertionEntity object
                 connectionUrn=original_assertion.connection_urn,
                 raw_info_aspect=None,
             )
