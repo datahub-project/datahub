@@ -35,9 +35,6 @@ import jakarta.json.JsonStructure;
 import jakarta.json.JsonValue;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -118,7 +115,7 @@ public class PatchItemImpl implements PatchMCP {
   }
 
   public ChangeItemImpl applyPatch(RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
-    // Use generic patching if explicitly requested
+    // Use generic patching if explicitly requested via GenericJsonPatch
     if (genericJsonPatch != null) {
       if (!genericJsonPatch.getArrayPrimaryKeys().isEmpty()
           || genericJsonPatch.isForceGenericPatch()) {
@@ -147,57 +144,9 @@ public class PatchItemImpl implements PatchMCP {
   private ChangeItemImpl applyGenericPatch(
       RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
     try {
-      // If we don't have a GenericJsonPatch, create a basic one from the JsonPatch
-      GenericJsonPatch effectiveGenericPatch = genericJsonPatch;
-      if (effectiveGenericPatch == null) {
-        // Convert JsonPatch to GenericJsonPatch format
-        List<GenericJsonPatch.PatchOp> patchOps = new ArrayList<>();
-        patch
-            .toJsonArray()
-            .forEach(
-                jsonValue -> {
-                  JsonObject opObj = jsonValue.asJsonObject();
-                  GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
-                  patchOp.setOp(opObj.getString("op").toLowerCase());
-                  patchOp.setPath(opObj.getString("path"));
-                  // For ADD operations, always set value (Jakarta JSON Patch requirement)
-                  if ("add".equals(opObj.getString("op").toLowerCase())
-                      || opObj.containsKey("value")) {
-                    if (opObj.containsKey("value")) {
-                      if (opObj.isNull("value")) {
-                        patchOp.setValue(null);
-                      } else {
-                        // Preserve empty strings and handle other values
-                        String valueStr = opObj.get("value").toString();
-                        if (valueStr.equals("\"\"") || valueStr.equals("")) {
-                          patchOp.setValue(""); // Preserve empty string
-                        } else {
-                          try {
-                            patchOp.setValue(OBJECT_MAPPER.readValue(valueStr, Object.class));
-                          } catch (Exception e) {
-                            patchOp.setValue(valueStr);
-                          }
-                        }
-                      }
-                    } else {
-                      // For ADD operations with missing value, set explicit null
-                      patchOp.setValue(null);
-                    }
-                  }
-                  patchOps.add(patchOp);
-                });
-
-        effectiveGenericPatch =
-            GenericJsonPatch.builder()
-                .patch(patchOps)
-                .arrayPrimaryKeys(Collections.emptyMap())
-                .forceGenericPatch(false)
-                .build();
-      }
-
       GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate =
           GenericPatchTemplate.builder()
-              .genericJsonPatch(effectiveGenericPatch)
+              .genericJsonPatch(genericJsonPatch)
               .templateType(aspectSpec.getDataTemplateClass())
               .templateDefault(
                   aspectSpec.getDataTemplateClass().getDeclaredConstructor().newInstance())

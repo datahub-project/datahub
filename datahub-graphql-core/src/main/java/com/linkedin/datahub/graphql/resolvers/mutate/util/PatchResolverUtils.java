@@ -21,9 +21,6 @@ import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
-import jakarta.json.Json;
-import jakarta.json.JsonPatch;
-import jakarta.json.JsonPatchBuilder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -50,13 +47,6 @@ public class PatchResolverUtils {
     }
   }
 
-  /** Creates a patch aspect from patch operations (legacy method for backward compatibility) */
-  @Nonnull
-  public static GenericAspect createPatchAspect(
-      @Nonnull List<PatchOperationInput> patchOperations, @Nonnull QueryContext context) {
-    return createPatchAspect(patchOperations, null, null, context);
-  }
-
   /**
    * Creates a patch aspect from patch operations with optional array primary keys and force generic
    * patch
@@ -68,123 +58,15 @@ public class PatchResolverUtils {
       @Nullable Boolean forceGenericPatch,
       @Nonnull QueryContext context) {
     try {
-      // Validate and transform patch operations for entity-specific rules
+      // Validate patch operations
       List<PatchOperationInput> validatedOperations =
           validateAndTransformPatchOperations(patchOperations, context);
 
-      // Check if we should use GenericJsonPatch (like OpenAPI does)
-      boolean useGenericPatch =
-          (forceGenericPatch != null && forceGenericPatch)
-              || (arrayPrimaryKeys != null && !arrayPrimaryKeys.isEmpty());
-
-      if (useGenericPatch) {
-        return createGenericJsonPatchAspect(
-            validatedOperations, arrayPrimaryKeys, forceGenericPatch, context);
-      } else {
-        // Use traditional JsonPatch approach for backward compatibility
-        return createLegacyPatchAspect(validatedOperations, context);
-      }
+      // Always use GenericJsonPatch format (matches OpenAPI exactly)
+      return createGenericJsonPatchAspect(
+          validatedOperations, arrayPrimaryKeys, forceGenericPatch, context);
     } catch (Exception e) {
       throw new RuntimeException("Failed to create patch aspect", e);
-    }
-  }
-
-  /** Legacy patch aspect creation method using traditional JsonPatch */
-  @Nonnull
-  private static GenericAspect createLegacyPatchAspect(
-      @Nonnull List<PatchOperationInput> validatedOperations, @Nonnull QueryContext context) {
-    try {
-      // Convert patch operations to JSON patch format
-      List<Map<String, Object>> patchOps =
-          validatedOperations.stream()
-              .map(op -> convertPatchOperation(op, context))
-              .collect(Collectors.toList());
-
-      // Create JsonPatch using jakarta.json
-      JsonPatchBuilder patchBuilder = Json.createPatchBuilder();
-      for (Map<String, Object> op : patchOps) {
-        String opType = (String) op.get("op");
-        String path = (String) op.get("path");
-        Object value = op.get("value");
-
-        switch (opType.toLowerCase()) {
-          case "add":
-            patchBuilder.add(path, convertToJsonValue(value, context));
-            break;
-          case "remove":
-            patchBuilder.remove(path);
-            break;
-          case "replace":
-            patchBuilder.replace(path, convertToJsonValue(value, context));
-            break;
-          case "move":
-            patchBuilder.move(path, (String) op.get("from"));
-            break;
-          case "copy":
-            patchBuilder.copy((String) op.get("from"), path);
-            break;
-          case "test":
-            patchBuilder.test(path, convertToJsonValue(value, context));
-            break;
-          default:
-            throw new IllegalArgumentException("Unsupported patch operation: " + opType);
-        }
-      }
-
-      JsonPatch jsonPatch = patchBuilder.build();
-      return GenericRecordUtils.serializePatch(jsonPatch);
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to create legacy patch aspect", e);
-    }
-  }
-
-  /** Converts a patch operation to Map format */
-  @Nonnull
-  private static Map<String, Object> convertPatchOperation(
-      @Nonnull PatchOperationInput operation, @Nonnull QueryContext context) {
-    Map<String, Object> patchOp = new HashMap<>();
-    patchOp.put("op", operation.getOp().toString().toLowerCase());
-    patchOp.put("path", operation.getPath());
-
-    if (operation.getValue() != null) {
-      patchOp.put("value", processPatchValue(operation.getValue(), context));
-    }
-
-    if (operation.getFrom() != null) {
-      patchOp.put("from", operation.getFrom());
-    }
-
-    return patchOp;
-  }
-
-  /** Converts an object to jakarta.json.JsonValue */
-  @Nonnull
-  private static jakarta.json.JsonValue convertToJsonValue(
-      @Nullable Object value, @Nonnull QueryContext context) {
-    if (value == null) {
-      return jakarta.json.JsonValue.NULL;
-    } else if (value instanceof String) {
-      String strValue = (String) value;
-      // Explicitly handle empty strings to ensure they're preserved
-      return jakarta.json.Json.createValue(strValue);
-    } else if (value instanceof Integer) {
-      return jakarta.json.Json.createValue((Integer) value);
-    } else if (value instanceof Long) {
-      return jakarta.json.Json.createValue((Long) value);
-    } else if (value instanceof Boolean) {
-      return ((Boolean) value) ? jakarta.json.JsonValue.TRUE : jakarta.json.JsonValue.FALSE;
-    } else if (value instanceof Double) {
-      return jakarta.json.Json.createValue((Double) value);
-    } else {
-      // For complex objects, convert to JSON string first
-      try {
-        ObjectMapper mapper = context.getOperationContext().getObjectMapper();
-        String jsonString = mapper.writeValueAsString(value);
-        return jakarta.json.Json.createReader(new java.io.StringReader(jsonString)).readValue();
-      } catch (Exception e) {
-        // Fallback to string representation
-        return jakarta.json.Json.createValue(value.toString());
-      }
     }
   }
 
@@ -413,10 +295,9 @@ public class PatchResolverUtils {
               .forceGenericPatch(forceGenericPatch != null ? forceGenericPatch : false)
               .build();
 
-      // Convert to JsonNode and serialize (same as OpenAPI does)
+      // Serialize GenericJsonPatch directly (fixes ClassCastException)
       ObjectMapper mapper = context.getOperationContext().getObjectMapper();
-      JsonNode patchNode = mapper.valueToTree(genericJsonPatch);
-      return GenericRecordUtils.serializePatch(patchNode);
+      return GenericRecordUtils.serializePatch(genericJsonPatch, mapper);
     } catch (Exception e) {
       throw new RuntimeException("Failed to create GenericJsonPatch aspect", e);
     }
