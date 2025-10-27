@@ -57,28 +57,28 @@ bootstrap:
       revision_env: "DATAHUB_GC_BOOTSTRAP_REVISION"
 
     - name: ingestion-datahub-action-request-owner
-      version: v1
+      version: v2
       optional: false
       mcps_location: "bootstrap_mcps/ingestion-datahub-action-request-owner.yaml"
       values_env: "DATAHUB_ACTION_REQUEST_OWNER_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_ACTION_REQUEST_OWNER_BOOTSTRAP_REVISION"
 
     - name: ingestion-datahub-usage-reporting
-      version: v3
+      version: v4
       optional: true
       mcps_location: "bootstrap_mcps/ingestion-datahub-usage-reporting.yaml"
       values_env: "DATAHUB_USAGE_REPORTING_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_USAGE_REPORTING_REVISION"
 
     - name: ingestion-datahub-forms-reporting
-      version: v2
+      version: v3
       optional: true
       mcps_location: "bootstrap_mcps/ingestion-datahub-forms-reporting.yaml"
       values_env: "DATAHUB_FORMS_REPORTING_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_FORMS_REPORTING_REVISION"
 
     - name: ingestion-metadata-sharing
-      version: v2
+      version: v3
       optional: true
       mcps_location: "bootstrap_mcps/ingestion-metadata-sharing.yaml"
       values_env: "DATAHUB_METADATA_SHARING_BOOTSTRAP_VALUES"
@@ -91,28 +91,28 @@ bootstrap:
       mcps_location: "bootstrap_mcps/embedded-executor-pool.yaml"
 
     - name: ingestion-datahub-sql-extraction
-      version: v1
+      version: v2
       optional: true
       mcps_location: "bootstrap_mcps/ingestion-datahub-sql-extraction.yaml"
       values_env: "DATAHUB_SQL_EXTRACTION_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_SQL_EXTRACTION_REVISION"
 
     - name: ingestion-datahub-graph-extraction
-      version: v1
+      version: v2
       optional: true
       mcps_location: "bootstrap_mcps/ingestion-datahub-graph-extraction.yaml"
       values_env: "DATAHUB_GRAPH_EXTRACTION_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_GRAPH_EXTRACTION_REVISION"
 
     - name: ingestion-datahub-forms-notifications
-      version: v1
+      version: v2
       optional: true
       mcps_location: "bootstrap_mcps/ingestion-datahub-forms-notifications.yaml"
       values_env: "DATAHUB_FORMS_NOTIFICATIONS_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_FORMS_NOTIFICATIONS_REVISION"
 
     - name: ingestion-datahub-lineage-features
-      version: v1
+      version: v2
       optional: true
       mcps_location: "bootstrap_mcps/ingestion-datahub-lineage-features.yaml"
       values_env: "DATAHUB_LINEAGE_FEATURES_BOOTSTRAP_VALUES"

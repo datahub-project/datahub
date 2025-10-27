@@ -19,7 +19,7 @@
           config:
             batch_size: {{batch_size}}{{^batch_size}}200{{/batch_size}}
       extraArgs:
-        extra_pip_requirements: '{{&ingestion.extra_pip_requirements}}{{^ingestion.extra_pip_requirements}}["{{&ingestion.acryl-cloud-package}}{{^ingestion.acryl-cloud-package}}acryl-datahub-cloud[datahub-action-request-owner]@/acryl-cloud{{/ingestion.acryl-cloud-package}}"]{{/ingestion.extra_pip_requirements}}'
+        extra_pip_requirements: '{{&ingestion.extra_pip_requirements}}{{^ingestion.extra_pip_requirements}}["{{&ingestion.acryl-cloud-package}}{{^ingestion.acryl-cloud-package}}acryl-datahub-cloud[datahub-action-request-owner]@/metadata-ingestion-modules/acryl-cloud{{/ingestion.acryl-cloud-package}}"]{{/ingestion.extra_pip_requirements}}'
       debugMode: false
       executorId: default
     source:
