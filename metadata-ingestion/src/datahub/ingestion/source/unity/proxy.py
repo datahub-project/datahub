@@ -63,6 +63,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     Table,
     TableReference,
 )
+from datahub.ingestion.source.unity.azure_auth_config import AzureAuthConfig
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.utilities.file_backed_collections import FileBackedDict
 
@@ -159,20 +160,31 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     def __init__(
         self,
         workspace_url: str,
-        personal_access_token: str,
         warehouse_id: Optional[str],
         report: UnityCatalogReport,
         hive_metastore_proxy: Optional[HiveMetastoreProxy] = None,
         lineage_data_source: LineageDataSource = LineageDataSource.AUTO,
         usage_data_source: UsageDataSource = UsageDataSource.AUTO,
         databricks_api_page_size: int = 0,
+        personal_access_token: Optional[str] = None,
+        azure_auth: Optional[AzureAuthConfig] = None,
     ):
-        self._workspace_client = WorkspaceClient(
-            host=workspace_url,
-            token=personal_access_token,
-            product="datahub",
-            product_version=nice_version_name(),
-        )
+        if azure_auth:
+            self._workspace_client = WorkspaceClient(
+                host=workspace_url,
+                azure_tenant_id=azure_auth.tenant_id,
+                azure_client_id=azure_auth.client_id,
+                azure_client_secret=azure_auth.client_secret,
+                product="datahub",
+                product_version=nice_version_name(),
+            )
+        else:
+            self._workspace_client = WorkspaceClient(
+                host=workspace_url,
+                token=personal_access_token,
+                product="datahub",
+                product_version=nice_version_name(),
+            )
         self.warehouse_id = warehouse_id or ""
         self.report = report
         self.hive_metastore_proxy = hive_metastore_proxy

@@ -205,17 +205,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report: UnityCatalogReport = UnityCatalogReport()
 
+        # Validate that either azure_auth or personal_access_token is provided
+        if not (config.azure_auth or config.token):
+            raise ValueError("Either azure_auth or personal_access_token must be provided in the configuration.")
+
         self.init_hive_metastore_proxy()
 
         self.unity_catalog_api_proxy = UnityCatalogApiProxy(
             config.workspace_url,
-            config.token,
             config.warehouse_id,
             report=self.report,
             hive_metastore_proxy=self.hive_metastore_proxy,
             lineage_data_source=config.lineage_data_source,
             usage_data_source=config.usage_data_source,
             databricks_api_page_size=config.databricks_api_page_size,
+            personal_access_token=config.token if config.token else None,
+            azure_auth=config.azure_auth if config.azure_auth else None,
         )
 
         self.external_url_base = urljoin(self.config.workspace_url, "/explore/data")
