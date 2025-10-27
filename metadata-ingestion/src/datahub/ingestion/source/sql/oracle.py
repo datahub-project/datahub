@@ -2,8 +2,6 @@ import datetime
 import logging
 import platform
 import re
-
-# This import verifies that the dependencies are available.
 import sys
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, NoReturn, Optional, Tuple, Union, cast
