@@ -392,7 +392,22 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             return self._get_topics_confluent_cloud_from_manifest(connector_manifest)
         else:
             # Self-hosted: Use original runtime topics API
-            return self._get_topics_self_hosted(connector_name)
+            topics = self._get_topics_self_hosted(connector_name)
+
+            # For sink connectors, filter out stale topics
+            # The /topics API returns all topics ever used, but connector config specifies current topics
+            if connector_manifest.type == SINK and topics:
+                sink_filter = SinkTopicFilter()
+                if sink_filter.has_topic_config(connector_manifest.config):
+                    filtered_topics = sink_filter.filter_stale_topics(
+                        topics, connector_manifest.config
+                    )
+                    logger.debug(
+                        f"Filtered {len(topics) - len(filtered_topics)} stale topics for sink connector {connector_name}"
+                    )
+                    return filtered_topics
+
+            return topics
 
     def _get_topics_self_hosted(self, connector_name: str) -> List[str]:
         """Get topics using the original runtime /topics API (self-hosted only)."""
@@ -889,11 +904,26 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         ):
             return f"{config.connect_to_platform_map[connector.name][lineage.source_platform]}.{lineage.source_dataset}"
 
-        return (
-            lineage.source_dataset
-            if lineage.source_dataset
-            else f"unknown_source.{lineage.target_dataset}"
-        )
+        # Default behavior: use source_dataset for backward compatibility
+        # Exception: when one source produces multiple targets (detected by checking other lineages)
+        # In that case, append target to make job_id unique (similar to unknown_source pattern)
+        if lineage.source_dataset:
+            # Check if there are other lineages with the same source (1-to-many case)
+            if connector.lineages:
+                same_source_count = sum(
+                    1
+                    for l in connector.lineages
+                    if l.source_dataset == lineage.source_dataset
+                )
+                if same_source_count > 1:
+                    # Multiple outputs from same source - append target for uniqueness
+                    return f"{lineage.source_dataset}.{lineage.target_dataset}"
+
+            # Standard case: one source to one target
+            return lineage.source_dataset
+        else:
+            # No source identified - use target with unknown_source prefix
+            return f"unknown_source.{lineage.target_dataset}"
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
