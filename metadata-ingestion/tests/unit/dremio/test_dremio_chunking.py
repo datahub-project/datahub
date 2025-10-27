@@ -311,8 +311,8 @@ class TestDremioChunking:
         assert "KeyError: 'rows'" in warning_call[0][0]
         assert warning_call[1]["context"] == "query_extraction"  # Named arg (context)
 
-    def test_extract_all_queries_iter_uses_chunking(self, dremio_api):
-        """Test that extract_all_queries_iter uses chunked execution"""
+    def test_extract_all_queries_uses_chunking(self, dremio_api):
+        """Test that extract_all_queries uses chunked execution"""
         dremio_api.edition = DremioEdition.ENTERPRISE
         dremio_api.start_time = None
         dremio_api.end_time = None
@@ -321,8 +321,8 @@ class TestDremioChunking:
         mock_results = [{"query_id": "q1", "sql": "SELECT * FROM table1"}]
         dremio_api._get_queries_chunked = Mock(return_value=iter(mock_results))
 
-        # Test that extract_all_queries_iter calls the chunked method
-        result_iterator = dremio_api.extract_all_queries_iter()
+        # Test that extract_all_queries calls the chunked method
+        result_iterator = dremio_api.extract_all_queries()
         queries = list(result_iterator)
 
         # Verify chunked method was called
