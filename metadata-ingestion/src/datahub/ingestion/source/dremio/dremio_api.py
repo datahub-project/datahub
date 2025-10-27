@@ -27,7 +27,9 @@ from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.dremio.dremio_entities import DremioContainer
+    from datahub.ingestion.source.dremio.dremio_entities import (
+        DremioContainer,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -1190,23 +1192,37 @@ class DremioAPIOperations:
                 )
 
                 if self.should_include_container([], source.get("path")[0]):
-                    return {
-                        "id": source.get("id"),
-                        "name": source.get("path")[0],
-                        "path": [],
-                        "container_type": DremioEntityContainerType.SOURCE,
-                        "source_type": source_resp.get("type"),
-                        "root_path": source_config.get("rootPath"),
-                        "database_name": db,
-                    }
+                    # Import here to avoid circular imports
+                    from datahub.ingestion.source.dremio.dremio_entities import (
+                        DremioContainerResponse,
+                    )
+
+                    return DremioContainerResponse.model_validate(
+                        {
+                            "id": source.get("id"),
+                            "name": source.get("path")[0],
+                            "path": [],
+                            "container_type": DremioEntityContainerType.SOURCE.value,
+                            "source_type": source_resp.get("type"),
+                            "root_path": source_config.get("rootPath"),
+                            "database_name": db,
+                        }
+                    )
             else:
                 if self.should_include_container([], source.get("path")[0]):
-                    return {
-                        "id": source.get("id"),
-                        "name": source.get("path")[0],
-                        "path": [],
-                        "container_type": DremioEntityContainerType.SPACE,
-                    }
+                    # Import here to avoid circular imports
+                    from datahub.ingestion.source.dremio.dremio_entities import (
+                        DremioContainerResponse,
+                    )
+
+                    return DremioContainerResponse.model_validate(
+                        {
+                            "id": source.get("id"),
+                            "name": source.get("path")[0],
+                            "path": [],
+                            "container_type": DremioEntityContainerType.SPACE.value,
+                        }
+                    )
             return None
 
         def process_source_and_containers(source):
@@ -1275,13 +1291,20 @@ class DremioAPIOperations:
                     folder_path = entity_path[:-1]
 
                     if self.should_include_container(folder_path, folder_name):
+                        # Import here to avoid circular imports
+                        from datahub.ingestion.source.dremio.dremio_entities import (
+                            DremioContainerResponse,
+                        )
+
                         containers.append(
-                            {
-                                "id": location_id,
-                                "name": folder_name,
-                                "path": folder_path,
-                                "container_type": DremioEntityContainerType.FOLDER,
-                            }
+                            DremioContainerResponse.model_validate(
+                                {
+                                    "id": location_id,
+                                    "name": folder_name,
+                                    "path": folder_path,
+                                    "container_type": DremioEntityContainerType.FOLDER.value,
+                                }
+                            )
                         )
 
                 # Recursively process child containers
