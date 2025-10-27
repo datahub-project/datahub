@@ -55,8 +55,17 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
+
+
+class DataDictionaryMode(StrEnum):
+    """Oracle data dictionary access modes."""
+
+    ALL = "ALL"
+    DBA = "DBA"
+
 
 # SQL Query Constants
 PROCEDURES_QUERY = """
@@ -202,8 +211,8 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         description="Add oracle database name to urn, default urn is schema.table",
     )
     # custom
-    data_dictionary_mode: Optional[str] = Field(
-        default="ALL",
+    data_dictionary_mode: DataDictionaryMode = Field(
+        default=DataDictionaryMode.ALL,
         description="The data dictionary views mode, to extract information about schema objects "
         "('ALL' and 'DBA' views are supported). (https://docs.oracle.com/cd/E11882_01/nav/catalog_views.htm)",
     )
@@ -253,10 +262,10 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
                 )
         return values
 
-    @field_validator("data_dictionary_mode")
+    @field_validator("data_dictionary_mode", mode="before")
     @classmethod
     def check_data_dictionary_mode(cls, value):
-        if value not in ("ALL", "DBA"):
+        if isinstance(value, str) and value not in ("ALL", "DBA"):
             raise ValueError("Specify one of data dictionary views mode: 'ALL', 'DBA'.")
         return value
 
@@ -958,7 +967,7 @@ class OracleSource(SQLAlchemySource):
 
             # Sqlalchemy inspector uses ALL_* tables as per oracle dialect implementation.
             # OracleInspectorObjectWrapper provides alternate implementation using DBA_* tables.
-            if self.config.data_dictionary_mode != "ALL":
+            if self.config.data_dictionary_mode != DataDictionaryMode.ALL:
                 yield cast(Inspector, OracleInspectorObjectWrapper(inspector))
             else:
                 # To silent the mypy lint error
@@ -1032,7 +1041,7 @@ class OracleSource(SQLAlchemySource):
         base_procedures = []
 
         # Determine table prefix based on data dictionary mode
-        tables_prefix = "DBA" if self.config.data_dictionary_mode == "DBA" else "ALL"
+        tables_prefix = self.config.data_dictionary_mode.value
 
         # Oracle stores schema names in uppercase, so normalize the schema name
         normalized_schema = inspector.dialect.denormalize_name(schema) or schema.upper()
@@ -1116,6 +1125,14 @@ class OracleSource(SQLAlchemySource):
     ) -> Optional[str]:
         """Get procedure source code from ALL_SOURCE or DBA_SOURCE."""
         try:
+            # Validate tables_prefix to prevent injection
+            if tables_prefix not in (
+                DataDictionaryMode.ALL.value,
+                DataDictionaryMode.DBA.value,
+            ):
+                raise ValueError(f"Invalid tables_prefix: {tables_prefix}")
+
+            # Safe: tables_prefix is validated above, user params use prepared statements
             source_query = PROCEDURE_SOURCE_QUERY.format(tables_prefix=tables_prefix)
 
             source_data = conn.execute(
@@ -1148,6 +1165,14 @@ class OracleSource(SQLAlchemySource):
     ) -> Optional[str]:
         """Get procedure arguments from ALL_ARGUMENTS or DBA_ARGUMENTS."""
         try:
+            # Validate tables_prefix to prevent injection
+            if tables_prefix not in (
+                DataDictionaryMode.ALL.value,
+                DataDictionaryMode.DBA.value,
+            ):
+                raise ValueError(f"Invalid tables_prefix: {tables_prefix}")
+
+            # Safe: tables_prefix is validated above, user params use prepared statements
             args_query = PROCEDURE_ARGUMENTS_QUERY.format(tables_prefix=tables_prefix)
 
             args_data = conn.execute(
@@ -1176,7 +1201,15 @@ class OracleSource(SQLAlchemySource):
     ) -> Optional[Dict[str, List[str]]]:
         """Get procedure dependencies from ALL_DEPENDENCIES or DBA_DEPENDENCIES."""
         try:
+            # Validate tables_prefix to prevent injection
+            if tables_prefix not in (
+                DataDictionaryMode.ALL.value,
+                DataDictionaryMode.DBA.value,
+            ):
+                raise ValueError(f"Invalid tables_prefix: {tables_prefix}")
+
             # Get objects that this procedure depends on (upstream)
+            # Safe: tables_prefix is validated above, user params use prepared statements
             upstream_query = PROCEDURE_UPSTREAM_DEPENDENCIES_QUERY.format(
                 tables_prefix=tables_prefix
             )
@@ -1187,6 +1220,7 @@ class OracleSource(SQLAlchemySource):
             )
 
             # Get objects that depend on this procedure (downstream)
+            # Safe: tables_prefix is validated above, user params use prepared statements
             downstream_query = PROCEDURE_DOWNSTREAM_DEPENDENCIES_QUERY.format(
                 tables_prefix=tables_prefix
             )
@@ -1264,9 +1298,7 @@ class OracleSource(SQLAlchemySource):
             schema = inspector.dialect.denormalize_name(
                 schema or inspector.dialect.default_schema_name
             )
-            tables_prefix = (
-                "DBA" if self.config.data_dictionary_mode == "DBA" else "ALL"
-            )
+            tables_prefix = self.config.data_dictionary_mode.value
 
             with inspector.engine.connect() as conn:
                 cursor = conn.execute(
@@ -1424,9 +1456,7 @@ class OracleSource(SQLAlchemySource):
                 schema or inspector.dialect.default_schema_name
             )
 
-            tables_prefix = (
-                "DBA" if self.config.data_dictionary_mode == "DBA" else "ALL"
-            )
+            tables_prefix = self.config.data_dictionary_mode.value
 
             params = {"mview_name": denormalized_mview_name}
             text = MATERIALIZED_VIEW_DEFINITION_QUERY.format(
@@ -1463,7 +1493,9 @@ class OracleSource(SQLAlchemySource):
         schema: str,
     ) -> Optional[List[str]]:
         tables_table_name = (
-            "ALL_TABLES" if self.config.data_dictionary_mode == "ALL" else "DBA_TABLES"
+            "ALL_TABLES"
+            if self.config.data_dictionary_mode == DataDictionaryMode.ALL
+            else "DBA_TABLES"
         )
 
         # If stats are available , they are used even if they are stale.

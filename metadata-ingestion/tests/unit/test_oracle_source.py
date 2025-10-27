@@ -3,6 +3,7 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy.engine import Inspector
 
 from datahub.configuration.common import AllowDenyPattern
@@ -104,7 +105,9 @@ def test_oracle_config_data_dictionary_mode():
         assert config.data_dictionary_mode == mode
 
     # Test invalid data dictionary mode
-    with pytest.raises(ValueError, match="Specify one of data dictionary views mode"):
+    with pytest.raises(
+        ValidationError, match="Specify one of data dictionary views mode"
+    ):
         OracleConfig.parse_obj({**base_config, "data_dictionary_mode": "INVALID"})
 
 
