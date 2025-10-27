@@ -200,6 +200,13 @@ ext {
                         DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
                 ]
             ],
+            'smoke-test': [
+                profile: 'quickstart',
+                modules: [
+                    ':smoke-test'
+                ]
+            ],
+
             'allImages': [ //This is a special task just to include all images as dependencies - and is useful when CI needs to publish all images
                     profile: 'quickstart-consumers',
                     modules: python_services_modules + backend_profile_modules + [
@@ -207,7 +214,8 @@ ext {
                         ':metadata-jobs:mce-consumer-job',
                         ':metadata-jobs:mae-consumer-job',
                         ':docker:datahub-ingestion',
-                        ':docker:postgres-setup'
+                        ':docker:postgres-setup',
+                        ':smoke-test'
                     ]
             ],
             'saasImages': [ //This is a special task just to include all Saas images as dependencies - and is useful when CI needs to publish all images
@@ -216,7 +224,8 @@ ext {
                                    ':datahub-frontend',
                                    ':metadata-jobs:mce-consumer-job',
                                    ':metadata-jobs:mae-consumer-job',
-                                   ':docker:postgres-setup'
+                                   ':docker:postgres-setup',
+                                   ':smoke-test'
                            ]
             ],
             'minSaasImages': [ //Certain SaaS images don't need to be published to CloudSmith or DockerHub
@@ -227,7 +236,7 @@ ext {
                                    ':metadata-jobs:mae-consumer-job',
                                    ':docker:postgres-setup'
                            ] - [
-                             ':datahub-cloud-router',
+                             ':datahub-cloud-router', ':smoke-test'
                            ]
             ]
     ]

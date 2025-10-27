@@ -1,12 +1,22 @@
+plugins {
+  id 'java' // required for versioning
+}
+
 apply plugin: 'com.github.node-gradle.node'
+
+
+apply from: "../gradle/versioning/versioning.gradle"
+apply from: '../gradle/docker/docker.gradle'
 
 ext {
   python_executable = 'python3'
   venv_name = 'venv'
+  python_docker_version = project.getProperties().getOrDefault("pythonDockerVersion", "1!0.0.0+docker.${version}")
+  // Saas only
+  docker_repo = 'datahub-smoke-test'
 }
 
 node {
-
   // If true, it will download node using above parameters.
   // If false, it will try to use globally installed node.
   if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
@@ -196,6 +206,27 @@ task cypressSaasSuite3(type: Exec, dependsOn: [installDev, ':metadata-ingestion:
                     "./smoke.sh"
 }
 
+task runReleaseTest(type: Exec, dependsOn: [':docker:buildImagessmoke-test']) {
+  def dockerNetwork = project.findProperty('dockerNetwork') ?: 'acryl_network'
+  def gmsUrl = project.findProperty('gmsUrl') ?: 'http://datahub-gms:8080'
+  def frontendUrl = project.findProperty('frontendUrl') ?: 'http://datahub-frontend-react:9002'
+  def cypressBaseUrl = project.findProperty('cypressBaseUrl') ?: 'http://datahub-frontend-react:9002'
+  def cypressAdminPassword = project.findProperty('cypressAdminPassword') ?: 'mypass'
+  def cypressAdminUsername = project.findProperty('cypressAdminUsername') ?: 'admin'
+  def cypressTestDir = project.findProperty('cypressTestDir') ?: 'cypress/customers/datahub-smoke-test'
+  def tag = System.getenv("DATAHUB_VERSION") ?: "v${version}"
+  def smokeTestImage = project.findProperty('smokeTestImage') ?: "795586375822.dkr.ecr.us-west-2.amazonaws.com/${docker_repo}:${tag}-release"
+
+  commandLine 'docker', 'run',
+    '--network', dockerNetwork,
+    '-e', "DATAHUB_GMS_URL=${gmsUrl}",
+    '-e', "DATAHUB_FRONTEND_URL=${frontendUrl}",
+    '-e', "CYPRESS_BASE_URL=${cypressBaseUrl}",
+    '-e', "CYPRESS_ADMIN_PASSWORD=${cypressAdminPassword}",
+    '-e', "CYPRESS_ADMIN_USERNAME=${cypressAdminUsername}",
+    '-e', "CYPRESS_TEST_DIR=${cypressTestDir}",
+    smokeTestImage
+}
 task lint {
     dependsOn pythonLint, cypressLint
 }
@@ -219,3 +250,39 @@ clean {
   delete '.pytest_cache'
 }
 clean.dependsOn cleanPythonCache
+
+docker {
+    dependsOn(':metadata-ingestion:codegen')
+    name "${docker_registry}/${docker_repo}:${versionTag}"
+    dockerfile file("${rootProject.projectDir}/docker/smoke-test/Dockerfile")
+    files fileTree(rootProject.projectDir) {
+        include '.dockerignore'
+        include "docker/smoke-test/*"
+        include "smoke-test/**"
+        include "metadata-ingestion/"
+        include "datahub-actions/"
+        include "datahub-integrations-service"
+    }.exclude {
+        i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
+    }
+    additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
+
+    def dockerBuildArgs = [RELEASE_VERSION: python_docker_version, PYTHON_VERSION: "3.11"]
+
+  defaultVariant = project.getProperties().getOrDefault('datahubSmokeTestVariant', 'release')
+
+  variants = [
+      "release": [suffix: "-release", args: [:]],
+      // TODO: Other variant for running smoke tests
+  ]
+
+  // Add build args if they are defined (needed for some CI or enterprise environments)
+    if (project.hasProperty('pipMirrorUrl')) {
+        dockerBuildArgs.PIP_MIRROR_URL = project.getProperty('pipMirrorUrl')
+    }
+    if (project.hasProperty('debianAptRepositoryUrl')) {
+        dockerBuildArgs.DEBIAN_REPO_URL = project.getProperty('debianAptRepositoryUrl')
+    }
+
+    buildArgs(dockerBuildArgs)
+}
