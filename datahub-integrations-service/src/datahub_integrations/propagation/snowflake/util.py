@@ -268,7 +268,18 @@ class SnowflakeTagHelper(Closeable):
         parsed_entity_urn = Urn.create_from_string(entity_urn)
         if isinstance(parsed_entity_urn, DatasetUrn):
             dataset_urn = parsed_entity_urn
-            database, schema, table = dataset_urn.name.split(".")
+
+            # Parse the dataset URN to extract database, schema, and table
+            # This handles platform instances correctly (takes last 3 parts)
+            snowflake_table = URNParser.parse_dataset_urn(dataset_urn)
+            if snowflake_table is None:
+                logger.warning(f"Failed to parse dataset URN: {dataset_urn}")
+                return
+            database, schema, table = (
+                snowflake_table.database,
+                snowflake_table.schema,
+                snowflake_table.table_name,
+            )
             # Since when removing a tag, it might not exist on Snowflake (just datahub), we need to handle the exception
             # internally to prevent getting locked out of the account.
             query = """
