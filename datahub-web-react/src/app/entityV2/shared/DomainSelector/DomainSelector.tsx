@@ -6,13 +6,14 @@ import {
     isEntityResolutionRequired,
     mergeSelectedNestedOptions,
 } from '@app/entityV2/shared/utils/selectorUtils';
-import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
+import { InfiniteScrollNestedSelect } from './InfiniteScrollNestedSelect';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { useListDomainsLazyQuery, useListDomainsQuery } from '@src/graphql/domain.generated';
+import { useListDomainsLazyQuery } from '@src/graphql/domain.generated';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
 import { Entity, EntityType } from '@src/types.generated';
+import useInfiniteScrollDomains from './useInfiniteScrollDomains';
 
 type DomainSelectorProps = {
     selectedDomains: string[];
@@ -26,6 +27,7 @@ type DomainSelectorProps = {
  * Standalone domain selector component that doesn't rely on Ant Design form state
  * Supports both single and multiple domain selection based on isMultiSelect prop
  * Works with URN strings instead of Domain objects for simpler integration
+ * Now includes infinite scroll support for large domain hierarchies
  */
 const DomainSelector: React.FC<DomainSelectorProps> = ({
     selectedDomains,
@@ -58,13 +60,14 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
 
     const [autoComplete, { data: autoCompleteData }] = useGetAutoCompleteMultipleResultsLazyQuery();
 
-    const { data } = useListDomainsQuery({
-        variables: {
-            input: {
-                query: '*',
-                count: 1000,
-            },
-        },
+    // Infinite scroll for root level domains (domains without parents)
+    const {
+        domains: rootDomains,
+        loading: rootDomainsLoading,
+        hasMoreDomains,
+        scrollRef,
+    } = useInfiniteScrollDomains({ 
+        skip: useSearch // Skip infinite scroll when in search mode
     });
 
     // Convert selected domain URNs to NestedSelectOption format using utility
@@ -92,14 +95,8 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
         },
     });
 
-    const options =
-        data?.listDomains?.domains?.map((domain) => ({
-            value: domain.urn,
-            label: entityRegistry.getDisplayName(domain.type, domain),
-            id: domain.urn,
-            isParent: !!domain.children?.total,
-            entity: domain,
-        })) || [];
+    // Root level options from infinite scroll (already in NestedSelectOption format)
+    const options = rootDomains;
 
     const autoCompleteOptions =
         autoCompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((s) =>
@@ -141,7 +138,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     const searchOptionsWithSelected = mergeSelectedNestedOptions(searchOptions, initialOptions);
 
     return (
-        <NestedSelect
+        <InfiniteScrollNestedSelect
             label={label}
             placeholder={placeholder}
             searchPlaceholder="Search all domains..."
@@ -150,6 +147,9 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
             loadData={handleLoad}
             onSearch={handleSearch}
             onUpdate={handleUpdate}
+            loading={rootDomainsLoading}
+            hasMore={hasMoreDomains && !useSearch}
+            scrollRef={scrollRef}
             width="full"
             isMultiSelect={isMultiSelect}
             showSearch
@@ -157,6 +157,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
             areParentsSelectable
             shouldAlwaysSyncParentValues
             hideParentCheckbox={false}
+            loadingMessage="Loading more domains..."
         />
     );
 };

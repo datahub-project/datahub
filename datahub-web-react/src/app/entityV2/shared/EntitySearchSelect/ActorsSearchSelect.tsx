@@ -9,6 +9,13 @@ import { useGetRecommendations } from '@app/shared/recommendation';
 import { SimpleSelect } from '@src/alchemy-components/components/Select/SimpleSelect';
 import EntityIcon from '@src/app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { 
+    ActorEntity,
+    filterActors, 
+    resolveActorsFromUrns,
+    getActorEmail,
+    getActorPictureLink 
+} from '@app/entityV2/shared/utils/actorUtils';
 
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
 import { CorpGroup, CorpUser, Entity, EntityType } from '@types';
@@ -37,9 +44,9 @@ const TitleContainer = styled.div`
 
 export interface ActorsSearchSelectProps {
     selectedActorUrns: string[];
-    onUpdate: (selectedActors: (CorpUser | CorpGroup)[]) => void;
+    onUpdate: (selectedActors: ActorEntity[]) => void;
     placeholder?: string;
-    defaultActors?: (CorpUser | CorpGroup)[];
+    defaultActors?: ActorEntity[];
     isDisabled?: boolean;
     width?: number | 'full' | 'fit-content';
     showSearch?: boolean;
@@ -62,7 +69,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
     showSearch = true,
 }) => {
     const entityRegistry = useEntityRegistryV2();
-    const [selectedActorEntities, setSelectedActorEntities] = useState<Entity[]>([]);
+    const [selectedActorEntities, setSelectedActorEntities] = useState<ActorEntity[]>([]);
     const hasAutoSelectedRef = useRef(false);
 
     // Auto-select placeholder actors ONLY ONCE on initial render when no actors are selected
@@ -98,6 +105,11 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
         );
     }, [autocompleteData?.autoCompleteForMultiple?.suggestions, recommendedData]);
 
+    // Filter search results to only include actors
+    const actorSearchResults = useMemo(() => {
+        return filterActors(searchResults);
+    }, [searchResults]);
+
     // Sync selectedActorEntities with selectedActorUrns from parent
     useEffect(() => {
         const currentSelectedUrns = selectedActorEntities
@@ -108,30 +120,29 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
 
         // Only update if the URNs have actually changed
         if (currentSelectedUrns !== newSelectedUrns) {
-            const entities = selectedActorUrns
-                .map((urn) => {
-                    // Try to find in all available sources
-                    return (
-                        (placeholderActors || []).find((e) => e.urn === urn) ||
-                        searchResults.find((e) => e.urn === urn) ||
-                        selectedActorEntities.find((e) => e.urn === urn)
-                    );
-                })
-                .filter(Boolean) as Entity[];
+            const entities = resolveActorsFromUrns(selectedActorUrns, {
+                placeholderActors,
+                searchResults,
+                selectedActors: selectedActorEntities
+            });
 
             setSelectedActorEntities(entities);
         }
     }, [selectedActorUrns, placeholderActors, searchResults, selectedActorEntities]);
 
     // Use utility to deduplicate entities from all sources
-    const allOptionsEntities = deduplicateEntities({
-        placeholderEntities: placeholderActors,
-        searchResults,
-        selectedEntities: selectedActorEntities,
-    });
+    // Only include actor entities in the options
+    const allActorEntities = useMemo(() => {
+        const combined = deduplicateEntities({
+            placeholderEntities: placeholderActors,
+            searchResults: actorSearchResults,
+            selectedEntities: selectedActorEntities,
+        });
+        return filterActors(combined);
+    }, [placeholderActors, actorSearchResults, selectedActorEntities]);
 
     // Convert entities to SelectOption format using utility
-    const selectOptions = entitiesToSelectOptions(allOptionsEntities, entityRegistry);
+    const selectOptions = entitiesToSelectOptions(allActorEntities, entityRegistry);
 
     // Handle search
     const handleSearch = useCallback(
@@ -153,9 +164,9 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
 
     // Render actor entity in dropdown
     const renderDropdownActorLabel = useCallback(
-        (entity: Entity) => {
+        (entity: ActorEntity) => {
             const displayName = entityRegistry.getDisplayName(entity.type, entity);
-            const subtitle = entity.type === EntityType.CorpUser ? (entity as any)?.properties?.email : undefined;
+            const subtitle = getActorEmail(entity);
             return (
                 <IconAndNameContainer>
                     <IconWrapper>
@@ -178,37 +189,29 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
     // Render selected actor label
     const renderSelectedActorLabel = useCallback(
         (selectedOption: OptionType) => {
-            const entity = allOptionsEntities.find((e) => e.urn === selectedOption.value) as
-                | Partial<CorpUser>
-                | Partial<CorpGroup>;
+            const entity = allActorEntities.find((e) => e.urn === selectedOption.value);
             if (!entity) return selectedOption.label;
 
-            const displayName = entity.type
-                ? entityRegistry.getDisplayName(entity.type, entity)
-                : entity?.properties?.displayName;
-
-            const imageUrl = entity.editableProperties?.pictureLink;
+            const displayName = entityRegistry.getDisplayName(entity.type, entity);
+            const imageUrl = getActorPictureLink(entity);
+            
             return <Avatar name={displayName || ''} imageUrl={imageUrl} showInPill />;
         },
-        [allOptionsEntities, entityRegistry],
+        [allActorEntities, entityRegistry],
     );
 
     // Handle select change
     const handleSelectChange = useCallback(
         (newValues: string[]) => {
-            const newEntities = newValues
-                .map((urn) => {
-                    return (
-                        allOptionsEntities.find((e) => e.urn === urn) ||
-                        selectedActorEntities.find((e) => e.urn === urn)
-                    );
-                })
-                .filter(Boolean) as (CorpUser | CorpGroup)[];
+            const newEntities = resolveActorsFromUrns(newValues, {
+                placeholderActors: allActorEntities,
+                selectedActors: selectedActorEntities
+            });
 
             setSelectedActorEntities(newEntities);
             onUpdate(newEntities);
         },
-        [onUpdate, allOptionsEntities, selectedActorEntities],
+        [onUpdate, allActorEntities, selectedActorEntities],
     );
 
     // Loading state for the select
@@ -231,7 +234,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
             width={width}
             renderCustomSelectedValue={renderSelectedActorLabel}
             renderCustomOptionText={(option) => {
-                const entity = allOptionsEntities.find((e) => e.urn === option.value);
+                const entity = allActorEntities.find((e) => e.urn === option.value);
                 return entity ? renderDropdownActorLabel(entity) : option.label;
             }}
         />

@@ -50,7 +50,6 @@ type Props = {
 const ID_FIELD_NAME = 'id';
 const NAME_FIELD_NAME = 'name';
 const DESCRIPTION_FIELD_NAME = 'description';
-const OWNERS_FIELD_NAME = 'owners';
 
 export default function CreateDomainModal({ onClose, onCreate }: Props) {
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
@@ -66,11 +65,6 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
 
     // Simply provide current user as placeholder - OwnersSection will handle auto-selection
     const defaultOwners = user ? [user] : [];
-
-    // Sync local state with form when owners change
-    useEffect(() => {
-        form.setFieldsValue({ [OWNERS_FIELD_NAME]: selectedOwnerUrns });
-    }, [form, selectedOwnerUrns]);
 
     // Stable callback for setting owner URNs
     const handleSetSelectedOwnerUrns = useCallback((ownerUrns: React.SetStateAction<string[]>) => {
