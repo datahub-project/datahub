@@ -72,7 +72,7 @@ jobs:
             --old-pytest ./weights-backup/pytest_weights.json \
             --new-pytest smoke-test/pytest_test_weights.json \
             --output ./pr-body.md \
-            --threshold 5.0
+            --threshold 0.0
 
           # Check if PR body was generated (non-empty file means changes exceed threshold)
           if [ -s ./pr-body.md ]; then
