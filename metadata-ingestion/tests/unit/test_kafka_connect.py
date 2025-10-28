@@ -2923,3 +2923,396 @@ class TestHelperFunctions:
         # Platforms without schema support
         assert has_three_level_hierarchy("mysql") is False
         assert has_three_level_hierarchy("mongodb") is False
+
+
+# ============================================================================
+# Phase 1: Quick Win Tests
+# ============================================================================
+
+
+class TestTableId:
+    """Test TableId dataclass functionality."""
+
+    def test_table_id_string_representation_full(self) -> None:
+        """Test TableId __str__ with database, schema, and table."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import TableId
+
+        table_id = TableId(database="mydb", schema="public", table="users")
+        assert str(table_id) == "mydb.public.users"
+
+    def test_table_id_string_representation_schema_table(self) -> None:
+        """Test TableId __str__ with schema and table only."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import TableId
+
+        table_id = TableId(schema="public", table="orders")
+        assert str(table_id) == "public.orders"
+
+    def test_table_id_string_representation_table_only(self) -> None:
+        """Test TableId __str__ with table only."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import TableId
+
+        table_id = TableId(table="products")
+        assert str(table_id) == "products"
+
+    def test_table_id_string_representation_with_database_no_schema(self) -> None:
+        """Test TableId __str__ with database and table (no schema)."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import TableId
+
+        table_id = TableId(database="mydb", table="customers")
+        assert str(table_id) == "mydb.customers"
+
+
+class TestFlowPropertyBag:
+    """Test flow property bag extraction and credential masking."""
+
+    def test_extract_flow_property_bag_masks_credentials(self) -> None:
+        """Test that flow property bag masks/excludes sensitive credentials."""
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:postgresql://localhost:5432/mydb",
+            "connection.user": "admin",
+            "connection.password": "secret123",
+            "topic.prefix": "db_",
+            "mode": "incrementing",
+        }
+
+        manifest = ConnectorManifest(
+            name="jdbc-connector",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        props = connector.extract_flow_property_bag()
+
+        # Credentials should be excluded
+        assert "connection.password" not in props
+        assert "connection.user" not in props
+
+        # URL should be sanitized (no credentials)
+        assert "connection.url" in props
+        assert "localhost:5432/mydb" in props["connection.url"]
+
+        # Other configs should be included
+        assert props["topic.prefix"] == "db_"
+        assert props["mode"] == "incrementing"
+
+
+class TestTransformPluginEdgeCases:
+    """Test transform plugin edge cases and error handling."""
+
+    def test_has_complex_transforms_with_event_router(self) -> None:
+        """Test detection of complex transforms (EventRouter)."""
+        pipeline = get_transform_pipeline()
+
+        config_with_complex = {
+            "transforms": "eventRouter",
+            "transforms.eventRouter.type": "io.debezium.transforms.outbox.EventRouter",
+        }
+
+        assert pipeline.has_complex_transforms(config_with_complex) is True
+
+    def test_has_complex_transforms_with_only_regex_router(self) -> None:
+        """Test no complex transforms when only RegexRouter is used."""
+        pipeline = get_transform_pipeline()
+
+        config_simple = {
+            "transforms": "regexRouter",
+            "transforms.regexRouter.type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "transforms.regexRouter.regex": ".*",
+            "transforms.regexRouter.replacement": "new-topic",
+        }
+
+        assert pipeline.has_complex_transforms(config_simple) is False
+
+    def test_has_complex_transforms_with_no_transforms(self) -> None:
+        """Test no complex transforms when no transforms configured."""
+        pipeline = get_transform_pipeline()
+        config_no_transforms: Dict[str, str] = {}
+
+        assert pipeline.has_complex_transforms(config_no_transforms) is False
+
+    def test_unknown_transform_generates_warning(self) -> None:
+        """Test that unknown transform types generate warnings."""
+        pipeline = get_transform_pipeline()
+
+        config = {
+            "transforms": "unknown",
+            "transforms.unknown.type": "com.example.UnknownTransform",
+        }
+
+        result = pipeline.apply_forward(["topic1"], config)
+
+        assert len(result.warnings) > 0
+        assert any("Unknown transform type" in w for w in result.warnings)
+        assert result.topics == ["topic1"]  # Topics unchanged
+
+    def test_complex_transform_triggers_fallback(self) -> None:
+        """Test that complex transforms trigger fallback mode."""
+        pipeline = get_transform_pipeline()
+
+        config = {
+            "transforms": "eventRouter",
+            "transforms.eventRouter.type": "io.debezium.transforms.outbox.EventRouter",
+            "transforms.eventRouter.field.event.id": "event_id",
+        }
+
+        result = pipeline.apply_forward(["topic1"], config)
+
+        assert result.fallback_used is True
+        assert len(result.warnings) > 0
+        assert any("Complex transforms detected" in w for w in result.warnings)
+
+
+# ============================================================================
+# Phase 2: Critical Gap Tests
+# ============================================================================
+
+
+class TestDebeziumConnectors:
+    """Test Debezium CDC connector lineage extraction."""
+
+    def test_debezium_postgres_lineage_extraction(self) -> None:
+        """Test Debezium PostgreSQL connector lineage extraction."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.server.name": "myserver",
+            "database.dbname": "mydb",
+            "table.include.list": "public.users,public.orders",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-cdc",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=["myserver.public.users", "myserver.public.orders"],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = DebeziumSourceConnector(manifest, config, report)
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+
+        # Check first lineage
+        assert lineages[0].source_dataset == "mydb.public.users"
+        assert lineages[0].target_dataset == "myserver.public.users"
+        assert lineages[0].source_platform == "postgres"
+
+        # Check second lineage
+        assert lineages[1].source_dataset == "mydb.public.orders"
+        assert lineages[1].target_dataset == "myserver.public.orders"
+        assert lineages[1].source_platform == "postgres"
+
+    def test_debezium_mysql_lineage_extraction(self) -> None:
+        """Test Debezium MySQL connector lineage extraction."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+            "database.server.name": "mysql-server",
+            "table.include.list": "inventory.products,inventory.customers",
+        }
+
+        manifest = ConnectorManifest(
+            name="mysql-cdc",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[
+                "mysql-server.inventory.products",
+                "mysql-server.inventory.customers",
+            ],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = DebeziumSourceConnector(manifest, config, report)
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 2
+        assert lineages[0].source_dataset == "inventory.products"
+        assert lineages[0].target_dataset == "mysql-server.inventory.products"
+        assert lineages[0].source_platform == "mysql"
+
+    def test_debezium_sqlserver_with_database_and_schema(self) -> None:
+        """Test SQL Server Debezium connector with 2-level container pattern."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector",
+            "database.server.name": "sqlserver",
+            "database.dbname": "mydb",
+            "table.include.list": "dbo.customers",
+        }
+
+        manifest = ConnectorManifest(
+            name="sqlserver-cdc",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            # SQL Server includes database name in topic: server.database.schema.table
+            topic_names=["sqlserver.mydb.dbo.customers"],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = DebeziumSourceConnector(manifest, config, report)
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        # Should handle the duplicate database name in topic pattern
+        assert lineages[0].source_dataset == "mydb.dbo.customers"
+        assert lineages[0].target_dataset == "sqlserver.mydb.dbo.customers"
+        assert lineages[0].source_platform == "mssql"
+
+    def test_debezium_with_topic_prefix(self) -> None:
+        """Test Debezium connector using topic.prefix instead of database.server.name."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            DebeziumSourceConnector,
+        )
+
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "topic.prefix": "my-prefix",
+            "database.dbname": "testdb",
+            "table.include.list": "public.events",
+        }
+
+        manifest = ConnectorManifest(
+            name="postgres-cdc-prefix",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=["my-prefix.public.events"],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = DebeziumSourceConnector(manifest, config, report)
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].source_dataset == "testdb.public.events"
+        assert lineages[0].target_dataset == "my-prefix.public.events"
+
+
+class TestErrorHandling:
+    """Test error handling in connector parsing and lineage extraction."""
+
+    def test_parser_creation_with_missing_database_in_url(self) -> None:
+        """Test parser fails gracefully when database name is missing from JDBC URL."""
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:postgresql://localhost:5432/",  # No database!
+            "topic.prefix": "test_",
+        }
+
+        manifest = ConnectorManifest(
+            name="bad-jdbc",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        with pytest.raises(ValueError, match="Missing database name"):
+            connector.get_parser(manifest)
+
+    def test_parser_creation_with_cloud_connector_missing_fields(self) -> None:
+        """Test parser fails gracefully when Cloud connector is missing required fields."""
+        connector_config = {
+            "connector.class": "PostgresCdcSource",
+            "database.hostname": "localhost",
+            # Missing: database.port, database.dbname
+        }
+
+        manifest = ConnectorManifest(
+            name="bad-cloud-connector",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        with pytest.raises(ValueError, match="Missing required Cloud connector config"):
+            connector.get_parser(manifest)
+
+    def test_query_based_connector_with_no_source_dataset(self) -> None:
+        """Test connectors with custom query create lineages without source datasets."""
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:postgresql://localhost:5432/mydb",
+            "query": "SELECT * FROM complex_view WHERE active = true",
+            "topic.prefix": "custom_",
+        }
+
+        manifest = ConnectorManifest(
+            name="query-connector",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=["custom_topic"],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        # Query-based connectors should have None as source_dataset
+        assert lineages[0].source_dataset is None
+        assert lineages[0].target_dataset == "custom_topic"
+
+    def test_get_topics_from_config_handles_exceptions_gracefully(self) -> None:
+        """Test get_topics_from_config handles exceptions without crashing."""
+        # Intentionally malformed config to trigger exception path
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            # Missing connection.url will cause parser to fail
+        }
+
+        manifest = ConnectorManifest(
+            name="malformed-connector",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        # Should return empty list instead of crashing
+        topics = connector.get_topics_from_config()
+        assert topics == []
