@@ -207,6 +207,15 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         ),
     )
 
+    tags_to_ignore_profiling: Optional[List[str]] = pydantic.Field(
+        default=None,
+        description=(
+            "Fixed list of tags to completely ignore profiling for columns with these tags."
+            " Columns with these tags will be excluded from all profiling activities."
+            " If not specified, all columns will be profiled based on other configuration."
+        ),
+    )
+
     profile_nested_fields: bool = Field(
         default=False,
         description="Whether to profile complex types like structs, arrays and maps. ",
