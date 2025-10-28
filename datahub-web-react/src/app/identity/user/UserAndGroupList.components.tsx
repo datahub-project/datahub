@@ -242,7 +242,7 @@ export const BulkActionsWidget = ({
 
 export const ViewAllTabMessage = () => (
     <Text size="sm">
-        View Invited users on the <a href="/settings/identities/users">All Users</a> tab.
+        View Invited users on the <a href="/settings/identities/users">All</a> tab.
     </Text>
 );
 

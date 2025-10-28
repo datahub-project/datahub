@@ -37,7 +37,7 @@ import {
 // NOTE: If we move this file, update metadata-ingestion/scripts/analyticseventsdocgen.sh with new path for auto generating docs
 
 /**
- * Valid event types.
+ * Valid event types. NOTE: Make sure you update the DataHubUsageEventType.java file when adding new events.
  */
 export enum EventType {
     PageViewEvent,
@@ -252,6 +252,10 @@ export enum EventType {
     AssetPageAddSummaryElement,
     AssetPageRemoveSummaryElement,
     AssetPageReplaceSummaryElement,
+    SubscriptionEntityClickEvent,
+    SubscriptionEditClickEvent,
+    SubscriptionDeleteClickEvent,
+    SubscriptionOwnerClickEvent,
     CreateDataHubChatEvent,
     CreateDataHubChatMessageEvent,
     DeleteDataHubChatEvent,
@@ -1813,8 +1817,31 @@ export interface AssetPageReplaceSummaryElementEvent extends BaseEvent {
     newElementType: SummaryElementType;
 }
 
-// DataHub Chat Events
+export interface SubscriptionEntityClickEvent extends BaseEvent {
+    type: EventType.SubscriptionEntityClickEvent;
+    subscriptionUrn: string;
+    entityType: EntityType;
+    entityUrn: string;
+    entityName: string;
+}
 
+export interface SubscriptionEditClickEvent extends BaseEvent {
+    type: EventType.SubscriptionEditClickEvent;
+    subscriptionUrn: string;
+}
+
+export interface SubscriptionDeleteClickEvent extends BaseEvent {
+    type: EventType.SubscriptionDeleteClickEvent;
+    subscriptionUrn: string;
+}
+
+export interface SubscriptionOwnerClickEvent extends BaseEvent {
+    type: EventType.SubscriptionOwnerClickEvent;
+    subscriptionUrn: string;
+    ownerUrn: string;
+}
+
+// DataHub Chat Events
 export interface CreateDataHubChatEvent extends BaseEvent {
     type: EventType.CreateDataHubChatEvent;
     origin: 'manual' | 'search_bar'; // manual = plus button, search_bar = from Ask DataHub
@@ -2140,6 +2167,10 @@ export type Event =
     | AssetPageAddSummaryElementEvent
     | AssetPageRemoveSummaryElementEvent
     | AssetPageReplaceSummaryElementEvent
+    | SubscriptionEntityClickEvent
+    | SubscriptionEditClickEvent
+    | SubscriptionDeleteClickEvent
+    | SubscriptionOwnerClickEvent
     | CreateDataHubChatEvent
     | CreateDataHubChatMessageEvent
     | DeleteDataHubChatEvent

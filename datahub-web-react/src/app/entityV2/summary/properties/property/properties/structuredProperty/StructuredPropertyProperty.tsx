@@ -22,7 +22,7 @@ export default function StructuredPropertyProperty(props: PropertyComponentProps
         );
     }, [property.structuredProperty?.urn, entityData]);
 
-    const valueType = structuredPropertyEntry?.structuredProperty.definition.valueType.urn;
+    const valueType = structuredPropertyEntry?.structuredProperty?.definition?.valueType?.urn;
 
     const StructuredPropertyComponent = useMemo(() => {
         switch (valueType) {

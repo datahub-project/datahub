@@ -244,6 +244,11 @@ type DataHubSubscription implements Entity {
   actorUrn: String!
 
   """
+  The actor that owns the subscription.
+  """
+  actor: ResolvedActor!
+
+  """
   The subscription's Urn.
   """
   subscriptionUrn: String!

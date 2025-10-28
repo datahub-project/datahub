@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfig;
 import com.linkedin.datahub.graphql.generated.SubscriptionType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.ResolvedActorMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingsMapper;
@@ -42,6 +43,7 @@ public class DataHubSubscriptionMapper
     final SubscriptionInfo subscriptionInfo = subscription.getValue();
     final DataHubSubscription result = new DataHubSubscription();
     result.setActorUrn(subscriptionInfo.getActorUrn().toString());
+    result.setActor(ResolvedActorMapper.map(subscriptionInfo.getActorUrn()));
     result.setSubscriptionUrn(subscriptionUrn.toString());
     // Set Entity interface fields
     result.setUrn(subscriptionUrn.toString());

@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSinkType;
 import com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfig;
 import com.linkedin.datahub.graphql.generated.SubscriptionType;
+import com.linkedin.datahub.graphql.types.common.mappers.ResolvedActorMapper;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
 import com.linkedin.subscription.EntityChangeDetails;
 import com.linkedin.subscription.EntityChangeDetailsArray;
@@ -140,6 +141,7 @@ public class SubscriptionTestUtils {
   public static DataHubSubscription getMappedSubscription1() {
     final DataHubSubscription mappedSubscription1 = new DataHubSubscription();
     mappedSubscription1.setActorUrn(USER_URN_STRING);
+    mappedSubscription1.setActor(ResolvedActorMapper.map(USER_URN));
     mappedSubscription1.setSubscriptionUrn(SUBSCRIPTION_URN_1_STRING);
     final Dataset dataset = new Dataset();
     dataset.setUrn(ENTITY_URN_1_STRING);
@@ -162,6 +164,7 @@ public class SubscriptionTestUtils {
   public static DataHubSubscription getMappedSubscription2() {
     final DataHubSubscription mappedSubscription2 = new DataHubSubscription();
     mappedSubscription2.setActorUrn(USER_URN_STRING);
+    mappedSubscription2.setActor(ResolvedActorMapper.map(USER_URN));
     mappedSubscription2.setSubscriptionUrn(SUBSCRIPTION_URN_2_STRING);
     final Dataset dataset = new Dataset();
     dataset.setUrn(ENTITY_URN_2_STRING);

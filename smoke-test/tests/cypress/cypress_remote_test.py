@@ -7,7 +7,7 @@ import threading
 import pytest
 
 
-@pytest.mark.cypress_remote
+@pytest.mark.remote_tests
 def test_run_cypress_remote():
     """
     Run Cypress tests from a directory specified by CYPRESS_TEST_DIR.

@@ -139,7 +139,7 @@ public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringCo
     arguments.put("recipe", jsonRecipe.toString());
     arguments.put(
         "extra_pip_requirements",
-        "[\"acryl-datahub-cloud[datahub-forms-notifications]@/acryl-cloud\"]");
+        "[\"acryl-datahub-cloud[datahub-forms-notifications]@/metadata-ingestion-modules/acryl-cloud\"]");
     execInput.setArgs(new StringMap(arguments));
 
     final ExecutionRequestKey key = new ExecutionRequestKey();

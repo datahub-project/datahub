@@ -1,9 +1,12 @@
 import json
-from typing import Optional, Union
+from typing import Optional, TypeVar, Union
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.graph.client import DataHubGraph
 from loguru import logger
+
+# TypeVar to allow ConnectionModel subclasses (e.g., TeamsConnection, SlackConnection)
+ConnectionModelT = TypeVar("ConnectionModelT", bound=ConnectionModel)
 
 _connection_urn_prefix = "urn:li:dataHubConnection:"
 
@@ -61,7 +64,7 @@ def save_connection_json(
     *,
     urn: str,
     platform_urn: str,
-    config: Union[ConfigModel, dict],
+    config: Union[ConnectionModelT, dict],
     name: Optional[str] = None,
 ) -> None:
     if isinstance(config, ConfigModel):

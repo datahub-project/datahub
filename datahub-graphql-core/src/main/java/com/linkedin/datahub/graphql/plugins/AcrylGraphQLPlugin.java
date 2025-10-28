@@ -348,7 +348,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         SEMANTIC_SEARCH_ACRYL_SCHEMA_FILE,
         EXECUTOR_SCHEMA_FILE,
         REMOTE_EXECUTOR_SCHEMA_FILE,
-        INTEGRATIONS_TEAMS_SCHEMA_FILE);
+        INTEGRATIONS_TEAMS_SCHEMA_FILE,
+        GROUP_ACRYL_SCHEMA_FILE);
   }
 
   @Override
@@ -1074,11 +1075,17 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         .type(
             "DataHubSubscription",
             typeWiring ->
-                typeWiring.dataFetcher(
-                    "entity",
-                    new EntityTypeResolver(
-                        baseEngine.entityTypes,
-                        (env) -> ((DataHubSubscription) env.getSource()).getEntity())))
+                typeWiring
+                    .dataFetcher(
+                        "entity",
+                        new EntityTypeResolver(
+                            baseEngine.entityTypes,
+                            (env) -> ((DataHubSubscription) env.getSource()).getEntity()))
+                    .dataFetcher(
+                        "actor",
+                        new EntityTypeResolver(
+                            baseEngine.entityTypes,
+                            (env) -> (Entity) ((DataHubSubscription) env.getSource()).getActor())))
         .type(
             "EntitySubscriptionSummary",
             typeWiring ->

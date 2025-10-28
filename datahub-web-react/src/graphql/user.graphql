@@ -144,6 +144,9 @@ query getUserGroups($urn: String!, $start: Int!, $count: Int!) {
                             email
                             slack
                         }
+                        notificationSettings {
+                            ...notificationSettingsFields
+                        }
                     }
                     relationships(input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING }) {
                         start

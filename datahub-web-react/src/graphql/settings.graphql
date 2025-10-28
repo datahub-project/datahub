@@ -31,29 +31,33 @@ query getUserNotificationSettings {
     }
 }
 
+fragment notificationSettingsFields on NotificationSettings {
+    sinkTypes
+    slackSettings {
+        channels
+    }
+    emailSettings {
+        email
+    }
+    teamsSettings {
+        channels {
+            id
+            name
+        }
+    }
+    settings {
+        type
+        value
+        params {
+            key
+            value
+        }
+    }
+}
+
 query getGroupNotificationSettings($input: GetGroupNotificationSettingsInput!) {
     getGroupNotificationSettings(input: $input) {
-        sinkTypes
-        slackSettings {
-            channels
-        }
-        emailSettings {
-            email
-        }
-        teamsSettings {
-            channels {
-                id
-                name
-            }
-        }
-        settings {
-            type
-            value
-            params {
-                key
-                value
-            }
-        }
+        ...notificationSettingsFields
     }
 }
 

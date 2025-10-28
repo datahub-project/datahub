@@ -28,7 +28,7 @@
             cleanup_old_features_days: {{cleanup_old_features_days}}{{^cleanup_old_features_days}}2{{/cleanup_old_features_days}}
       debugMode: false
       extraArgs:
-        extra_pip_requirements: '{{&ingestion.extra_pip_requirements}}{{^ingestion.extra_pip_requirements}}["{{&ingestion.acryl-cloud-package}}{{^ingestion.acryl-cloud-package}}acryl-datahub-cloud[datahub-lineage-features]@/acryl-cloud{{/ingestion.acryl-cloud-package}}"]{{/ingestion.extra_pip_requirements}}'
+        extra_pip_requirements: '{{&ingestion.extra_pip_requirements}}{{^ingestion.extra_pip_requirements}}["{{&ingestion.acryl-cloud-package}}{{^ingestion.acryl-cloud-package}}acryl-datahub-cloud[datahub-lineage-features]@/metadata-ingestion-modules/acryl-cloud{{/ingestion.acryl-cloud-package}}"]{{/ingestion.extra_pip_requirements}}'
       executorId: default
     source:
       type: {{source}}{{^source}}SYSTEM{{/source}}

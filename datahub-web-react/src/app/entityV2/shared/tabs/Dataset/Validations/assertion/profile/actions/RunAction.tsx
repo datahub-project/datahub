@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { isMonitorActive } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { RunAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/preview/RunAssertionModal';
-import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
+import { ActionItem } from '@app/shared/actions';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { Assertion, AssertionSourceType, Monitor } from '@types';

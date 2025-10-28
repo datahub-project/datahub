@@ -91,5 +91,6 @@ if __name__ == "__main__":
         # SaaS only.
         "docker/datahub-executor/Dockerfile",
         "docker/datahub-integrations-service/Dockerfile",
+        "docker/smoke-test/Dockerfile"
     ]:
         update_template(Path(_repo_root / file), check_only=check_only)

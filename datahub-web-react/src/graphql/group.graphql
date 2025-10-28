@@ -288,6 +288,9 @@ query getOwnedGroups($userUrn: String!, $start: Int!, $count: Int!) {
                         email
                         slack
                     }
+                    notificationSettings {
+                        ...notificationSettingsFields
+                    }
                 }
             }
         }

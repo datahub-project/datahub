@@ -23,7 +23,7 @@
               dataset_urn: '{{extract_graph_store.dataset_urn}}{{^extract_graph_store.dataset_urn}}{{/extract_graph_store.dataset_urn}}'
               bucket_prefix: '{{extract_graph_store.bucket_prefix}}{{^extract_graph_store.bucket_prefix}}{{/extract_graph_store.bucket_prefix}}'
       extraArgs:
-        extra_pip_requirements: '{{&ingestion.extra_pip_requirements}}{{^ingestion.extra_pip_requirements}}["{{&ingestion.acryl-cloud-package}}{{^ingestion.acryl-cloud-package}}acryl-datahub-cloud[datahub-reporting-extract-graph]@/acryl-cloud{{/ingestion.acryl-cloud-package}}"]{{/ingestion.extra_pip_requirements}}'
+        extra_pip_requirements: '{{&ingestion.extra_pip_requirements}}{{^ingestion.extra_pip_requirements}}["{{&ingestion.acryl-cloud-package}}{{^ingestion.acryl-cloud-package}}acryl-datahub-cloud[datahub-reporting-extract-graph]@/metadata-ingestion-modules/acryl-cloud{{/ingestion.acryl-cloud-package}}"]{{/ingestion.extra_pip_requirements}}'
       debugMode: false
       executorId: default
     source:

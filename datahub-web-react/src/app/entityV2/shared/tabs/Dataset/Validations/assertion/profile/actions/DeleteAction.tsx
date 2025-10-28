@@ -4,7 +4,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useDeleteAssertionMutationWithCache } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
-import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
+import { ActionItem } from '@app/shared/actions';
 
 import { useDeleteMonitorMutation } from '@graphql/monitor.generated';
 import { Assertion, Monitor } from '@types';

@@ -1,0 +1,34 @@
+# Subset of requirements sufficient for release testing
+pytest>=8.4.2
+pytest-dependency>=0.6.0
+pytest-rerunfailures==16.1
+psutil
+tenacity
+acryl-datahub[datahub-rest,datahub-kafka,mysql,postgres]
+pydantic>2
+slack-sdk==3.18.1
+aiohttp
+joblib
+pytest-xdist
+pytest-split
+networkx
+# libaries for linting below this
+mypy==1.14.1
+ruff==0.11.7
+# stub version are copied from metadata-ingestion/setup.py and that should be the source of truth
+types-requests>=2.28.11.6,<=2.31.0.3
+types-PyYAML
+# https://github.com/docker/docker-py/issues/3256
+requests<=2.31.0
+# Missing numpy requirement in 8.0.0
+deepdiff!=8.0.0
+opensearch-py==2.6.0
+
+python-dotenv==1.0.1
+acryl-executor==0.2.6
+
+# Additional dependencies for telemetry API test
+confluent-kafka[schemaregistry,avro]>=1.9.0,!=2.8.1
+pydantic>2
+python-snappy>=0.6.1
+
