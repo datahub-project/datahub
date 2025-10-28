@@ -976,8 +976,8 @@ SELECT val, record_count FROM PartitionStats"""
         # Secondary check: Date component columns
         elif col_name.lower() in ["year", "month", "day"]:
             return f"`{col_name}` DESC"  # Most recent first for date components
-        # Fallback: Column name patterns (only when data type is unknown)
-        elif not data_type and self._is_date_like_column(col_name):
+        # Tertiary check: Column name patterns (fallback for date columns with non-date types like STRING)
+        elif self._is_date_like_column(col_name):
             return f"`{col_name}` DESC"  # Most recent first for date-like names
         else:
             return "record_count DESC"  # Most populated first for other columns
