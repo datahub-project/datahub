@@ -8,19 +8,6 @@ to improve maintainability and reduce duplication.
 from typing import Final, List, Set
 
 # ================================
-# CONNECTOR CLASS CONSTANTS
-# ================================
-
-# Traditional Platform connectors
-JDBC_SOURCE_CONNECTOR_CLASS: Final[str] = (
-    "io.confluent.connect.jdbc.JdbcSourceConnector"
-)
-DEBEZIUM_SOURCE_CONNECTOR_PREFIX: Final[str] = "io.debezium.connector"
-MONGO_SOURCE_CONNECTOR_CLASS: Final[str] = (
-    "com.mongodb.kafka.connect.MongoSourceConnector"
-)
-
-# ================================
 # TRANSFORM TYPE CONSTANTS
 # ================================
 
@@ -112,21 +99,6 @@ KNOWN_NON_TOPIC_ROUTING_TRANSFORMS: Final[List[str]] = (
 )
 
 # ================================
-# TRANSFORM CLASSIFICATION SETS
-# ================================
-
-# Transforms that can be reliably predicted from configuration alone
-PREDICTABLE_TRANSFORM_TYPES: Final[Set[str]] = {
-    REGEXROUTER_TRANSFORM,
-    CONFLUENT_TOPIC_REGEX_ROUTER,
-}
-
-# Transforms that are context-dependent and cannot be reliably predicted
-COMPLEX_TRANSFORM_TYPES: Final[Set[str]] = {
-    DEBEZIUM_EVENT_ROUTER,  # Depends on runtime data from outbox table
-}
-
-# ================================
 # DEBEZIUM SPECIFIC CONSTANTS
 # ================================
 
@@ -135,27 +107,3 @@ COMPLEX_TRANSFORM_TYPES: Final[Set[str]] = {
 DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER: Final[Set[str]] = {
     "io.debezium.connector.sqlserver.SqlServerConnector",
 }
-
-# ================================
-# UTILITY FUNCTIONS
-# ================================
-
-
-def is_topic_routing_transform(transform_type: str) -> bool:
-    """Check if a transform type affects topic names."""
-    return transform_type in KNOWN_TOPIC_ROUTING_TRANSFORMS
-
-
-def is_non_topic_routing_transform(transform_type: str) -> bool:
-    """Check if a transform type does NOT affect topic names."""
-    return transform_type in KNOWN_NON_TOPIC_ROUTING_TRANSFORMS
-
-
-def is_predictable_transform(transform_type: str) -> bool:
-    """Check if a transform type can be predicted from configuration alone."""
-    return transform_type in PREDICTABLE_TRANSFORM_TYPES
-
-
-def is_complex_transform(transform_type: str) -> bool:
-    """Check if a transform type requires runtime data and cannot be predicted."""
-    return transform_type in COMPLEX_TRANSFORM_TYPES

@@ -66,382 +66,6 @@ class TableId:
 
 
 @dataclass
-class TransformResult:
-    """Result of applying a transform pipeline to a source table."""
-
-    source_table: str
-    schema: str
-    final_topics: List[str]
-    original_topic: str
-
-
-class BaseTransform:
-    """Base class for Kafka Connect transforms."""
-
-    def __init__(self, config: Dict[str, str]):
-        self.config = config
-
-    def apply(self, current_topics: List[str], manifest_topics: List[str]) -> List[str]:
-        """Apply the transform to the current topics."""
-        raise NotImplementedError("Subclasses must implement apply method")
-
-
-class EventRouterTransform(BaseTransform):
-    """Debezium EventRouter transform (Outbox pattern) - Simplified safe implementation."""
-
-    def apply(self, current_topics: List[str], manifest_topics: List[str]) -> List[str]:
-        """
-        Apply EventRouter transform based on documented behavior:
-        https://debezium.io/documentation/reference/stable/transformations/outbox-event-router.html
-
-        EventRouter transforms outbox table topics to outbox.event.{aggregatetype} format.
-        This is an intermediate transformation step - the final topics may be further transformed.
-        """
-        # Look for outbox tables in current topics
-        outbox_topics = [t for t in current_topics if "outbox" in t.lower()]
-
-        if not outbox_topics:
-            logger.warning(
-                "EventRouter transform applied but no outbox table found in source topics. "
-                "This may result in incomplete lineage."
-            )
-            return current_topics
-
-        # EventRouter produces outbox.event.{aggregatetype} format as documented
-        # This is a predictable transformation regardless of manifest topics
-        # since it's based on the event types extracted from the outbox table
-
-        # For the pipeline, we generate standard EventRouter output topics
-        # The actual event types will be determined by downstream RegexRouter or manifest topics
-
-        # Check if manifest contains EventRouter-style topics or further transformed topics
-        event_topics = []
-
-        # First, check for direct outbox.event.* pattern in manifest
-        direct_event_topics = [
-            t for t in manifest_topics if t.startswith("outbox.event.")
-        ]
-
-        if direct_event_topics:
-            event_topics = direct_event_topics
-        else:
-            # EventRouter with further transforms - this is complex and error-prone to guess
-            # The documented EventRouter behavior only guarantees outbox.event.* intermediate format
-            # Any further transforms are connector-specific and not predictable
-            logger.warning(
-                "EventRouter detected but no 'outbox.event.*' topics found in manifest. "
-                "This suggests EventRouter output is further transformed by other transforms. "
-                "For accurate lineage mapping with complex transform chains, "
-                "please use 'generic_connectors' config to specify explicit source-to-topic mappings."
-            )
-            # Return manifest topics as-is - don't attempt to guess transform patterns
-            event_topics = list(manifest_topics)
-
-        logger.info(
-            f"EventRouter mapping: {len(outbox_topics)} outbox tables -> {len(event_topics)} event topics"
-        )
-        return event_topics
-
-
-class RegexRouterTransform(BaseTransform):
-    """Kafka Connect RegexRouter transform."""
-
-    def apply(self, current_topics: List[str], manifest_topics: List[str]) -> List[str]:
-        """Apply RegexRouter transform to rename topics."""
-        regex_pattern = self.config.get("regex", "")
-        replacement = self.config.get("replacement", "")
-
-        if not regex_pattern or not replacement:
-            logger.warning("RegexRouter missing regex or replacement pattern")
-            return current_topics
-
-        transformed_topics = []
-        for topic in current_topics:
-            try:
-                # Use Java regex for exact Kafka Connect compatibility
-                from java.util.regex import Pattern
-
-                transform_regex = Pattern.compile(regex_pattern)
-                matcher = transform_regex.matcher(topic)
-
-                if matcher.matches():
-                    transformed_topic = str(matcher.replaceFirst(replacement))
-                    logger.debug(f"RegexRouter: {topic} -> {transformed_topic}")
-                    transformed_topics.append(transformed_topic)
-                else:
-                    logger.debug(f"RegexRouter: {topic} (no match)")
-                    transformed_topics.append(topic)
-
-            except ImportError:
-                logger.warning(
-                    f"Java regex library not available for RegexRouter transform. "
-                    f"Cannot apply pattern '{regex_pattern}' to topic '{topic}'. "
-                    f"Returning original topic name."
-                )
-                transformed_topics.append(topic)
-
-            except Exception as e:
-                logger.warning(
-                    f"RegexRouter failed for topic '{topic}' with pattern '{regex_pattern}' "
-                    f"and replacement '{replacement}': {e}"
-                )
-                transformed_topics.append(topic)
-
-        return transformed_topics
-
-
-class TransformPipeline:
-    """
-    Handles multiple Kafka Connect transforms in sequence.
-
-    ARCHITECTURAL COMPLEXITY RATIONALE:
-
-    The transform pipeline complexity exists because Kafka Connect supports multiple
-    transformation strategies that must be handled consistently:
-
-    1. **Forward Pipeline**: Apply transforms to source tables to predict final topics
-       - Used when we have table configurations but limited topic information
-       - Requires generating original topic names based on connector naming conventions
-
-    2. **Reverse Pipeline**: Work backward from actual topics to find source mappings
-       - Used when we have actual topic names from the cluster/API
-       - More accurate for environments with complex transform chains
-
-    3. **Connector-Specific Naming**: Different connectors use different topic naming:
-       - JDBC Source: Simple concatenation (prefix + table)
-       - Debezium CDC: Hierarchical (server.schema.table)
-       - Cloud connectors: Uses database.server.name as prefix
-
-    4. **Transform Types**: Each transform type has different behavior:
-       - RegexRouter: Pattern-based topic renaming
-       - EventRouter: Outbox pattern for CDC events
-       - Others: Field manipulation, data transformation
-
-    This complexity cannot be easily simplified without breaking compatibility with
-    existing connector configurations in production environments.
-    """
-
-    # Known transform types
-    TRANSFORM_CLASSES = {
-        "io.debezium.transforms.outbox.EventRouter": EventRouterTransform,
-        "org.apache.kafka.connect.transforms.RegexRouter": RegexRouterTransform,
-        "io.confluent.connect.cloud.transforms.TopicRegexRouter": RegexRouterTransform,
-    }
-
-    def __init__(self, transform_configs: List[Dict[str, str]]):
-        """Initialize pipeline with transform configurations."""
-        self.transforms = []
-
-        for config in transform_configs:
-            transform_type = config.get("type", "")
-            transform_class = self.TRANSFORM_CLASSES.get(transform_type)
-
-            if transform_class:
-                self.transforms.append(transform_class(config))
-            else:
-                logger.debug(f"Skipping unsupported transform type: {transform_type}")
-
-    def apply_transforms(
-        self,
-        tables: List[TableId],
-        topic_prefix: str,
-        manifest_topics: List[str],
-        connector_class: str,
-    ) -> List[TransformResult]:
-        """
-        Apply transform pipeline to generate lineage mappings.
-
-        Args:
-            tables: List of TableId objects from source
-            topic_prefix: Topic prefix from connector config
-            manifest_topics: Actual topic names from connector manifest
-            connector_class: The connector class name to determine topic naming strategy
-
-        Returns:
-            List of TransformResult objects mapping sources to final topics
-        """
-        results = []
-
-        for table_id in tables:
-            # Generate original topic name (before transforms)
-            original_topic = self._generate_original_topic(
-                table_id.schema or "", table_id.table, topic_prefix, connector_class
-            )
-
-            # Apply transform pipeline
-            final_topics = self._apply_pipeline([original_topic], manifest_topics)
-
-            # Create result if we have matching topics
-            if final_topics:
-                results.append(
-                    TransformResult(
-                        source_table=table_id.table,
-                        schema=table_id.schema or "",
-                        final_topics=final_topics,
-                        original_topic=original_topic,
-                    )
-                )
-
-        return results
-
-    def _generate_jdbc_topic_name(self, table_name: str, topic_prefix: str) -> str:
-        """
-        Generate topic name for traditional JDBC Source connectors.
-
-        Based on official Kafka Connect JDBC Source implementation:
-        https://github.com/confluentinc/kafka-connect-jdbc/blob/master/src/main/java/io/confluent/connect/jdbc/source/BulkTableQuerier.java
-
-        ```java
-        // Topic generation logic:
-        String name = tableId.tableName(); // Returns ONLY table name, not schema.table
-        topic = topicPrefix + name;         // Simple concatenation
-        ```
-
-        JDBC Source behavior:
-        - Without topic.prefix: topic = "member" (just table name)
-        - With topic.prefix: topic = "prefix-member" (prefix + table name)
-
-        Args:
-            table_name: Table name (from tableId.tableName())
-            topic_prefix: Topic prefix from connector config (topic.prefix)
-
-        Returns:
-            Topic name following official JDBC Source naming convention
-        """
-        return topic_prefix + table_name
-
-    def _generate_cdc_topic_name(
-        self, schema: str, table_name: str, topic_prefix: str
-    ) -> str:
-        """
-        Generate topic name for CDC connectors (Debezium/Cloud).
-
-        CDC connectors use hierarchical naming with a topic prefix:
-
-        ACTUAL PATTERNS (from official documentation):
-        - MySQL CDC: {topic.prefix}.{databaseName}.{tableName}
-          Example: "fulfillment.inventory.orders"
-        - PostgreSQL CDC: {topic.prefix}.{schemaName}.{tableName}
-          Example: "fulfillment.public.users"
-
-        When topic prefix is empty:
-        - MySQL CDC: {databaseName}.{tableName}
-        - PostgreSQL CDC: {schemaName}.{tableName}
-
-        TOPIC PREFIX SOURCE:
-        - Confluent Cloud: Uses "database.server.name" config as topic prefix
-        - Platform/Debezium: Uses "topic.prefix" config as topic prefix
-
-        References:
-        - Debezium MySQL: https://debezium.io/documentation/reference/stable/connectors/mysql.html#mysql-topic-names
-        - Debezium PostgreSQL: https://debezium.io/documentation/reference/stable/connectors/postgresql.html#postgresql-topic-names
-        - Cloud MySQL CDC: https://docs.confluent.io/cloud/current/connectors/cc-mysql-cdc-source.html
-
-        Args:
-            schema: Database schema (PostgreSQL) or database name (MySQL)
-            table_name: Table name
-            topic_prefix: Topic prefix (from topic.prefix or database.server.name config)
-
-        Returns:
-            Topic name: {topic_prefix}.{schema}.{table_name} or {schema}.{table_name} if prefix empty
-        """
-        if schema:
-            if topic_prefix:
-                return f"{topic_prefix}.{schema}.{table_name}"
-            else:
-                return f"{schema}.{table_name}"
-        else:
-            if topic_prefix:
-                return f"{topic_prefix}.{table_name}"
-            else:
-                return table_name
-
-    def _generate_original_topic(
-        self, schema: str, table_name: str, topic_prefix: str, connector_class: str
-    ) -> str:
-        """
-        Generate the original topic name before any transforms based on connector type.
-
-        Different connector types use different topic naming strategies:
-        - Traditional JDBC: Simple concatenation (topicPrefix + tableName)
-        - CDC/Debezium connectors: Hierarchical naming ({prefix}.{schema}.{table})
-        - Cloud connectors: Hierarchical naming ({database.server.name}.{schema}.{table})
-
-        Args:
-            schema: Database schema or database name
-            table_name: Table name
-            topic_prefix: Topic prefix (topic.prefix or database.server.name)
-            connector_class: The connector class name to determine naming strategy
-
-        Returns:
-            Topic name using appropriate naming convention
-        """
-        # Cloud connectors always use hierarchical naming
-        if connector_class in CLOUD_JDBC_SOURCE_CLASSES or connector_class.startswith(
-            "io.debezium."
-        ):
-            return self._generate_cdc_topic_name(schema, table_name, topic_prefix)
-
-        # Traditional JDBC source connector
-        elif connector_class == "io.confluent.connect.jdbc.JdbcSourceConnector":
-            return self._generate_jdbc_topic_name(table_name, topic_prefix)
-
-        else:
-            # Default behavior: use topic_prefix presence as fallback (for unknown connectors)
-            # This preserves backward compatibility for unknown connector types
-            return self._generate_jdbc_topic_name(table_name, topic_prefix)
-
-    def _apply_pipeline(
-        self, current_topics: List[str], manifest_topics: List[str]
-    ) -> List[str]:
-        """Apply all transforms in sequence."""
-        topics = current_topics[:]
-
-        for transform in self.transforms:
-            topics = transform.apply(topics, manifest_topics)
-
-        return topics
-
-    def discover_topic_transformations(
-        self, manifest_topics: List[str]
-    ) -> Dict[str, List[str]]:
-        """
-        Apply the complete transform pipeline to all topics and find which ones map to existing topics.
-
-        This implements the improved strategy: for each topic, apply all transforms and check if
-        the result exists in the topic list. This works regardless of connector type and handles
-        complex transform chains automatically.
-
-        Args:
-            manifest_topics: All actual topic names from the connector manifest
-
-        Returns:
-            Dict mapping original_topic -> [transformed_topics] where transformed topics exist
-        """
-        topic_mappings = {}
-
-        for original_topic in manifest_topics:
-            # Apply the complete transform pipeline to this topic
-            transformed_topics = self._apply_pipeline([original_topic], manifest_topics)
-
-            # Check if any of the transformed results exist in the actual topic list
-            existing_transformed_topics = [
-                topic for topic in transformed_topics if topic in manifest_topics
-            ]
-
-            # Only store mappings where the transformation produces an existing topic
-            if existing_transformed_topics and existing_transformed_topics != [
-                original_topic
-            ]:
-                topic_mappings[original_topic] = existing_transformed_topics
-                logger.debug(
-                    f"Topic transformation discovered: {original_topic} -> {existing_transformed_topics}"
-                )
-
-        return topic_mappings
-
-
-@dataclass
 class JdbcParser:
     """Data transfer object for JDBC connector configuration."""
 
@@ -829,77 +453,6 @@ class ConfluentJDBCSourceConnector(BaseConnector):
 
         return flow_property_bag
 
-    def _extract_lineages_with_pipeline(
-        self,
-        transforms: List[Dict[str, str]],
-        database_name: str,
-        source_platform: str,
-        topic_prefix: str,
-    ) -> List[KafkaConnectLineage]:
-        """Extract lineages using the new transform pipeline for complex scenarios."""
-        try:
-            tables = self.get_table_names()
-            connector_class = self.connector_manifest.config.get(CONNECTOR_CLASS, "")
-
-            pipeline = TransformPipeline(transforms)
-            results = pipeline.apply_transforms(
-                tables,
-                topic_prefix,
-                list(self.connector_manifest.topic_names),
-                connector_class,
-            )
-
-            return self._convert_transform_results_to_lineages(
-                results, database_name, source_platform
-            )
-
-        except Exception as e:
-            logger.warning(f"Transform pipeline failed: {e}")
-            return self.default_get_lineages(
-                database_name=database_name,
-                source_platform=source_platform,
-                topic_prefix=topic_prefix,
-            )
-
-    def _convert_transform_results_to_lineages(
-        self, results: List[TransformResult], database_name: str, source_platform: str
-    ) -> List[KafkaConnectLineage]:
-        """Convert transform pipeline results to KafkaConnectLineage objects."""
-        lineages: List[KafkaConnectLineage] = []
-
-        for result in results:
-            source_dataset = self._build_source_dataset_from_result(
-                result, database_name, source_platform
-            )
-
-            # Create lineages for all final topics
-            for final_topic in result.final_topics:
-                lineage = KafkaConnectLineage(
-                    source_dataset=source_dataset,
-                    source_platform=source_platform,
-                    target_dataset=final_topic,
-                    target_platform=KAFKA,
-                )
-                lineages.append(lineage)
-
-                logger.debug(
-                    f"Pipeline lineage: {source_dataset} -> {final_topic} "
-                    f"(via {result.original_topic})"
-                )
-
-        return lineages
-
-    def _build_source_dataset_from_result(
-        self, result: TransformResult, database_name: str, source_platform: str
-    ) -> str:
-        """Build source dataset name from transform pipeline result."""
-        if result.schema and has_three_level_hierarchy(source_platform):
-            source_table_name = f"{result.schema}.{result.source_table}"
-        else:
-            source_table_name = result.source_table
-
-        return get_dataset_name(database_name, source_table_name)
-
     def _get_manifest_topics(self) -> List[str]:
         """Get all actual topics from connector manifest."""
         manifest_topics = list(self.connector_manifest.topic_names)
@@ -1152,12 +705,37 @@ class ConfluentJDBCSourceConnector(BaseConnector):
     def _generate_original_topic_name(
         self, schema: str, table_name: str, topic_prefix: str, connector_class: str
     ) -> str:
-        """Generate original topic name before transforms using connector-specific logic."""
-        # Use the same logic as TransformPipeline._generate_original_topic
-        pipeline = TransformPipeline([])  # Empty pipeline just to use the method
-        return pipeline._generate_original_topic(
-            schema, table_name, topic_prefix, connector_class
-        )
+        """
+        Generate original topic name before transforms using connector-specific logic.
+
+        Different connector types use different topic naming strategies:
+        - Traditional JDBC: Simple concatenation (topicPrefix + tableName)
+        - CDC/Debezium connectors: Hierarchical naming ({prefix}.{schema}.{table})
+        - Cloud connectors: Hierarchical naming ({database.server.name}.{schema}.{table})
+        """
+        # Cloud connectors and Debezium connectors use hierarchical naming
+        if connector_class in CLOUD_JDBC_SOURCE_CLASSES or connector_class.startswith(
+            "io.debezium."
+        ):
+            # CDC topic name generation
+            if schema:
+                if topic_prefix:
+                    return f"{topic_prefix}.{schema}.{table_name}"
+                else:
+                    return f"{schema}.{table_name}"
+            else:
+                if topic_prefix:
+                    return f"{topic_prefix}.{table_name}"
+                else:
+                    return table_name
+
+        # Traditional JDBC source connector uses simple concatenation
+        elif connector_class == "io.confluent.connect.jdbc.JdbcSourceConnector":
+            return topic_prefix + table_name
+
+        # Default behavior for unknown connectors
+        else:
+            return topic_prefix + table_name
 
     def _apply_transforms_forward(
         self, topics: List[str], transforms: List[Dict[str, str]]

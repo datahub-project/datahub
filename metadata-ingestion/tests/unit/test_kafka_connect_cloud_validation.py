@@ -164,8 +164,8 @@ class TestConnectorConfigValidation:
         source_platform,
     ):
         """Extract lineages using transform pipeline."""
-        from datahub.ingestion.source.kafka_connect.source_connectors import (
-            TransformPipeline,
+        from datahub.ingestion.source.kafka_connect.transform_plugins import (
+            get_transform_pipeline,
         )
 
         try:
@@ -173,31 +173,78 @@ class TestConnectorConfigValidation:
             connector_class = connector.connector_manifest.config.get(
                 "connector.class", ""
             )
-
-            pipeline = TransformPipeline(transforms)
-            results = pipeline.apply_transforms(
-                table_name_tuples,
-                topic_prefix,
-                list(connector.connector_manifest.topic_names),
-                connector_class,
-            )
+            config = connector.connector_manifest.config
 
             lineages = []
-            for result in results:
+            manifest_topics = list(connector.connector_manifest.topic_names)
+
+            # Check if EventRouter is present (outbox pattern)
+            has_event_router = any(
+                t.get("type") == "io.debezium.transforms.outbox.EventRouter"
+                for t in transforms
+            )
+
+            # For outbox pattern with EventRouter, we can't predict topic names
+            # since they depend on runtime data (event types in the table).
+            # In this case, create lineages for all manifest topics from the single source table.
+            if has_event_router and len(table_name_tuples) == 1:
+                table_id = table_name_tuples[0]
+
                 # Build source dataset name
-                if result.schema and has_three_level_hierarchy(source_platform):
-                    source_table_name = f"{result.schema}.{result.source_table}"
+                if table_id.schema and has_three_level_hierarchy(source_platform):
+                    source_table_name = f"{table_id.schema}.{table_id.table}"
                 else:
-                    source_table_name = result.source_table
+                    source_table_name = table_id.table
 
                 source_dataset = get_dataset_name(database_name, source_table_name)
 
-                # Create lineages for all final topics
-                for final_topic in result.final_topics:
+                # Create lineages for all manifest topics (since EventRouter generates them from runtime data)
+                for topic in manifest_topics:
                     lineage = KafkaConnectLineage(
                         source_dataset=source_dataset,
                         source_platform=source_platform,
-                        target_dataset=final_topic,
+                        target_dataset=topic,
+                        target_platform="kafka",
+                    )
+                    lineages.append(lineage)
+
+                return lineages
+
+            # For predictable transforms (RegexRouter), use normal pipeline
+            for table_id in table_name_tuples:
+                # Generate original topic name using connector's naming logic
+                original_topic = connector._generate_original_topic_name(
+                    table_id.schema or "",
+                    table_id.table,
+                    topic_prefix or "",
+                    connector_class,
+                )
+
+                # Apply transforms to predict final topic
+                transform_result = get_transform_pipeline().apply_forward(
+                    [original_topic], config
+                )
+
+                predicted_topic = (
+                    transform_result.topics[0]
+                    if transform_result.topics
+                    else original_topic
+                )
+
+                # Check if predicted topic exists in manifest topics
+                if predicted_topic in manifest_topics:
+                    # Build source dataset name
+                    if table_id.schema and has_three_level_hierarchy(source_platform):
+                        source_table_name = f"{table_id.schema}.{table_id.table}"
+                    else:
+                        source_table_name = table_id.table
+
+                    source_dataset = get_dataset_name(database_name, source_table_name)
+
+                    lineage = KafkaConnectLineage(
+                        source_dataset=source_dataset,
+                        source_platform=source_platform,
+                        target_dataset=predicted_topic,
                         target_platform="kafka",
                     )
                     lineages.append(lineage)

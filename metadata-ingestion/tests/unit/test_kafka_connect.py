@@ -30,8 +30,14 @@ from datahub.ingestion.source.kafka_connect.transform_plugins import (
 
 logger = logging.getLogger(__name__)
 
-if not jpype.isJVMStarted():
-    jpype.startJVM(jpype.getDefaultJVMPath())
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_jvm_started():
+    """Ensure JVM is started for all tests requiring Java regex."""
+    if not jpype.isJVMStarted():
+        jpype.startJVM(jpype.getDefaultJVMPath())
+    yield
+    # Note: JVM shutdown is problematic, so we don't shutdown here
 
 
 class TestTransformPipelineBasic:

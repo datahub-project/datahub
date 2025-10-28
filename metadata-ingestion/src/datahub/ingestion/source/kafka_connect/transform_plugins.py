@@ -14,6 +14,7 @@ Key principles:
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Dict, List, Optional
 
 from datahub.ingestion.source.kafka_connect.common import (
@@ -22,6 +23,22 @@ from datahub.ingestion.source.kafka_connect.common import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Initialize JVM for Java regex support at module level
+try:
+    import jpype
+
+    if not jpype.isJVMStarted():
+        jpype.startJVM(jpype.getDefaultJVMPath())
+    from java.util.regex import Pattern as JavaPattern
+
+    JAVA_REGEX_AVAILABLE = True
+except (ImportError, RuntimeError) as e:
+    logger.warning(
+        f"Java regex not available: {e}. RegexRouter transforms will be skipped."
+    )
+    JAVA_REGEX_AVAILABLE = False
+    JavaPattern = None  # type: ignore
 
 
 @dataclass
@@ -85,6 +102,12 @@ class RegexRouterPlugin(TransformPlugin):
 
     def apply_forward(self, topics: List[str], config: TransformConfig) -> List[str]:
         """Apply RegexRouter transform forward."""
+        if not JAVA_REGEX_AVAILABLE:
+            raise ValueError(
+                "RegexRouter transform requires JPype and JVM. "
+                "Install with: pip install 'acryl-datahub[kafka-connect]'"
+            )
+
         regex_pattern = config.config.get("regex", "")
         replacement = config.config.get("replacement", "")
 
@@ -97,21 +120,9 @@ class RegexRouterPlugin(TransformPlugin):
         transformed_topics = []
         for topic in topics:
             try:
-                # Use Java regex to match Kafka Connect behavior exactly
-                import jpype
-
-                if jpype.isJVMStarted():
-                    from java.util.regex import Pattern
-
-                    pattern = Pattern.compile(regex_pattern)
-                    matcher = pattern.matcher(topic)
-                    transformed_topic = str(matcher.replaceFirst(replacement))
-                else:
-                    # JVM not available - skip transform and keep original topic
-                    logger.warning(
-                        f"RegexRouter {config.name}: JVM not started, skipping transform"
-                    )
-                    transformed_topic = topic
+                pattern = JavaPattern.compile(regex_pattern)
+                matcher = pattern.matcher(topic)
+                transformed_topic = str(matcher.replaceFirst(replacement))
 
                 logger.debug(
                     f"RegexRouter {config.name}: {topic} -> {transformed_topic}"
@@ -121,8 +132,7 @@ class RegexRouterPlugin(TransformPlugin):
                 logger.warning(
                     f"RegexRouter {config.name} pattern error for topic '{topic}': {e}"
                 )
-                # Re-raise exception so pipeline can capture it as a warning
-                raise e
+                raise
 
         return transformed_topics
 
@@ -308,13 +318,12 @@ class TransformPipeline:
         return False
 
 
-# Global pipeline instance
-_pipeline_instance: Optional[TransformPipeline] = None
-
-
+@lru_cache(maxsize=1)
 def get_transform_pipeline() -> TransformPipeline:
-    """Get the global transform pipeline instance."""
-    global _pipeline_instance
-    if _pipeline_instance is None:
-        _pipeline_instance = TransformPipeline()
-    return _pipeline_instance
+    """
+    Get the transform pipeline instance (cached).
+
+    Uses lru_cache to ensure a single instance is reused across calls,
+    avoiding repeated plugin registration while maintaining testability.
+    """
+    return TransformPipeline()
