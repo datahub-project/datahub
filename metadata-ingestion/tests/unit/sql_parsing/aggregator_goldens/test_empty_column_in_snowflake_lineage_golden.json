@@ -1,0 +1,53 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.target_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 20000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.source_table,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:e0ac0a087b1c788497e6ae3ed1abf6538c66f80a0b1e6fad83219813d6c95b27"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.source_table,PROD),col_a)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.target_table,PROD),col_a)"
+                    ],
+                    "confidenceScore": 1.0,
+                    "query": "urn:li:query:e0ac0a087b1c788497e6ae3ed1abf6538c66f80a0b1e6fad83219813d6c95b27"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.source_table,PROD),col_b)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.target_table,PROD),col_b)"
+                    ],
+                    "confidenceScore": 1.0,
+                    "query": "urn:li:query:e0ac0a087b1c788497e6ae3ed1abf6538c66f80a0b1e6fad83219813d6c95b27"
+                }
+            ]
+        }
+    }
+}
+]

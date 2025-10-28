@@ -35,7 +35,7 @@ You can create subscriptions to receive notifications when assertions change sta
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/create_subscription.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/subscription_create.py show_path_as_comment }}
 ```
 
 </TabItem>
@@ -49,7 +49,7 @@ You can remove existing subscriptions to stop receiving notifications. The unsub
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/remove_subscription.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/subscription_remove.py show_path_as_comment }}
 ```
 
 </TabItem>

@@ -31,6 +31,7 @@ def check_mockserver_health():
 @pytest.fixture(scope="module", autouse=True)
 def docker_datahub_service(docker_compose_runner, pytestconfig):
     """Start Docker mock DataHub service for all tests."""
+
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_queries"
 
     with docker_compose_runner(
@@ -73,6 +74,14 @@ def docker_datahub_service(docker_compose_runner, pytestconfig):
         (
             "input/patch-lineage.yml",
             "golden/patch-lineage.json",
+        ),
+        (
+            "input/lazy-schema-loading.yml",
+            "golden/lazy-schema-loading.json",
+        ),
+        (
+            "input/temp-table-patterns.yml",
+            "golden/temp-table-patterns.json",
         ),
     ],
 )
