@@ -45,6 +45,7 @@ from datahub.sql_parsing.schema_resolver import match_columns_to_schema
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
+    SqlParsingDebugInfo,
     SqlParsingResult,
     Urn,
     create_and_cache_schema_resolver,
@@ -344,11 +345,21 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
       methods are provided to convert between Looker API field names and raw field names.
     - SQL parsing is cached for efficiency, and the class is designed to gracefully fall back if the Looker Query API fails.
     - All lineage extraction is based on the SQL returned by the Looker API, ensuring accurate and up-to-date lineage.
+    - **Field Splitting**: When the number of fields exceeds the configured threshold (default: 100), fields are automatically
+      split into multiple API calls to avoid SQL parsing failures and provide partial lineage for large field sets.
 
     Why view_to_explore_map is required:
     The Looker Query API expects the explore name (not the view name) as the "view" parameter in the WriteQuery.
     In Looker, a view can be referenced by multiple explores, but the API needs any one of the
     explores to access the view's fields
+
+    Field Splitting Behavior:
+    When a view has more fields than the `field_threshold_for_splitting` configuration value (default: 100),
+    the class automatically splits the fields into chunks and makes multiple API calls. This helps:
+    - Avoid SQL parsing failures that occur with very large field sets
+    - Provide partial column and table lineage even when some field chunks fail
+    - Improve reliability for views with hundreds of fields
+    - Maintain performance by processing manageable chunks
 
     Example WriteQuery request (see `_execute_query` for details):
         {
@@ -363,7 +374,8 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
     The SQL response is then parsed to extract upstream tables and column-level lineage.
 
     For further details, see the method-level docstrings, especially:
-      - `__get_spr`: SQL parsing and lineage extraction workflow
+      - `__get_spr`: SQL parsing and lineage extraction workflow with field splitting
+      - `_get_spr_with_field_splitting`: Field splitting logic for large field sets
       - `_get_sql_write_query`: WriteQuery construction and field enumeration
       - `_execute_query`: Looker API invocation and SQL retrieval - this only generates the SQL query, does not execute it
       - Field name translation: `_get_looker_api_field_name` and `_get_field_name_from_looker_api_field_name`
@@ -402,6 +414,9 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         2. Executing the query via the Looker API to get the SQL.
         3. Parsing the SQL to extract lineage information.
 
+        If the number of fields exceeds the threshold, fields are split into multiple queries
+        and the results are combined to provide partial lineage.
+
         Returns:
             SqlParsingResult if successful, otherwise None.
         Raises:
@@ -412,58 +427,289 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             ValueError: If error in parsing SQL for column lineage.
         """
         try:
-            # Build the WriteQuery for the current view.
-            sql_query: WriteQuery = self._get_sql_write_query()
+            # Get fields for the current view
+            explore_name = self.view_to_explore_map.get(self.view_context.name())
+            assert explore_name  # Happy linter
 
-            # Execute the query to get the SQL representation from Looker.
-            sql_response = self._execute_query(sql_query)
+            view_fields = self._get_fields_from_looker_api(explore_name)
+            if not view_fields:
+                view_fields = self._get_fields_from_view_context()
 
-            # Parse the SQL to extract lineage information.
-            spr = create_lineage_sql_parsed_result(
-                query=sql_response,
-                default_schema=self.view_context.view_connection.default_schema,
-                default_db=self.view_context.view_connection.default_db,
-                platform=self.view_context.view_connection.platform,
-                platform_instance=self.view_context.view_connection.platform_instance,
-                env=self.view_context.view_connection.platform_env or self.config.env,
-                graph=self.ctx.graph,
-            )
-
-            # Check for errors encountered during table extraction.
-            table_error = spr.debug_info.table_error
-            if table_error is not None:
-                logger.debug(
-                    f"view-name={self.view_context.name()}, table-error={table_error}, sql-query={sql_response}"
-                )
-                self.reporter.report_warning(
-                    title="Table Level Lineage Extraction Failed",
-                    message="Error in parsing derived sql",
-                    context=f"View-name: {self.view_context.name()}",
-                    exc=table_error,
-                )
+            if not view_fields:
                 raise ValueError(
-                    f"Error in parsing SQL for upstream tables: {table_error}"
+                    f"No fields found for view '{self.view_context.name()}'. Cannot proceed with Looker API for view lineage."
                 )
 
-            column_error = spr.debug_info.column_error
-            if column_error is not None:
-                logger.debug(
-                    f"view-name={self.view_context.name()}, column-error={column_error}, sql-query={sql_response}"
+            if len(view_fields) > self.config.field_threshold_for_splitting:
+                logger.info(
+                    f"View '{self.view_context.name()}' has {len(view_fields)} fields, "
+                    f"exceeding threshold of {self.config.field_threshold_for_splitting}. Splitting into multiple queries for partial lineage."
                 )
-                self.reporter.report_warning(
-                    title="Column Level Lineage Extraction Failed",
-                    message="Error in parsing derived sql",
-                    context=f"View-name: {self.view_context.name()}",
-                    exc=column_error,
+                return self._get_spr_with_field_splitting(view_fields, explore_name)
+            else:
+                # Use the original single-query approach
+                sql_query: WriteQuery = self._get_sql_write_query_with_fields(
+                    view_fields, explore_name
                 )
-                raise ValueError(
-                    f"Error in parsing SQL for column lineage: {column_error}"
+                sql_response = self._execute_query(sql_query)
+                return self._parse_sql_response(
+                    sql_response,
+                    allow_partial=self.config.allow_partial_lineage_results,
                 )
 
-            return spr
         except Exception:
             # Reraise the exception to allow higher-level handling.
             raise
+
+    def _get_sql_write_query_with_fields(
+        self, view_fields: List[str], explore_name: str
+    ) -> WriteQuery:
+        """
+        Constructs a WriteQuery object with the provided fields.
+
+        Args:
+            view_fields: List of field names in Looker API format
+            explore_name: The explore name to use in the query
+
+        Returns:
+            WriteQuery: The WriteQuery object
+        """
+        return WriteQuery(
+            model=self.looker_view_id_cache.model_name,
+            view=explore_name,
+            fields=view_fields,
+            filters={},
+            limit="1",
+        )
+
+    def _parse_sql_response(
+        self, sql_response: str, allow_partial: bool = True
+    ) -> SqlParsingResult:
+        """
+        Parse SQL response to extract lineage information.
+
+        Args:
+            sql_response: The SQL string returned by the Looker API
+            allow_partial: Whether to allow partial results when there are parsing errors
+
+        Returns:
+            SqlParsingResult: The parsed result with lineage information
+        """
+        spr = create_lineage_sql_parsed_result(
+            query=sql_response,
+            default_schema=self.view_context.view_connection.default_schema,
+            default_db=self.view_context.view_connection.default_db,
+            platform=self.view_context.view_connection.platform,
+            platform_instance=self.view_context.view_connection.platform_instance,
+            env=self.view_context.view_connection.platform_env or self.config.env,
+            graph=self.ctx.graph,
+        )
+
+        # Check for errors encountered during table extraction.
+        table_error = spr.debug_info.table_error
+        if table_error is not None:
+            logger.debug(
+                f"view-name={self.view_context.name()}, table-error={table_error}, sql-query={sql_response}"
+            )
+            self.reporter.report_warning(
+                title="Table Level Lineage Extraction Failed",
+                message="Error in parsing derived sql",
+                context=f"View-name: {self.view_context.name()}",
+                exc=table_error,
+            )
+            if not allow_partial:
+                raise ValueError(
+                    f"Error in parsing SQL for upstream tables: {table_error}"
+                )
+            else:
+                logger.warning(
+                    f"Allowing partial results despite table parsing error for view '{self.view_context.name()}'"
+                )
+
+        column_error = spr.debug_info.column_error
+        if column_error is not None:
+            logger.debug(
+                f"view-name={self.view_context.name()}, column-error={column_error}, sql-query={sql_response}"
+            )
+            self.reporter.report_warning(
+                title="Column Level Lineage Extraction Failed",
+                message="Error in parsing derived sql",
+                context=f"View-name: {self.view_context.name()}",
+                exc=column_error,
+            )
+            if not allow_partial:
+                raise ValueError(
+                    f"Error in parsing SQL for column lineage: {column_error}"
+                )
+            else:
+                logger.warning(
+                    f"Allowing partial results despite column parsing error for view '{self.view_context.name()}'"
+                )
+
+        return spr
+
+    def _get_spr_with_field_splitting(
+        self, view_fields: List[str], explore_name: str
+    ) -> SqlParsingResult:
+        """
+        Handle field splitting when the number of fields exceeds the threshold.
+        Splits fields into chunks and combines the SQL parsing results.
+
+        Args:
+            view_fields: List of all field names
+            explore_name: The explore name to use in queries
+
+        Returns:
+            SqlParsingResult: Combined result from multiple queries
+        """
+
+        # Split fields into chunks
+        field_chunks = [
+            view_fields[i : i + self.config.field_threshold_for_splitting]
+            for i in range(
+                0, len(view_fields), self.config.field_threshold_for_splitting
+            )
+        ]
+
+        logger.info(
+            f"Split {len(view_fields)} fields into {len(field_chunks)} chunks for view '{self.view_context.name()}'"
+        )
+
+        all_in_tables = set()
+        all_column_lineage = []
+        combined_debug_info = None
+        successful_queries = 0
+        failed_queries = 0
+
+        for chunk_idx, field_chunk in enumerate(field_chunks):
+            try:
+                logger.debug(
+                    f"Processing field chunk {chunk_idx + 1}/{len(field_chunks)} with {len(field_chunk)} fields "
+                    f"for view '{self.view_context.name()}'"
+                )
+
+                # Create and execute query for this chunk
+                sql_query = self._get_sql_write_query_with_fields(
+                    field_chunk, explore_name
+                )
+                sql_response = self._execute_query(sql_query)
+
+                # Parse the SQL response with partial results allowed
+                spr = self._parse_sql_response(
+                    sql_response, self.config.allow_partial_lineage_results
+                )
+
+                # Combine results
+                all_in_tables.update(spr.in_tables)
+                if spr.column_lineage:
+                    all_column_lineage.extend(spr.column_lineage)
+
+                # Use debug info from the first successful query
+                if combined_debug_info is None:
+                    combined_debug_info = spr.debug_info
+
+                successful_queries += 1
+
+            except Exception as e:
+                failed_queries += 1
+                logger.warning(
+                    f"Failed to process field chunk {chunk_idx + 1}/{len(field_chunks)} for view '{self.view_context.name()}': {e}"
+                )
+                self.reporter.report_warning(
+                    title="Field Chunk Processing Failed",
+                    message=f"Failed to process field chunk {chunk_idx + 1} with {len(field_chunk)} fields",
+                    context=f"View-name: {self.view_context.name()}, Chunk: {chunk_idx + 1}/{len(field_chunks)}",
+                    exc=e,
+                )
+
+                if self.config.allow_partial_lineage_results:
+                    continue
+
+                # If partial lineage is not allowed, raise the exception
+                raise
+
+        if not successful_queries or not all_in_tables or not all_column_lineage:
+            logger.debug(successful_queries, all_in_tables, all_column_lineage)
+            raise ValueError(
+                f"All field chunks failed for view '{self.view_context.name()}'. "
+                f"Total chunks: {len(field_chunks)}, Failed: {failed_queries}"
+            )
+
+        # Create combined result
+        combined_result = SqlParsingResult(
+            in_tables=list(all_in_tables),
+            out_tables=[],  # No output tables for upstream lineage
+            column_lineage=all_column_lineage if all_column_lineage else None,
+            debug_info=combined_debug_info or SqlParsingDebugInfo(),
+        )
+
+        logger.info(
+            f"Successfully combined results for view '{self.view_context.name()}': "
+            f"{len(all_in_tables)} upstream tables, {len(all_column_lineage)} column lineages"
+        )
+
+        # Report field splitting statistics
+        self._report_field_splitting_stats(
+            total_fields=len(view_fields),
+            total_chunks=len(field_chunks),
+            successful_queries=successful_queries,
+            failed_queries=failed_queries,
+            upstream_tables=len(all_in_tables),
+            column_lineages=len(all_column_lineage),
+        )
+
+        return combined_result
+
+    def _report_field_splitting_stats(
+        self,
+        total_fields: int,
+        total_chunks: int,
+        successful_queries: int,
+        failed_queries: int,
+        upstream_tables: int,
+        column_lineages: int,
+    ) -> None:
+        """
+        Report statistics about field splitting processing.
+
+        Args:
+            total_fields: Total number of fields processed
+            total_chunks: Number of field chunks created
+            successful_queries: Number of successful API queries
+            failed_queries: Number of failed API queries
+            upstream_tables: Number of upstream tables found
+            column_lineages: Number of column lineages found
+        """
+        # Use different reporting levels based on success rate
+        success_rate = (successful_queries / total_chunks) * 100
+        if success_rate == 100:
+            # All chunks succeeded
+            self.reporter.report_warning(
+                title="Field Splitting Statistics - Complete Success",
+                message=f"Field splitting completed successfully for view '{self.view_context.name()}': "
+                f"Total fields: {total_fields}, Chunks: {total_chunks}, "
+                f"Upstream tables: {upstream_tables}, Column lineages: {column_lineages}",
+                context=f"View-name: {self.view_context.name()}, Success rate: {success_rate:.1f}%",
+            )
+        elif success_rate > 0:
+            # Partial success
+            self.reporter.report_warning(
+                title="Field Splitting Statistics - Partial Success",
+                message=f"Field splitting completed with partial results for view '{self.view_context.name()}': "
+                f"Total fields: {total_fields}, Chunks: {total_chunks}, "
+                f"Successful: {successful_queries}, Failed: {failed_queries}, "
+                f"Upstream tables: {upstream_tables}, Column lineages: {column_lineages}",
+                context=f"View-name: {self.view_context.name()}, Success rate: {success_rate:.1f}%",
+            )
+        else:
+            # Complete failure
+            self.reporter.report_warning(
+                title="Field Splitting Statistics - Complete Failure",
+                message=f"Field splitting failed completely for view '{self.view_context.name()}': "
+                f"Total fields: {total_fields}, Chunks: {total_chunks}, "
+                f"All {failed_queries} chunks failed",
+                context=f"View-name: {self.view_context.name()}, Success rate: {success_rate:.1f}%",
+            )
 
     def _get_time_dim_group_field_name(self, dim_group: dict) -> str:
         """
@@ -729,57 +975,6 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 continue
 
         return view_fields
-
-    def _get_sql_write_query(self) -> WriteQuery:
-        """
-        Constructs a WriteQuery object to obtain the SQL representation of the current Looker view.
-
-        This method now uses the Looker API to get explore details directly, providing more comprehensive
-        field information compared to relying solely on view context. It falls back to view context
-        if API calls fail.
-
-        The method uses the view_to_explore_map to determine the correct explore name to use in the WriteQuery.
-        This is crucial because the Looker Query API expects the explore name (not the view name) as the "view" parameter.
-
-        Ref: https://cloud.google.com/looker/docs/reference/param-field-sql#sql_for_dimensions
-
-        Returns:
-            WriteQuery: The WriteQuery object if fields are found and explore name is available, otherwise None.
-
-        Raises:
-            ValueError: If no fields are found for the view.
-        """
-
-        # Use explore name from view_to_explore_map if available
-        # explore_name is always present in the view_to_explore_map because of the check in view_upstream.create_view_upstream
-        explore_name = self.view_to_explore_map.get(self.view_context.name())
-        assert explore_name  # Happy linter
-
-        # Try to get fields from Looker API first for more comprehensive information
-        view_fields = self._get_fields_from_looker_api(explore_name)
-
-        # Fallback to view context if API didn't provide fields or failed
-        if not view_fields:
-            view_fields = self._get_fields_from_view_context()
-
-        if not view_fields:
-            raise ValueError(
-                f"No fields found for view '{self.view_context.name()}'. Cannot proceed with Looker API for view lineage."
-            )
-
-        logger.debug(
-            f"Final field list for view '{self.view_context.name()}': {view_fields}"
-        )
-
-        # Construct and return the WriteQuery object.
-        # The 'limit' is set to "1" as the query is only used to obtain SQL, not to fetch data.
-        return WriteQuery(
-            model=self.looker_view_id_cache.model_name,
-            view=explore_name,
-            fields=view_fields,
-            filters={},
-            limit="1",
-        )
 
     def _execute_query(self, query: WriteQuery) -> str:
         """

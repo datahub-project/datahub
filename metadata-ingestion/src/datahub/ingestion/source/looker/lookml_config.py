@@ -211,6 +211,20 @@ class LookMLSourceConfig(
         "All if comments are evaluated to true for configured looker_environment value",
     )
 
+    field_threshold_for_splitting: int = Field(
+        100,
+        description="When the total number of fields returned by Looker API exceeds this threshold, "
+        "the fields will be split into multiple API calls to avoid SQL parsing failures. "
+        "This helps provide partial column and table lineage when dealing with large field sets.",
+    )
+
+    allow_partial_lineage_results: bool = Field(
+        True,
+        description="When enabled, allows partial lineage results to be returned even when some field chunks "
+        "fail or when there are SQL parsing errors. This provides better resilience for large field sets "
+        "and ensures some lineage information is available rather than complete failure.",
+    )
+
     @model_validator(mode="before")
     @classmethod
     def convert_string_to_connection_def(cls, values: Dict[str, Any]) -> Dict[str, Any]:
