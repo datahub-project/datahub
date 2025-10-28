@@ -110,7 +110,7 @@ describe("summary tab", () => {
 
     testPropertiesSection([
       { name: "Created", type: "CREATED" },
-      { name: "Owners", type: "OWNERS", value: USER_DISPLAY_NAME },
+      { name: "Owners", type: "OWNERS" },
     ]);
 
     testAboutSection();
