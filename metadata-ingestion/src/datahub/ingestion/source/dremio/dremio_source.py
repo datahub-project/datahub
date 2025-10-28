@@ -55,7 +55,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
-    IngestionHighStage,
+    PROFILING,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
@@ -201,7 +201,7 @@ class DremioSource(StatefulIngestionSourceBase):
         return "dremio"
 
     def _build_source_map(self) -> Dict[str, DremioSourceMapEntry]:
-        dremio_sources = self.dremio_catalog.get_sources()
+        dremio_sources = list(self.dremio_catalog.get_sources())
         source_mappings_config = self.config.source_mappings or []
 
         source_map = build_dremio_source_map(dremio_sources, source_mappings_config)
@@ -242,9 +242,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
 
             # Process Datasets
-            datasets = self.dremio_catalog.get_datasets()
-
-            for dataset_info in datasets:
+            for dataset_info in self.dremio_catalog.get_datasets():
                 try:
                     yield from self.process_dataset(dataset_info)
                     logger.info(
@@ -258,10 +256,8 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Process Glossary Terms
-            glossary_terms = self.dremio_catalog.get_glossary_terms()
-
-            for glossary_term in glossary_terms:
+            # Process Glossary Terms using streaming
+            for glossary_term in self.dremio_catalog.get_glossary_terms():
                 try:
                     yield from self.process_glossary_term(glossary_term)
                 except Exception as exc:
@@ -283,14 +279,16 @@ class DremioSource(StatefulIngestionSourceBase):
             # Profiling
             if self.config.is_profiling_enabled():
                 with (
-                    self.report.new_high_stage(IngestionHighStage.PROFILING),
+                    self.report.new_stage(PROFILING),
                     ThreadPoolExecutor(
                         max_workers=self.config.profiling.max_workers
                     ) as executor,
                 ):
+                    # Collect datasets for profiling
+                    datasets_for_profiling = list(self.dremio_catalog.get_datasets())
                     future_to_dataset = {
                         executor.submit(self.generate_profiles, dataset): dataset
-                        for dataset in datasets
+                        for dataset in datasets_for_profiling
                     }
 
                     for future in as_completed(future_to_dataset):
@@ -338,10 +336,10 @@ class DremioSource(StatefulIngestionSourceBase):
             return
 
         dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=make_data_platform_urn(self.get_platform()),
-            name=f"dremio.{dataset_name}",
-            env=self.config.env,
+            platform=self.get_platform(),
+            name=dataset_name,
             platform_instance=self.config.platform_instance,
+            env=self.config.env,
         )
 
         for dremio_mcp in self.dremio_aspects.populate_dataset_mcp(
@@ -421,10 +419,10 @@ class DremioSource(StatefulIngestionSourceBase):
         schema_str = ".".join(dataset_info.path)
         dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
         dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=make_data_platform_urn(self.get_platform()),
-            name=f"dremio.{dataset_name}",
-            env=self.config.env,
+            platform=self.get_platform(),
+            name=dataset_name,
             platform_instance=self.config.platform_instance,
+            env=self.config.env,
         )
         yield from self.profiler.get_workunits(dataset_info, dataset_urn)
 
@@ -436,10 +434,10 @@ class DremioSource(StatefulIngestionSourceBase):
         """
         upstream_urns = [
             make_dataset_urn_with_platform_instance(
-                platform=make_data_platform_urn(self.get_platform()),
-                name=f"dremio.{upstream_table.lower()}",
-                env=self.config.env,
+                platform=self.get_platform(),
+                name=upstream_table.lower(),
                 platform_instance=self.config.platform_instance,
+                env=self.config.env,
             )
             for upstream_table in parents
         ]
@@ -498,19 +496,19 @@ class DremioSource(StatefulIngestionSourceBase):
         if query.query and query.affected_dataset:
             upstream_urns = [
                 make_dataset_urn_with_platform_instance(
-                    platform=make_data_platform_urn(self.get_platform()),
-                    name=f"dremio.{ds.lower()}",
-                    env=self.config.env,
+                    platform=self.get_platform(),
+                    name=ds.lower(),
                     platform_instance=self.config.platform_instance,
+                    env=self.config.env,
                 )
                 for ds in query.queried_datasets
             ]
 
             downstream_urn = make_dataset_urn_with_platform_instance(
-                platform=make_data_platform_urn(self.get_platform()),
-                name=f"dremio.{query.affected_dataset.lower()}",
-                env=self.config.env,
+                platform=self.get_platform(),
+                name=query.affected_dataset.lower(),
                 platform_instance=self.config.platform_instance,
+                env=self.config.env,
             )
 
             # Add query to SqlParsingAggregator
