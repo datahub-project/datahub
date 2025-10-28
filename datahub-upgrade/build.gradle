@@ -72,6 +72,7 @@ dependencies {
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   implementation externalDependency.picocli
+  implementation externalDependency.resilience4j
   implementation externalDependency.parquet
   implementation externalDependency.protobuf
   implementation externalDependency.springBeans

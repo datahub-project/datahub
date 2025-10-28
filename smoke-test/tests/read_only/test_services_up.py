@@ -1,10 +1,11 @@
-import os
 import re
 
 import pytest
 
+from tests.utilities import env_vars
+
 # Kept separate so that it does not cause failures in PRs
-DATAHUB_VERSION = os.getenv("TEST_DATAHUB_VERSION")
+DATAHUB_VERSION = env_vars.get_test_datahub_version()
 
 
 def looks_like_a_short_sha(sha: str) -> bool:
