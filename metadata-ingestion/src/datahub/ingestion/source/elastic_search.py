@@ -427,7 +427,7 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
                         ):
                             yield mcp.as_workunit()
             except Exception as e:
-                logger.debug(f"Unable to fetch composable index templates: {e}")
+                logger.warning(f"Unable to fetch composable index templates: {e}")
 
     def _get_template_metadata(
         self, template_name: str, is_composable: bool
