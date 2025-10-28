@@ -1,7 +1,9 @@
+import logging
 import os
 import json
 from pathlib import Path
 
+from collections import defaultdict
 import pytest
 from typing import Dict, List, Optional, Tuple
 from _pytest.nodes import Item
@@ -19,6 +21,8 @@ from tests.utils import (
     delete_urns_from_file,
     wait_for_writes_to_sync,
 )
+
+logger = logging.getLogger(__name__)
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
@@ -175,7 +179,7 @@ def load_pytest_test_weights() -> Dict[str, float]:
             for item in weights_data
         }
     except Exception as e:
-        print(f"Warning: Failed to load pytest test weights: {e}")
+        logger.warning(f"Warning: Failed to load pytest test weights: {e}")
         return {}
 
 
@@ -190,7 +194,6 @@ def aggregate_module_weights(items: List[Item], test_weights: Dict[str, float]) 
     Returns:
         List of (module_path, items_in_module, total_weight) tuples
     """
-    from collections import defaultdict
 
     # Group items by module (file path)
     modules: Dict[str, List[Item]] = defaultdict(list)
@@ -221,35 +224,6 @@ def aggregate_module_weights(items: List[Item], test_weights: Dict[str, float]) 
     return module_data
 
 
-def get_batch_start_end(num_tests: int) -> Tuple[int, int]:
-    batch_count = env_vars.get_batch_count()
-
-    batch_number = env_vars.get_batch_number()
-
-    if batch_count == 0 or batch_count > num_tests:
-        raise ValueError(
-            f"Invalid batch count {batch_count}: must be >0 and <= {num_tests} (num_tests)"
-        )
-    if batch_number >= batch_count:
-        raise ValueError(
-            f"Invalid batch number: {batch_number}, must be less than {batch_count} (zer0 based index)"
-        )
-
-    batch_size = round(num_tests / batch_count)
-
-    batch_start = batch_size * batch_number
-    batch_end = batch_start + batch_size
-    # We must have exactly as many batches as specified by BATCH_COUNT.
-    if (
-            batch_number == batch_count - 1  # this is the last batch
-    ):  # If ths is last batch put any remaining tests in the last batch.
-        batch_end = num_tests
-
-    if batch_count > 0:
-        print(f"Running tests for batch {batch_number} of {batch_count}")
-
-    return batch_start, batch_end
-
 def pytest_collection_modifyitems(
     session: pytest.Session, config: pytest.Config, items: List[Item]
 ) -> None:
@@ -257,9 +231,9 @@ def pytest_collection_modifyitems(
         return  # We launch cypress via pytests, but needs a different batching mechanism at cypress level.
 
     # Get batch configuration
-    batch_count_env = os.getenv("BATCH_COUNT", "1")
+    batch_count_env = env_vars.get_batch_count()
     batch_count = int(batch_count_env)
-    batch_number_env = os.getenv("BATCH_NUMBER", "0")
+    batch_number_env = env_vars.get_batch_number()
     batch_number = int(batch_number_env)
 
     if batch_count <= 1:
@@ -280,7 +254,7 @@ def pytest_collection_modifyitems(
     module_map = {module_path: module_items for module_path, module_items, _ in module_data}
     weighted_modules = [(module_path, total_weight) for module_path, _, total_weight in module_data]
 
-    print(f"Batching {len(items)} tests from {len(weighted_modules)} modules across {batch_count} batches")
+    logger.info(f"Batching {len(items)} tests from {len(weighted_modules)} modules across {batch_count} batches")
 
     # Apply bin-packing to modules
     module_batches = bin_pack_tasks(weighted_modules, batch_count)
@@ -294,7 +268,7 @@ def pytest_collection_modifyitems(
     for module_path in selected_modules:
         selected_items.extend(module_map[module_path])
 
-    print(f"Batch {batch_number}: Running {len(selected_items)} tests from {len(selected_modules)} modules")
+    logger.info(f"Batch {batch_number}: Running {len(selected_items)} tests from {len(selected_modules)} modules")
 
     # Replace items with the filtered list
     items[:] = selected_items
