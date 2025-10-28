@@ -83,9 +83,22 @@ export const useGetColumnStatsColumns = ({ tableData, searchQuery, setExpandedDr
         {
             title: 'Type',
             key: 'type',
-            render: (record) => capitalizeFirstLetter(record.type?.toLowerCase()),
+            render: (record) => {
+                // Handle both object format { type: 'STRING' } and direct string format
+                if (!record.type) return '';
+
+                const typeString = typeof record.type === 'string' ? record.type : record.type.type;
+                return typeString ? capitalizeFirstLetter(typeString.toLowerCase()) : '';
+            },
             sorter: (sourceA, sourceB) => {
-                return sourceA.type.localeCompare(sourceB.type);
+                const getTypeString = (type: any): string => {
+                    if (!type) return '';
+                    return typeof type === 'string' ? type : type.type || '';
+                };
+
+                const typeA = getTypeString(sourceA.type);
+                const typeB = getTypeString(sourceB.type);
+                return typeA.localeCompare(typeB);
             },
         },
     ];
@@ -96,7 +109,13 @@ export const useGetColumnStatsColumns = ({ tableData, searchQuery, setExpandedDr
         key: 'view',
         render: (record) => (
             <ViewButton>
-                <Button variant="text" onClick={() => setExpandedDrawerFieldPath(record.column)}>
+                <Button
+                    variant="text"
+                    onClick={(e) => {
+                        e.stopPropagation(); // Prevent row click
+                        setExpandedDrawerFieldPath(record.originalFieldPath);
+                    }}
+                >
                     View
                 </Button>
             </ViewButton>
