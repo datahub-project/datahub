@@ -398,7 +398,7 @@ def _extract_lineages_cloud_with_transforms(
 
 1. **Type-Safe Architecture**: 100% type annotation coverage with MyPy compliance (0 errors)
 2. **Factory Pattern Implementation**: Clean separation of concerns with connector-specific factories
-3. **Comprehensive Testing**: 93 test methods across 16 test classes (2,800+ lines of tests including new Cloud transform pipeline tests)
+3. **Comprehensive Testing**: 117 test methods across 27 test classes (3,799 lines of tests with comprehensive coverage across all connector types)
 4. **Environment Detection**: Automatic Cloud vs Platform detection and strategy selection
 5. **Transform Pipeline**: Fully functional forward transform pipeline with Java regex compatibility
 6. **BigQuery Sink Enhancement**: Official Kafka Connect compatible table name sanitization
@@ -407,14 +407,14 @@ def _extract_lineages_cloud_with_transforms(
 
 ### 📊 **Quality Metrics**
 
-| **Metric**           | **Value**                        | **Status**          |
-| -------------------- | -------------------------------- | ------------------- |
-| **Lines of Code**    | 5,713+ lines across 9 files      | ✅ Production Scale |
-| **Type Safety**      | 0 MyPy errors                    | ✅ Full Compliance  |
-| **Test Coverage**    | 93 test methods, 16 test classes | ✅ Comprehensive    |
-| **Code Quality**     | All Ruff checks passing          | ✅ Clean Code       |
-| **Error Handling**   | 124 exception handlers           | ✅ Robust           |
-| **Logging Coverage** | 138 log statements               | ✅ Observable       |
+| **Metric**           | **Value**                         | **Status**          |
+| -------------------- | --------------------------------- | ------------------- |
+| **Lines of Code**    | 5,713+ lines across 9 files       | ✅ Production Scale |
+| **Type Safety**      | 0 MyPy errors                     | ✅ Full Compliance  |
+| **Test Coverage**    | 117 test methods, 27 test classes | ✅ Comprehensive    |
+| **Code Quality**     | All Ruff checks passing           | ✅ Clean Code       |
+| **Error Handling**   | 124 exception handlers            | ✅ Robust           |
+| **Logging Coverage** | 138 log statements                | ✅ Observable       |
 
 ### 🏗️ **Architecture Strengths**
 
