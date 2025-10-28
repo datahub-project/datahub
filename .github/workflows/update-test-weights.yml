@@ -4,9 +4,6 @@ on:
   schedule:
     # Run every Sunday at 2am UTC
     - cron: "0 2 * * 0"
-  push:
-    branches:
-      - cr-oss-batching-monitoring
 
   workflow_dispatch:
     inputs:
