@@ -3353,6 +3353,7 @@ class TestInferMappings:
         assert lineages[0].source_dataset == "users"
         assert lineages[0].target_dataset == "users_topic"
         assert lineages[0].source_platform == "postgres"
+        assert lineages[0].job_property_bag is not None
         assert lineages[0].job_property_bag["mode"] == "single_table"
 
     def test_infer_mappings_multi_table_mode(self) -> None:
@@ -3381,11 +3382,14 @@ class TestInferMappings:
         )
 
         assert len(lineages) == 3
-        
+
         # Check products lineage
-        products_lineage = next(lineage for lineage in lineages if "products" in lineage.target_dataset)
+        products_lineage = next(
+            lineage for lineage in lineages if "products" in lineage.target_dataset
+        )
         assert products_lineage.source_dataset == "products"
         assert products_lineage.target_dataset == "db_products"
+        assert products_lineage.job_property_bag is not None
         assert products_lineage.job_property_bag["mode"] == "multi_table"
 
     def test_infer_mappings_with_topic_prefix_only(self) -> None:
@@ -3416,6 +3420,7 @@ class TestInferMappings:
         assert len(lineages) == 2
         assert lineages[0].source_dataset == "events"
         assert lineages[0].target_dataset == "staging_events"
+        assert lineages[0].job_property_bag is not None
         assert lineages[0].job_property_bag["mode"] == "inferred"
 
     def test_infer_mappings_with_schema_qualified_tables(self) -> None:
