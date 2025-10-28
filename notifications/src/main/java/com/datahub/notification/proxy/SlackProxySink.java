@@ -16,7 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SlackProxySink extends IntegrationsServiceProxySink {
 
   /** A list of notification templates supported by this sink. */
-  private static final List<NotificationTemplateType> SUPPORTED_TEMPLATES =
+  public static final List<NotificationTemplateType> V2_SUPPORTED_TEMPLATES =
       ImmutableList.of(
           NotificationTemplateType.BROADCAST_NEW_INCIDENT,
           NotificationTemplateType.BROADCAST_NEW_INCIDENT_UPDATE,
@@ -36,7 +36,7 @@ public class SlackProxySink extends IntegrationsServiceProxySink {
 
   @Override
   public Collection<NotificationTemplateType> templates() {
-    return SUPPORTED_TEMPLATES;
+    return V2_SUPPORTED_TEMPLATES;
   }
 
   @Override
