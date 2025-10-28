@@ -38,6 +38,7 @@ from typing_extensions import assert_never
 from datahub._version import nice_version_name
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import parse_ts_millis
+from datahub.ingestion.source.unity.azure_auth_config import AzureAuthConfig
 from datahub.ingestion.source.unity.config import (
     LineageDataSource,
     UsageDataSource,
@@ -63,7 +64,6 @@ from datahub.ingestion.source.unity.proxy_types import (
     Table,
     TableReference,
 )
-from datahub.ingestion.source.unity.azure_auth_config import AzureAuthConfig
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.utilities.file_backed_collections import FileBackedDict
 
