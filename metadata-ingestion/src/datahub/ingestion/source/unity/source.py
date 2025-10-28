@@ -207,7 +207,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         # Validate that either azure_auth or personal_access_token is provided
         if not (config.azure_auth or config.token):
-            raise ValueError("Either azure_auth or personal_access_token must be provided in the configuration.")
+            raise ValueError(
+                "Either azure_auth or personal_access_token must be provided in the configuration."
+            )
 
         self.init_hive_metastore_proxy()
 
