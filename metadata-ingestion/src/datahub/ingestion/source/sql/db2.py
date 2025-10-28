@@ -36,41 +36,65 @@ class CustomDb2SqlGlotDialect(sqlglot.Dialect):
     NORMALIZATION_STRATEGY = NormalizationStrategy.UPPERCASE
 
 
-class CustomDb2SqlAlchemyDialect(ibm_db_sa.dialect):
+def patch_dialect(dialect):
+    # NOTE: why is this manual patching, and not creating a new custom dialect class?
+    # The ibm_db_sa package has multiple possible dialects based on the scheme — e.g.
+    # DB2Dialect_ibm_db, DB2Dialect_pyodbc, AS400Dialect, AS400Dialect_pyodbc, etc.
+    # We want to make sure this works no matter which dialect class gets used.
+    if not isinstance(dialect, ibm_db_sa.base.DB2Dialect):
+        raise TypeError(
+            f"unable to patch dialect of type {type(dialect)} which does not descend from ibm_db_sa.base.DB2Dialect"
+        )
+
     # ibm_db_sa result column names have inconsistent casing
     # https://github.com/ibmdb/python-ibmdbsa/issues/173
-    requires_name_normalize = False
+    dialect.requires_name_normalize = False
 
-    def initialize(self, connection):
-        # ibm_db_sa unconditionally lowercases names, making it impossible
-        # to distinguish tables with case-sensitive names (and thus impossible
-        # to get further metadata on them).
-        # https://github.com/ibmdb/python-ibmdbsa/issues/153
-        # https://github.com/ibmdb/python-ibmdbsa/issues/170
-        super().initialize(connection)
-        self._reflector.normalize_name = lambda s: s
-        self._reflector.denormalize_name = lambda s: s
+    # TODO: remove this once ibm_db_sa v??? is released
+    # Fix AS400 stuff
+    print(f"{dialect=} {type(dialect)=} {dialect._reflector_cls} {dialect._reflector}")
+    if not isinstance(dialect._reflector, dialect._reflector_cls):
+        logger.debug(
+            f"Resetting reflector from {type(dialect._reflector)} to {dialect._reflector_cls}"
+        )
+        dialect._reflector = dialect._reflector_cls(dialect)
 
-    def get_schema_names(self, connection, **kwargs):
-        for s in super().get_schema_names(connection, **kwargs):
-            # TODO: remove this once ibm_db_sa v0.4.3 is released
-            # get_schema_names() can return schema names with extra space on the end
-            # https://github.com/ibmdb/python-ibmdbsa/issues/172
+    # ibm_db_sa unconditionally lowercases names, making it impossible
+    # to distinguish tables with case-sensitive names (and thus impossible
+    # to get further metadata on them).
+    # https://github.com/ibmdb/python-ibmdbsa/issues/153
+    # https://github.com/ibmdb/python-ibmdbsa/issues/170
+    dialect._reflector.normalize_name = lambda s: s
+    dialect._reflector.denormalize_name = lambda s: s
+
+    # TODO: remove this once ibm_db_sa v0.4.3 is released
+    # get_schema_names() can return schema names with extra space on the end
+    # https://github.com/ibmdb/python-ibmdbsa/issues/172
+    original_schema_names = dialect.get_schema_names
+
+    def get_schema_names(connection, **kwargs):
+        for s in original_schema_names(connection, **kwargs):
             yield s.rstrip()
 
-    def get_table_comment(self, connection, table_name, schema=None, **kwargs):
-        # TODO: remove the custom SQL once ibm_db_sa v0.4.3 is released
-        # get_table_comment returns nothing for views: https://github.com/ibmdb/python-ibmdbsa/issues/171
-        # get_table_comment doesn't work on z/OS or i/AS400: https://github.com/ibmdb/python-ibmdbsa/issues/174
+    dialect.get_schema_names = get_schema_names
+
+    # TODO: remove this once ibm_db_sa v0.4.3 is released
+    # get_table_comment returns nothing for views: https://github.com/ibmdb/python-ibmdbsa/issues/171
+    # get_table_comment doesn't work on z/OS or i/AS400: https://github.com/ibmdb/python-ibmdbsa/issues/174
+    def get_table_comment(connection, table_name, schema=None, **kwargs):
         return {
             "text": _db2_get_table_comment(
                 sqlalchemy.inspect(connection), schema, table_name
             )
         }
 
+    dialect.get_table_comment = get_table_comment
+
 
 class Db2Config(BasicSQLAlchemyConfig):
-    database: str = pydantic.Field(description="The Db2 database to ingest from.")
+    database: Optional[str] = pydantic.Field(
+        default=None, description="The Db2 database to ingest from."
+    )
 
     include_stored_procedures: bool = pydantic.Field(
         default=True,
@@ -90,13 +114,14 @@ class Db2Config(BasicSQLAlchemyConfig):
 
     # Override defaults
     host_port: str = pydantic.Field(default="localhost:50000")
-    scheme: HiddenFromDocs[str] = pydantic.Field(default="db2+ibm_db")
+    scheme: HiddenFromDocs[str] = pydantic.Field(default="db2")
 
     def get_sql_alchemy_url(
         self,
         uri_opts: Optional[Dict[str, Any]] = None,
         database: Optional[str] = None,
     ) -> str:
+        # include config.uri_args in SQLAlchemy URL
         return super().get_sql_alchemy_url(
             {**self.uri_args, **(uri_opts or {})}, database
         )
@@ -129,10 +154,8 @@ class Db2Source(SQLAlchemySource):
 
     def get_inspectors(self) -> Iterable[Inspector]:
         for inspector in super().get_inspectors():
-            # use our custom SQLAlchemy dialect for connections (for the custom SQL
-            # we run) and inspectors (for everything else).
-            inspector.dialect = inspector.bind.dialect = CustomDb2SqlAlchemyDialect()
-            inspector.dialect.initialize(inspector.bind)
+            # use our custom SQLAlchemy dialect
+            patch_dialect(inspector.dialect)
             yield inspector
 
     def get_db_name(self, inspector: Inspector) -> str:
