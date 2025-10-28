@@ -1,5 +1,4 @@
 import logging
-import os
 import threading
 import time
 from contextlib import contextmanager
@@ -10,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from slack_sdk.web import SlackResponse
 
+from tests.utilities import env_vars
 from tests.utilities.slack_helpers import (
     get_channel_id_by_name as slack_get_channel_id_by_name,
     send_message as slack_send_message,
@@ -36,9 +36,9 @@ def slack_operation(operation_name: str) -> Iterator[SlackConfig | None]:
     Handles config retrieval, validation, and error logging.
     Yields None if Slack is not configured.
     """
-    slack_api_token = os.getenv("SLACK_API_TOKEN")
-    slack_channel = os.getenv("SLACK_CHANNEL")
-    test_identifier = os.getenv("TEST_IDENTIFIER", "LOCAL_TEST")
+    slack_api_token = env_vars.get_slack_api_token()
+    slack_channel = env_vars.get_slack_channel()
+    test_identifier = env_vars.get_test_identifier()
 
     if slack_api_token is None or slack_channel is None:
         yield None
@@ -81,7 +81,7 @@ class TestProgressTracker:
         self.update_frequency = 5  # Send update every N tests
         self._counted_tests: dict[str, str] = {}  # nodeid -> outcome
         self.datahub_stats: dict[str, Any] = {}
-        self._slack_thread_ts: str | None = os.getenv("SLACK_THREAD_TS")
+        self._slack_thread_ts: str | None = env_vars.get_slack_thread_ts()
         self._main_msg_ts: str | None = None
 
     def _format_multi_timezone_timestamp(self) -> str:

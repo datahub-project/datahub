@@ -829,3 +829,13 @@
     displayName: Acryl
     type: OTHERS
     logoUrl: "assets/platforms/acryl-dark-mark.svg"
+- entityUrn: urn:li:dataPlatform:google_sheets
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: google_sheets
+    displayName: Google Sheets
+    type: OTHERS
+    logoUrl: "assets/platforms/google-sheets-logo.png"

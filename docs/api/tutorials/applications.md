@@ -55,7 +55,7 @@ If you see the following response, the operation was successful:
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/create_application.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/application_create_full.py show_path_as_comment }}
 ```
 
 </TabItem>
@@ -146,7 +146,7 @@ If you see the following response, the operation was successful:
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/add_application.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/application_add.py show_path_as_comment }}
 ```
 
 </TabItem>
@@ -189,7 +189,7 @@ Expected Response:
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/remove_application.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/application_remove.py show_path_as_comment }}
 ```
 
 </TabItem>

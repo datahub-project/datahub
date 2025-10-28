@@ -338,10 +338,10 @@ class DremioSource(StatefulIngestionSourceBase):
             return
 
         dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=make_data_platform_urn(self.get_platform()),
-            name=f"dremio.{dataset_name}",
-            env=self.config.env,
+            platform=self.get_platform(),
+            name=dataset_name,
             platform_instance=self.config.platform_instance,
+            env=self.config.env,
         )
 
         for dremio_mcp in self.dremio_aspects.populate_dataset_mcp(
@@ -421,10 +421,10 @@ class DremioSource(StatefulIngestionSourceBase):
         schema_str = ".".join(dataset_info.path)
         dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
         dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=make_data_platform_urn(self.get_platform()),
-            name=f"dremio.{dataset_name}",
-            env=self.config.env,
+            platform=self.get_platform(),
+            name=dataset_name,
             platform_instance=self.config.platform_instance,
+            env=self.config.env,
         )
         yield from self.profiler.get_workunits(dataset_info, dataset_urn)
 
@@ -436,10 +436,10 @@ class DremioSource(StatefulIngestionSourceBase):
         """
         upstream_urns = [
             make_dataset_urn_with_platform_instance(
-                platform=make_data_platform_urn(self.get_platform()),
-                name=f"dremio.{upstream_table.lower()}",
-                env=self.config.env,
+                platform=self.get_platform(),
+                name=upstream_table.lower(),
                 platform_instance=self.config.platform_instance,
+                env=self.config.env,
             )
             for upstream_table in parents
         ]
@@ -498,19 +498,19 @@ class DremioSource(StatefulIngestionSourceBase):
         if query.query and query.affected_dataset:
             upstream_urns = [
                 make_dataset_urn_with_platform_instance(
-                    platform=make_data_platform_urn(self.get_platform()),
-                    name=f"dremio.{ds.lower()}",
-                    env=self.config.env,
+                    platform=self.get_platform(),
+                    name=ds.lower(),
                     platform_instance=self.config.platform_instance,
+                    env=self.config.env,
                 )
                 for ds in query.queried_datasets
             ]
 
             downstream_urn = make_dataset_urn_with_platform_instance(
-                platform=make_data_platform_urn(self.get_platform()),
-                name=f"dremio.{query.affected_dataset.lower()}",
-                env=self.config.env,
+                platform=self.get_platform(),
+                name=query.affected_dataset.lower(),
                 platform_instance=self.config.platform_instance,
+                env=self.config.env,
             )
 
             # Add query to SqlParsingAggregator

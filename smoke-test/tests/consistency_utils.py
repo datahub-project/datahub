@@ -1,13 +1,14 @@
 import logging
-import os
 import subprocess
 import time
 
-USE_STATIC_SLEEP: bool = bool(os.getenv("USE_STATIC_SLEEP", False))
-ELASTICSEARCH_REFRESH_INTERVAL_SECONDS: int = int(
-    os.getenv("ELASTICSEARCH_REFRESH_INTERVAL_SECONDS", 3)
+from tests.utilities import env_vars
+
+USE_STATIC_SLEEP: bool = env_vars.get_use_static_sleep()
+ELASTICSEARCH_REFRESH_INTERVAL_SECONDS: int = (
+    env_vars.get_elasticsearch_refresh_interval_seconds()
 )
-KAFKA_BOOTSTRAP_SERVER: str = str(os.getenv("KAFKA_BOOTSTRAP_SERVER", "broker:29092"))
+KAFKA_BOOTSTRAP_SERVER: str = env_vars.get_kafka_bootstrap_server()
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ def wait_for_writes_to_sync(
         time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
         return
     KAFKA_BROKER_CONTAINER: str = str(
-        os.getenv("KAFKA_BROKER_CONTAINER", infer_kafka_broker_container())
+        env_vars.get_kafka_broker_container() or infer_kafka_broker_container()
     )
     start_time = time.time()
     # get offsets

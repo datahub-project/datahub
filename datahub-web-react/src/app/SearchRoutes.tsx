@@ -86,6 +86,14 @@ export const SearchRoutes = (): JSX.Element => {
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
 
     const showIngestV2 = config.featureFlags.showIngestionPageRedesign;
+    const showAnalytics = (config?.analyticsConfig?.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
+
+    const renderAnalyticsPage = () => {
+        if (!showAnalytics) {
+            return <NoPageFound />;
+        }
+        return isThemeV2 ? <AnalyticsPageV2 /> : <AnalyticsPage />;
+    };
 
     return (
         <FinalSearchablePage>
@@ -111,11 +119,8 @@ export const SearchRoutes = (): JSX.Element => {
                     <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                     {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
                     <Route path={PageRoutes.MANAGE_APPLICATIONS} render={() => <ManageApplications />} />
+                    <Route path={PageRoutes.ANALYTICS} render={renderAnalyticsPage} />
                     {isAiChatEnabled && <Route path={PageRoutes.AI_CHAT} render={() => <ChatPage />} />}
-                    <Route
-                        path={PageRoutes.ANALYTICS}
-                        render={() => (isThemeV2 ? <AnalyticsPageV2 /> : <AnalyticsPage />)}
-                    />
                     <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/permissions/policies" />} />
                     <Route
                         path={PageRoutes.SETTINGS_POLICIES}

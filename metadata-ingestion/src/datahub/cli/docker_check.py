@@ -111,7 +111,7 @@ def run_quickstart_preflight_checks(client: docker.DockerClient) -> None:
 
     result = client.containers.run(
         "alpine:latest",
-        "sh -c \"df -B1 / | tail -1 | awk '{print $2, $4}'\"",  # total, available
+        "sh -c \"df -B1 -P / | awk 'NR==2{print $2, $4}'\"",  # total, available
         remove=True,
         stdout=True,
         stderr=True,
