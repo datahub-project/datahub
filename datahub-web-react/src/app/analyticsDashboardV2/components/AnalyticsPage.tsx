@@ -1,5 +1,5 @@
-import { Loader, PageTitle } from '@components';
-import { Alert, Select } from 'antd';
+import { Loader, PageTitle, SelectOption, SimpleSelect } from '@components';
+import { Alert } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -35,6 +35,9 @@ const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolea
     }};
     padding: 24px;
     padding-bottom: 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 `;
 
 const HighlightGroup = styled.div`
@@ -52,20 +55,14 @@ const DomainSection = styled.div`
     display: flex;
     flex-direction: column;
     gap: 16px;
-    padding: 24px 16px;
-`;
-
-const TitleContainer = styled.div`
-    margin-bottom: 8px;
 `;
 
 const FilterSection = styled.div`
     display: flex;
     align-items: center;
-    margin-bottom: 16px;
 `;
 
-const DomainSelect = styled(Select)`
+const DomainSelect = styled(SimpleSelect)`
     width: 220px;
 `;
 
@@ -74,12 +71,6 @@ const LoaderContainer = styled.div`
     justify-content: center;
     align-items: center;
     min-height: 200px;
-`;
-
-const Divider = styled.div`
-    height: 1px;
-    background: ${(props) => props.theme.styles['border-color-default']};
-    margin: 32px 0;
 `;
 
 export const AnalyticsPage = () => {
@@ -105,7 +96,7 @@ export const AnalyticsPage = () => {
     });
     const [domain, setDomain] = useState('ALL');
 
-    const onDomainChange = (inputDomain) => setDomain(inputDomain);
+    const onDomainChange = (inputDomains) => setDomain(inputDomains[0]);
     const {
         loading: metadataAnalyticsLoading,
         error: metadataAnalyticsError,
@@ -122,6 +113,10 @@ export const AnalyticsPage = () => {
     });
 
     const isLoading = highlightLoading || chartLoading || domainLoading || metadataAnalyticsLoading;
+
+    const domainOptions =
+        domainData?.listDomains?.domains?.map((d) => ({ value: d.urn, label: d?.properties?.name || '' })) || [];
+    const options: SelectOption[] = [{ value: 'ALL', label: 'All Domains' }, ...domainOptions];
 
     return (
         <PageContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
@@ -154,9 +149,7 @@ export const AnalyticsPage = () => {
                         ))}
 
                     <DomainSection>
-                        <TitleContainer>
-                            <PageTitle title="Domain Landscape Summary" variant="sectionHeader" />
-                        </TitleContainer>
+                        <PageTitle title="Domain Landscape Summary" variant="sectionHeader" />
                         <FilterSection>
                             {domainError && (
                                 <Alert
@@ -167,19 +160,15 @@ export const AnalyticsPage = () => {
                             <DomainSelect
                                 showSearch
                                 placeholder="Select domain"
-                                value={domain}
-                                onChange={onDomainChange}
-                                filterOption={(input, option) =>
-                                    option?.children?.toLowerCase()?.indexOf(input.toLowerCase()) >= 0
-                                }
-                            >
-                                <Select.Option value="ALL">All Domains</Select.Option>
-                                {domainData?.listDomains?.domains?.map((domainChoice) => (
-                                    <Select.Option value={domainChoice.urn} key={domainChoice.urn}>
-                                        {domainChoice?.properties?.name}
-                                    </Select.Option>
-                                ))}
-                            </DomainSelect>
+                                values={[domain]}
+                                onUpdate={onDomainChange}
+                                filterResultsByQuery
+                                options={options}
+                                isMultiSelect={false}
+                                onClear={undefined}
+                                showClear={false}
+                                width={220}
+                            />
                         </FilterSection>
                     </DomainSection>
 
@@ -195,7 +184,6 @@ export const AnalyticsPage = () => {
                         ?.filter((chartGroup) => chartGroup.groupId === 'DataHubUsageAnalytics')
                         .map((chartGroup) => (
                             <React.Fragment key={chartGroup.title}>
-                                <Divider />
                                 <ChartGroup chartGroup={{ ...chartGroup, title: 'Usage Analytics' }} />
                             </React.Fragment>
                         ))}
