@@ -477,10 +477,56 @@ jobs:
           fi
           echo "matrix={\"include\":[$includes] }" >> "$GITHUB_OUTPUT"
 
+  load_secrets:
+    name: Load secrets from 1Password
+    runs-on: depot-ubuntu-24.04-small
+    needs: setup
+    outputs:
+      bigquery_project_id: ${{ steps.load-secrets-retry.outputs.bigquery_project_id || steps.load-secrets.outputs.bigquery_project_id }}
+      bigquery_client_email: ${{ steps.load-secrets-retry.outputs.bigquery_client_email || steps.load-secrets.outputs.bigquery_client_email }}
+      bigquery_private_key: ${{ steps.load-secrets-retry.outputs.bigquery_private_key || steps.load-secrets.outputs.bigquery_private_key }}
+      bigquery_private_key_id: ${{ steps.load-secrets-retry.outputs.bigquery_private_key_id || steps.load-secrets.outputs.bigquery_private_key_id }}
+      bigquery_client_id: ${{ steps.load-secrets-retry.outputs.bigquery_client_id || steps.load-secrets.outputs.bigquery_client_id }}
+    steps:
+      - name: Load secrets from 1Password
+        id: load-secrets
+        uses: 1password/load-secrets-action@v2
+        continue-on-error: true
+        with:
+          export-env: false
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          BIGQUERY_PROJECT_ID: op://Engineering/SmokeTest - Bigquery/project_id
+          BIGQUERY_CLIENT_EMAIL: op://Engineering/SmokeTest - Bigquery/client_email
+          BIGQUERY_PRIVATE_KEY: op://Engineering/SmokeTest - Bigquery/private_key
+          BIGQUERY_PRIVATE_KEY_ID: op://Engineering/SmokeTest - Bigquery/private_key_id
+          BIGQUERY_CLIENT_ID: op://Engineering/SmokeTest - Bigquery/client_id
+
+      - name: Wait before retry if rate limited
+        if: steps.load-secrets.outcome == 'failure'
+        run: |
+          RETRY_DELAY=$((RANDOM % 30 + 20))
+          echo "First attempt failed, waiting ${RETRY_DELAY} seconds before retry..."
+          sleep $RETRY_DELAY
+
+      - name: Load secrets from 1Password (retry)
+        id: load-secrets-retry
+        if: steps.load-secrets.outcome == 'failure'
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: false
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          BIGQUERY_PROJECT_ID: op://Engineering/SmokeTest - Bigquery/project_id
+          BIGQUERY_CLIENT_EMAIL: op://Engineering/SmokeTest - Bigquery/client_email
+          BIGQUERY_PRIVATE_KEY: op://Engineering/SmokeTest - Bigquery/private_key
+          BIGQUERY_PRIVATE_KEY_ID: op://Engineering/SmokeTest - Bigquery/private_key_id
+          BIGQUERY_CLIENT_ID: op://Engineering/SmokeTest - Bigquery/client_id
+
   smoke_test:
     name: Run Smoke Tests (${{ matrix.test_strategy }}, Batch ${{ matrix.batch }}/${{ matrix.batch_count }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
-    needs: [setup, smoke_test_matrix, base_build]
+    needs: [setup, smoke_test_matrix, base_build, load_secrets]
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
@@ -606,46 +652,13 @@ jobs:
         run: |
           ./gradlew :metadata-ingestion:install
 
-      - name: Stagger 1Password API calls
+      - name: Set secrets from load_secrets job
         run: |
-          # Add random delay to spread out API calls across parallel jobs
-          DELAY=$((RANDOM % 45 + 5))
-          echo "Waiting ${DELAY} seconds before loading secrets to avoid rate limiting..."
-          sleep $DELAY
-
-      - name: Load secrets
-        id: load-secrets
-        uses: 1password/load-secrets-action@v2
-        continue-on-error: true
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          BIGQUERY_PROJECT_ID: op://Engineering/SmokeTest - Bigquery/project_id
-          BIGQUERY_CLIENT_EMAIL: op://Engineering/SmokeTest - Bigquery/client_email
-          BIGQUERY_PRIVATE_KEY: op://Engineering/SmokeTest - Bigquery/private_key
-          BIGQUERY_PRIVATE_KEY_ID: op://Engineering/SmokeTest - Bigquery/private_key_id
-          BIGQUERY_CLIENT_ID: op://Engineering/SmokeTest - Bigquery/client_id
-
-      - name: Retry load secrets if rate limited
-        if: steps.load-secrets.outcome == 'failure'
-        run: |
-          RETRY_DELAY=$((RANDOM % 60 + 30))
-          echo "First attempt failed, waiting ${RETRY_DELAY} seconds before retry..."
-          sleep $RETRY_DELAY
-
-      - name: Load secrets (retry)
-        if: steps.load-secrets.outcome == 'failure'
-        uses: 1password/load-secrets-action@v2
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          BIGQUERY_PROJECT_ID: op://Engineering/SmokeTest - Bigquery/project_id
-          BIGQUERY_CLIENT_EMAIL: op://Engineering/SmokeTest - Bigquery/client_email
-          BIGQUERY_PRIVATE_KEY: op://Engineering/SmokeTest - Bigquery/private_key
-          BIGQUERY_PRIVATE_KEY_ID: op://Engineering/SmokeTest - Bigquery/private_key_id
-          BIGQUERY_CLIENT_ID: op://Engineering/SmokeTest - Bigquery/client_id
+          echo "BIGQUERY_PROJECT_ID=${{ needs.load_secrets.outputs.bigquery_project_id }}" >> $GITHUB_ENV
+          echo "BIGQUERY_CLIENT_EMAIL=${{ needs.load_secrets.outputs.bigquery_client_email }}" >> $GITHUB_ENV
+          echo "BIGQUERY_PRIVATE_KEY=${{ needs.load_secrets.outputs.bigquery_private_key }}" >> $GITHUB_ENV
+          echo "BIGQUERY_PRIVATE_KEY_ID=${{ needs.load_secrets.outputs.bigquery_private_key_id }}" >> $GITHUB_ENV
+          echo "BIGQUERY_CLIENT_ID=${{ needs.load_secrets.outputs.bigquery_client_id }}" >> $GITHUB_ENV
 
       - name: Smoke test
         env:
