@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
 import yaml from 'js-yaml';
+import React, { useMemo } from 'react';
 import { Route } from 'react-router';
-import { MFEBaseConfigurablePage } from "@app/mfeframework/MFEConfigurableContainer";
+
+import { MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
 // Vite's ?raw import lets you import the YAML file as a string
 import mfeYamlRaw from '@app/mfeframework/mfe.config.yaml?raw';
 
@@ -47,7 +48,14 @@ export interface MFESchema {
 
 // SPECIAL NOTE: 'permissions' will be implemented in later sprints. Keeping it as required and subsequently validated so we do not forget.
 const REQUIRED_FIELDS: (keyof MFEConfig)[] = [
-    'id', 'label', 'path', 'remoteEntry', 'module', 'flags', 'permissions', 'navIcon',
+    'id',
+    'label',
+    'path',
+    'remoteEntry',
+    'module',
+    'flags',
+    'permissions',
+    'navIcon',
 ];
 
 /**
@@ -67,7 +75,8 @@ export function validateMFEConfig(config: any): MFEConfigEntry {
     });
     if (typeof config.id !== 'string') errors.push('[MFE Loader] id must be a string');
     if (typeof config.label !== 'string') errors.push('[MFE Loader] label must be a string');
-    if (typeof config.path !== 'string' || !config.path.startsWith('/')) errors.push('[MFE Loader] path must be a string starting with "/"');
+    if (typeof config.path !== 'string' || !config.path.startsWith('/'))
+        errors.push('[MFE Loader] path must be a string starting with "/"');
     if (typeof config.remoteEntry !== 'string') errors.push('[MFE Loader] remoteEntry must be a string');
     if (typeof config.module !== 'string') errors.push('[MFE Loader] module must be a string');
     if (typeof config.flags !== 'object' || config.flags === null) errors.push('[MFE Loader] flags must be an object');
@@ -75,7 +84,11 @@ export function validateMFEConfig(config: any): MFEConfigEntry {
         if (typeof config.flags.enabled !== 'boolean') errors.push('[MFE Loader] flags.enabled must be boolean');
         if (typeof config.flags.showInNav !== 'boolean') errors.push('[MFE Loader] flags.showInNav must be boolean');
     }
-    if (!Array.isArray(config.permissions) || config.permissions.length === 0 || !config.permissions.every(p => typeof p === 'string')) {
+    if (
+        !Array.isArray(config.permissions) ||
+        config.permissions.length === 0 ||
+        !config.permissions.every((p) => typeof p === 'string')
+    ) {
         errors.push('[MFE Loader] permissions must be a non-empty array of strings');
     }
     if (typeof config.navIcon !== 'string' || !config.navIcon.length) {
@@ -149,13 +162,9 @@ export function useDynamicRoutes(): JSX.Element[] {
         console.log('[DynamicRoute] MFE Config:', mfeConfig);
         // Only include valid MFEs in routes
         return mfeConfig.microFrontends
-            .filter(mfe => !('invalid' in mfe && mfe.invalid))
+            .filter((mfe) => !('invalid' in mfe && mfe.invalid))
             .map((mfe) => (
-                <Route
-                    key={mfe.path}
-                    path={mfe.path}
-                    render={() => <MFEBaseConfigurablePage config={mfe} />}
-                />
+                <Route key={mfe.path} path={mfe.path} render={() => <MFEBaseConfigurablePage config={mfe} />} />
             ));
     }, [mfeConfig]);
 }
