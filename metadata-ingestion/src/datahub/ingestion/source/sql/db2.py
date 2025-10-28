@@ -51,8 +51,7 @@ def patch_dialect(dialect):
     dialect.requires_name_normalize = False
 
     # TODO: remove this once ibm_db_sa v??? is released
-    # Fix AS400 stuff
-    print(f"{dialect=} {type(dialect)=} {dialect._reflector_cls} {dialect._reflector}")
+    # Incorrect reflector class used for AS400: https://github.com/ibmdb/python-ibmdbsa/issues/182
     if not isinstance(dialect._reflector, dialect._reflector_cls):
         logger.debug(
             f"Resetting reflector from {type(dialect._reflector)} to {dialect._reflector_cls}"
