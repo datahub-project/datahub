@@ -247,6 +247,13 @@ export function deleteOpenedDataProduct() {
   cy.waitTextVisible("Deleted Data Product!");
 }
 
+export function reloadPageWithMemoryManagement() {
+  cy.window().then((win) => {
+    win.location.reload();
+  });
+  cy.wait(2000);
+}
+
 // Summary tab
 
 export function ensureSummaryTabIsAvailable() {
