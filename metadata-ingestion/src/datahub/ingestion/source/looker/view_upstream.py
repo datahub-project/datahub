@@ -1086,6 +1086,24 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         """
         return f"{self.view_context.name()}.{field_name}"
 
+    def _get_looker_api_field_names(self, field_name: str) -> List[str]:
+        """
+        Translate the field name to the looker api field names
+
+        Example:
+            pk -> purchases.pk
+
+            When we do chucking of fields, we need to handle cases like:
+            pk -> purchases_pk
+
+            Note: cases like pk -> purchases_pk_1 are handled with startswith to cover all possible variants
+
+        """
+        return [
+            self._get_looker_api_field_name(field_name),
+            f"{self.view_context.name()}_{field_name}",
+        ]
+
     def _get_field_name_from_looker_api_field_name(
         self, looker_api_field_name: str
     ) -> str:
@@ -1138,12 +1156,16 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 f"view-name={self.view_context.name()}, field-name={field_name}, field-type={field_context.raw_field.get(VIEW_FIELD_TYPE_ATTRIBUTE)}"
             )
 
-        field_api_name = self._get_looker_api_field_name(field_name).lower()
+        field_api_names = self._get_looker_api_field_names(field_name)
+        field_api_names = [name.lower() for name in field_api_names]
 
         upstream_refs: List[ColumnRef] = []
 
         for lineage in spr.column_lineage:
-            if lineage.downstream.column.lower() == field_api_name:
+            if any(
+                lineage.downstream.column.lower().startswith(name)
+                for name in field_api_names
+            ):
                 for upstream in lineage.upstreams:
                     upstream_refs.append(
                         ColumnRef(table=upstream.table, column=upstream.column)
