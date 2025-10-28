@@ -124,9 +124,7 @@ jobs:
             --title "chore(test): Update test weights from CI runs ($(date +%Y-%m-%d))" \
             --body "$PR_BODY" \
             --head "$BRANCH_NAME" \
-            --base master \
-            --label "automated" \
-            --label "testing"
+            --base master
 
           echo "✓ Pull request created successfully"
 
