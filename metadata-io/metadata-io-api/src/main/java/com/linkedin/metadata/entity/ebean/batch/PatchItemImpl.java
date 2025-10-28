@@ -115,30 +115,13 @@ public class PatchItemImpl implements PatchMCP {
   }
 
   public ChangeItemImpl applyPatch(RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
-    // Use generic patching if explicitly requested via GenericJsonPatch
     if (genericJsonPatch != null) {
       if (!genericJsonPatch.getArrayPrimaryKeys().isEmpty()
           || genericJsonPatch.isForceGenericPatch()) {
         return applyGenericPatch(recordTemplate, aspectRetriever);
       }
     }
-
-    // Check if template patching would work (has template in BOTH supported list AND template map)
-    AspectTemplateEngine aspectTemplateEngine =
-        aspectRetriever.getEntityRegistry().getAspectTemplateEngine();
-
-    // Check if a template is both supported AND actually exists in the template map
-    boolean hasTemplate = AspectTemplateEngine.SUPPORTED_TEMPLATES.contains(getAspectName());
-    RecordTemplate defaultTemplate = aspectTemplateEngine.getDefaultTemplate(getAspectName());
-    boolean hasActualTemplate = defaultTemplate != null;
-
-    // Only use template patching if we have both support AND an actual template implementation
-    if (hasTemplate && hasActualTemplate) {
-      return applyTemplatePatch(recordTemplate, aspectRetriever);
-    } else {
-      // Template patching would fail - fall back to generic patching
-      return applyGenericPatch(recordTemplate, aspectRetriever);
-    }
+    return applyTemplatePatch(recordTemplate, aspectRetriever);
   }
 
   private ChangeItemImpl applyGenericPatch(

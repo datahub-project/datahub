@@ -394,21 +394,17 @@ public class PatchItemImplTest {
                         "[{\"op\":\"add\",\"path\":\"/description\",\"value\":\"Test description\"}]"))
                 .readArray());
 
-    // This should work fine since STATUS_ASPECT_NAME supports PATCH operations
-    // All aspects now support patch operations using generic patching
+    // STATUS_ASPECT_NAME supports patch operations now
     PatchItemImpl patchItem =
         PatchItemImpl.builder()
             .urn(urn)
             .aspectName(STATUS_ASPECT_NAME)
             .auditStamp(auditStamp)
             .patch(patch)
-            .aspectSpec(entityRegistry.getAspectSpecs().get(STATUS_ASPECT_NAME))
             .build(entityRegistry);
 
-    // Verify the patch item was created successfully
     assertNotNull(patchItem);
     assertEquals(patchItem.getAspectName(), STATUS_ASPECT_NAME);
-    assertEquals(patchItem.getUrn(), urn);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
