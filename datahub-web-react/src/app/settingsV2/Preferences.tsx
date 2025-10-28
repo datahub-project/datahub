@@ -123,6 +123,8 @@ export const Preferences = () => {
     const canManageOrganizationDisplayPreferences =
         authenticatedUser?.platformPrivileges?.manageOrganizationDisplayPreferences;
     const canManageApplicationAppearance = userContext?.platformPrivileges?.manageFeatures;
+    // only show beta features card if the user has access (currently only applications)
+    const anyBetaFeaturesEnabled = canManageApplicationAppearance;
 
     return (
         <Page>
@@ -213,60 +215,62 @@ export const Preferences = () => {
                     !canManageApplicationAppearance && (
                         <div style={{ color: colors.gray[1700] }}>No appearance settings found.</div>
                     )}
-                <Card
-                    title={
-                        <BetaFeaturesHeader>
-                            <BetaFeaturesTitle>
-                                Beta Features
-                                <Pill color="violet" variant="filled" label="Experimental" size="sm" />
-                            </BetaFeaturesTitle>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <ChevronButton onClick={() => setIsBetaFeaturesExpanded(!isBetaFeaturesExpanded)}>
-                                    <ChevronIcon
-                                        icon={isBetaFeaturesExpanded ? 'CaretUp' : 'CaretDown'}
-                                        source="phosphor"
-                                        size="md"
-                                    />
-                                </ChevronButton>
-                            </div>
-                        </BetaFeaturesHeader>
-                    }
-                    subTitle="These features are under active development and may change."
-                >
-                    {isBetaFeaturesExpanded && (
-                        <div style={{ marginTop: 16 }}>
-                            {canManageApplicationAppearance && (
-                                <StyledCard>
-                                    <UserSettingRow>
-                                        <TextContainer>
-                                            <SettingText>Show Applications</SettingText>
-                                            <DescriptionText>
-                                                Applications are another way to organize your data, similar to Domains.
-                                                This is a Global setting that will affect all users in your
-                                                organization.
-                                            </DescriptionText>
-                                        </TextContainer>
-                                        <Switch
-                                            label=""
-                                            checked={applicationsEnabled}
-                                            onChange={async () => {
-                                                await updateApplicationsSettingsMutation({
-                                                    variables: {
-                                                        input: {
-                                                            enabled: !applicationsEnabled,
-                                                        },
-                                                    },
-                                                });
-                                                message.success({ content: 'Setting updated!', duration: 2 });
-                                                appConfig?.refreshContext();
-                                            }}
+                {anyBetaFeaturesEnabled && (
+                    <Card
+                        title={
+                            <BetaFeaturesHeader>
+                                <BetaFeaturesTitle>
+                                    Beta Features
+                                    <Pill color="violet" variant="filled" label="Experimental" size="sm" />
+                                </BetaFeaturesTitle>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <ChevronButton onClick={() => setIsBetaFeaturesExpanded(!isBetaFeaturesExpanded)}>
+                                        <ChevronIcon
+                                            icon={isBetaFeaturesExpanded ? 'CaretUp' : 'CaretDown'}
+                                            source="phosphor"
+                                            size="md"
                                         />
-                                    </UserSettingRow>
-                                </StyledCard>
-                            )}
-                        </div>
-                    )}
-                </Card>
+                                    </ChevronButton>
+                                </div>
+                            </BetaFeaturesHeader>
+                        }
+                        subTitle="These features are under active development and may change."
+                    >
+                        {isBetaFeaturesExpanded && (
+                            <div style={{ marginTop: 16 }}>
+                                {canManageApplicationAppearance && (
+                                    <StyledCard>
+                                        <UserSettingRow>
+                                            <TextContainer>
+                                                <SettingText>Show Applications</SettingText>
+                                                <DescriptionText>
+                                                    Applications are another way to organize your data, similar to
+                                                    Domains. This is a Global setting that will affect all users in your
+                                                    organization.
+                                                </DescriptionText>
+                                            </TextContainer>
+                                            <Switch
+                                                label=""
+                                                checked={applicationsEnabled}
+                                                onChange={async () => {
+                                                    await updateApplicationsSettingsMutation({
+                                                        variables: {
+                                                            input: {
+                                                                enabled: !applicationsEnabled,
+                                                            },
+                                                        },
+                                                    });
+                                                    message.success({ content: 'Setting updated!', duration: 2 });
+                                                    appConfig?.refreshContext();
+                                                }}
+                                            />
+                                        </UserSettingRow>
+                                    </StyledCard>
+                                )}
+                            </div>
+                        )}
+                    </Card>
+                )}
             </SourceContainer>
         </Page>
     );
