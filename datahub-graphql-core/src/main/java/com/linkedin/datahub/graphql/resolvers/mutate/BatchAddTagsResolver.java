@@ -149,6 +149,7 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
+
     LabelUtils.validateResource(
         context.getOperationContext(),
         resourceUrn,
