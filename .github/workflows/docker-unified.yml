@@ -376,7 +376,7 @@ jobs:
             echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           else
-            echo "cypress_batch_count=9" >> "$GITHUB_OUTPUT"
+            echo "cypress_batch_count=8" >> "$GITHUB_OUTPUT"
             echo "python_batch_count=7" >> "$GITHUB_OUTPUT"
           fi
 
