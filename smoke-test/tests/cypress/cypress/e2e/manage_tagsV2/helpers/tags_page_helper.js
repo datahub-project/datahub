@@ -18,7 +18,7 @@ export default class TagsPageHelper {
     cy.clickOptionWithTestId("create-tag-modal-create-button");
 
     if (shouldBeSuccessfullyCreated) {
-      cy.getWithTestId("tag-name-field").should("not.exist");
+      cy.getWithTestId("create-tag-modal").should("not.exist");
     } else {
       cy.waitTextVisible("Failed to create tag. An unexpected error occurred");
       cy.clickOptionWithTestId("create-tag-modal-cancel-button");
