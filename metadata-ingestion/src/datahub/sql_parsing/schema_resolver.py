@@ -1,4 +1,5 @@
 import contextlib
+import logging
 import pathlib
 from typing import Dict, List, Optional, Protocol, Set, Tuple
 
@@ -17,6 +18,8 @@ from datahub.sql_parsing._models import _TableName as _TableName
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+
+logger = logging.getLogger(__name__)
 
 # A lightweight table schema: column -> type mapping.
 SchemaInfo = Dict[str, str]
@@ -154,6 +157,14 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             if schema_info:
                 return urn_mixed, schema_info
 
+        # Log resolution failure details
+        logger.debug(
+            f"Schema resolution failed for table {table}. Tried URNs: "
+            f"primary={urn}, lower={urn_lower}, mixed={urn_mixed}. "
+            f"Cache size: {len(self._schema_cache)}, "
+            f"Graph client available: {self.graph is not None}"
+        )
+
         if self._prefers_urn_lower():
             return urn_lower, None
         else:
@@ -167,16 +178,25 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
     def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
         if urn in self._schema_cache:
-            return self._schema_cache[urn]
+            cached_value = self._schema_cache[urn]
+            if cached_value is None:
+                logger.debug(f"URN {urn} found in cache but value is None")
+            return cached_value
 
         # TODO: For bigquery partitioned tables, add the pseudo-column _PARTITIONTIME
         # or _PARTITIONDATE where appropriate.
 
         if self.graph:
+            logger.debug(f"Attempting to fetch schema for {urn} from DataHub graph")
             schema_info = self._fetch_schema_info(self.graph, urn)
             if schema_info:
+                logger.debug(f"Successfully fetched schema for {urn} from graph")
                 self._save_to_cache(urn, schema_info)
                 return schema_info
+            else:
+                logger.debug(f"No schema found for {urn} in DataHub graph")
+        else:
+            logger.debug(f"No graph client available to fetch schema for {urn}")
 
         self._save_to_cache(urn, None)
         return None

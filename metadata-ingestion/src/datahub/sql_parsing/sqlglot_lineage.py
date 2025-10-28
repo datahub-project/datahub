@@ -1442,6 +1442,10 @@ def _sqlglot_lineage_inner(
         table_name_urn_mapping[qualified_table] = urn
         if schema_info:
             table_name_schema_mapping[qualified_table] = schema_info
+        else:
+            logger.debug(
+                f"Failed to resolve schema for table {qualified_table} -> URN: {urn} in statement: {sql[:200]}..."
+            )
 
         # Also include the original, non-qualified table name in the urn mapping.
         table_name_urn_mapping[table] = urn
