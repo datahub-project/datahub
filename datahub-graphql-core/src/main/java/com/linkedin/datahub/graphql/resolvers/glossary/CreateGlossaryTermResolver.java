@@ -13,7 +13,6 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityInput;
-import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.EntityResponse;
@@ -88,8 +87,13 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
               String glossaryTermUrn =
                   _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
-              OwnerUtils.addCreatorAsOwner(
-                  context, glossaryTermUrn, OwnerEntityType.CORP_USER, _entityService);
+              OwnerUtils.validateAndAddOwnersOnEntityCreation(
+                  context.getOperationContext(),
+                  input.getOwners(),
+                  glossaryTermUrn,
+                  UrnUtils.getUrn(context.getActorUrn()),
+                  _entityService);
+
               return glossaryTermUrn;
             } catch (Exception e) {
               log.error(

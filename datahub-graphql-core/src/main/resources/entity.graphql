@@ -5415,6 +5415,12 @@ input CreateTagInput {
   Optional description for the Tag
   """
   description: String
+
+  """
+  Optional - Add owners to the tag.
+  If not provided, no owner will be assigned.
+  """
+  owners: [OwnerInput!]
 }
 
 """
@@ -11713,6 +11719,12 @@ input CreateGlossaryEntityInput {
   Optional parent node urn for the Glossary Node or Term
   """
   parentNode: String
+
+  """
+  Optional - Add owners to the glossary term or node.
+  If not provided, no owner will be assigned.
+  """
+  owners: [OwnerInput!]
 }
 
 enum HealthStatus {

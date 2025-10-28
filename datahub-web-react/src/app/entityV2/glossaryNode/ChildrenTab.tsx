@@ -3,10 +3,10 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import CreateGlossaryEntityModal from '@app/entity/shared/EntityDropdown/CreateGlossaryEntityModal';
 import useGlossaryChildren from '@app/entityV2/glossaryNode/useGlossaryChildren';
 import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
+import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
 import EmptyGlossarySection from '@app/glossaryV2/EmptyGlossarySection';
 import GlossaryEntitiesList from '@app/glossaryV2/GlossaryEntitiesList';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -57,6 +57,9 @@ function ChildrenTab() {
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
 
+    // Check permission to create children (following pattern from EntityActions.tsx and EntityDropdown.tsx)
+    const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
+
     if (!entityData) return <></>;
 
     const childNodes = data
@@ -85,6 +88,7 @@ function ChildrenTab() {
                                 <Tooltip title="Create New Glossary Term" showArrow={false} placement="bottom">
                                     <Button
                                         data-testid="add-term-button"
+                                        disabled={!canCreateGlossaryEntity}
                                         onClick={() => setIsCreateTermModalVisible(true)}
                                     >
                                         <StyledPlusOutlined /> Add Term
@@ -94,6 +98,7 @@ function ChildrenTab() {
                                     <Button
                                         data-testid="add-term-group-button-v2"
                                         variant="outline"
+                                        disabled={!canCreateGlossaryEntity}
                                         onClick={() => setIsCreateNodeModalVisible(true)}
                                     >
                                         <StyledPlusOutlined /> Add Term Group
@@ -124,6 +129,7 @@ function ChildrenTab() {
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryTerm}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateTermModalVisible(false)}
                     refetchData={refetch}
                 />
@@ -131,6 +137,7 @@ function ChildrenTab() {
             {isCreateNodeModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryNode}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetch}
                 />

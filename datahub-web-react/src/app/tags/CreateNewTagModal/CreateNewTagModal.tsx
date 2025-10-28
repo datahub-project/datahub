@@ -1,15 +1,29 @@
-import { Modal } from '@components';
+import { Modal, Text } from '@components';
 import { message } from 'antd';
 import React, { useState } from 'react';
+import styled from 'styled-components';
 
 import { ModalButton } from '@components/components/Modal/Modal';
 
+import { useUserContext } from '@app/context/useUserContext';
+import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
+import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import OwnersSection, { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 import TagDetailsSection from '@app/tags/CreateNewTagModal/TagDetailsSection';
 
-import { useBatchAddOwnersMutation, useSetTagColorMutation } from '@graphql/mutations.generated';
+import { useSetTagColorMutation } from '@graphql/mutations.generated';
 import { useCreateTagMutation } from '@graphql/tag.generated';
+
+const OwnersContainer = styled.div`
+    margin-top: 24px;
+    margin-bottom: 16px;
+`;
+
+const SectionLabel = styled(Text)`
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+`;
 
 type CreateNewTagModalProps = {
     open: boolean;
@@ -17,7 +31,7 @@ type CreateNewTagModalProps = {
 };
 
 /**
- * Modal for creating a new tag with owners and applying it to entities
+ * Modal for creating a new tag with owners
  */
 const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) => {
     // Tag details state
@@ -26,8 +40,8 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
     const [tagColor, setTagColor] = useState('#1890ff');
 
     // Owners state
-    const [pendingOwners, setPendingOwners] = useState<PendingOwner[]>([]);
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+    const { user } = useUserContext();
 
     // Loading state
     const [isLoading, setIsLoading] = useState(false);
@@ -35,14 +49,9 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
     // Mutations
     const [createTagMutation] = useCreateTagMutation();
     const [setTagColorMutation] = useSetTagColorMutation();
-    const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
-
-    const onChangeOwners = (newOwners: PendingOwner[]) => {
-        setPendingOwners(newOwners);
-    };
 
     /**
-     * Handler for creating the tag and applying it to entities
+     * Handler for creating the tag with owners
      */
     const onOk = async () => {
         if (!tagName) {
@@ -53,13 +62,17 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
         setIsLoading(true);
 
         try {
-            // Step 1: Create the new tag
+            // Convert selected owner URNs to OwnerInput format
+            const ownerInputs = createOwnerInputs(selectedOwnerUrns);
+
+            // Step 1: Create the new tag with owners
             const createTagResult = await createTagMutation({
                 variables: {
                     input: {
                         id: tagName.trim(),
                         name: tagName.trim(),
                         description: tagDescription,
+                        owners: ownerInputs.length > 0 ? ownerInputs : undefined,
                     },
                 },
             });
@@ -82,24 +95,11 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
                 });
             }
 
-            // Step 3: Add owners if any
-            if (pendingOwners.length > 0) {
-                await batchAddOwnersMutation({
-                    variables: {
-                        input: {
-                            owners: pendingOwners,
-                            resources: [{ resourceUrn: newTagUrn }],
-                        },
-                    },
-                });
-            }
-
             message.success(`Tag "${tagName}" successfully created`);
             onClose();
             setTagName('');
             setTagDescription('');
             setTagColor('#1890ff');
-            setPendingOwners([]);
             setSelectedOwnerUrns([]);
         } catch (e: any) {
             message.destroy();
@@ -148,12 +148,16 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
             />
 
             {/* Owners Section */}
-            <OwnersSection
-                selectedOwnerUrns={selectedOwnerUrns}
-                setSelectedOwnerUrns={setSelectedOwnerUrns}
-                existingOwners={[]}
-                onChange={onChangeOwners}
-            />
+            <OwnersContainer>
+                <SectionLabel>Add Owners</SectionLabel>
+                <ActorsSearchSelect
+                    selectedActorUrns={selectedOwnerUrns}
+                    onUpdate={(actors) => setSelectedOwnerUrns(actors.map((actor) => actor.urn))}
+                    placeholder="Search for users or groups"
+                    defaultActors={user ? [user] : []}
+                    width="full"
+                />
+            </OwnersContainer>
         </Modal>
     );
 };

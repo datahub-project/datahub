@@ -304,4 +304,35 @@ public class OwnerUtils {
     return AuthorizationUtils.isAuthorized(
         context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
   }
+
+  /**
+   * Validates and adds owners to a newly created entity if owners are provided. This is a
+   * convenience method that combines validation and owner assignment for use in entity creation
+   * resolvers.
+   *
+   * @param opContext The operation context
+   * @param ownerInputs List of owner inputs to validate and add (can be null or empty)
+   * @param resourceUrn URN of the resource to add owners to
+   * @param actorUrn URN of the actor performing the operation
+   * @param entityService Entity service for validation and persistence
+   */
+  public static void validateAndAddOwnersOnEntityCreation(
+      @Nonnull OperationContext opContext,
+      @Nullable List<OwnerInput> ownerInputs,
+      @Nonnull String resourceUrn,
+      @Nonnull Urn actorUrn,
+      @Nonnull EntityService<?> entityService) {
+    if (ownerInputs != null && !ownerInputs.isEmpty()) {
+      // Validate all owner inputs
+      ownerInputs.forEach(ownerInput -> validateOwner(opContext, ownerInput, entityService));
+
+      // Add validated owners to the resource
+      addOwnersToResources(
+          opContext,
+          ownerInputs,
+          ImmutableList.of(new ResourceRefInput(resourceUrn, null, null)),
+          actorUrn,
+          entityService);
+    }
+  }
 }

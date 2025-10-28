@@ -92,3 +92,8 @@ export const WarningMessage = styled.div({
     ...defaultMessageStyles,
     color: theme.semanticTokens.colors.warning,
 });
+
+export const HelperText = styled.div({
+    ...defaultMessageStyles,
+    color: colors.gray[1700],
+});

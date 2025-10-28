@@ -4,13 +4,13 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateTagInput;
-import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
@@ -71,8 +71,13 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
             String tagUrn =
                 _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
-            OwnerUtils.addCreatorAsOwner(
-                context, tagUrn, OwnerEntityType.CORP_USER, _entityService);
+            OwnerUtils.validateAndAddOwnersOnEntityCreation(
+                context.getOperationContext(),
+                input.getOwners(),
+                tagUrn,
+                UrnUtils.getUrn(context.getActorUrn()),
+                _entityService);
+
             return tagUrn;
           } catch (Exception e) {
             log.error(

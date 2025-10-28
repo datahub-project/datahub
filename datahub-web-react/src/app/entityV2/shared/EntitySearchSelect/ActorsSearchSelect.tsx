@@ -6,6 +6,7 @@ import { OptionType } from '@components/components/AutoComplete/types';
 
 import { deduplicateEntities, entitiesToSelectOptions } from '@app/entityV2/shared/utils/selectorUtils';
 import { useGetRecommendations } from '@app/shared/recommendation';
+import { addUserFiltersToAutoCompleteMultipleInput } from '@app/shared/userSearchUtils';
 import { SimpleSelect } from '@src/alchemy-components/components/Select/SimpleSelect';
 import EntityIcon from '@src/app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
@@ -137,13 +138,18 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
     const handleSearch = useCallback(
         (query: string) => {
             if (query.trim()) {
+                const entityTypes = [EntityType.CorpUser, EntityType.CorpGroup];
+                const input = addUserFiltersToAutoCompleteMultipleInput(
+                    {
+                        types: entityTypes,
+                        query: query.trim(),
+                        limit: 10,
+                    },
+                    entityTypes,
+                );
                 autoCompleteQuery({
                     variables: {
-                        input: {
-                            types: [EntityType.CorpUser, EntityType.CorpGroup],
-                            query: query.trim(),
-                            limit: 10,
-                        },
+                        input,
                     },
                 });
             }

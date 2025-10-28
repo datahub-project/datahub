@@ -1,35 +1,50 @@
-import { EditOutlined } from '@ant-design/icons';
-import { Collapse, Form, Input, Modal, Typography, message } from 'antd';
+import { Collapse, Form, message } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
+import { Label } from '@components/components/TextArea/components';
+
 import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
-import NodeParentSelect from '@app/entityV2/shared/EntityDropdown/NodeParentSelect';
+import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import DescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
+import GlossaryNodeSelector from '@app/entityV2/shared/GlossaryNodeSelector/GlossaryNodeSelector';
+import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
+import { Button, Editor, Input, Modal } from '@src/alchemy-components';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';
 import { EntityType } from '@types';
 
-const StyledItem = styled(Form.Item)`
-    margin-bottom: 0;
+const FormItem = styled(Form.Item)`
+    .ant-form-item-label {
+        padding-bottom: 2px;
+    }
 `;
 
-const OptionalWrapper = styled.span`
-    font-weight: normal;
+const FormItemWithMargin = styled(FormItem)`
+    margin-bottom: 16px;
 `;
 
-const ButtonContainer = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: end;
-    gap: 16px;
+const OwnersContainer = styled.div`
+    margin-bottom: 16px;
+`;
+
+const StyledLabel = styled(Label)`
+    font-size: 12px;
+    font-weight: 700;
+    color: ${colors.gray[600]};
+`;
+
+const StyledEditor = styled(Editor)`
+    border: 1px solid ${colors.gray[1400]};
+    border-radius: 8px;
 `;
 
 interface Props {
@@ -50,9 +65,10 @@ function CreateGlossaryEntityModal(props: Props) {
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
     const [stagedName, setStagedName] = useState('');
     const [selectedParentUrn, setSelectedParentUrn] = useState(entityData.urn);
-    const [documentation, setDocumentation] = useState('');
-    const [isDocumentationModalVisible, setIsDocumentationModalVisible] = useState(false);
+    const [description, setDescription] = useState('');
     const [createButtonDisabled, setCreateButtonDisabled] = useState(true);
+    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+    const { user } = useUserContext();
     const refetch = useRefetch();
 
     const [createGlossaryTermMutation] = useCreateGlossaryTermMutation();
@@ -62,14 +78,17 @@ function CreateGlossaryEntityModal(props: Props) {
         const mutation =
             entityType === EntityType.GlossaryTerm ? createGlossaryTermMutation : createGlossaryNodeMutation;
 
-        const sanitizedDescription = DOMPurify.sanitize(documentation);
+        const sanitizedDescription = description ? DOMPurify.sanitize(description) : null;
+        const ownerInputs = createOwnerInputs(selectedOwnerUrns);
+
         mutation({
             variables: {
                 input: {
                     id: stagedId?.length ? stagedId : undefined,
                     name: stagedName,
                     parentNode: selectedParentUrn || null,
-                    description: sanitizedDescription || null,
+                    description: sanitizedDescription,
+                    owners: ownerInputs.length > 0 ? ownerInputs : undefined,
                 },
             },
         })
@@ -101,7 +120,7 @@ function CreateGlossaryEntityModal(props: Props) {
                                     type: entityType,
                                     properties: {
                                         name: stagedName,
-                                        description: sanitizedDescription || null,
+                                        description: sanitizedDescription,
                                     },
                                 },
                             }));
@@ -119,11 +138,6 @@ function CreateGlossaryEntityModal(props: Props) {
         onClose();
     }
 
-    function addDocumentation(description: string) {
-        setDocumentation(description);
-        setIsDocumentationModalVisible(false);
-    }
-
     return (
         <Modal
             title={`Create ${
@@ -132,9 +146,10 @@ function CreateGlossaryEntityModal(props: Props) {
                     : entityRegistry.getEntityName(entityType)
             }`}
             visible
+            width={752}
             onCancel={onClose}
             footer={
-                <ButtonContainer>
+                <ModalButtonContainer>
                     <Button color="gray" onClick={onClose} variant="text">
                         Cancel
                     </Button>
@@ -145,7 +160,7 @@ function CreateGlossaryEntityModal(props: Props) {
                     >
                         Create
                     </Button>
-                </ButtonContainer>
+                </ModalButtonContainer>
             }
         >
             <Form
@@ -158,99 +173,94 @@ function CreateGlossaryEntityModal(props: Props) {
                     setCreateButtonDisabled(form.getFieldsError().some((field) => field.errors.length > 0))
                 }
             >
-                <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
-                    <StyledItem
+                <FormItemWithMargin
+                    name="name"
+                    rules={[
+                        {
+                            required: true,
+                            message: `Enter a ${entityRegistry.getEntityName(entityType)} name.`,
+                        },
+                        { whitespace: true },
+                        { min: 1, max: 100 },
+                    ]}
+                    hasFeedback
+                >
+                    <StyledLabel>Name</StyledLabel>
+                    <Input
+                        label=""
+                        autoFocus
                         data-testid="create-glossary-entity-modal-name"
-                        name="name"
-                        rules={[
-                            {
-                                required: true,
-                                message: `Enter a ${entityRegistry.getEntityName(entityType)} name.`,
-                            },
-                            { whitespace: true },
-                            { min: 1, max: 100 },
-                        ]}
-                        hasFeedback
-                    >
-                        <Input
-                            autoFocus
-                            placeholder="Provide a name..."
-                            value={stagedName}
-                            onChange={(event) => setStagedName(event.target.value)}
-                        />
-                    </StyledItem>
-                </Form.Item>
+                        placeholder="Provide a name..."
+                        value={stagedName}
+                        onChange={({ target: { value } }) => {
+                            setStagedName(value);
+                            form.setFieldValue('name', value);
+                            form.validateFields(['name']);
+                        }}
+                    />
+                </FormItemWithMargin>
+
+                <FormItemWithMargin>
+                    <StyledLabel>Description</StyledLabel>
+                    <StyledEditor
+                        content={description}
+                        onChange={setDescription}
+                        placeholder="Add a description for your glossary entity"
+                        doNotFocus
+                    />
+                </FormItemWithMargin>
+
                 {canSelectParentUrn && (
-                    <Form.Item
-                        label={
-                            <Typography.Text strong>
-                                Parent <OptionalWrapper>(optional)</OptionalWrapper>
-                            </Typography.Text>
-                        }
-                    >
-                        <StyledItem name="parent">
-                            <NodeParentSelect
-                                selectedParentUrn={selectedParentUrn}
-                                setSelectedParentUrn={setSelectedParentUrn}
-                            />
-                        </StyledItem>
-                    </Form.Item>
+                    <FormItemWithMargin name="parent">
+                        <StyledLabel>Parent</StyledLabel>
+                        <GlossaryNodeSelector
+                            selectedNodes={selectedParentUrn ? [selectedParentUrn] : []}
+                            onNodesChange={(nodeUrns) => setSelectedParentUrn(nodeUrns[0] || '')}
+                            placeholder="Select parent node"
+                            label=""
+                            isMultiSelect={false}
+                        />
+                    </FormItemWithMargin>
                 )}
 
-                <StyledItem
-                    label={
-                        <Typography.Text strong>
-                            Documentation <OptionalWrapper>(optional)</OptionalWrapper>
-                        </Typography.Text>
-                    }
-                >
-                    <Button variant="text" onClick={() => setIsDocumentationModalVisible(true)}>
-                        <EditOutlined />
-                        {documentation ? 'Edit' : 'Add'} Documentation
-                    </Button>
-                    {isDocumentationModalVisible && (
-                        <DescriptionModal
-                            title="Add Documentation"
-                            onClose={() => setIsDocumentationModalVisible(false)}
-                            onSubmit={addDocumentation}
-                            description={documentation}
-                        />
-                    )}
-                </StyledItem>
+                <OwnersContainer>
+                    <StyledLabel>Add Owners</StyledLabel>
+                    <ActorsSearchSelect
+                        selectedActorUrns={selectedOwnerUrns}
+                        onUpdate={(actors) => setSelectedOwnerUrns(actors.map((actor) => actor.urn))}
+                        placeholder="Search for users or groups"
+                        defaultActors={user ? [user] : []}
+                        width="full"
+                    />
+                </OwnersContainer>
                 <Collapse ghost>
-                    <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
-                        <Form.Item
-                            label={
-                                <Typography.Text strong>
-                                    {entityRegistry.getEntityName(props.entityType)} Id
-                                </Typography.Text>
-                            }
+                    <Collapse.Panel header={<StyledLabel>Advanced Options</StyledLabel>} key="1">
+                        <FormItemWithMargin
+                            name="id"
+                            rules={[
+                                () => ({
+                                    validator(_, value) {
+                                        if (value && validateCustomUrnId(value)) {
+                                            return Promise.resolve();
+                                        }
+                                        return Promise.reject(new Error('Please enter a valid entity id'));
+                                    },
+                                }),
+                            ]}
                         >
-                            <Typography.Paragraph>
-                                By default, a random UUID will be generated to uniquely identify this entity. If
-                                you&apos;d like to provide a custom id, you may provide it here. Note that it should be
-                                unique across the entire Glossary. Be careful, you cannot easily change the id after
-                                creation.
-                            </Typography.Paragraph>
-                            <Form.Item
-                                name="id"
-                                rules={[
-                                    () => ({
-                                        validator(_, value) {
-                                            if (value && validateCustomUrnId(value)) {
-                                                return Promise.resolve();
-                                            }
-                                            return Promise.reject(new Error('Please enter a valid entity id'));
-                                        },
-                                    }),
-                                ]}
-                            >
-                                <Input
-                                    placeholder="classification"
-                                    onChange={(event) => setStagedId(event.target.value)}
-                                />
-                            </Form.Item>
-                        </Form.Item>
+                            <StyledLabel>{entityRegistry.getEntityName(props.entityType)} Id</StyledLabel>
+                            <Input
+                                label=""
+                                placeholder="classification"
+                                value={stagedId || ''}
+                                onChange={({ target: { value } }) => {
+                                    setStagedId(value);
+                                    form.setFieldValue('id', value);
+                                    form.validateFields(['id']);
+                                }}
+                                helperText="By default, a random UUID will be generated to uniquely identify this entity. If you'd like to provide a custom id, you may provide it here. Note that it should be unique across the entire Glossary. Be careful, you cannot easily change the id after creation."
+                            />
+                        </FormItemWithMargin>
                     </Collapse.Panel>
                 </Collapse>
             </Form>

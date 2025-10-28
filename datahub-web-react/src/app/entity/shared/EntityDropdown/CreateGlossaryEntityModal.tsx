@@ -6,11 +6,14 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import NodeParentSelect from '@app/entity/shared/EntityDropdown/NodeParentSelect';
 import DescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
+import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -28,6 +31,11 @@ const OptionalWrapper = styled.span`
 
 const StyledButton = styled(Button)`
     padding: 0;
+`;
+
+const OwnersContainer = styled.div`
+    margin-top: 16px;
+    margin-bottom: 16px;
 `;
 
 interface Props {
@@ -49,6 +57,8 @@ function CreateGlossaryEntityModal(props: Props) {
     const [documentation, setDocumentation] = useState('');
     const [isDocumentationModalVisible, setIsDocumentationModalVisible] = useState(false);
     const [createButtonDisabled, setCreateButtonDisabled] = useState(true);
+    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+    const { user } = useUserContext();
     const refetch = useRefetch();
     const history = useHistory();
 
@@ -75,6 +85,8 @@ function CreateGlossaryEntityModal(props: Props) {
             entityType === EntityType.GlossaryTerm ? createGlossaryTermMutation : createGlossaryNodeMutation;
 
         const sanitizedDescription = DOMPurify.sanitize(documentation);
+        const ownerInputs = createOwnerInputs(selectedOwnerUrns);
+
         mutation({
             variables: {
                 input: {
@@ -82,6 +94,7 @@ function CreateGlossaryEntityModal(props: Props) {
                     name: stagedName,
                     parentNode: selectedParentUrn || null,
                     description: sanitizedDescription || null,
+                    owners: ownerInputs.length > 0 ? ownerInputs : undefined,
                 },
             },
         })
@@ -204,6 +217,22 @@ function CreateGlossaryEntityModal(props: Props) {
                         />
                     </StyledItem>
                 </Form.Item>
+
+                <OwnersContainer>
+                    <Typography.Text strong>
+                        Add Owners <OptionalWrapper>(optional)</OptionalWrapper>
+                    </Typography.Text>
+                    <div style={{ marginTop: '8px' }}>
+                        <ActorsSearchSelect
+                            selectedActorUrns={selectedOwnerUrns}
+                            onUpdate={(actors) => setSelectedOwnerUrns(actors.map((actor) => actor.urn))}
+                            placeholder="Search for users or groups"
+                            defaultActors={user ? [user] : []}
+                            width="full"
+                        />
+                    </div>
+                </OwnersContainer>
+
                 <StyledItem
                     label={
                         <Typography.Text strong>
