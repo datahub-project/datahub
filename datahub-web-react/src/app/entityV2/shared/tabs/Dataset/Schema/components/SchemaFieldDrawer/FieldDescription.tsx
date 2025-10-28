@@ -5,6 +5,9 @@ import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { EditorProps } from '@components/components/Editor/types';
+import { sanitizeRichText } from '@components/components/Editor/utils';
+
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
@@ -15,7 +18,6 @@ import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/
 import { useSchemaRefetch } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
 import { getFieldDescriptionDetails } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldDescriptionDetails';
-import { sanitizeRichText } from '@app/entityV2/shared/tabs/Documentation/components/editor/utils';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 
@@ -58,9 +60,10 @@ const DescriptionWrapper = styled.div`
 interface Props {
     expandedField: SchemaField;
     editableFieldInfo?: EditableSchemaFieldInfo;
+    editorProps?: Partial<EditorProps>;
 }
 
-export default function FieldDescription({ expandedField, editableFieldInfo }: Props) {
+export default function FieldDescription({ expandedField, editableFieldInfo, editorProps }: Props) {
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -177,6 +180,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                         onClose();
                     }}
                     isAddDesc={!displayedDescription}
+                    editorProps={editorProps}
                 />
             )}
             <StyledDivider dashed />

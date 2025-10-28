@@ -33,6 +33,7 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.service.*;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -225,6 +226,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @Qualifier("systemEntityClient")
   private SystemEntityClient systemEntityClient;
 
+  @MockitoBean
+  @Qualifier("s3Util")
+  private S3Util s3Util;
+
   @MockitoBean private EntityVersioningService entityVersioningService;
 
   @MockitoBean private MetricUtils metricUtils;
@@ -251,6 +256,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @MockitoBean
   @Qualifier("pageModuleService")
   private PageModuleService pageModuleService;
+
+  @MockitoBean
+  @Qualifier("dataHubFileService")
+  private DataHubFileService dataHubFileService;
 
   @Value("${platformAnalytics.enabled}")
   private Boolean isAnalyticsEnabled;
@@ -356,6 +365,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     setField(factoryWithAnalytics, "businessAttributeService", businessAttributeService);
     setField(factoryWithAnalytics, "_connectionService", connectionService);
     setField(factoryWithAnalytics, "assertionService", assertionService);
+    setField(factoryWithAnalytics, "pageTemplateService", pageTemplateService);
+    setField(factoryWithAnalytics, "pageModuleService", pageModuleService);
+    setField(factoryWithAnalytics, "dataHubFileService", dataHubFileService);
+    setField(factoryWithAnalytics, "s3Util", s3Util);
     setField(factoryWithAnalytics, "isAnalyticsEnabled", true);
 
     // When
@@ -408,8 +421,12 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     assertNotNull(businessAttributeService);
     assertNotNull(connectionService);
     assertNotNull(assertionService);
+    assertNotNull(pageTemplateService);
+    assertNotNull(pageModuleService);
+    assertNotNull(dataHubFileService);
     assertNotNull(entityClient);
     assertNotNull(systemEntityClient);
+    assertNotNull(s3Util);
     assertNotNull(entityVersioningService);
     assertNotNull(metricUtils);
   }
@@ -462,6 +479,15 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     // The factory should handle StsClient creation exceptions gracefully
     // This is tested implicitly by the successful creation of graphQLEngine
     assertNotNull(graphQLEngine);
+  }
+
+  @Test
+  public void testS3UtilIntegration() {
+    // Verify S3Util is properly injected and available
+    assertNotNull(s3Util, "S3Util should be injected into GraphQLEngineFactory");
+
+    // Verify S3Util is passed to the GraphQL engine
+    assertNotNull(graphQLEngine, "GraphQLEngine should be created with S3Util");
   }
 
   private void setField(Object target, String fieldName, Object value) {

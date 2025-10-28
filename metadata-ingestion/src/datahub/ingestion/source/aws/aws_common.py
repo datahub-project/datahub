@@ -3,11 +3,13 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union
+from urllib.parse import parse_qs, urlparse
 
 import boto3
 import requests
 from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
+from botocore.exceptions import ClientError, NoCredentialsError
 from botocore.utils import fix_s3_host
 from pydantic.fields import Field
 
@@ -464,6 +466,165 @@ class AwsConnectionConfig(ConfigModel):
 
     def get_lakeformation_client(self) -> "LakeFormationClient":
         return self.get_session().client("lakeformation", config=self._aws_config())
+
+    def get_rds_client(self):
+        """Get an RDS client for generating IAM auth tokens."""
+        return self.get_session().client("rds", config=self._aws_config())
+
+
+def generate_rds_iam_token(
+    endpoint: str,
+    username: str,
+    port: int,
+    aws_config: AwsConnectionConfig,
+) -> str:
+    """
+    Generate an AWS RDS IAM authentication token.
+
+    boto3's generate_db_auth_token() returns a presigned URL in the format:
+    "hostname:port/?Action=connect&DBUser=username&X-Amz-Date=...&X-Amz-Expires=..."
+
+    This token should be used as-is by pymysql/psycopg2 drivers.
+
+    Args:
+        endpoint: RDS endpoint hostname
+        username: Database username for IAM authentication
+        port: Database port (5432 for PostgreSQL, 3306 for MySQL)
+        aws_config: AwsConnectionConfig for session management and credentials
+
+    Returns:
+        Authentication token (presigned URL format)
+
+    Raises:
+        ValueError: If AWS credentials are not found or token generation fails
+
+    """
+    try:
+        client = aws_config.get_rds_client()
+        token = client.generate_db_auth_token(
+            DBHostname=endpoint, Port=port, DBUsername=username
+        )
+        logger.debug(f"Generated RDS IAM token for {username}@{endpoint}:{port}")
+        return token
+    except NoCredentialsError as e:
+        raise ValueError("AWS credentials not found") from e
+    except ClientError as e:
+        raise ValueError(f"Failed to generate RDS IAM token: {e}") from e
+
+
+class RDSIAMTokenManager:
+    """
+    Manages RDS IAM token lifecycle with automatic refresh.
+
+    RDS IAM tokens include expiration information in the URL parameters.
+    This manager parses the token expiry and refreshes before expiration
+    to ensure uninterrupted database access.
+    """
+
+    def __init__(
+        self,
+        endpoint: str,
+        username: str,
+        port: int,
+        aws_config: AwsConnectionConfig,
+        refresh_threshold_minutes: int = 5,
+    ):
+        """
+        Initialize the token manager.
+
+        Args:
+            endpoint: RDS endpoint hostname
+            username: Database username for IAM authentication
+            port: Database port
+            aws_config: AwsConnectionConfig for session management and credentials
+            refresh_threshold_minutes: Refresh token when this many minutes remain before expiry
+        """
+        self.endpoint = endpoint
+        self.username = username
+        self.port = port
+        self.aws_config = aws_config
+        self.refresh_threshold = timedelta(minutes=refresh_threshold_minutes)
+
+        self._current_token: Optional[str] = None
+        self._token_expires_at: Optional[datetime] = None
+
+    def get_token(self) -> str:
+        """
+        Get current token, refreshing if necessary.
+
+        Returns:
+            Valid authentication token
+
+        Raises:
+            RuntimeError: If token generation or refresh fails
+        """
+        if self._needs_refresh():
+            self._refresh_token()
+
+        assert self._current_token is not None
+        return self._current_token
+
+    def _needs_refresh(self) -> bool:
+        """Check if token needs to be refreshed."""
+        if self._current_token is None or self._token_expires_at is None:
+            return True
+
+        time_until_expiry = self._token_expires_at - datetime.now(timezone.utc)
+        return time_until_expiry <= self.refresh_threshold
+
+    def _parse_token_expiry(self, token: str) -> datetime:
+        """
+        Parse token expiry from X-Amz-Date and X-Amz-Expires URL parameters.
+
+        Args:
+            token: RDS IAM authentication token (presigned URL)
+
+        Returns:
+            Expiration datetime in UTC
+
+        Raises:
+            ValueError: If token URL format is invalid or missing required parameters
+        """
+        try:
+            parsed_url = urlparse(token)
+            query_params = parse_qs(parsed_url.query)
+
+            # Extract X-Amz-Date (ISO 8601 format: YYYYMMDDTHHMMSSZ)
+            amz_date_list = query_params.get("X-Amz-Date")
+            if not amz_date_list:
+                raise ValueError("Missing X-Amz-Date parameter in RDS IAM token")
+            amz_date_str = amz_date_list[0]
+
+            # Extract X-Amz-Expires (duration in seconds)
+            amz_expires_list = query_params.get("X-Amz-Expires")
+            if not amz_expires_list:
+                raise ValueError("Missing X-Amz-Expires parameter in RDS IAM token")
+            amz_expires_seconds = int(amz_expires_list[0])
+
+            # Parse X-Amz-Date to datetime
+            token_issued_at = datetime.strptime(amz_date_str, "%Y%m%dT%H%M%SZ").replace(
+                tzinfo=timezone.utc
+            )
+
+            # Calculate expiration
+            return token_issued_at + timedelta(seconds=amz_expires_seconds)
+
+        except (ValueError, KeyError, IndexError) as e:
+            raise ValueError(
+                f"Failed to parse RDS IAM token expiry: {e}. Token format may be invalid."
+            ) from e
+
+    def _refresh_token(self) -> None:
+        """Generate and store a new token with parsed expiry."""
+        logger.info("Refreshing RDS IAM authentication token")
+        self._current_token = generate_rds_iam_token(
+            endpoint=self.endpoint,
+            username=self.username,
+            port=self.port,
+            aws_config=self.aws_config,
+        )
+        self._token_expires_at = self._parse_token_expiry(self._current_token)
+        logger.debug(f"Token will expire at {self._token_expires_at}")
 
 
 class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):

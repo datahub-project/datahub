@@ -47,7 +47,7 @@ export const IncidentEditor = ({
         data?.title?.length &&
             data?.description &&
             data?.type &&
-            (data?.type !== IncidentType.Custom || data?.customType),
+            (data?.type !== IncidentType?.Custom || data?.customType),
     );
     const { user } = useUserContext();
     const userHasChangedState = useRef(false);
