@@ -48,7 +48,7 @@ export default defineConfig(async ({ mode }) => {
 
     let antThemeConfig: any;
     if (process.env.ANT_THEME_CONFIG) {
-        const themeConfigFile = `./src/conf/theme/${process.env.REACT_APP_THEME_CONFIG}`;
+        const themeConfigFile = `./src/conf/theme/${process.env.ANT_THEME_CONFIG}`;
         // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
         antThemeConfig = require(themeConfigFile);
     }
