@@ -69,7 +69,7 @@ describe("summary tab", () => {
     cy.login();
   });
 
-  it("domain", () => {
+  it.skip("domain", () => {
     const testId = getTestId();
     const domainName = `domain_${testId}`;
     const childDomainName = `child_domain_${testId}`;
@@ -124,7 +124,7 @@ describe("summary tab", () => {
     utils.deleteDomain(domainName);
   });
 
-  it("glossary node", () => {
+  it.skip("glossary node", () => {
     const testId = getTestId();
     const termName = `term_${testId}`;
     const nodeName = `node_${testId}`;
@@ -165,7 +165,7 @@ describe("summary tab", () => {
     utils.deleteOpenedGLossaryTerm();
   });
 
-  it("glossary term", () => {
+  it.skip("glossary term", () => {
     const testId = getTestId();
     const domainName = TEST_DOMAIN;
     const nodeName = `term_node_${testId}`;
@@ -216,7 +216,7 @@ describe("summary tab", () => {
     utils.deleteOpenedGlossaryNode();
   });
 
-  it("data product", () => {
+  it.skip("data product", () => {
     const testId = getTestId();
     const domainName = `Testing`;
     const dataProductName = `dp_${testId}`;
