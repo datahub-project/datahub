@@ -4,7 +4,6 @@ import enum
 import functools
 import json
 import logging
-import os
 import pathlib
 import tempfile
 import uuid
@@ -14,10 +13,10 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
+from datahub.configuration.env_vars import get_sql_agg_query_log
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.sql_parsing_builder import compute_upstream_fields
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -84,7 +83,7 @@ class QueryLogSetting(enum.Enum):
 _DEFAULT_USER_URN = CorpUserUrn("_ingestion")
 _MISSING_SESSION_ID = "__MISSING_SESSION_ID"
 _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
-    os.getenv("DATAHUB_SQL_AGG_QUERY_LOG") or QueryLogSetting.DISABLED.name
+    get_sql_agg_query_log() or QueryLogSetting.DISABLED.name
 ]
 MAX_UPSTREAM_TABLES_COUNT = 300
 MAX_FINEGRAINEDLINEAGE_COUNT = 2000
@@ -868,7 +867,7 @@ class SqlParsingAggregator(Closeable):
                 downstream=parsed.out_tables[0] if parsed.out_tables else None,
                 column_lineage=parsed.column_lineage,
                 # TODO: We need a full list of columns referenced, not just the out tables.
-                column_usage=compute_upstream_fields(parsed),
+                column_usage=self._compute_upstream_fields(parsed),
                 inferred_schema=infer_output_schema(parsed),
                 confidence_score=parsed.debug_info.confidence,
                 extra_info=observed.extra_info,
@@ -1157,7 +1156,7 @@ class SqlParsingAggregator(Closeable):
                 actor=None,
                 upstreams=parsed.in_tables,
                 column_lineage=parsed.column_lineage or [],
-                column_usage=compute_upstream_fields(parsed),
+                column_usage=self._compute_upstream_fields(parsed),
                 confidence_score=parsed.debug_info.confidence,
             )
         )
@@ -1341,11 +1340,25 @@ class SqlParsingAggregator(Closeable):
                 upstreams.setdefault(upstream, query.query_id)
 
             for lineage_info in query.column_lineage:
-                for upstream_ref in lineage_info.upstreams:
-                    cll[lineage_info.downstream.column].setdefault(
-                        SchemaFieldUrn(upstream_ref.table, upstream_ref.column),
-                        query.query_id,
+                if (
+                    not lineage_info.downstream.column
+                    or not lineage_info.downstream.column.strip()
+                ):
+                    logger.debug(
+                        f"Skipping lineage entry with empty downstream column in query {query.query_id}"
                     )
+                    continue
+
+                for upstream_ref in lineage_info.upstreams:
+                    if upstream_ref.column and upstream_ref.column.strip():
+                        cll[lineage_info.downstream.column].setdefault(
+                            SchemaFieldUrn(upstream_ref.table, upstream_ref.column),
+                            query.query_id,
+                        )
+                    else:
+                        logger.debug(
+                            f"Skipping empty column reference in lineage for query {query.query_id}"
+                        )
 
         # Finally, we can build our lineage edge.
         required_queries = OrderedSet[QueryId]()
@@ -1740,6 +1753,16 @@ class SqlParsingAggregator(Closeable):
         )
 
         return resolved_query
+
+    @staticmethod
+    def _compute_upstream_fields(
+        result: SqlParsingResult,
+    ) -> Dict[UrnStr, Set[UrnStr]]:
+        upstream_fields: Dict[UrnStr, Set[UrnStr]] = defaultdict(set)
+        for cl in result.column_lineage or []:
+            for upstream in cl.upstreams:
+                upstream_fields[upstream.table].add(upstream.column)
+        return upstream_fields
 
     def _gen_usage_statistics_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         if not self._usage_aggregator:

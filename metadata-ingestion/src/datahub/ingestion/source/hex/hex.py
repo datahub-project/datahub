@@ -46,7 +46,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.sdk.main_client import DataHubClient
 
 
@@ -172,7 +171,6 @@ class HexSourceConfig(
 class HexReport(
     StaleEntityRemovalSourceReport,
     HexApiReport,
-    IngestionStageReport,
     HexQueryFetcherReport,
 ):
     pass
@@ -180,7 +178,7 @@ class HexReport(
 
 @platform_name("Hex")
 @config_class(HexSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DESCRIPTIONS, "Supported by default")
 @capability(SourceCapability.OWNERSHIP, "Supported by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")

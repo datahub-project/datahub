@@ -75,7 +75,13 @@ services:
       NEO4J_URI: bolt://neo4j
       NEO4J_USERNAME: neo4j
       PE_CONSUMER_ENABLED: 'true'
+      POLICY_CACHE_REFRESH_INTERVAL_SECONDS: '120'
       SCHEMA_REGISTRY_TYPE: INTERNAL
+      SEARCH_BAR_API_VARIANT: SEARCH_ACROSS_ENTITIES
+      SHOW_HAS_SIBLINGS_FILTER: 'true'
+      SHOW_HOME_PAGE_REDESIGN: 'true'
+      SHOW_INGESTION_PAGE_REDESIGN: 'true'
+      SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN: 'true'
       STRICT_URN_VALIDATION_ENABLED: 'true'
       THEME_V2_DEFAULT: 'true'
       UI_INGESTION_ENABLED: 'true'
@@ -215,12 +221,14 @@ services:
     - quickstart-frontend
     - quickstart-storage
     - quickstart-consumers
+    - quickstart-consumers-cdc
     - debug
     - debug-min
     - debug-datahub-actions
     - debug-frontend
     - debug-backend
     - debug-consumers
+    - debug-consumers-cdc
     - debug-neo4j
     - debug-elasticsearch
     - debug-backend-aws
@@ -270,10 +278,14 @@ services:
         condition: service_healthy
         required: true
     environment:
+      CDC_MCL_PROCESSING_ENABLED: 'false'
+      CDC_PASSWORD: datahub_cdc
+      CDC_USER: datahub_cdc
       DATAHUB_DB_NAME: datahub
       MYSQL_HOST: mysql
       MYSQL_PASSWORD: datahub
       MYSQL_PORT: '3306'
+      MYSQL_ROOT_PASSWORD: datahub
       MYSQL_USERNAME: datahub
     hostname: mysql-setup
     image: acryldata/datahub-mysql-setup:${DATAHUB_VERSION}
@@ -290,37 +302,41 @@ services:
     - quickstart-storage
     - quickstart-cassandra
     - quickstart-postgres
+    - quickstart-postgres-cdc
     - quickstart-consumers
+    - quickstart-consumers-cdc
     - debug
     - debug-min
     - debug-datahub-actions
     - debug-frontend
     - debug-backend
     - debug-postgres
+    - debug-postgres-cdc
     - debug-cassandra
     - debug-consumers
+    - debug-consumers-cdc
     - debug-neo4j
     - debug-backend-aws
     - debug-aws
     deploy:
       resources:
         limits:
-          memory: '1073741824'
+          memory: '2147483648'
     environment:
+      DISABLE_SECURITY_PLUGIN: 'true'
       ES_JAVA_OPTS: -Xms256m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
-      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
+      OPENSEARCH_JAVA_OPTS: -Xms768m -Xmx1024m -Dlog4j2.formatMsgNoLookups=true
       discovery.type: single-node
-      plugins.security.disabled: 'true'
     hostname: search
     healthcheck:
       test:
       - CMD-SHELL
       - curl -sS --fail http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
-      timeout: 5s
-      interval: 1s
-      retries: 3
-      start_period: 30s
-    image: opensearchproject/opensearch:2.11.0
+      timeout: 15s
+      interval: 5s
+      retries: 10
+      start_period: 1m0s
+    image: opensearchproject/opensearch:2.19.3
     networks:
       default: null
     ports:
@@ -331,7 +347,7 @@ services:
     volumes:
     - type: volume
       source: osdata
-      target: /usr/share/elasticsearch/data
+      target: /usr/share/opensearch/data
       volume: {}
   opensearch-setup:
     profiles:
@@ -342,7 +358,13 @@ services:
     - quickstart-storage
     - quickstart-cassandra
     - quickstart-postgres
+    - quickstart-postgres-cdc
     - quickstart-consumers
+    - quickstart-consumers-cdc
+    command:
+    - /bin/sh
+    - -c
+    - /create-indices.sh
     depends_on:
       opensearch:
         condition: service_healthy
@@ -388,7 +410,8 @@ services:
       DATAHUB_GMS_BASE_PATH: /
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: '8080'
-      DATAHUB_PRECREATE_TOPICS: 'false'
+      DATAHUB_PRECREATE_TOPICS: 'true'
+      DATAHUB_SQL_SETUP_ENABLED: 'true'
       EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
       EBEAN_DATASOURCE_HOST: mysql:3306
       EBEAN_DATASOURCE_PASSWORD: datahub

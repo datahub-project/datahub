@@ -170,7 +170,7 @@ type Query {
   getEntityCounts(input: EntityCountInput): EntityCountResults
 
   """
-  List all DataHub Domains
+  Lists all DataHub Domains belonging to the specified parent. If no parent is specified, lists root domains.
   """
   listDomains(input: ListDomainsInput!): ListDomainsResult
 
@@ -600,14 +600,22 @@ type Mutation {
   batchRemoveOwners(input: BatchRemoveOwnersInput!): Boolean
 
   """
-  Add a link, or institutional memory, from a particular Entity
+  Add a link, or institutional memory, for a particular asset
   """
   addLink(input: AddLinkInput!): Boolean
 
   """
-  Update a link, or institutional memory, from a particular Entity
+  Update a link, or institutional memory, for a particular asset.
+  A combo of link label and url create a unique identifier for which link to update.
   """
   updateLink(input: UpdateLinkInput!): Boolean
+
+  """
+  Upsert a link, or institutional memory, for a particular asset.
+  A combo of link label and url create a unique identifier to update a link,
+  or add a new link if no links with label/url combo are found.
+  """
+  upsertLink(input: UpsertLinkInput!): Boolean
 
   """
   Remove a link, or institutional memory, from a particular Entity
@@ -1348,6 +1356,11 @@ enum EntityType {
   An DataHub Page Module
   """
   DATAHUB_PAGE_MODULE
+
+  """
+  An DataHub File
+  """
+  DATAHUB_FILE
 }
 
 """
@@ -9253,6 +9266,31 @@ input UpdateLinkInput {
   The urn of the resource or entity to attach the link to, for example a dataset urn
   """
   resourceUrn: String!
+}
+
+"""
+Input provided when upsert the association between a Metadata Entity and a Link
+"""
+input UpsertLinkInput {
+  """
+  The url of the link to add or update
+  """
+  linkUrl: String!
+
+  """
+  The url of the link to add or update
+  """
+  label: String!
+
+  """
+  The urn of the resource or entity to attach the link to, for example a dataset urn
+  """
+  resourceUrn: String!
+
+  """
+  Optional settings input for this link
+  """
+  settings: LinkSettingsInput
 }
 
 """

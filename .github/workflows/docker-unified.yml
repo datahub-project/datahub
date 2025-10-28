@@ -1,6 +1,12 @@
 name: Docker Build, Scan, Test
 on:
   workflow_dispatch:
+    inputs:
+      profileName:
+        description: "Profile name for the smoke-test. Defaults to quickstart-consumers if not specified"
+        required: false
+        default: "quickstart-consumers"
+        type: string
   push:
     branches:
       - master
@@ -20,6 +26,7 @@ concurrency:
 
 env:
   DOCKER_REGISTRY: "acryldata"
+  PROFILE_NAME: "${{ github.event.inputs.profileName || 'quickstart-consumers' }}"
 
   DOCKER_CACHE: "DEPOT"
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
@@ -258,8 +265,16 @@ jobs:
       - name: Build all Images (For Smoke tests)
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         # If not publishing, just a subset of images required for smoke tests is sufficient.
+        # Use buildImagesAll for workflow_dispatch, otherwise buildImagesQuickStartDebugConsumers
         run: |
-          ./gradlew :docker:buildImagesQuickStartDebugConsumers  -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # if triggered via workflow_dispatch, this can run other quickstart variants, so lets build all images to allow that.
+            # we still dont need matrixed builds since this is for smoke test only.
+            BUILD_TASK=":docker:buildImagesAll"
+          else
+            BUILD_TASK=":docker:buildImagesQuickstart"
+          fi
+          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
 
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -339,7 +354,7 @@ jobs:
           vuln-type: "os,library"
           trivy-config: "./trivy.yaml"
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: "trivy-results.sarif"
 
@@ -361,8 +376,8 @@ jobs:
             echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           else
-            echo "cypress_batch_count=11" >> "$GITHUB_OUTPUT"
-            echo "python_batch_count=6" >> "$GITHUB_OUTPUT"
+            echo "cypress_batch_count=8" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=7" >> "$GITHUB_OUTPUT"
           fi
 
       - id: set-matrix
@@ -407,11 +422,18 @@ jobs:
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
       - name: Free up disk space
-        if: ${{ !contains(needs.setup.outputs.test_runner_type, 'depot') }}
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
           sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/.ghcup || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /usr/share/swift || true
+          sudo rm -rf /usr/local/julia* || true
+          sudo rm -rf /usr/local/share/powershell || true
+          sudo rm -rf /usr/share/miniconda || true
           sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
+          sudo docker system prune -a -f || true
+          df -h
 
       - uses: actions/cache/restore@v4
         with:
@@ -453,6 +475,14 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
+      - name: Disk Space Analysis
+        run: |
+          echo "=== Disk Usage Overview ==="
+          df -h
+
+          echo -e "\n=== Docker Disk Usage ==="
+          docker system df -v
+
       - name: build images
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
@@ -467,6 +497,13 @@ jobs:
           depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }}
           docker images
 
+      - name: Disk Space Analysis
+        run: |
+          echo "=== Disk Usage Overview ==="
+          df -h
+
+          echo -e "\n=== Docker Disk Usage ==="
+          docker system df -v
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
@@ -475,6 +512,7 @@ jobs:
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
         run: |
+          # Quickstart uses PROFILE_NAME env if defined to start the profile specified. Defaults to quickstart-consumers
           ./smoke-test/run-quickstart.sh
 
       - name: Disk Check

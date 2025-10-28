@@ -857,7 +857,7 @@ FROM my_db.my_schema.my_table
 # TODO: Add a test for setting platform_instance or env
 
 
-def test_teradata_default_normalization() -> None:
+def test_default_schema_normalization() -> None:
     assert_sql_result(
         """
 create table demo_user.test_lineage2 as
@@ -895,12 +895,12 @@ create table demo_user.test_lineage2 as
                 "PatientId": "INTEGER()",
             },
         },
-        expected_file=RESOURCE_DIR / "test_teradata_default_normalization.json",
+        expected_file=RESOURCE_DIR / "test_default_schema_normalization.json",
     )
 
 
-def test_teradata_strange_operators() -> None:
-    # This is a test for the following operators:
+def test_dialect_specific_operators() -> None:
+    # This is a test for the following Teradata-specific operators:
     # - `SEL` (select)
     # - `EQ` (equals)
     # - `MINUS` (except)
@@ -913,7 +913,7 @@ select col1, col2 from dbc.table2
 """,
         dialect="teradata",
         default_schema="dbc",
-        expected_file=RESOURCE_DIR / "test_teradata_strange_operators.json",
+        expected_file=RESOURCE_DIR / "test_dialect_specific_operators.json",
     )
 
 
@@ -1248,6 +1248,17 @@ INSERT INTO my_table (id, month, total_cost, area)
     )
 
 
+def test_teradata_insert_into_values() -> None:
+    # Test INSERT VALUES with complex values including strings and timestamps
+    assert_sql_result(
+        """\
+INSERT INTO operations_temp.loss_backup (val_name, amount_type, field_number, amount_status, col_status, duration, time_code) 
+VALUES (9, '2011-04-17', 42, 42.34, '1980-12-29 15:11:17', '1994-08-19 21:28:09', 'garden')""",
+        dialect="teradata",
+        expected_file=RESOURCE_DIR / "test_insert_into_values.json",
+    )
+
+
 def test_bigquery_information_schema_query() -> None:
     # Special case - the BigQuery INFORMATION_SCHEMA views are prefixed with a
     # project + possibly a dataset/region, so sometimes are 4 parts instead of 3.
@@ -1573,4 +1584,23 @@ NATURAL JOIN my_table2 t2
             },
         },
         expected_file=RESOURCE_DIR / "test_natural_join.json",
+    )
+
+
+def test_dremio_quoted_identifiers() -> None:
+    # Test that Dremio SQL with quoted identifiers parses correctly.
+    # This is a regression test for the issue where Dremio was mapped to the
+    # "drill" dialect, which didn't support quoted identifiers properly.
+    assert_sql_result(
+        """\
+WITH "cte_orders" AS (
+    SELECT * FROM "MySource"."sales"."orders"
+    WHERE "status" = 'completed'
+)
+SELECT "cte_orders"."order_id", "customers"."customer_name"
+FROM "cte_orders"
+JOIN "MySource"."sales"."customers" ON "cte_orders"."customer_id" = "customers"."customer_id"
+""",
+        dialect="dremio",
+        expected_file=RESOURCE_DIR / "test_dremio_quoted_identifiers.json",
     )

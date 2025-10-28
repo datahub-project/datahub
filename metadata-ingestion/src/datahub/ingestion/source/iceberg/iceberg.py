@@ -118,7 +118,7 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 
 
 @platform_name("Iceberg")
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @config_class(IcebergSourceConfig)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
@@ -836,26 +836,7 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
             "native_data_type": str(timestamp_type),
         }
 
-    # visit_timestamptz() is required when using pyiceberg >= 0.5.0, which is essentially a duplicate
-    # of visit_timestampz().  The function has been renamed from visit_timestampz().
-    # Once Datahub can upgrade its pyiceberg dependency to >=0.5.0, the visit_timestampz() function can be safely removed.
     def visit_timestamptz(self, timestamptz_type: TimestamptzType) -> Dict[str, Any]:
-        # Avro supports 2 types of timestamp:
-        #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
-        #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
-        # utcAdjustment: bool = True
-        return {
-            "type": "long",
-            "logicalType": "timestamp-micros",
-            # Commented out since Avro's Python implementation (1.11.0) does not support local-timestamp-micros, even though it exists in the spec.
-            # See bug report: https://issues.apache.org/jira/browse/AVRO-3476 and PR https://github.com/apache/avro/pull/1634
-            # "logicalType": "timestamp-micros"
-            # if timestamp_type.adjust_to_utc
-            # else "local-timestamp-micros",
-            "native_data_type": str(timestamptz_type),
-        }
-
-    def visit_timestampz(self, timestamptz_type: TimestamptzType) -> Dict[str, Any]:
         # Avro supports 2 types of timestamp:
         #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
         #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
@@ -888,4 +869,43 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
         return {
             "type": "bytes",
             "native_data_type": str(binary_type),
+        }
+
+    def visit_timestamp_ns(self, timestamp_ns_type: Any) -> Dict[str, Any]:
+        # Handle nanosecond precision timestamps
+        # Avro supports 2 types of timestamp:
+        #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
+        #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
+        return {
+            "type": "long",
+            "logicalType": "timestamp-micros",
+            # Commented out since Avro's Python implementation (1.11.0) does not support local-timestamp-micros, even though it exists in the spec.
+            # See bug report: https://issues.apache.org/jira/browse/AVRO-3476 and PR https://github.com/apache/avro/pull/1634
+            # "logicalType": "timestamp-micros"
+            # if timestamp_ns_type.adjust_to_utc
+            # else "local-timestamp-micros",
+            "native_data_type": str(timestamp_ns_type),
+        }
+
+    def visit_timestamptz_ns(self, timestamptz_ns_type: Any) -> Dict[str, Any]:
+        # Handle nanosecond precision timestamps with timezone
+        # Avro supports 2 types of timestamp:
+        #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
+        #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
+        return {
+            "type": "long",
+            "logicalType": "timestamp-micros",
+            # Commented out since Avro's Python implementation (1.11.0) does not support local-timestamp-micros, even though it exists in the spec.
+            # See bug report: https://issues.apache.org/jira/browse/AVRO-3476 and PR https://github.com/apache/avro/pull/1634
+            # "logicalType": "timestamp-micros"
+            # if timestamptz_ns_type.adjust_to_utc
+            # else "local-timestamp-micros",
+            "native_data_type": str(timestamptz_ns_type),
+        }
+
+    def visit_unknown(self, unknown_type: Any) -> Dict[str, Any]:
+        # Handle unknown types
+        return {
+            "type": "string",
+            "native_data_type": str(unknown_type),
         }

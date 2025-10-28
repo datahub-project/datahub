@@ -1,3 +1,5 @@
+import { FileUploadFailureType } from '@components/components/Editor/types';
+
 import { EmbedLookupNotFoundReason } from '@app/embed/lookup/constants';
 import { PersonaType } from '@app/homeV2/shared/types';
 import { Direction } from '@app/lineage/types';
@@ -17,6 +19,7 @@ import {
     ScenarioType,
     SearchBarApi,
     SummaryElementType,
+    UploadDownloadScenario,
 } from '@types';
 
 /**
@@ -160,6 +163,10 @@ export enum EventType {
     AssetPageAddSummaryElement,
     AssetPageRemoveSummaryElement,
     AssetPageReplaceSummaryElement,
+    FileUploadAttemptEvent,
+    FileUploadFailedEvent,
+    FileUploadSucceededEvent,
+    FileDownloadViewEvent,
 }
 
 /**
@@ -893,6 +900,7 @@ interface StructuredPropertyEvent extends BaseEvent {
     showInSearchFilters: boolean;
     showAsAssetBadge: boolean;
     showInAssetSummary: boolean;
+    hideInAssetSummaryWhenEmpty: boolean;
     showInColumnsTable: boolean;
 }
 
@@ -1170,6 +1178,48 @@ export interface AssetPageReplaceSummaryElementEvent extends BaseEvent {
     newElementType: SummaryElementType;
 }
 
+export interface FileUploadAttemptEvent extends BaseEvent {
+    type: EventType.FileUploadAttemptEvent;
+    fileType: string;
+    fileSize: number;
+    scenario: UploadDownloadScenario;
+    source: 'drag-and-drop' | 'button';
+    assetUrn?: string;
+    schemaFieldUrn?: string;
+}
+
+export interface FileUploadFailedEvent extends BaseEvent {
+    type: EventType.FileUploadFailedEvent;
+    fileType: string;
+    fileSize: number;
+    scenario: UploadDownloadScenario;
+    source: 'drag-and-drop' | 'button';
+    assetUrn?: string;
+    schemaFieldUrn?: string;
+    failureType: FileUploadFailureType;
+    comment?: string;
+}
+
+export interface FileUploadSucceededEvent extends BaseEvent {
+    type: EventType.FileUploadSucceededEvent;
+    fileType: string;
+    fileSize: number;
+    scenario: UploadDownloadScenario;
+    source: 'drag-and-drop' | 'button';
+    assetUrn?: string;
+    schemaFieldUrn?: string;
+}
+
+export interface FileDownloadViewEvent extends BaseEvent {
+    type: EventType.FileDownloadViewEvent;
+    // These fields aren't accessible while downloading
+    // fileType: string;
+    // fileSize: number;
+    scenario: UploadDownloadScenario;
+    assetUrn?: string;
+    schemaFieldUrn?: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -1310,4 +1360,8 @@ export type Event =
     | IngestionViewAllClickWarningEvent
     | AssetPageAddSummaryElementEvent
     | AssetPageRemoveSummaryElementEvent
-    | AssetPageReplaceSummaryElementEvent;
+    | AssetPageReplaceSummaryElementEvent
+    | FileUploadAttemptEvent
+    | FileUploadFailedEvent
+    | FileUploadSucceededEvent
+    | FileDownloadViewEvent;
