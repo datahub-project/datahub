@@ -7,6 +7,7 @@ module.exports = defineConfig({
   viewportWidth: 1536,
   projectId: "s6gjkt",
   defaultCommandTimeout: 10000,
+  numTestsKeptInMemory: 5,
   retries: {
     runMode: 5,
     openMode: 0,

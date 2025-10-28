@@ -247,6 +247,15 @@ export function deleteOpenedDataProduct() {
   cy.waitTextVisible("Deleted Data Product!");
 }
 
+// Add a memory-managed reload function
+export function reloadPageWithMemoryManagement() {
+  // Instead of cy.reload(), use a more memory-conscious approach
+  cy.window().then((win) => {
+    win.location.reload();
+  });
+  cy.wait(2000); // Wait for page to reload
+}
+
 // Summary tab
 
 export function ensureSummaryTabIsAvailable() {
@@ -255,6 +264,8 @@ export function ensureSummaryTabIsAvailable() {
 
 export function goToSummaryTab() {
   cy.clickOptionWithTestId("Summary-entity-tab-header");
+  // Add a small wait to allow components to render and memory to settle
+  cy.wait(300);
 }
 
 // Properties section
