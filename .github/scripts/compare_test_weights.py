@@ -33,20 +33,30 @@ def load_weights(file_path: str, test_id_key: str) -> Dict[str, float]:
 def calculate_changes(old_weights: Dict[str, float], new_weights: Dict[str, float]) -> Dict:
     """Calculate comprehensive change statistics."""
 
+    # New and removed tests (calculate first to exclude from significant changes)
+    new_test_ids = set(new_weights.keys()) - set(old_weights.keys())
+    removed_test_ids = set(old_weights.keys()) - set(new_weights.keys())
+
+    new_tests = {test: new_weights[test] for test in new_test_ids}
+    removed_tests = {test: old_weights[test] for test in removed_test_ids}
+
     # Overall stats
     old_total = sum(old_weights.values())
     new_total = sum(new_weights.values())
     total_change_pct = ((new_total - old_total) / old_total * 100) if old_total > 0 else 0
 
-    # Individual test changes
+    # Individual test changes (ONLY for tests that exist in both old and new)
     significant_changes = []
     for test_id, new_time in new_weights.items():
+        # Skip new tests - they shouldn't appear in significant changes
         if test_id in old_weights:
             old_time = old_weights[test_id]
             diff = new_time - old_time
             pct_change = (diff / old_time * 100) if old_time > 0 else 0
 
-            if abs(pct_change) > 10 or abs(diff) > 10:
+            # Only report significant changes for tests with meaningful durations (>5s)
+            # This filters out noise from very fast tests
+            if (abs(pct_change) > 10 or abs(diff) > 10) and (old_time >= 5.0 or new_time >= 5.0):
                 significant_changes.append({
                     'test': test_id,
                     'old': old_time,
@@ -58,10 +68,6 @@ def calculate_changes(old_weights: Dict[str, float], new_weights: Dict[str, floa
     # Sort by absolute percentage change
     significant_changes.sort(key=lambda x: abs(x['pct']), reverse=True)
 
-    # New and removed tests
-    new_tests = {test: new_weights[test] for test in set(new_weights.keys()) - set(old_weights.keys())}
-    removed_tests = {test: old_weights[test] for test in set(old_weights.keys()) - set(new_weights.keys())}
-
     return {
         'old_total': old_total,
         'new_total': new_total,
@@ -70,7 +76,9 @@ def calculate_changes(old_weights: Dict[str, float], new_weights: Dict[str, floa
         'new_count': len(new_weights),
         'significant_changes': significant_changes,
         'new_tests': new_tests,
-        'removed_tests': removed_tests
+        'removed_tests': removed_tests,
+        'new_tests_total': sum(new_tests.values()),
+        'removed_tests_total': sum(removed_tests.values())
     }
 
 
@@ -160,8 +168,13 @@ def generate_pr_body(cypress_changes: Dict, pytest_changes: Dict) -> str:
     lines.extend(format_significant_changes(cypress_changes, "Cypress"))
     lines.extend(format_significant_changes(pytest_changes, "Pytest"))
 
-    # New and removed tests
-    def format_test_changes(new_tests: Dict, removed_tests: Dict, name: str):
+    # New and removed tests - show summary instead of listing all
+    def format_test_changes(changes: Dict, name: str):
+        new_tests = changes['new_tests']
+        removed_tests = changes['removed_tests']
+        new_tests_total = changes['new_tests_total']
+        removed_tests_total = changes['removed_tests_total']
+
         if not new_tests and not removed_tests:
             return []
 
@@ -170,7 +183,7 @@ def generate_pr_body(cypress_changes: Dict, pytest_changes: Dict) -> str:
         section.append("")
 
         if new_tests:
-            section.append(f"**Added ({len(new_tests)} tests):**")
+            section.append(f"**➕ Added: {len(new_tests)} tests** ({new_tests_total/60:.1f} min total)")
             section.append("<details>")
             section.append("<summary>View new tests</summary>")
             section.append("")
@@ -183,7 +196,7 @@ def generate_pr_body(cypress_changes: Dict, pytest_changes: Dict) -> str:
             section.append("")
 
         if removed_tests:
-            section.append(f"**Removed ({len(removed_tests)} tests):**")
+            section.append(f"**➖ Removed: {len(removed_tests)} tests** ({removed_tests_total/60:.1f} min total)")
             section.append("<details>")
             section.append("<summary>View removed tests</summary>")
             section.append("")
@@ -197,8 +210,8 @@ def generate_pr_body(cypress_changes: Dict, pytest_changes: Dict) -> str:
 
         return section
 
-    lines.extend(format_test_changes(cypress_changes['new_tests'], cypress_changes['removed_tests'], "Cypress"))
-    lines.extend(format_test_changes(pytest_changes['new_tests'], pytest_changes['removed_tests'], "Pytest"))
+    lines.extend(format_test_changes(cypress_changes, "Cypress"))
+    lines.extend(format_test_changes(pytest_changes, "Pytest"))
 
     # Footer
     lines.append("---")
