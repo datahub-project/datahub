@@ -7,9 +7,10 @@ MFEs are declared in a canonical YAML file, validated at runtime, and dynamicall
 With this approach, you can add, update, or remove MFEs by configuration only—**no manual code changes required**.
 
 ## Setup & Usage
+
 1. **See `datahub-web-react/src/app/mfeframework` for all relevant code and configuration.**
 2. **Declare MFEs in `mfe.config.yaml` using the schema below.**
-3. **Navigation items are automatically added based on your YAML settings—no manual coding needed***
+3. **Navigation items are automatically added based on your YAML settings—no manual coding needed\***
 4. **Run locally:** Point `remoteEntry` to your local dev server.
 5. **Deploy:** No code changes required for new MFEs—just update the config! --> (`mfe.config.yaml`)
 

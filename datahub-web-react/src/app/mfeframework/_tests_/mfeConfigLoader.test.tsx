@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import React from 'react';
 import { render } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
+import React from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * Test Isolation and Mocking Strategy
@@ -23,7 +23,11 @@ function mockYamlLoad(returnValue: any) {
 
 function mockYamlLoadThrows(error: Error) {
     vi.doMock('js-yaml', () => ({
-        default: { load: vi.fn().mockImplementation(() => { throw error; }) },
+        default: {
+            load: vi.fn().mockImplementation(() => {
+                throw error;
+            }),
+        },
     }));
 }
 
@@ -33,7 +37,11 @@ function mockYamlFile(content: string) {
 
 function mockReactRouter() {
     vi.doMock('react-router', () => ({
-        Route: ({ path, render: renderProp }: any) => <div>Route: {path} - {renderProp()}</div>,
+        Route: ({ path, render: renderProp }: any) => (
+            <div>
+                Route: {path} - {renderProp()}
+            </div>
+        ),
     }));
 }
 
@@ -169,9 +177,7 @@ describe('mfeConfigLoader', () => {
         if ('invalid' in mfe && mfe.invalid) {
             expect(Array.isArray((mfe as any).errorMessages)).toBe(true);
             expect((mfe as any).errorMessages).toEqual(
-                expect.arrayContaining([
-                    expect.stringContaining('permissions must be a non-empty array of strings'),
-                ]),
+                expect.arrayContaining([expect.stringContaining('permissions must be a non-empty array of strings')]),
             );
         }
     });
@@ -179,7 +185,9 @@ describe('mfeConfigLoader', () => {
     it('loadMFEConfigFromYAML throws if microFrontends is missing', async () => {
         mockYamlLoad({});
         const { loadMFEConfigFromYAML } = await import('../mfeConfigLoader');
-        expect(() => loadMFEConfigFromYAML('irrelevant')).toThrow('[MFE Loader] Invalid YAML: missing microFrontends array');
+        expect(() => loadMFEConfigFromYAML('irrelevant')).toThrow(
+            '[MFE Loader] Invalid YAML: missing microFrontends array',
+        );
     });
 
     it('loadMFEConfigFromYAML throws if YAML parsing fails', async () => {
