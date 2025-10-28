@@ -115,6 +115,13 @@ public class CreateStructuredPropertyResolver
     if (settingsInput.getShowInAssetSummary() != null) {
       settings.setShowInAssetSummary(settingsInput.getShowInAssetSummary());
     }
+    if (settingsInput.getShowInAssetSummary() != null && !settingsInput.getShowInAssetSummary()) {
+      // FYI: when `showInAssetSummary` is false, `hideInAssetSummaryWhenEmpty` should be false too
+      // as it is dependent property
+      settings.setHideInAssetSummaryWhenEmpty(false);
+    } else if (settingsInput.getHideInAssetSummaryWhenEmpty() != null) {
+      settings.setHideInAssetSummaryWhenEmpty(settingsInput.getHideInAssetSummaryWhenEmpty());
+    }
     if (settingsInput.getShowAsAssetBadge() != null) {
       settings.setShowAsAssetBadge(settingsInput.getShowAsAssetBadge());
     }

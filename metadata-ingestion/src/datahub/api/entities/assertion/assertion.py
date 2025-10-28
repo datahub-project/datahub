@@ -53,5 +53,5 @@ class BaseEntityAssertion(BaseAssertion):
     )
 
     trigger: Optional[AssertionTrigger] = v1_Field(
-        description="The trigger schedule for assertion", alias="schedule"
+        default=None, description="The trigger schedule for assertion", alias="schedule"
     )

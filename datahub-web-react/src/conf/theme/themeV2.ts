@@ -22,7 +22,7 @@ const themeV2: Theme = {
         'highlight-border-color': '#07878180',
     },
     assets: {
-        logoUrl: '/assets/logo.png',
+        logoUrl: 'assets/logo.png',
     },
     content: {
         title: 'DataHub',

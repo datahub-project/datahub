@@ -33,6 +33,7 @@ public class PluginEntityRegistryFactory {
     return new PluginEntityRegistryLoader(
         pluginConfiguration.getPath(),
         pluginConfiguration.getLoadDelaySeconds(),
+        pluginConfiguration.isIgnoreFailureWhenLoadingRegistry(),
         pluginFactoryProvider);
   }
 }

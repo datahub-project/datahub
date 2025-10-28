@@ -32,7 +32,7 @@ const themeV1: Theme = {
         'highlight-border-color': '#BAE0FF',
     },
     assets: {
-        logoUrl: '/assets/logo.png',
+        logoUrl: 'assets/logo.png',
     },
     content: {
         title: 'DataHub',

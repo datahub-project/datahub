@@ -35,7 +35,7 @@ export function useSetAppTheme() {
                     updateTheme(theme);
                 });
             } else {
-                fetch(`/assets/conf/theme/${customThemeId}`)
+                fetch(`assets/conf/theme/${customThemeId}`)
                     .then((response) => response.json())
                     .then((theme) => {
                         updateTheme(theme);

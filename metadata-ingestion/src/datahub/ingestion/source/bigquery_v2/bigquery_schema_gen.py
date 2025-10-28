@@ -66,7 +66,7 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source_report.ingestion_stage import (
     METADATA_EXTRACTION,
-    PROFILING,
+    IngestionHighStage,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
@@ -416,7 +416,7 @@ class BigQuerySchemaGenerator:
 
         if self.config.is_profiling_enabled():
             logger.info(f"Starting profiling project {project_id}")
-            with self.report.new_stage(f"{project_id}: {PROFILING}"):
+            with self.report.new_high_stage(IngestionHighStage.PROFILING):
                 yield from self.profiler.get_workunits(
                     project_id=project_id,
                     tables=db_tables,
@@ -449,10 +449,12 @@ class BigQuerySchemaGenerator:
                 ):
                     yield wu
             except Exception as e:
-                if self.config.is_profiling_enabled():
-                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission?"
+                # If configuration indicates we need table data access (for profiling or use_tables_list_query_v2),
+                # include bigquery.tables.getData in the error message since that's likely the missing permission
+                if self.config.have_table_data_read_permission:
+                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list, bigquery.tables.getData permissions?"
                 else:
-                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission?"
+                    action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permissions?"
 
                 self.report.failure(
                     title="Unable to get tables for dataset",

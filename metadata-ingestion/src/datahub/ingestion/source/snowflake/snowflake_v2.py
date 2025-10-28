@@ -73,6 +73,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
+    RedundantQueriesRunSkipHandler,
     RedundantUsageRunSkipHandler,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -207,7 +208,7 @@ class SnowflakeV2Source(
         )
         self.report.sql_aggregator = self.aggregator.report
 
-        if self.config.include_table_lineage:
+        if self.config.include_table_lineage and not self.config.use_queries_v2:
             redundant_lineage_run_skip_handler: Optional[
                 RedundantLineageRunSkipHandler
             ] = None
@@ -589,6 +590,17 @@ class SnowflakeV2Source(
             with self.report.new_stage(f"*: {QUERIES_EXTRACTION}"):
                 schema_resolver = self.aggregator._schema_resolver
 
+                redundant_queries_run_skip_handler: Optional[
+                    RedundantQueriesRunSkipHandler
+                ] = None
+                if self.config.enable_stateful_time_window:
+                    redundant_queries_run_skip_handler = RedundantQueriesRunSkipHandler(
+                        source=self,
+                        config=self.config,
+                        pipeline_name=self.ctx.pipeline_name,
+                        run_id=self.ctx.run_id,
+                    )
+
                 queries_extractor = SnowflakeQueriesExtractor(
                     connection=self.connection,
                     # TODO: this should be its own section in main recipe
@@ -614,6 +626,7 @@ class SnowflakeV2Source(
                     structured_report=self.report,
                     filters=self.filters,
                     identifiers=self.identifiers,
+                    redundant_run_skip_handler=redundant_queries_run_skip_handler,
                     schema_resolver=schema_resolver,
                     discovered_tables=self.discovered_datasets,
                     graph=self.ctx.graph,

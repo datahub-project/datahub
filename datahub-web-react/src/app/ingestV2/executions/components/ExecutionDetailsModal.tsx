@@ -2,6 +2,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Icon, Modal, Pill } from '@components';
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router';
 
 import { Tab, Tabs } from '@components/components/Tabs/Tabs';
 
@@ -35,6 +36,7 @@ type Props = {
 
 export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     const { data, loading, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
+    const location = useLocation();
     const result = data?.executionRequest?.result as Partial<ExecutionRequestResult>;
     const status = getIngestionSourceStatus(result);
     const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Summary);
@@ -132,7 +134,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
                 tabs={tabs}
                 selectedTab={selectedTab}
                 onChange={(tab) => selectTab(tab as TabType)}
-                getCurrentUrl={() => window.location.pathname}
+                getCurrentUrl={() => location.pathname}
                 scrollToTopOnChange
                 maxHeight="80vh"
                 stickyHeader

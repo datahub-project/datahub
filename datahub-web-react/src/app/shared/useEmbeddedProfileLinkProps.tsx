@@ -1,13 +1,16 @@
+import { Location } from 'history';
 import { useMemo } from 'react';
+import { useLocation } from 'react-router';
 
 import { useModalContext } from '@app/sharedV2/modals/ModalContext';
 import { PageRoutes } from '@conf/Global';
 
 // Function to check if the current page is an embedded profile
-const isEmbeddedProfile = () => window.location.pathname.startsWith(PageRoutes.EMBED);
+const isEmbeddedProfile = (location: Location) => location.pathname.startsWith(PageRoutes.EMBED);
 
 export const useIsEmbeddedProfile = () => {
-    return useMemo(() => isEmbeddedProfile(), []);
+    const location = useLocation();
+    return useMemo(() => isEmbeddedProfile(location), [location]);
 };
 
 export const useEmbeddedProfileLinkProps = () => {

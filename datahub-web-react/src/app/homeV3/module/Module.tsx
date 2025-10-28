@@ -5,6 +5,7 @@ import ChildHierarchyModule from '@app/entityV2/summary/modules/childHierarchy/C
 import DataProductsModule from '@app/entityV2/summary/modules/dataProducts/DataProductsModule';
 import RelatedTermsModule from '@app/entityV2/summary/modules/relatedTerms/RelatedTermsModule';
 import ModuleErrorBoundary from '@app/homeV3/module/components/ModuleErrorBoundary';
+import { ModuleProvider } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
 import SampleLargeModule from '@app/homeV3/modules/SampleLargeModule';
 import YourAssetsModule from '@app/homeV3/modules/YourAssetsModule';
@@ -13,6 +14,7 @@ import DocumentationModule from '@app/homeV3/modules/documentation/Documentation
 import TopDomainsModule from '@app/homeV3/modules/domains/TopDomainsModule';
 import HierarchyViewModule from '@app/homeV3/modules/hierarchyViewModule/HierarchyViewModule';
 import LinkModule from '@app/homeV3/modules/link/LinkModule';
+import PlatformsModule from '@app/homeV3/modules/platforms/PlatformsModule';
 
 import { DataHubPageModuleType } from '@types';
 
@@ -31,6 +33,7 @@ function Module(props: ModuleProps) {
         if (module.properties.type === DataHubPageModuleType.ChildHierarchy) return ChildHierarchyModule;
         if (module.properties.type === DataHubPageModuleType.DataProducts) return DataProductsModule;
         if (module.properties.type === DataHubPageModuleType.RelatedTerms) return RelatedTermsModule;
+        if (module.properties.type === DataHubPageModuleType.Platforms) return PlatformsModule;
 
         // TODO: remove the sample large module once we have other modules to fill this out
         console.error(`Issue finding module with type ${module.properties.type}`);
@@ -39,7 +42,9 @@ function Module(props: ModuleProps) {
 
     return (
         <ModuleErrorBoundary {...props}>
-            <Component {...props} />
+            <ModuleProvider {...props}>
+                <Component {...props} />
+            </ModuleProvider>
         </ModuleErrorBoundary>
     );
 }

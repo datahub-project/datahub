@@ -11,6 +11,8 @@ import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
@@ -45,6 +47,7 @@ public class ReindexDebugStepTest {
   private ReindexDebugStep reindexDebugStep;
   private List<ElasticSearchIndexed> services;
   private Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
+  private OperationContext opContext = TestOperationContexts.systemContextNoValidate();
 
   @BeforeMethod
   public void setUp() {
@@ -248,6 +251,7 @@ public class ReindexDebugStepTest {
     Map<String, Optional<String>> parsedArgs = new HashMap<>();
     parsedArgs.put("index", Optional.of("datahubpolicyindex"));
     Mockito.when(upgradeContext.parsedArgs()).thenReturn(parsedArgs);
+    Mockito.when(upgradeContext.opContext()).thenReturn(opContext);
 
     List<ReindexConfig> configs = Arrays.asList(reindexConfig1, reindexConfig2);
     Mockito.when(elasticSearchService.buildReindexConfigs(structuredProperties))
@@ -276,6 +280,7 @@ public class ReindexDebugStepTest {
     Map<String, Optional<String>> parsedArgs = new HashMap<>();
     parsedArgs.put("index", Optional.of("datahubpolicyindex"));
     Mockito.when(upgradeContext.parsedArgs()).thenReturn(parsedArgs);
+    Mockito.when(upgradeContext.opContext()).thenReturn(opContext);
 
     List<ReindexConfig> configs = Arrays.asList(reindexConfig1);
     Mockito.when(elasticSearchService.buildReindexConfigs(structuredProperties))
@@ -303,6 +308,7 @@ public class ReindexDebugStepTest {
     Map<String, Optional<String>> parsedArgs = new HashMap<>();
     parsedArgs.put("index", Optional.of("datahubpolicyindex"));
     Mockito.when(upgradeContext.parsedArgs()).thenReturn(parsedArgs);
+    Mockito.when(upgradeContext.opContext()).thenReturn(opContext);
 
     RuntimeException exception = new RuntimeException("Config access denied");
     Mockito.when(elasticSearchService.buildReindexConfigs(structuredProperties))
@@ -470,6 +476,7 @@ public class ReindexDebugStepTest {
     Map<String, Optional<String>> parsedArgs = new HashMap<>();
     parsedArgs.put("index", Optional.of("test_index"));
     Mockito.when(upgradeContext.parsedArgs()).thenReturn(parsedArgs);
+    Mockito.when(upgradeContext.opContext()).thenReturn(opContext);
 
     IOException exception = new IOException("Failed to build configs");
     Mockito.when(elasticSearchService.buildReindexConfigs(structuredProperties))
@@ -519,6 +526,7 @@ public class ReindexDebugStepTest {
     Map<String, Optional<String>> parsedArgs = new HashMap<>();
     parsedArgs.put("index", Optional.of("test"));
     Mockito.when(upgradeContext.parsedArgs()).thenReturn(parsedArgs);
+    Mockito.when(upgradeContext.opContext()).thenReturn(opContext);
 
     List<ReindexConfig> configs = Arrays.asList(reindexConfig1, reindexConfig2, reindexConfig3);
     Mockito.when(elasticSearchService.buildReindexConfigs(structuredProperties))

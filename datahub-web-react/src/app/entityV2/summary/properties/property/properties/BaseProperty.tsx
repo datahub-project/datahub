@@ -4,6 +4,7 @@ import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
 import usePropertyMenuItems from '@app/entityV2/summary/properties/menuProperty/usePropertyMenuItems';
+import { filterCurrentItemInReplaceMenu } from '@app/entityV2/summary/properties/property/properties/utils';
 import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 
@@ -83,7 +84,9 @@ export default function BaseProperty<T>({
 }: Props<T>) {
     const { isTemplateEditable } = usePageTemplateContext();
 
-    const menuItems = usePropertyMenuItems(position);
+    const menuItems = usePropertyMenuItems(position, property.type);
+
+    const filteredItems = filterCurrentItemInReplaceMenu(menuItems, property);
 
     const valuesToShow = useMemo(() => values.slice(0, maxValues ?? DEFAULT_MAX_ITEMS), [values, maxValues]);
     const valuesToShowInPopover = useMemo(() => values.slice(maxValues ?? DEFAULT_MAX_ITEMS), [values, maxValues]);
@@ -123,14 +126,22 @@ export default function BaseProperty<T>({
     }, [valuesToShowInPopover, renderValueInTooltip, restItemsPillBorderType, renderValue]);
 
     return (
-        <PropertyWrapper>
-            <Menu items={menuItems} trigger={['click']} disabled={!isTemplateEditable}>
-                <Title weight="bold" color="gray" size="sm" colorLevel={600} $clickable={isTemplateEditable} type="div">
+        <PropertyWrapper data-testid={`property-${property.type}`}>
+            <Menu items={filteredItems} trigger={['click']} disabled={!isTemplateEditable}>
+                <Title
+                    weight="bold"
+                    color="gray"
+                    size="sm"
+                    colorLevel={600}
+                    $clickable={isTemplateEditable}
+                    type="div"
+                    data-testid="property-title"
+                >
                     {property.name}
                 </Title>
             </Menu>
             <Content>
-                <ValuesWrapper>
+                <ValuesWrapper data-testid="property-value">
                     {loading ? (
                         <Skeleton.Button active />
                     ) : (

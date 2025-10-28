@@ -1,8 +1,6 @@
 import { Pagination, SearchBar, SimpleSelect } from '@components';
 import { InputRef, message } from 'antd';
-import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useHistory, useLocation } from 'react-router';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -116,6 +114,17 @@ export enum IngestionSourceType {
 
 const DEFAULT_PAGE_SIZE = 25;
 
+const mapSourceTypeAliases = <T extends { type: string }>(source?: T): T | undefined => {
+    if (source) {
+        let { type } = source;
+        if (type === 'unity-catalog') {
+            type = 'databricks';
+        }
+        return { ...source, type };
+    }
+    return undefined;
+};
+
 const removeExecutionsFromIngestionSource = (source) => {
     if (source) {
         return {
@@ -123,6 +132,7 @@ const removeExecutionsFromIngestionSource = (source) => {
             type: source.type,
             schedule: source.schedule,
             config: source.config,
+            source: source.source,
         };
     }
     return undefined;
@@ -136,6 +146,10 @@ interface Props {
     setHideSystemSources: (show: boolean) => void;
     selectedTab: TabType | undefined | null;
     setSelectedTab: (selectedTab: TabType | null | undefined) => void;
+    sourceFilter?: number;
+    setSourceFilter: (sourceFilter: number | undefined) => void;
+    searchQuery?: string;
+    setSearchQuery: (query: string) => void;
 }
 
 export const IngestionSourceList = ({
@@ -146,40 +160,30 @@ export const IngestionSourceList = ({
     setHideSystemSources,
     selectedTab,
     setSelectedTab,
+    sourceFilter: sourceFilterFromUrl,
+    setSourceFilter: setSourceFilterFromUrl,
+    searchQuery: searchQueryFromUrl,
+    setSearchQuery: setSearchQueryFromUrl,
 }: Props) => {
-    const location = useLocation();
     const me = useUserContext();
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const paramsQuery = (params?.query as string) || undefined;
-    const history = useHistory();
 
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [searchInput, setSearchInput] = useState('');
     const searchInputRef = useRef<InputRef>(null);
-    // highlight search input if user arrives with a query preset for salience
+
+    // Initialize search input from URL parameter
     useEffect(() => {
-        if (paramsQuery?.length) {
-            setQuery(paramsQuery);
-            setSearchInput(paramsQuery);
+        if (searchQueryFromUrl?.length) {
+            setQuery(searchQueryFromUrl);
+            setSearchInput(searchQueryFromUrl);
             setTimeout(() => {
                 searchInputRef.current?.focus?.();
             }, 0);
         }
-    }, [paramsQuery]);
+    }, [searchQueryFromUrl]);
 
     const handleSearchInputChange = (value: string) => {
         setSearchInput(value);
-
-        // Clear query param if user changes the search input
-        if (paramsQuery && value !== paramsQuery) {
-            const newParams = { ...params };
-            delete newParams.query;
-
-            history.replace({
-                pathname: location.pathname,
-                search: QueryString.stringify(newParams, { arrayFormat: 'comma' }),
-            });
-        }
     };
 
     const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
@@ -198,14 +202,16 @@ export const IngestionSourceList = ({
 
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
-    const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
     const [sort, setSort] = useState<SortCriterion>();
+
+    const sourceFilter = sourceFilterFromUrl ?? IngestionSourceType.ALL;
 
     // Debounce the search query
     useDebounce(
         () => {
             setPage(1);
             setQuery(searchInput);
+            setSearchQueryFromUrl(searchInput);
         },
         300,
         [searchInput],
@@ -438,6 +444,7 @@ export const IngestionSourceList = ({
                         },
                         platform: null,
                         executions: null,
+                        source: input.source || null,
                         ownership: {
                             owners: buildOwnerEntities(newUrn, owners, defaultOwnerType),
                             lastModified: {
@@ -553,6 +560,12 @@ export const IngestionSourceList = ({
                     interval: recipeBuilderState.schedule?.interval as string,
                     timezone: recipeBuilderState.schedule?.timezone as string,
                 },
+                // Preserve source field when editing existing sources (especially system sources)
+                source: focusSource?.source
+                    ? {
+                          type: focusSource.source.type,
+                      }
+                    : undefined,
             },
             resetState,
             shouldRun,
@@ -633,6 +646,7 @@ export const IngestionSourceList = ({
                                 value={searchInput || ''}
                                 onChange={(value) => handleSearchInputChange(value)}
                                 ref={searchInputRef}
+                                data-testid="ingestion-sources-search"
                             />
                             <StyledSimpleSelect
                                 options={[
@@ -641,10 +655,11 @@ export const IngestionSourceList = ({
                                     { label: 'CLI', value: '2' },
                                 ]}
                                 values={[sourceFilter.toString()]}
-                                onUpdate={(values) => setSourceFilter(Number(values[0]))}
+                                onUpdate={(values) => setSourceFilterFromUrl(Number(values[0]))}
                                 showClear={false}
                                 width="fit-content"
                                 size="lg"
+                                data-testid="ingestions-type-filter"
                             />
                         </SearchContainer>
                         <FilterButtonsContainer>
@@ -667,7 +682,7 @@ export const IngestionSourceList = ({
                                 onDelete={onDelete}
                                 onChangeSort={onChangeSort}
                                 isLoading={
-                                    loading && (!data || data?.listIngestionSources?.ingestionSources.length === 0)
+                                    loading && (!data || data?.listIngestionSources?.ingestionSources?.length === 0)
                                 }
                                 shouldPreserveParams={shouldPreserveParams}
                                 isLastPage={isLastPage}
@@ -691,7 +706,7 @@ export const IngestionSourceList = ({
                 )}
             </SourceContainer>
             <IngestionSourceBuilderModal
-                initialState={removeExecutionsFromIngestionSource(focusSource)}
+                initialState={mapSourceTypeAliases(removeExecutionsFromIngestionSource(focusSource))}
                 open={showCreateModal}
                 onSubmit={onSubmit}
                 onCancel={onCancel}

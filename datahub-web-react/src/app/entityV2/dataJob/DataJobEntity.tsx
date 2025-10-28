@@ -30,7 +30,7 @@ import { DataJobFlowTab } from '@app/entityV2/shared/tabs/Entity/DataJobFlowTab'
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { SidebarTitleActionType, getDataProduct, getFirstSubType, isOutputPort } from '@app/entityV2/shared/utils';
+import { SidebarTitleActionType, getFirstSubType, isOutputPort } from '@app/entityV2/shared/utils';
 import { EntityAndType } from '@app/lineage/types';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
@@ -47,7 +47,6 @@ const getDataJobPlatformName = (data?: DataJob | null): string => {
 };
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
@@ -212,8 +211,6 @@ export class DataJobEntity implements Entity<DataJob> {
                 platformLogo={getPlatformForDataJob(data)?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags || null}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
@@ -237,8 +234,6 @@ export class DataJobEntity implements Entity<DataJob> {
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 deprecation={data.deprecation}
                 insights={result.insights}
                 externalUrl={data.properties?.externalUrl}
@@ -251,6 +246,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data?.browsePathV2 || undefined}
                 parentContainers={data.parentContainers}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

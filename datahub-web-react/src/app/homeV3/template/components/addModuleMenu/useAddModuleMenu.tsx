@@ -38,6 +38,17 @@ const DOMAINS_MODULE: PageModuleFragment = {
     },
 };
 
+const PLATFORMS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:platforms',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Platforms',
+        type: DataHubPageModuleType.Platforms,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export const ASSETS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:assets',
     type: EntityType.DatahubPageModule,
@@ -221,6 +232,23 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             'data-testid': 'add-domains-module',
         };
 
+        const platforms = {
+            name: 'Platforms',
+            key: 'platforms',
+            label: (
+                <MenuItem
+                    description="Most used platforms in your organization"
+                    title="Platforms"
+                    icon="Database"
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(PLATFORMS_MODULE);
+            },
+            'data-testid': 'add-platforms-module',
+        };
+
         const assets = {
             name: 'Assets',
             key: 'assets',
@@ -244,7 +272,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             label: (
                 <MenuItem
                     description="View the hierarchy of this asset's children"
-                    title="Children"
+                    title={entityType === EntityType.Domain ? 'Domains' : 'Contents'}
                     icon="Globe"
                     isSmallModule={false}
                 />
@@ -289,7 +317,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             'data-testid': 'add-related-terms-module',
         };
 
-        const defaultHomeModules = [yourAssets, domains];
+        const defaultHomeModules = [yourAssets, domains, platforms];
         // TODO: make this a function to pull out and write unit tests for
         let defaultSummaryModules = [assets];
         if (entityType === EntityType.Domain) {

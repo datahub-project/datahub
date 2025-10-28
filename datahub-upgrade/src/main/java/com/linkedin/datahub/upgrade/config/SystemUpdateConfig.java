@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade.config;
 
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
+import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
@@ -14,10 +16,16 @@ import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFacto
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
+import com.linkedin.metadata.dao.throttle.ThrottleSensor;
+import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.TopicConvention;
 import java.util.List;
+import javax.annotation.Nonnull;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
@@ -134,5 +142,54 @@ public class SystemUpdateConfig {
       @Qualifier("duheSchemaRegistryConfig")
           KafkaConfiguration.SerDeKeyValueConfig duheSchemaRegistryConfig) {
     return duheSchemaRegistryConfig;
+  }
+
+  /**
+   * Override EntityService bean in the datahub-upgrade context to use system update CDC mode
+   * configuration. Only active when system update is running blocking mode operations.
+   */
+  @Primary
+  @Bean(name = "entityService")
+  @Conditional(SystemUpdateCondition.BlockingSystemUpdateCondition.class)
+  @Nonnull
+  protected EntityService<ChangeItemImpl> createEntityServiceWithSystemUpdateCDCMode(
+      @Qualifier("kafkaEventProducer") final KafkaEventProducer eventProducer,
+      @Qualifier("entityAspectDao") final AspectDao aspectDao,
+      @Qualifier("configurationProvider") ConfigurationProvider configurationProvider,
+      @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2,
+      @Value("${EBEAN_MAX_TRANSACTION_RETRY:#{null}}") final Integer ebeanMaxTransactionRetry,
+      final List<ThrottleSensor> throttleSensors) {
+
+    FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
+    boolean systemUpdateCDCMode = configurationProvider.getSystemUpdate().isCdcMode();
+
+    log.info(
+        "Creating EntityService with system update CDC mode override: {}", systemUpdateCDCMode);
+
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(
+            aspectDao,
+            eventProducer,
+            featureFlags.isAlwaysEmitChangeLog(),
+            systemUpdateCDCMode, // Use system update CDC mode
+            featureFlags.getPreProcessHooks(),
+            ebeanMaxTransactionRetry,
+            enableBrowsePathV2);
+
+    if (throttleSensors != null
+        && !throttleSensors.isEmpty()
+        && configurationProvider
+            .getMetadataChangeProposal()
+            .getThrottle()
+            .getComponents()
+            .getApiRequests()
+            .isEnabled()) {
+      log.info("API Requests Throttle Enabled");
+      throttleSensors.forEach(sensor -> sensor.addCallback(entityService::handleThrottleEvent));
+    } else {
+      log.info("API Requests Throttle Disabled");
+    }
+
+    return entityService;
   }
 }

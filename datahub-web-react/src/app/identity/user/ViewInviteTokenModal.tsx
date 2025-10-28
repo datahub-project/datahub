@@ -9,6 +9,7 @@ import styled from 'styled-components/macro';
 import analytics, { EventType } from '@app/analytics';
 import { mapRoleIcon } from '@app/identity/user/UserUtils';
 import { PageRoutes } from '@conf/Global';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useCreateInviteTokenMutation } from '@graphql/mutations.generated';
 import { useGetInviteTokenQuery, useListRolesQuery } from '@graphql/role.generated';
@@ -144,7 +145,7 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
             });
     };
 
-    const inviteLink = `${baseUrl}${PageRoutes.SIGN_UP}?invite_token=${inviteToken}`;
+    const inviteLink = `${baseUrl}${resolveRuntimePath(`${PageRoutes.SIGN_UP}?invite_token=${inviteToken}`)}`;
 
     return (
         <Modal

@@ -1,3 +1,5 @@
+import { FileUploadFailureType } from '@components/components/Editor/types';
+
 import { EmbedLookupNotFoundReason } from '@app/embed/lookup/constants';
 import { PersonaType } from '@app/homeV2/shared/types';
 import { Direction } from '@app/lineage/types';
@@ -9,12 +11,15 @@ import {
     DataHubViewType,
     EntityType,
     LineageDirection,
+    PageTemplateSurfaceType,
     PropertyCardinality,
     PropertyValueInput,
     RecommendationRenderType,
     ResourceRefInput,
     ScenarioType,
     SearchBarApi,
+    SummaryElementType,
+    UploadDownloadScenario,
 } from '@types';
 
 /**
@@ -155,6 +160,13 @@ export enum EventType {
     WelcomeToDataHubModalExitEvent,
     WelcomeToDataHubModalClickViewDocumentationEvent,
     ProductTourButtonClickEvent,
+    AssetPageAddSummaryElement,
+    AssetPageRemoveSummaryElement,
+    AssetPageReplaceSummaryElement,
+    FileUploadAttemptEvent,
+    FileUploadFailedEvent,
+    FileUploadSucceededEvent,
+    FileDownloadViewEvent,
 }
 
 /**
@@ -401,6 +413,8 @@ export const EntityActionType = {
     UpdateTags: 'UpdateTags',
     UpdateTerms: 'UpdateTerms',
     UpdateLinks: 'UpdateLinks',
+    AddLink: 'AddLink',
+    DeleteLink: 'DeleteLink',
     UpdateOwnership: 'UpdateOwnership',
     UpdateDocumentation: 'UpdateDocumentation',
     UpdateDescription: 'UpdateDescription',
@@ -414,11 +428,18 @@ export const EntityActionType = {
     AddIncident: 'AddIncident',
     ResolvedIncident: 'ResolvedIncident',
 };
+
+export enum ExternalLinkType {
+    Custom = 'CUSTOM',
+    Default = 'DEFAULT_EXTERNAL_URL',
+}
+
 export interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
     actionType: string;
     entityType?: EntityType;
     entityUrn: string;
+    externalLinkType?: ExternalLinkType;
 }
 
 export interface BatchEntityActionEvent extends BaseEvent {
@@ -879,6 +900,7 @@ interface StructuredPropertyEvent extends BaseEvent {
     showInSearchFilters: boolean;
     showAsAssetBadge: boolean;
     showInAssetSummary: boolean;
+    hideInAssetSummaryWhenEmpty: boolean;
     showInColumnsTable: boolean;
 }
 
@@ -1037,6 +1059,7 @@ export interface HomePageTemplateModuleCreateEvent extends BaseEvent {
     templateUrn: string;
     isPersonal: boolean;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleAddEvent extends BaseEvent {
@@ -1044,6 +1067,7 @@ export interface HomePageTemplateModuleAddEvent extends BaseEvent {
     templateUrn: string;
     isPersonal: boolean;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleUpdateEvent extends BaseEvent {
@@ -1051,6 +1075,7 @@ export interface HomePageTemplateModuleUpdateEvent extends BaseEvent {
     templateUrn: string;
     isPersonal: boolean;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleDeleteEvent extends BaseEvent {
@@ -1058,27 +1083,32 @@ export interface HomePageTemplateModuleDeleteEvent extends BaseEvent {
     templateUrn: string;
     isPersonal: boolean;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleMoveEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleMove;
     templateUrn: string;
     isPersonal: boolean;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleModalCreateOpenEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleModalCreateOpen;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleModalEditOpenEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleModalEditOpen;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleModalCancelEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleModalCancel;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateGlobalTemplateEditingStartEvent extends BaseEvent {
@@ -1097,17 +1127,20 @@ export interface HomePageTemplateModuleAssetClickEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleAssetClick;
     moduleType: DataHubPageModuleType;
     assetUrn: string;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleExpandClickEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleExpandClick;
     moduleType: DataHubPageModuleType;
     assetUrn: string;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleViewAllClickEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleViewAllClick;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleLinkClickEvent extends BaseEvent {
@@ -1124,6 +1157,67 @@ export interface SetDeprecationEvent extends BaseEvent {
     entityUrns: string[];
     deprecated: boolean;
     resources?: ResourceRefInput[];
+}
+
+export interface AssetPageAddSummaryElementEvent extends BaseEvent {
+    type: EventType.AssetPageAddSummaryElement;
+    templateUrn: string;
+    elementType: SummaryElementType;
+}
+
+export interface AssetPageRemoveSummaryElementEvent extends BaseEvent {
+    type: EventType.AssetPageRemoveSummaryElement;
+    templateUrn: string;
+    elementType: SummaryElementType;
+}
+
+export interface AssetPageReplaceSummaryElementEvent extends BaseEvent {
+    type: EventType.AssetPageReplaceSummaryElement;
+    templateUrn: string;
+    currentElementType: SummaryElementType;
+    newElementType: SummaryElementType;
+}
+
+export interface FileUploadAttemptEvent extends BaseEvent {
+    type: EventType.FileUploadAttemptEvent;
+    fileType: string;
+    fileSize: number;
+    scenario: UploadDownloadScenario;
+    source: 'drag-and-drop' | 'button';
+    assetUrn?: string;
+    schemaFieldUrn?: string;
+}
+
+export interface FileUploadFailedEvent extends BaseEvent {
+    type: EventType.FileUploadFailedEvent;
+    fileType: string;
+    fileSize: number;
+    scenario: UploadDownloadScenario;
+    source: 'drag-and-drop' | 'button';
+    assetUrn?: string;
+    schemaFieldUrn?: string;
+    failureType: FileUploadFailureType;
+    comment?: string;
+}
+
+export interface FileUploadSucceededEvent extends BaseEvent {
+    type: EventType.FileUploadSucceededEvent;
+    fileType: string;
+    fileSize: number;
+    scenario: UploadDownloadScenario;
+    source: 'drag-and-drop' | 'button';
+    assetUrn?: string;
+    schemaFieldUrn?: string;
+}
+
+export interface FileDownloadViewEvent extends BaseEvent {
+    type: EventType.FileDownloadViewEvent;
+    // These fields aren't accessible while downloading
+    // fileType: string;
+    // fileSize: number;
+    scenario: UploadDownloadScenario;
+    assetUrn?: string;
+    schemaFieldUrn?: string;
 }
 
 /**
@@ -1263,4 +1357,11 @@ export type Event =
     | IngestionExecutionResultViewedEvent
     | IngestionSourceConfigurationImpressionEvent
     | IngestionViewAllClickEvent
-    | IngestionViewAllClickWarningEvent;
+    | IngestionViewAllClickWarningEvent
+    | AssetPageAddSummaryElementEvent
+    | AssetPageRemoveSummaryElementEvent
+    | AssetPageReplaceSummaryElementEvent
+    | FileUploadAttemptEvent
+    | FileUploadFailedEvent
+    | FileUploadSucceededEvent
+    | FileDownloadViewEvent;
