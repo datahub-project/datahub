@@ -104,5 +104,5 @@ record AssertionInfo includes CustomProperties, ExternalReference {
       "fieldType": "URN",
       "fieldName": "entity"
     }
-    entity: optional Urn
+    entityUrn: optional Urn
 }

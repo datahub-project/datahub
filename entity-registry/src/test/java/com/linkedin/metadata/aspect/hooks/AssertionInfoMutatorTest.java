@@ -129,7 +129,7 @@ public class AssertionInfoMutatorTest {
 
     assertEquals(result.stream().filter(Pair::getSecond).count(), 1);
     AssertionInfo mutatedInfo = result.get(0).getFirst().getAspect(AssertionInfo.class);
-    assertEquals(mutatedInfo.getEntity(), testDatasetUrn);
+    assertEquals(mutatedInfo.getEntityUrn(), testDatasetUrn);
   }
 
   @Test
@@ -138,7 +138,7 @@ public class AssertionInfoMutatorTest {
         new AssertionInfo()
             .setType(AssertionType.DATASET)
             .setDatasetAssertion(new DatasetAssertionInfo().setDataset(testDatasetUrn))
-            .setEntity(testDatasetUrn);
+            .setEntityUrn(testDatasetUrn);
 
     List<Pair<ChangeMCP, Boolean>> result =
         test.writeMutation(
@@ -184,7 +184,7 @@ public class AssertionInfoMutatorTest {
 
     assertEquals(result.stream().filter(Pair::getSecond).count(), 1);
     AssertionInfo mutatedInfo = result.get(0).getFirst().getAspect(AssertionInfo.class);
-    assertEquals(mutatedInfo.getEntity(), testEntityUrn);
+    assertEquals(mutatedInfo.getEntityUrn(), testEntityUrn);
   }
 
   @Test
@@ -212,7 +212,7 @@ public class AssertionInfoMutatorTest {
 
     assertEquals(result.stream().filter(Pair::getSecond).count(), 1);
     AssertionInfo mutatedInfo = result.get(0).getFirst().getAspect(AssertionInfo.class);
-    assertEquals(mutatedInfo.getEntity(), testEntityUrn);
+    assertEquals(mutatedInfo.getEntityUrn(), testEntityUrn);
   }
 
   @Test
@@ -240,7 +240,7 @@ public class AssertionInfoMutatorTest {
 
     assertEquals(result.stream().filter(Pair::getSecond).count(), 1);
     AssertionInfo mutatedInfo = result.get(0).getFirst().getAspect(AssertionInfo.class);
-    assertEquals(mutatedInfo.getEntity(), testEntityUrn);
+    assertEquals(mutatedInfo.getEntityUrn(), testEntityUrn);
   }
 
   @Test
@@ -268,7 +268,7 @@ public class AssertionInfoMutatorTest {
 
     assertEquals(result.stream().filter(Pair::getSecond).count(), 1);
     AssertionInfo mutatedInfo = result.get(0).getFirst().getAspect(AssertionInfo.class);
-    assertEquals(mutatedInfo.getEntity(), testEntityUrn);
+    assertEquals(mutatedInfo.getEntityUrn(), testEntityUrn);
   }
 
   @Test
@@ -296,7 +296,7 @@ public class AssertionInfoMutatorTest {
 
     assertEquals(result.stream().filter(Pair::getSecond).count(), 1);
     AssertionInfo mutatedInfo = result.get(0).getFirst().getAspect(AssertionInfo.class);
-    assertEquals(mutatedInfo.getEntity(), testEntityUrn);
+    assertEquals(mutatedInfo.getEntityUrn(), testEntityUrn);
   }
 
   @Test
@@ -324,7 +324,7 @@ public class AssertionInfoMutatorTest {
 
     assertEquals(result.stream().filter(Pair::getSecond).count(), 1);
     AssertionInfo mutatedInfo = result.get(0).getFirst().getAspect(AssertionInfo.class);
-    assertEquals(mutatedInfo.getEntity(), testEntityUrn);
+    assertEquals(mutatedInfo.getEntityUrn(), testEntityUrn);
   }
 
   @Test
@@ -352,7 +352,7 @@ public class AssertionInfoMutatorTest {
 
     assertEquals(result.stream().filter(Pair::getSecond).count(), 1);
     AssertionInfo mutatedInfo = result.get(0).getFirst().getAspect(AssertionInfo.class);
-    assertEquals(mutatedInfo.getEntity(), testDatasetUrn);
+    assertEquals(mutatedInfo.getEntityUrn(), testDatasetUrn);
   }
 
   @Test
@@ -361,7 +361,7 @@ public class AssertionInfoMutatorTest {
         new AssertionInfo()
             .setType(AssertionType.DATASET)
             .setDatasetAssertion(new DatasetAssertionInfo().setDataset(testDatasetUrn))
-            .setEntity(testDatasetUrn);
+            .setEntityUrn(testDatasetUrn);
 
     List<Pair<ChangeMCP, Boolean>> result =
         test.writeMutation(

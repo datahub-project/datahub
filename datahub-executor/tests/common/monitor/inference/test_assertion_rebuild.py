@@ -71,7 +71,7 @@ class TestVolumeAssertionRebuild:
         # Create AssertionInfoClass with entity field
         assertion_info = AssertionInfoClass(
             type="VOLUME",
-            entity="urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,PROD)",
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,PROD)",
             volumeAssertion=VolumeAssertionInfoClass(
                 type=VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
                 entity="urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,PROD)",
@@ -112,7 +112,7 @@ class TestVolumeAssertionRebuild:
         )
         assertion_info = AssertionInfoClass(
             type="VOLUME",
-            entity=assertion_info_entity,
+            entityUrn=assertion_info_entity,
             volumeAssertion=VolumeAssertionInfoClass(
                 type=VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
                 entity=assertion_info_entity,
@@ -147,7 +147,7 @@ class TestVolumeAssertionRebuild:
         # Create assertion_info without entity field
         assertion_info = AssertionInfoClass(
             type="VOLUME",
-            # entity=None,  # Not set
+            # entityUrn=None,  # Not set
             volumeAssertion=VolumeAssertionInfoClass(
                 type=VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
                 entity="urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,PROD)",
@@ -183,7 +183,7 @@ class TestFieldAssertionRebuild:
 
         assertion_info = AssertionInfoClass(
             type="FIELD",
-            entity="urn:li:dataset:(urn:li:dataPlatform:postgres,db.table,PROD)",
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:postgres,db.table,PROD)",
             description="Field assertion test",
         )
 
@@ -209,7 +209,7 @@ class TestFreshnessAssertionRebuild:
 
         assertion_info = AssertionInfoClass(
             type="FRESHNESS",
-            entity="urn:li:dataset:(urn:li:dataPlatform:kafka,topic,PROD)",
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:kafka,topic,PROD)",
             description="Freshness assertion test",
         )
 
@@ -235,7 +235,7 @@ class TestSqlAssertionRebuild:
 
         assertion_info = AssertionInfoClass(
             type="SQL",
-            entity="urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)",
             description="SQL assertion test",
         )
 
@@ -262,7 +262,7 @@ class TestDictUnpackingBehavior:
         """Verify AssertionInfo.to_obj() includes entity field when set."""
         assertion_info = AssertionInfoClass(
             type="VOLUME",
-            entity="urn:li:dataset:test",
+            entityUrn="urn:li:dataset:test",
             volumeAssertion=VolumeAssertionInfoClass(
                 type=VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
                 entity="urn:li:dataset:test",
@@ -280,8 +280,8 @@ class TestDictUnpackingBehavior:
         obj_dict = assertion_info.to_obj()
 
         # Verify entity is in the dict
-        assert "entity" in obj_dict
-        assert obj_dict["entity"] == "urn:li:dataset:test"
+        assert "entityUrn" in obj_dict
+        assert obj_dict["entityUrn"] == "urn:li:dataset:test"
 
     def test_assertion_deserialization_with_entity_object(
         self, mock_assertion: Mock
@@ -329,7 +329,7 @@ class TestAssertionInfoSchema:
 
         assertion_info = AssertionInfoClass(
             type="VOLUME",
-            entity=entity_urn,  # Top-level entity
+            entityUrn=entity_urn,  # Top-level entity
             volumeAssertion=VolumeAssertionInfoClass(
                 type=VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
                 entity=entity_urn,  # Nested entity in volumeAssertion
@@ -347,21 +347,21 @@ class TestAssertionInfoSchema:
         )
 
         # Both entity fields should be present
-        assert assertion_info.entity == entity_urn
+        assert assertion_info.entityUrn == entity_urn
         assert assertion_info.volumeAssertion is not None
         assert assertion_info.volumeAssertion.entity == entity_urn
 
         # to_obj() should include the top-level entity
         obj_dict = assertion_info.to_obj()
-        assert "entity" in obj_dict
-        assert obj_dict["entity"] == entity_urn
+        assert "entityUrn" in obj_dict
+        assert obj_dict["entityUrn"] == entity_urn
 
     def test_entity_field_is_optional(self) -> None:
         """Verify entity field is optional and AssertionInfo can be created without it."""
         # Create AssertionInfo without entity field
         assertion_info = AssertionInfoClass(
             type="VOLUME",
-            # entity not set
+            # entityUrn not set
             volumeAssertion=VolumeAssertionInfoClass(
                 type=VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
                 entity="urn:li:dataset:test",
@@ -406,7 +406,7 @@ class TestProductionScenarios:
         # Create assertion info with production data
         assertion_info = AssertionInfoClass(
             type="VOLUME",
-            entity=entity_urn,
+            entityUrn=entity_urn,
             volumeAssertion=VolumeAssertionInfoClass(
                 type=VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
                 entity=entity_urn,
@@ -440,7 +440,7 @@ class TestProductionScenarios:
         volume_trainer = VolumeAssertionTrainer(Mock(), Mock(), Mock(), Mock())
         volume_info = AssertionInfoClass(
             type="VOLUME",
-            entity=entity_urn,
+            entityUrn=entity_urn,
             volumeAssertion=VolumeAssertionInfoClass(
                 type=VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
                 entity=entity_urn,
@@ -463,7 +463,7 @@ class TestProductionScenarios:
         # Test with minimal AssertionInfo containing entity field
         field_info = AssertionInfoClass(
             type="FIELD",
-            entity=entity_urn,
+            entityUrn=entity_urn,
             description="Field test",
         )
         field_result = field_trainer._rebuild_assertion(
@@ -476,7 +476,7 @@ class TestProductionScenarios:
         # Test with minimal AssertionInfo containing entity field
         freshness_info = AssertionInfoClass(
             type="FRESHNESS",
-            entity=entity_urn,
+            entityUrn=entity_urn,
             description="Freshness test",
         )
         freshness_result = freshness_trainer._rebuild_assertion(
@@ -489,7 +489,7 @@ class TestProductionScenarios:
         # Test with minimal AssertionInfo containing entity field
         sql_info = AssertionInfoClass(
             type="SQL",
-            entity=entity_urn,
+            entityUrn=entity_urn,
             description="SQL test",
         )
         sql_result = sql_trainer._rebuild_assertion(

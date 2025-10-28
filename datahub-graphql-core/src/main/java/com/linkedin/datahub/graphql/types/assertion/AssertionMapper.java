@@ -97,7 +97,7 @@ public class AssertionMapper {
       try {
         // Don't want to break entire graphql call if we have data corruption
         final @Nonnull Urn datasetUrn =
-            Optional.ofNullable(assertionInfo.getEntity())
+            Optional.ofNullable(assertionInfo.getEntityUrn())
                 .orElse(AssertionInfoMutator.getEntityFromAssertionInfo(assertionInfo));
         final Dataset dataset = new Dataset();
         dataset.setUrn(datasetUrn.toString());

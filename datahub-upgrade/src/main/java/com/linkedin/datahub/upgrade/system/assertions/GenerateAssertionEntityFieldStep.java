@@ -31,7 +31,7 @@ public class GenerateAssertionEntityFieldStep extends AbstractMCPStep {
 
   @Override
   public String id() {
-    return "assertion-entity-field-v1";
+    return "assertion-entity-field-v2";
   }
 
   @Nonnull
