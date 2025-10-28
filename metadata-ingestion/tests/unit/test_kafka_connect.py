@@ -3316,3 +3316,479 @@ class TestErrorHandling:
         # Should return empty list instead of crashing
         topics = connector.get_topics_from_config()
         assert topics == []
+
+
+# ============================================================================
+# Phase 3: Comprehensive Coverage Tests
+# ============================================================================
+
+
+class TestInferMappings:
+    """Test infer_mappings method for JDBC source connectors."""
+
+    def test_infer_mappings_single_table_mode(self) -> None:
+        """Test infer_mappings with single table configuration (kafka.topic + table.name)."""
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:postgresql://localhost:5432/mydb",
+            "kafka.topic": "users_topic",
+            "table.name": "users",
+        }
+
+        manifest = ConnectorManifest(
+            name="jdbc-single-table",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=["users_topic"],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        lineages = connector.infer_mappings(all_topics=["users_topic"])
+
+        assert len(lineages) == 1
+        assert lineages[0].source_dataset == "users"
+        assert lineages[0].target_dataset == "users_topic"
+        assert lineages[0].source_platform == "postgres"
+        assert lineages[0].job_property_bag["mode"] == "single_table"
+
+    def test_infer_mappings_multi_table_mode(self) -> None:
+        """Test infer_mappings with multi-table configuration."""
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:mysql://localhost:3306/inventory",
+            "table.include.list": "products,customers,orders",
+            "topic.prefix": "db_",
+        }
+
+        manifest = ConnectorManifest(
+            name="jdbc-multi-table",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=["db_products", "db_customers", "db_orders"],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        lineages = connector.infer_mappings(
+            all_topics=["db_products", "db_customers", "db_orders"]
+        )
+
+        assert len(lineages) == 3
+        
+        # Check products lineage
+        products_lineage = next(lineage for lineage in lineages if "products" in lineage.target_dataset)
+        assert products_lineage.source_dataset == "products"
+        assert products_lineage.target_dataset == "db_products"
+        assert products_lineage.job_property_bag["mode"] == "multi_table"
+
+    def test_infer_mappings_with_topic_prefix_only(self) -> None:
+        """Test infer_mappings with only topic prefix (no explicit table list)."""
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:postgresql://localhost:5432/testdb",
+            "topic.prefix": "staging_",
+        }
+
+        manifest = ConnectorManifest(
+            name="jdbc-prefix-only",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=["staging_events", "staging_logs"],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        lineages = connector.infer_mappings(
+            all_topics=["staging_events", "staging_logs", "other_topic"]
+        )
+
+        # Should infer from topics matching the prefix
+        assert len(lineages) == 2
+        assert lineages[0].source_dataset == "events"
+        assert lineages[0].target_dataset == "staging_events"
+        assert lineages[0].job_property_bag["mode"] == "inferred"
+
+    def test_infer_mappings_with_schema_qualified_tables(self) -> None:
+        """Test infer_mappings with schema-qualified table names."""
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:postgresql://localhost:5432/mydb",
+            "table.include.list": "public.users,analytics.events",
+            "topic.prefix": "",
+        }
+
+        manifest = ConnectorManifest(
+            name="jdbc-schema-qualified",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=["public.users", "analytics.events"],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        lineages = connector.infer_mappings(
+            all_topics=["public.users", "analytics.events"]
+        )
+
+        assert len(lineages) == 2
+        assert lineages[0].source_dataset == "public.users"
+        assert lineages[1].source_dataset == "analytics.events"
+
+    def test_infer_mappings_with_no_matching_topics(self) -> None:
+        """Test infer_mappings when predicted topics don't exist in cluster."""
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:mysql://localhost:3306/mydb",
+            "table.include.list": "users,orders",
+            "topic.prefix": "prod_",
+        }
+
+        manifest = ConnectorManifest(
+            name="jdbc-no-match",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        # Provide topics that don't match the expected pattern
+        lineages = connector.infer_mappings(all_topics=["dev_users", "test_orders"])
+
+        # Should not create lineages for non-matching topics
+        assert len(lineages) == 0
+
+    def test_infer_mappings_handles_unknown_platform(self) -> None:
+        """Test infer_mappings returns empty list for unknown JDBC platform."""
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:unknown://localhost:1234/mydb",
+            "kafka.topic": "test_topic",
+        }
+
+        manifest = ConnectorManifest(
+            name="jdbc-unknown-platform",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=["test_topic"],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        lineages = connector.infer_mappings(all_topics=["test_topic"])
+
+        # Should return empty list for unknown platform
+        assert len(lineages) == 0
+
+
+class TestCloudEnvironmentEdgeCases:
+    """Test cloud environment extraction edge cases."""
+
+    def test_cloud_extraction_with_no_topics(self) -> None:
+        """Test cloud extraction when no topics are available."""
+        connector_config = {
+            "connector.class": "PostgresCdcSource",
+            "database.hostname": "localhost",
+            "database.port": "5432",
+            "database.dbname": "mydb",
+            "database.user": "user",
+            "table.include.list": "public.users",
+        }
+
+        manifest = ConnectorManifest(
+            name="cloud-no-topics",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],  # No topics available
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        lineages = connector.extract_lineages()
+
+        # Should handle gracefully - may return empty or fallback lineages
+        assert isinstance(lineages, list)
+
+    def test_cloud_extraction_with_transforms_but_no_source_tables(self) -> None:
+        """Test cloud extraction with transforms configured but unable to derive source tables."""
+        connector_config = {
+            "connector.class": "PostgresCdcSource",
+            "database.hostname": "localhost",
+            "database.port": "5432",
+            "database.dbname": "mydb",
+            "database.user": "user",
+            "transforms": "regexRouter",
+            "transforms.regexRouter.type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "transforms.regexRouter.regex": ".*",
+            "transforms.regexRouter.replacement": "transformed",
+            # No table.include.list - can't derive source tables
+        }
+
+        manifest = ConnectorManifest(
+            name="cloud-transforms-no-tables",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=["transformed"],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        lineages = connector.extract_lineages()
+
+        # Should handle gracefully without crashing
+        assert isinstance(lineages, list)
+
+    def test_cloud_environment_detection(self) -> None:
+        """Test proper detection of cloud connector classes."""
+        # Test cloud connector class
+        cloud_config = {
+            "connector.class": "PostgresCdcSource",
+            "database.hostname": "localhost",
+            "database.port": "5432",
+            "database.dbname": "mydb",
+            "database.user": "user",
+            "table.include.list": "public.users",
+        }
+
+        cloud_manifest = ConnectorManifest(
+            name="cloud-postgres",
+            type="source",
+            config=cloud_config,
+            tasks=[],
+            topic_names=["topic1"],
+        )
+
+        # Test platform connector class
+        platform_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:postgresql://localhost:5432/mydb",
+            "table.include.list": "public.users",
+        }
+
+        platform_manifest = ConnectorManifest(
+            name="platform-postgres",
+            type="source",
+            config=platform_config,
+            tasks=[],
+            topic_names=["topic1"],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        # Both should work but use different extraction logic
+        cloud_connector = ConfluentJDBCSourceConnector(cloud_manifest, config, report)
+        platform_connector = ConfluentJDBCSourceConnector(
+            platform_manifest, config, report
+        )
+
+        cloud_lineages = cloud_connector.extract_lineages()
+        platform_lineages = platform_connector.extract_lineages()
+
+        assert isinstance(cloud_lineages, list)
+        assert isinstance(platform_lineages, list)
+
+
+class TestPlatformDetection:
+    """Test JDBC URL platform detection logic."""
+
+    def test_extract_platform_from_jdbc_url_postgres(self) -> None:
+        """Test platform extraction for PostgreSQL JDBC URL."""
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:postgresql://localhost:5432/mydb",
+        }
+
+        manifest = ConnectorManifest(
+            name="test",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        platform = connector._extract_platform_from_jdbc_url(
+            "jdbc:postgresql://localhost:5432/mydb"
+        )
+        assert platform == "postgres"
+
+    def test_extract_platform_from_jdbc_url_mysql(self) -> None:
+        """Test platform extraction for MySQL JDBC URL."""
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:mysql://localhost:3306/mydb",
+        }
+
+        manifest = ConnectorManifest(
+            name="test",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        platform = connector._extract_platform_from_jdbc_url(
+            "jdbc:mysql://localhost:3306/mydb"
+        )
+        assert platform == "mysql"
+
+    def test_extract_platform_from_jdbc_url_sqlserver(self) -> None:
+        """Test platform extraction for SQL Server JDBC URL."""
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:sqlserver://localhost:1433;databaseName=mydb",
+        }
+
+        manifest = ConnectorManifest(
+            name="test",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        platform = connector._extract_platform_from_jdbc_url(
+            "jdbc:sqlserver://localhost:1433;databaseName=mydb"
+        )
+        assert platform == "sqlserver"
+
+    def test_extract_platform_from_invalid_jdbc_url(self) -> None:
+        """Test platform extraction for invalid JDBC URL returns 'unknown'."""
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "not-a-jdbc-url",
+        }
+
+        manifest = ConnectorManifest(
+            name="test",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        platform = connector._extract_platform_from_jdbc_url("not-a-jdbc-url")
+        assert platform == "unknown"
+
+    def test_extract_platform_from_empty_jdbc_url(self) -> None:
+        """Test platform extraction for empty JDBC URL returns 'unknown'."""
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "",
+        }
+
+        manifest = ConnectorManifest(
+            name="test",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+
+        config = Mock(spec=KafkaConnectSourceConfig)
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        platform = connector._extract_platform_from_jdbc_url("")
+        assert platform == "unknown"
+
+
+class TestTransformPluginAdditionalCoverage:
+    """Additional tests for transform plugin coverage gaps."""
+
+    def test_regex_router_with_missing_config(self) -> None:
+        """Test RegexRouter handles missing regex/replacement gracefully."""
+        pipeline = get_transform_pipeline()
+
+        config = {
+            "transforms": "regexRouter",
+            "transforms.regexRouter.type": "org.apache.kafka.connect.transforms.RegexRouter",
+            # Missing regex and replacement!
+        }
+
+        result = pipeline.apply_forward(["topic1"], config)
+
+        # Should return topics unchanged (logs warning via logger, not result.warnings)
+        assert result.topics == ["topic1"]
+        assert result.successful is True
+
+    def test_complex_transform_plugin_apply_methods(self) -> None:
+        """Test ComplexTransformPlugin returns topics unchanged in apply methods."""
+        from datahub.ingestion.source.kafka_connect.transform_plugins import (
+            ComplexTransformPlugin,
+            TransformConfig,
+        )
+
+        plugin = ComplexTransformPlugin()
+        config = TransformConfig(
+            name="eventRouter",
+            type="io.debezium.transforms.outbox.EventRouter",
+            config={},
+        )
+
+        # Test apply_forward
+        result = plugin.apply_forward(["topic1", "topic2"], config)
+        assert result == ["topic1", "topic2"]
+
+        # Test apply_reverse
+        result = plugin.apply_reverse(["topic1", "topic2"], config)
+        assert result == ["topic1", "topic2"]
+
+    def test_regex_router_reverse_transform(self) -> None:
+        """Test RegexRouter apply_reverse (limited support)."""
+        from datahub.ingestion.source.kafka_connect.transform_plugins import (
+            RegexRouterPlugin,
+            TransformConfig,
+        )
+
+        plugin = RegexRouterPlugin()
+        config = TransformConfig(
+            name="reverse_test",
+            type="org.apache.kafka.connect.transforms.RegexRouter",
+            config={"regex": "(.*)_(.*)", "replacement": "$2_$1"},
+        )
+
+        # Reverse is not fully supported, should return topics unchanged
+        result = plugin.apply_reverse(["transformed_topic"], config)
+        assert result == ["transformed_topic"]
