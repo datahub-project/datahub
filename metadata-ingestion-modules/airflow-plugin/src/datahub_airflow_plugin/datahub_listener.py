@@ -3,7 +3,6 @@ import copy
 import functools
 import logging
 import os
-import platform
 import threading
 import time
 from typing import (
@@ -69,27 +68,27 @@ from datahub_airflow_plugin._version import __package_name__, __version__
 from datahub_airflow_plugin.client.airflow_generator import (  # type: ignore[attr-defined]  # Circular import issue with mypy
     AirflowGenerator,
 )
-
-# Only import extractors on Airflow < 3.0
-# On Airflow 3.0+, we use the SQLParser patch and operator patches instead
-if not IS_AIRFLOW_3_OR_HIGHER:
-    from datahub_airflow_plugin._extractors import (
-        SQL_PARSING_RESULT_KEY,
-        ExtractorManager,
-    )
-else:
-    # On Airflow 3.0+, extractors are not used
-    SQL_PARSING_RESULT_KEY = None  # type: ignore
-    ExtractorManager = None  # type: ignore
-
 from datahub_airflow_plugin.entities import (
     _Entity,
     entities_to_datajob_urn_list,
     entities_to_dataset_urn_list,
 )
 
-# Check if we're on macOS with Airflow 3.0+ (for fork-safety workarounds)
-_IS_MACOS_AIRFLOW3 = platform.system() == "Darwin" and IS_AIRFLOW_3_OR_HIGHER
+# SQL parsing result key for Airflow 2.x extractors
+# This constant is only used in Airflow 2.x code paths
+SQL_PARSING_RESULT_KEY = "datahub_sql"
+
+# Only import extractors on Airflow < 3.0
+# On Airflow 3.0+, we use the SQLParser patch and operator patches instead
+if not IS_AIRFLOW_3_OR_HIGHER:
+    from datahub_airflow_plugin._extractors import (
+        SQL_PARSING_RESULT_KEY,  # Import to stay in sync with _extractors.py
+        ExtractorManager,
+    )
+else:
+    # On Airflow 3.0+, extractors are not used
+    # ExtractorManager is set to None as a sentinel to indicate it's unavailable
+    ExtractorManager = None  # type: ignore
 
 _F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:
@@ -191,27 +190,20 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
                 f"DataHub plugin v2 (package: {__package_name__} and version: {__version__}) listener initialized with config: {plugin_config}"
             )
 
-            # Skip telemetry on macOS with Airflow 3.0+ to avoid fork-unsafe network calls
-            # that cause SIGSEGV crashes in task workers
-            if not _IS_MACOS_AIRFLOW3:
-                telemetry.telemetry_instance.ping(
-                    "airflow-plugin-init",
-                    {
-                        "airflow-version": airflow.__version__,
-                        "datahub-airflow-plugin": "v2",
-                        "datahub-airflow-plugin-dag-events": HAS_AIRFLOW_DAG_LISTENER_API,
-                        "capture_executions": plugin_config.capture_executions,
-                        "capture_tags": plugin_config.capture_tags_info,
-                        "capture_ownership": plugin_config.capture_ownership_info,
-                        "enable_extractors": plugin_config.enable_extractors,
-                        "render_templates": plugin_config.render_templates,
-                        "disable_openlineage_plugin": plugin_config.disable_openlineage_plugin,
-                    },
-                )
-            else:
-                logger.debug(
-                    "Skipping telemetry on macOS with Airflow 3.0+ to prevent SIGSEGV"
-                )
+            telemetry.telemetry_instance.ping(
+                "airflow-plugin-init",
+                {
+                    "airflow-version": airflow.__version__,
+                    "datahub-airflow-plugin": "v2",
+                    "datahub-airflow-plugin-dag-events": HAS_AIRFLOW_DAG_LISTENER_API,
+                    "capture_executions": plugin_config.capture_executions,
+                    "capture_tags": plugin_config.capture_tags_info,
+                    "capture_ownership": plugin_config.capture_ownership_info,
+                    "enable_extractors": plugin_config.enable_extractors,
+                    "render_templates": plugin_config.render_templates,
+                    "disable_openlineage_plugin": plugin_config.disable_openlineage_plugin,
+                },
+            )
 
         # Debug: Log OpenLineage plugin state
         if OpenLineagePlugin is not None:

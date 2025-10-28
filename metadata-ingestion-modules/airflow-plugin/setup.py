@@ -26,8 +26,8 @@ base_requirements = {
     f"acryl-datahub[sql-parser,datahub-rest]{_self_pin}",
     "pydantic>=2.4.0",
     # We require Airflow 2.5.x at minimum, since we need the new DAG listener API.
-    # We pin to 2.5.x, since we also need typing-extensions>=4.5 in acryl-datahub.
-    "apache-airflow>=2.5.0",
+    # We support both Airflow 2.x and 3.x with full backward compatibility.
+    "apache-airflow>=2.5.0,<4.0.0",
 }
 
 plugins: Dict[str, Set[str]] = {
