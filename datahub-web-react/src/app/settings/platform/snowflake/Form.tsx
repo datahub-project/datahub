@@ -49,6 +49,9 @@ export interface SnowflakeFormValues {
     warehouse?: string;
     database?: string;
     schema?: string;
+    authentication_type?: string;
+    private_key?: string;
+    private_key_password?: string;
 }
 
 interface Props {
@@ -68,6 +71,11 @@ export const decodeJson = (json: string) => {
             role: parsed.role,
             username: parsed.username,
             warehouse: parsed.warehouse,
+            database: parsed.database,
+            schema: parsed.schema,
+            authentication_type: parsed.authentication_type || 'DEFAULT_AUTHENTICATOR',
+            private_key: parsed.private_key,
+            private_key_password: parsed.private_key_password,
         };
     } catch (e) {
         return {};
@@ -92,6 +100,9 @@ export const SnowflakeConnectionForm = ({
         warehouse: defaultFormValues?.warehouse,
         database: defaultFormValues?.database,
         schema: defaultFormValues?.schema,
+        authentication_type: defaultFormValues?.authentication_type || 'DEFAULT_AUTHENTICATOR',
+        private_key: defaultFormValues?.private_key,
+        private_key_password: defaultFormValues?.private_key_password,
     });
 
     // Mutation to create/update connection
@@ -106,6 +117,8 @@ export const SnowflakeConnectionForm = ({
             if (data?.connection?.details?.json) {
                 const json = decodeJson(data.connection.details.json.blob);
                 json.password = undefined; // Do not show password
+                json.private_key = undefined; // Do not show private key
+                json.private_key_password = undefined; // Do not show private key password
                 setFormValues(json);
             }
         },
@@ -169,25 +182,46 @@ export const SnowflakeConnectionForm = ({
             warehouse: formValues.warehouse,
             database: formValues.database,
             schema: formValues.schema,
+            authentication_type: formValues.authentication_type,
+            private_key: formValues.private_key,
+            private_key_password: formValues.private_key_password,
         });
         handleChange?.(formValues);
     }, [form, formValues, handleChange]);
 
-    const isAllRequiredFieldsFilled = Object.values(formValues).every((value) => value);
+    const isAllRequiredFieldsFilled = (() => {
+        const requiredFields = ['account_id', 'name', 'username', 'warehouse', 'role', 'authentication_type'];
+
+        // Add authentication-specific required fields
+        if (formValues.authentication_type === 'DEFAULT_AUTHENTICATOR') {
+            requiredFields.push('password');
+        } else if (formValues.authentication_type === 'KEY_PAIR_AUTHENTICATOR') {
+            requiredFields.push('private_key');
+        }
+
+        return requiredFields.every((field) => formValues[field as keyof SnowflakeFormValues]);
+    })();
 
     return (
         <Form layout="vertical" form={form} onValuesChange={updateFormValues}>
             <Wrapper>
-                {fields.map((field, i) => (
-                    <FormField
-                        key={field.name}
-                        field={field}
-                        secrets={secrets}
-                        refetchSecrets={refetchSecrets}
-                        removeMargin={i === fields.length - 1}
-                        updateFormValue={updateFormValue}
-                    />
-                ))}
+                {fields.map((field, i) => {
+                    // Check if field has conditional visibility logic
+                    if (field.shouldShow && !field.shouldShow(formValues)) {
+                        return null;
+                    }
+
+                    return (
+                        <FormField
+                            key={field.name}
+                            field={field}
+                            secrets={secrets}
+                            refetchSecrets={refetchSecrets}
+                            removeMargin={i === fields.length - 1}
+                            updateFormValue={updateFormValue}
+                        />
+                    );
+                })}
                 <ButtonsContainer>
                     <TestConnection configValues={formValues} />
                     <Button htmlType="submit" type="primary" onClick={handleSave} disabled={!isAllRequiredFieldsFilled}>

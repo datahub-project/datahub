@@ -1870,7 +1870,7 @@ Configurations related to Classification Automation
 """
 type ClassificationAutomations {
   """
-  Show or hide the snowflake tag propagation automation
+  Show or hide the snowflake metadata sync automation
   """
   snowflake: Boolean!
   """

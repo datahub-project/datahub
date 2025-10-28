@@ -1,4 +1,4 @@
-import { FieldType } from '@app/ingest/source/builder/RecipeForm/common';
+import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
 
 export const SNOWFLAKE_CONNECTION_NAME = {
     name: 'name',
@@ -45,7 +45,7 @@ export const SNOWFLAKE_USERNAME = {
     required: true,
 };
 
-export const SNOWFLAKE_PASSWORD = {
+export const SNOWFLAKE_PASSWORD: RecipeField = {
     name: 'password',
     label: 'Password',
     tooltip: 'Snowflake password.',
@@ -54,6 +54,7 @@ export const SNOWFLAKE_PASSWORD = {
     placeholder: 'password',
     rules: null,
     required: true,
+    shouldShow: (formValues) => formValues.authentication_type === 'DEFAULT_AUTHENTICATOR',
 };
 
 export const SNOWFLAKE_ROLE = {
@@ -89,12 +90,54 @@ export const SNOWFLAKE_SCHEMA = {
     required: false,
 };
 
-export const fields = [
+export const SNOWFLAKE_AUTHENTICATION_TYPE = {
+    name: 'authentication_type',
+    label: 'Authentication Type',
+    tooltip: 'The type of authenticator to use when connecting to Snowflake.',
+    type: FieldType.SELECT,
+    fieldPath: 'source.config.authentication_type',
+    placeholder: 'DEFAULT_AUTHENTICATOR',
+    options: [
+        { label: 'Username/Password', value: 'DEFAULT_AUTHENTICATOR' },
+        { label: 'Private Key', value: 'KEY_PAIR_AUTHENTICATOR' },
+    ],
+    rules: null,
+    required: true,
+};
+
+export const SNOWFLAKE_PRIVATE_KEY: RecipeField = {
+    name: 'private_key',
+    label: 'Private Key',
+    tooltip: 'Private key in PEM format for key pair authentication. Should start with -----BEGIN PRIVATE KEY-----',
+    type: FieldType.SECRET,
+    fieldPath: 'source.config.private_key',
+    placeholder: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
+    rules: null,
+    required: false,
+    shouldShow: (formValues) => formValues.authentication_type === 'KEY_PAIR_AUTHENTICATOR',
+};
+
+export const SNOWFLAKE_PRIVATE_KEY_PASSWORD: RecipeField = {
+    name: 'private_key_password',
+    label: 'Private Key Password',
+    tooltip: 'Password for your private key. Required if using key pair authentication with encrypted private key.',
+    type: FieldType.SECRET,
+    fieldPath: 'source.config.private_key_password',
+    placeholder: 'Private key password (if encrypted)',
+    rules: null,
+    required: false,
+    shouldShow: (formValues) => formValues.authentication_type === 'KEY_PAIR_AUTHENTICATOR',
+};
+
+export const fields: RecipeField[] = [
     SNOWFLAKE_CONNECTION_NAME,
     SNOWFLAKE_ACCOUNT_ID,
     SNOWFLAKE_WAREHOUSE,
     SNOWFLAKE_USERNAME,
+    SNOWFLAKE_AUTHENTICATION_TYPE,
     SNOWFLAKE_PASSWORD,
+    SNOWFLAKE_PRIVATE_KEY,
+    SNOWFLAKE_PRIVATE_KEY_PASSWORD,
     SNOWFLAKE_ROLE,
     // SNOWFLAKE_DATABASE, - Not yet supported on backend.
     // SNOWFLAKE_SCHEMA, - Not yet supported on backend.

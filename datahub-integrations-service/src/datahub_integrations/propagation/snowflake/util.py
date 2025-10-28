@@ -3,7 +3,10 @@ import os
 import re
 from collections import deque
 from datetime import datetime, timedelta
-from typing import Deque, Dict, List
+from typing import TYPE_CHECKING, Deque, Dict, List, Optional
+
+if TYPE_CHECKING:
+    import snowflake.connector
 
 import cachetools
 from datahub.ingestion.api.closeable import Closeable
@@ -13,12 +16,16 @@ from datahub.metadata.urns import (
     GlossaryTermUrn,
     SchemaFieldUrn,
     TagUrn,
+    Urn,
 )
-from datahub.utilities.urns.urn import Urn
 from datahub_actions.api.action_graph import AcrylDataHubGraph
-from sqlalchemy import create_engine
 from sqlalchemy.exc import ProgrammingError
 
+from datahub_integrations.propagation.snowflake.comment_writer import (
+    SnowflakeCommentManager,
+    SQLIdentifierFormatter,
+    URNParser,
+)
 from datahub_integrations.propagation.snowflake.config import (
     SnowflakeConnectionConfigPermissive,
 )
@@ -42,14 +49,44 @@ def is_snowflake_urn(urn: str) -> bool:
 
 
 class SnowflakeTagHelper(Closeable):
+    """
+    Helper class for applying tags, terms, and descriptions to Snowflake objects.
+
+    Provides methods to interact with Snowflake using native connectors to apply
+    metadata changes including tags, glossary terms, and descriptions as comments.
+    """
+
     def __init__(self, config: SnowflakeConnectionConfigPermissive):
         self.config: SnowflakeConnectionConfigPermissive = config
-        url = self.config.get_sql_alchemy_url()
-        self.engine = create_engine(url, **self.config.get_options())
+
+        # Use lazy connection - don't connect during initialization to avoid bootstrap failures
+        self._connection: Optional["snowflake.connector.SnowflakeConnection"] = None
+        self._comment_manager: Optional[SnowflakeCommentManager] = None
         self.error_timestamps: Deque[datetime] = (
             deque()
         )  # To store timestamps of errors
         self.error_threshold = MAX_ERRORS_PER_HOUR  # Max errors per hour before dropping. To prevent getting locked out.
+
+    @property
+    def connection(self) -> "snowflake.connector.SnowflakeConnection":
+        """Lazy connection property - connects only when needed."""
+        if self._connection is None:
+            logger.debug("Creating new Snowflake connection")
+            self._connection = self._get_native_connection()
+        return self._connection
+
+    @property
+    def comment_manager(self) -> SnowflakeCommentManager:
+        """Lazy comment manager property - creates only when needed."""
+        if self._comment_manager is None:
+            self._comment_manager = SnowflakeCommentManager(
+                self.connection, self._run_query_direct
+            )
+        return self._comment_manager
+
+    def _get_native_connection(self) -> "snowflake.connector.SnowflakeConnection":
+        """Get native Snowflake connection using the centralized method."""
+        return self.config.create_native_connection(application="acryl_datahub")
 
     @staticmethod
     def get_term_name_from_id(term_urn: str, graph: AcrylDataHubGraph) -> str:
@@ -63,7 +100,7 @@ class SnowflakeTagHelper(Closeable):
 
     @staticmethod
     def get_label_urn_to_tag(label_urn: str, graph: AcrylDataHubGraph) -> str:
-        label_urn_parsed = Urn.from_string(label_urn)
+        label_urn_parsed = Urn.create_from_string(label_urn)
         if isinstance(label_urn_parsed, TagUrn):
             return label_urn_parsed.name
         elif isinstance(label_urn_parsed, GlossaryTermUrn):
@@ -79,6 +116,7 @@ class SnowflakeTagHelper(Closeable):
             )
 
     def has_special_chars(self, text: str) -> bool:
+        """Check if text contains special characters."""
         return bool(re.search(r"[^a-zA-Z0-9_]", text))
 
     def apply_tag_or_term(
@@ -98,7 +136,18 @@ class SnowflakeTagHelper(Closeable):
             raise ValueError(
                 f"Invalid entity urn {entity_urn}, can only handle Dataset and SchemaField urns."
             )
-        database, schema, table = dataset_urn.name.split(".")
+
+        # Parse the dataset URN to extract database, schema, and table
+        # This handles platform instances correctly (takes last 3 parts)
+        snowflake_table = URNParser.parse_dataset_urn(dataset_urn)
+        if snowflake_table is None:
+            logger.warning(f"Failed to parse dataset URN: {dataset_urn}")
+            return
+        database, schema, table = (
+            snowflake_table.database,
+            snowflake_table.schema,
+            snowflake_table.table_name,
+        )
         self._create_tag(database, schema, tag, tag_or_term_urn)
 
         if isinstance(parsed_entity_urn, DatasetUrn):
@@ -219,7 +268,18 @@ class SnowflakeTagHelper(Closeable):
         parsed_entity_urn = Urn.create_from_string(entity_urn)
         if isinstance(parsed_entity_urn, DatasetUrn):
             dataset_urn = parsed_entity_urn
-            database, schema, table = dataset_urn.name.split(".")
+
+            # Parse the dataset URN to extract database, schema, and table
+            # This handles platform instances correctly (takes last 3 parts)
+            snowflake_table = URNParser.parse_dataset_urn(dataset_urn)
+            if snowflake_table is None:
+                logger.warning(f"Failed to parse dataset URN: {dataset_urn}")
+                return
+            database, schema, table = (
+                snowflake_table.database,
+                snowflake_table.schema,
+                snowflake_table.table_name,
+            )
             # Since when removing a tag, it might not exist on Snowflake (just datahub), we need to handle the exception
             # internally to prevent getting locked out of the account.
             query = """
@@ -265,7 +325,19 @@ class SnowflakeTagHelper(Closeable):
                 )
                 return None
             dataset_urn = DatasetUrn.create_from_string(parsed_entity_urn.parent)
-            database, schema, table = dataset_urn.name.split(".")
+
+            # Parse the dataset URN to extract database, schema, and table
+            # This handles platform instances correctly (takes last 3 parts)
+            snowflake_table = URNParser.parse_dataset_urn(dataset_urn)
+            if snowflake_table is None:
+                logger.warning(f"Failed to parse dataset URN: {dataset_urn}")
+                return
+            database, schema, table = (
+                snowflake_table.database,
+                snowflake_table.schema,
+                snowflake_table.table_name,
+            )
+
             # Since when removing a tag, it might not exist on Snowflake (just datahub), we need to handle the exception
             # internally to prevent getting locked out of the account.
             query = """
@@ -347,42 +419,42 @@ class SnowflakeTagHelper(Closeable):
 
         results: Dict[str, List[str]] = {}
         try:
-            # Get a connection and cursor
-            with self.engine.connect() as connection:
-                raw_connection = connection.connection
-                with raw_connection.cursor() as cursor:
-                    # Set the database and schema
-                    cursor.execute(f"USE {database}.{schema}")
+            # Use native Snowflake connection
+            with self.connection.cursor() as cursor:
+                # Set the database and schema - use smart quoting
+                formatted_database = SQLIdentifierFormatter.format_identifier(database)
+                formatted_schema = SQLIdentifierFormatter.format_identifier(schema)
+                cursor.execute(f"USE {formatted_database}.{formatted_schema}")
 
-                    # Execute the main query
-                    cursor.execute(query)
+                # Execute the main query
+                cursor.execute(query)
 
-                    # Get column names from cursor description
-                    columns = [col[0] for col in cursor.description]
+                # Get column names from cursor description
+                columns = [col[0] for col in cursor.description]
 
-                    # Fetch results in batches
-                    while True:
-                        batch = cursor.fetchmany(batch_size)
-                        if not batch:
-                            break
+                # Fetch results in batches
+                while True:
+                    batch = cursor.fetchmany(batch_size)
+                    if not batch:
+                        break
 
-                        # Convert each row to a dictionary with column names
-                        named_batch = [
-                            dict(zip(columns, row, strict=False)) for row in batch
-                        ]
-                        for row in named_batch:
-                            table_name = row.get("table_name")
-                            if not table_name:
-                                continue
+                    # Convert each row to a dictionary with column names
+                    named_batch = [
+                        dict(zip(columns, row, strict=False)) for row in batch
+                    ]
+                    for row in named_batch:
+                        table_name = row.get("table_name")
+                        if not table_name:
+                            continue
 
-                            if results.get(table_name) is None:
-                                results[table_name] = []
+                        if results.get(table_name) is None:
+                            results[table_name] = []
 
-                            column_name = row.get("column_name")
-                            if column_name:
-                                results[table_name].append(column_name)
+                        column_name = row.get("column_name")
+                        if column_name:
+                            results[table_name].append(column_name)
 
-                    return results
+            return results
 
         except Exception as e:
             logger.exception(
@@ -400,20 +472,53 @@ class SnowflakeTagHelper(Closeable):
             return
 
         try:
-            self.engine.execute(f"USE {database}.{schema};")
-            self.engine.execute(query)
+            with self.connection.cursor() as cursor:
+                # Use smart quoting for database and schema names
+                formatted_database = SQLIdentifierFormatter.format_identifier(database)
+                formatted_schema = SQLIdentifierFormatter.format_identifier(schema)
+                use_statement = f"USE {formatted_database}.{formatted_schema}"
 
-            logger.info(f"Successfully executed query {query}")
+                cursor.execute(use_statement)
+                cursor.execute(query)
         except ProgrammingError as e:
             self._log_error()
+            logger.error(f"ProgrammingError executing query: {query}. Error: {e}")
             raise ValueError(
                 f"Failed to execute snowflake query: {query}. Exception: {e}"
             ) from e
-        except Exception:
+        except Exception as e:
+            logger.exception(f"Failed to execute snowflake query: {query}. Error: {e}")
+            self._log_error()
+            raise
+
+    def _run_query_direct(self, query: str) -> None:
+        """
+        Execute a query directly without USE statement (for fully qualified queries).
+        """
+        # If we hit too many errors in the past 1 hour, then we simply start to drop.
+        if self._too_many_errors():
+            logger.warning(
+                f"Too many errors have occurred in the past hour; skipping issuing query to Snowflake to avoid account lockout! {query}"
+            )
+            return
+
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(query)
+        except ProgrammingError as e:
+            self._log_error()
+            logger.error(
+                f"ProgrammingError executing direct query: {query}. Error: {e}"
+            )
+            raise ValueError(
+                f"Failed to execute snowflake query: {query}. Exception: {e}"
+            ) from e
+        except Exception as e:
             logger.exception(
-                f"Failed to execute snowflake query: {query}. Total errors: {len(self.error_timestamps)}"
+                f"Failed to execute snowflake direct query: {query}. Error: {e}"
             )
             self._log_error()
+            raise
 
     def _cleanup_old_errors(self) -> None:
         one_hour_ago = datetime.now() - timedelta(hours=1)
@@ -428,7 +533,21 @@ class SnowflakeTagHelper(Closeable):
         self._cleanup_old_errors()
         return len(self.error_timestamps) >= self.error_threshold
 
+    def apply_description(
+        self, entity_urn: str, docs: str, subtype: Optional[str] = None
+    ) -> None:
+        """
+        Apply a description to a Snowflake table or column as a comment.
+
+        Args:
+            entity_urn: The URN of the entity (dataset or schema field)
+            docs: The description to apply
+            subtype: The object subtype (TABLE, VIEW, etc.) - if None, will auto-detect
+        """
+        # Delegate to the focused comment manager
+        self.comment_manager.apply_description(entity_urn, docs, subtype)
+
     def close(self) -> None:
-        if self.engine:
-            self.engine.dispose()
+        if self._connection and not self._connection.is_closed():
+            self._connection.close()
         logger.info("SnowflakeTagHelper closed.")
