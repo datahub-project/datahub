@@ -1,7 +1,9 @@
 from datahub_integrations.gen_ai.mlflow_init import initialize_mlflow, is_mlflow_enabled
 
 import contextlib
+import functools
 import json
+import os
 import re
 import uuid
 from dataclasses import dataclass
@@ -95,15 +97,47 @@ if PLANNING_TOOLS_ENABLED:
 else:
     logger.info("Planning tools DISABLED for ChatSession")
 
-# Smart search tool feature flag
-SMART_SEARCH_ENABLED = get_boolean_env_variable(
-    "CHATBOT_SMART_SEARCH_ENABLED", default=False
-)
 
-if SMART_SEARCH_ENABLED:
-    logger.info("Smart search tool ENABLED for ChatSession")
-else:
-    logger.info("Smart search tool DISABLED for ChatSession")
+@functools.cache
+def _is_smart_search_enabled() -> bool:
+    """
+    Lazily determine if smart search should be enabled.
+
+    Checks in order:
+    1. If CHATBOT_SMART_SEARCH_ENABLED is explicitly set, use that value
+    2. Otherwise, check if Bedrock client's region supports Cohere rerank models
+
+    This is lazily evaluated so we don't initialize the Bedrock client at module import time.
+    The cache decorator ensures thread-safe singleton behavior.
+    """
+    # Regions where Cohere rerank models are available in Bedrock
+    cohere_rerank_supported_regions = {"us-west-2", "eu-central-1"}
+
+    # Check if explicitly set via environment variable
+    env_value = os.environ.get("CHATBOT_SMART_SEARCH_ENABLED")
+    if env_value is not None:
+        enabled = get_boolean_env_variable("CHATBOT_SMART_SEARCH_ENABLED")
+        logger.info(
+            f"Smart search tool {'ENABLED' if enabled else 'DISABLED'} for ChatSession (explicit env var)"
+        )
+        return enabled
+
+    # Otherwise, check if the Bedrock region supports Cohere rerank
+    try:
+        bedrock_client = get_bedrock_client()
+        region = bedrock_client.meta.region_name
+        enabled = region in cohere_rerank_supported_regions
+        logger.info(
+            f"Smart search tool {'ENABLED' if enabled else 'DISABLED'} for ChatSession "
+            f"(auto-detected from Bedrock region: {region})"
+        )
+        return enabled
+    except Exception as e:
+        logger.warning(
+            f"Failed to check Bedrock region for smart search: {e}. Defaulting to DISABLED."
+        )
+        return False
+
 
 MAX_TOOL_CALLS = 30
 
@@ -552,7 +586,7 @@ class ChatSession:
         # Add smart_search to plannable tools (if enabled)
         # This is a data-gathering tool that should be available for planning
         # Wrap with async_background since it makes blocking Bedrock API calls for reranking
-        if SMART_SEARCH_ENABLED:
+        if _is_smart_search_enabled():
             self._plannable_tools.append(
                 ToolWrapper.from_function(
                     fn=async_background(smart_search),

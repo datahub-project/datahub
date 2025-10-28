@@ -257,6 +257,10 @@ class TestCohereBedrockRerankerRerank:
         mock_client.invoke_model.return_value = mock_response
         mock_get_bedrock_client.return_value = mock_client
 
+        # Setup bound logger mock to capture bind().info() calls
+        mock_bound_logger = MagicMock()
+        mock_logger.bind.return_value = mock_bound_logger
+
         entities = [{"urn": "urn:li:dataset:1"}]
 
         # Execute
@@ -267,11 +271,12 @@ class TestCohereBedrockRerankerRerank:
             keyword_search_query="/q test",
         )
 
-        # Verify logging
-        log_calls = [str(call) for call in mock_logger.info.call_args_list]
-        log_messages = " ".join(log_calls)
-        assert "Reranking" in log_messages
-        assert "Cohere" in log_messages
+        # Verify logging - check both regular logger and bound logger
+        regular_log_calls = [str(call) for call in mock_logger.info.call_args_list]
+        bound_log_calls = [str(call) for call in mock_bound_logger.info.call_args_list]
+        all_log_messages = " ".join(regular_log_calls + bound_log_calls)
+        assert "reranking" in all_log_messages.lower()
+        assert "Cohere" in all_log_messages
 
 
 class TestCreateReranker:

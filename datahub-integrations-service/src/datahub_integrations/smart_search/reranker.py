@@ -9,6 +9,7 @@ import json
 import os
 from typing import Dict, List, Protocol
 
+from datahub.utilities.perf_timer import PerfTimer
 from loguru import logger
 from pydantic import BaseModel
 
@@ -88,58 +89,69 @@ class CohereBedrockReranker(Reranker):
         if not entities:
             return []
 
-        logger.info(
-            f"Reranking {len(entities)} entities with Cohere via Bedrock (model: {self.model_id})"
+        bound_logger = logger.bind(
+            operation="cohere_rerank",
+            model=self.model_id,
+            entity_count=len(entities),
         )
+        bound_logger.info("Starting Cohere reranking")
 
-        # Generate text representations for Cohere
-        from datahub_integrations.smart_search.smart_search import (
-            _extract_keywords_from_query,
+        with PerfTimer() as timer:
+            # Generate text representations for Cohere
+            from datahub_integrations.smart_search.smart_search import (
+                _extract_keywords_from_query,
+            )
+            from datahub_integrations.smart_search.text_generator import (
+                EntityTextGenerator,
+            )
+
+            keywords = _extract_keywords_from_query(keyword_search_query)
+            generator = EntityTextGenerator()
+
+            documents = []
+            for entity in entities:
+                text = generator.generate(entity, search_keywords=keywords)
+                documents.append(text)
+
+            logger.debug(
+                f"Generated {len(documents)} text documents, "
+                f"avg length: {sum(len(d) for d in documents) / len(documents):.0f} chars"
+            )
+
+            # Call Cohere Rerank via Bedrock
+            bedrock_client = get_bedrock_client()
+            response = bedrock_client.invoke_model(
+                modelId=self.model_id,
+                body=json.dumps(
+                    {
+                        "api_version": 2,
+                        "query": semantic_query,
+                        "documents": documents,
+                        "top_n": len(documents),
+                    }
+                ),
+            )
+
+            # Parse response
+            response_body = json.loads(response["body"].read())
+            results = response_body.get("results", [])
+
+            logger.info(
+                f"Cohere returned {len(results)} results, "
+                f"top score: {results[0]['relevance_score']:.4f} if results else 0"
+            )
+
+            # Convert to RerankResult objects
+            rerank_results = [
+                RerankResult(index=r["index"], score=r["relevance_score"])
+                for r in results
+            ]
+
+        bound_logger.info(
+            "Completed Cohere reranking",
+            duration_seconds=round(timer.elapsed_seconds(), 3),
         )
-        from datahub_integrations.smart_search.text_generator import (
-            EntityTextGenerator,
-        )
-
-        keywords = _extract_keywords_from_query(keyword_search_query)
-        generator = EntityTextGenerator()
-
-        documents = []
-        for entity in entities:
-            text = generator.generate(entity, search_keywords=keywords)
-            documents.append(text)
-
-        logger.debug(
-            f"Generated {len(documents)} text documents, "
-            f"avg length: {sum(len(d) for d in documents) / len(documents):.0f} chars"
-        )
-
-        # Call Cohere Rerank via Bedrock
-        bedrock_client = get_bedrock_client()
-        response = bedrock_client.invoke_model(
-            modelId=self.model_id,
-            body=json.dumps(
-                {
-                    "api_version": 2,
-                    "query": semantic_query,
-                    "documents": documents,
-                    "top_n": len(documents),
-                }
-            ),
-        )
-
-        # Parse response
-        response_body = json.loads(response["body"].read())
-        results = response_body.get("results", [])
-
-        logger.info(
-            f"Cohere returned {len(results)} results, "
-            f"top score: {results[0]['relevance_score']:.4f} if results else 0"
-        )
-
-        # Convert to RerankResult objects
-        return [
-            RerankResult(index=r["index"], score=r["relevance_score"]) for r in results
-        ]
+        return rerank_results
 
 
 def create_reranker() -> Reranker:
