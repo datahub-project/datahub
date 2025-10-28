@@ -22,16 +22,18 @@ from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
     DremioToDataHubSourceTypeMapping,
 )
+from datahub.ingestion.source.dremio.dremio_models import (
+    DremioContainerResponse,
+    DremioEntityContainerType,
+)
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 from datahub.utilities.perf_timer import PerfTimer
 
-if TYPE_CHECKING:
-    from datahub.ingestion.source.dremio.dremio_entities import (
-        DremioContainer,
-    )
-
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.dremio.dremio_entities import DremioContainer
 
 # System table patterns to exclude (similar to BigQuery's approach)
 # Note: These patterns are applied to lowercase names for case-insensitive matching
@@ -52,13 +54,6 @@ class DremioEdition(Enum):
     CLOUD = "CLOUD"
     ENTERPRISE = "ENTERPRISE"
     COMMUNITY = "COMMUNITY"
-
-
-class DremioEntityContainerType(Enum):
-    SPACE = "SPACE"
-    CONTAINER = "CONTAINER"
-    FOLDER = "FOLDER"
-    SOURCE = "SOURCE"
 
 
 class DremioFilter:
@@ -1139,40 +1134,6 @@ class DremioAPIOperations:
             # Complex regex pattern - use existing regex matching logic
             return self._check_pattern_match(pattern, [current_path], allow_prefix=True)
 
-    def should_include_container(self, path: List[str], name: str) -> bool:
-        """
-        Helper method to check if a container should be included based on schema patterns.
-        Used by both get_all_containers and get_containers_for_location.
-        """
-        path_components = path + [name] if path else [name]
-        full_path = ".".join(path_components)
-
-        # Default allow everything case
-        if self.allow_schema_pattern == [".*"] and not self.deny_schema_pattern:
-            self.report.report_container_scanned(full_path)
-            return True
-
-        # Check deny patterns first
-        if self.deny_schema_pattern:
-            for pattern in self.deny_schema_pattern:
-                if self._check_pattern_match(
-                    pattern=pattern,
-                    paths=[full_path],
-                    allow_prefix=False,
-                ):
-                    self.report.report_container_filtered(full_path)
-                    return False
-
-        # Check allow patterns
-        for pattern in self.allow_schema_pattern:
-            # Check if current path could potentially match this pattern
-            if self._could_match_pattern(pattern, path_components):
-                self.report.report_container_scanned(full_path)
-                return True
-
-        self.report.report_container_filtered(full_path)
-        return False
-
     def get_all_containers(self):
         """
         Query the Dremio sources API and return filtered source information.
@@ -1181,48 +1142,46 @@ class DremioAPIOperations:
         response = self.get(url="/catalog")
 
         def process_source(source):
-            if source.get("containerType") == DremioEntityContainerType.SOURCE.value:
-                source_resp = self.get(
-                    url=f"/catalog/{source.get('id')}",
-                )
+            if source.get("containerType") == DremioEntityContainerType.SOURCE:
+                # Only fetch source details if we have an ID
+                source_resp = {}
+                source_config = {}
+                if source.get("id"):
+                    try:
+                        source_resp = self.get(
+                            url=f"/catalog/{source.get('id')}",
+                        )
+                        source_config = source_resp.get("config", {})
+                    except Exception:
+                        # If we can't fetch source details, continue with basic info
+                        pass
 
-                source_config = source_resp.get("config", {})
                 db = source_config.get(
                     "database", source_config.get("databaseName", "")
                 )
 
-                if self.should_include_container([], source.get("path")[0]):
-                    # Import here to avoid circular imports
-                    from datahub.ingestion.source.dremio.dremio_entities import (
-                        DremioContainerResponse,
-                    )
+                if self.filter.should_include_container([], source.get("path")[0]):
+                    # Merge API response data for flexible parsing
+                    container_data = {
+                        **source,  # Original source data
+                        **source_resp,  # Source details (may be empty)
+                        "container_type": DremioEntityContainerType.SOURCE,
+                        "root_path": source_config.get("rootPath"),
+                        "database_name": db,
+                        "path": [],  # Root sources should have empty path for proper browse paths
+                    }
 
-                    return DremioContainerResponse.model_validate(
-                        {
-                            "id": source.get("id"),
-                            "name": source.get("path")[0],
-                            "path": [],
-                            "container_type": DremioEntityContainerType.SOURCE.value,
-                            "source_type": source_resp.get("type"),
-                            "root_path": source_config.get("rootPath"),
-                            "database_name": db,
-                        }
-                    )
+                    return DremioContainerResponse.model_validate(container_data)
             else:
-                if self.should_include_container([], source.get("path")[0]):
-                    # Import here to avoid circular imports
-                    from datahub.ingestion.source.dremio.dremio_entities import (
-                        DremioContainerResponse,
-                    )
+                if self.filter.should_include_container([], source.get("path")[0]):
+                    # Use raw API response with container type override
+                    container_data = {
+                        **source,  # Original source data
+                        "container_type": DremioEntityContainerType.SPACE,
+                        "path": [],  # Root spaces should have empty path for proper browse paths
+                    }
 
-                    return DremioContainerResponse.model_validate(
-                        {
-                            "id": source.get("id"),
-                            "name": source.get("path")[0],
-                            "path": [],
-                            "container_type": DremioEntityContainerType.SPACE.value,
-                        }
-                    )
+                    return DremioContainerResponse.model_validate(container_data)
             return None
 
         def process_source_and_containers(source):
@@ -1230,11 +1189,21 @@ class DremioAPIOperations:
             if not container:
                 return []
 
-            # Get sub-containers
-            sub_containers = self.get_containers_for_location(
-                resource_id=container.get("id"),
-                path=[container.get("name")],
-            )
+            # Get sub-containers using ID or name as fallback
+            sub_containers = []
+            resource_id = container.id or container.name
+            if resource_id:
+                try:
+                    sub_containers = self.get_containers_for_location(
+                        resource_id=resource_id,
+                        path=[container.name],
+                        root_container_type=container.container_type,
+                    )
+                except Exception as exc:
+                    logger.debug(
+                        f"Failed to get sub-containers for {container.name}: {exc}"
+                    )
+                    # Continue without sub-containers
 
             return [container] + sub_containers
 
@@ -1273,46 +1242,43 @@ class DremioAPIOperations:
             return ""
 
     def get_containers_for_location(
-        self, resource_id: str, path: List[str]
+        self,
+        resource_id: str,
+        path: List[str],
+        root_container_type: Optional[str] = None,
     ) -> List[Dict[str, str]]:
         containers = []
 
         def traverse_path(location_id: str, entity_path: List[str]) -> List:
-            nonlocal containers
+            nonlocal containers, root_container_type
             try:
                 response = self.get(url=f"/catalog/{location_id}")
 
                 # Check if current folder should be included
                 if (
                     response.get("entityType")
-                    == DremioEntityContainerType.FOLDER.value.lower()
+                    == DremioEntityContainerType.FOLDER.lower()
                 ):
                     folder_name = entity_path[-1]
                     folder_path = entity_path[:-1]
 
-                    if self.should_include_container(folder_path, folder_name):
-                        # Import here to avoid circular imports
-                        from datahub.ingestion.source.dremio.dremio_entities import (
-                            DremioContainerResponse,
-                        )
+                    if self.filter.should_include_container(folder_path, folder_name):
+                        # Create folder container data
+                        folder_data = {
+                            "id": location_id,
+                            "name": folder_name,
+                            "path": folder_path,
+                            "container_type": DremioEntityContainerType.FOLDER,
+                            "root_container_type": root_container_type,  # Pass down root type
+                        }
 
                         containers.append(
-                            DremioContainerResponse.model_validate(
-                                {
-                                    "id": location_id,
-                                    "name": folder_name,
-                                    "path": folder_path,
-                                    "container_type": DremioEntityContainerType.FOLDER.value,
-                                }
-                            )
+                            DremioContainerResponse.model_validate(folder_data)
                         )
 
                 # Recursively process child containers
                 for container in response.get("children", []):
-                    if (
-                        container.get("type")
-                        == DremioEntityContainerType.CONTAINER.value
-                    ):
+                    if container.get("type") == DremioEntityContainerType.CONTAINER:
                         traverse_path(container.get("id"), container.get("path"))
 
             except Exception as exc:
