@@ -20,10 +20,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     validate_jdbc_url,
 )
 from datahub.ingestion.source.kafka_connect.connector_constants import (
-    CONFLUENT_NON_TOPIC_ROUTING_TRANSFORMS,
     DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER,
-    KAFKA_NON_TOPIC_ROUTING_TRANSFORMS,
-    KNOWN_NON_TOPIC_ROUTING_TRANSFORMS,
     KNOWN_TOPIC_ROUTING_TRANSFORMS,
     REGEXROUTER_TRANSFORM,
 )
@@ -207,9 +204,6 @@ class ConfluentJDBCSourceConnector(BaseConnector):
     # Use imported constants from connector_constants module
     REGEXROUTER = REGEXROUTER_TRANSFORM
     KNOWN_TOPICROUTING_TRANSFORMS = KNOWN_TOPIC_ROUTING_TRANSFORMS
-    KAFKA_NONTOPICROUTING_TRANSFORMS = KAFKA_NON_TOPIC_ROUTING_TRANSFORMS
-    CONFLUENT_NONTOPICROUTING_TRANSFORMS = CONFLUENT_NON_TOPIC_ROUTING_TRANSFORMS
-    KNOWN_NONTOPICROUTING_TRANSFORMS = KNOWN_NON_TOPIC_ROUTING_TRANSFORMS
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
