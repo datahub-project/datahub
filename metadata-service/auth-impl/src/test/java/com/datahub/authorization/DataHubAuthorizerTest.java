@@ -43,13 +43,13 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import java.util.*;
@@ -529,7 +529,7 @@ public class DataHubAuthorizerTest {
             systemAuthentication,
             mock(EntityRegistry.class),
             mock(ServicesRegistryContext.class),
-            mock(IndexConvention.class),
+            SearchContext.EMPTY,
             mock(RetrieverContext.class),
             mock(ValidationContext.class),
             null,
