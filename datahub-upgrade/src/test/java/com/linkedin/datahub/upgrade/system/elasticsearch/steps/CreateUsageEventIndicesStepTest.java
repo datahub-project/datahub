@@ -56,12 +56,12 @@ public class CreateUsageEventIndicesStepTest {
     Mockito.when(esComponents.getSearchClient()).thenReturn(searchClient);
     Mockito.when(searchClient.getEngineType()).thenReturn(searchEngineType);
     Mockito.when(esComponents.getIndexBuilder()).thenReturn(indexBuilder);
-    Mockito.when(index.getNumShards()).thenReturn(2);
-    Mockito.when(index.getNumReplicas()).thenReturn(1);
 
     Mockito.when(configurationProvider.getPlatformAnalytics()).thenReturn(platformAnalytics);
     Mockito.when(configurationProvider.getElasticSearch()).thenReturn(elasticSearch);
     Mockito.when(elasticSearch.getIndex()).thenReturn(index);
+    Mockito.when(index.getNumShards()).thenReturn(2);
+    Mockito.when(index.getNumReplicas()).thenReturn(1);
     Mockito.when(index.getFinalPrefix()).thenReturn("test_");
 
     Mockito.when(upgradeContext.opContext()).thenReturn(opContext);

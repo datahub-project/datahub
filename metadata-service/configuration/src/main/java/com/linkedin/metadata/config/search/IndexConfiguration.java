@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 public class IndexConfiguration {
   private String prefix;
   private DocIdsConfiguration docIds;
-  private Integer minSearchFilterLength;
+  private int minSearchFilterLength;
 
   // Reindex configuration flags
   private boolean enableSettingsReindex;

@@ -1461,6 +1461,12 @@ metadataChangeLog:
       enabled: ${MCL_CONSUMER_BATCH_ENABLED:false}
       size: ${MCL_CONSUMER_BATCH_SIZE:1048576}
 
+metadataChangeLog:
+  consumer:
+    batch:
+      enabled: ${MCL_CONSUMER_BATCH_ENABLED:false}
+      size: ${MCL_CONSUMER_BATCH_SIZE:1048576}
+
 eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}
 

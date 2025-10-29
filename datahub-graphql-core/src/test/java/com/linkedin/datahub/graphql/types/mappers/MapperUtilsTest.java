@@ -4,21 +4,37 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
+import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.snapshot.Snapshot;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.List;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 /** Tests for MapperUtils, specifically the score mapping functionality. */
 public class MapperUtilsTest {
+  private EntityRegistry entityRegistry;
+
+  @BeforeTest
+  public void setup() {
+    PathSpecBasedSchemaAnnotationVisitor.class
+        .getClassLoader()
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+    entityRegistry =
+        new ConfigEntityRegistry(
+            Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+  }
 
   @Test
   public void testMapResultWithScore() throws Exception {

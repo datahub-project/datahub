@@ -168,6 +168,7 @@ public abstract class SearchLineageFixtureConfiguration {
     return new ElasticSearchService(
         indexBuilder,
         TEST_SEARCH_SERVICE_CONFIG,
+        TEST_ES_SEARCH_CONFIG,
         new V2MappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
         new V2LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention),
         searchDAO,
