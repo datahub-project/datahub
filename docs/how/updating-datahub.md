@@ -30,6 +30,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #15005: `SqlParsingBuilder` is removed, use `SqlParsingAggregator` instead
 - #14710: LookML ingestion source migrated to SDKv2 resulting in:
   - `browsePaths` aspect replaced with `browsePathsV2`
   - Only emits MCPs
@@ -55,6 +56,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - As a side effect, this upgrade in pydantic version has implicit consequences for `iceberg` ingestion source. If it is run from CLI and `datahub` CLI was installed with all extras (`acryl-datahub[all]`), then `pyiceberg` has been kept at `0.4.0` version in such environment, just to satisfiy the pydantic v1 restriction. However now, `pyiceberg` will be installed in the newest available version. While this is a breaking change in the behaviour, versions `>0.4.0` have been used for some time by Managed Ingestion.
   - Additionally, there have been changes to the catalog connection configuration details - especially for AWS-based catalogs and warehouses, the properties `profile_name`, `region_name`, `aws_access_key_id`, `aws_secret_access_key`, and `aws_session_token` were deprecated and removed in version `0.8.0`. To check whether your configuration will work, consult https://py.iceberg.apache.org/configuration/#catalogs. Because of that, `pyiceberg` dependency has been restricted to be `0.8.0` at least.
   - Anyway, **there are no changes needed for iceberg recipes orchestrated via the Managed Ingestion UI**
+- Auto-detection for SearchClientShim requires permission for the cluster info endpoint on ElasticSearch/OpenSearch. If you are using a restrictive account to access your cluster, you may need to directly configure the engine type rather than relying on auto-detection. These are the two environment variables needed to be configured for GMS as well as MCE & MAE consumers (available in helm charts as well):
+  - ELASTICSEARCH_SHIM_ENGINE_TYPE & ELASTICSEARCH_SHIM_AUTO_DETECT (.Values.global.elasticsearch.engineType and .Values.global.elasticsearch.autoDetect respectively for helm)
+  - Allowed values: ELASTICSEARCH_SHIM_ENGINE_TYPE["ELASTICSEARCH_7", "ELASTICSEARCH_8", "OPENSEARCH_2", "AUTO_DETECT"] , ELASTICSEARCH_SHIM_AUTO_DETECT["true","false"]
 
 ### Known Issues
 
@@ -67,6 +71,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #14717: The Tableau ingestion source now enables `extract_lineage_from_unsupported_custom_sql_queries` by default. This improves the quality of lineage extracted by using DataHub's SQL parser in cases where the Tableau Catalog API fails to return lineage for Custom SQL queries.
 - #14824: DataHub now supports CDC (Change Data Capture) mode for generating MetadataChangeLogs with guaranteed ordering based on database transaction commits. CDC mode is optional and disabled by default. When enabled via `CDC_MCL_PROCESSING_ENABLED=true`, MCLs are generated from Debezium-captured database changes rather than directly from GMS. This provides stronger ordering guarantees and decoupled processing. Requires MySQL 5.7+ or PostgreSQL 10+ with replication enabled. See [CDC Configuration Guide](configure-cdc.md) for setup instructions.
 - Added multi-client search engine shim for Elasticsearch and OpenSearch support. This enables DataHub to work with ES 7.17 (with API compatibility mode for ES 8.x servers), ES 8.x, and OpenSearch 2.x through a unified interface. The shim includes auto-detection of search engine types and backward compatibility with existing RestHighLevelClient usage. See [elasticsearch-search-client-shim.md](./elasticsearch-search-client-shim.md) for configuration details.
+- #14953: Unity Catalog ingestion source now supports extracting usage query history from the `system.query.history` table for improved performance with large query volumes. The new `usage_data_source` configuration (default: `AUTO`) automatically uses system tables when `warehouse_id` is configured, otherwise falls back to the REST API. This change is **not breaking** as the `AUTO` mode gracefully handles configurations without `warehouse_id` by using the existing REST API approach. Users can explicitly force system tables mode by setting `usage_data_source: SYSTEM_TABLES` (requires SELECT permission on `system.query.history`) or continue using the REST API with `usage_data_source: API`.
 
 ## 1.2.0
 

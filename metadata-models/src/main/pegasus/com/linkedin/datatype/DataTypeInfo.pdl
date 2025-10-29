@@ -7,6 +7,11 @@ record DataTypeInfo {
     /**
      * The qualified name for the data type. Usually a unique namespace + name, e.g. datahub.string
      */
+    @Searchable = {
+      "fieldType": "KEYWORD",
+      "searchTier": 1,
+      "searchLabel": "qualifiedName"
+    }
     qualifiedName: string
 
     /**

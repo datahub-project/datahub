@@ -262,12 +262,12 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
     externalEvents.setOffsetId(TEST_OFFSET_ID);
     externalEvents.setCount(0L);
 
-    // Verify the timeout is capped at MAX_POLL_TIMEOUT_SECONDS (60)
+    // Verify the timeout is capped at MAX_POLL_TIMEOUT_SECONDS (10)
     when(mockEventsService.poll(
             eq(PLATFORM_EVENT_TOPIC_NAME),
             nullable(String.class),
             anyInt(),
-            eq(60), // This should be capped at 60
+            eq(10), // This should be capped at 10
             nullable(Integer.class)))
         .thenReturn(externalEvents);
 

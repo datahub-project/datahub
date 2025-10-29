@@ -30,7 +30,6 @@ from datahub.emitter.mcp_builder import (
     add_entity_to_container,
     gen_containers,
 )
-from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -142,11 +141,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import MlModelGroupUrn, MlModelUrn, TagUrn
 from datahub.sdk import MLModel, MLModelGroup
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sqlglot_lineage import (
-    SqlParsingResult,
-    sqlglot_lineage,
-    view_definition_lineage_helper,
-)
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -181,7 +176,7 @@ logger: logging.Logger = logging.getLogger(__name__)
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following metadata from Databricks Unity Catalog:
@@ -199,6 +194,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     platform_resource_repository: Optional[UnityCatalogPlatformResourceRepository] = (
         None
     )
+    sql_parsing_aggregator: Optional[SqlParsingAggregator] = None
 
     def get_report(self) -> UnityCatalogReport:
         return self.report
@@ -218,6 +214,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             report=self.report,
             hive_metastore_proxy=self.hive_metastore_proxy,
             lineage_data_source=config.lineage_data_source,
+            usage_data_source=config.usage_data_source,
             databricks_api_page_size=config.databricks_api_page_size,
         )
 
@@ -244,9 +241,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.table_refs: Set[TableReference] = set()
         self.view_refs: Set[TableReference] = set()
         self.notebooks: FileBackedDict[Notebook] = FileBackedDict()
-        self.view_definitions: FileBackedDict[Tuple[TableReference, str]] = (
-            FileBackedDict()
-        )
 
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()
@@ -290,6 +284,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         platform_instance=self.config.platform_instance,
                         env=self.config.env,
                     )
+                    self.sql_parsing_aggregator = SqlParsingAggregator(
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                        schema_resolver=self.sql_parser_schema_resolver,
+                        generate_lineage=True,
+                        generate_queries=False,
+                        generate_usage_statistics=False,
+                        generate_operations=False,
+                    )
+                    self.report.sql_aggregator = self.sql_parsing_aggregator.report
             except Exception as e:
                 logger.debug("Exception", exc_info=True)
                 self.warn(
@@ -629,8 +634,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.sql_parser_schema_resolver.add_schema_metadata(
                 dataset_urn, schema_metadata
             )
-            if table.view_definition:
-                self.view_definitions[dataset_urn] = (table.ref, table.view_definition)
+            if table.view_definition and self.sql_parsing_aggregator:
+                self.sql_parsing_aggregator.add_view_definition(
+                    view_urn=dataset_urn,
+                    view_definition=table.view_definition,
+                    default_db=table.ref.catalog,
+                    default_schema=table.ref.schema,
+                )
 
         if (
             table_props.customProperties.get("table_type")
@@ -1334,75 +1344,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
             ]
 
-    def _run_sql_parser(
-        self, view_ref: TableReference, query: str, schema_resolver: SchemaResolver
-    ) -> Optional[SqlParsingResult]:
-        raw_lineage = sqlglot_lineage(
-            query,
-            schema_resolver=schema_resolver,
-            default_db=view_ref.catalog,
-            default_schema=view_ref.schema,
-        )
-        view_urn = self.gen_dataset_urn(view_ref)
-
-        if raw_lineage.debug_info.table_error:
-            logger.debug(
-                f"Failed to parse lineage for view {view_ref}: "
-                f"{raw_lineage.debug_info.table_error}"
-            )
-            self.report.num_view_definitions_failed_parsing += 1
-            self.report.view_definitions_parsing_failures.append(
-                f"Table-level sql parsing error for view {view_ref}: {raw_lineage.debug_info.table_error}"
-            )
-            return None
-
-        elif raw_lineage.debug_info.column_error:
-            self.report.num_view_definitions_failed_column_parsing += 1
-            self.report.view_definitions_parsing_failures.append(
-                f"Column-level sql parsing error for view {view_ref}: {raw_lineage.debug_info.column_error}"
-            )
-        else:
-            self.report.num_view_definitions_parsed += 1
-            if raw_lineage.out_tables != [view_urn]:
-                self.report.num_view_definitions_view_urn_mismatch += 1
-        return view_definition_lineage_helper(raw_lineage, view_urn)
-
     def get_view_lineage(self) -> Iterable[MetadataWorkUnit]:
         if not (
             self.config.include_hive_metastore
             and self.config.include_table_lineage
-            and self.sql_parser_schema_resolver
+            and self.sql_parsing_aggregator
         ):
             return
-        # This is only used for parsing view lineage. Usage, Operations are emitted elsewhere
-        builder = SqlParsingBuilder(
-            generate_lineage=True,
-            generate_usage_statistics=False,
-            generate_operations=False,
-        )
-        for dataset_name in self.view_definitions:
-            view_ref, view_definition = self.view_definitions[dataset_name]
-            result = self._run_sql_parser(
-                view_ref,
-                view_definition,
-                self.sql_parser_schema_resolver,
-            )
-            if result and result.out_tables:
-                # This does not yield any workunits but we use
-                # yield here to execute this method
-                yield from builder.process_sql_parsing_result(
-                    result=result,
-                    query=view_definition,
-                    is_view_ddl=True,
-                    include_column_lineage=self.config.include_view_column_lineage,
-                )
-        yield from builder.gen_workunits()
+
+        for mcp in self.sql_parsing_aggregator.gen_metadata():
+            yield mcp.as_workunit()
 
     def close(self):
         if self.hive_metastore_proxy:
             self.hive_metastore_proxy.close()
-        if self.view_definitions:
-            self.view_definitions.close()
+        if self.sql_parsing_aggregator:
+            self.sql_parsing_aggregator.close()
         if self.sql_parser_schema_resolver:
             self.sql_parser_schema_resolver.close()
 
