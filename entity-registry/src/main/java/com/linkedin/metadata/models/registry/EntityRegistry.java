@@ -13,7 +13,9 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -54,6 +56,32 @@ public interface EntityRegistry {
    */
   @Nonnull
   Map<String, EntitySpec> getEntitySpecs();
+
+  /**
+   * Returns all {@link DefaultEntitySpec}s that belong to a specific search group.
+   *
+   * @param searchGroup the search group to filter by
+   * @return a map of String to {@link DefaultEntitySpec}s for the specified group, empty map if
+   *     none exists.
+   */
+  @Nonnull
+  default Map<String, EntitySpec> getEntitySpecsBySearchGroup(@Nonnull final String searchGroup) {
+    return getEntitySpecs().entrySet().stream()
+        .filter(entry -> searchGroup.equals(entry.getValue().getSearchGroup()))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  /**
+   * Returns all unique search group names that exist in the registry.
+   *
+   * @return a set of all search group names
+   */
+  @Nonnull
+  default Set<String> getSearchGroups() {
+    return getEntitySpecs().values().stream()
+        .map(EntitySpec::getSearchGroup)
+        .collect(Collectors.toSet());
+  }
 
   /**
    * Returns all {@link AspectSpec}s that the registry is aware of.

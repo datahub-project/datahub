@@ -13,6 +13,8 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -20,17 +22,17 @@ import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -129,12 +131,12 @@ public class TestOperationContexts {
 
   public static OperationContext systemContextNoSearchAuthorization(
       @Nullable EntityRegistry entityRegistry) {
-    return systemContextNoSearchAuthorization(entityRegistry, (IndexConvention) null);
+    return systemContextNoSearchAuthorization(entityRegistry, (SearchContext) null);
   }
 
   public static OperationContext systemContextNoSearchAuthorization(
-      @Nullable IndexConvention indexConvention) {
-    return systemContextNoSearchAuthorization((EntityRegistry) null, indexConvention);
+      @Nullable SearchContext searchContext) {
+    return systemContextNoSearchAuthorization((EntityRegistry) null, searchContext);
   }
 
   public static OperationContext systemContextNoSearchAuthorization() {
@@ -147,8 +149,8 @@ public class TestOperationContexts {
   }
 
   public static OperationContext systemContextNoSearchAuthorization(
-      @Nullable EntityRegistry entityRegistry, @Nullable IndexConvention indexConvention) {
-    return systemContextNoSearchAuthorization(() -> entityRegistry, null, () -> indexConvention);
+      @Nullable EntityRegistry entityRegistry, @Nullable SearchContext searchContext) {
+    return systemContextNoSearchAuthorization(() -> entityRegistry, null, () -> searchContext);
   }
 
   public static OperationContext systemContextNoSearchAuthorization(
@@ -177,15 +179,14 @@ public class TestOperationContexts {
 
   public static OperationContext systemContextNoSearchAuthorization(
       @Nullable Supplier<RetrieverContext> retrieverContextSupplier,
-      @Nullable IndexConvention indexConvention) {
-    return systemContextNoSearchAuthorization(
-        null, retrieverContextSupplier, () -> indexConvention);
+      @Nullable SearchContext searchContext) {
+    return systemContextNoSearchAuthorization(null, retrieverContextSupplier, () -> searchContext);
   }
 
   public static OperationContext systemContextNoSearchAuthorization(
       @Nullable Supplier<EntityRegistry> entityRegistrySupplier,
       @Nullable Supplier<RetrieverContext> retrieverContextSupplier,
-      @Nullable Supplier<IndexConvention> indexConventionSupplier) {
+      @Nullable Supplier<SearchContext> searchContextSupplier) {
 
     return systemContext(
         null,
@@ -193,7 +194,7 @@ public class TestOperationContexts {
         null,
         entityRegistrySupplier,
         retrieverContextSupplier,
-        indexConventionSupplier,
+        searchContextSupplier,
         null,
         null,
         null,
@@ -203,7 +204,7 @@ public class TestOperationContexts {
   public static OperationContext systemContextNoSearchAuthorization(
       @Nullable Supplier<EntityRegistry> entityRegistrySupplier,
       @Nullable Supplier<RetrieverContext> retrieverContextSupplier,
-      @Nullable Supplier<IndexConvention> indexConventionSupplier,
+      @Nullable Supplier<SearchContext> searchContextSupplier,
       @Nullable Supplier<ValidationContext> environmentContextSupplier) {
 
     return systemContext(
@@ -212,7 +213,7 @@ public class TestOperationContexts {
         null,
         entityRegistrySupplier,
         retrieverContextSupplier,
-        indexConventionSupplier,
+        searchContextSupplier,
         null,
         environmentContextSupplier,
         null,
@@ -242,7 +243,7 @@ public class TestOperationContexts {
       @Nullable Supplier<ServicesRegistryContext> servicesRegistrySupplier,
       @Nullable Supplier<EntityRegistry> entityRegistrySupplier,
       @Nullable Supplier<RetrieverContext> retrieverContextSupplier,
-      @Nullable Supplier<IndexConvention> indexConventionSupplier,
+      @Nullable Supplier<SearchContext> searchContextSupplier,
       @Nullable Consumer<OperationContext> postConstruct,
       @Nullable Supplier<ValidationContext> environmentContextSupplier) {
     return systemContext(
@@ -251,7 +252,7 @@ public class TestOperationContexts {
         servicesRegistrySupplier,
         entityRegistrySupplier,
         retrieverContextSupplier,
-        indexConventionSupplier,
+        searchContextSupplier,
         postConstruct,
         environmentContextSupplier,
         null,
@@ -264,7 +265,7 @@ public class TestOperationContexts {
       @Nullable Supplier<ServicesRegistryContext> servicesRegistrySupplier,
       @Nullable Supplier<EntityRegistry> entityRegistrySupplier,
       @Nullable Supplier<RetrieverContext> retrieverContextSupplier,
-      @Nullable Supplier<IndexConvention> indexConventionSupplier,
+      @Nullable Supplier<SearchContext> searchContextSupplier,
       @Nullable Consumer<OperationContext> postConstruct,
       @Nullable Supplier<ValidationContext> environmentContextSupplier,
       @Nullable Supplier<ObjectMapperContext> objectMapperContextSupplier,
@@ -284,15 +285,14 @@ public class TestOperationContexts {
     EntityRegistry entityRegistry =
         Optional.ofNullable(entityRegistrySupplier)
             .map(Supplier::get)
+            .filter(Objects::nonNull)
             .orElse(defaultEntityRegistry());
 
-    IndexConvention indexConvention =
-        Optional.ofNullable(indexConventionSupplier)
-            .map(Supplier::get)
-            .orElse(IndexConventionImpl.noPrefix("MD5"));
+    SearchContext searchContext =
+        Optional.ofNullable(searchContextSupplier).map(Supplier::get).orElse(SearchContext.EMPTY);
 
     ServicesRegistryContext servicesRegistryContext =
-        Optional.ofNullable(servicesRegistrySupplier).orElse(() -> null).get();
+        Optional.ofNullable(servicesRegistrySupplier).map(Supplier::get).orElse(null);
 
     ValidationContext validationContext =
         Optional.ofNullable(environmentContextSupplier)
@@ -315,7 +315,7 @@ public class TestOperationContexts {
             systemAuth,
             entityRegistry,
             servicesRegistryContext,
-            indexConvention,
+            searchContext,
             retrieverContext,
             validationContext,
             objectMapperContext,
@@ -389,7 +389,7 @@ public class TestOperationContexts {
     @Nullable Supplier<ServicesRegistryContext> servicesRegistrySupplier;
     @Nullable Supplier<EntityRegistry> entityRegistrySupplier;
     @Nullable Supplier<RetrieverContext> retrieverContextSupplier;
-    @Nullable Supplier<IndexConvention> indexConventionSupplier;
+    @Nullable Supplier<SearchContext> searchContextSupplier;
     @Nullable Consumer<OperationContext> postConstruct;
     @Nullable Supplier<ValidationContext> environmentContextSupplier;
     @Nullable Supplier<ObjectMapperContext> objectMapperContextSupplier;
@@ -407,7 +407,7 @@ public class TestOperationContexts {
             this.servicesRegistrySupplier,
             this.entityRegistrySupplier,
             this.retrieverContextSupplier,
-            this.indexConventionSupplier,
+            this.searchContextSupplier,
             this.postConstruct,
             this.environmentContextSupplier,
             this.objectMapperContextSupplier,
@@ -417,4 +417,21 @@ public class TestOperationContexts {
   }
 
   private TestOperationContexts() {}
+
+  private static EntityIndexConfiguration createDefaultEntityIndexConfiguration() {
+    EntityIndexConfiguration config = new EntityIndexConfiguration();
+    // Enable V2 by default for backward compatibility
+    EntityIndexVersionConfiguration v2Config = new EntityIndexVersionConfiguration();
+    v2Config.setEnabled(true);
+    v2Config.setCleanup(true);
+    config.setV2(v2Config);
+
+    // Disable V3 by default for backward compatibility
+    EntityIndexVersionConfiguration v3Config = new EntityIndexVersionConfiguration();
+    v3Config.setEnabled(false);
+    v3Config.setCleanup(false);
+    config.setV3(v3Config);
+
+    return config;
+  }
 }
