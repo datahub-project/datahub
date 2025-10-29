@@ -141,7 +141,7 @@ customer_ltv customer_score customer_tier
 </TabItem>
 </Tabs>
 
-### 🎮 Interactive Exercise: Your First Search
+### Interactive Exercise: Your First Search
 
 <div className="interactive-exercise">
 
@@ -167,7 +167,7 @@ Raw search results can be overwhelming. Use filters to focus on what matters:
 ### Platform Filtering
 
 <Tabs>
-<TabItem value="filter-demo" label="🔍 Filter Walkthrough">
+<TabItem value="filter-demo" label="Filter Walkthrough">
 
 **Follow along in DataHub:**
 
@@ -181,7 +181,7 @@ Raw search results can be overwhelming. Use filters to focus on what matters:
 **Notice how results change!**
 
 </TabItem>
-<TabItem value="filter-strategy" label="📊 Filter Strategy">
+<TabItem value="filter-strategy" label="Filter Strategy">
 
 **Choose filters based on your use case:**
 
@@ -189,13 +189,13 @@ Raw search results can be overwhelming. Use filters to focus on what matters:
 
 - Snowflake, BigQuery (analytics platforms)
 - dbt (transformed data)
-- ❌ MySQL, PostgreSQL (raw operational data)
+- MySQL, PostgreSQL (raw operational data) - not recommended
 
 **For Operational Insights:**
 
 - PostgreSQL, MySQL (live operational data)
 - Kafka (real-time streams)
-- ❌ S3 (archived data)
+- S3 (archived data) - not recommended
 
 **For Data Engineering:**
 
@@ -221,7 +221,7 @@ Raw search results can be overwhelming. Use filters to focus on what matters:
 
 </div>
 
-### 🎮 Interactive Exercise: Smart Filtering
+### Interactive Exercise: Smart Filtering
 
 <div className="interactive-exercise">
 
@@ -400,39 +400,48 @@ _Exact phrase in description field_
 </TabItem>
 </Tabs>
 
-### 🎮 Interactive Exercise: Operator Mastery
+### Interactive Exercise: Operator Mastery
 
-<div className="interactive-exercise">
+<TutorialExercise
+type="hands-on"
+title="Progressive Search Builder Challenge"
+difficulty="intermediate"
+timeEstimate="8 minutes"
+platform="DataHub UI"
+steps={[
+{
+title: "Level 1: Basic Operators",
+description: "Start with simple AND logic to find customer segmentation data",
+code: "customer AND segment",
+expected: "Find datasets containing both 'customer' and 'segment' keywords"
+},
+{
+title: "Level 2: Add Exclusions",
+description: "Exclude test data to focus on production datasets",
+code: "customer AND segment NOT test",
+expected: "Same results but filtered to exclude test/development data"
+},
+{
+title: "Level 3: Field Targeting",
+description: "Target specific fields for more precise results",
+code: "name:customer* AND description:segment*",
+expected: "Datasets with 'customer' in name and 'segment' in description"
+},
+{
+title: "Level 4: Complex Logic",
+description: "Combine multiple conditions with advanced grouping",
+code: "(name:customer* OR name:user*) AND (description:segment* OR description:cohort*) AND platform:snowflake",
+expected: "Snowflake datasets about customer/user segmentation or cohorts"
+}
+]}
 
-**Progressive Challenge**: Build increasingly sophisticated searches
+>
 
-**Level 1 - Basic Operators:**
+**Your Mission**: Try each level in DataHub and observe how results change. Notice how each level gives you more control and precision. Which approach gives you the most relevant results for marketing analysis?
 
-```
-customer AND segment
-```
+**Pro Tip**: Copy each query into DataHub's search bar and compare the result quality. Level 4 should give you the most targeted, actionable datasets.
 
-**Level 2 - Add Exclusions:**
-
-```
-customer AND segment NOT test
-```
-
-**Level 3 - Field Targeting:**
-
-```
-name:customer* AND description:segment*
-```
-
-**Level 4 - Complex Logic:**
-
-```
-(name:customer* OR name:user*) AND (description:segment* OR description:cohort*) AND platform:snowflake
-```
-
-**Your Mission**: Try each level and observe how results change. Which gives you the most relevant results for marketing analysis?
-
-</div>
+</TutorialExercise>
 
 ## Level 4: Saved Searches & Efficiency
 
@@ -463,7 +472,7 @@ Don't repeat work - save your successful searches:
 ### Search Templates for Common Scenarios
 
 <Tabs>
-<TabItem value="marketing" label="📈 Marketing Analysis">
+<TabItem value="marketing" label="Marketing Analysis">
 
 ```
 # High-quality customer data for campaigns
@@ -473,7 +482,7 @@ NOT (test OR temp OR backup)
 ```
 
 </TabItem>
-<TabItem value="operations" label="⚙️ Operational Data">
+<TabItem value="operations" label="Operational Data">
 
 ```
 # Live operational customer data
@@ -482,7 +491,7 @@ AND hasOwners:true AND updatedInLastWeek:true
 ```
 
 </TabItem>
-<TabItem value="analytics" label="📊 Analytics Ready">
+<TabItem value="analytics" label="Analytics Ready">
 
 ```
 # Processed analytical datasets
@@ -516,19 +525,19 @@ Try to solve this in 90 seconds: _"Find production-ready customer analytics data
 
 <div className="pro-tips">
 
-**🚀 Speed Techniques:**
+**Speed Techniques:**
 
 - Use browser bookmarks for common DataHub searches
 - Set up browser shortcuts: `dh customer` → DataHub customer search
 - Learn keyboard shortcuts: `Ctrl+K` for quick search
 
-**🎯 Accuracy Boosters:**
+**Accuracy Boosters:**
 
 - Always check the "Updated" date - stale data wastes time
 - Look for owner information - contactable owners = reliable data
 - Check description quality - well-documented data is usually better maintained
 
-**🤝 Team Efficiency:**
+**Team Efficiency:**
 
 - Share successful search patterns with teammates
 - Create team-wide saved searches for common use cases
@@ -539,7 +548,7 @@ Try to solve this in 90 seconds: _"Find production-ready customer analytics data
 ## Troubleshooting Common Issues
 
 <Tabs>
-<TabItem value="too-many-results" label="😵 Too Many Results">
+<TabItem value="too-many-results" label="Too Many Results">
 
 **Problem**: Search returns hundreds of results
 
@@ -551,7 +560,7 @@ Try to solve this in 90 seconds: _"Find production-ready customer analytics data
 4. **Exclude noise**: `NOT (test OR temp OR backup OR old)`
 
 </TabItem>
-<TabItem value="no-results" label="😞 No Results">
+<TabItem value="no-results" label="No Results">
 
 **Problem**: Search returns nothing
 
@@ -563,7 +572,7 @@ Try to solve this in 90 seconds: _"Find production-ready customer analytics data
 4. **Try different fields**: Maybe it's in descriptions, not names
 
 </TabItem>
-<TabItem value="wrong-results" label="🎯 Wrong Results">
+<TabItem value="wrong-results" label="Wrong Results">
 
 **Problem**: Results aren't relevant to your use case
 
@@ -579,7 +588,7 @@ Try to solve this in 90 seconds: _"Find production-ready customer analytics data
 
 ## What You've Learned
 
-🎉 **Congratulations!** You've transformed from basic search to advanced discovery:
+**Congratulations!** You've transformed from basic search to advanced discovery:
 
 - **Strategic Approach**: Business-first thinking with technical backup
 - **Smart Filtering**: Platform and entity type filtering for relevance

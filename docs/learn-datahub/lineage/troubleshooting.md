@@ -53,26 +53,26 @@ className: 'process-node',
 },
 {
 id: '3',
-data: { label: '⚙️ 3. Validate Ingestion\nReview ingestion logs' },
+data: { label: '3. Validate Ingestion\nReview ingestion logs' },
 position: { x: 400, y: 100 },
 className: 'process-node',
 },
 {
 id: '4',
-data: { label: '🔧 4. Handle Edge Cases\nAddress complex scenarios' },
+data: { label: '4. Handle Edge Cases\nAddress complex scenarios' },
 position: { x: 600, y: 100 },
 className: 'process-node',
 },
 {
 id: '5',
 type: 'output',
-data: { label: '📈 5. Implement Monitoring\nSet up alerts & tracking' },
+data: { label: '5. Implement Monitoring\nSet up alerts & tracking' },
 position: { x: 800, y: 100 },
 className: 'success-node',
 },
 {
 id: 'tip1',
-data: { label: '💡 Pro Tip: Start with the\nmost critical missing link' },
+data: { label: 'Pro Tip: Start with the\nmost critical missing link' },
 position: { x: 0, y: 250 },
 className: 'user-node',
 },
@@ -91,7 +91,7 @@ edges={[
 { id: 'e1-tip1', source: '1', target: 'tip1', style: { strokeDasharray: '5,5' }, label: 'tip' },
 { id: 'e5-tip2', source: '5', target: 'tip2', style: { strokeDasharray: '5,5' }, label: 'outcome' },
 ]}
-title="🔧 Lineage Troubleshooting Framework"
+title="Lineage Troubleshooting Framework"
 height="350px"
 />
 
@@ -101,28 +101,28 @@ Understanding the most frequent problems helps you troubleshoot faster:
 
 <div className="common-issues">
 
-**🔍 Missing Connections** (60% of issues):
+**Missing Connections** (60% of issues):
 
 - New systems not yet configured for metadata ingestion
 - Changes in connection strings or authentication
 - Processing jobs that don't emit lineage metadata
 - Manual data movement processes
 
-**📊 Incomplete Metadata** (25% of issues):
+**Incomplete Metadata** (25% of issues):
 
 - Partial schema information from source systems
 - Missing column-level lineage in transformations
 - Outdated metadata from infrequent ingestion runs
 - Custom applications without metadata instrumentation
 
-**⚡ Performance Problems** (10% of issues):
+**Performance Problems** (10% of issues):
 
 - Lineage graphs too complex to render efficiently
 - Ingestion jobs timing out on large metadata volumes
 - UI responsiveness issues with deep lineage paths
 - Memory constraints during lineage computation
 
-**🔄 Stale Information** (5% of issues):
+**Stale Information** (5% of issues):
 
 - Metadata not refreshed after system changes
 - Cached lineage information showing old connections
@@ -138,7 +138,7 @@ Systematic gap identification prevents wasted troubleshooting effort:
 ### The Gap Analysis Method
 
 <Tabs>
-<TabItem value="expected-vs-actual" label="📋 Expected vs. Actual">
+<TabItem value="expected-vs-actual" label="Expected vs. Actual">
 
 **Gap Documentation Template**:
 
@@ -163,7 +163,7 @@ Last Known Working: Never appeared in DataHub lineage
 ```
 
 </TabItem>
-<TabItem value="impact-assessment" label="📊 Impact Assessment">
+<TabItem value="impact-assessment" label="Impact Assessment">
 
 **Missing Lineage Impact**:
 
@@ -182,19 +182,19 @@ Last Known Working: Never appeared in DataHub lineage
 - **Team coordination issues**: ML team not notified of customer data changes
 
 </TabItem>
-<TabItem value="urgency-prioritization" label="⚡ Urgency Prioritization">
+<TabItem value="urgency-prioritization" label="Urgency Prioritization">
 
 **Troubleshooting Priority Matrix**:
 
-| Business Impact | Technical Complexity | Priority     | Action Timeline     |
-| --------------- | -------------------- | ------------ | ------------------- |
-| High            | Low                  | 🔴 Critical  | Fix within 24 hours |
-| High            | High                 | 🟡 Important | Fix within 1 week   |
-| Medium          | Low                  | 🟢 Standard  | Fix within 2 weeks  |
-| Medium          | High                 | 🔵 Planned   | Fix within 1 month  |
-| Low             | Any                  | ⚪ Backlog   | Fix when convenient |
+| Business Impact | Technical Complexity | Priority   | Action Timeline     |
+| --------------- | -------------------- | ---------- | ------------------- |
+| High            | Low                  | Critical   | Fix within 24 hours |
+| High            | High                 | Important  | Fix within 1 week   |
+| Medium          | Low                  | Standard   | Fix within 2 weeks  |
+| Medium          | High                 | 🔵 Planned | Fix within 1 month  |
+| Low             | Any                  | ⚪ Backlog | Fix when convenient |
 
-**TechFlow ML Pipeline**: High business impact (compliance risk) + Medium complexity = 🟡 Important (1 week timeline)
+**TechFlow ML Pipeline**: High business impact (compliance risk) + Medium complexity = Important (1 week timeline)
 
 </TabItem>
 </Tabs>
@@ -207,21 +207,21 @@ Most lineage issues stem from ingestion configuration problems:
 
 <div className="diagnostics-checklist">
 
-**🔍 Source System Verification**:
+**Source System Verification**:
 
 - [ ] **System connectivity**: Can DataHub reach the source system?
 - [ ] **Authentication**: Are credentials valid and permissions sufficient?
 - [ ] **Metadata availability**: Does the source system expose lineage information?
 - [ ] **Recent changes**: Have there been system updates or migrations?
 
-**📊 Ingestion Configuration**:
+**Ingestion Configuration**:
 
 - [ ] **Recipe accuracy**: Is the ingestion recipe configured correctly?
 - [ ] **Scheduling**: Is the ingestion running on the expected schedule?
 - [ ] **Scope coverage**: Are all relevant databases/schemas included?
 - [ ] **Lineage extraction**: Is lineage extraction enabled in the recipe?
 
-**⚡ Execution Status**:
+**Execution Status**:
 
 - [ ] **Recent runs**: Has ingestion executed successfully recently?
 - [ ] **Error logs**: Are there any ingestion failures or warnings?
@@ -271,7 +271,7 @@ Deep-dive into ingestion mechanics to find the root cause:
 ### Ingestion Debugging Techniques
 
 <Tabs>
-<TabItem value="log-analysis" label="📋 Log Analysis">
+<TabItem value="log-analysis" label="Log Analysis">
 
 **Log Investigation Strategy**:
 
@@ -304,7 +304,7 @@ Root Cause: Python ML scripts don't emit DataHub-compatible lineage
 ```
 
 </TabItem>
-<TabItem value="metadata-validation" label="🔍 Metadata Validation">
+<TabItem value="metadata-validation" label="Metadata Validation">
 
 **Metadata Completeness Check**:
 
@@ -336,7 +336,7 @@ AND urn LIKE '%customer_segments%';
 ```
 
 </TabItem>
-<TabItem value="configuration-tuning" label="⚙️ Configuration Tuning">
+<TabItem value="configuration-tuning" label="Configuration Tuning">
 
 **Recipe Optimization**:
 
@@ -392,25 +392,25 @@ Real-world data pipelines often include scenarios that standard ingestion can't 
 
 <div className="edge-cases">
 
-**🔧 Manual Data Processes**:
+**Manual Data Processes**:
 
 - **Problem**: Excel files, manual data entry, ad-hoc scripts
 - **Solution**: Custom metadata emission or documentation-based lineage
 - **Implementation**: Create "virtual" datasets representing manual processes
 
-**🔄 External System Dependencies**:
+**External System Dependencies**:
 
 - **Problem**: Third-party APIs, vendor data feeds, external databases
 - **Solution**: Proxy datasets or external system connectors
 - **Implementation**: Document external dependencies as DataHub entities
 
-**⚡ Real-time Processing**:
+**Real-time Processing**:
 
 - **Problem**: Streaming pipelines, event-driven architectures, microservices
 - **Solution**: Event-based lineage capture or instrumentation
 - **Implementation**: Custom lineage emission from application code
 
-**🎯 Complex Transformations**:
+**Complex Transformations**:
 
 - **Problem**: Multi-step ETL, custom business logic, conditional processing
 - **Solution**: Job-level lineage with detailed transformation documentation
@@ -493,7 +493,7 @@ lineage_mce = make_lineage_mce(
 - Contact information for external data issues
 
 </TabItem>
-<TabItem value="application-instrumentation" label="📱 Application Instrumentation">
+<TabItem value="application-instrumentation" label="Application Instrumentation">
 
 **Code-Level Lineage Emission**:
 
@@ -549,21 +549,21 @@ Proactive lineage quality management prevents future troubleshooting:
 
 <div className="monitoring-framework">
 
-**📊 Quality Metrics**:
+**Quality Metrics**:
 
 - **Coverage**: Percentage of data assets with complete lineage
 - **Freshness**: How recently lineage information was updated
 - **Accuracy**: Validation of lineage against known data flows
 - **Completeness**: Presence of both upstream and downstream connections
 
-**🚨 Alert Conditions**:
+**Alert Conditions**:
 
 - **Missing lineage**: New datasets without any lineage connections
 - **Stale metadata**: Lineage not updated within expected timeframe
 - **Broken connections**: Previously connected systems showing gaps
 - **Ingestion failures**: Metadata extraction jobs failing repeatedly
 
-**🔄 Maintenance Tasks**:
+**Maintenance Tasks**:
 
 - **Regular validation**: Quarterly review of critical data lineage
 - **Configuration updates**: Adjust ingestion recipes as systems evolve
@@ -575,7 +575,7 @@ Proactive lineage quality management prevents future troubleshooting:
 ### Monitoring Implementation
 
 <Tabs>
-<TabItem value="automated-monitoring" label="🤖 Automated Monitoring">
+<TabItem value="automated-monitoring" label="Automated Monitoring">
 
 **Lineage Quality Dashboard**:
 
@@ -622,7 +622,7 @@ def check_lineage_quality():
 ```
 
 </TabItem>
-<TabItem value="manual-validation" label="🔍 Manual Validation">
+<TabItem value="manual-validation" label="Manual Validation">
 
 **Quarterly Lineage Review Process**:
 
@@ -710,11 +710,11 @@ Identify a lineage gap in your organization and resolve it using the systematic 
 
 ## Mission Accomplished: Lineage Mastery Complete!
 
-🎉 **Congratulations!** You've completed the entire Data Lineage & Impact Analysis series and achieved expert-level proficiency:
+**Congratulations!** You've completed the entire Data Lineage & Impact Analysis series and achieved expert-level proficiency:
 
-**🔍 Reading Lineage Graphs**: Navigate any complexity with confidence
-**📊 Performing Impact Analysis**: Systematically assess and communicate change risks  
-**🔧 Lineage Troubleshooting**: Diagnose and resolve any lineage quality issue
+**Reading Lineage Graphs**: Navigate any complexity with confidence
+**Performing Impact Analysis**: Systematically assess and communicate change risks  
+**Lineage Troubleshooting**: Diagnose and resolve any lineage quality issue
 
 **Your New Capabilities**:
 
@@ -726,12 +726,12 @@ Identify a lineage gap in your organization and resolve it using the systematic 
 **Real-World Impact**: You're now equipped to handle the most complex data lineage challenges in production environments, from multi-system migrations to compliance audits to incident response.
 
 :::tip Mark Your Progress
-Check off "Lineage Troubleshooting" in the progress tracker above! You've completed the entire lineage mastery series! 🎉
+Check off "Lineage Troubleshooting" in the progress tracker above! You've completed the entire lineage mastery series!
 :::
 
 ---
 
-**🎯 Ready for More?** Continue your DataHub expertise journey with:
+**Ready for More?** Continue your DataHub expertise journey with:
 
 - **Data Governance Fundamentals (coming soon)** - Master ownership, classification, and business glossary
 - **Data Quality & Monitoring (coming soon)** - Learn assertions, health dashboards, and incident management

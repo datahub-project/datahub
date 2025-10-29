@@ -50,11 +50,11 @@ Systematic incident management transforms chaotic fire-fighting into structured,
 
 **Incident Management Components**:
 
-- **🚨 Automated Detection**: Intelligent alerting based on quality thresholds
-- **📋 Structured Response**: Standardized workflows for different incident types
+- **Automated Detection**: Intelligent alerting based on quality thresholds
+- **Structured Response**: Standardized workflows for different incident types
 - **SLA Management**: Time-bound response and resolution commitments
 - **Impact Assessment**: Business impact evaluation and prioritization
-- **🔄 Post-Incident Review**: Learning and improvement processes
+- **Post-Incident Review**: Learning and improvement processes
 
 ### Exercise 1: Set Up Incident Detection
 
@@ -64,10 +64,10 @@ Configure intelligent alerting that triggers appropriate response levels:
 
 **Severity Classification**:
 
-- **🔴 Critical (P0)**: Complete data unavailability or major accuracy issues affecting revenue/customers
-- **🟡 High (P1)**: Significant quality degradation affecting business operations
+- **Critical (P0)**: Complete data unavailability or major accuracy issues affecting revenue/customers
+- **High (P1)**: Significant quality degradation affecting business operations
 - **🟠 Medium (P2)**: Quality issues affecting specific use cases or reports
-- **🟢 Low (P3)**: Minor quality issues with workarounds available
+- **Low (P3)**: Minor quality issues with workarounds available
 
 #### Step 2: Configure Automated Detection Rules
 
@@ -208,7 +208,7 @@ Ensure stakeholders receive appropriate information at the right time:
 **Incident Status Update Template**:
 
 ```
-🚨 INCIDENT UPDATE - [Incident ID] - [Time]
+INCIDENT UPDATE - [Incident ID] - [Time]
 
 STATUS: [Investigating/Mitigating/Resolved]
 IMPACT: [Brief business impact description]

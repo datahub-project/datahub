@@ -270,6 +270,50 @@ No errors encountered
 
 **Pro Tip**: Notice how DataHub automatically organized everything by platform? This is how you'll navigate complex data ecosystems in real companies.
 
+**Your Ingested Enterprise Data Assets:**
+
+<div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', margin: '20px 0'}}>
+  <DataHubEntityCard 
+    name="SampleKafkaDataset"
+    type="Topic"
+    platform="Kafka"
+    description="Real-time user behavior events from web and mobile applications"
+    owners={[
+      { name: 'Data Engineering', type: 'Technical Owner' },
+      { name: 'Analytics Team', type: 'Business Owner' }
+    ]}
+    tags={['Real-time', 'Events', 'User-Behavior']}
+    glossaryTerms={['Event Stream', 'User Analytics']}
+    health="Good"
+  />
+  
+  <DataHubEntityCard 
+    name="fct_users_created"
+    type="Table"
+    platform="Hive"
+    description="Daily aggregated user creation metrics for business reporting"
+    owners={[
+      { name: 'Analytics Team', type: 'Business Owner' }
+    ]}
+    tags={['Analytics', 'Daily-Batch', 'User-Metrics']}
+    glossaryTerms={['User Metrics', 'Fact Table']}
+    health="Good"
+  />
+  
+  <DataHubEntityCard 
+    name="SampleHdfsDataset"
+    type="Dataset"
+    platform="HDFS"
+    description="Raw data lake storage for unprocessed enterprise data"
+    owners={[
+      { name: 'Data Engineering', type: 'Technical Owner' }
+    ]}
+    tags={['Raw-Data', 'Data-Lake', 'Storage']}
+    glossaryTerms={['Data Lake', 'Raw Storage']}
+    health="Good"
+  />
+</div>
+
 ### 3. Your First Dataset Deep-Dive: Exploring User Metrics Data
 
 **Time to investigate!** Let's look at the user metrics data. Click on `fct_users_created` (you'll find it under the Hive platform).

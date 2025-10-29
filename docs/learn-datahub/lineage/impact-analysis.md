@@ -131,7 +131,7 @@ glossaryTerms: ['Recommendation Model']
 Let's apply this to our scenario:
 
 <Tabs>
-<TabItem value="scope-definition" label="📋 Scope Definition">
+<TabItem value="scope-definition" label="Scope Definition">
 
 **System/Dataset**: `customer_analytics_pipeline` (Hive tables)
 **Change Type**: Platform migration (Hive → Snowflake)
@@ -149,7 +149,7 @@ Let's apply this to our scenario:
 - Enable real-time customer insights
 
 </TabItem>
-<TabItem value="risk-factors" label="⚠️ Risk Factors">
+<TabItem value="risk-factors" label="Risk Factors">
 
 **High-Risk Elements**:
 
@@ -254,7 +254,7 @@ Transform your downstream map into quantified risk scores:
 - **Operational Criticality**: Is this needed for daily operations?
 
 </TabItem>
-<TabItem value="technical-complexity" label="⚙️ Technical Complexity">
+<TabItem value="technical-complexity" label="Technical Complexity">
 
 **Complexity Scale (1-5)**:
 
@@ -272,7 +272,7 @@ Transform your downstream map into quantified risk scores:
 - **Rollback Difficulty**: How easy is it to undo changes?
 
 </TabItem>
-<TabItem value="risk-calculation" label="📊 Risk Calculation">
+<TabItem value="risk-calculation" label="Risk Calculation">
 
 **Risk Score Formula**:
 
@@ -288,9 +288,9 @@ Risk Score = Business Impact × Technical Complexity × Urgency Factor
 
 **Risk Categories**:
 
-- **20-25**: 🔴 **Critical Risk** - Executive approval required
-- **15-19**: 🟡 **High Risk** - Detailed mitigation plan needed
-- **10-14**: 🟢 **Medium Risk** - Standard change process
+- **20-25**: **Critical Risk** - Executive approval required
+- **15-19**: **High Risk** - Detailed mitigation plan needed
+- **10-14**: **Medium Risk** - Standard change process
 - **5-9**: 🔵 **Low Risk** - Routine change management
 - **1-4**: ⚪ **Minimal Risk** - Proceed with standard testing
 
@@ -303,13 +303,13 @@ Risk Score = Business Impact × Technical Complexity × Urgency Factor
 
 **TechFlow Customer Analytics Migration Risk Assessment**:
 
-| Downstream System | Business Impact | Technical Complexity | Risk Score | Category    |
-| ----------------- | --------------- | -------------------- | ---------- | ----------- |
-| Sales Dashboard   | 5 (Critical)    | 3 (Moderate)         | 22.5       | 🔴 Critical |
-| CEO Reports       | 4 (High)        | 2 (Simple)           | 12         | 🟢 Medium   |
-| ML Pipeline       | 3 (Medium)      | 4 (Complex)          | 18         | 🟡 High     |
-| Mobile API        | 5 (Critical)    | 3 (Moderate)         | 22.5       | 🔴 Critical |
-| Archive System    | 1 (Minimal)     | 1 (Trivial)          | 1.5        | ⚪ Minimal  |
+| Downstream System | Business Impact | Technical Complexity | Risk Score | Category   |
+| ----------------- | --------------- | -------------------- | ---------- | ---------- |
+| Sales Dashboard   | 5 (Critical)    | 3 (Moderate)         | 22.5       | Critical   |
+| CEO Reports       | 4 (High)        | 2 (Simple)           | 12         | Medium     |
+| ML Pipeline       | 3 (Medium)      | 4 (Complex)          | 18         | High       |
+| Mobile API        | 5 (Critical)    | 3 (Moderate)         | 22.5       | Critical   |
+| Archive System    | 1 (Minimal)     | 1 (Trivial)          | 1.5        | ⚪ Minimal |
 
 **Analysis**: 2 Critical Risk systems require executive approval and detailed rollback plans.
 
@@ -325,13 +325,13 @@ Identify who needs to be involved in the change:
 
 **Stakeholder Categories**:
 
-**🎯 Primary Stakeholders** (Directly affected):
+**Primary Stakeholders** (Directly affected):
 
 - **Data Consumers**: Teams using the affected data
 - **System Owners**: Technical teams responsible for downstream systems
 - **Business Users**: People whose work depends on the data
 
-**🤝 Secondary Stakeholders** (Coordination required):
+**Secondary Stakeholders** (Coordination required):
 
 - **Infrastructure Teams**: Platform and DevOps support
 - **Security Teams**: Access control and compliance
@@ -348,7 +348,7 @@ Identify who needs to be involved in the change:
 ### Communication Strategy
 
 <Tabs>
-<TabItem value="technical-communication" label="👨‍💻 Technical Teams">
+<TabItem value="technical-communication" label="Technical Teams">
 
 **Technical Impact Report Template**:
 
@@ -375,7 +375,7 @@ Identify who needs to be involved in the change:
 ```
 
 </TabItem>
-<TabItem value="business-communication" label="👔 Business Stakeholders">
+<TabItem value="business-communication" label="Business Stakeholders">
 
 **Business Impact Summary Template**:
 
@@ -404,7 +404,7 @@ Contact: @data-team or @project-manager
 ```
 
 </TabItem>
-<TabItem value="executive-summary" label="📊 Executive Summary">
+<TabItem value="executive-summary" label="Executive Summary">
 
 **Executive Impact Brief Template**:
 
@@ -448,21 +448,21 @@ Develop comprehensive plans to minimize risk:
 
 **Risk Mitigation Categories**:
 
-**🛡️ Preventive Measures** (Avoid problems):
+**Preventive Measures** (Avoid problems):
 
 - **Comprehensive testing**: Validate all connections before go-live
 - **Staged rollout**: Migrate non-critical systems first
 - **Communication plan**: Ensure all stakeholders are prepared
 - **Documentation updates**: Keep all procedures current
 
-**🚨 Detective Measures** (Catch problems early):
+**Detective Measures** (Catch problems early):
 
 - **Monitoring alerts**: Set up notifications for system failures
 - **Health checks**: Automated validation of data flow
 - **User feedback channels**: Quick reporting of issues
 - **Performance monitoring**: Track system response times
 
-**🔧 Corrective Measures** (Fix problems quickly):
+**Corrective Measures** (Fix problems quickly):
 
 - **Rollback procedures**: Detailed steps to revert changes
 - **Emergency contacts**: 24/7 support team availability
@@ -476,7 +476,7 @@ Develop comprehensive plans to minimize risk:
 **Critical Success Factor**: Every change needs a tested rollback plan.
 
 <Tabs>
-<TabItem value="rollback-planning" label="🔄 Rollback Planning">
+<TabItem value="rollback-planning" label="Rollback Planning">
 
 **Rollback Decision Matrix**:
 
@@ -528,7 +528,7 @@ Develop comprehensive plans to minimize risk:
 - [ ] Mobile app functions normally with new backend
 
 </TabItem>
-<TabItem value="success-metrics" label="📈 Success Metrics">
+<TabItem value="success-metrics" label="Success Metrics">
 
 **Migration Success Criteria**:
 
@@ -626,7 +626,7 @@ Choose a real system change in your organization and perform a complete impact a
 
 ## What You've Accomplished
 
-🎉 **Outstanding work!** You've transformed from basic lineage viewing to expert-level impact analysis:
+**Outstanding work!** You've transformed from basic lineage viewing to expert-level impact analysis:
 
 - **Systematic approach**: You can now analyze any system change methodically
 - **Risk quantification**: You understand how to score and prioritize risks

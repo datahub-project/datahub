@@ -116,11 +116,11 @@ DataHub's ingestion framework provides enterprise-grade capabilities:
 
 **Key Ingestion Capabilities**:
 
-- **🔌 Universal Connectors**: 50+ pre-built connectors for popular data systems
-- **⚡ High Performance**: Optimized for large-scale enterprise environments
-- **🔄 Incremental Updates**: Stateful ingestion for efficient metadata synchronization
-- **📊 Automated Profiling**: Deep data content analysis and quality metrics
-- **🎯 Flexible Configuration**: Customizable extraction, transformation, and loading
+- **Universal Connectors**: 50+ pre-built connectors for popular data systems
+- **High Performance**: Optimized for large-scale enterprise environments
+- **Incremental Updates**: Stateful ingestion for efficient metadata synchronization
+- **Automated Profiling**: Deep data content analysis and quality metrics
+- **Flexible Configuration**: Customizable extraction, transformation, and loading
 
 ### Ingestion Framework Components
 
@@ -150,11 +150,69 @@ DataHub's ingestion framework provides enterprise-grade capabilities:
 
 ### Ingestion Maturity Levels
 
-**Level 1 - Basic**: Manual metadata entry, ad-hoc documentation
-**Level 2 - Automated**: Scheduled ingestion, basic source coverage
-**Level 3 - Optimized**: Stateful ingestion, profiling, performance tuning
-**Level 4 - Advanced**: Custom transformers, complex lineage, multi-environment
-**Level 5 - Intelligent**: ML-driven optimization, predictive metadata management
+<DataHubLineageFlow {...{
+title: "Metadata Ingestion Evolution Path",
+nodes: [
+{
+name: 'basic_ingestion',
+type: 'Level 1: Basic',
+entityType: 'Dataset',
+platform: 'Manual',
+health: 'Warning',
+columns: [
+{ name: 'manual_entry', type: 'string' },
+{ name: 'ad_hoc_docs', type: 'string' },
+{ name: 'incomplete_coverage', type: 'boolean' }
+],
+tags: ['Manual', 'Ad-Hoc', 'Basic'],
+glossaryTerms: ['Manual Process', 'Documentation Gap']
+},
+{
+name: 'automated_ingestion',
+type: 'Level 2: Automated',
+entityType: 'DataJob',
+platform: 'DataHub',
+health: 'Good',
+tags: ['Scheduled', 'Basic-Coverage', 'Automated']
+},
+{
+name: 'optimized_ingestion',
+type: 'Level 3: Optimized',
+entityType: 'Dataset',
+platform: 'DataHub',
+health: 'Good',
+columns: [
+{ name: 'stateful_ingestion', type: 'boolean' },
+{ name: 'profiling_enabled', type: 'boolean' },
+{ name: 'performance_tuned', type: 'string' }
+],
+tags: ['Stateful', 'Profiling', 'Optimized'],
+glossaryTerms: ['Stateful Ingestion', 'Performance Tuning']
+},
+{
+name: 'advanced_ingestion',
+type: 'Level 4: Advanced',
+entityType: 'DataJob',
+platform: 'Enterprise',
+health: 'Good',
+tags: ['Custom-Transformers', 'Complex-Lineage', 'Multi-Environment']
+},
+{
+name: 'intelligent_ingestion',
+type: 'Level 5: Intelligent',
+entityType: 'Dataset',
+platform: 'AI-Powered',
+health: 'Good',
+columns: [
+{ name: 'ml_optimization', type: 'boolean' },
+{ name: 'predictive_management', type: 'string' },
+{ name: 'auto_classification', type: 'string' }
+],
+tags: ['ML-Driven', 'Predictive', 'Intelligent'],
+glossaryTerms: ['ML Optimization', 'Predictive Metadata']
+}
+]
+}} />
 
 ### Common Ingestion Challenges
 

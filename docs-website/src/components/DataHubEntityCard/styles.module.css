@@ -186,6 +186,51 @@
   --datahub-border: #374066;
 }
 
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
 /* DataHub Entity Card - Uses actual DataHub design tokens */
 
 /* Import DataHub color variables */

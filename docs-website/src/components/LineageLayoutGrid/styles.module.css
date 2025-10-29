@@ -1,0 +1,125 @@
+/* LineageLayoutGrid Component Styles */
+.lineageContainer {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 20px 40px; /* More horizontal padding to prevent cutoff */
+  background: var(--ifm-background-color);
+  border-radius: 8px;
+  border: 1px solid var(--ifm-color-emphasis-300);
+}
+
+.title {
+  text-align: center;
+  margin: 0 0 24px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ifm-color-content);
+}
+
+/* CSS Grid Layout for Layers */
+.layersGrid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(320px, 1fr);
+  gap: 100px; /* More space for connections */
+  align-items: start;
+  justify-content: start; /* Align to start to prevent cutoff */
+  min-height: 400px;
+  padding: 20px 0;
+  min-width: fit-content; /* Ensure grid doesn't shrink below content */
+}
+
+/* Individual Layer Styling */
+.layer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 320px;
+  width: 100%; /* Take full grid column width */
+  height: 100%;
+}
+
+.layerTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ifm-color-emphasis-700);
+  text-align: center;
+  margin-bottom: 24px;
+  padding: 8px 16px;
+  background: var(--ifm-background-color);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+/* Nodes within each layer */
+.layerNodes {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: center;
+  width: 100%;
+  flex: 1;
+  justify-content: center;
+}
+
+.nodeWrapper {
+  width: 100%;
+  max-width: 300px;
+  position: relative;
+  display: flex;
+  justify-content: center; /* Center nodes within their wrapper */
+}
+
+/* SVG Overlay for Connections */
+.connectionsOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  overflow: visible;
+}
+
+/* Connection Path Styling */
+.connectionPath {
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.connectionPath:hover {
+  stroke-width: 3;
+  opacity: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .layersGrid {
+    grid-auto-columns: minmax(280px, 1fr);
+    gap: 60px;
+  }
+  
+  .nodeWrapper {
+    max-width: 260px;
+  }
+}
+
+/* Dark mode support */
+[data-theme='dark'] .lineageContainer {
+  background: var(--ifm-background-color);
+  border-color: var(--ifm-color-emphasis-300);
+}
+
+[data-theme='dark'] .layerTitle {
+  background: var(--ifm-background-color);
+  border-color: var(--ifm-color-emphasis-300);
+  color: var(--ifm-color-emphasis-800);
+}

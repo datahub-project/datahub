@@ -126,50 +126,28 @@ Organize terms into logical hierarchies for better navigation:
 
 Set up high-level categories using DataHub's glossary hierarchy:
 
-<InteractiveDiagram
-nodes={[
-{ id: 'customer-terms', position: { x: 50, y: 50 }, data: { label: 'Customer Terms', type: 'category' } },
-{ id: 'customer-id', position: { x: 50, y: 150 }, data: { label: 'Customer Identification', type: 'subcategory' } },
-{ id: 'customer-behavior', position: { x: 250, y: 150 }, data: { label: 'Customer Behavior', type: 'subcategory' } },
-{ id: 'customer-value', position: { x: 450, y: 150 }, data: { label: 'Customer Value', type: 'subcategory' } },
-{ id: 'cust-id', position: { x: 20, y: 250 }, data: { label: 'Customer ID', type: 'term' } },
-{ id: 'cust-segment', position: { x: 80, y: 250 }, data: { label: 'Customer Segment', type: 'term' } },
-{ id: 'active-customer', position: { x: 220, y: 250 }, data: { label: 'Active Customer', type: 'term' } },
-{ id: 'engagement', position: { x: 280, y: 250 }, data: { label: 'Customer Engagement', type: 'term' } },
-{ id: 'clv', position: { x: 420, y: 250 }, data: { label: 'Customer Lifetime Value', type: 'term' } },
-{ id: 'cac', position: { x: 480, y: 250 }, data: { label: 'Customer Acquisition Cost', type: 'term' } },
+**Business Glossary Term Hierarchy:**
 
-    { id: 'financial-terms', position: { x: 650, y: 50 }, data: { label: 'Financial Terms', type: 'category' } },
-    { id: 'revenue-metrics', position: { x: 600, y: 150 }, data: { label: 'Revenue Metrics', type: 'subcategory' } },
-    { id: 'cost-metrics', position: { x: 750, y: 150 }, data: { label: 'Cost Metrics', type: 'subcategory' } },
-    { id: 'revenue-rec', position: { x: 570, y: 250 }, data: { label: 'Revenue Recognition', type: 'term' } },
-    { id: 'mrr', position: { x: 630, y: 250 }, data: { label: 'Monthly Recurring Revenue', type: 'term' } },
-    { id: 'cogs', position: { x: 720, y: 250 }, data: { label: 'Cost of Goods Sold', type: 'term' } },
-    { id: 'opex', position: { x: 780, y: 250 }, data: { label: 'Operating Expenses', type: 'term' } },
+```
+Customer Terms
+├── 📂 Customer Identification
+│   ├── Customer ID
+│   └── Customer Segment
+├── 📂 Customer Behavior
+│   ├── Active Customer
+│   └── Customer Engagement
+└── 📂 Customer Value
+    ├── Customer Lifetime Value (CLV)
+    └── Customer Acquisition Cost (CAC)
 
-]}
-edges={[
-{ id: 'e1', source: 'customer-terms', target: 'customer-id' },
-{ id: 'e2', source: 'customer-terms', target: 'customer-behavior' },
-{ id: 'e3', source: 'customer-terms', target: 'customer-value' },
-{ id: 'e4', source: 'customer-id', target: 'cust-id' },
-{ id: 'e5', source: 'customer-id', target: 'cust-segment' },
-{ id: 'e6', source: 'customer-behavior', target: 'active-customer' },
-{ id: 'e7', source: 'customer-behavior', target: 'engagement' },
-{ id: 'e8', source: 'customer-value', target: 'clv' },
-{ id: 'e9', source: 'customer-value', target: 'cac' },
-
-    { id: 'e10', source: 'financial-terms', target: 'revenue-metrics' },
-    { id: 'e11', source: 'financial-terms', target: 'cost-metrics' },
-    { id: 'e12', source: 'revenue-metrics', target: 'revenue-rec' },
-    { id: 'e13', source: 'revenue-metrics', target: 'mrr' },
-    { id: 'e14', source: 'cost-metrics', target: 'cogs' },
-    { id: 'e15', source: 'cost-metrics', target: 'opex' },
-
-]}
-title="Business Glossary Term Hierarchy"
-height="350px"
-/>
+Financial Terms
+├── 📂 Revenue Metrics
+│   ├── Revenue Recognition
+│   └── Monthly Recurring Revenue (MRR)
+└── 📂 Cost Metrics
+    ├── Cost of Goods Sold (COGS)
+    └── Operating Expenses (OPEX)
+```
 
 #### Step 2: Implement Hierarchies
 

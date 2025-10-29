@@ -121,11 +121,11 @@ DataHub provides comprehensive privacy management through:
 
 **Key Privacy Capabilities**:
 
-- **🔍 Automated PII Discovery**: ML-powered detection of personal data across all systems
-- **🛡️ Privacy Controls**: Automated enforcement of data minimization and purpose limitation
-- **📋 Compliance Automation**: Streamlined data subject request fulfillment
-- **📊 Privacy Analytics**: Comprehensive reporting and audit trail generation
-- **🌍 Cross-Border Compliance**: Monitoring and controls for international data transfers
+- **Automated PII Discovery**: ML-powered detection of personal data across all systems
+- **Privacy Controls**: Automated enforcement of data minimization and purpose limitation
+- **Compliance Automation**: Streamlined data subject request fulfillment
+- **Privacy Analytics**: Comprehensive reporting and audit trail generation
+- **Cross-Border Compliance**: Monitoring and controls for international data transfers
 
 ### Privacy Regulatory Landscape
 
@@ -155,11 +155,69 @@ DataHub provides comprehensive privacy management through:
 
 ### Privacy Maturity Assessment
 
-**Level 1 - Reactive**: Manual privacy processes, compliance gaps
-**Level 2 - Managed**: Basic privacy controls, some automation
-**Level 3 - Proactive**: Comprehensive privacy program, systematic controls
-**Level 4 - Optimized**: Advanced privacy engineering, predictive compliance
-**Level 5 - Privacy-by-Design**: Privacy embedded in all data processes
+<DataHubLineageFlow {...{
+title: "Privacy Program Maturity Journey",
+nodes: [
+{
+name: 'reactive_privacy',
+type: 'Level 1: Reactive',
+entityType: 'Dataset',
+platform: 'Manual',
+health: 'Critical',
+columns: [
+{ name: 'manual_processes', type: 'boolean' },
+{ name: 'compliance_gaps', type: 'string' },
+{ name: 'incident_response', type: 'string' }
+],
+tags: ['Manual', 'Reactive', 'High-Risk'],
+glossaryTerms: ['Privacy Gap', 'Manual Process']
+},
+{
+name: 'managed_privacy',
+type: 'Level 2: Managed',
+entityType: 'DataJob',
+platform: 'DataHub',
+health: 'Warning',
+tags: ['Basic-Controls', 'Some-Automation']
+},
+{
+name: 'proactive_privacy',
+type: 'Level 3: Proactive',
+entityType: 'Dataset',
+platform: 'DataHub',
+health: 'Good',
+columns: [
+{ name: 'comprehensive_program', type: 'boolean' },
+{ name: 'systematic_controls', type: 'string' },
+{ name: 'privacy_monitoring', type: 'string' }
+],
+tags: ['Comprehensive', 'Systematic', 'Proactive'],
+glossaryTerms: ['Privacy Program', 'Systematic Controls']
+},
+{
+name: 'optimized_privacy',
+type: 'Level 4: Optimized',
+entityType: 'DataJob',
+platform: 'Advanced',
+health: 'Good',
+tags: ['Advanced-Engineering', 'Predictive']
+},
+{
+name: 'privacy_by_design',
+type: 'Level 5: Privacy-by-Design',
+entityType: 'Dataset',
+platform: 'Enterprise',
+health: 'Good',
+columns: [
+{ name: 'embedded_privacy', type: 'boolean' },
+{ name: 'automated_compliance', type: 'string' },
+{ name: 'privacy_metrics', type: 'number' }
+],
+tags: ['Privacy-by-Design', 'Embedded', 'Automated'],
+glossaryTerms: ['Privacy by Design', 'Automated Compliance']
+}
+]
+}} />
 
 ### Success Metrics
 

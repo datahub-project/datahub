@@ -33,11 +33,11 @@ DataHub policies automate governance enforcement through configurable rules that
 
 **Policy Types**:
 
-- **🔒 Access Policies**: Control who can view or modify data
-- **📋 Metadata Policies**: Enforce required metadata standards
-- **🚨 Quality Policies**: Monitor data quality and trigger alerts
+- **Access Policies**: Control who can view or modify data
+- **Metadata Policies**: Enforce required metadata standards
+- **Quality Policies**: Monitor data quality and trigger alerts
 - **Approval Policies**: Require reviews for sensitive operations
-- **📊 Compliance Policies**: Ensure regulatory requirement adherence
+- **Compliance Policies**: Ensure regulatory requirement adherence
 
 ### Exercise 1: Create Metadata Compliance Policies
 
@@ -299,11 +299,69 @@ Track these key metrics:
 
 Evaluate your organization's governance maturity:
 
-**Level 1 - Basic**: Manual processes, reactive governance
-**Level 2 - Managed**: Some automation, defined processes
-**Level 3 - Defined**: Comprehensive policies, proactive monitoring
-**Level 4 - Quantitatively Managed**: Metrics-driven optimization
-**Level 5 - Optimizing**: Continuous improvement, predictive governance
+<DataHubLineageFlow {...{
+title: "Data Governance Maturity Progression",
+nodes: [
+{
+name: 'basic_governance',
+type: 'Level 1: Basic',
+entityType: 'Dataset',
+platform: 'Manual',
+health: 'Critical',
+columns: [
+{ name: 'manual_processes', type: 'boolean' },
+{ name: 'reactive_approach', type: 'string' },
+{ name: 'ad_hoc_policies', type: 'string' }
+],
+tags: ['Manual', 'Reactive', 'Basic'],
+glossaryTerms: ['Manual Process', 'Reactive Governance']
+},
+{
+name: 'managed_governance',
+type: 'Level 2: Managed',
+entityType: 'DataJob',
+platform: 'DataHub',
+health: 'Warning',
+tags: ['Some-Automation', 'Defined-Processes', 'Managed']
+},
+{
+name: 'defined_governance',
+type: 'Level 3: Defined',
+entityType: 'Dataset',
+platform: 'DataHub',
+health: 'Good',
+columns: [
+{ name: 'comprehensive_policies', type: 'boolean' },
+{ name: 'proactive_monitoring', type: 'string' },
+{ name: 'standardized_processes', type: 'string' }
+],
+tags: ['Comprehensive', 'Proactive', 'Defined'],
+glossaryTerms: ['Comprehensive Policies', 'Proactive Monitoring']
+},
+{
+name: 'quantitative_governance',
+type: 'Level 4: Quantitatively Managed',
+entityType: 'DataJob',
+platform: 'Advanced',
+health: 'Good',
+tags: ['Metrics-Driven', 'Optimization', 'Quantitative']
+},
+{
+name: 'optimizing_governance',
+type: 'Level 5: Optimizing',
+entityType: 'Dataset',
+platform: 'Enterprise',
+health: 'Good',
+columns: [
+{ name: 'continuous_improvement', type: 'boolean' },
+{ name: 'predictive_governance', type: 'string' },
+{ name: 'automated_optimization', type: 'string' }
+],
+tags: ['Continuous-Improvement', 'Predictive', 'Optimizing'],
+glossaryTerms: ['Continuous Improvement', 'Predictive Governance']
+}
+]
+}} />
 
 ### Congratulations!
 

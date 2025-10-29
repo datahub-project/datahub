@@ -1,6 +1,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import TutorialProgress from '@site/src/components/TutorialProgress';
+import DataHubLineageNode, { DataHubLineageFlow } from '@site/src/components/DataHubLineageNode';
 
 # Chapter 1: DataHub Foundation (30 minutes)
 
@@ -89,15 +90,49 @@ Before starting, ensure you have:
 
 DataHub acts as the central metadata hub connecting your entire data ecosystem:
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Source Data   │    │   DataHub Core  │    │  User Interface │
-│                 │    │                 │    │                 │
-│ • Cloud DBs     │───▶│ • Metadata API  │───▶│ • Web App       │
-│ • Warehouses    │    │ • Graph Store   │    │ • CLI Tools     │
-│ • Streaming     │    │ • Search Index  │    │ • Dashboards    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
+<DataHubLineageFlow {...{
+title: "Enterprise DataHub Architecture",
+nodes: [
+{
+name: 'source_systems',
+type: 'Sources',
+entityType: 'Dataset',
+platform: 'Multi-Platform',
+health: 'Good',
+columns: [
+{ name: 'cloud_databases', type: 'string' },
+{ name: 'data_warehouses', type: 'string' },
+{ name: 'streaming_platforms', type: 'string' },
+{ name: 'data_lakes', type: 'string' }
+],
+tags: ['Source-Systems', 'Enterprise'],
+glossaryTerms: ['Data Sources']
+},
+{
+name: 'datahub_core',
+type: 'Platform',
+entityType: 'DataJob',
+platform: 'DataHub',
+health: 'Good',
+tags: ['Metadata-Hub', 'Core-Platform']
+},
+{
+name: 'user_interfaces',
+type: 'Applications',
+entityType: 'Dataset',
+platform: 'DataHub',
+health: 'Good',
+columns: [
+{ name: 'web_application', type: 'string' },
+{ name: 'cli_tools', type: 'string' },
+{ name: 'api_access', type: 'string' },
+{ name: 'integrations', type: 'string' }
+],
+tags: ['User-Interface', 'Access-Layer'],
+glossaryTerms: ['User Access']
+}
+]
+}} />
 
 **Key Integration Points**:
 

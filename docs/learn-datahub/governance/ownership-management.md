@@ -46,10 +46,10 @@ DataHub supports multiple ownership types to reflect real organizational structu
 
 **Ownership Types Explained**:
 
-- **👨‍💻 Technical Owner**: Responsible for data pipeline maintenance, schema changes, and technical issues
-- **👔 Business Owner**: Accountable for data accuracy, business rules, and stakeholder communication
-- **🛡️ Data Steward**: Ensures data quality, compliance, and governance standards
-- **📊 Data Owner**: Ultimate accountability for data asset (often a senior business leader)
+- **Technical Owner**: Responsible for data pipeline maintenance, schema changes, and technical issues
+- **Business Owner**: Accountable for data accuracy, business rules, and stakeholder communication
+- **Data Steward**: Ensures data quality, compliance, and governance standards
+- **Data Owner**: Ultimate accountability for data asset (often a senior business leader)
 
 ### Exercise 1: Assign Dataset Owners
 

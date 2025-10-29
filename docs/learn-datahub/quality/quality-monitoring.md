@@ -281,7 +281,7 @@ Financial Data: 89.2% (Warning - investigating payment delays)
 Product Data: 95.8% (Good)
 Marketing Data: 94.5% (Good)
 
-🚨 ATTENTION REQUIRED
+ATTENTION REQUIRED
 1. Payment processing latency (Financial) - ETA: 2PM
 2. Customer email validation (CRM) - In progress
 

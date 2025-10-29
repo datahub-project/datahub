@@ -262,7 +262,7 @@ DataHub provides comprehensive assertion monitoring:
 - **Warning**: Minor issues detected, investigate soon
 - **Failing**: Critical issues found, immediate attention required
 - **Paused**: Assertion temporarily disabled
-- 🔄 **Running**: Currently executing validation
+- **Running**: Currently executing validation
 
 **Assertion History**:
 

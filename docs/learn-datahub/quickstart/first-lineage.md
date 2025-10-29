@@ -125,56 +125,299 @@ Let's understand the visual elements:
 
 **Question**: "I need to update the customer table schema. What will be affected?"
 
-**Steps**:
+<DataHubLineageFlow {...{
+title: "Impact Analysis: Customer Table Schema Change",
+nodes: [
+{
+name: 'customers',
+type: 'Source Table',
+entityType: 'Dataset',
+platform: 'Postgres',
+health: 'Good',
+columns: [
+{ name: 'customer_id', type: 'bigint' },
+{ name: 'email', type: 'string' },
+{ name: 'first_name', type: 'string' },
+{ name: 'last_name', type: 'string' },
+{ name: 'created_at', type: 'timestamp' }
+],
+tags: ['PII', 'Core-Data', 'High-Impact'],
+glossaryTerms: ['Customer Data', 'Source System']
+},
+{
+name: 'customer_analytics',
+type: 'Analytics Table',
+entityType: 'Dataset',
+platform: 'Snowflake',
+health: 'Good',
+columns: [
+{ name: 'customer_id', type: 'bigint' },
+{ name: 'full_name', type: 'string' },
+{ name: 'customer_segment', type: 'string' },
+{ name: 'lifetime_value', type: 'decimal' }
+],
+tags: ['Analytics', 'Derived', 'Business-Critical'],
+glossaryTerms: ['Customer Analytics', 'Business Intelligence']
+},
+{
+name: 'ml_features',
+type: 'Feature Store',
+entityType: 'Dataset',
+platform: 'Spark',
+health: 'Good',
+columns: [
+{ name: 'customer_id', type: 'bigint' },
+{ name: 'engagement_score', type: 'float' },
+{ name: 'churn_probability', type: 'float' }
+],
+tags: ['ML-Features', 'Real-Time', 'Predictive'],
+glossaryTerms: ['Machine Learning', 'Feature Engineering']
+},
+{
+name: 'daily_report_job',
+type: 'ETL Process',
+entityType: 'DataJob',
+platform: 'Airflow',
+health: 'Good',
+tags: ['Scheduled', 'Daily', 'Reporting']
+},
+{
+name: 'customer_dashboard',
+type: 'BI Dashboard',
+entityType: 'Dashboard',
+platform: 'Looker',
+health: 'Good',
+tags: ['Executive', 'Real-Time', 'Customer-Metrics'],
+glossaryTerms: ['Business Dashboard', 'Customer Insights']
+},
+{
+name: 'churn_model',
+type: 'ML Model',
+entityType: 'MLModel',
+platform: 'MLflow',
+health: 'Good',
+tags: ['Production', 'Churn-Prediction', 'Critical'],
+glossaryTerms: ['Churn Model', 'Predictive Analytics']
+},
+{
+name: 'recommendation_api',
+type: 'API Service',
+entityType: 'Dataset',
+platform: 'Kafka',
+health: 'Good',
+tags: ['Real-Time', 'Customer-Facing', 'High-Volume'],
+glossaryTerms: ['Recommendation Engine', 'Customer Experience']
+},
+{
+name: 'executive_dashboard',
+type: 'Executive Report',
+entityType: 'Dashboard',
+platform: 'Tableau',
+health: 'Good',
+tags: ['Executive', 'Strategic', 'Daily'],
+glossaryTerms: ['Executive Reporting', 'Strategic Metrics']
+}
+]
+}} />
 
-1. Navigate to the `customers` table
-2. Click the Lineage tab
-3. Look at **downstream dependencies** (right side)
-4. Identify all affected:
+**Steps to Analyze Impact**:
+
+1. **Navigate to the `customers` table** in DataHub
+2. **Click the Lineage tab** to see the full dependency graph
+3. **Look at downstream dependencies** (right side of the lineage view)
+4. **Identify all affected systems**:
    - Analytics tables that read from customers
    - Dashboards that display customer data
    - ML models that use customer features
    - Reports that include customer metrics
 
-**What you'll see**:
-
-```
-customers → customer_analytics → customer_dashboard
-customers → ml_features → churn_model → recommendation_api
-customers → daily_report_job → executive_dashboard
-```
+**Impact Assessment**: Any schema change to the `customers` table will potentially affect 8 downstream systems, requiring coordinated updates and testing.
 
 ### Scenario 2: Root Cause Analysis
 
 **Question**: "The customer dashboard shows wrong numbers. Where's the problem?"
 
-**Steps**:
+<DataHubLineageFlow {...{
+title: "Root Cause Analysis: Customer Dashboard Issues",
+nodes: [
+{
+name: 'raw_customers',
+type: 'Raw Data Source',
+entityType: 'Dataset',
+platform: 'Postgres',
+health: 'Good',
+columns: [
+{ name: 'customer_id', type: 'bigint' },
+{ name: 'email', type: 'string' },
+{ name: 'registration_date', type: 'timestamp' },
+{ name: 'status', type: 'string' }
+],
+tags: ['Source', 'Raw-Data', 'Operational'],
+glossaryTerms: ['Raw Customer Data', 'Source System']
+},
+{
+name: 'etl_job',
+type: 'Data Pipeline',
+entityType: 'DataJob',
+platform: 'Airflow',
+health: 'Warning',
+tags: ['ETL', 'Transformation', 'Check-This-First'],
+glossaryTerms: ['ETL Process', 'Data Pipeline']
+},
+{
+name: 'customer_metrics',
+type: 'Processed Metrics',
+entityType: 'Dataset',
+platform: 'Snowflake',
+health: 'Warning',
+columns: [
+{ name: 'customer_id', type: 'bigint' },
+{ name: 'total_orders', type: 'integer' },
+{ name: 'lifetime_value', type: 'decimal' },
+{ name: 'last_activity', type: 'timestamp' }
+],
+tags: ['Metrics', 'Aggregated', 'Potentially-Stale'],
+glossaryTerms: ['Customer Metrics', 'Business KPIs']
+},
+{
+name: 'customer_dashboard',
+type: 'Problem Dashboard',
+entityType: 'Dashboard',
+platform: 'Looker',
+health: 'Critical',
+tags: ['Dashboard', 'Reporting-Issues', 'Business-Critical'],
+glossaryTerms: ['Customer Dashboard', 'Business Intelligence']
+}
+]
+}} />
 
-1. Start at the `customer_dashboard`
-2. Trace **upstream dependencies** (left side)
-3. Check each step in the pipeline:
-   - Is the source data fresh?
-   - Did any ETL jobs fail?
-   - Are transformations working correctly?
+**Debugging Steps**:
 
-**Debugging path**:
+1. **Start at the `customer_dashboard`** (the problem location)
+2. **Trace upstream dependencies** (left side of lineage view)
+3. **Check each step systematically**:
+   - **ETL Job**: Did it run successfully? Check logs for failures
+   - **Customer Metrics**: Is the data fresh? Look at last update timestamp
+   - **Raw Customers**: Is source data being updated correctly?
 
-```
-customer_dashboard ← customer_metrics ← etl_job ← raw_customers
-                                      ↑
-                                   Check here first!
-```
+**Root Cause Investigation Priority**:
+
+1. **Check ETL Job first** - Most common failure point
+2. **Verify data freshness** - Look for stale or missing data
+3. **Validate transformations** - Ensure business logic is correct
+4. **Confirm source data quality** - Check for upstream issues
+
+**Common Issues Found**:
+
+- ETL job failed silently due to schema changes
+- Data pipeline running but processing stale data
+- Transformation logic changed without proper testing
+- Source system connectivity problems
 
 ### Scenario 3: Data Governance
 
 **Question**: "This table contains PII. Where does this sensitive data flow?"
 
-**Steps**:
+<DataHubLineageFlow {...{
+title: "Data Governance: PII Data Flow Tracking",
+nodes: [
+{
+name: 'customer_profiles',
+type: 'PII Source Table',
+entityType: 'Dataset',
+platform: 'Postgres',
+health: 'Good',
+columns: [
+{ name: 'customer_id', type: 'bigint' },
+{ name: 'email', type: 'string' },
+{ name: 'phone_number', type: 'string' },
+{ name: 'ssn', type: 'string' },
+{ name: 'address', type: 'string' }
+],
+tags: ['PII', 'Sensitive', 'GDPR-Regulated', 'High-Security'],
+glossaryTerms: ['Personal Data', 'Sensitive Information']
+},
+{
+name: 'anonymized_analytics',
+type: 'Anonymized Data',
+entityType: 'Dataset',
+platform: 'Snowflake',
+health: 'Good',
+columns: [
+{ name: 'customer_hash', type: 'string' },
+{ name: 'region_code', type: 'string' },
+{ name: 'age_group', type: 'string' },
+{ name: 'purchase_behavior', type: 'string' }
+],
+tags: ['Anonymized', 'Analytics-Safe', 'GDPR-Compliant'],
+glossaryTerms: ['Anonymized Data', 'Privacy Compliant']
+},
+{
+name: 'crm_system',
+type: 'Customer Management',
+entityType: 'Dataset',
+platform: 'Salesforce',
+health: 'Good',
+columns: [
+{ name: 'customer_id', type: 'bigint' },
+{ name: 'email', type: 'string' },
+{ name: 'phone_number', type: 'string' },
+{ name: 'contact_preferences', type: 'string' }
+],
+tags: ['PII', 'Customer-Service', 'Access-Controlled'],
+glossaryTerms: ['Customer Relationship Management', 'Contact Information']
+},
+{
+name: 'marketing_campaigns',
+type: 'Marketing System',
+entityType: 'Dataset',
+platform: 'HubSpot',
+health: 'Warning',
+columns: [
+{ name: 'email', type: 'string' },
+{ name: 'campaign_id', type: 'string' },
+{ name: 'opt_in_status', type: 'boolean' }
+],
+tags: ['PII', 'Marketing', 'Consent-Required', 'Audit-This'],
+glossaryTerms: ['Marketing Data', 'Email Marketing']
+},
+{
+name: 'compliance_audit',
+type: 'Audit Trail',
+entityType: 'Dataset',
+platform: 'DataHub',
+health: 'Good',
+tags: ['Audit', 'Compliance', 'Access-Logs'],
+glossaryTerms: ['Compliance Audit', 'Data Access Tracking']
+}
+]
+}} />
 
-1. Find the table with PII (e.g., `customer_profiles`)
-2. Examine **all downstream paths**
-3. Identify systems that receive sensitive data
-4. Verify proper access controls and compliance
+**Governance Investigation Steps**:
+
+1. **Find the PII source** (e.g., `customer_profiles` table)
+2. **Examine all downstream paths** using DataHub lineage
+3. **Identify systems receiving sensitive data**:
+
+   - CRM systems (legitimate business use)
+   - Marketing platforms (verify consent)
+   - Analytics systems (should be anonymized)
+   - Third-party integrations (compliance risk)
+
+4. **Verify proper controls**:
+   - Access permissions and role-based security
+   - Data anonymization where required
+   - Consent management for marketing use
+   - Audit trails for compliance reporting
+
+**Compliance Checklist**:
+
+- ✅ **Anonymized Analytics**: PII removed, GDPR compliant
+- ✅ **CRM System**: Legitimate business purpose, access controlled
+- ⚠️ **Marketing Campaigns**: Verify consent and opt-in status
+- ✅ **Compliance Audit**: Full access tracking enabled
+
+**Action Items**: Review marketing system access to ensure proper consent management and consider additional anonymization.
 
 ## Column-Level Lineage
 

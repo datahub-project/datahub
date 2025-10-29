@@ -33,8 +33,8 @@ Quality automation shifts from reactive incident response to proactive issue pre
 
 **Automation Layers**:
 
-- **🔄 Pipeline Integration**: Quality checks embedded in data processing workflows
-- **🚪 Quality Gates**: Automated approval/rejection of data based on quality criteria
+- **Pipeline Integration**: Quality checks embedded in data processing workflows
+- **Quality Gates**: Automated approval/rejection of data based on quality criteria
 - **Self-Healing**: Automatic remediation of common quality issues
 - **Continuous Improvement**: ML-driven optimization of quality processes
 - **Preventive Monitoring**: Early detection of quality degradation patterns

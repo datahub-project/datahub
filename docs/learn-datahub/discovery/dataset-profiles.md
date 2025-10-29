@@ -1,15 +1,16 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import DataHubEntityCard from '@site/src/components/DataHubEntityCard';
 
 # Understanding Dataset Profiles (20 minutes)
 
 :::info Tutorial Progress
-**Step 2 of 3** | ⏱️ **20 minutes** | [Overview](overview.md) → [Advanced Search](advanced-search.md) → **Dataset Profiles** → [Collaborative Discovery](collaborative-discovery.md)
+**Step 2 of 3** | **20 minutes** | [Overview](overview.md) → [Advanced Search](advanced-search.md) → **Dataset Profiles** → [Collaborative Discovery](collaborative-discovery.md)
 :::
 
 Learn to quickly assess data quality, understand schemas, and make informed decisions about whether a dataset meets your analysis needs. Transform from guessing to knowing.
 
-## 🕵️ Discovery Challenge #2: The Data Detective
+## Discovery Challenge #2: The Data Detective
 
 **Your Mission**: The customer dashboard shows suspicious numbers - customer count dropped 50% overnight. You need to evaluate potential data sources to find the root cause.
 
@@ -47,9 +48,9 @@ Before diving deep, get a rapid overview of dataset health:
 
 <div className="health-check-guide">
 
-**🚦 Traffic Light System:**
+**Traffic Light System:**
 
-| 🟢 Green Light     | 🟡 Yellow Light      | 🔴 Red Light         |
+| Green Light        | Yellow Light         | Red Light            |
 | ------------------ | -------------------- | -------------------- |
 | Updated < 24h ago  | Updated 1-7 days ago | Updated > 7 days ago |
 | Has owner assigned | Owner unclear        | No owner             |
@@ -58,7 +59,47 @@ Before diving deep, get a rapid overview of dataset health:
 
 </div>
 
-### 🎮 Interactive Exercise: Health Check Practice
+**Visual Health Assessment Examples:**
+
+<div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', margin: '20px 0'}}>
+  <DataHubEntityCard 
+    name="customer_analytics"
+    type="Table"
+    platform="Snowflake"
+    description="Well-maintained customer analytics table with comprehensive metadata and active ownership"
+    owners={[
+      { name: 'Analytics Team', type: 'Business Owner' },
+      { name: 'Data Engineering', type: 'Technical Owner' }
+    ]}
+    tags={['Production', 'Analytics', 'Customer-Data']}
+    glossaryTerms={['Customer Analytics', 'Business Intelligence']}
+    health="Good"
+  />
+  
+  <DataHubEntityCard 
+    name="temp_customer_backup"
+    type="Table"
+    platform="MySQL"
+    description="Temporary backup table - use with caution"
+    owners={[]}
+    tags={['Temporary', 'Backup']}
+    glossaryTerms={[]}
+    health="Warning"
+  />
+  
+  <DataHubEntityCard 
+    name="legacy_customer_data"
+    type="Table"
+    platform="Oracle"
+    description=""
+    owners={[]}
+    tags={['Legacy']}
+    glossaryTerms={[]}
+    health="Critical"
+  />
+</div>
+
+### Interactive Exercise: Health Check Practice
 
 <div className="interactive-exercise">
 
@@ -73,7 +114,7 @@ Dataset Name: ________________
 Last Updated: ________________
 Owner: ______________________
 Row Count: ___________________
-Health Score: 🟢 🟡 🔴 (circle one)
+Health Score: Good / Warning / Critical (circle one)
 ```
 
 **Repeat for 2 more datasets and compare results**
@@ -87,13 +128,13 @@ The schema tells you what data is actually available and how it's structured:
 ### Reading the Schema Tab
 
 <Tabs>
-<TabItem value="column-analysis" label="📊 Column Analysis">
+<TabItem value="column-analysis" label="Column Analysis">
 
 **What to look for in each column:**
 
 <div className="column-guide">
 
-**🔍 Column Name Patterns:**
+**Column Name Patterns:**
 
 - `id`, `uuid`, `key` → Identifiers (good for joins)
 - `created_at`, `updated_at` → Timestamps (good for time analysis)
@@ -101,7 +142,7 @@ The schema tells you what data is actually available and how it's structured:
 - `status`, `type`, `category` → Categorical data (good for grouping)
 - `amount`, `count`, `score` → Numeric data (good for calculations)
 
-**📈 Data Type Insights:**
+**Data Type Insights:**
 
 - `VARCHAR(255)` → Text fields, check for standardization
 - `TIMESTAMP` → Time-based analysis possible
@@ -112,7 +153,7 @@ The schema tells you what data is actually available and how it's structured:
 </div>
 
 </TabItem>
-<TabItem value="relationships" label="🔗 Relationships">
+<TabItem value="relationships" label="Relationships">
 
 **Understanding table relationships:**
 
@@ -124,13 +165,13 @@ The schema tells you what data is actually available and how it's structured:
 - Unique identifier for each row
 - Essential for joins and deduplication
 
-**🔗 Foreign Keys:**
+**Foreign Keys:**
 
 - References to other tables
 - Shows data relationships
 - Enables cross-table analysis
 
-**📊 Composite Keys:**
+**Composite Keys:**
 
 - Multiple columns forming unique identifier
 - Common in fact tables and junction tables
@@ -138,7 +179,7 @@ The schema tells you what data is actually available and how it's structured:
 
 </div>
 
-**🎮 Try This:** Look at a customer table schema and identify:
+**Try This:** Look at a customer table schema and identify:
 
 - Primary key column
 - Foreign key relationships
@@ -152,7 +193,7 @@ The schema tells you what data is actually available and how it's structured:
 
 <div className="quality-signals">
 
-**🟢 High Quality Indicators:**
+**High Quality Indicators:**
 
 - Consistent naming conventions
 - Comprehensive column descriptions
@@ -160,7 +201,7 @@ The schema tells you what data is actually available and how it's structured:
 - Clear primary/foreign key relationships
 - Reasonable column count (not too sparse/dense)
 
-**🔴 Quality Concerns:**
+**Quality Concerns:**
 
 - Inconsistent naming (camelCase + snake_case)
 - Missing column descriptions
@@ -173,7 +214,7 @@ The schema tells you what data is actually available and how it's structured:
 </TabItem>
 </Tabs>
 
-### 🎮 Interactive Exercise: Schema Detective Work
+### Interactive Exercise: Schema Detective Work
 
 <div className="interactive-exercise">
 
@@ -218,7 +259,7 @@ DataHub's automated profiling reveals data patterns and quality issues:
 | **Distinct Count**     | Data variety            | Too few = poor granularity        |
 | **Standard Deviation** | Data spread             | Very high = inconsistent data     |
 
-**🎮 Practice Interpretation:**
+**Practice Interpretation:**
 
 ```
 customer_age: Min=18, Max=150, Mean=45, Median=42, Nulls=5%
@@ -229,19 +270,19 @@ customer_age: Min=18, Max=150, Mean=45, Median=42, Nulls=5%
 </div>
 
 </TabItem>
-<TabItem value="categorical-stats" label="🏷️ Categorical Columns">
+<TabItem value="categorical-stats" label="Categorical Columns">
 
 **Understanding categorical data:**
 
 <div className="categorical-guide">
 
-**📊 Value Distribution:**
+**Value Distribution:**
 
 - **Top Values**: Most common categories
 - **Unique Count**: How many distinct values
 - **Null Percentage**: Missing data rate
 
-**🚨 Quality Signals:**
+**Quality Signals:**
 
 - **Good**: Clear categories, low null rate
 - **Concerning**: Too many unique values, high null rate
@@ -266,14 +307,14 @@ customer_status:
 
 <div className="temporal-guide">
 
-**📈 Temporal Patterns:**
+**Temporal Patterns:**
 
 - **Date Range**: How far back does data go?
 - **Update Frequency**: Daily, hourly, real-time?
 - **Gaps**: Missing time periods?
 - **Seasonality**: Regular patterns?
 
-**🎯 Business Relevance:**
+**Business Relevance:**
 
 - **Recent Data**: Good for current analysis
 - **Historical Depth**: Enables trend analysis
@@ -285,7 +326,7 @@ customer_status:
 </TabItem>
 </Tabs>
 
-### 🎮 Interactive Exercise: Data Quality Detective
+### Interactive Exercise: Data Quality Detective
 
 <div className="interactive-exercise">
 
@@ -325,7 +366,7 @@ Understand how others use this data to validate your choice:
 
 <div className="usage-guide">
 
-**📊 Usage Indicators:**
+**Usage Indicators:**
 
 | Pattern               | Interpretation           | Decision Impact                 |
 | --------------------- | ------------------------ | ------------------------------- |
@@ -350,7 +391,7 @@ Understand how others use this data to validate your choice:
 - **Related Datasets**: Part of a larger, maintained ecosystem?
 
 </TabItem>
-<TabItem value="quality-feedback" label="⭐ Quality Feedback">
+<TabItem value="quality-feedback" label="Quality Feedback">
 
 **User-generated quality signals:**
 
@@ -370,7 +411,7 @@ Synthesize all information into a clear decision:
 
 <div className="decision-matrix">
 
-**🎯 Use This Dataset If:**
+**Use This Dataset If:**
 
 - Health check shows green/yellow lights
 - Schema matches your analysis needs
@@ -378,23 +419,23 @@ Synthesize all information into a clear decision:
 - Usage patterns indicate active maintenance
 - You can contact the owner if needed
 
-**⚠️ Investigate Further If:**
+**Investigate Further If:**
 
-- 🟡 Some quality concerns but dataset is unique
-- 🟡 Usage is low but data looks comprehensive
-- 🟡 Owner is unclear but data seems current
+- Some quality concerns but dataset is unique
+- Usage is low but data looks comprehensive
+- Owner is unclear but data seems current
 
-**❌ Skip This Dataset If:**
+**Skip This Dataset If:**
 
-- 🔴 Multiple red flags in health check
-- 🔴 Schema doesn't support your use case
-- 🔴 Serious data quality issues
-- 🔴 No recent usage and no owner contact
-- 🔴 Better alternatives are available
+- Multiple red flags in health check
+- Schema doesn't support your use case
+- Serious data quality issues
+- No recent usage and no owner contact
+- Better alternatives are available
 
 </div>
 
-### 🎮 Final Exercise: Complete Dataset Evaluation
+### Final Exercise: Complete Dataset Evaluation
 
 <div className="interactive-exercise">
 
@@ -405,10 +446,10 @@ Synthesize all information into a clear decision:
 ```
 Dataset A: ________________    Dataset B: ________________
 
-Health Check:     ⭐⭐⭐⭐⭐      Health Check:     ⭐⭐⭐⭐⭐
-Schema Quality:   ⭐⭐⭐⭐⭐      Schema Quality:   ⭐⭐⭐⭐⭐
-Data Quality:     ⭐⭐⭐⭐⭐      Data Quality:     ⭐⭐⭐⭐⭐
-Usage Patterns:   ⭐⭐⭐⭐⭐      Usage Patterns:   ⭐⭐⭐⭐⭐
+Health Check:     Excellent      Health Check:     Excellent
+Schema Quality:   Excellent      Schema Quality:   Excellent
+Data Quality:     Excellent      Data Quality:     Excellent
+Usage Patterns:   Excellent      Usage Patterns:   Excellent
 Total Score:      ___/20         Total Score:      ___/20
 
 Winner: Dataset ___
@@ -423,19 +464,19 @@ Reason: ________________________
 
 <div className="pro-tips">
 
-**⚡ Speed Techniques:**
+**Speed Techniques:**
 
 - Develop a mental checklist for rapid assessment
 - Use browser tabs to compare multiple datasets
 - Focus on deal-breakers first (freshness, schema fit)
 
-**🎯 Accuracy Boosters:**
+**Accuracy Boosters:**
 
 - Always check sample data when available
 - Cross-reference with lineage to understand data flow
 - Contact owners for clarification on edge cases
 
-**🤝 Team Efficiency:**
+**Team Efficiency:**
 
 - Document your evaluation criteria for consistency
 - Share findings with teammates to avoid duplicate work
@@ -462,7 +503,7 @@ Choose the best customer dataset for a marketing campaign analysis. Justify your
 ## Common Evaluation Pitfalls
 
 <Tabs>
-<TabItem value="perfectionism" label="🎯 Perfectionism Trap">
+<TabItem value="perfectionism" label="Perfectionism Trap">
 
 **Problem**: Waiting for perfect data that doesn't exist
 
@@ -484,7 +525,7 @@ Choose the best customer dataset for a marketing campaign analysis. Justify your
 - Verify assumptions with data owners
 
 </TabItem>
-<TabItem value="isolation" label="🏝️ Isolation Analysis">
+<TabItem value="isolation" label="Isolation Analysis">
 
 **Problem**: Evaluating datasets in isolation without considering alternatives
 
@@ -499,7 +540,7 @@ Choose the best customer dataset for a marketing campaign analysis. Justify your
 
 ## What You've Learned
 
-🎉 **Excellent work!** You can now rapidly assess dataset quality and make informed decisions:
+**Excellent work!** You can now rapidly assess dataset quality and make informed decisions:
 
 - **Health Assessment**: Quick evaluation of dataset reliability
 - **Schema Intelligence**: Understanding structure and relationships

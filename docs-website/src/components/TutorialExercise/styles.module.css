@@ -1,24 +1,21 @@
-/* Import DataHub design tokens */
-@import url('../../css/datahub-tokens.css');
-
 .exerciseContainer {
-  background: var(--datahub-white);
-  border: 1px solid var(--datahub-border);
-  border-radius: 12px;
-  box-shadow: var(--datahub-shadow);
+  background: var(--ifm-background-color);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: var(--ifm-border-radius);
+  box-shadow: var(--ifm-shadow-md);
   margin: 24px 0;
   overflow: hidden;
   transition: all 0.2s ease;
 }
 
 .exerciseContainer:hover {
-  box-shadow: var(--datahub-shadow-hover);
-  border-color: var(--datahub-primary-light);
+  box-shadow: var(--ifm-shadow-lg);
+  border-color: var(--ifm-color-primary-light);
 }
 
 .exerciseHeader {
-  background: linear-gradient(135deg, var(--datahub-gray-50) 0%, var(--datahub-white) 100%);
-  border-bottom: 1px solid var(--datahub-border);
+  background: linear-gradient(135deg, var(--ifm-color-emphasis-100) 0%, var(--ifm-background-color) 100%);
+  border-bottom: 1px solid var(--ifm-color-emphasis-300);
   padding: 16px 20px;
   display: flex;
   align-items: center;
@@ -34,8 +31,8 @@
 .typeIcon {
   width: 40px;
   height: 40px;
-  background: var(--datahub-primary);
-  color: var(--datahub-white);
+  background: var(--ifm-color-primary);
+  color: white;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -54,7 +51,7 @@
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--datahub-text-primary);
+  color: var(--ifm-font-color-base);
   line-height: 1.3;
 }
 
@@ -70,23 +67,23 @@
   border-radius: 12px;
   font-size: 11px;
   font-weight: 500;
-  color: var(--datahub-white);
+  color: white;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .timeEstimate {
   font-size: 12px;
-  color: var(--datahub-text-secondary);
-  background: var(--datahub-gray-100);
+  color: var(--ifm-color-emphasis-700);
+  background: var(--ifm-color-emphasis-200);
   padding: 2px 6px;
   border-radius: 4px;
 }
 
 .platform {
   font-size: 12px;
-  color: var(--datahub-primary);
-  background: var(--datahub-primary-light);
+  color: var(--ifm-color-primary);
+  background: var(--ifm-color-primary-lightest);
   padding: 2px 6px;
   border-radius: 4px;
   font-weight: 500;
@@ -104,16 +101,16 @@
 }
 
 .searchItem {
-  background: var(--datahub-gray-50);
-  border: 1px solid var(--datahub-border-light);
+  background: var(--ifm-color-emphasis-100);
+  border: 1px solid var(--ifm-color-emphasis-200);
   border-radius: 8px;
   padding: 16px;
   transition: all 0.2s ease;
 }
 
 .searchItem:hover {
-  background: var(--datahub-white);
-  border-color: var(--datahub-primary-light);
+  background: var(--ifm-background-color);
+  border-color: var(--ifm-color-primary-light);
 }
 
 .searchQuery {
@@ -121,11 +118,11 @@
 }
 
 .searchQuery code {
-  background: var(--datahub-primary-dark);
-  color: var(--datahub-white);
+  background: var(--ifm-color-primary-dark);
+  color: white;
   padding: 8px 12px;
   border-radius: 6px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: var(--ifm-font-family-monospace);
   font-size: 14px;
   font-weight: 500;
   display: inline-block;
@@ -133,19 +130,19 @@
 }
 
 .searchDescription {
-  color: var(--datahub-text-secondary);
+  color: var(--ifm-color-emphasis-700);
   font-size: 14px;
   margin-bottom: 6px;
   line-height: 1.4;
 }
 
 .searchExpected {
-  color: var(--datahub-text-primary);
+  color: var(--ifm-font-color-base);
   font-size: 13px;
-  background: var(--datahub-success-light);
+  background: var(--ifm-color-success-lightest);
   padding: 6px 10px;
   border-radius: 4px;
-  border-left: 3px solid var(--datahub-success);
+  border-left: 3px solid var(--ifm-color-success);
 }
 
 /* Hands-On Exercise Styles */
@@ -164,8 +161,8 @@
 .stepNumber {
   width: 28px;
   height: 28px;
-  background: var(--datahub-primary);
-  color: var(--datahub-white);
+  background: var(--ifm-color-primary);
+  color: white;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -185,31 +182,31 @@
 
 .stepTitle {
   font-weight: 600;
-  color: var(--datahub-text-primary);
+  color: var(--ifm-font-color-base);
   font-size: 15px;
   line-height: 1.4;
 }
 
 .stepDescription {
-  color: var(--datahub-text-secondary);
+  color: var(--ifm-color-emphasis-700);
   font-size: 14px;
   line-height: 1.5;
 }
 
 .stepCode {
-  background: var(--datahub-gray-900);
-  color: var(--datahub-white);
+  background: var(--ifm-color-emphasis-900);
+  color: white;
   padding: 10px 12px;
   border-radius: 6px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: var(--ifm-font-family-monospace);
   font-size: 13px;
   margin-top: 4px;
 }
 
 /* Interactive Demo Styles */
 .interactiveContent {
-  background: linear-gradient(135deg, var(--datahub-primary-light) 0%, var(--datahub-white) 100%);
-  border: 1px solid var(--datahub-primary-light);
+  background: linear-gradient(135deg, var(--ifm-color-primary-lightest) 0%, var(--ifm-background-color) 100%);
+  border: 1px solid var(--ifm-color-primary-light);
   border-radius: 8px;
   padding: 20px;
 }
@@ -261,24 +258,24 @@
 
 /* Dark mode support */
 [data-theme='dark'] .exerciseContainer {
-  background: var(--datahub-gray-800);
-  border-color: var(--datahub-gray-700);
+  background: var(--ifm-background-surface-color);
+  border-color: var(--ifm-color-emphasis-300);
 }
 
 [data-theme='dark'] .exerciseHeader {
-  background: linear-gradient(135deg, var(--datahub-gray-700) 0%, var(--datahub-gray-800) 100%);
-  border-bottom-color: var(--datahub-gray-700);
+  background: linear-gradient(135deg, var(--ifm-color-emphasis-200) 0%, var(--ifm-background-surface-color) 100%);
+  border-bottom-color: var(--ifm-color-emphasis-300);
 }
 
 [data-theme='dark'] .searchItem {
-  background: var(--datahub-gray-700);
-  border-color: var(--datahub-gray-600);
+  background: var(--ifm-color-emphasis-200);
+  border-color: var(--ifm-color-emphasis-300);
 }
 
 [data-theme='dark'] .searchItem:hover {
-  background: var(--datahub-gray-600);
+  background: var(--ifm-color-emphasis-300);
 }
 
 [data-theme='dark'] .interactiveContent {
-  background: linear-gradient(135deg, var(--datahub-primary-dark) 0%, var(--datahub-gray-800) 100%);
+  background: linear-gradient(135deg, var(--ifm-color-primary-dark) 0%, var(--ifm-background-surface-color) 100%);
 }

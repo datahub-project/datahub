@@ -142,11 +142,69 @@ DataHub provides comprehensive quality management through:
 
 ### Quality Management Maturity Levels
 
-**Level 1 - Reactive**: Manual quality checks, issue discovery after impact
-**Level 2 - Proactive**: Automated basic checks, regular quality monitoring  
-**Level 3 - Predictive**: Advanced analytics, quality trend prediction
-**Level 4 - Preventive**: Quality-by-design, automated remediation
-**Level 5 - Optimizing**: Continuous quality improvement, ML-driven optimization
+<DataHubLineageFlow {...{
+title: "Data Quality Maturity Evolution",
+nodes: [
+{
+name: 'reactive_quality',
+type: 'Level 1: Reactive',
+entityType: 'Dataset',
+platform: 'Manual',
+health: 'Critical',
+columns: [
+{ name: 'manual_checks', type: 'boolean' },
+{ name: 'post_impact_discovery', type: 'string' },
+{ name: 'firefighting_mode', type: 'string' }
+],
+tags: ['Manual', 'Reactive', 'Post-Impact'],
+glossaryTerms: ['Manual Quality', 'Reactive Response']
+},
+{
+name: 'proactive_quality',
+type: 'Level 2: Proactive',
+entityType: 'DataJob',
+platform: 'DataHub',
+health: 'Warning',
+tags: ['Automated-Basic', 'Regular-Monitoring', 'Proactive']
+},
+{
+name: 'predictive_quality',
+type: 'Level 3: Predictive',
+entityType: 'Dataset',
+platform: 'DataHub',
+health: 'Good',
+columns: [
+{ name: 'advanced_analytics', type: 'boolean' },
+{ name: 'trend_prediction', type: 'string' },
+{ name: 'quality_forecasting', type: 'number' }
+],
+tags: ['Advanced-Analytics', 'Predictive', 'Trend-Analysis'],
+glossaryTerms: ['Quality Prediction', 'Trend Analysis']
+},
+{
+name: 'preventive_quality',
+type: 'Level 4: Preventive',
+entityType: 'DataJob',
+platform: 'Advanced',
+health: 'Good',
+tags: ['Quality-by-Design', 'Automated-Remediation', 'Preventive']
+},
+{
+name: 'optimizing_quality',
+type: 'Level 5: Optimizing',
+entityType: 'Dataset',
+platform: 'AI-Powered',
+health: 'Good',
+columns: [
+{ name: 'continuous_improvement', type: 'boolean' },
+{ name: 'ml_optimization', type: 'string' },
+{ name: 'self_healing', type: 'boolean' }
+],
+tags: ['Continuous-Improvement', 'ML-Driven', 'Self-Healing'],
+glossaryTerms: ['ML Optimization', 'Self-Healing Quality']
+}
+]
+}} />
 
 ### Ready to Begin?
 

@@ -155,7 +155,7 @@ Throughout this tutorial, you'll solve these common data challenges:
 This tutorial leverages Docusaurus's interactive capabilities:
 
 <Tabs>
-<TabItem value="hands-on" label="🎮 Hands-On Exercises">
+<TabItem value="hands-on" label="Hands-On Exercises">
 
 **Live Search Practice**: Try real searches in your DataHub instance
 **Interactive Filters**: Step-by-step filter application

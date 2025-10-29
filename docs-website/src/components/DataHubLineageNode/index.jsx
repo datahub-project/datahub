@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styles from './styles.module.css';
+import LineageLayoutGrid from '../LineageLayoutGrid';
 
 // Simplified version of DataHub's LineageEntityNode for tutorials
 const DataHubLineageNode = ({
@@ -423,63 +424,309 @@ const DataHubLineageNode = ({
 };
 
 // Component for showing lineage connections with interactive expansion and column-level lineage
-export const DataHubLineageFlow = ({ nodes, title, className = '', showColumnLineage = false }) => {
-  const [expandedNodes, setExpandedNodes] = React.useState(new Set());
+export const DataHubLineageFlow = ({ 
+  nodes = [], 
+  title, 
+  className = '', 
+  showColumnLineage = false,
+  layout = 'linear', // 'linear', 'hierarchical', 'layers'
+  layers = null, // For hierarchical layout: [{ name: 'sources', nodes: [...] }, ...]
+  showConnections = false,
+  connectionColor = 'var(--datahub-primary)',
+  connectionColors = {},
+  defaultColors = ['#533FD1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+}) => {
+  const [allExpanded, setAllExpanded] = React.useState(false);
 
-  const toggleNodeExpansion = (nodeId) => {
-    setExpandedNodes(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(nodeId)) {
-        newSet.delete(nodeId);
-      } else {
-        newSet.add(nodeId);
-      }
-      return newSet;
-    });
+  const toggleAllExpansion = () => {
+    setAllExpanded(!allExpanded);
   };
 
-  // Column lineage mappings - shows which columns connect between nodes
-  const getColumnLineage = (sourceNodeIndex, targetNodeIndex) => {
-    // Only show column lineage when going from DataJob to Dataset (after transformation)
-    if (sourceNodeIndex === 1 && targetNodeIndex === 2) {
-      // DataJob -> fct_users_created (this represents the transformation from user_events through the ETL job)
-      return [
-        { source: 'user_id', target: 'user_id' },
-        { source: 'timestamp', target: 'created_date' },
-        { source: 'event_type', target: 'signup_source' },
-      ];
+  // Build connection map for hierarchical layouts
+  const buildConnectionMap = () => {
+    const connections = new Map();
+    
+    if (layers) {
+      // Build connections from layer structure
+      layers.forEach((layer, layerIndex) => {
+        layer.nodes.forEach(node => {
+          if (node.downstreamConnections) {
+            connections.set(node.name, node.downstreamConnections);
+          }
+        });
+      });
+    } else if (nodes.length > 0 && nodes[0].downstreamConnections) {
+      // Build connections from node structure
+      nodes.forEach(node => {
+        if (node.downstreamConnections) {
+          connections.set(node.name, node.downstreamConnections);
+        }
+      });
     }
-    return [];
+    
+    return connections;
   };
 
-  const allNodesExpanded = nodes.every(node => expandedNodes.has(node.id));
-  const shouldShowColumnConnections = false; // Disabled for now
+  const connectionMap = buildConnectionMap();
 
-  return (
-    <div className={`${styles.lineageFlow} ${className}`}>
-      {title && <h4 className={styles.flowTitle}>{title}</h4>}
-      <div className={styles.flowContainer} data-node-count={nodes.length}>
-        {nodes.map((node, index) => (
-          <React.Fragment key={node.id || index}>
-            <DataHubLineageNode 
-              {...node} 
-              isExpanded={expandedNodes.has(node.id)}
-              onToggleExpand={() => toggleNodeExpansion(node.id)}
-            />
-            {index < nodes.length - 1 && (
-              <div 
-                className={styles.flowConnection}
-                style={{
-                  alignSelf: 'center', // Always center vertically
-                  justifyContent: 'center' // Center the arrow within the connection
-                }}
-              >
-                <div className={styles.flowArrow}>→</div>
+  // Render linear layout (original behavior)
+  const renderLinearLayout = () => (
+    <div className={styles.flowContainer} data-node-count={nodes.length}>
+      {nodes.map((node, index) => (
+        <React.Fragment key={node.id || node.name || index}>
+          <DataHubLineageNode 
+            {...node} 
+            isExpanded={allExpanded}
+            onToggleExpand={toggleAllExpansion}
+          />
+          {index < nodes.length - 1 && (
+            <div 
+              className={styles.flowConnection}
+              style={{
+                alignSelf: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <div className={styles.flowArrow}>→</div>
+            </div>
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+
+  // Render hierarchical layout with proper multi-downstream support
+  const renderHierarchicalLayout = () => {
+    if (!layers || layers.length === 0) {
+      return renderLinearLayout(); // Fallback to linear
+    }
+
+    // Keep all layers as they are - DataJobs can be in layers alongside data assets
+    const dataAssetLayers = layers;
+    
+    // Find DataJobs for connection logic (but they stay in their assigned layers)
+    const allDataJobs = [];
+    layers.forEach(layer => {
+      layer.nodes.forEach(node => {
+        if (node.entityType === 'DataJob') {
+          allDataJobs.push(node);
+        }
+      });
+    });
+
+    return (
+      <div className={styles.hierarchicalContainer}>
+        {dataAssetLayers.map((layer, layerIndex) => (
+          <React.Fragment key={layer.name || layerIndex}>
+            <div className={styles.layer} data-layer={layer.name}>
+              {layer.title && (
+                <div className={styles.layerTitle}>{layer.title}</div>
+              )}
+                <div className={styles.layerNodes}>
+                  {layer.nodes.map((node, nodeIndex) => (
+                    <DataHubLineageNode
+                      key={node.id || node.name || nodeIndex}
+                      {...node}
+                      isExpanded={allExpanded}
+                      onToggleExpand={toggleAllExpansion}
+                    />
+                  ))}
+                </div>
+            </div>
+            
+            {layerIndex < dataAssetLayers.length - 1 && (
+              <div className={styles.layerConnection}>
+                <svg 
+                  className={styles.connectionSvg} 
+                  viewBox={`0 0 200 ${(() => {
+                    const sourceNodes = dataAssetLayers[layerIndex].nodes;
+                    const targetNodes = dataAssetLayers[layerIndex + 1].nodes;
+                    const nodeHeight = 120;
+                    const nodeSpacing = 20;
+                    const layerPadding = 20;
+                    const totalSourceContentHeight = sourceNodes.length * nodeHeight + (sourceNodes.length - 1) * nodeSpacing;
+                    const totalTargetContentHeight = targetNodes.length * nodeHeight + (targetNodes.length - 1) * nodeSpacing;
+                    return Math.max(totalSourceContentHeight + (layerPadding * 2), totalTargetContentHeight + (layerPadding * 2), 300);
+                  })()}`}
+                  preserveAspectRatio="none"
+                >
+                  {renderLayerConnections(dataAssetLayers[layerIndex], dataAssetLayers[layerIndex + 1], layerIndex, allDataJobs)}
+                </svg>
               </div>
             )}
           </React.Fragment>
         ))}
       </div>
+    );
+  };
+
+  // Render DataJobs in intermediate positions between layers
+  const renderIntermediateDataJobs = (sourceLayer, targetLayer, allDataJobs) => {
+    // Find DataJobs that connect these layers
+    const relevantDataJobs = allDataJobs.filter(dataJob => {
+      const hasSourceConnection = sourceLayer.nodes.some(sourceNode => 
+        sourceNode.downstreamConnections?.includes(dataJob.name)
+      );
+      const hasTargetConnection = dataJob.downstreamConnections?.some(targetName =>
+        targetLayer.nodes.some(targetNode => targetNode.name === targetName)
+      );
+      return hasSourceConnection && hasTargetConnection;
+    });
+
+    if (relevantDataJobs.length === 0) return null;
+
+    return (
+      <div className={styles.intermediateDataJobs}>
+        {relevantDataJobs.map((dataJob, index) => (
+          <DataHubLineageNode
+            key={dataJob.id || dataJob.name || index}
+            {...dataJob}
+            isExpanded={false} // DataJobs don't expand
+            className={styles.intermediateDataJob}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  // Render connections between layers
+  const renderLayerConnections = (sourceLayer, targetLayer, layerIndex, allDataJobs = []) => {
+    const connections = [];
+    const sourceNodes = sourceLayer.nodes;
+    const targetNodes = targetLayer.nodes;
+    
+    // Calculate actual node positions based on CSS layout
+    // Nodes are centered with justify-content: center and have gap: 20px
+    const nodeHeight = 120; // Approximate height of a collapsed node
+    const nodeSpacing = 20; // Gap between nodes (from CSS: gap: 20px)
+    const layerPadding = 20; // Padding from CSS: padding: 20px 0
+    
+    // Calculate total content height for each layer
+    const totalSourceContentHeight = sourceNodes.length * nodeHeight + (sourceNodes.length - 1) * nodeSpacing;
+    const totalTargetContentHeight = targetNodes.length * nodeHeight + (targetNodes.length - 1) * nodeSpacing;
+    
+    // SVG height should match the layer height including padding
+    const svgHeight = Math.max(totalSourceContentHeight + (layerPadding * 2), totalTargetContentHeight + (layerPadding * 2), 300);
+    
+    // Calculate starting Y position - nodes are centered in the available space
+    const sourceStartY = layerPadding + (svgHeight - totalSourceContentHeight - (layerPadding * 2)) / 2;
+    const targetStartY = layerPadding + (svgHeight - totalTargetContentHeight - (layerPadding * 2)) / 2;
+    
+    sourceNodes.forEach((sourceNode, sourceIndex) => {
+      if (sourceNode.downstreamConnections) {
+        sourceNode.downstreamConnections.forEach(targetNodeName => {
+          // Find target node in the target layer
+          const targetIndex = targetNodes.findIndex(node => node.name === targetNodeName);
+          
+          if (targetIndex !== -1) {
+            // Calculate actual vertical center of each node
+            const sourceY = sourceStartY + (sourceIndex * (nodeHeight + nodeSpacing)) + (nodeHeight / 2);
+            const targetY = targetStartY + (targetIndex * (nodeHeight + nodeSpacing)) + (nodeHeight / 2);
+            
+            // Use different colors for different source nodes
+            const colors = ['#533FD1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+            const connectionColor = colors[sourceIndex % colors.length];
+            
+            // Connection positioning - from right edge of source to left edge of target
+            const startX = 200; // Right edge of source layer
+            const endX = 0; // Left edge of target layer
+            
+            // Create smooth curves with proper horizontal arrow positioning
+            const cp1X = startX + (endX - startX) * 0.3;
+            const cp1Y = sourceY;
+            const cp2X = startX + (endX - startX) * 0.7;
+            const cp2Y = targetY;
+            
+            const pathData = `M ${startX} ${sourceY} 
+                             C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${endX} ${targetY}`;
+            
+            connections.push(
+              <g key={`${sourceNode.name}-${targetNodeName}-${layerIndex}`}>
+                {/* Main connection path */}
+                <path
+                  d={pathData}
+                  stroke={connectionColor}
+                  strokeWidth="2"
+                  fill="none"
+                  opacity="0.9"
+                  markerEnd={`url(#arrowhead-${layerIndex}-${sourceIndex})`}
+                  className={styles.connectionPath}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                {/* Connection points */}
+                <circle cx={startX} cy={sourceY} r="2" fill={connectionColor} opacity="1" />
+                <circle cx={endX} cy={targetY} r="2" fill={connectionColor} opacity="1" />
+              </g>
+            );
+          }
+        });
+      }
+    });
+
+    // Create unique markers for each source node color with horizontal orientation
+    const markers = [];
+    const colors = ['#533FD1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+    
+    sourceNodes.forEach((sourceNode, sourceIndex) => {
+      const connectionColor = colors[sourceIndex % colors.length];
+      markers.push(
+        <marker
+          key={`marker-${layerIndex}-${sourceIndex}`}
+          id={`arrowhead-${layerIndex}-${sourceIndex}`}
+          markerWidth="8"
+          markerHeight="6"
+          refX="7"
+          refY="3"
+          orient="0"
+          markerUnits="strokeWidth"
+        >
+          <path
+            d="M 0 0 L 8 3 L 0 6 z"
+            fill={connectionColor}
+            opacity="0.9"
+            stroke="none"
+          />
+        </marker>
+      );
+    });
+
+    return (
+      <>
+        <defs>
+          {markers}
+        </defs>
+        {connections}
+      </>
+    );
+  };
+
+  // Choose layout based on props
+  const renderLayout = () => {
+    switch (layout) {
+      case 'hierarchical':
+      case 'layers':
+        return (
+          <LineageLayoutGrid
+            title={title}
+            layers={layers}
+            showConnections={showConnections}
+            allExpanded={allExpanded}
+            onToggleExpand={toggleAllExpansion}
+            connectionColors={connectionColors}
+            defaultColors={defaultColors}
+          />
+        );
+      case 'linear':
+      default:
+        return renderLinearLayout();
+    }
+  };
+
+  return (
+    <div className={`${styles.lineageFlow} ${styles[layout]} ${className}`}>
+      {title && <h4 className={styles.flowTitle}>{title}</h4>}
+      {renderLayout()}
     </div>
   );
 };

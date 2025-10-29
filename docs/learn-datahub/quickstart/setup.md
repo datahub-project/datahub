@@ -1,6 +1,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 import TutorialProgress from '@site/src/components/TutorialProgress';
+import NextStepButton from '@site/src/components/NextStepButton';
 import OSDetectionTabs from '@site/src/components/OSDetectionTabs';
 
 # Step 1: Setup DataHub (5 minutes)
@@ -448,8 +449,6 @@ datahub docker quickstart --port 9003
 - How to deploy DataHub locally using Docker
 - DataHub's core architecture components
 - How to verify a successful deployment
-
-import NextStepButton from '@site/src/components/NextStepButton';
 
 <NextStepButton
 to="first-ingestion"

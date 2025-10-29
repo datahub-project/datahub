@@ -156,6 +156,51 @@
   --datahub-border: #374066;
 }
 
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
+/* Dark mode colors */
+[data-theme='dark'] {
+  --datahub-primary: #7565DA;
+  --datahub-primary-dark: #533FD1;
+  --datahub-primary-light: #8C7EE0;
+  --datahub-primary-lightest: #2E2373;
+  --datahub-gray-100: #2F3657;
+  --datahub-gray-600: #CFD1DA;
+  --datahub-gray-1700: #A9ADBD;
+  --datahub-gray-1800: #81879F;
+  --datahub-gray-1500: #1E2338;
+  --datahub-white: #272D48;
+  --datahub-border: #374066;
+}
+
 /* DataHub Lineage Node - Uses actual DataHub design tokens */
 
 /* Import DataHub color variables */
@@ -633,6 +678,134 @@
   background: var(--datahub-gray-1500);
   border-radius: 12px;
   border: 1px solid var(--datahub-border);
+}
+
+/* Hierarchical Layout Styles */
+.hierarchicalContainer {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 24px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 16px 0;
+}
+
+.layer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 300px;
+  flex-shrink: 0;
+  min-height: 400px; /* Ensure consistent layer heights */
+}
+
+.layerTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--datahub-gray-600);
+  text-align: center;
+  margin-bottom: 24px;
+  padding: 8px 16px;
+  background: var(--datahub-white);
+  border: 1px solid var(--datahub-border);
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.layerNodes {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: center;
+  width: 100%;
+  flex: 1;
+  justify-content: center; /* Center nodes vertically in available space */
+  padding: 20px 0;
+}
+
+.layerConnection {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  width: 200px;
+  flex-shrink: 0;
+  position: relative;
+  min-height: 200px;
+}
+
+.connectionSvg {
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+  flex: 1;
+}
+
+/* Layout-specific flow styles */
+.lineageFlow.hierarchical .flowContainer,
+.lineageFlow.layers .flowContainer {
+  display: none; /* Hide linear container for hierarchical layouts */
+}
+
+.lineageFlow.linear .hierarchicalContainer {
+  display: none; /* Hide hierarchical container for linear layouts */
+}
+
+/* Expand toggle */
+.expandToggle {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.expandAllButton {
+  background: var(--datahub-primary);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.expandAllButton:hover {
+  background: var(--datahub-primary-dark);
+  transform: translateY(-1px);
+}
+
+/* Intermediate DataJobs */
+.intermediateDataJobs {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 10;
+}
+
+.intermediateDataJob {
+  background: var(--datahub-white);
+  border: 2px solid var(--datahub-primary);
+  box-shadow: 0 4px 12px rgba(83, 63, 209, 0.2);
+}
+
+/* Connection path animations and styling */
+.connectionPath {
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.connectionPath:hover {
+  stroke-width: 3;
+  opacity: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
 .flowTitle {

@@ -4,12 +4,12 @@ import TabItem from '@theme/TabItem';
 # Collaborative Discovery (10 minutes)
 
 :::info Tutorial Progress
-**Step 3 of 3** | ⏱️ **10 minutes** | [Overview](overview.md) → [Advanced Search](advanced-search.md) → [Dataset Profiles](dataset-profiles.md) → **Collaborative Discovery**
+**Step 3 of 3** | **10 minutes** | [Overview](overview.md) → [Advanced Search](advanced-search.md) → [Dataset Profiles](dataset-profiles.md) → **Collaborative Discovery**
 :::
 
 Transform DataHub from a solo tool into a team knowledge platform. Learn to document insights, ask questions, and build collective data intelligence that benefits everyone.
 
-## 🤝 Discovery Challenge #3: The Collaboration Champion
+## Discovery Challenge #3: The Collaboration Champion
 
 **Your Mission**: You've discovered valuable insights about customer segmentation data and want to ensure future analysts can benefit from your knowledge. Make this dataset more discoverable and useful for your team.
 
@@ -49,7 +49,7 @@ Transform cryptic datasets into self-explanatory resources:
 <Tabs>
 <TabItem value="before-after" label="📝 Before & After">
 
-**❌ Typical (Unhelpful) Documentation:**
+**Typical (Unhelpful) Documentation:**
 
 ```
 Table: customer_seg_v3
@@ -79,13 +79,13 @@ Usage Notes:
 ```
 
 </TabItem>
-<TabItem value="templates" label="📋 Documentation Templates">
+<TabItem value="templates" label="Documentation Templates">
 
 **Use these templates for consistency:**
 
 <div className="doc-templates">
 
-**📊 Analytics Dataset Template:**
+**Analytics Dataset Template:**
 
 ```
 Business Purpose: [What business problem does this solve?]
@@ -96,7 +96,7 @@ Common Use Cases: [How do teams typically use this?]
 Related Datasets: [What other data works well with this?]
 ```
 
-**🔄 Operational Dataset Template:**
+**Operational Dataset Template:**
 
 ```
 System Source: [What application generates this data?]
@@ -111,7 +111,7 @@ Access Patterns: [Who typically needs this data and why?]
 </TabItem>
 </Tabs>
 
-### 🎮 Interactive Exercise: Documentation Makeover
+### Interactive Exercise: Documentation Makeover
 
 <div className="interactive-exercise">
 
@@ -150,7 +150,7 @@ Tags are the navigation system for your data catalog. Use them strategically:
 
 <div className="tagging-guide">
 
-**🏷️ Tag Categories & Examples:**
+**Tag Categories & Examples:**
 
 | Category             | Purpose              | Examples                                                    |
 | -------------------- | -------------------- | ----------------------------------------------------------- |
@@ -178,7 +178,7 @@ Tags are the navigation system for your data catalog. Use them strategically:
 - Use standard terms: `pii` not `personal-info`
 - Include context: `marketing-ready` not just `ready`
 
-**❌ Avoid These Patterns:**
+**Avoid These Patterns:**
 
 - Inconsistent casing: `Customer-Analytics` vs `customer_analytics`
 - Vague terms: `good`, `important`, `useful`
@@ -237,7 +237,7 @@ Use Case Level: Specific analytical or operational purpose
 </TabItem>
 </Tabs>
 
-### 🎮 Interactive Exercise: Tag Like a Pro
+### Interactive Exercise: Tag Like a Pro
 
 <div className="interactive-exercise">
 
@@ -281,21 +281,21 @@ Turn your discoveries into team assets:
 
 <div className="qa-guide">
 
-**🤔 Ask Good Questions:**
+**Ask Good Questions:**
 
 - "What's the difference between customer_id and user_id in this table?"
 - "How often is this data refreshed? I see conflicting information."
 - "Are there known data quality issues with the email column?"
 - "What's the business logic behind the customer_score calculation?"
 
-**💡 Provide Helpful Answers:**
+**Provide Helpful Answers:**
 
 - Be specific and actionable
 - Include examples when possible
 - Reference related datasets or documentation
 - Update your answer if information changes
 
-**📈 Question Patterns That Help Teams:**
+**Question Patterns That Help Teams:**
 
 - Data quality clarifications
 - Business logic explanations
@@ -305,13 +305,13 @@ Turn your discoveries into team assets:
 </div>
 
 </TabItem>
-<TabItem value="recommendations" label="⭐ Recommendations">
+<TabItem value="recommendations" label="Recommendations">
 
 **Guide future users with recommendations:**
 
 <div className="recommendation-guide">
 
-**💡 Recommendation Types:**
+**Recommendation Types:**
 
 **Alternative Datasets:**
 "For real-time customer data, consider `customer_events_stream` instead of this daily batch table."
@@ -386,7 +386,7 @@ Turn your discoveries into team assets:
 ## Success Stories: Collaboration in Action
 
 <Tabs>
-<TabItem value="marketing-team" label="📈 Marketing Team Success">
+<TabItem value="marketing-team" label="Marketing Team Success">
 
 **Before Collaboration:**
 
@@ -430,19 +430,19 @@ Turn your discoveries into team assets:
 
 <div className="advanced-features">
 
-**🔄 Automated Collaboration:**
+**Automated Collaboration:**
 
 - Set up alerts for dataset changes
 - Use DataHub Actions to notify teams of quality issues
 - Integrate with Slack for team notifications
 
-**📊 Collaboration Analytics:**
+**Collaboration Analytics:**
 
 - Track which datasets are most bookmarked
 - Identify documentation gaps
 - Measure team engagement with data catalog
 
-**🎯 Targeted Sharing:**
+**Targeted Sharing:**
 
 - Use domain-specific tags for relevant teams
 - Create role-based saved searches
@@ -470,34 +470,34 @@ Take a dataset you've worked with and make it 50% more valuable to your team thr
 
 <div className="success-metrics">
 
-**📊 Team Metrics to Track:**
+**Team Metrics to Track:**
 
-| Metric                     | Good Trend    | What It Means                           |
-| -------------------------- | ------------- | --------------------------------------- |
-| **Documentation Coverage** | ↗️ Increasing | More datasets have helpful descriptions |
-| **Tag Consistency**        | ↗️ Increasing | Team uses standardized tagging          |
-| **Q&A Activity**           | ↗️ Increasing | Active knowledge sharing                |
-| **Discovery Time**         | ↘️ Decreasing | Faster data finding                     |
-| **Repeat Questions**       | ↘️ Decreasing | Better documentation quality            |
+| Metric                     | Good Trend | What It Means                           |
+| -------------------------- | ---------- | --------------------------------------- |
+| **Documentation Coverage** | Increasing | More datasets have helpful descriptions |
+| **Tag Consistency**        | Increasing | Team uses standardized tagging          |
+| **Q&A Activity**           | Increasing | Active knowledge sharing                |
+| **Discovery Time**         | Decreasing | Faster data finding                     |
+| **Repeat Questions**       | Decreasing | Better documentation quality            |
 
 </div>
 
 ## What You've Accomplished
 
-🎉 **Outstanding work!** You've completed the Data Discovery & Search mastery series:
+**Outstanding work!** You've completed the Data Discovery & Search mastery series:
 
 ### Skills Mastered:
 
-- **🔍 Advanced Search**: Strategic search approaches with operators and filters
-- **📊 Dataset Evaluation**: Rapid quality assessment and decision-making
-- **🤝 Collaborative Discovery**: Documentation, tagging, and knowledge sharing
+- **Advanced Search**: Strategic search approaches with operators and filters
+- **Dataset Evaluation**: Rapid quality assessment and decision-making
+- **Collaborative Discovery**: Documentation, tagging, and knowledge sharing
 
 ### Business Impact:
 
-- **⚡ Speed**: Find relevant data in minutes, not hours
-- **🎯 Accuracy**: Make informed decisions about data quality and fit
-- **🤝 Team Efficiency**: Share knowledge that benefits everyone
-- **📈 Scalability**: Build practices that improve over time
+- **Speed**: Find relevant data in minutes, not hours
+- **Accuracy**: Make informed decisions about data quality and fit
+- **Team Efficiency**: Share knowledge that benefits everyone
+- **Scalability**: Build practices that improve over time
 
 ## What's Next?
 
@@ -538,6 +538,6 @@ Choose your next learning adventure based on your role and interests:
 
 </div>
 
-**Congratulations on becoming a DataHub Discovery Expert!** 🚀
+**Congratulations on becoming a DataHub Discovery Expert!**
 
 Your investment in learning these skills will pay dividends every time you or your teammates need to find and understand data. Keep practicing, keep collaborating, and keep discovering!

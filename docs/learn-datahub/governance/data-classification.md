@@ -63,10 +63,10 @@ DataHub supports industry-standard classification levels:
 
 **Classification Levels**:
 
-- **🔴 Restricted**: PII, financial data, trade secrets (highest protection)
-- **🟡 Confidential**: Internal business data, customer insights
+- **Restricted**: PII, financial data, trade secrets (highest protection)
+- **Confidential**: Internal business data, customer insights
 - **🔵 Internal**: General business information, operational data
-- **🟢 Public**: Marketing materials, published reports
+- **Public**: Marketing materials, published reports
 
 ### Exercise 1: Implement PII Detection
 
