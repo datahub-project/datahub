@@ -49,6 +49,42 @@ class TestUnityCatalogSource:
             }
         )
 
+    @pytest.fixture
+    def config_with_azure_auth(self):
+        """Create a config with Azure authentication."""
+        return UnityCatalogSourceConfig.parse_obj(
+            {
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                "databricks_api_page_size": 150,
+                "azure_auth": {
+                    "client_id": "test-client-id-12345",
+                    "tenant_id": "test-tenant-id-67890",
+                    "client_secret": "test-client-secret",
+                },
+            }
+        )
+
+    @pytest.fixture
+    def config_with_azure_auth_and_ml_models(self):
+        """Create a config with Azure authentication and ML model settings."""
+        return UnityCatalogSourceConfig.parse_obj(
+            {
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                "include_ml_model_aliases": True,
+                "ml_model_max_results": 1000,
+                "databricks_api_page_size": 200,
+                "azure_auth": {
+                    "client_id": "azure-client-id-789",
+                    "tenant_id": "azure-tenant-id-123",
+                    "client_secret": "azure-secret-456",
+                },
+            }
+        )
+
     @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
     @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
     def test_source_constructor_passes_default_page_size_to_proxy(
@@ -62,13 +98,14 @@ class TestUnityCatalogSource:
         # Verify proxy was created with correct parameters including page size
         mock_unity_proxy.assert_called_once_with(
             minimal_config.workspace_url,
-            minimal_config.token,
             minimal_config.warehouse_id,
             report=source.report,
             hive_metastore_proxy=source.hive_metastore_proxy,
             lineage_data_source=minimal_config.lineage_data_source,
             usage_data_source=minimal_config.usage_data_source,
             databricks_api_page_size=0,  # Default value
+            personal_access_token=minimal_config.token,
+            azure_auth=None,
         )
 
     @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
@@ -83,13 +120,14 @@ class TestUnityCatalogSource:
         # Verify proxy was created with correct parameters including custom page size
         mock_unity_proxy.assert_called_once_with(
             config_with_page_size.workspace_url,
-            config_with_page_size.token,
             config_with_page_size.warehouse_id,
             report=source.report,
             hive_metastore_proxy=source.hive_metastore_proxy,
             lineage_data_source=config_with_page_size.lineage_data_source,
             usage_data_source=config_with_page_size.usage_data_source,
             databricks_api_page_size=75,  # Custom value
+            personal_access_token=config_with_page_size.token,
+            azure_auth=None,
         )
 
     @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
@@ -126,13 +164,14 @@ class TestUnityCatalogSource:
         # Verify proxy was created with correct page size even when hive metastore is disabled
         mock_unity_proxy.assert_called_once_with(
             config.workspace_url,
-            config.token,
             config.warehouse_id,
             report=source.report,
             hive_metastore_proxy=None,  # Should be None when disabled
             lineage_data_source=config.lineage_data_source,
             usage_data_source=config.usage_data_source,
             databricks_api_page_size=200,
+            personal_access_token=config.token,
+            azure_auth=None,
         )
 
     def test_test_connection_with_page_size_config(self):
@@ -224,6 +263,154 @@ class TestUnityCatalogSource:
             assert connection_test_config.include_ml_model_aliases is True
             assert connection_test_config.ml_model_max_results == 750
             assert connection_test_config.databricks_api_page_size == 200
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_source_constructor_with_azure_auth(
+        self, mock_hive_proxy, mock_unity_proxy, config_with_azure_auth
+    ):
+        """Test that UnityCatalogSource passes Azure auth config to proxy."""
+        ctx = PipelineContext(run_id="test_run")
+        source = UnityCatalogSource.create(config_with_azure_auth, ctx)
+
+        # Verify proxy was created with Azure auth config
+        mock_unity_proxy.assert_called_once_with(
+            config_with_azure_auth.workspace_url,
+            config_with_azure_auth.warehouse_id,
+            report=source.report,
+            hive_metastore_proxy=source.hive_metastore_proxy,
+            lineage_data_source=config_with_azure_auth.lineage_data_source,
+            usage_data_source=config_with_azure_auth.usage_data_source,
+            databricks_api_page_size=150,
+            personal_access_token=None,  # Should be None when using Azure auth
+            azure_auth=config_with_azure_auth.azure_auth,
+        )
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_source_constructor_azure_auth_with_ml_models(
+        self, mock_hive_proxy, mock_unity_proxy, config_with_azure_auth_and_ml_models
+    ):
+        """Test that UnityCatalogSource with Azure auth and ML model settings works correctly."""
+        ctx = PipelineContext(run_id="test_run")
+        source = UnityCatalogSource.create(config_with_azure_auth_and_ml_models, ctx)
+
+        # Verify proxy was created with correct Azure auth and ML model configs
+        mock_unity_proxy.assert_called_once_with(
+            config_with_azure_auth_and_ml_models.workspace_url,
+            config_with_azure_auth_and_ml_models.warehouse_id,
+            report=source.report,
+            hive_metastore_proxy=source.hive_metastore_proxy,
+            lineage_data_source=config_with_azure_auth_and_ml_models.lineage_data_source,
+            usage_data_source=config_with_azure_auth_and_ml_models.usage_data_source,
+            databricks_api_page_size=200,
+            personal_access_token=None,
+            azure_auth=config_with_azure_auth_and_ml_models.azure_auth,
+        )
+
+        # Verify ML model settings are properly configured
+        assert source.config.include_ml_model_aliases is True
+        assert source.config.ml_model_max_results == 1000
+
+    def test_azure_auth_config_validation(self):
+        """Test that Azure auth config validates required fields."""
+        # Test valid Azure auth config
+        valid_config_dict = {
+            "workspace_url": "https://test.databricks.com",
+            "warehouse_id": "test_warehouse",
+            "azure_auth": {
+                "client_id": "test-client-id",
+                "tenant_id": "test-tenant-id",
+                "client_secret": "test-secret",
+            },
+        }
+
+        config = UnityCatalogSourceConfig.parse_obj(valid_config_dict)
+        assert config.azure_auth is not None
+        assert config.azure_auth.client_id == "test-client-id"
+        assert config.azure_auth.tenant_id == "test-tenant-id"
+        assert config.azure_auth.client_secret == "test-secret"
+
+        # Test that personal access token is not required when Azure auth is provided
+        assert config.token is None
+
+    def test_test_connection_with_azure_auth(self):
+        """Test that test_connection properly handles Azure authentication."""
+        config_dict = {
+            "workspace_url": "https://test.databricks.com",
+            "warehouse_id": "test_warehouse",
+            "databricks_api_page_size": 100,
+            "azure_auth": {
+                "client_id": "test-client-id",
+                "tenant_id": "test-tenant-id",
+                "client_secret": "test-secret",
+            },
+        }
+
+        with patch(
+            "datahub.ingestion.source.unity.source.UnityCatalogConnectionTest"
+        ) as mock_connection_test:
+            mock_connection_test.return_value.get_connection_test.return_value = (
+                "azure_test_report"
+            )
+
+            result = UnityCatalogSource.test_connection(config_dict)
+
+            # Verify connection test was created with Azure auth config
+            assert result == "azure_test_report"
+            mock_connection_test.assert_called_once()
+
+            # Get the config that was passed to UnityCatalogConnectionTest
+            connection_test_config = mock_connection_test.call_args[0][0]
+            assert connection_test_config.azure_auth is not None
+            assert connection_test_config.azure_auth.client_id == "test-client-id"
+            assert connection_test_config.azure_auth.tenant_id == "test-tenant-id"
+            assert connection_test_config.azure_auth.client_secret == "test-secret"
+            assert connection_test_config.databricks_api_page_size == 100
+            assert (
+                connection_test_config.token is None
+            )  # Should be None with Azure auth
+
+    def test_source_creation_fails_without_authentication(self):
+        """Test that UnityCatalogSource creation fails when neither token nor azure_auth are provided."""
+        # Test with neither token nor azure_auth provided
+        config_without_auth = UnityCatalogSourceConfig.parse_obj(
+            {
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                "databricks_api_page_size": 100,
+                # Neither token nor azure_auth provided
+            }
+        )
+
+        ctx = PipelineContext(run_id="test_run")
+
+        # Should raise ValueError when neither authentication method is provided
+        with pytest.raises(ValueError) as exc_info:
+            UnityCatalogSource.create(config_without_auth, ctx)
+
+        assert "Either azure_auth or personal_access_token must be provided" in str(
+            exc_info.value
+        )
+
+    def test_test_connection_fails_without_authentication(self):
+        """Test that test_connection fails when neither token nor azure_auth are provided."""
+        config_dict_without_auth = {
+            "workspace_url": "https://test.databricks.com",
+            "warehouse_id": "test_warehouse",
+            "databricks_api_page_size": 100,
+            # Neither token nor azure_auth provided
+        }
+
+        # Should raise ValueError due to Databricks authentication failure
+        with pytest.raises(ValueError) as exc_info:
+            UnityCatalogSource.test_connection(config_dict_without_auth)
+
+        # The actual error is from Databricks SDK trying to authenticate without credentials
+        assert "default auth: cannot configure default credentials" in str(
+            exc_info.value
+        )
 
     @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
     @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
