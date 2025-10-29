@@ -56,6 +56,7 @@ public class CreateUserStepTest {
     System.clearProperty("CREATE_USER_ES");
     System.clearProperty("CREATE_USER_ES_USERNAME");
     System.clearProperty("CREATE_USER_ES_PASSWORD");
+    System.clearProperty("CREATE_USER_ES_IAM_ROLE_ARN");
   }
 
   @Test
@@ -124,7 +125,13 @@ public class CreateUserStepTest {
         MockedStatic<IndexRoleUtils> indexRoleUtilsMock =
             Mockito.mockStatic(IndexRoleUtils.class)) {
 
-      indexUtilsMock.when(() -> IndexUtils.isAwsOpenSearchService(esComponents)).thenReturn(false);
+      indexUtilsMock.when(() -> IndexUtils.isAwsOpenSearchService(esComponents)).thenReturn(true);
+      indexRoleUtilsMock
+          .when(
+              () ->
+                  IndexRoleUtils.createAwsOpenSearchRole(
+                      Mockito.any(), Mockito.anyString(), Mockito.anyString()))
+          .thenAnswer(invocation -> null);
       indexRoleUtilsMock
           .when(
               () ->
@@ -133,7 +140,8 @@ public class CreateUserStepTest {
                       Mockito.anyString(),
                       Mockito.anyString(),
                       Mockito.anyString(),
-                      Mockito.anyString()))
+                      Mockito.anyString(),
+                      Mockito.any()))
           .thenAnswer(invocation -> null);
 
       // Act
@@ -395,5 +403,101 @@ public class CreateUserStepTest {
       Mockito.verify(searchEngineType, Mockito.times(2)).isOpenSearch();
       Mockito.verify(index, Mockito.times(2)).getFinalPrefix();
     }
+  }
+
+  @Test
+  public void testExecutable_IamOnlyAuth_Success() throws Exception {
+    // Arrange
+    System.setProperty("CREATE_USER_ES", "true");
+    System.setProperty("CREATE_USER_ES_IAM_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role");
+    // No username/password - IAM-only authentication
+    Mockito.when(index.getFinalPrefix()).thenReturn("test_");
+    Mockito.when(searchEngineType.isOpenSearch()).thenReturn(true);
+
+    try (MockedStatic<IndexUtils> indexUtilsMock = Mockito.mockStatic(IndexUtils.class);
+        MockedStatic<IndexRoleUtils> indexRoleUtilsMock =
+            Mockito.mockStatic(IndexRoleUtils.class)) {
+
+      indexUtilsMock.when(() -> IndexUtils.isAwsOpenSearchService(esComponents)).thenReturn(true);
+      indexRoleUtilsMock
+          .when(
+              () ->
+                  IndexRoleUtils.createAwsOpenSearchRole(
+                      Mockito.any(), Mockito.anyString(), Mockito.anyString()))
+          .thenAnswer(invocation -> null);
+      indexRoleUtilsMock
+          .when(
+              () ->
+                  IndexRoleUtils.createAwsOpenSearchRoleMapping(
+                      Mockito.any(), Mockito.anyString(), Mockito.anyString()))
+          .thenAnswer(invocation -> null);
+
+      // Act
+      Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
+      UpgradeStepResult result = executable.apply(upgradeContext);
+
+      // Assert
+      Assert.assertNotNull(result);
+      Assert.assertEquals(result.stepId(), "CreateElasticsearchUserStep");
+      Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+      // Verify OpenSearch path was taken
+      Mockito.verify(searchEngineType).isOpenSearch();
+      Mockito.verify(index).getFinalPrefix();
+    }
+  }
+
+  @Test
+  public void testExecutable_MissingUsernameWithIamRole() throws Exception {
+    // Arrange
+    System.setProperty("CREATE_USER_ES", "true");
+    System.setProperty("CREATE_USER_ES_IAM_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role");
+    // Username not set - should fail
+    Mockito.when(index.getFinalPrefix()).thenReturn("test_");
+
+    // Act
+    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
+    UpgradeStepResult result = executable.apply(upgradeContext);
+
+    // Assert
+    Assert.assertNotNull(result);
+    Assert.assertEquals(result.stepId(), "CreateElasticsearchUserStep");
+    Assert.assertEquals(result.result(), DataHubUpgradeState.FAILED);
+  }
+
+  @Test
+  public void testExecutable_MissingPasswordAndIamRole() throws Exception {
+    // Arrange
+    System.setProperty("CREATE_USER_ES", "true");
+    System.setProperty("CREATE_USER_ES_USERNAME", "testuser");
+    // Neither password nor IAM role set - should fail
+    Mockito.when(index.getFinalPrefix()).thenReturn("test_");
+
+    // Act
+    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
+    UpgradeStepResult result = executable.apply(upgradeContext);
+
+    // Assert
+    Assert.assertNotNull(result);
+    Assert.assertEquals(result.stepId(), "CreateElasticsearchUserStep");
+    Assert.assertEquals(result.result(), DataHubUpgradeState.FAILED);
+  }
+
+  @Test
+  public void testExecutable_IamOnlyAuth_EmptyIamRole() throws Exception {
+    // Arrange
+    System.setProperty("CREATE_USER_ES", "true");
+    System.setProperty("CREATE_USER_ES_USERNAME", "testuser");
+    System.setProperty("CREATE_USER_ES_IAM_ROLE_ARN", ""); // Empty IAM role ARN
+    Mockito.when(index.getFinalPrefix()).thenReturn("test_");
+
+    // Act
+    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
+    UpgradeStepResult result = executable.apply(upgradeContext);
+
+    // Assert
+    Assert.assertNotNull(result);
+    Assert.assertEquals(result.stepId(), "CreateElasticsearchUserStep");
+    Assert.assertEquals(result.result(), DataHubUpgradeState.FAILED);
   }
 }

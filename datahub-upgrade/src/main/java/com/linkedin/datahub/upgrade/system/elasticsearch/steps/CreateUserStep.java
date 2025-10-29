@@ -10,6 +10,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.utils.EnvironmentUtils;
 import com.linkedin.upgrade.DataHubUpgradeState;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,18 +50,38 @@ public class CreateUserStep implements UpgradeStep {
         // Check for CREATE_USER_ES_USERNAME and CREATE_USER_ES_PASSWORD environment variables first
         String username = EnvironmentUtils.getString("CREATE_USER_ES_USERNAME");
         String password = EnvironmentUtils.getString("CREATE_USER_ES_PASSWORD");
+        String iamRoleArn = EnvironmentUtils.getString("CREATE_USER_ES_IAM_ROLE_ARN");
 
-        if (username == null || password == null) {
+        // Determine the authentication mode
+        boolean usingIam = iamRoleArn != null && !iamRoleArn.isEmpty();
+        boolean usingUserPassword =
+            username != null && !username.isEmpty() && password != null && !password.isEmpty();
+
+        // Validate that at least one authentication method is configured
+        if (!usingIam && !usingUserPassword) {
           log.warn(
-              "Elasticsearch username or password not configured (checked CREATE_USER_ES_USERNAME/CREATE_USER_ES_PASSWORD env vars and config)");
+              "Either CREATE_USER_ES_IAM_ROLE_ARN or CREATE_USER_ES_USERNAME/CREATE_USER_ES_PASSWORD must be configured");
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }
 
         String roleName = indexPrefix + "access";
 
         if (esComponents.getSearchClient().getEngineType().isOpenSearch()) {
-          setupOpenSearchUser(indexPrefix, roleName, username, password);
+          setupOpenSearchUser(
+              indexPrefix,
+              roleName,
+              username,
+              password,
+              iamRoleArn,
+              usingIam,
+              usingUserPassword,
+              context.opContext());
         } else {
+          // Elasticsearch Cloud doesn't support IAM authentication
+          if (usingIam) {
+            log.warn("IAM authentication is only supported for AWS OpenSearch Service");
+            return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+          }
           setupElasticsearchCloudUser(indexPrefix, roleName, username, password);
         }
 
@@ -78,14 +99,37 @@ public class CreateUserStep implements UpgradeStep {
     IndexRoleUtils.createElasticsearchCloudUser(esComponents, roleName, username, password, prefix);
   }
 
-  private void setupOpenSearchUser(String prefix, String roleName, String username, String password)
+  private void setupOpenSearchUser(
+      String prefix,
+      String roleName,
+      String username,
+      String password,
+      String iamRoleArn,
+      boolean usingIam,
+      boolean usingUserPassword,
+      OperationContext operationContext)
       throws Exception {
     // Check if this is AWS OpenSearch Service
     boolean isAwsOpenSearch = IndexUtils.isAwsOpenSearchService(esComponents);
 
     if (isAwsOpenSearch) {
-      log.info("Detected AWS OpenSearch Service. Creating AWS-specific user and role.");
-      IndexRoleUtils.createAwsOpenSearchUser(esComponents, roleName, username, password, prefix);
+      log.info("Detected AWS OpenSearch Service. Creating AWS-specific role.");
+
+      // Create the role first (required for both modes)
+      IndexRoleUtils.createAwsOpenSearchRole(esComponents, roleName, prefix);
+
+      if (usingIam) {
+        // IAM authentication: create role mapping to IAM role
+        log.info("IAM mode: Creating role mapping for IAM role: {}", iamRoleArn);
+        IndexRoleUtils.createAwsOpenSearchRoleMapping(esComponents, roleName, iamRoleArn);
+      }
+
+      if (usingUserPassword) {
+        // Internal user authentication: create internal user
+        log.info("Internal user mode: Creating internal user: {}", username);
+        IndexRoleUtils.createAwsOpenSearchUser(
+            esComponents, username, password, roleName, null, operationContext);
+      }
     } else {
       log.warn("Detected self-hosted OpenSearch. Creating user and role not supported.");
     }

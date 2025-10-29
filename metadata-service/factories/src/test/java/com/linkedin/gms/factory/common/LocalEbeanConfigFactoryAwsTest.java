@@ -74,14 +74,32 @@ public class LocalEbeanConfigFactoryAwsTest extends AbstractTestNGSpringContextT
   @Test
   public void testDetectCloudProviderAws() {
     String awsResult =
-        localEbeanConfigFactory.detectCloudProvider("jdbc:mysql://localhost:3306/datahub");
+        CrossCloudIamUtils.detectCloudProvider(
+            "jdbc:mysql://localhost:3306/datahub",
+            "auto",
+            "us-west-2", // AWS_REGION
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
     assertEquals(awsResult, "aws");
   }
 
   @Test
   public void testDetectCloudProviderAwsUrl() {
     String urlResult =
-        localEbeanConfigFactory.detectCloudProvider("jdbc:mysql://rds.amazonaws.com:3306/datahub");
+        CrossCloudIamUtils.detectCloudProvider(
+            "jdbc:mysql://rds.amazonaws.com:3306/datahub",
+            "auto",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
     assertEquals(urlResult, "aws");
   }
 
@@ -132,14 +150,21 @@ public class LocalEbeanConfigFactoryAwsTest extends AbstractTestNGSpringContextT
 
   @Test
   public void testConfigureCrossCloudIamWithAwsIam() {
-    // Override non-cloud properties using reflection
-    ReflectionTestUtils.setField(localEbeanConfigFactory, "useIamAuth", true);
-    ReflectionTestUtils.setField(localEbeanConfigFactory, "cloudProvider", "aws");
-
     String originalUrl = "jdbc:mysql://localhost:3306/datahub";
 
-    LocalEbeanConfigFactory.CrossCloudConfig result =
-        localEbeanConfigFactory.configureCrossCloudIam(originalUrl);
+    CrossCloudIamUtils.CrossCloudConfig result =
+        CrossCloudIamUtils.configureCrossCloudIam(
+            originalUrl,
+            "com.mysql.cj.jdbc.Driver",
+            true,
+            "aws",
+            "us-west-2",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
 
     assertNotNull(result);
     assertEquals(result.driver, "software.amazon.jdbc.Driver");
