@@ -463,10 +463,11 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                     view_fields, explore_name
                 )
                 sql_response = self._execute_query(sql_query)
-                return self._parse_sql_response(
+                spr, has_errors = self._parse_sql_response(
                     sql_response,
                     allow_partial=self.config.allow_partial_lineage_results,
                 )
+                return spr
 
         except Exception:
             # Reraise the exception to allow higher-level handling.
@@ -495,7 +496,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
     def _parse_sql_response(
         self, sql_response: str, allow_partial: bool = True
-    ) -> SqlParsingResult:
+    ) -> tuple[SqlParsingResult, bool]:
         """
         Parse SQL response to extract lineage information.
 
@@ -504,7 +505,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             allow_partial: Whether to allow partial results when there are parsing errors
 
         Returns:
-            SqlParsingResult: The parsed result with lineage information
+            Tuple of (SqlParsingResult, has_errors) where has_errors indicates if there were parsing issues
         """
         spr = create_lineage_sql_parsed_result(
             query=sql_response,
@@ -516,9 +517,12 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             graph=self.ctx.graph,
         )
 
+        has_errors = False
+
         # Check for errors encountered during table extraction.
         table_error = spr.debug_info.table_error
         if table_error is not None:
+            has_errors = True
             logger.debug(
                 f"view-name={self.view_context.name()}, table-error={table_error}, sql-query={sql_response}"
             )
@@ -539,6 +543,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
         column_error = spr.debug_info.column_error
         if column_error is not None:
+            has_errors = True
             logger.debug(
                 f"view-name={self.view_context.name()}, column-error={column_error}, sql-query={sql_response}"
             )
@@ -557,7 +562,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                     f"Allowing partial results despite column parsing error for view '{self.view_context.name()}'"
                 )
 
-        return spr
+        return spr, has_errors
 
     def _process_individual_fields(
         self, field_chunk: List[str], explore_name: str
@@ -596,7 +601,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 sql_response = self._execute_query(sql_query)
 
                 # Parse the SQL response with partial results allowed
-                spr = self._parse_sql_response(
+                spr, has_errors = self._parse_sql_response(
                     sql_response, self.config.allow_partial_lineage_results
                 )
 
@@ -695,7 +700,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 sql_response = self._execute_query(sql_query)
 
                 # Parse the SQL response with partial results allowed
-                spr = self._parse_sql_response(
+                spr, has_errors = self._parse_sql_response(
                     sql_response, self.config.allow_partial_lineage_results
                 )
 
@@ -708,27 +713,11 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 if combined_debug_info is None:
                     combined_debug_info = spr.debug_info
 
-                successful_queries += 1
-
-            except Exception as e:
-                failed_queries += 1
-                logger.warning(
-                    f"Failed to process field chunk {chunk_idx + 1}/{len(field_chunks)} for view '{self.view_context.name()}': {e}"
-                )
-                self.reporter.report_warning(
-                    title="Field Chunk Processing Failed",
-                    message=f"Failed to process field chunk {chunk_idx + 1} with {len(field_chunk)} fields",
-                    context=f"View-name: {self.view_context.name()}, Chunk: {chunk_idx + 1}/{len(field_chunks)}",
-                    exc=e,
-                )
-
-                # Try individual field processing if enabled
-                if self.config.enable_individual_field_fallback:
-                    logger.info(
-                        f"Attempting individual field processing for failed chunk {chunk_idx + 1} "
-                        f"with {len(field_chunk)} fields for view '{self.view_context.name()}'"
+                # Check if we should trigger individual field fallback due to parsing errors
+                if has_errors and self.config.enable_individual_field_fallback:
+                    logger.warning(
+                        f"Chunk {chunk_idx + 1} had parsing errors, attempting individual field processing for view '{self.view_context.name()}'"
                     )
-
                     try:
                         (
                             individual_tables,
@@ -744,24 +733,40 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
                         # Update counters
                         successful_queries += individual_success
-                        failed_queries += (
-                            individual_failed - 1
-                        )  # Subtract 1 because we already counted the chunk failure
+                        failed_queries += individual_failed
 
                         logger.info(
                             f"Individual field processing for chunk {chunk_idx + 1} completed: "
                             f"{individual_success} successful, {individual_failed} failed"
                         )
-
                     except Exception as individual_error:
                         logger.error(
                             f"Individual field processing also failed for chunk {chunk_idx + 1}: {individual_error}"
                         )
+                        failed_queries += 1
                         if not self.config.allow_partial_lineage_results:
                             raise
                 else:
-                    if not self.config.allow_partial_lineage_results:
-                        raise
+                    if has_errors:
+                        failed_queries += 1
+                        if not self.config.allow_partial_lineage_results:
+                            raise ValueError(
+                                f"SQL parsing errors in chunk {chunk_idx + 1}"
+                            )
+                    else:
+                        successful_queries += 1
+
+            except Exception as e:
+                failed_queries += 1
+                logger.warning(
+                    f"Failed to process field chunk {chunk_idx + 1}/{len(field_chunks)} for view '{self.view_context.name()}': {e}"
+                )
+                self.reporter.report_warning(
+                    title="Field Chunk Processing Failed",
+                    message=f"Failed to process field chunk {chunk_idx + 1} with {len(field_chunk)} fields",
+                    context=f"View-name: {self.view_context.name()}, Chunk: {chunk_idx + 1}/{len(field_chunks)}",
+                    exc=e,
+                )
 
         if not successful_queries or not all_in_tables or not all_column_lineage:
             logger.debug(
