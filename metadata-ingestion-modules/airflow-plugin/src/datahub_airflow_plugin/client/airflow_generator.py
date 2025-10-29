@@ -19,7 +19,13 @@ from datahub_airflow_plugin._airflow_version_specific import (
 )
 from datahub_airflow_plugin._config import DatahubLineageConfig, DatajobUrl
 
-assert AIRFLOW_PATCHED
+# Verify that Airflow compatibility patches were applied correctly
+if not AIRFLOW_PATCHED:
+    raise RuntimeError(
+        "Airflow compatibility patches were not applied correctly. "
+        "This indicates a plugin initialization error. "
+        "Please check that datahub_airflow_plugin._airflow_compat was imported successfully."
+    )
 
 if TYPE_CHECKING:
     from airflow import DAG

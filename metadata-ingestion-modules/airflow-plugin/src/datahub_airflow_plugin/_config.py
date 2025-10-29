@@ -1,18 +1,8 @@
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Union
 
 from airflow.configuration import conf
 from pydantic import Field
-
-# Support both Pydantic v1 and v2
-try:
-    from pydantic import model_validator
-
-    PYDANTIC_VERSION = 2
-except ImportError:
-    from pydantic import root_validator  # type: ignore
-
-    PYDANTIC_VERSION = 1
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -32,10 +22,8 @@ class DatajobUrl(Enum):
 class DatahubLineageConfig(ConfigModel):
     enabled: bool
 
-    # DataHub hook connection ID.
+    # DataHub hook connection ID (can be comma-separated for multiple connections).
     datahub_conn_id: str
-
-    _datahub_connection_ids: List[str]
 
     # Cluster to associate with the pipelines and tasks. Defaults to "prod".
     cluster: str
@@ -78,6 +66,17 @@ class DatahubLineageConfig(ConfigModel):
 
     disable_openlineage_plugin: bool
 
+    @property
+    def _datahub_connection_ids(self) -> List[str]:
+        """
+        Parse comma-separated connection IDs into a list.
+
+        This is implemented as a property to avoid the class variable pollution
+        bug that would occur with validators. Each instance computes its own
+        connection ID list from its datahub_conn_id field.
+        """
+        return [conn_id.strip() for conn_id in self.datahub_conn_id.split(",")]
+
     def make_emitter_hook(self) -> Union["DatahubGenericHook", "DatahubCompositeHook"]:
         # This is necessary to avoid issues with circular imports.
         from datahub_airflow_plugin.hooks.datahub import (
@@ -85,32 +84,11 @@ class DatahubLineageConfig(ConfigModel):
             DatahubGenericHook,
         )
 
-        if len(self._datahub_connection_ids) == 1:
-            return DatahubGenericHook(self._datahub_connection_ids[0])
+        connection_ids = self._datahub_connection_ids
+        if len(connection_ids) == 1:
+            return DatahubGenericHook(connection_ids[0])
         else:
-            return DatahubCompositeHook(self._datahub_connection_ids)
-
-    # Support both Pydantic v1 and v2
-    if PYDANTIC_VERSION == 2:
-
-        @model_validator(mode="before")
-        @classmethod
-        def split_conn_ids(cls, data: Any) -> Any:
-            if isinstance(data, dict):
-                if not data.get("datahub_conn_id"):
-                    raise ValueError("datahub_conn_id is required")
-                conn_ids = data.get("datahub_conn_id", "").split(",")
-                cls._datahub_connection_ids = [conn_id.strip() for conn_id in conn_ids]
-            return data
-    else:
-
-        @root_validator(skip_on_failure=True)  # type: ignore
-        def split_conn_ids(cls, values: Dict) -> Dict:
-            if not values.get("datahub_conn_id"):
-                raise ValueError("datahub_conn_id is required")
-            conn_ids = values.get("datahub_conn_id", "").split(",")
-            cls._datahub_connection_ids = [conn_id.strip() for conn_id in conn_ids]
-            return values
+            return DatahubCompositeHook(connection_ids)
 
 
 def get_lineage_config() -> DatahubLineageConfig:

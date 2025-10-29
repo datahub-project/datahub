@@ -422,7 +422,10 @@ class DataHubListener:
             translate_ol_to_datahub_urn(dataset) for dataset in task_metadata.outputs
         )
 
-        # Extract SQL parsing result from task_metadata
+        # Extract and remove DataHub's custom SQL parsing result from run_facets.
+        # We use .pop() (not .get()) to remove the key so that when task_metadata.run_facets
+        # are serialized as OpenLineage facets later, they don't include DataHub-specific
+        # additions. This keeps the OpenLineage facets clean and standards-compliant.
         sql_parsing_result = task_metadata.run_facets.pop(SQL_PARSING_RESULT_KEY, None)
 
         return input_urns, output_urns, sql_parsing_result, task_metadata

@@ -51,7 +51,13 @@ except (ModuleNotFoundError, ImportError):
             ExternalTaskSensor,  # type: ignore
         )
 
-assert AIRFLOW_PATCHED
+# Verify that Airflow compatibility patches were applied correctly
+if not AIRFLOW_PATCHED:
+    raise RuntimeError(
+        "Airflow compatibility patches were not applied correctly. "
+        "This indicates a plugin initialization error. "
+        "Please check that datahub_airflow_plugin._airflow_compat was imported successfully."
+    )
 
 # Approach suggested by https://stackoverflow.com/a/11887885/5004662.
 # AIRFLOW_VERSION already defined above for conditional imports
