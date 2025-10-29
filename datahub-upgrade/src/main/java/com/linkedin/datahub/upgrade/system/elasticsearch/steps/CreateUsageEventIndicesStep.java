@@ -4,6 +4,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.datahub.upgrade.system.elasticsearch.util.UsageEventIndexUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
@@ -43,8 +44,11 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
     return (context) -> {
       try {
 
-        final String indexPrefix =
-            configurationProvider.getElasticSearch().getIndex().getFinalPrefix();
+        String indexPrefix = configurationProvider.getElasticSearch().getIndex().getPrefix();
+        // Handle null prefix by converting to empty string
+        if (indexPrefix == null) {
+          indexPrefix = "";
+        }
 
         boolean useOpenSearch = esComponents.getSearchClient().getEngineType().isOpenSearch();
         int numShards = configurationProvider.getElasticSearch().getIndex().getNumShards();
@@ -66,9 +70,10 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
 
   private void setupElasticsearchUsageEvents(String prefix, int numShards, int numReplicas)
       throws Exception {
-    String prefixedPolicy = prefix + "datahub_usage_event_policy";
-    String prefixedTemplate = prefix + "datahub_usage_event_index_template";
-    String prefixedDataStream = prefix + "datahub_usage_event";
+    String prefixedPolicy = IndexUtils.createPrefixedName(prefix, "datahub_usage_event_policy");
+    String prefixedTemplate =
+        IndexUtils.createPrefixedName(prefix, "datahub_usage_event_index_template");
+    String prefixedDataStream = IndexUtils.createPrefixedName(prefix, "datahub_usage_event");
 
     // Create ILM policy
     UsageEventIndexUtils.createIlmPolicy(esComponents, prefixedPolicy);
@@ -84,9 +89,10 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
   private void setupOpenSearchUsageEvents(
       String prefix, int numShards, int numReplicas, OperationContext operationContext)
       throws Exception {
-    String prefixedPolicy = prefix + "datahub_usage_event_policy";
-    String prefixedTemplate = prefix + "datahub_usage_event_index_template";
-    String prefixedIndex = prefix + "datahub_usage_event-000001";
+    String prefixedPolicy = IndexUtils.createPrefixedName(prefix, "datahub_usage_event_policy");
+    String prefixedTemplate =
+        IndexUtils.createPrefixedName(prefix, "datahub_usage_event_index_template");
+    String prefixedIndex = IndexUtils.createPrefixedName(prefix, "datahub_usage_event-000001");
 
     // Create ISM policy (both AWS and self-hosted OpenSearch use the same format)
     boolean policyCreated =
