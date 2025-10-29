@@ -43,7 +43,7 @@ export function getPlaceholderRecipe(ingestionSources: SourceConfig[], type?: st
 
 export const RUNNING = 'RUNNING';
 export const SUCCESS = 'SUCCESS';
-export const SUCCEEDED_WITH_WARNINGS = 'SUCCEEDED_WITH_WARNINGS';
+const SUCCEEDED_WITH_WARNINGS = 'SUCCEEDED_WITH_WARNINGS';
 export const FAILURE = 'FAILURE';
 const CANCELLED = 'CANCELLED';
 const ABORTED = 'ABORTED';
@@ -53,9 +53,6 @@ export const ROLLED_BACK = 'ROLLED_BACK';
 const ROLLBACK_FAILED = 'ROLLBACK_FAILED';
 
 export const CLI_EXECUTOR_ID = '__datahub_cli_';
-export const MANUAL_INGESTION_SOURCE = 'MANUAL_INGESTION_SOURCE';
-export const SCHEDULED_INGESTION_SOURCE = 'SCHEDULED_INGESTION_SOURCE';
-export const CLI_INGESTION_SOURCE = 'CLI_INGESTION_SOURCE';
 
 export const getExecutionRequestStatusIcon = (status?: string) => {
     return (
@@ -87,31 +84,6 @@ export const getExecutionRequestStatusDisplayText = (status?: string) => {
         (status === ABORTED && 'Aborted') ||
         status
     );
-};
-
-export const getExecutionRequestSummaryText = (status: string) => {
-    switch (status) {
-        case RUNNING:
-            return 'Ingestion is running...';
-        case SUCCESS:
-            return 'Ingestion completed with no errors or warnings.';
-        case SUCCEEDED_WITH_WARNINGS:
-            return 'Ingestion completed with some warnings.';
-        case FAILURE:
-            return 'Ingestion failed to complete, or completed with errors.';
-        case CANCELLED:
-            return 'Ingestion was cancelled.';
-        case ROLLED_BACK:
-            return 'Ingestion was rolled back.';
-        case ROLLING_BACK:
-            return 'Ingestion is in the process of rolling back.';
-        case ROLLBACK_FAILED:
-            return 'Ingestion rollback failed.';
-        case ABORTED:
-            return 'Ingestion job got aborted due to worker restart.';
-        default:
-            return 'Ingestion status not recognized.';
-    }
 };
 
 export const getExecutionRequestStatusDisplayColor = (status?: string) => {
@@ -240,7 +212,7 @@ const extractStructuredReportPOJO = (result: Partial<ExecutionRequestResult>): a
     }
 };
 
-export const getStructuredReport = (result: Partial<ExecutionRequestResult>): StructuredReport | null => {
+const getStructuredReport = (result: Partial<ExecutionRequestResult>): StructuredReport | null => {
     // 1. Extract Serialized Structured Report
     const structuredReportObject = extractStructuredReportPOJO(result);
     if (!structuredReportObject) {
@@ -252,26 +224,6 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
 
     // 4. Return JSON report
     return structuredReport;
-};
-
-/**
- * This function is used to get the total number of entities ingested from the structured report.
- *
- * @param result - The result of the execution request.
- * @returns {number | null}
- */
-export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>) => {
-    const structuredReportObject = extractStructuredReportPOJO(result);
-    if (!structuredReportObject) {
-        return null;
-    }
-
-    try {
-        return structuredReportObject.sink.report.total_records_written;
-    } catch (e) {
-        console.error(`Caught exception while parsing structured report!`, e);
-        return null;
-    }
 };
 
 /** *
@@ -363,26 +315,6 @@ export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult
     }
 };
 
-export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult> | null) => {
-    if (!result) {
-        return undefined;
-    }
-
-    const { status } = result;
-    const structuredReport = getStructuredReport(result);
-
-    /**
-     * Simply map SUCCESS in the presence of warnings to SUCCEEDED_WITH_WARNINGS
-     *
-     * This is somewhat of a hack - ideally the ingestion source should report this status back to us.
-     */
-    if (status === SUCCESS && (structuredReport?.warnCount || 0) > 0) {
-        return SUCCEEDED_WITH_WARNINGS;
-    }
-    // Else return the raw status.
-    return status;
-};
-
 const ENTITIES_WITH_SUBTYPES = new Set([
     EntityType.Dataset.toLowerCase(),
     EntityType.Container.toLowerCase(),
@@ -393,50 +325,4 @@ const ENTITIES_WITH_SUBTYPES = new Set([
 type EntityTypeCount = {
     count: number;
     displayName: string;
-};
-
-/**
- * Extract entity type counts to display in the ingestion summary.
- *
- * @param entityTypeFacets the filter facets for entity type.
- * @param subTypeFacets the filter facets for sub types.
- */
-export const extractEntityTypeCountsFromFacets = (
-    entityRegistry: EntityRegistry,
-    entityTypeFacets: FacetMetadata,
-    subTypeFacets?: FacetMetadata | null,
-): EntityTypeCount[] => {
-    const finalCounts: EntityTypeCount[] = [];
-
-    if (subTypeFacets) {
-        subTypeFacets.aggregations
-            .filter((agg) => agg.count > 0)
-            .forEach((agg) =>
-                finalCounts.push({
-                    count: agg.count,
-                    displayName: pluralize(agg.count, capitalizeFirstLetterOnly(agg.value) || ''),
-                }),
-            );
-        entityTypeFacets.aggregations
-            .filter((agg) => agg.count > 0)
-            .filter((agg) => !ENTITIES_WITH_SUBTYPES.has(agg.value.toLowerCase()))
-            .forEach((agg) =>
-                finalCounts.push({
-                    count: agg.count,
-                    displayName: entityRegistry.getCollectionName(agg.value as EntityType),
-                }),
-            );
-    } else {
-        // Only use Entity Types- no subtypes.
-        entityTypeFacets.aggregations
-            .filter((agg) => agg.count > 0)
-            .forEach((agg) =>
-                finalCounts.push({
-                    count: agg.count,
-                    displayName: entityRegistry.getCollectionName(agg.value as EntityType),
-                }),
-            );
-    }
-
-    return finalCounts;
 };

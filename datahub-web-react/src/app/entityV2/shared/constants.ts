@@ -221,8 +221,6 @@ export const EDITING_DOCUMENTATION_URL_PARAM = 'editing';
 
 export const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
 
-export const TITLE_CASE_EXCEPTION_WORDS = ['of', 'the', 'in', 'on', 'and', 'a', 'an', 'to', 'for', 'at', 'by'];
-
 export const RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES = 'RecentlyViewedEntities';
 export const RECOMMENDATION_MODULE_ID_RECENTLY_EDITED_ENTITIES = 'RecentlyEditedEntities';
 export const RECOMMENDATION_MODULE_ID_RECENT_SEARCHES = 'RecentSearches';

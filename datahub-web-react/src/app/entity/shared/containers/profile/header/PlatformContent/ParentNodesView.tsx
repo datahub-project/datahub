@@ -1,10 +1,8 @@
-import { FolderOutlined, RightOutlined } from '@ant-design/icons';
-import { Tooltip, Typography } from 'antd';
+import { RightOutlined } from '@ant-design/icons';
+import { Tooltip } from 'antd';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-
-import { GlossaryNode } from '@types';
 
 export const StyledRightOutlined = styled(RightOutlined)`
     color: ${ANTD_GRAY[7]};

@@ -14,7 +14,7 @@ import { AggregationMetadata, FacetFilterInput, FacetMetadata } from '@types';
 
 const BACKWARDS_COMPATIBLE_FILTER_FIELDS = [ENTITY_SUB_TYPE_FILTER_NAME, ...LEGACY_ENTITY_FILTER_FIELDS];
 
-export function getInitialSelectedOptionsFromAggregations(
+function getInitialSelectedOptionsFromAggregations(
     aggregations: AggregationMetadata[],
     activeFilterValues: string[],
     initialSelectedOptions: FilterOptionType[],

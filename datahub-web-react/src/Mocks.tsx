@@ -32,7 +32,6 @@ import { GetTagDocument } from '@graphql/tag.generated';
 import { GetUserDocument } from '@graphql/user.generated';
 import {
     AppConfig,
-    Container,
     DataFlow,
     DataHubView,
     DataHubViewFilter,
@@ -52,7 +51,6 @@ import {
     MlModelGroup,
     Owner,
     OwnershipType,
-    PlatformPrivileges,
     PlatformType,
     RecommendationRenderType,
     RelationshipDirection,
@@ -726,7 +724,7 @@ export const dataset3 = {
     versionProperties: null,
 } as Dataset;
 
-export const dataset3WithSchema = {
+const dataset3WithSchema = {
     dataset: {
         __typename: 'Dataset',
         schemaMetadata: {
@@ -792,7 +790,7 @@ export const dataset3WithSchema = {
     },
 };
 
-export const dataset4 = {
+const dataset4 = {
     ...dataset3,
     name: 'Fourth Test Dataset',
     urn: 'urn:li:dataset:4',
@@ -805,7 +803,7 @@ export const dataset4 = {
     },
 };
 
-export const dataset5 = {
+const dataset5 = {
     ...dataset3,
     name: 'Fifth Test Dataset',
     urn: 'urn:li:dataset:5',
@@ -844,215 +842,6 @@ const dataset7 = {
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
         externalUrl: 'https://data.hub',
-    },
-};
-
-export const dataset3WithLineage = {
-    ...dataset3,
-    upstream: {
-        start: 0,
-        count: 2,
-        total: 2,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset7,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset4,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 0,
-        total: 0,
-        relationships: [],
-    },
-};
-
-export const dataset4WithLineage = {
-    ...dataset4,
-    upstream: {
-        start: 0,
-        count: 2,
-        total: 2,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset6,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset5,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset3,
-            },
-        ],
-    },
-};
-
-export const dataset5WithCyclicalLineage = {
-    ...dataset5,
-    upstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset3,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset7,
-            },
-        ],
-    },
-};
-
-export const dataset5WithLineage = {
-    ...dataset5,
-    upstream: null,
-    downstream: {
-        start: 0,
-        count: 3,
-        total: 3,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset7,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset6,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset4,
-            },
-        ],
-    },
-};
-
-export const dataset6WithLineage = {
-    ...dataset6,
-    upstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset5,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset4,
-            },
-        ],
-    },
-};
-
-export const dataset7WithLineage = {
-    ...dataset7,
-    upstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset5,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 1,
-        total: 1,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset3,
-            },
-        ],
-    },
-};
-
-export const dataset7WithSelfReferentialLineage = {
-    ...dataset7,
-    upstream: {
-        start: 0,
-        count: 2,
-        total: 2,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset5,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Outgoing,
-                entity: dataset7,
-            },
-        ],
-    },
-    downstream: {
-        start: 0,
-        count: 2,
-        total: 2,
-        relationships: [
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset3,
-            },
-            {
-                type: 'DownstreamOf',
-                direction: RelationshipDirection.Incoming,
-                entity: dataset7,
-            },
-        ],
     },
 };
 
@@ -1331,7 +1120,7 @@ export const sampleTag = {
     autoRenderAspects: [],
 };
 
-export const dataFlow1 = {
+const dataFlow1 = {
     __typename: 'DataFlow',
     urn: 'urn:li:dataFlow:1',
     type: EntityType.DataFlow,
@@ -1739,28 +1528,6 @@ const mlModel = {
     deprecation: null,
     autoRenderAspects: [],
 } as MlModel;
-
-export const dataset1FetchedEntity = {
-    urn: dataset1.urn,
-    name: dataset1.name,
-    type: dataset1.type,
-    upstreamChildren: [],
-    downstreamChildren: [
-        { type: EntityType.Dataset, entity: dataset2 },
-        { type: EntityType.DataJob, entity: dataJob1 },
-    ],
-} as FetchedEntity;
-
-export const dataset2FetchedEntity = {
-    urn: dataset2.urn,
-    name: 'test name',
-    type: dataset2.type,
-    upstreamChildren: [
-        { type: EntityType.Dataset, entity: dataset1 },
-        { type: EntityType.DataJob, entity: dataJob1 },
-    ],
-    downstreamChildren: [],
-} as FetchedEntity;
 
 const mlModelGroup = {
     __typename: 'MLModelGroup',
@@ -4229,26 +3996,4 @@ export const mockFineGrainedLineages1: GenericEntityProperties = {
             ],
         },
     ],
-};
-
-export const useEntityDataFunc = () => {
-    const value = {
-        entityData: {
-            parentContainers: {
-                containers: [
-                    {
-                        properties: {
-                            name: 'name1',
-                        },
-                    },
-                    {
-                        properties: {
-                            name: 'name2',
-                        },
-                    },
-                ],
-            },
-        },
-    };
-    return value;
 };

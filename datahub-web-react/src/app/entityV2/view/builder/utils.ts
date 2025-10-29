@@ -6,18 +6,7 @@ import {
     UnionType,
 } from '@app/search/utils/constants';
 
-import { Entity, EntityType, FacetFilter, FacetFilterInput, LogicalOperator } from '@types';
-
-/**
- * Extract the special "Entity Type" filter values from a list
- * of filters.
- */
-const extractEntityTypesFilterValues = (filters: Array<FacetFilterInput>) => {
-    // Currently we only support 1 entity type filter.
-    return filters
-        .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .flatMap((filter) => filter.values as EntityType[]);
-};
+import { Entity, EntityType, FacetFilterInput, LogicalOperator } from '@types';
 
 /**
  * Converts the nested subtype filter to be split into entity type filters and subType filters.

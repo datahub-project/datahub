@@ -9,7 +9,7 @@ import {
     V2_HOME_PAGE_DISCOVER_ID,
 } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 
-export enum TabType {
+enum TabType {
     Discover = 'Discover',
     Announcements = 'Announcements',
 }

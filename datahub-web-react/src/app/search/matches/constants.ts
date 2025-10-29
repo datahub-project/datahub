@@ -125,5 +125,3 @@ export type MatchesGroupedByFieldName = {
     fieldName: string;
     matchedFields: Array<MatchedField>;
 };
-
-export const HIGHLIGHTABLE_ENTITY_TYPES = [EntityType.Tag, EntityType.GlossaryTerm];

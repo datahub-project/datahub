@@ -1,4 +1,4 @@
-import { Button, Menu } from 'antd';
+import { Menu } from 'antd';
 import styled from 'styled-components';
 
 export const StyledMenuItem = styled(Menu.Item)`

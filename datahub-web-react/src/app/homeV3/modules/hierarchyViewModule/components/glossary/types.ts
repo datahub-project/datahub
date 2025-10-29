@@ -1,4 +1,4 @@
-import { ListDomainsQuery } from '@graphql/domain.generated';
+
 import { RootGlossaryNodeWithFourLayersFragment } from '@graphql/fragments.generated';
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
 import { GlossaryNode, GlossaryTerm } from '@types';

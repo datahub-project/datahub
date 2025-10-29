@@ -4,7 +4,6 @@ import { KEY_SCHEMA_PREFIX, UNION_TOKEN, VERSION_PREFIX } from '@app/entityV2/da
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 
 import {
-    EditableSchemaFieldInfo,
     PlatformSchema,
     SchemaField,
 } from '@types';

@@ -71,8 +71,6 @@ export function getPlatformName(entityData: GenericEntityProperties | null) {
     return entityData?.platform?.properties?.displayName || capitalizeFirstLetterOnly(entityData?.platform?.name);
 }
 
-export const EDITED_DESCRIPTIONS_CACHE_NAME = 'editedDescriptions';
-
 export const FORBIDDEN_URN_CHARS_REGEX = /.*[(),\\].*/;
 
 /**

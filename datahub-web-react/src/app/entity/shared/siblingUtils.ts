@@ -29,7 +29,7 @@ export function stripSiblingsFromEntity(entity: any) {
     };
 }
 
-export function cleanHelper(obj, visited) {
+function cleanHelper(obj, visited) {
     if (visited.has(obj)) return obj;
     visited.add(obj);
 
@@ -125,7 +125,7 @@ const mergeStructuredProperties = (destinationArray, sourceArray, _options) => {
     return unionBy(sourceArray, destinationArray, 'structuredProperty.urn');
 };
 
-export const mergeOwners = (destinationArray, sourceArray, _options) => {
+const mergeOwners = (destinationArray, sourceArray, _options) => {
     return uniqWith([...destinationArray, ...sourceArray], (ownerA, ownerB) => {
         if (!ownerA.ownershipType?.urn && !ownerB.ownershipType?.urn) {
             return ownerA.owner?.urn === ownerB.owner?.urn && ownerA.type === ownerB.type;

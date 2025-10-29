@@ -118,7 +118,7 @@ export function getNumPromptsCompletedForField(
  * on the form multiplied by the number of schema fields.
  * Optionally takes in a formUrn to look at one specific form or all forms
  */
-export function getNumSchemaFieldPromptsRemaining(
+function getNumSchemaFieldPromptsRemaining(
     entityData: GenericEntityProperties | null,
     fieldFormPrompts: FormPrompt[],
     numSchemaFields: number,
@@ -171,7 +171,7 @@ export function isFieldPromptComplete(fieldPrompt, promptAssociation) {
 }
 
 // For every prompt provided, check if it's in our list of completed prompts and return number prompts not completed
-export function getNumEntityPromptsRemaining(entityPrompts: FormPrompt[], entityData: GenericEntityProperties | null) {
+function getNumEntityPromptsRemaining(entityPrompts: FormPrompt[], entityData: GenericEntityProperties | null) {
     const completedPrompts = getCompletedPrompts(entityData);
     let numPromptsRemaining = 0;
 

@@ -1,5 +1,4 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
-import styled from 'styled-components/macro';
 
 export interface PostEntry {
     urn: string;

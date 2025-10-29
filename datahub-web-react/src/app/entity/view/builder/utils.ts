@@ -26,7 +26,7 @@ export const extractEntityTypesFilterValues = (filters: Array<FacetFilterInput>)
  * Example: { field: "_entityType␞typeNames" values: ["DATASETS␞table"] } -> { field: "typeNames", values: ["table"]}
  * Example: { field: "_entityType␞typeNames" values: ["DATASETS", "CONTAINERS"] } -> { field: "_entityType", values: ["DATASETS", "CONTAINERS"]}
  */
-export function convertNestedSubTypeFilter(filters: Array<FacetFilterInput>) {
+function convertNestedSubTypeFilter(filters: Array<FacetFilterInput>) {
     const convertedFilters = filters.filter((f) => f.field !== ENTITY_SUB_TYPE_FILTER_NAME) || [];
     const nestedSubTypeFilter = filters.find((f) => f.field === ENTITY_SUB_TYPE_FILTER_NAME);
     if (nestedSubTypeFilter) {

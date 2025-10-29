@@ -18,11 +18,6 @@ type EntityStagedForAssertion = {
     entityType: EntityType;
 };
 
-export type AssertionBuilderSiblingOptions = {
-    title: string;
-    disabled?: boolean;
-} & Partial<EntityStagedForAssertion>;
-
 export type AssertionListFilter = {
     sortBy: string;
     groupBy: string;

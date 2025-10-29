@@ -1,4 +1,4 @@
-import { OwnershipType, OwnershipTypeEntity } from '@types';
+import { OwnershipType } from '@types';
 
 /**
  * A mapping from OwnershipType to it's display name & description. In the future,

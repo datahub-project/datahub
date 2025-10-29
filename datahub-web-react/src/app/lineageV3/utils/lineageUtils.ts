@@ -5,20 +5,6 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType } from '@types';
-function downgradeV2FieldPath(fieldPath?: string | null) {
-    if (!fieldPath) {
-        return fieldPath;
-    }
-
-    const cleanedFieldPath = fieldPath.replace(KEY_SCHEMA_PREFIX, '').replace(VERSION_PREFIX, '');
-
-    // strip out all annotation segments
-    return cleanedFieldPath
-        .split('.')
-        .map((segment) => (segment.startsWith('[') ? null : segment))
-        .filter(Boolean)
-        .join('.');
-}
 
 export function getEntityTypeFromEntityUrn(urn: string, registry: EntityRegistry): EntityType | undefined {
     const [, , entityType] = urn.split(':');

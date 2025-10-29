@@ -63,7 +63,7 @@ const MarkdownViewContainer = styled.div<{
         `}
 `;
 
-export const MarkdownView = styled(MDEditor.Markdown)`
+const MarkdownView = styled(MDEditor.Markdown)`
     display: block;
     overflow-wrap: break-word;
     word-wrap: break-word;
