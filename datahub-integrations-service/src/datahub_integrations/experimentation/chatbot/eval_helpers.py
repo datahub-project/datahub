@@ -90,8 +90,13 @@ def extract_response_from_history(history: ChatHistory) -> str | None:
                 and "text" in message.result
             ):
                 return message.result["text"]
-            elif len(history.messages) == 2 and isinstance(message, AssistantMessage):
+
+        # Fallback: Look for the last AssistantMessage
+        # This handles cases where LLM outputs directly without calling respond_to_user
+        for message in reversed(history.messages):
+            if isinstance(message, AssistantMessage):
                 return message.text
+
         return None
     except Exception:
         return None

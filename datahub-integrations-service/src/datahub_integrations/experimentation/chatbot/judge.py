@@ -1,8 +1,10 @@
 import json
+import re
 from typing import TYPE_CHECKING, List, Optional
 
 import pydantic
 from diskcache import Cache
+from json_repair import repair_json
 from mlflow.metrics.genai.prompt_template import PromptTemplate
 
 from datahub_integrations.chat.chat_history import (
@@ -11,9 +13,11 @@ from datahub_integrations.chat.chat_history import (
     ToolResult,
     ToolResultError,
 )
-from datahub_integrations.experimentation.chatbot.chatbot import ExpectedToolCall
 from datahub_integrations.gen_ai.bedrock import call_bedrock_llm
 from datahub_integrations.gen_ai.model_config import BedrockModel
+
+if TYPE_CHECKING:
+    from datahub_integrations.experimentation.chatbot.chatbot import ExpectedToolCall
 
 JUDGE_CACHE_ENABLED = True
 if JUDGE_CACHE_ENABLED and not TYPE_CHECKING:
@@ -64,6 +68,36 @@ class LLMJudgeResponse(pydantic.BaseModel):
     justification: str
 
 
+def _extract_json_from_markdown(text: str) -> str:
+    """
+    Extract JSON content from markdown code blocks.
+
+    Handles LLM responses that wrap JSON in markdown like:
+    ```json
+    {"choice": true, "justification": "..."}
+    ```
+
+    Also handles plain JSON without markdown wrapper.
+
+    Args:
+        text: Raw response text, potentially containing markdown-wrapped JSON
+
+    Returns:
+        Extracted JSON string (or original text if no markdown wrapper found)
+    """
+    # Try to find JSON wrapped in markdown code blocks
+    # Pattern matches: ```json ... ``` or ``` ... ```
+    pattern = r"```(?:json)?\s*\n?(.*?)\n?```"
+    match = re.search(pattern, text, re.DOTALL)
+
+    if match:
+        # Extract the content between code fences
+        return match.group(1).strip()
+
+    # No markdown wrapper found, return original text
+    return text.strip()
+
+
 def chatbot_llm_judge_evaluation(
     message: str, response: str, guidelines: str
 ) -> LLMJudgeResponse:
@@ -76,11 +110,17 @@ def chatbot_llm_judge_evaluation(
     )
 
     raw_response = call_bedrock_llm(
-        prompt=prompt_text, model=CHATBOT_AI_JUDGE_MODEL, max_tokens=500
+        prompt=prompt_text, model=CHATBOT_AI_JUDGE_MODEL, max_tokens=4500
     )
 
     try:
-        judge_response = LLMJudgeResponse.model_validate_json(raw_response)
+        # Strip markdown code blocks if present
+        cleaned_response = _extract_json_from_markdown(raw_response)
+
+        # Repair any malformed JSON (e.g., unescaped newlines, trailing commas, etc.)
+        repaired_json = repair_json(cleaned_response)
+
+        judge_response = LLMJudgeResponse.model_validate_json(repaired_json)
         assert judge_response.choice is not None
         return judge_response
     except (pydantic.ValidationError, json.JSONDecodeError, AssertionError):
@@ -131,7 +171,10 @@ def _arguments_match(expected_args: dict, actual_args: dict) -> bool:
 
 # TOOD: support wildcard / regex for string arguments in tool calls - particularly useful for siblings, search
 def validate_expected_tool_calls(
-    chat_history: ChatHistory, expected_tool_calls: List[ExpectedToolCall]
+    chat_history: ChatHistory,
+    # Use string annotation to avoid importing ExpectedToolCall at runtime,
+    # which would trigger ai_init.py's dotenv assertion and break test imports
+    expected_tool_calls: List["ExpectedToolCall"],
 ) -> ToolCallValidationResult:
     """
     Validate that all expected tool calls are present in the chat history.
