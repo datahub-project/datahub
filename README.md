@@ -57,22 +57,64 @@ HOSTED_DOCS_ONLY-->
 [Town Hall](https://docs.datahub.com/docs/townhalls)
 
 
-## Introduction
+## What is DataHub?
 
-DataHub is an open-source data catalog for the modern data stack. Read about the architectures of different metadata systems and why DataHub excels [here](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained). Also read our
-[LinkedIn Engineering blog post](https://engineering.linkedin.com/blog/2019/data-hub), check out our [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) and watch our [Crunch Conference Talk](https://www.youtube.com/watch?v=OB-O0Y6OYDE). You should also visit [DataHub Architecture](docs/architecture/architecture.md) to get a better understanding of how DataHub is implemented.
+**DataHub is an enterprise-grade, real-time metadata platform** that enables data discovery, observability, and governance across your entire data ecosystem. Built by LinkedIn and proven at massive scale (100,000+ datasets), DataHub provides a unified catalog where data engineers, analysts, and scientists can find, understand, and trust their data.
 
 
-There's a [hosted demo environment](https://demo.datahub.com/) courtesy of DataHub where you can explore DataHub without installing it locally.
+**The Challenge:** Modern data stacks are fragmented across dozens of tools—warehouses, lakes, BI platforms, ML systems, orchestration engines. Finding the right data, understanding its lineage, and ensuring governance is like searching through a maze blindfolded.
+
+**The DataHub Solution:** DataHub acts as a real-time metadata graph that continuously streams metadata from all your data tools, creating a single source of truth. Unlike batch-based catalogs that are always outdated, DataHub keeps your metadata fresh and actionable.
+
+## Why DataHub?
+
+- **Built for Scale**: Proven at LinkedIn managing 100,000+ datasets, 10M+ daily queries
+- **Real-Time Streaming**: Metadata updates in seconds, not hours or days
+- **Universal Connectors**: [100+ integrations](https://docs.datahub.com/integrations) for warehouses, databases, BI, ML, orchestration
+- **Developer-First**: Rich APIs (GraphQL, REST), Python SDK, CLI tools
+- Enterprise Ready: Battle-tested security, authentication, authorization, and audit trails
+- **Open Source**: [Apache 2.0 licensed](./LICENSE), vendor-neutral, community-driven
+
+## Common Use Cases
+
+
+| Use Case | Description | Learn More |
+|----------|-------------|------------|
+| 🔍 **Data Discovery** | Help users find the right data for analytics and ML | [Guide](https://docs.datahub.com/docs/features) |
+| 📊 **Impact Analysis** | Understand downstream impact before making changes | [Lineage Docs](https://docs.datahub.com/docs/lineage) |
+| 🏛️ **Data Governance** | Enforce policies, classify PII, manage access | [Governance Guide](https://docs.datahub.com/docs/governance) |
+| 🔔 **Data Quality** | Monitor freshness, volumes, schema changes | [Quality Checks](https://docs.datahub.com/docs/tests) |
+| 📚 **Documentation** | Centralize data documentation and knowledge | [Docs Features](https://docs.datahub.com/docs/documentation) |
+| 👥 **Collaboration** | Foster data culture with discussions and ownership | [Collaboration](https://docs.datahub.com/docs/features) |
+
 
 ## Quickstart
+
+Please follow the [DataHub Quickstart Guide](https://docs.datahub.com/docs/quickstart) to run DataHub locally using [Docker](https://docker.com).
 
 ```
 python3 -m pip install --upgrade acryl-datahub
 datahub docker quickstart
 ```
 
-Please follow the [DataHub Quickstart Guide](https://docs.datahub.com/docs/quickstart) to run DataHub locally using [Docker](https://docker.com).
+What you get:
+- ✅ DataHub GMS (backend metadata service)
+- ✅ DataHub Frontend (React UI)
+- ✅ Elasticsearch (search & analytics)
+- ✅ MySQL (metadata storage)
+- ✅ Kafka + Schema Registry (streaming)
+- ✅ Sample data 
+
+
+ > You can alwasy try our [hosted demo]((https://demo.datahub.com/)) - Explore DataHub with sample data, no installation needed!
+
+
+## Trusted by Industry Leaders
+DataHub powers data discovery and governance at some of the world's most data-driven organizations.
+
+[Here are the companies](https://datahub.com/resources/?2004611554=dh-stories) that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
+
+
 
 ## Community
 
@@ -86,16 +128,11 @@ We welcome contributions from the community. Please refer to our [Contributing G
 If you're looking to build & modify datahub please take a look at our [Development Guide](https://docs.datahub.com/docs/developers).
 
 
-## Adoption
-
-[Here are the companies](https://datahub.com/resources/?2004611554=dh-stories) that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
-
-
 ## DataHub Cloud
 
-* [Why DataHub Cloud](https://datahub.com/products/why-datahub-cloud/)
-* [DataHub Cloud vs DataHub Core](https://datahub.com/products/cloud-vs-core/)
+Looking for a fully managed solution? **DataHub Cloud** provides enterprise-grade data catalog with zero infrastructure management.
 
+**☁️ [Request Demo](https://datahub.com/demo/)** | **[Why Cloud?](https://datahub.com/products/why-datahub-cloud/)** | **[Cloud vs Core](https://datahub.com/products/cloud-vs-core/)** | **[Pricing](https://www.acryldata.io/pricing)**
 
 
 ## Source Code and Repositories
@@ -109,8 +146,3 @@ If you're looking to build & modify datahub please take a look at our [Developme
 - [business-glossary-sync-action](https://github.com/acryldata/business-glossary-sync-action): A github action that opens PRs to update your business glossary yaml file.
 - [mcp-server-datahub](https://github.com/acryldata/mcp-server-datahub): A [Model Context Protocol](https://modelcontextprotocol.io/) server implementation for DataHub.
 
-
-
-## License
-
-[Apache License 2.0](./LICENSE).
